@@ -50,15 +50,21 @@ public static class SimulatedServiceCollectionExtensions
         // Team source — deterministic simulated teams keyed by connector type.
         services.AddTeamSource<SimulatedTeamSource>("Simulated");
 
-        // Discovery services (for inventory of simulated sources)
+        // Discovery services (for inventory of simulated sources).
+        // Pre-register concrete type with factory to resolve the two-constructor ambiguity,
+        // then register via the composite pattern so the correct impl is dispatched for
+        // "Simulated" connector type.
         services.TryAddSingleton<SimulatedGeneratorConfig>();
         services.TryAddSingleton<IProjectDiscoveryService, SimulatedProjectDiscoveryService>();
-        services.TryAddSingleton<IWorkItemDiscoveryService, SimulatedWorkItemDiscoveryService>();
+        services.TryAddSingleton(sp =>
+            new SimulatedWorkItemDiscoveryService(sp.GetRequiredService<IJobConfiguration>()));
+        services.AddWorkItemDiscoveryService<SimulatedWorkItemDiscoveryService>("Simulated");
 
         // Keyed discovery services — always resolve to simulated impls regardless of other registrations.
         // These are consumed by SimulatedInventoryServiceFactory via [FromKeyedServices("Simulated")].
         services.AddKeyedSingleton<IProjectDiscoveryService, SimulatedProjectDiscoveryService>("Simulated");
-        services.AddKeyedSingleton<IWorkItemDiscoveryService, SimulatedWorkItemDiscoveryService>("Simulated");
+        services.AddKeyedSingleton<IWorkItemDiscoveryService>("Simulated", (sp, _) =>
+            new SimulatedWorkItemDiscoveryService(sp.GetRequiredService<IJobConfiguration>()));
         services.AddKeyedSingleton<IRepoDiscoveryService, SimulatedRepoDiscoveryService>("Simulated");
 
         // Keyed inventory factory — used by InventoryDiscoveryModule when connector type is "Simulated".

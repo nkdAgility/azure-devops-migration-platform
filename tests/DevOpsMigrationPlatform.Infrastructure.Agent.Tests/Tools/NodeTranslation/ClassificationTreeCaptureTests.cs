@@ -10,6 +10,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading;
@@ -112,6 +113,9 @@ public class ClassificationTreeCaptureTests
             foreach (var n in _iterationNodes) { ct.ThrowIfCancellationRequested(); yield return n; }
             await Task.CompletedTask.ConfigureAwait(false);
         }
+
+        public Task<int> CountNodesAsync(string project, CancellationToken ct)
+            => Task.FromResult(_areaNodes.Count() + _iterationNodes.Count());
     }
 
     private sealed class ThrowingClassificationTreeReader : IClassificationTreeReader
@@ -132,5 +136,8 @@ public class ClassificationTreeCaptureTests
             await Task.CompletedTask.ConfigureAwait(false);
             yield break;
         }
+
+        public Task<int> CountNodesAsync(string project, CancellationToken ct)
+            => Task.FromResult(0);
     }
 }

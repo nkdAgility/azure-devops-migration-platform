@@ -4,6 +4,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -83,15 +84,9 @@ public sealed class NodesModuleInventoryTests
         sourceEndpoint.SetupGet(s => s.Url).Returns("https://source.example");
         sourceEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
 
-        var capture = new Mock<IClassificationTreeCapture>(MockBehavior.Strict);
-        capture.Setup(c => c.CaptureAsync(
-                It.IsAny<IArtefactStore>(),
-                It.IsAny<CancellationToken>(),
-                It.IsAny<IMigrationMetrics?>(),
-                It.IsAny<string?>(),
-                It.IsAny<IProgressSink?>(),
-                It.IsAny<string>()))
-            .ReturnsAsync(3);
+        var reader = new Mock<IClassificationTreeReader>(MockBehavior.Strict);
+        reader.Setup(r => r.CountNodesAsync("ProjectA", It.IsAny<CancellationToken>()))
+              .ReturnsAsync(3);
 
         return new NodesModule(
             NullLogger<NodesModule>.Instance,
@@ -104,8 +99,9 @@ public sealed class NodesModuleInventoryTests
                 CreateNodeTranslationOptions()),
             metrics,
             null,
-            capture.Object,
-            Mock.Of<ITargetEndpointInfo>());
+            capture: null,
+            Mock.Of<ITargetEndpointInfo>(),
+            reader: reader.Object);
     }
 
     private static InventoryContext CreateContext(IProgressSink? progressSink = null)
@@ -115,7 +111,8 @@ public sealed class NodesModuleInventoryTests
             Job = new Job { JobId = "job-1", Kind = JobKind.Inventory },
             ArtefactStore = Mock.Of<IArtefactStore>(),
             StateStore = Mock.Of<IStateStore>(),
-            ProgressSink = progressSink
+            ProgressSink = progressSink,
+            Project = "ProjectA"
         };
     }
 

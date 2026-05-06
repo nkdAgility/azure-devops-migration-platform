@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,6 +21,8 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Validation;
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -95,22 +98,47 @@ public sealed class TeamsModule : IModule
         using var activity = DiscoveryActivity.StartActivity("inventory.teams");
         activity?.SetTag("job.id", context.Job.JobId);
         activity?.SetTag("module", Name);
+        activity?.SetTag("org", context.SourceEndpoint?.ResolvedUrl ?? string.Empty);
+        activity?.SetTag("project", context.Project);
 
-        _logger.LogInformation("Inventorying {Module} for {Project}", Name, _sourceEndpointInfo.Project);
+        if (string.IsNullOrWhiteSpace(context.Project))
+        {
+            _logger.LogError("[Teams] InventoryAsync called with empty Project — executor contract violated. Skipping.");
+            return;
+        }
+
+        _logger.LogInformation("Inventorying {Module}", Name);
         context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Inventorying", Message = $"Inventorying {Name}", Timestamp = DateTimeOffset.UtcNow });
 
         var count = 0;
         if (_teamSource is not null)
         {
-            await foreach (var _ in _teamSource.EnumerateTeamsAsync(_sourceEndpointInfo.Project, ct).ConfigureAwait(false))
-                count++;
+            var project = context.Project;
+            var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? _sourceEndpointInfo.Url;
+            var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
+
+            try
+            {
+                await foreach (var _ in _teamSource.EnumerateTeamsAsync(project, ct).ConfigureAwait(false))
+                    count++;
+
+                var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
+                await ProjectInventoryFile.MergeAsync(
+                    context.ArtefactStore, projectPath,
+                    orgUrl: orgUrl, project: project,
+                    teams: count, ct: ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                using (_logger.BeginDataScope(DataClassification.Customer))
+                    _logger.LogWarning(ex, "Failed to enumerate teams for project {Project}; skipping.", project);
+            }
         }
 
-        await context.ArtefactStore.WriteAsync("Teams/inventory.json", JsonSerializer.Serialize(new { module = Name, teams = count, generatedAt = DateTimeOffset.UtcNow }), ct).ConfigureAwait(false);
         _discoveryMetrics?.RecordInventoryTeams(count, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
-        _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", Name, count, 0);
+        _logger.LogInformation("Inventoried {Module}: {Count} items", Name, count);
         if (count == 0)
-            _logger.LogWarning("Zero items inventoried for {Module} in {Project}", Name, _sourceEndpointInfo.Project);
+            _logger.LogWarning("Zero items inventoried for {Module}", Name);
 
         context.ProgressSink?.Emit(new ProgressEvent
         {

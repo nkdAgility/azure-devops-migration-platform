@@ -206,7 +206,11 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
                 return;
 
             var taskList = plan.Tasks.ToList();
-            var idx = taskList.FindIndex(t => t.Id.Equals(taskId, StringComparison.OrdinalIgnoreCase));
+            // Task IDs now include org/project slugs (e.g. export.workitems.myorg.projecta),
+            // so match by prefix to remain compatible with the updated task ID format.
+            var idx = taskList.FindIndex(t =>
+                t.Id.Equals(taskId, StringComparison.OrdinalIgnoreCase) ||
+                t.Id.StartsWith(taskId + ".", StringComparison.OrdinalIgnoreCase));
             if (idx < 0)
             {
                 _logger.LogDebug("Task {TaskId} not found in plan — skipping status update.", taskId);

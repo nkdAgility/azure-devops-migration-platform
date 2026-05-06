@@ -151,10 +151,10 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 case JobKind.Import:
                 case JobKind.Migrate:
                 case JobKind.Prepare:
+                case JobKind.Inventory:
                     await OnMigrationJobAsync(job, controlPlane, leaseId, artefactStore, stateStore, ct).ConfigureAwait(false);
                     break;
 
-                case JobKind.Inventory:
                 case JobKind.Dependencies:
                     await OnDiscoveryJobAsync(job, controlPlane, leaseId, artefactStore, stateStore, ct).ConfigureAwait(false);
                     break;
@@ -309,36 +309,10 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 }
             }
 
-            // Attempt to load persisted plan from package (resume scenario).
-            var loadedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, ct)
+            // Load persisted plan (resume) or build and persist a fresh one.
+            executionPlan = await _planBuilder
+                .BuildAndSaveAsync(packageConfig, job.Kind, artefactStore, stateStore, ct)
                 .ConfigureAwait(false);
-
-            if (loadedPlan is not null)
-            {
-                _logger.LogInformation(
-                    "Loaded execution plan from package: {TaskCount} task(s), {PendingCount} pending, {CompletedCount} completed.",
-                    loadedPlan.Tasks.Count,
-                    loadedPlan.Tasks.Count(t => t.Status == JobTaskStatus.Pending),
-                    loadedPlan.Tasks.Count(t => t.Status == JobTaskStatus.Completed));
-                executionPlan = loadedPlan;
-            }
-            else
-            {
-                // No persisted plan — build fresh.
-                var freshPlan = await _planBuilder
-                    .BuildPlanAsync(packageConfig, job.Kind, artefactStore, stateStore, ct)
-                    .ConfigureAwait(false);
-
-                _logger.LogInformation(
-                    "Built fresh execution plan: {TaskCount} task(s).",
-                    freshPlan.Tasks.Count);
-
-                // Persist the fresh plan immediately.
-                var json = System.Text.Json.JsonSerializer.Serialize(freshPlan);
-                await stateStore.WriteAsync(PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
-
-                executionPlan = freshPlan;
-            }
 
             // Push plan to the control plane for display.
             await _telemetryClient.PushTaskListAsync(leaseId, executionPlan, ct).ConfigureAwait(false);
@@ -418,6 +392,67 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         bool failed = false;
         try
         {
+            // Inventory jobs use the unified plan executor with capture + analyse tasks.
+            if (job.Kind == JobKind.Inventory)
+            {
+                // Build org endpoint map so capture tasks can resolve per-org endpoints.
+                var endpointsByUrl = new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase);
+                try
+                {
+                    var rawJson = await artefactStore.ReadAsync(PackagePaths.MigrationConfigFileName, ct).ConfigureAwait(false);
+                    if (!string.IsNullOrWhiteSpace(rawJson))
+                    {
+                        var wrapper = JsonSerializer.Deserialize<DiscoveryConfigWrapper>(rawJson, AgentJsonOptions);
+                        if (wrapper?.MigrationPlatform?.Organisations is { Count: > 0 } orgs)
+                        {
+                            // Propagate Source.Generator into SimulatedOrganisationEntry when absent.
+                            var sourceGenerator = (wrapper.MigrationPlatform.Source as SimulatedEndpointOptions)?.Generator;
+                            foreach (var o in orgs.Where(o => o.Enabled))
+                            {
+                                if (o is SimulatedOrganisationEntry sim
+                                    && sourceGenerator?.Projects is { Count: > 0 }
+                                    && (sim.Generator?.Projects is null or { Count: 0 }))
+                                {
+                                    sim.Generator = sourceGenerator;
+                                }
+                                var ep = o.ToEndpointOptions().ToOrganisationEndpoint();
+                                endpointsByUrl[ep.ResolvedUrl] = ep;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Could not parse organisations from config for inventory job {JobId}; multi-org endpoint map will be empty.",
+                        job.JobId);
+                }
+
+                // Base context — SourceEndpoint is a fallback for single-org; per-task scoping
+                // overrides it from endpointsByUrl when task.OrganisationUrl is set.
+                var baseInventoryContext = new InventoryContext
+                {
+                    Job = job,
+                    ArtefactStore = artefactStore,
+                    StateStore = stateStore,
+                    ProgressSink = ProgressSink,
+                    SourceEndpoint = endpointsByUrl.Values.FirstOrDefault() ?? new OrganisationEndpoint(),
+                    Project = string.Empty // set per-task by executor
+                };
+
+                var inventoryModuleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
+                var analysersByName = jobScope.ServiceProvider.GetServices<IAnalyser>()
+                    .ToDictionary(a => a.Name, StringComparer.OrdinalIgnoreCase);
+
+                var inventoryOk = await _planExecutor.ExecuteTasksAsync(
+                    executionPlan, inventoryModuleMap, analysersByName,
+                    baseInventoryContext, baseExportContext: null, importContext: null,
+                    endpointsByUrl, stateStore, ct).ConfigureAwait(false);
+
+                failed = !inventoryOk;
+            }
+            else
+            {
             if (runExport)
             {
                 // Execute export phase using the plan executor (includes Inventory if needed).
@@ -498,6 +533,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                         ct).ConfigureAwait(false);
                 }
             }
+            } // end else (non-Inventory job kinds)
         }
         catch (Exception ex)
         {
@@ -534,6 +570,10 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     _logger.LogWarning(ex, "Could not delete cursor for discovery module {Module}.", module.Name);
                 }
             }
+
+            // Delete persisted plan so a fresh one is built.
+            try { await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false); }
+            catch (System.IO.FileNotFoundException) { /* not an error */ }
         }
 
         // Read migration-config.json from the package and extract discovery settings.
@@ -547,17 +587,30 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 var wrapper = JsonSerializer.Deserialize<DiscoveryConfigWrapper>(rawJson, AgentJsonOptions);
                 if (wrapper?.MigrationPlatform?.Organisations is { Count: > 0 } orgs)
                 {
+                    // For Simulated orgs, the Generator lives in Source.Generator (not on each org entry).
+                    // Propagate it so the discovery service has project definitions to count from.
+                    var sourceGenerator = (wrapper.MigrationPlatform.Source as SimulatedEndpointOptions)?.Generator;
+
                     organisations = orgs
                         .Where(o => o.Enabled)
-                        .Select(o => new ScopedOrganisationEndpoint
+                        .Select(o =>
                         {
-                            Endpoint = o.ToEndpointOptions(),
-                            Projects = new List<string>(o.Projects),
-                            Scopes = o.Scopes.Select(s => new JobModuleScope
+                            if (o is SimulatedOrganisationEntry sim
+                                && sourceGenerator?.Projects is { Count: > 0 }
+                                && (sim.Generator?.Projects is null or { Count: 0 }))
                             {
-                                Type = s.Type,
-                                Parameters = s.Parameters.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value)
-                            }).ToList()
+                                sim.Generator = sourceGenerator;
+                            }
+                            return new ScopedOrganisationEndpoint
+                            {
+                                Endpoint = o.ToEndpointOptions(),
+                                Projects = new List<string>(o.Projects),
+                                Scopes = o.Scopes.Select(s => new JobModuleScope
+                                {
+                                    Type = s.Type,
+                                    Parameters = s.Parameters.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value)
+                                }).ToList()
+                            };
                         })
                         .ToList();
                 }
@@ -585,77 +638,22 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         var modulesToRun = jobScope.ServiceProvider.GetServices<IModule>().ToList();
         var analysersToRun = jobScope.ServiceProvider.GetServices<IAnalyser>().ToList();
 
-        bool failed = false;
-        if (job.Kind == JobKind.Inventory)
+        // Build, persist and push the task list so clients can see planned steps immediately.
+        try
         {
-            var inventoryModules = modulesToRun.Where(m => m.SupportsInventory).ToList();
-            _logger.LogInformation("Starting multi-org inventory: {OrgCount} organisations", organisations.Count);
-            long cumulativeInventoryOperations = 0;
-
-            foreach (var (org, index) in organisations.Select((value, idx) => (value, idx + 1)))
-            {
-                var endpoint = org.Endpoint.ToOrganisationEndpoint();
-                using var orgActivity = s_discoveryActivity.StartActivity("inventory.workitems");
-                orgActivity?.SetTag("job.id", job.JobId);
-                orgActivity?.SetTag("org.url", endpoint.ResolvedUrl);
-                foreach (var module in inventoryModules)
-                {
-                    try
-                    {
-                        await module.InventoryAsync(new InventoryContext
-                        {
-                            Job = job,
-                            ArtefactStore = artefactStore,
-                            StateStore = stateStore,
-                            ProgressSink = ProgressSink,
-                            SourceEndpoint = endpoint,
-                            Projects = org.Projects
-                        }, ct).ConfigureAwait(false);
-                        cumulativeInventoryOperations++;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(
-                            ex,
-                            "Organisation {OrgIndex}/{OrgCount} unreachable: {ErrorType}",
-                            index,
-                            organisations.Count,
-                            ex.GetType().Name);
-                        failed = true;
-                    }
-                }
-
-                ProgressSink.Emit(new ProgressEvent
-                {
-                    Module = "Inventory",
-                    Stage = "Inventory.OrgCompleted",
-                    Message = $"Completed organisation {index}/{organisations.Count}",
-                    Timestamp = DateTimeOffset.UtcNow,
-                    Metrics = new JobMetrics
-                    {
-                        Migration = new MigrationCounters
-                        {
-                            Inventory = new ModulePhaseCounters
-                            {
-                                Completed = cumulativeInventoryOperations
-                            }
-                        }
-                    }
-                });
-            }
-
-            foreach (var analyser in analysersToRun.Where(a => a.Name.Equals("Inventory", StringComparison.OrdinalIgnoreCase)))
-            {
-                await analyser.AnalyseAsync(new AnalyseContext
-                {
-                    Job = job,
-                    ArtefactStore = artefactStore,
-                    StateStore = stateStore,
-                    ProgressSink = ProgressSink
-                }, ct).ConfigureAwait(false);
-            }
+            var planConfig = ActiveJobConfig.PackageConfig ?? new ConfigurationBuilder().Build();
+            var discoveryPlan = await _planBuilder
+                .BuildAndSaveAsync(planConfig, job.Kind, artefactStore, stateStore, ct)
+                .ConfigureAwait(false);
+            await _telemetryClient.PushTaskListAsync(leaseId, discoveryPlan, ct).ConfigureAwait(false);
         }
-        else if (job.Kind == JobKind.Dependencies)
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not build or persist task list for discovery job {JobId}.", job.JobId);
+        }
+
+        bool failed = false;
+        if (job.Kind == JobKind.Dependencies)
         {
             var dependencyAnalyser = analysersToRun.FirstOrDefault(a => a.Name.Equals("Dependencies", StringComparison.OrdinalIgnoreCase));
             if (dependencyAnalyser is null)
@@ -689,6 +687,31 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         foreach (var flushable in _flushables)
             await flushable.FlushAsync().ConfigureAwait(false);
         await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Builds an <see cref="IConfiguration"/> that overlays the per-org source endpoint values
+    /// (<c>MigrationPlatform:Source:*</c>) on top of the existing package config so that
+    /// <see cref="ActiveJobSourceEndpointInfo"/> resolves the correct connector type, URL and
+    /// credentials for each organisation during multi-org inventory.
+    /// </summary>
+    private static IConfiguration BuildOrgSourceOverlay(IConfiguration? baseConfig, OrganisationEndpoint endpoint)
+    {
+        var builder = new ConfigurationBuilder();
+        if (baseConfig is not null)
+            builder.AddConfiguration(baseConfig);
+
+        var overlay = new Dictionary<string, string?>
+        {
+            ["MigrationPlatform:Source:Type"] = endpoint.Type,
+            ["MigrationPlatform:Source:Url"] = endpoint.ResolvedUrl,
+            ["MigrationPlatform:Source:Authentication:Type"] = endpoint.Authentication.Type.ToString(),
+            ["MigrationPlatform:Source:Authentication:AccessToken"] = endpoint.Authentication.ResolvedAccessToken,
+        };
+        if (endpoint.ApiVersion is not null)
+            overlay["MigrationPlatform:Source:ApiVersion"] = endpoint.ApiVersion;
+
+        return builder.AddInMemoryCollection(overlay).Build();
     }
 
     private sealed class DiscoveryConfigWrapper

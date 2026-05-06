@@ -369,9 +369,9 @@ public class PackageConfigStoreTests
         await Assert.ThrowsExactlyAsync<PackageConfigNotFoundException>(
             () => sut.ReadAsync(store.Object, CancellationToken.None));
 
-        // Assert: both error and fallback counters incremented
+        // Assert: error counter incremented; fallback counter is not expected (no legacy path)
         metricsMock.Verify(m => m.RecordConfigReadError(It.IsAny<MetricsTagList>()), Times.Once);
-        metricsMock.Verify(m => m.RecordConfigReadFallback(It.IsAny<MetricsTagList>()), Times.Once);
+        metricsMock.Verify(m => m.RecordConfigReadFallback(It.IsAny<MetricsTagList>()), Times.Never);
     }
 }
 

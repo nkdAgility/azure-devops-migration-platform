@@ -8,6 +8,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
+using DevOpsMigrationPlatform.Infrastructure.Simulated.Discovery;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -40,11 +41,33 @@ internal sealed class SimulatedInventoryServiceFactory : IInventoryServiceFactor
         JobPolicies policies)
     {
         var options = BuildMigrationPlatformOptions(organisations, policies);
+
+        // Build a generator config that merges all org-level generators so the
+        // SimulatedWorkItemDiscoveryService can look up any project by name.
+        // (The DI singleton has an empty config because the generator is loaded
+        // from the job config at runtime, not at DI startup.)
+        var mergedGenerator = BuildMergedGenerator(organisations);
+        var workItemDiscovery = mergedGenerator.Projects?.Count > 0
+            ? new SimulatedWorkItemDiscoveryService(mergedGenerator)
+            : _workItemDiscovery;
+
         return new InventoryService(
             new OptionsWrapper<MigrationPlatformOptions>(options),
-            _workItemDiscovery,
+            workItemDiscovery,
             _projectDiscovery,
             _repoDiscovery);
+    }
+
+    private static SimulatedGeneratorConfig BuildMergedGenerator(IReadOnlyList<ScopedOrganisationEndpoint> organisations)
+    {
+        var allProjects = new List<SimulatedProjectConfig>();
+        foreach (var org in organisations)
+        {
+            var gen = (org.Endpoint as SimulatedEndpointOptions)?.Generator;
+            if (gen?.Projects is { Count: > 0 } projects)
+                allProjects.AddRange(projects);
+        }
+        return new SimulatedGeneratorConfig { Projects = allProjects };
     }
 
     private static MigrationPlatformOptions BuildMigrationPlatformOptions(

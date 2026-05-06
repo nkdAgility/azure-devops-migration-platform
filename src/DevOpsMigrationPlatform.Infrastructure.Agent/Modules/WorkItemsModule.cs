@@ -20,6 +20,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 #if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 #endif
@@ -88,6 +89,7 @@ public sealed class WorkItemsModule : IModule
 #endif
     private readonly IOptions<WorkItemsModuleOptions> _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
+    private readonly IRepoDiscoveryService? _repoDiscoveryService;
 #if !NET481
     private readonly ITargetEndpointInfo _targetEndpointInfo;
 #endif
@@ -120,7 +122,8 @@ public sealed class WorkItemsModule : IModule
         IReferencedPathTracker? referencedPathTracker = null,
         INodesOrchestrator? nodesOrchestrator = null,
 #endif
-        IIdentityLookupTool? identityLookupTool = null)
+        IIdentityLookupTool? identityLookupTool = null,
+        IRepoDiscoveryService? repoDiscoveryService = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -148,24 +151,33 @@ public sealed class WorkItemsModule : IModule
         _nodesOrchestrator = nodesOrchestrator;
 #endif
         _identityLookupTool = identityLookupTool;
+        _repoDiscoveryService = repoDiscoveryService;
     }
 
     public async Task InventoryAsync(InventoryContext context, CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
-        var projects = (context.Projects ?? Array.Empty<string>())
-            .Where(p => !string.IsNullOrWhiteSpace(p))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        if (projects.Count == 0 && !string.IsNullOrWhiteSpace(_sourceEndpointInfo.Project))
-            projects.Add(_sourceEndpointInfo.Project);
+        var project = context.Project;
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            _logger.LogError("[WorkItems] InventoryAsync called with empty Project — executor contract violated. Skipping.");
+            return;
+        }
+
+        var endpoint = context.SourceEndpoint;
+        if (endpoint is null)
+        {
+            _logger.LogError("[WorkItems] InventoryAsync called with null SourceEndpoint — executor contract violated. Skipping.");
+            return;
+        }
 
         using var activity = s_discoveryActivitySource.StartActivity("inventory.workitems");
         activity?.SetTag("job.id", context.Job.JobId);
         activity?.SetTag("module", Name);
-        activity?.SetTag("project", projects.FirstOrDefault() ?? string.Empty);
+        activity?.SetTag("org", endpoint.ResolvedUrl ?? string.Empty);
+        activity?.SetTag("project", project);
 
-        _logger.LogInformation("Inventorying {Module} for {Project}", Name, projects.FirstOrDefault() ?? string.Empty);
+        _logger.LogInformation("Inventorying {Module} for {Project}", Name, project);
         context.ProgressSink?.Emit(new ProgressEvent
         {
             Module = Name,
@@ -176,64 +188,106 @@ public sealed class WorkItemsModule : IModule
 
         var totalWorkItems = 0;
         var totalRevisions = 0;
-        var projectSummaries = new List<InventoryProgressEvent>();
+
         if (_discoveryService is not null)
         {
-            var endpoint = context.SourceEndpoint;
-            foreach (var project in projects)
+            OrganisationEndpoint nonNullEndpoint = endpoint!;
+            if (_inventoryOrchestrator is not null)
             {
-                var projectWorkItems = 0;
-                var projectRevisions = 0;
-                await foreach (var summary in _discoveryService.CountWorkItemsAsync(endpoint, project, cancellationToken: ct).ConfigureAwait(false))
+                // Stream every window event directly — both intermediate (IsComplete=false) heartbeats
+                // and the final (IsComplete=true) completion event. This provides live progress
+                // updates visible in the CLI/TUI as work items are discovered.
+                async IAsyncEnumerable<InventoryProgressEvent> BuildEventStream(
+                    [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken streamCt = default)
                 {
-                    projectWorkItems = summary.WorkItemsCount;
-                    projectRevisions = summary.RevisionsCount;
-                    _logger.LogDebug("Inventory window {WindowIndex}: {ItemCount} items", 0, projectWorkItems);
-                }
-
-                totalWorkItems += projectWorkItems;
-                totalRevisions += projectRevisions;
-                projectSummaries.Add(new InventoryProgressEvent
-                {
-                    Url = context.SourceEndpoint.ResolvedUrl,
-                    ProjectName = project,
-                    WorkItemsCount = projectWorkItems,
-                    RevisionsCount = projectRevisions,
-                    IsComplete = true,
-                });
-            }
-        }
-
-        if (_inventoryOrchestrator is not null)
-        {
-            async IAsyncEnumerable<InventoryProgressEvent> BuildEventStream()
-            {
-                if (projectSummaries.Count == 0)
-                {
-                    projectSummaries.Add(new InventoryProgressEvent
+                    // Count repos before the first yield so we can populate ReposCount on
+                    // the final (IsComplete=true) event. Awaiting before the first yield in an
+                    // async iterator is valid C#.
+                    var reposForProject = 0;
+                    if (_repoDiscoveryService is not null)
                     {
-                        Url = context.SourceEndpoint.ResolvedUrl,
-                        ProjectName = projects.FirstOrDefault() ?? string.Empty,
-                        WorkItemsCount = totalWorkItems,
-                        RevisionsCount = totalRevisions,
-                        IsComplete = true,
-                    });
+                        try
+                        {
+                            reposForProject = await _repoDiscoveryService
+                                .CountReposAsync(nonNullEndpoint, project, streamCt)
+                                .ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to count repos for project {Project}; defaulting to 0.", project);
+                        }
+                    }
+
+                    await foreach (var summary in _discoveryService
+                        .DiscoverWorkItemsAsync(nonNullEndpoint, project, cancellationToken: streamCt)
+                        .ConfigureAwait(false))
+                    {
+                        if (summary.IsWorkItemComplete)
+                        {
+                            totalWorkItems += summary.WorkItemsCount;
+                            totalRevisions += summary.RevisionsCount;
+                        }
+
+                        yield return new InventoryProgressEvent
+                        {
+                            Url = nonNullEndpoint.ResolvedUrl!,
+                            ProjectName = project,
+                            WorkItemsCount = summary.WorkItemsCount,
+                            RevisionsCount = summary.RevisionsCount,
+                            ReposCount = summary.IsWorkItemComplete ? reposForProject : 0,
+                            IsComplete = summary.IsWorkItemComplete,
+                            Error = summary.Error,
+                        };
+                    }
                 }
 
-                foreach (var summary in projectSummaries)
-                    yield return summary;
-
-                await Task.CompletedTask;
+                await _inventoryOrchestrator.RunAsync(Name, BuildEventStream(), context, ct: ct).ConfigureAwait(false);
             }
+            else
+            {
+                var orgUrl = nonNullEndpoint.ResolvedUrl!;
+                var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
 
-            await _inventoryOrchestrator.RunAsync(Name, BuildEventStream(), context, ct: ct).ConfigureAwait(false);
-        }
-        else
-        {
-            await context.ArtefactStore.WriteAsync(
-                "WorkItems/inventory.json",
-                JsonSerializer.Serialize(new { module = Name, workItems = totalWorkItems, revisions = totalRevisions, generatedAt = DateTimeOffset.UtcNow }),
-                ct).ConfigureAwait(false);
+                var reposForProject = 0;
+                if (_repoDiscoveryService is not null)
+                {
+                    try
+                    {
+                        reposForProject = await _repoDiscoveryService
+                            .CountReposAsync(nonNullEndpoint, project, ct)
+                            .ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to count repos for project {Project}; defaulting to 0.", project);
+                    }
+                }
+
+                long projectWorkItems = 0;
+                long projectRevisions = 0;
+                await foreach (var summary in _discoveryService
+                    .DiscoverWorkItemsAsync(nonNullEndpoint, project, cancellationToken: ct)
+                    .ConfigureAwait(false))
+                {
+                    if (summary.IsWorkItemComplete)
+                    {
+                        projectWorkItems += summary.WorkItemsCount;
+                        projectRevisions += summary.RevisionsCount;
+                        totalWorkItems += summary.WorkItemsCount;
+                        totalRevisions += summary.RevisionsCount;
+                    }
+                }
+
+                var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
+                await ProjectInventoryFile.MergeAsync(
+                    context.ArtefactStore, projectPath,
+                    orgUrl: orgUrl, project: project,
+                    workItems: projectWorkItems,
+                    revisions: projectRevisions,
+                    repos: reposForProject,
+                    isComplete: true,
+                    ct: ct).ConfigureAwait(false);
+            }
         }
 
         var tags = new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } };
@@ -243,7 +297,7 @@ public sealed class WorkItemsModule : IModule
         if (totalWorkItems == 0)
         {
             _discoveryMetrics?.RecordInventoryWorkItemsErrors(tags);
-            _logger.LogWarning("Zero items inventoried for {Module} in {Project}", Name, _sourceEndpointInfo.Project);
+            _logger.LogWarning("Zero items inventoried for {Module} in {Project}", Name, project);
         }
         _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", Name, totalWorkItems, durationMs);
         context.ProgressSink?.Emit(new ProgressEvent

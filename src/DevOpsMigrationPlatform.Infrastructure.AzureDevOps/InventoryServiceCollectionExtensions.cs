@@ -7,6 +7,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Factories;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,7 +31,7 @@ public static class InventoryServiceCollectionExtensions
         services.AddSingleton<IWiqlQueryClientFactory, AzureDevOpsWiqlQueryClientFactory>();
         services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
         services.AddSingleton<IWorkItemFetchService, AzureDevOpsWorkItemFetchService>();
-        services.AddSingleton<IWorkItemDiscoveryService, AzureDevOpsWorkItemDiscoveryService>();
+        services.AddWorkItemDiscoveryService<AzureDevOpsWorkItemDiscoveryService>("AzureDevOpsServices");
         services.AddSingleton<IProjectDiscoveryService, AzureDevOpsProjectDiscoveryService>();
         services.AddSingleton<IRepoDiscoveryService, AzureDevOpsRepoDiscoveryService>();
         services.AddSingleton<IInventoryService, InventoryService>();

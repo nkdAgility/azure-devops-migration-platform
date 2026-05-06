@@ -28,6 +28,9 @@ public sealed record InventoryTotals
     public long Revisions { get; init; }
     public int Repos { get; init; }
     public int Projects { get; init; }
+    public int Identities { get; init; }
+    public int Nodes { get; init; }
+    public int Teams { get; init; }
 }
 
 /// <summary>
@@ -49,6 +52,9 @@ public sealed record ProjectInventory
     public long WorkItems { get; init; }
     public long Revisions { get; init; }
     public int Repos { get; init; }
+    public int Identities { get; init; }
+    public int Nodes { get; init; }
+    public int Teams { get; init; }
     public bool IsComplete { get; init; }
     public string? Error { get; init; }
 }

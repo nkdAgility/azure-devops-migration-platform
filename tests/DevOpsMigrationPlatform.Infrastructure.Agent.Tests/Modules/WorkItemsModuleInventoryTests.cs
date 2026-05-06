@@ -12,6 +12,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
@@ -116,14 +117,18 @@ public sealed class WorkItemsModuleInventoryTests
                 It.IsAny<InventoryContext>(),
                 It.IsAny<int>(),
                 It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .Returns<string, IAsyncEnumerable<InventoryProgressEvent>, InventoryContext, int, CancellationToken>(
+                async (_, stream, _, _, ct) =>
+                {
+                    await foreach (var _ in stream.WithCancellation(ct).ConfigureAwait(false)) { }
+                });
 
         var discovery = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
         discovery
-            .Setup(d => d.CountWorkItemsAsync(
+            .Setup(d => d.DiscoverWorkItemsAsync(
                 It.IsAny<OrganisationEndpoint>(),
                 "ProjectA",
-                It.IsAny<string?>(),
+                It.IsAny<WorkItemFetchScope?>(),
                 It.IsAny<CancellationToken>()))
             .Returns(CountSummaries(workItemCount, revisionCount));
 
@@ -152,7 +157,8 @@ public sealed class WorkItemsModuleInventoryTests
             ArtefactStore = Mock.Of<IArtefactStore>(),
             StateStore = Mock.Of<IStateStore>(),
             ProgressSink = progressSink,
-            SourceEndpoint = new OrganisationEndpoint { Type = "Simulated", ResolvedUrl = "https://source.example" }
+            SourceEndpoint = new OrganisationEndpoint { Type = "Simulated", ResolvedUrl = "https://source.example" },
+            Project = "ProjectA"
         };
 
     private static bool HasTag(MetricsTagList tags, string key, string value)

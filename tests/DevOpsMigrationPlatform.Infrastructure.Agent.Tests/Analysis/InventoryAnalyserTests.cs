@@ -86,7 +86,6 @@ public sealed class InventoryAnalyserTests
 
         await analyser.AnalyseAsync(CreateContext(store.Object), CancellationToken.None);
 
-        Assert.IsTrue(logger.Entries.Any(e => e.Level == LogLevel.Warning && e.Message.Contains("Missing module inventory file", StringComparison.Ordinal)));
         Assert.IsTrue(logger.Entries.Any(e => e.Level == LogLevel.Warning && e.Message.Contains("Zero consolidated inventory total", StringComparison.Ordinal)));
     }
 
@@ -117,12 +116,38 @@ public sealed class InventoryAnalyserTests
 
     private static Mock<IArtefactStore> CreateInventoryStore()
     {
+        // Root InventoryReport — org "https://dev.azure.com/testorg" → slug "testorg", project "ProjectA" with workItems=5
+        const string rootInventoryJson = """
+            {
+              "generatedAt": "2024-01-01T00:00:00Z",
+              "organisations": [
+                {
+                  "url": "https://dev.azure.com/testorg",
+                  "totals": { "workItems": 5, "revisions": 0, "repos": 0, "projects": 1 },
+                  "projects": [
+                    { "name": "ProjectA", "workItems": 5, "revisions": 0, "repos": 0, "isComplete": true }
+                  ]
+                }
+              ],
+              "totals": { "workItems": 5, "revisions": 0, "repos": 0, "projects": 1 }
+            }
+            """;
+
+        // Per-project file — identities=4, nodes=3, teams=2 → total = 5+4+3+2 = 14
+        const string projectInventoryJson = """
+            {
+              "orgUrl": "https://dev.azure.com/testorg",
+              "project": "ProjectA",
+              "workItems": 5, "revisions": 0, "repos": 0,
+              "identities": 4, "nodes": 3, "teams": 2,
+              "isComplete": true
+            }
+            """;
+
         var map = new Dictionary<string, string>
         {
-            ["WorkItems/inventory.json"] = """{"module":"WorkItems","workItems":5}""",
-            ["Identities/inventory.json"] = """{"module":"Identities","identities":4}""",
-            ["Nodes/inventory.json"] = """{"module":"Nodes","nodes":3}""",
-            ["Teams/inventory.json"] = """{"module":"Teams","teams":2}"""
+            ["inventory.json"] = rootInventoryJson,
+            ["testorg/ProjectA/inventory.json"] = projectInventoryJson
         };
 
         var store = new Mock<IArtefactStore>(MockBehavior.Loose);

@@ -4,6 +4,7 @@
 #if !NET481
 using System;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
@@ -157,6 +158,22 @@ public static class FactoryRegistrationExtensions
         services.TryAddSingleton<T>();
         services.AddSingleton(sp => new KeyedTeamTarget(typeKey, sp.GetRequiredService<T>()));
         services.TryAddSingleton<ITeamTarget, CompositeTeamTarget>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a concrete <see cref="IWorkItemDiscoveryService"/> implementation keyed by
+    /// <paramref name="typeKey"/> and ensures the <see cref="CompositeWorkItemDiscoveryService"/>
+    /// dispatcher is registered as <see cref="IWorkItemDiscoveryService"/>.
+    /// </summary>
+    public static IServiceCollection AddWorkItemDiscoveryService<T>(
+        this IServiceCollection services,
+        string typeKey)
+        where T : class, IWorkItemDiscoveryService
+    {
+        services.TryAddSingleton<T>();
+        services.AddSingleton(new KeyedWorkItemDiscoveryService(typeKey, typeof(T)));
+        services.TryAddSingleton<IWorkItemDiscoveryService, CompositeWorkItemDiscoveryService>();
         return services;
     }
 }

@@ -71,8 +71,8 @@ public sealed class JobExecutionPlanBuilderTests
 
         Assert.AreEqual(4, plan.Tasks.Count);
         Assert.IsTrue(plan.Tasks.Count > 0);
-        Assert.AreEqual("export.identities", plan.Tasks[0].Id);
-        Assert.AreEqual("export.workitems", plan.Tasks[3].Id);
+        Assert.IsTrue(plan.Tasks[0].Id.StartsWith("export.identities"), $"Expected identities first but got: {plan.Tasks[0].Id}");
+        Assert.IsTrue(plan.Tasks[3].Id.StartsWith("export.workitems"), $"Expected workitems last but got: {plan.Tasks[3].Id}");
         Assert.AreEqual("Export", plan.Tasks[0].Phase);
     }
 
@@ -87,7 +87,7 @@ public sealed class JobExecutionPlanBuilderTests
             AllEnabledConfig(), JobKind.Import, store.Object, stateStore.Object, CancellationToken.None);
 
         Assert.AreEqual(4, plan.Tasks.Count);
-        Assert.AreEqual("import.identities", plan.Tasks[0].Id);
+        Assert.IsTrue(plan.Tasks[0].Id.StartsWith("import.identities"), $"Expected identities first but got: {plan.Tasks[0].Id}");
         Assert.AreEqual("Import", plan.Tasks[0].Phase);
     }
 
@@ -154,7 +154,7 @@ public sealed class JobExecutionPlanBuilderTests
             AllEnabledConfig(), JobKind.Export, store.Object, stateStore.Object, CancellationToken.None);
 
         var workItemsTask = plan.Tasks[3];
-        Assert.AreEqual("export.workitems", workItemsTask.Id);
+        Assert.IsTrue(workItemsTask.Id.StartsWith("export.workitems"), $"Expected workitems task but got: {workItemsTask.Id}");
         Assert.AreEqual(500L, workItemsTask.KnownTotal);
     }
 

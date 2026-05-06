@@ -10,6 +10,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Factories;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
@@ -60,10 +61,7 @@ public static class DependencyServiceCollectionExtensions
             services.AddSingleton<IWorkItemFetchService, AzureDevOpsWorkItemFetchService>();
         }
 
-        if (!services.Any(x => x.ServiceType == typeof(IWorkItemDiscoveryService)))
-        {
-            services.AddSingleton<IWorkItemDiscoveryService, AzureDevOpsWorkItemDiscoveryService>();
-        }
+        services.AddWorkItemDiscoveryService<AzureDevOpsWorkItemDiscoveryService>("AzureDevOpsServices");
 
         if (!services.Any(x => x.ServiceType == typeof(IProjectDiscoveryService)))
         {

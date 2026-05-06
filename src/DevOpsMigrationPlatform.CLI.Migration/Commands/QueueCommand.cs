@@ -922,32 +922,154 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         };
         Console.CancelKeyPress += ctrlCHandler;
         var jobFailed = false;
-        try
+
+        var updates = Channel.CreateUnbounded<JobProgressUpdate>();
+        var discoveryState = DiscoveryProgressState.Initial();
+
+        var bootstrapTrigger = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var bootstrapTask = Task.Run(() => FetchBootstrapOnReady(client, jobId, updates.Writer, bootstrapTrigger, followCts.Token));
+        var progressTask = Task.Run(() => FollowJobProgress(client, jobId, updates.Writer, bootstrapTrigger, followCts.Token));
+
+        if (Console.IsOutputRedirected)
         {
-            await foreach (var evt in client.FollowLogsAsync(jobId, followCts.Token).ConfigureAwait(false))
-                console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] {Markup.Escape(evt.Message ?? string.Empty)}");
+            try
+            {
+                await foreach (var update in updates.Reader.ReadAllAsync(followCts.Token).ConfigureAwait(false))
+                {
+                    discoveryState = ApplyDiscovery(discoveryState, update);
+
+                    if (update is TaskListReceived tlr && tlr.Tasks.Tasks.Count > 0)
+                    {
+                        console.MarkupLine("[grey]Execution plan:[/]");
+                        foreach (var t in tlr.Tasks.Tasks.OrderBy(t => t.Order))
+                            console.MarkupLine($"[grey]  · {Markup.Escape(t.Name)}[/]");
+                    }
+
+                    if (update is StageAdvanced sa)
+                    {
+                        var stage = sa.Event.Stage ?? string.Empty;
+                        var message = sa.Event.Message ?? string.Empty;
+                        if ((stage == "Inventory" || stage == "Failed") && message.Contains('|'))
+                        {
+                            var sepIdx = message.IndexOf('|');
+                            var projectName = message[(sepIdx + 1)..];
+                            var wi = sa.Event.Metrics?.Scope?.WorkItemsTotal ?? 0;
+                            var statusIcon = stage == "Failed" ? "✗" : "✓";
+                            var statusColor = stage == "Failed" ? "red" : "green";
+                            console.MarkupLine($"[{statusColor}]{statusIcon}[/] {Markup.Escape(projectName)}  [grey]{wi:N0} work items[/]");
+                        }
+                        else if (stage == "Progress" && message.Contains('|'))
+                        {
+                            var sepIdx = message.IndexOf('|');
+                            var projectName = message[(sepIdx + 1)..];
+                            var wi = sa.Event.Metrics?.Scope?.WorkItemsTotal ?? 0;
+                            if (wi > 0)
+                                console.MarkupLine($"[blue]⠋[/] {Markup.Escape(projectName)}  [grey]{wi:N0} so far…[/]");
+                        }
+                    }
+
+                    if (update is JobTerminated jt)
+                    {
+                        if (jt.Failed)
+                        {
+                            jobFailed = true;
+                            ShowError(console, jt.Reason ?? "Job failed");
+                        }
+                        break;
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return 0;
+            }
+            finally
+            {
+                Console.CancelKeyPress -= ctrlCHandler;
+                followCtsDisposed = true;
+            }
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
+        else
         {
-            jobFailed = true;
-            ShowError(console, ex.Message);
-        }
-        catch (OperationCanceledException)
-        {
-            console.MarkupLine("[yellow]Detached from stream. Job continues running.[/]");
-            return 0;
-        }
-        finally
-        {
-            Console.CancelKeyPress -= ctrlCHandler;
-            followCtsDisposed = true;
+            var cancelled = false;
+            var logBuffer = new StringWriter();
+            var originalOut = Console.Out;
+            Console.SetOut(logBuffer);
+
+            try
+            {
+                await console.Live(BuildDiscoveryDisplay(discoveryState))
+                    .AutoClear(false)
+                    .Overflow(VerticalOverflow.Ellipsis)
+                    .StartAsync(async ctx =>
+                    {
+                        ctx.Refresh();
+                        await foreach (var update in updates.Reader.ReadAllAsync(followCts.Token).ConfigureAwait(false))
+                        {
+                            discoveryState = ApplyDiscovery(discoveryState, update);
+                            ctx.UpdateTarget(BuildDiscoveryDisplay(discoveryState));
+                            if (update is JobTerminated jt)
+                            {
+                                if (jt.Failed)
+                                {
+                                    jobFailed = true;
+                                    ShowError(console, jt.Reason ?? "Job failed");
+                                }
+                                break;
+                            }
+                        }
+                    });
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
+            {
+                jobFailed = true;
+                ShowError(console, ex.Message);
+            }
+            catch (OperationCanceledException)
+            {
+                cancelled = true;
+                if (isStandalone)
+                    console.MarkupLine("[yellow]Cancelled. Job has been stopped.[/]");
+                else
+                {
+                    console.MarkupLine("[yellow]Detached from stream. Job continues running.[/]");
+                    console.MarkupLine("[grey]Use [bold]tui[/] to resume watching.[/]");
+                }
+                return 0;
+            }
+            finally
+            {
+                Console.CancelKeyPress -= ctrlCHandler;
+                followCtsDisposed = true;
+                Console.SetOut(originalOut);
+                if (!cancelled)
+                {
+                    var captured = logBuffer.ToString();
+                    if (!string.IsNullOrWhiteSpace(captured))
+                        console.Write(new Text(captured.TrimEnd()));
+                }
+                logBuffer.Dispose();
+            }
         }
 
         await followCts.CancelAsync();
-        if (jobFailed)
-            return 1;
+        try { await progressTask; } catch (OperationCanceledException) { }
+        try { await bootstrapTask; } catch (OperationCanceledException) { }
 
-        ShowSuccess(console, $"{kind} complete.");
+        if (jobFailed) return 1;
+
+        if (discoveryState.Projects.Count > 0)
+        {
+            var completedProjects = discoveryState.Projects.Count(p => p.IsComplete);
+            var totalWi = discoveryState.Projects.Sum(p => p.WorkItems);
+            var totalRev = discoveryState.Projects.Sum(p => p.Revisions);
+            ShowSuccess(console, $"{kind} complete — {completedProjects} project(s)  ·  {totalWi:N0} work items  ·  {totalRev:N0} revisions.");
+        }
+        else
+        {
+            ShowSuccess(console, $"{kind} complete.");
+        }
+
         return 0;
     }
 
@@ -1749,6 +1871,319 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
     private static string TruncateName(string name, int maxLen) =>
         name.Length <= maxLen ? name : "…" + name[^(maxLen - 1)..];
+
+    // ── Discovery display helpers ─────────────────────────────────────────────────────────
+
+    /// <summary>Extracts the module segment (parts[1]) from a task ID like <c>capture.workitems.orgslug.project</c>.</summary>
+    private static string GetDiscoveryTaskModule(string taskId)
+    {
+        var parts = taskId.Split('.');
+        return parts.Length >= 2 ? parts[1] : string.Empty;
+    }
+
+    /// <summary>Derives a short organisation label from a URL (last path segment or host).</summary>
+    private static string DeriveDiscoveryOrgLabel(string orgUrl)
+    {
+        if (string.IsNullOrWhiteSpace(orgUrl)) return "(unknown)";
+        if (!Uri.TryCreate(orgUrl, UriKind.Absolute, out var uri)) return orgUrl;
+        var seg = uri.AbsolutePath.Trim('/').Split('/');
+        return seg.Length > 0 && !string.IsNullOrWhiteSpace(seg[^1]) ? seg[^1] : uri.Host;
+    }
+
+    private static string DiscoveryCapFirst(string s) =>
+        string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s[1..];
+
+    private static IRenderable BuildDiscoveryTaskCell(JobTask task, string spinnerFrame)
+    {
+        var (icon, color) = task.Status switch
+        {
+            JobTaskStatus.Running => (spinnerFrame, "blue"),
+            JobTaskStatus.Completed => ("✓", "green"),
+            JobTaskStatus.Failed => ("✗", "red"),
+            JobTaskStatus.Skipped => ("→", "grey"),
+            _ => ("·", "grey"),
+        };
+        return new Markup($"[{color}]{icon}[/]");
+    }
+
+    // ── Discovery progress state (MVU) ────────────────────────────────────────────────────
+    // Analysis jobs (Inventory, Dependencies) render a data table — one row per org/project —
+    // updated on every batch notification. This is distinct from migration jobs which render
+    // a task list with progress bars (BuildUnifiedTaskDisplay).
+
+    private record InventoryProjectRow(
+        string OrgUrl,
+        string ProjectName,
+        long WorkItems,
+        long Revisions,
+        int Repos,
+        bool IsComplete,
+        bool IsFailed,
+        bool IsInProgress);
+
+    private sealed class OrgProjectKeyComparer : IEqualityComparer<(string Org, string Project)>
+    {
+        public bool Equals((string Org, string Project) x, (string Org, string Project) y) =>
+            string.Equals(x.Org.TrimEnd('/'), y.Org.TrimEnd('/'), StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(x.Project, y.Project, StringComparison.OrdinalIgnoreCase);
+
+        public int GetHashCode((string Org, string Project) obj) =>
+            HashCode.Combine(
+                obj.Org.TrimEnd('/').ToUpperInvariant(),
+                obj.Project.ToUpperInvariant());
+    }
+
+    private record DiscoveryProgressState(
+        JobTaskList? Tasks,
+        IReadOnlyList<InventoryProjectRow> Projects,
+        ProgressEvent? LastEvent)
+    {
+        public static DiscoveryProgressState Initial() =>
+            new(null, Array.Empty<InventoryProjectRow>(), null);
+    }
+
+    private static DiscoveryProgressState ApplyDiscovery(DiscoveryProgressState state, JobProgressUpdate update) => update switch
+    {
+        TelemetryPolled => state,
+        TaskListReceived t => state with { Tasks = t.Tasks },
+        TaskUpdated t => ApplyDiscoveryTaskUpdate(state, t.TaskId, t.Status),
+        StageAdvanced t => ApplyDiscoveryStageAdvance(state, t.Event),
+        _ => state
+    };
+
+    private static DiscoveryProgressState ApplyDiscoveryTaskUpdate(
+        DiscoveryProgressState state, string taskId, JobTaskStatus newStatus)
+    {
+        if (state.Tasks is null) return state;
+        var now = DateTimeOffset.UtcNow;
+        var updated = state.Tasks.Tasks
+            .Select(t => t.Id == taskId
+                ? t with
+                {
+                    Status = newStatus,
+                    StartedAt = newStatus == JobTaskStatus.Running ? t.StartedAt ?? now : t.StartedAt,
+                    CompletedAt = newStatus is JobTaskStatus.Completed or JobTaskStatus.Failed or JobTaskStatus.Skipped
+                        ? now : t.CompletedAt
+                }
+                : t)
+            .ToList()
+            .AsReadOnly();
+        return state with { Tasks = state.Tasks with { Tasks = updated } };
+    }
+
+    private static DiscoveryProgressState ApplyDiscoveryStageAdvance(
+        DiscoveryProgressState state, ProgressEvent evt)
+    {
+        var newState = state with { LastEvent = evt };
+
+        // Propagate task-level status transitions from the event.
+        if (evt.TaskId is not null && evt.TaskStatus.HasValue)
+            newState = ApplyDiscoveryTaskUpdate(newState, evt.TaskId, evt.TaskStatus.Value);
+
+        // Parse inventory project data out of the progress message ("{url}|{projectName}").
+        var message = evt.Message ?? string.Empty;
+        var stage = evt.Stage ?? string.Empty;
+
+        if (!message.Contains('|') || stage is not ("Progress" or "Inventory" or "Failed"))
+            return newState;
+
+        var sepIdx = message.IndexOf('|');
+        var orgUrl = message[..sepIdx];
+        var projectName = message[(sepIdx + 1)..];
+        if (string.IsNullOrEmpty(orgUrl) || string.IsNullOrEmpty(projectName))
+            return newState;
+
+        var workItems = evt.Metrics?.Scope?.WorkItemsTotal ?? 0;
+        var revisions = evt.Metrics?.Discovery?.Inventory?.RevisionsTotal ?? 0;
+        var repos = (int)(evt.Metrics?.Discovery?.Inventory?.RepositoriesTotal ?? 0);
+
+        var row = new InventoryProjectRow(
+            orgUrl, projectName,
+            workItems, revisions, repos,
+            IsComplete: stage == "Inventory",
+            IsFailed: stage == "Failed",
+            IsInProgress: stage == "Progress");
+
+        var projects = new List<InventoryProjectRow>(newState.Projects);
+        var idx = projects.FindIndex(p =>
+            string.Equals(p.OrgUrl, orgUrl, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(p.ProjectName, projectName, StringComparison.OrdinalIgnoreCase));
+
+        if (idx >= 0)
+            projects[idx] = row;
+        else
+            projects.Add(row);
+
+        return newState with { Projects = projects.AsReadOnly() };
+    }
+
+    /// <summary>
+    /// Renders the live discovery display as a single merged table.
+    /// Columns: Org | Project | module-status cells | Work Items | Revisions | Repos | Time
+    /// The task-status icons and the inventory data counts are merged per row.
+    /// </summary>
+    private static IRenderable BuildDiscoveryDisplay(DiscoveryProgressState s)
+    {
+        var spinnerFrame = s_spinnerFrames[(int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80 % s_spinnerFrames.Length)];
+        var rows = new List<IRenderable>();
+
+        if (s.Tasks is null)
+        {
+            rows.Add(new Markup("[grey]⠋ Initialising — waiting for agent to start…[/]"));
+        }
+        else if (s.Tasks.Tasks.Count > 0)
+        {
+            var captureTasks = s.Tasks.Tasks
+                .Where(t => t.TaskKind == TaskKind.Capture)
+                .ToList();
+            var analyseTasks = s.Tasks.Tasks
+                .Where(t => t.TaskKind == TaskKind.Analyse)
+                .OrderBy(t => t.Order)
+                .ToList();
+
+            if (captureTasks.Count > 0)
+            {
+                // Determine which module columns are active in this job.
+                var moduleOrder = new[] { "identities", "nodes", "teams", "workitems", "repos" };
+                var activeModules = moduleOrder
+                    .Where(m => captureTasks.Any(t => GetDiscoveryTaskModule(t.Id) == m))
+                    .ToArray();
+
+                // Build a lookup from (orgUrl, projectName) → InventoryProjectRow for count data.
+                var countsByKey = s.Projects.ToDictionary(
+                    p => (Org: p.OrgUrl, Project: p.ProjectName),
+                    p => p,
+                    new OrgProjectKeyComparer());
+
+                var table = new Table()
+                    .BorderStyle(Style.Parse("grey"))
+                    .AddColumn(new TableColumn("[grey]Organisation[/]"))
+                    .AddColumn(new TableColumn("[grey]Project[/]"));
+                foreach (var mod in activeModules)
+                    table.AddColumn(new TableColumn($"[grey]{DiscoveryCapFirst(mod)}[/]").Centered());
+                table.AddColumn(new TableColumn("[grey]Work Items[/]").RightAligned());
+                table.AddColumn(new TableColumn("[grey]Revisions[/]").RightAligned());
+                table.AddColumn(new TableColumn("[grey]Repos[/]").RightAligned());
+                table.AddColumn(new TableColumn("[grey]Time[/]").RightAligned());
+
+                var groups = captureTasks
+                    .GroupBy(t => (Org: t.OrganisationUrl ?? string.Empty, Project: t.ProjectName ?? string.Empty))
+                    .OrderBy(g => g.Key.Org)
+                    .ThenBy(g => g.Key.Project);
+
+                string? lastOrg = null;
+                long totalWi = 0, totalRev = 0;
+
+                foreach (var grp in groups)
+                {
+                    var orgLabel = grp.Key.Org != lastOrg
+                        ? TruncateName(DeriveDiscoveryOrgLabel(grp.Key.Org), 36)
+                        : string.Empty;
+                    lastOrg = grp.Key.Org;
+
+                    var grpList = grp.ToList();
+                    var cells = new List<IRenderable>
+                    {
+                        new Markup(string.IsNullOrEmpty(orgLabel) ? string.Empty : $"[grey]{Markup.Escape(orgLabel)}[/]"),
+                        new Markup(Markup.Escape(grp.Key.Project))
+                    };
+
+                    foreach (var mod in activeModules)
+                    {
+                        var t = grpList.FirstOrDefault(x => GetDiscoveryTaskModule(x.Id) == mod);
+                        cells.Add(t is null ? new Markup("[grey]–[/]") : BuildDiscoveryTaskCell(t, spinnerFrame));
+                    }
+
+                    // Merge count data from the InventoryProjectRow if available.
+                    countsByKey.TryGetValue((grp.Key.Org, grp.Key.Project), out var counts);
+                    var wi = counts?.WorkItems ?? 0;
+                    var rev = counts?.Revisions ?? 0;
+                    var repos = counts?.Repos ?? 0;
+                    totalWi += wi;
+                    totalRev += rev;
+                    cells.Add(new Markup(wi > 0 ? $"[bold]{wi:N0}[/]" : "[grey]–[/]"));
+                    cells.Add(new Markup(rev > 0 ? $"{rev:N0}" : "[grey]–[/]"));
+                    cells.Add(new Markup(repos > 0 ? $"{repos:N0}" : "[grey]–[/]"));
+
+                    var anyRunning = grpList.Any(t => t.Status == JobTaskStatus.Running);
+                    var allSettled = grpList.All(t =>
+                        t.Status is JobTaskStatus.Completed or JobTaskStatus.Failed or JobTaskStatus.Skipped);
+                    var maxSec = grpList
+                        .Where(t => t.StartedAt.HasValue && t.CompletedAt.HasValue)
+                        .Select(t => (t.CompletedAt!.Value - t.StartedAt!.Value).TotalSeconds)
+                        .DefaultIfEmpty(0).Max();
+                    string timeCell = anyRunning
+                        ? $"[blue]{spinnerFrame}[/]"
+                        : allSettled && maxSec > 0
+                            ? $"[grey]{maxSec:F0}s[/]"
+                            : string.Empty;
+                    cells.Add(new Markup(timeCell));
+
+                    table.AddRow(cells.ToArray());
+                }
+
+                // Totals footer row (only when we have count data).
+                if (totalWi > 0)
+                {
+                    table.AddEmptyRow();
+                    var totalCells = new List<IRenderable>
+                    {
+                        new Markup("[bold]Total[/]"),
+                        new Markup(string.Empty)
+                    };
+                    foreach (var _ in activeModules)
+                        totalCells.Add(new Markup(string.Empty));
+                    totalCells.Add(new Markup($"[bold]{totalWi:N0}[/]"));
+                    totalCells.Add(new Markup(totalRev > 0 ? $"[bold]{totalRev:N0}[/]" : "[grey]–[/]"));
+                    totalCells.Add(new Markup(string.Empty));
+                    totalCells.Add(new Markup(string.Empty));
+                    table.AddRow(totalCells.ToArray());
+                }
+
+                // Analyse tasks as footer rows.
+                foreach (var at in analyseTasks)
+                {
+                    var (icon, color) = at.Status switch
+                    {
+                        JobTaskStatus.Running => (spinnerFrame, "blue"),
+                        JobTaskStatus.Completed => ("✓", "green"),
+                        JobTaskStatus.Failed => ("✗", "red"),
+                        JobTaskStatus.Skipped => ("→", "grey"),
+                        _ => ("·", "grey"),
+                    };
+                    var atCells = new List<IRenderable>
+                    {
+                        new Markup($"[{color}]{icon}[/] [bold]{Markup.Escape(at.Name)}[/]"),
+                        new Markup(string.Empty)
+                    };
+                    // Fill remaining columns: module cells + workitems + revisions + repos + time
+                    for (int i = 0; i < activeModules.Length + 4; i++)
+                        atCells.Add(new Markup(string.Empty));
+                    table.AddRow(atCells.ToArray());
+                }
+
+                rows.Add(table);
+            }
+            else
+            {
+                // Non-capture job: render flat list (dependencies, etc.)
+                foreach (var task in s.Tasks.Tasks.OrderBy(t => t.Order))
+                {
+                    var (icon, iconColor) = task.Status switch
+                    {
+                        JobTaskStatus.Running => (spinnerFrame, "blue"),
+                        JobTaskStatus.Completed => ("✓", "green"),
+                        JobTaskStatus.Failed => ("✗", "red"),
+                        JobTaskStatus.Skipped => ("→", "grey"),
+                        _ => ("·", "grey"),
+                    };
+                    rows.Add(new Markup($"  [{iconColor}]{icon}[/]  [bold]{Markup.Escape(task.Name)}[/]"));
+                }
+            }
+        }
+
+        return rows.Count > 0 ? (IRenderable)new Rows(rows) : new Markup("[grey]⠋ Running…[/]");
+    }
 
     /// <summary>
     /// Converts <see cref="MigrationPlatformOptions.Modules"/> into <see cref="JobModule"/> entries.

@@ -79,7 +79,7 @@ internal sealed class PackageConfigStore : IPackageConfigStore
             if (exists && !force)
             {
                 throw new InvalidOperationException(
-                    "migration-config.json already exists in the package. " +
+                    $"{PackagePaths.MigrationConfigFileName} already exists in the package. " +
                     "Re-submit is not permitted without --force.");
             }
 
@@ -136,8 +136,8 @@ internal sealed class PackageConfigStore : IPackageConfigStore
             if (attempt < backoffMs.Length)
             {
                 _logger.LogDebug(
-                    "migration-config.json not found on attempt {Attempt}; retrying in {DelayMs}ms",
-                    attempt + 1, backoffMs[attempt]);
+                    "Config not found at '{Path}' on attempt {Attempt}; retrying in {DelayMs}ms",
+                    PackagePaths.MigrationConfigFileName, attempt + 1, backoffMs[attempt]);
                 await Task.Delay(backoffMs[attempt], cancellationToken).ConfigureAwait(false);
             }
         }
@@ -145,11 +145,10 @@ internal sealed class PackageConfigStore : IPackageConfigStore
         if (!exists)
         {
             _metrics?.RecordConfigReadError(Tags("config.read"));
-            _metrics?.RecordConfigReadFallback(Tags("config.read"));
             activity?.SetTag("outcome", "not_found");
             _logger.LogWarning(
-                "migration-config.json not found in package after retries. " +
-                "Re-submit the job from the CLI to regenerate it.");
+                "Config not found at '{Path}' after retries. Re-submit the job from the CLI to regenerate it.",
+                PackagePaths.MigrationConfigFileName);
             throw new PackageConfigNotFoundException(artefactStore.GetType().Name);
         }
 
@@ -162,9 +161,9 @@ internal sealed class PackageConfigStore : IPackageConfigStore
             {
                 _metrics?.RecordConfigReadError(Tags("config.read"));
                 activity?.SetTag("outcome", "empty");
-                _logger.LogError("migration-config.json is empty in package");
+                _logger.LogError("Config at '{Path}' is empty in package", PackagePaths.MigrationConfigFileName);
                 throw new InvalidOperationException(
-                    "migration-config.json is present but empty. Re-submit the job from the CLI.");
+                    $"{PackagePaths.MigrationConfigFileName} is present but empty. Re-submit the job from the CLI.");
             }
 
             var bytes = Encoding.UTF8.GetBytes(json);
@@ -189,7 +188,7 @@ internal sealed class PackageConfigStore : IPackageConfigStore
         {
             _metrics?.RecordConfigReadError(Tags("config.read"));
             activity?.SetTag("outcome", "parse_error");
-            _logger.LogError("Failed to parse migration-config.json");
+            _logger.LogError("Failed to parse config at '{Path}'", PackagePaths.MigrationConfigFileName);
             throw;
         }
     }

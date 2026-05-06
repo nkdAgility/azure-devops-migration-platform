@@ -51,9 +51,9 @@ public static class PackagePaths
 
     /// <summary>
     /// The execution plan file persisted after every task status transition:
-    /// <c>.migration/Checkpoints/plan.json</c>.
+    /// <c>.migration/plan.json</c>.
     /// </summary>
-    public const string PlanFile = $"{Checkpoints}/plan.json";
+    public const string PlanFile = $"{SystemRoot}/plan.json";
 
     /// <summary>
     /// Returns the OS-native filesystem path for the ID-map database,
@@ -95,6 +95,9 @@ public static class PackagePaths
     /// <summary>Legacy phase file: <c>Checkpoints/job.phase.json</c>.</summary>
     public const string LegacyPhaseFile = $"{LegacyCheckpoints}/job.phase.json";
 
+    /// <summary>Legacy plan file: <c>Checkpoints/plan.json</c> (pre-.migration/ root layout).</summary>
+    public const string LegacyPlanFile = $"{LegacyCheckpoints}/plan.json";
+
     /// <summary>
     /// Returns the legacy OS-native path for the ID-map database.
     /// </summary>
@@ -115,10 +118,11 @@ public static class PackagePaths
     // ── Per-job configuration ─────────────────────────────────────────────
 
     /// <summary>
-    /// Well-known path for the per-job migration configuration file at the package root.
+    /// Well-known path for the per-job migration configuration file inside <c>.migration/</c>.
     /// Written by the CLI before job submission; read by every agent at job start.
     /// Contains the full serialised <c>MigrationPlatformOptions</c> (source, target, credentials,
     /// modules, policies, and all tool options).
     /// </summary>
-    public const string MigrationConfigFileName = "migration-config.json";
+    public const string MigrationConfigFileName = $"{SystemRoot}/migration-config.json";
+
 }
