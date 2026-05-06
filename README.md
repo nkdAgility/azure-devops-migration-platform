@@ -52,7 +52,10 @@ The package is a versioned, portable snapshot on disk. Zip it, move it, review i
 
 > No binary release yet — install from source.
 
-**Requirements:** .NET 10 SDK · PowerShell 7+ · Windows (required only for TFS source)
+**Requirements:**
+- .NET 10 SDK
+- PowerShell 7+
+- Windows (required only for TFS source)
 
 ```powershell
 git clone https://github.com/nkdAgility/azure-devops-migration-platform.git
