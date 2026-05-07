@@ -53,6 +53,7 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
         long prepareIdentitiesResolved = 0, prepareIdentitiesUnresolved = 0;
         long prepareNodesResolved = 0, prepareNodesUnresolved = 0;
         long prepareTeamsResolved = 0, prepareTeamsUnresolved = 0;
+        long dependencyWorkItemsAnalysed = 0, dependencyLinksFound = 0, dependenciesCaptureCount = 0;
 
         foreach (var metric in batch)
         {
@@ -197,6 +198,17 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
                 case WellKnownAgentMetricNames.TeamsPrepareUnresolved:
                     prepareTeamsUnresolved = ReadCounterSum(metric);
                     break;
+
+                // --- Dependencies ---
+                case WellKnownAgentMetricNames.DependencyWorkItemsAnalysed:
+                    dependencyWorkItemsAnalysed = ReadCounterSum(metric);
+                    break;
+                case WellKnownAgentMetricNames.DependencyLinks:
+                    dependencyLinksFound = ReadCounterSum(metric);
+                    break;
+                case WellKnownAgentMetricNames.DependenciesCaptureCount:
+                    dependenciesCaptureCount = ReadCounterSum(metric);
+                    break;
             }
         }
 
@@ -231,6 +243,15 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
             }
             : null;
 
+        var dependencyCaptureCounters = dependencyWorkItemsAnalysed > 0 || dependencyLinksFound > 0 || dependenciesCaptureCount > 0
+            ? new DependencyCounters
+            {
+                // Prefer exact analysed count; fall back to capture completion count when analysed count isn't emitted.
+                WorkItemsAnalysed = dependencyWorkItemsAnalysed > 0 ? dependencyWorkItemsAnalysed : dependenciesCaptureCount,
+                ExternalLinksFound = dependencyLinksFound,
+            }
+            : null;
+
         _store.Update(new JobMetrics
         {
             Timestamp = DateTimeOffset.UtcNow,
@@ -245,6 +266,7 @@ internal sealed class SnapshotMetricExporter : BaseExporter<Metric>
                 Teams = teamsCounters,
                 Nodes = nodesCounters,
                 Identities = identitiesCounters,
+                DependencyCapture = dependencyCaptureCounters,
                 Inventory = new ModulePhaseCounters
                 {
                     Completed = inventoryWorkItems + inventoryIdentities + inventoryNodes + inventoryTeams
