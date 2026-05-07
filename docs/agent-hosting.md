@@ -199,7 +199,7 @@ All `capture.*` tasks (e.g. `capture.workitems.{org}.{project}`) are dispatched 
 1. Step 1 — all `IModule` instances where `SupportsInventory = true` are cast to `ICapture` and added, keyed by `ICapture.Name`.
 2. Step 2 — pure `ICapture` registrations (not `IModule`) from DI are unioned in, with OrdinalIgnoreCase de-duplication by name.
 
-**TFS agent constraint:** `AddDependencyCaptureServices` is NOT called from `TfsMigrationAgentServiceExtensions`. The TFS plan builder emits no `capture.dependencies.*` tasks for TFS-sourced jobs. If an erroneous `capture.dependencies.*` task appears, the missing-handler log+skip path in `JobPlanExecutor` handles it gracefully — no exception is thrown.
+**TFS agent constraint:** `AddDependencyCapture` is NOT called from `TfsMigrationAgentServiceExtensions`. The TFS plan builder emits no `capture.dependencies.*` tasks for TFS-sourced jobs. If an erroneous `capture.dependencies.*` task appears, the missing-handler log+skip path in `JobPlanExecutor` handles it gracefully — no exception is thrown.
 
 ### Multi-Targeting
 

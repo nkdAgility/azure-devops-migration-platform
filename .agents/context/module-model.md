@@ -53,7 +53,7 @@ Modules are one of three extension points in the job engine:
 **Tools** (`MigrationPlatform:Tools.*`) are a fourth extension point but are stateless services, not phase participants. They are injected into modules and orchestrators to perform pure transformations (field rewriting, path translation, identity lookup) with no I/O.
 
 Current pure capture handlers:
-- `DependencyCapture` — captures per-project dependency links via `IDependencyDiscoveryServiceFactory.CreateForProject` and `IDependencyOrchestrator.CaptureProjectAsync`. Registered as `ICapture` only via `AddDependencyCaptureServices()`. TFS agents must NOT register this.
+- `DependencyCapture` — captures per-project dependency links via `IDependencyDiscoveryServiceFactory.CreateForProject` and `IDependencyOrchestrator.CaptureProjectAsync`. Registered as `ICapture` only via `AddDependencyCapture()`. TFS agents must NOT register this.
 
 ## Telemetry Contract
 

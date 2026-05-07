@@ -28,6 +28,7 @@ interface IModule : ICapture
     bool SupportsExport { get; }
     bool SupportsPrepare { get; }
     bool SupportsImport { get; }
+    bool SupportsValidate { get; }
 
     Task CaptureAsync(InventoryContext context, CancellationToken ct);
     Task ExportAsync(ExportContext context, CancellationToken ct);
