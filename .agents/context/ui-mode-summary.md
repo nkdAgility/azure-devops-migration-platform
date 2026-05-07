@@ -6,7 +6,7 @@ Compressed agent summary for the CLI/TUI mode contract. Canonical human-facing s
 
 - View selection is driven by job `Kind`, not by command name.
 - `queue` is a submission command, not a mode.
-- `Export`, `Prepare`, `Import`, and `Migrate` share one default task-based migration view.
+- `Export`, `Prepare`, `Import`, and `Migrate` share one migration view family, but multi-stage jobs show a top stage list and the current stage's own render below it.
 - `Inventory` requires a custom project table and a task section.
 - `Dependencies` requires a custom project table and a task section.
 - `manage progress` and `manage diagnostics` stay raw; they are not presentation contracts.
@@ -44,6 +44,8 @@ Inventory:
 - `Repos`
 - `Time` = elapsed time so far for that row
 - table live-updates as inventory data arrives, alongside the task section
+- task section uses one row per capture source across project collections
+- capture-source rows show completed-vs-total project counts
 - analyse inventory stays waiting until dependent capture tasks have actually completed
 
 Dependencies:
@@ -69,7 +71,9 @@ Dependencies:
 
 ## Shared Migration View Requirements
 
-- Default mode is a list of async tasks from the bootstrap task list.
+- Multi-stage jobs must show a top stage list with the current stage clearly marked.
+- The main body shows the current stage's render and its tasks, not one flattened cross-stage task list.
+- `Migrate` changes the main body as the current stage advances: Inventory table/tasks, then Export render/tasks, then Prepare, then Import, then Validate.
 - Every task row has a progress bar.
 - Every task row shows ETA when possible.
 - Every completed task retains its completion duration.
@@ -78,7 +82,7 @@ Dependencies:
 - `WorkItems` must show explicit revision totals on the row or detail lines.
 - `WorkItems` must retain its completed duration when the task is terminal.
 - `WorkItems` must warn when three or four unusually long writes in a row suggest probable exponential back-off.
-- The bottom of the task list must show remaining task count and the current overall estimated completion for the full list when possible.
+- The bottom of the visible current-stage task list must show remaining task count and the current overall estimated completion for that visible stage/task slice when possible.
 - That footer must stay visible as context for the active WorkItems row.
 - The task/progress panel is separate from the JobKind metrics panel.
 - The feed panel shows feed records, not aggregate metric values.
