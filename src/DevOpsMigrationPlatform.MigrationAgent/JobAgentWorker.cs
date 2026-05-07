@@ -20,6 +20,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +45,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly IPackagePreparer _packagePreparer;
     private readonly IJobExecutionPlanBuilder _planBuilder;
     private readonly IJobPlanExecutor _planExecutor;
+    private readonly ICurrentPackageConfigAccessor _currentPackageConfigAccessor;
+    private readonly ICurrentAgentJobContextAccessor _currentJobContextAccessor;
+    private readonly ICurrentJobEndpointAccessor _currentJobEndpointAccessor;
     private readonly IControlPlaneTelemetryClient _telemetryClient;
     private readonly ILogger<JobAgentWorker> _logger;
 
@@ -54,8 +58,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IProgressSink progressSink,
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
-        IJobConfiguration activeJobConfig,
         IActiveJobState activeJobState,
+        ICurrentPackageConfigAccessor currentPackageConfigAccessor,
         IPackageConfigStore packageConfigStore,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
@@ -66,12 +70,14 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IEnumerable<IFlushable> flushables,
         IJobExecutionPlanBuilder planBuilder,
         IJobPlanExecutor planExecutor,
+        ICurrentAgentJobContextAccessor currentJobContextAccessor,
+        ICurrentJobEndpointAccessor currentJobEndpointAccessor,
         IControlPlaneTelemetryClient telemetryClient,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null,
         PolymorphicOrganisationEntryConverter? organisationConverter = null)
         : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
-               phaseTrackingFactory, leaseState, packageState, activeJobConfig, packageConfigStore,
+             phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageConfigStore,
                moduleScopeFactory, httpClientFactory, logger, activeJobState, endpointConverter, organisationConverter)
     {
         _metricsStore = metricsStore;
@@ -81,6 +87,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         _packagePreparer = packagePreparer;
         _planBuilder = planBuilder;
         _planExecutor = planExecutor;
+        _currentPackageConfigAccessor = currentPackageConfigAccessor;
+        _currentJobContextAccessor = currentJobContextAccessor;
+        _currentJobEndpointAccessor = currentJobEndpointAccessor;
         _telemetryClient = telemetryClient;
         _logger = logger;
     }
@@ -99,12 +108,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
         // ── Shared preamble: package stores, config write, config load ────────
-        var (artefactStore, stateStore) = PackageStoreFactory.Create(
-            job.Package.PackageUri ?? ".");
-
-        PackageState.CurrentStore = artefactStore;
-
-        await WriteRunMetadataAsync(job, artefactStore, ct).ConfigureAwait(false);
+        var (artefactStore, stateStore) = await InitializeJobPackageAsync(job, ct).ConfigureAwait(false);
 
         // Write config payload from the Job into the package before any config reads.
         await WriteConfigPayloadAsync(job, artefactStore, ct).ConfigureAwait(false);
@@ -115,7 +119,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         try
         {
             packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
-            ActiveJobConfig.PackageConfig = packageConfig;
+            _currentPackageConfigAccessor.Set(packageConfig);
+            SetCurrentJobContext(packageConfig);
+            SetCurrentEndpointContext(packageConfig);
         }
         catch (PackageConfigNotFoundException ex)
         {
@@ -130,7 +136,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     "Config file not found in {PackageUri} for job {JobId}. Re-submit the job via CLI.",
                     job.Package.PackageUri, job.JobId);
                 await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
-                ActiveJobConfig.Clear();
+                _currentPackageConfigAccessor.Clear();
+                _currentJobContextAccessor.Clear();
+                _currentJobEndpointAccessor.Clear();
                 return;
             }
         }
@@ -154,11 +162,11 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 case JobKind.Migrate:
                 case JobKind.Prepare:
                 case JobKind.Inventory:
-                    await OnMigrationJobAsync(job, controlPlane, leaseId, artefactStore, stateStore, ct).ConfigureAwait(false);
+                    await OnMigrationJobAsync(job, controlPlane, leaseId, artefactStore, stateStore, packageConfig, ct).ConfigureAwait(false);
                     break;
 
                 case JobKind.Dependencies:
-                    await OnDiscoveryJobAsync(job, controlPlane, leaseId, artefactStore, stateStore, ct).ConfigureAwait(false);
+                    await OnDiscoveryJobAsync(job, controlPlane, leaseId, artefactStore, stateStore, packageConfig, ct).ConfigureAwait(false);
                     break;
 
                 default:
@@ -171,8 +179,143 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         }
         finally
         {
-            ActiveJobConfig.Clear();
+            _currentPackageConfigAccessor.Clear();
+            _currentJobContextAccessor.Clear();
+            _currentJobEndpointAccessor.Clear();
         }
+    }
+
+    private void SetCurrentJobContext(IConfiguration packageConfig)
+    {
+        var mode = packageConfig["MigrationPlatform:Mode"];
+        var packagePath = System.Environment.ExpandEnvironmentVariables(
+            packageConfig["MigrationPlatform:Package:WorkingDirectory"] ?? string.Empty);
+        var configVersion = packageConfig["MigrationPlatform:ConfigVersion"];
+
+        if (string.IsNullOrWhiteSpace(mode) || string.IsNullOrWhiteSpace(packagePath) || string.IsNullOrWhiteSpace(configVersion))
+        {
+            _currentJobContextAccessor.Clear();
+            return;
+        }
+
+        try
+        {
+            _currentJobContextAccessor.Set(new AgentJobContext
+            {
+                Mode = mode,
+                PackagePath = packagePath,
+                ConfigVersion = configVersion,
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex,
+                "Could not build explicit agent job context for job package configuration. Falling back to an empty job context view.");
+            _currentJobContextAccessor.Clear();
+        }
+    }
+
+    private void SetCurrentEndpointContext(IConfiguration packageConfig)
+    {
+        if (TryBuildSourceEndpoint(packageConfig, out var sourceEndpoint))
+            _currentJobEndpointAccessor.SetSource(sourceEndpoint);
+        else
+            _currentJobEndpointAccessor.ClearSource();
+
+        if (TryBuildTargetEndpoint(packageConfig, out var targetEndpoint))
+            _currentJobEndpointAccessor.SetTarget(targetEndpoint);
+        else
+            _currentJobEndpointAccessor.ClearTarget();
+    }
+
+    private static bool TryBuildSourceEndpoint(IConfiguration packageConfig, out ISourceEndpointInfo endpoint)
+    {
+        var url = ConfigTokenResolver.Resolve(packageConfig["MigrationPlatform:Source:Url"]);
+        var project = packageConfig["MigrationPlatform:Source:Project"];
+        var connectorType = packageConfig["MigrationPlatform:Source:Type"];
+
+        if (string.IsNullOrWhiteSpace(connectorType))
+        {
+            endpoint = null!;
+            return false;
+        }
+
+        var authSection = packageConfig.GetSection("MigrationPlatform:Source:Authentication");
+        _ = Enum.TryParse<AuthenticationType>(authSection?["Type"], ignoreCase: true, out var authType);
+        endpoint = new ExplicitSourceEndpointInfo(
+            url ?? string.Empty,
+            project ?? string.Empty,
+            connectorType,
+            packageConfig["MigrationPlatform:Source:ApiVersion"],
+            authType,
+            ConfigTokenResolver.Resolve(authSection?["AccessToken"]));
+        return true;
+    }
+
+    private static bool TryBuildTargetEndpoint(IConfiguration packageConfig, out ITargetEndpointInfo endpoint)
+    {
+        var url = ConfigTokenResolver.Resolve(packageConfig["MigrationPlatform:Target:Url"]);
+        var project = packageConfig["MigrationPlatform:Target:Project"];
+        var connectorType = packageConfig["MigrationPlatform:Target:Type"];
+
+        if (string.IsNullOrWhiteSpace(connectorType))
+        {
+            endpoint = null!;
+            return false;
+        }
+
+        var authSection = packageConfig.GetSection("MigrationPlatform:Target:Authentication");
+        _ = Enum.TryParse<AuthenticationType>(authSection?["Type"], ignoreCase: true, out var authType);
+        endpoint = new ExplicitTargetEndpointInfo(
+            url ?? string.Empty,
+            project ?? string.Empty,
+            connectorType,
+            packageConfig["MigrationPlatform:Target:ApiVersion"],
+            authType,
+            ConfigTokenResolver.Resolve(authSection?["AccessToken"]));
+        return true;
+    }
+
+    private sealed record ExplicitSourceEndpointInfo(
+        string Url,
+        string Project,
+        string ConnectorType,
+        string? ApiVersion,
+        AuthenticationType AuthenticationType,
+        string? AccessToken) : ISourceEndpointInfo
+    {
+        public OrganisationEndpoint ToOrganisationEndpoint() => new()
+        {
+            ResolvedUrl = Url,
+            Type = ConnectorType,
+            ApiVersion = ApiVersion,
+            Authentication = new OrganisationEndpointAuthentication
+            {
+                Type = AuthenticationType,
+                ResolvedAccessToken = AccessToken
+            }
+        };
+    }
+
+    private sealed record ExplicitTargetEndpointInfo(
+        string Url,
+        string Project,
+        string ConnectorType,
+        string? ApiVersion,
+        AuthenticationType AuthenticationType,
+        string? AccessToken) : ITargetEndpointInfo
+    {
+        public OrganisationEndpoint ToOrganisationEndpoint() => new()
+        {
+            ResolvedUrl = Url,
+            Type = ConnectorType,
+            ApiVersion = ApiVersion,
+            Authentication = new OrganisationEndpointAuthentication
+            {
+                Type = AuthenticationType,
+                ResolvedAccessToken = AccessToken
+            }
+        };
     }
 
     // ── Migration execution ───────────────────────────────────────────────────
@@ -211,29 +354,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         await artefactStore.WriteAsync(
             PackagePaths.MigrationConfigFileName, job.ConfigPayload, ct)
             .ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Persists the raw leased <see cref="Job"/> payload in the run folder as <c>job.json</c>
-    /// for audit and troubleshooting.
-    /// </summary>
-    private async Task WriteRunMetadataAsync(Job job, IArtefactStore artefactStore, CancellationToken ct)
-    {
-        var runId = PackageState.CurrentRunId;
-        if (string.IsNullOrEmpty(runId))
-        {
-            return;
-        }
-
-        var runJobPath = PackagePaths.RunJobFile(runId);
-        var jobJson = JsonSerializer.Serialize(job, AgentJsonOptions);
-        await artefactStore.WriteAsync(runJobPath, jobJson, ct).ConfigureAwait(false);
-
-        if (!string.IsNullOrWhiteSpace(job.ConfigPayload))
-        {
-            var runConfigPath = PackagePaths.RunConfigFile(runId);
-            await artefactStore.WriteAsync(runConfigPath, job.ConfigPayload, ct).ConfigureAwait(false);
-        }
     }
 
     /// <summary>
@@ -290,10 +410,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     private async Task OnMigrationJobAsync(
         Job job, HttpClient controlPlane, string leaseId,
-        IArtefactStore artefactStore, IStateStore stateStore, CancellationToken ct)
+        IArtefactStore artefactStore, IStateStore stateStore, IConfiguration? packageConfig, CancellationToken ct)
     {
-        // PackageConfig is already loaded by OnJobAsync — use it directly.
-        var packageConfig = ActiveJobConfig.PackageConfig!;
+        var planConfig = packageConfig ?? new ConfigurationBuilder().Build();
 
         // Build the execution planand push it to the Control Plane so clients can
         // see the ordered task list immediately via GET /jobs/{id}/bootstrap.
@@ -336,7 +455,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
             // Load persisted plan (resume) or build and persist a fresh one.
             executionPlan = await _planBuilder
-                .BuildAndSaveAsync(packageConfig, job.Kind, artefactStore, stateStore, ct)
+                .BuildAndSaveAsync(planConfig, job.Kind, artefactStore, stateStore, ct)
                 .ConfigureAwait(false);
 
             // Push plan to the control plane for display.
@@ -410,7 +529,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         // FileSystem today and Azure Blob Storage in the future.
         if (runImport)
         {
-            await _packagePreparer.PrepareForImportAsync(artefactStore, packageConfig, ct)
+            await _packagePreparer.PrepareForImportAsync(artefactStore, planConfig, ct)
                 .ConfigureAwait(false);
         }
 
@@ -580,7 +699,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     private async Task OnDiscoveryJobAsync(
         Job job, HttpClient controlPlane, string leaseId,
-        IArtefactStore artefactStore, IStateStore stateStore, CancellationToken ct)
+        IArtefactStore artefactStore, IStateStore stateStore, IConfiguration? packageConfig, CancellationToken ct)
     {
         if (job.Resume?.Mode == ResumeMode.ForceFresh)
         {
@@ -667,7 +786,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         JobTaskList? discoveryPlan = null;
         try
         {
-            var planConfig = ActiveJobConfig.PackageConfig ?? new ConfigurationBuilder().Build();
+            var planConfig = packageConfig ?? new ConfigurationBuilder().Build();
             discoveryPlan = await _planBuilder
                 .BuildAndSaveAsync(planConfig, job.Kind, artefactStore, stateStore, ct)
                 .ConfigureAwait(false);

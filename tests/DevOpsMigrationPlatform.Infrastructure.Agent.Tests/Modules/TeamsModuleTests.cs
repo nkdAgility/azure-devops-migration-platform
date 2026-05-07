@@ -20,11 +20,9 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Simulated;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -42,26 +40,8 @@ public class TeamsModuleTests
         PropertyNameCaseInsensitive = true
     };
 
-    private static JobConfiguration CreateActiveJobConfig(
-        string sourceProject = "TestProject",
-        string targetProject = "TargetProject")
+    private static IAgentJobContext CreateAgentJobContext()
     {
-        var state = new JobConfiguration();
-        state.PackageConfig = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["MigrationPlatform:Source:Type"] = "Simulated",
-                ["MigrationPlatform:Source:Project"] = sourceProject,
-                ["MigrationPlatform:Target:Type"] = "Simulated",
-                ["MigrationPlatform:Target:Project"] = targetProject,
-            })
-            .Build();
-        return state;
-    }
-
-    private static IAgentJobContext CreateAgentJobContext(JobConfiguration? activeJobConfig = null)
-    {
-        activeJobConfig ??= CreateActiveJobConfig();
         var mock = new Mock<IAgentJobContext>();
         mock.SetupGet(x => x.PackagePath).Returns("/tmp/test-package");
         mock.SetupGet(x => x.Mode).Returns("Export");
@@ -69,22 +49,20 @@ public class TeamsModuleTests
         return mock.Object;
     }
 
-    private static ISourceEndpointInfo CreateSourceEndpointInfo(JobConfiguration? activeJobConfig = null)
+    private static ISourceEndpointInfo CreateSourceEndpointInfo(string sourceProject = "TestProject")
     {
-        activeJobConfig ??= CreateActiveJobConfig();
         var mock = new Mock<ISourceEndpointInfo>();
         mock.SetupGet(x => x.Url).Returns("https://dev.azure.com/test");
-        mock.SetupGet(x => x.Project).Returns(activeJobConfig.PackageConfig?["MigrationPlatform:Source:Project"] ?? "TestProject");
+        mock.SetupGet(x => x.Project).Returns(sourceProject);
         mock.SetupGet(x => x.ConnectorType).Returns("Simulated");
         return mock.Object;
     }
 
-    private static ITargetEndpointInfo CreateTargetEndpointInfo(JobConfiguration? activeJobConfig = null)
+    private static ITargetEndpointInfo CreateTargetEndpointInfo(string targetProject = "TargetProject")
     {
-        activeJobConfig ??= CreateActiveJobConfig();
         var mock = new Mock<ITargetEndpointInfo>();
         mock.SetupGet(x => x.Url).Returns("https://dev.azure.com/target");
-        mock.SetupGet(x => x.Project).Returns(activeJobConfig.PackageConfig?["MigrationPlatform:Target:Project"] ?? "TargetProject");
+        mock.SetupGet(x => x.Project).Returns(targetProject);
         mock.SetupGet(x => x.ConnectorType).Returns("Simulated");
         return mock.Object;
     }
@@ -164,17 +142,16 @@ public class TeamsModuleTests
             .Returns(Task.CompletedTask);
 
         var source = new SimulatedTeamSource();
-        var activeJobConfig = CreateActiveJobConfig();
         var exportOrch = new TeamExportOrchestrator(
             source,
             NullLogger<TeamExportOrchestrator>.Instance,
-            endpointInfo: CreateSourceEndpointInfo(activeJobConfig));
+            endpointInfo: CreateSourceEndpointInfo());
 
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true }),
-            sourceEndpointInfo: CreateSourceEndpointInfo(activeJobConfig),
-            targetEndpointInfo: CreateTargetEndpointInfo(activeJobConfig),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
             orchestrator: new TeamsOrchestrator(NullLogger<TeamsOrchestrator>.Instance, exportOrchestrator: exportOrch, slugGenerator: new TeamSlugGenerator()),
             teamSource: source);
 

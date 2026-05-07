@@ -9,99 +9,67 @@ using DevOpsMigrationPlatform.Abstractions.Organisations;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 
 /// <summary>
-/// Dynamic <see cref="ISourceEndpointInfo"/> that resolves connector type, URL, project and auth
-/// from <see cref="ActiveJobConfigState.PackageConfig"/> on every access.
+/// Dynamic <see cref="ISourceEndpointInfo"/> that exposes the current explicit source endpoint view.
 /// Registered as a singleton so the same object survives across jobs while always
-/// reflecting the active job's source configuration.
+/// reflecting the active job's source endpoint when one is active.
 /// </summary>
 public sealed class ActiveJobSourceEndpointInfo : ISourceEndpointInfo
 {
-    private readonly IJobConfiguration _state;
+    private readonly ICurrentJobEndpointAccessor _accessor;
 
-    public ActiveJobSourceEndpointInfo(IJobConfiguration state)
-        => _state = state ?? throw new System.ArgumentNullException(nameof(state));
+    public ActiveJobSourceEndpointInfo(ICurrentJobEndpointAccessor accessor)
+        => _accessor = accessor ?? throw new System.ArgumentNullException(nameof(accessor));
 
     public string Url
-        => ConfigTokenResolver.Resolve(_state.PackageConfig?["MigrationPlatform:Source:Url"]) ?? string.Empty;
+        => _accessor.Source?.Url ?? string.Empty;
 
     public string Project
-        => _state.PackageConfig?["MigrationPlatform:Source:Project"] ?? string.Empty;
+        => _accessor.Source?.Project ?? string.Empty;
 
     public string ConnectorType
-        => _state.PackageConfig?["MigrationPlatform:Source:Type"] ?? string.Empty;
+        => _accessor.Source?.ConnectorType ?? string.Empty;
 
     public OrganisationEndpoint ToOrganisationEndpoint()
-    {
-        var authSection = _state.PackageConfig?.GetSection("MigrationPlatform:Source:Authentication");
-        _ = System.Enum.TryParse<AuthenticationType>(authSection?["Type"], ignoreCase: true, out var authType);
-        return new OrganisationEndpoint
-        {
-            ResolvedUrl = Url,
-            Type = ConnectorType,
-            ApiVersion = _state.PackageConfig?["MigrationPlatform:Source:ApiVersion"],
-            Authentication = new OrganisationEndpointAuthentication
-            {
-                Type = authType,
-                ResolvedAccessToken = ConfigTokenResolver.Resolve(authSection?["AccessToken"])
-            }
-        };
-    }
+        => _accessor.Source?.ToOrganisationEndpoint() ?? new OrganisationEndpoint();
 }
 
 /// <summary>
-/// Dynamic <see cref="ITargetEndpointInfo"/> that resolves connector type, URL, project and auth
-/// from <see cref="ActiveJobConfigState.PackageConfig"/> on every access.
+/// Dynamic <see cref="ITargetEndpointInfo"/> that exposes the current explicit target endpoint view.
 /// </summary>
 public sealed class ActiveJobTargetEndpointInfo : ITargetEndpointInfo
 {
-    private readonly IJobConfiguration _state;
+    private readonly ICurrentJobEndpointAccessor _accessor;
 
-    public ActiveJobTargetEndpointInfo(IJobConfiguration state)
-        => _state = state ?? throw new System.ArgumentNullException(nameof(state));
+    public ActiveJobTargetEndpointInfo(ICurrentJobEndpointAccessor accessor)
+        => _accessor = accessor ?? throw new System.ArgumentNullException(nameof(accessor));
 
     public string Url
-        => ConfigTokenResolver.Resolve(_state.PackageConfig?["MigrationPlatform:Target:Url"]) ?? string.Empty;
+        => _accessor.Target?.Url ?? string.Empty;
 
     public string Project
-        => _state.PackageConfig?["MigrationPlatform:Target:Project"] ?? string.Empty;
+        => _accessor.Target?.Project ?? string.Empty;
 
     public string ConnectorType
-        => _state.PackageConfig?["MigrationPlatform:Target:Type"] ?? string.Empty;
+        => _accessor.Target?.ConnectorType ?? string.Empty;
 
     public OrganisationEndpoint ToOrganisationEndpoint()
-    {
-        var authSection = _state.PackageConfig?.GetSection("MigrationPlatform:Target:Authentication");
-        _ = System.Enum.TryParse<AuthenticationType>(authSection?["Type"], ignoreCase: true, out var authType);
-        return new OrganisationEndpoint
-        {
-            ResolvedUrl = Url,
-            Type = ConnectorType,
-            ApiVersion = _state.PackageConfig?["MigrationPlatform:Target:ApiVersion"],
-            Authentication = new OrganisationEndpointAuthentication
-            {
-                Type = authType,
-                ResolvedAccessToken = ConfigTokenResolver.Resolve(authSection?["AccessToken"])
-            }
-        };
-    }
+        => _accessor.Target?.ToOrganisationEndpoint() ?? new OrganisationEndpoint();
 }
 
 /// <summary>
-/// Dynamic <see cref="IAgentJobContext"/> that resolves Mode, PackagePath, and ConfigVersion
-/// from <see cref="ActiveJobConfigState.PackageConfig"/> on every access.
+/// Dynamic <see cref="IAgentJobContext"/> that exposes the current explicit per-job context.
 /// Registered as a singleton so the same object survives across jobs while always
-/// reflecting the active job's configuration.
+/// reflecting the active job's immutable context when one is active.
 /// </summary>
-public sealed class ActiveJobAgentJobContext(IJobConfiguration state) : IAgentJobContext
+public sealed class ActiveJobAgentJobContext(ICurrentAgentJobContextAccessor accessor) : IAgentJobContext
 {
     public string Mode
-        => state.PackageConfig?["MigrationPlatform:Mode"] ?? string.Empty;
+        => accessor.Current?.Mode ?? string.Empty;
 
     public string PackagePath
-        => System.Environment.ExpandEnvironmentVariables(
-            state.PackageConfig?["MigrationPlatform:Package:WorkingDirectory"] ?? string.Empty);
+        => accessor.Current?.PackagePath ?? string.Empty;
 
     public string ConfigVersion
-        => state.PackageConfig?["MigrationPlatform:ConfigVersion"] ?? string.Empty;
+        => accessor.Current?.ConfigVersion ?? string.Empty;
 }
 #endif

@@ -31,6 +31,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="Context\JobAgentWorkerDispatchTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Feature files from the workspace root features/ directory -->
     <ExternalFeatureFiles Include="..\..\features\platform\checkpointing\cursor-resume.feature" />
     <ExternalFeatureFiles Include="..\..\features\platform\checkpointing\import-cursor-resume.feature" />

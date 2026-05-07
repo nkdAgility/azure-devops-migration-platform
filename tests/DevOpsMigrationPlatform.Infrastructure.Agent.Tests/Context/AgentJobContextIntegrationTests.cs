@@ -2,6 +2,9 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -105,5 +108,112 @@ public sealed class AgentJobContextIntegrationTests
             $"Expected structured param Mode=Import, got: {stateStr}");
         Assert.IsTrue(stateStr.Contains("ConfigVersion=3.1") || stateStr.Contains("ConfigVersion = 3.1"),
             $"Expected structured param ConfigVersion=3.1, got: {stateStr}");
+    }
+
+    [TestMethod]
+    public void ActiveJobAgentJobContext_UsesExplicitCurrentContext_WhenAvailable()
+    {
+        var accessor = new CurrentAgentJobContextAccessor();
+        accessor.Set(new AgentJobContext
+        {
+            Mode = "Inventory",
+            PackagePath = @"C:\pkg",
+            ConfigVersion = "2.0"
+        });
+
+        var context = new ActiveJobAgentJobContext(accessor);
+
+        Assert.AreEqual("Inventory", context.Mode);
+        Assert.AreEqual(@"C:\pkg", context.PackagePath);
+        Assert.AreEqual("2.0", context.ConfigVersion);
+    }
+
+    [TestMethod]
+    public void ActiveJobAgentJobContext_ReturnsEmptyValues_WhenNoCurrentContextExists()
+    {
+        var accessor = new CurrentAgentJobContextAccessor();
+        var context = new ActiveJobAgentJobContext(accessor);
+
+        Assert.AreEqual(string.Empty, context.Mode);
+        Assert.AreEqual(string.Empty, context.PackagePath);
+        Assert.AreEqual(string.Empty, context.ConfigVersion);
+    }
+
+    [TestMethod]
+    public void ActiveJobSourceEndpointInfo_UsesExplicitCurrentSourceEndpoint_WhenAvailable()
+    {
+        var accessor = new CurrentJobEndpointAccessor();
+        accessor.SetSource(new TestSourceEndpointInfo(
+            "https://source.example",
+            "SourceProject",
+            "AzureDevOpsServices",
+            new OrganisationEndpoint
+            {
+                ResolvedUrl = "https://source.example",
+                Type = "AzureDevOpsServices"
+            }));
+
+        var endpoint = new ActiveJobSourceEndpointInfo(accessor);
+
+        Assert.AreEqual("https://source.example", endpoint.Url);
+        Assert.AreEqual("SourceProject", endpoint.Project);
+        Assert.AreEqual("AzureDevOpsServices", endpoint.ConnectorType);
+        Assert.AreEqual("https://source.example", endpoint.ToOrganisationEndpoint().ResolvedUrl);
+    }
+
+    [TestMethod]
+    public void ActiveJobTargetEndpointInfo_UsesExplicitCurrentTargetEndpoint_WhenAvailable()
+    {
+        var accessor = new CurrentJobEndpointAccessor();
+        accessor.SetTarget(new TestTargetEndpointInfo(
+            "https://target.example",
+            "TargetProject",
+            "Simulated",
+            new OrganisationEndpoint
+            {
+                ResolvedUrl = "https://target.example",
+                Type = "Simulated"
+            }));
+
+        var endpoint = new ActiveJobTargetEndpointInfo(accessor);
+
+        Assert.AreEqual("https://target.example", endpoint.Url);
+        Assert.AreEqual("TargetProject", endpoint.Project);
+        Assert.AreEqual("Simulated", endpoint.ConnectorType);
+        Assert.AreEqual("https://target.example", endpoint.ToOrganisationEndpoint().ResolvedUrl);
+    }
+
+    [TestMethod]
+    public void ActiveJobSourceEndpointInfo_ReturnsEmptyValues_WhenNoCurrentSourceExists()
+    {
+        var accessor = new CurrentJobEndpointAccessor();
+        var endpoint = new ActiveJobSourceEndpointInfo(accessor);
+
+        Assert.AreEqual(string.Empty, endpoint.Url);
+        Assert.AreEqual(string.Empty, endpoint.Project);
+        Assert.AreEqual(string.Empty, endpoint.ConnectorType);
+        Assert.AreEqual(string.Empty, endpoint.ToOrganisationEndpoint().ResolvedUrl);
+    }
+
+    [TestMethod]
+    public void ActiveJobTargetEndpointInfo_ReturnsEmptyValues_WhenNoCurrentTargetExists()
+    {
+        var accessor = new CurrentJobEndpointAccessor();
+        var endpoint = new ActiveJobTargetEndpointInfo(accessor);
+
+        Assert.AreEqual(string.Empty, endpoint.Url);
+        Assert.AreEqual(string.Empty, endpoint.Project);
+        Assert.AreEqual(string.Empty, endpoint.ConnectorType);
+        Assert.AreEqual(string.Empty, endpoint.ToOrganisationEndpoint().ResolvedUrl);
+    }
+
+    private sealed record TestSourceEndpointInfo(string Url, string Project, string ConnectorType, OrganisationEndpoint Endpoint) : ISourceEndpointInfo
+    {
+        public OrganisationEndpoint ToOrganisationEndpoint() => Endpoint;
+    }
+
+    private sealed record TestTargetEndpointInfo(string Url, string Project, string ConnectorType, OrganisationEndpoint Endpoint) : ITargetEndpointInfo
+    {
+        public OrganisationEndpoint ToOrganisationEndpoint() => Endpoint;
     }
 }

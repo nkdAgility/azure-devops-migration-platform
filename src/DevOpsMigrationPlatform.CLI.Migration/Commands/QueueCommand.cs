@@ -13,6 +13,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.JobRunners;
+using DevOpsMigrationPlatform.CLI.Migration;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.CLI.Views;
@@ -37,7 +38,6 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 /// All source types (AzureDevOpsServices, TeamFoundationServer, Simulated) submit
 /// jobs to the control plane. The appropriate agent picks up the job via
 /// capability-based routing.
-///
 /// No migration logic runs in this command — all execution happens in the agent.
 /// See docs/cli.md and system-architecture guardrail rules 16 and 19.
 /// </summary>
@@ -1328,7 +1328,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         // When the task list has arrived, render a single unified view where every
         // task row IS its module progress bar. No separate checklist + divider.
         if (s.Tasks is { Tasks.Count: > 0 })
+        {
+            var phases = GetOrderedTaskPhases(s.Tasks.Tasks);
+            if (phases.Count > 1)
+                return BuildMultiStageTaskDisplay(s, phases);
+
             return BuildUnifiedTaskDisplay(s);
+        }
 
         // Initialising: task list not yet received.
         if (s.Tasks is null)
@@ -1357,16 +1363,40 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     /// Identities/Nodes/Teams show their completion bar inline.
     /// WorkItems shows the full bar + sub-rows (current WI, timing, attachments, checkpoint).
     /// </summary>
-    private static IRenderable BuildUnifiedTaskDisplay(JobProgressState s)
+    private static IRenderable BuildMultiStageTaskDisplay(JobProgressState s, IReadOnlyList<string> phases)
+    {
+        var currentPhase = DetermineCurrentTaskPhase(s, phases);
+        var rows = new System.Collections.Generic.List<IRenderable>
+        {
+            new Markup(BuildTaskStageStrip(phases, currentPhase)),
+            new Markup(string.Empty),
+            BuildUnifiedTaskDisplay(s, currentPhase, showPhaseHeaders: false)
+        };
+
+        return new Rows(rows);
+    }
+
+    private static IRenderable BuildUnifiedTaskDisplay(
+        JobProgressState s,
+        string? phaseFilter = null,
+        bool showPhaseHeaders = true)
     {
         const int BarWidth = 38;
         var spinnerFrame = s_spinnerFrames[(int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80 % s_spinnerFrames.Length)];
         var rows = new System.Collections.Generic.List<IRenderable>();
         string? currentPhase = null;
+        var estimatedTotalRevisions = s.Completed > 0
+            ? (int)((double)s.Revisions / s.Completed * s.TotalWorkItems)
+            : 0;
 
-        foreach (var task in s.Tasks!.Tasks.OrderBy(t => t.Order))
+        var tasksToRender = s.Tasks!.Tasks
+            .Where(t => ShouldRenderTaskInPhase(t, phaseFilter))
+            .OrderBy(t => t.Order)
+            .ToList();
+
+        foreach (var task in tasksToRender)
         {
-            if (task.Phase != currentPhase)
+            if (showPhaseHeaders && task.Phase != currentPhase)
             {
                 currentPhase = task.Phase;
                 if (!string.IsNullOrEmpty(currentPhase))
@@ -1478,8 +1508,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                                 : task.Status == JobTaskStatus.Running ? "blue" : "grey";
                     var exportedStr = s.Completed > 0 ? $"  [green]{s.Completed:N0} exported[/]" : string.Empty;
                     var skippedStr = s.Skipped > 0 ? $"  [grey]{s.Skipped:N0} skipped[/]" : string.Empty;
-                    int estimatedTotalRevisions = s.Completed > 0
-                        ? (int)((double)s.Revisions / s.Completed * s.TotalWorkItems) : 0;
                     var etaStr = ComputeRevisionEta(s.Revisions, estimatedTotalRevisions, s.AverageRevDurationMs);
                     countsSuffix = $"  [bold]{processed:N0}[/][grey]/{s.TotalWorkItems:N0}[/]{exportedStr}{skippedStr}"
                                  + $"  [grey]{wiPct * 100.0:F1}%[/]  [grey]ETA: {Markup.Escape(etaStr)}[/]";
@@ -1507,6 +1535,14 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 var stageStr = string.IsNullOrEmpty(s.Stage) ? string.Empty : $"  [grey]{Markup.Escape(s.Stage)}[/]";
                 rows.Add(new Markup(
                     $"  [{iconColor}]{icon}[/]  [bold]{Markup.Escape(task.Name)}[/]{stageStr}  [{wiBarColor}]{Markup.Escape(wiBar)}[/]{countsSuffix}"));
+
+                if (s.Revisions > 0 || estimatedTotalRevisions > 0)
+                {
+                    var revisionTotalText = estimatedTotalRevisions > 0
+                        ? $"[bold]{s.Revisions:N0}[/][grey]/{estimatedTotalRevisions:N0} revisions[/]"
+                        : $"[bold]{s.Revisions:N0}[/][grey] revisions[/]";
+                    rows.Add(new Markup($"     [grey]↳ Overall revisions:[/] {revisionTotalText}"));
+                }
 
                 if (task.Status == JobTaskStatus.Running || s.CurrentWiId > 0)
                 {
@@ -1569,6 +1605,16 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     }
                     else
                         rows.Add(new Markup("     [grey]─[/]"));
+
+                    var completedDuration = TryGetTaskElapsed(task);
+                    if (task.Status == JobTaskStatus.Completed && completedDuration.HasValue)
+                        rows.Add(new Markup($"     [grey]duration:[/] [white]{Markup.Escape(FormatElapsed(completedDuration.Value))}[/]"));
+                }
+                else if (task.Status == JobTaskStatus.Completed)
+                {
+                    var completedDuration = TryGetTaskElapsed(task);
+                    if (completedDuration.HasValue)
+                        rows.Add(new Markup($"     [grey]duration:[/] [white]{Markup.Escape(FormatElapsed(completedDuration.Value))}[/]"));
                 }
             }
             else
@@ -1589,7 +1635,69 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             }
         }
 
+        var remainingTasks = s.Tasks.Tasks.Count(task => !IsTerminal(task.Status));
+        var overallEta = ComputeOverallTaskEta(s, estimatedTotalRevisions);
+        rows.Add(new Markup("[grey]────────────────────────────────────────────────────────────────────────[/]"));
+        rows.Add(new Markup(
+            overallEta.HasValue
+                ? $"[bold]Remaining tasks:[/] {remainingTasks}  [bold]Overall ETA:[/] [white]{Markup.Escape(FormatEta(overallEta.Value))}[/]"
+                : $"[bold]Remaining tasks:[/] {remainingTasks}  [bold]Overall ETA:[/] [grey]unknown[/]"));
+
         return rows.Count > 0 ? new Rows(rows) : new Markup("[grey]⠋ Running…[/]");
+    }
+
+    private static IReadOnlyList<string> GetOrderedTaskPhases(IReadOnlyList<JobTask> tasks) => tasks
+        .Select(t => t.Phase)
+        .Where(phase => !string.IsNullOrWhiteSpace(phase))
+        .Select(phase => phase!)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    private static string DetermineCurrentTaskPhase(JobProgressState s, IReadOnlyList<string> phases)
+    {
+        var runningPhase = s.Tasks!.Tasks
+            .Where(t => t.Status == JobTaskStatus.Running && !string.IsNullOrWhiteSpace(t.Phase))
+            .Select(t => t.Phase!)
+            .FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(runningPhase))
+            return runningPhase;
+
+        var pendingPhase = s.Tasks.Tasks
+            .Where(t => t.Status == JobTaskStatus.Pending && !string.IsNullOrWhiteSpace(t.Phase))
+            .Select(t => t.Phase!)
+            .FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(pendingPhase))
+            return pendingPhase;
+
+        if (!string.IsNullOrWhiteSpace(s.Stage))
+        {
+            var match = phases.FirstOrDefault(phase => s.Stage.Contains(phase, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(match))
+                return match;
+        }
+
+        return phases[0];
+    }
+
+    private static bool ShouldRenderTaskInPhase(JobTask task, string? phaseFilter)
+    {
+        if (string.IsNullOrWhiteSpace(phaseFilter))
+            return true;
+
+        if (string.IsNullOrWhiteSpace(task.Phase))
+            return true;
+
+        return string.Equals(task.Phase, phaseFilter, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string BuildTaskStageStrip(IReadOnlyList<string> phases, string currentPhase)
+    {
+        var segments = phases.Select(phase =>
+            string.Equals(phase, currentPhase, StringComparison.OrdinalIgnoreCase)
+                ? $"[black on white] {Markup.Escape(phase)} [/]"
+                : $"[grey]{Markup.Escape(phase)}[/]");
+
+        return string.Join(" [grey]>[/] ", segments);
     }
 
     /// <summary>
@@ -1622,6 +1730,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     var bootstrap = await client.GetBootstrapAsync(jobId, ct).ConfigureAwait(false);
                     if (bootstrap?.Tasks is not null)
                     {
+                        if (bootstrap.Metrics is not null)
+                        {
+                            await updates.WriteAsync(
+                                new TelemetryPolled(bootstrap.Metrics), ct)
+                                .ConfigureAwait(false);
+                        }
+
                         await updates.WriteAsync(
                             new TaskListReceived(bootstrap.Tasks, bootstrap.LastEventSequence), ct)
                             .ConfigureAwait(false);
@@ -1960,6 +2075,100 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             ? $"{(int)eta.TotalHours}:{eta.Minutes:D2}:{eta.Seconds:D2}"
             : $"--:{eta.Minutes:D2}:{eta.Seconds:D2}";
     }
+
+    private static bool IsTerminal(JobTaskStatus status) =>
+        status is JobTaskStatus.Completed or JobTaskStatus.Failed or JobTaskStatus.Skipped;
+
+    private static TimeSpan? TryGetTaskElapsed(JobTask task)
+    {
+        if (!task.StartedAt.HasValue || !task.CompletedAt.HasValue)
+            return null;
+
+        var elapsed = task.CompletedAt.Value - task.StartedAt.Value;
+        return elapsed > TimeSpan.Zero ? elapsed : null;
+    }
+
+    private static TimeSpan? ComputeOverallTaskEta(JobProgressState state, int estimatedTotalRevisions)
+    {
+        if (state.Tasks is null)
+            return null;
+
+        var completedDurations = state.Tasks.Tasks
+            .Select(TryGetTaskElapsed)
+            .Where(duration => duration.HasValue)
+            .Select(duration => duration!.Value)
+            .ToArray();
+
+        var averageCompletedTaskDuration = completedDurations.Length > 0
+            ? TimeSpan.FromMilliseconds(completedDurations.Average(duration => duration.TotalMilliseconds))
+            : (TimeSpan?)null;
+
+        TimeSpan totalRemaining = TimeSpan.Zero;
+        var hasEstimate = false;
+
+        foreach (var task in state.Tasks.Tasks)
+        {
+            if (IsTerminal(task.Status))
+                continue;
+
+            if (task.Id.Contains("workitems", StringComparison.OrdinalIgnoreCase))
+            {
+                var workItemsEta = ComputeRemainingRevisionTime(state.Revisions, estimatedTotalRevisions, state.AverageRevDurationMs);
+                if (workItemsEta.HasValue)
+                {
+                    totalRemaining += workItemsEta.Value;
+                    hasEstimate = true;
+                    continue;
+                }
+            }
+
+            if (task.Status == JobTaskStatus.Running
+                && task.StartedAt.HasValue
+                && task.KnownTotal.HasValue
+                && task.KnownTotal.Value > 0
+                && task.CompletedCount.HasValue
+                && task.CompletedCount.Value > 0)
+            {
+                var elapsed = DateTimeOffset.UtcNow - task.StartedAt.Value;
+                var remainingCount = task.KnownTotal.Value - task.CompletedCount.Value;
+                if (remainingCount > 0)
+                {
+                    totalRemaining += TimeSpan.FromMilliseconds(elapsed.TotalMilliseconds / task.CompletedCount.Value * remainingCount);
+                    hasEstimate = true;
+                    continue;
+                }
+            }
+
+            if (averageCompletedTaskDuration.HasValue)
+            {
+                totalRemaining += averageCompletedTaskDuration.Value;
+                hasEstimate = true;
+            }
+        }
+
+        return hasEstimate ? totalRemaining : null;
+    }
+
+    private static TimeSpan? ComputeRemainingRevisionTime(int revisionsWritten, int estimatedTotalRevisions, double avgRevDurationMs)
+    {
+        if (avgRevDurationMs <= 0 || estimatedTotalRevisions <= 0 || revisionsWritten <= 0)
+            return null;
+
+        var remainingRevisions = Math.Max(0, estimatedTotalRevisions - revisionsWritten);
+        return remainingRevisions > 0
+            ? TimeSpan.FromMilliseconds(remainingRevisions * avgRevDurationMs)
+            : TimeSpan.Zero;
+    }
+
+    private static string FormatEta(TimeSpan eta) =>
+        eta.TotalHours >= 1
+            ? $"{(int)eta.TotalHours}:{eta.Minutes:D2}:{eta.Seconds:D2}"
+            : $"--:{eta.Minutes:D2}:{eta.Seconds:D2}";
+
+    private static string FormatElapsed(TimeSpan elapsed) =>
+        elapsed.TotalHours >= 1
+            ? $"{(int)elapsed.TotalHours}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}"
+            : $"{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
 
     private static string FormatBytes(long bytes) =>
         bytes switch

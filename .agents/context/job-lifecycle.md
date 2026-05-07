@@ -91,17 +91,6 @@ Source and target endpoint shapes are defined in `migration-config.json` (at the
 
 ---
 
-## Guardrails
-
-The `guardrails` block encodes non-negotiable constraints that the Job Engine enforces before execution begins:
-
-- `streamingRequired: true` — the Job Engine will fail-fast if the execution plan requires loading more than one revision folder into memory simultaneously.
-- `canonicalWorkItemsLayoutRequired: true` — the Job Engine will reject any module configuration that alters the `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/` layout.
-
-These fields exist in the job contract so that guardrail enforcement is explicit and auditable, not implicit. They must always be `true`; a job with either field set to `false` is rejected by the Job Engine.
-
----
-
 ## Secrets Handling
 
 Credentials are configured by the operator in the scenario config file and passed through the `Job.ConfigPayload`. The control plane persists `job_json` (which contains the credentials) but does not inspect or proxy credential values.
@@ -121,7 +110,7 @@ Credentials are configured by the operator in the scenario config file and passe
 }
 ```
 
-Migration Agents read credentials directly from the job definition at startup. In local mode, credentials may also be supplied via environment variables.
+Migration Agents materialise `configPayload` to `migration-config.json`, build the per-job package configuration from that file, and read credentials from the resulting per-job configuration/accessor state. In local mode, credentials may also be supplied via environment variables.
 
 ---
 

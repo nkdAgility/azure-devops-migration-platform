@@ -6,6 +6,8 @@ The CLI is the operator's entry point to the migration platform. It is a **thin 
 
 Migration logic lives exclusively in the **Job Engine**, which runs inside Migration Agents. CLI commands manage their own hosting lifecycle — starting or connecting to the required services as needed before submitting the job. The CLI always communicates with the control plane via `ControlPlaneClient`.
 
+The exact mode-to-view contract for `queue --follow` and `manage status` lives in [ui-mode-contract.md](ui-mode-contract.md). Use this guide for command behaviour and data-source rules; use the UI mode contract when changing what the operator sees.
+
 See [docs/tui-guide.md](tui.md) for how progress is rendered in the terminal.
 
 ---
@@ -182,6 +184,8 @@ When `queue --follow` is active, the CLI renders a live progress table using Spe
 | **Channel 2 — Polling** | `GET /jobs/{id}/telemetry` (every ~5 s) | Aggregate counters: attempts, completed, skipped, errors, durations, in-flight. Carries `JobMetrics` records. |
 
 `BuildProgressRenderable` receives both inputs and merges them into the rendered table. Stage/cursor rows come from Channel 1. Counter values (e.g. work items completed, revisions written, attachment counts) come from Channel 2.
+
+For migration modes that use the shared task view, the live display includes per-task progress bars, WorkItems detail lines with explicit revision totals, completed-task duration when available, and a footer showing remaining task count plus an overall ETA when the CLI can calculate one.
 
 ### Why Not ProgressEvent.Metrics?
 

@@ -6,6 +6,8 @@ The TUI is the visual progress layer rendered in the terminal during a migration
 
 Command parsing, mode selection, and job dispatch are handled by the CLI shell. See [docs/cli-guide.md](cli.md).
 
+The exact target mode-to-workspace contract lives in [ui-mode-contract.md](ui-mode-contract.md). This guide remains the operator guide for launch, authentication, data-source rules, and the current TUI shell; the UI mode contract records the intended future-state TUI workspace behaviour.
+
 ---
 
 ## Data Sourcing Contract ⛔ MANDATORY
@@ -113,6 +115,8 @@ The `jobId` is not part of the `ProgressEvent` record — it is carried by the l
 ## Single-Screen Three-Panel Layout
 
 The TUI uses a **single-screen three-panel layout** — all panels are always visible in one `Window`. There is no separate detail screen or navigation stack.
+
+This is the current implementation shell. The target mode-driven workspaces that should occupy that shell are defined in [ui-mode-contract.md](ui-mode-contract.md).
 
 | Panel | Approximate Width | Content |
 |---|---|---|

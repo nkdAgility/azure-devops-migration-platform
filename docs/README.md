@@ -23,6 +23,7 @@ Agent-specific mandatory constraints live in [`.agents/guardrails`](../.agents/g
 | [`scenarios-guide.md`](scenarios-guide.md) | Scenario files and how to use them |
 | [`cli-guide.md`](cli-guide.md) | CLI commands and options |
 | [`tui-guide.md`](tui-guide.md) | Terminal UI usage |
+| [`ui-mode-contract.md`](ui-mode-contract.md) | Canonical CLI/TUI mode-to-view contract |
 | [`migration-process-guide.md`](migration-process-guide.md) | Migration phases end to end |
 | [`capabilities-guide.md`](capabilities-guide.md) | What can be migrated |
 | [`troubleshooting-guide.md`](troubleshooting-guide.md) | Diagnosing common failures |
@@ -56,6 +57,7 @@ Agent-specific mandatory constraints live in [`.agents/guardrails`](../.agents/g
 | [`architecture.md`](architecture.md) | Full architectural explanation |
 | [`package-format-reference.md`](package-format-reference.md) | Precise package format reference |
 | [`validation.md`](validation.md) | Validation model (four-tier) |
+| [`ui-mode-contract.md`](ui-mode-contract.md) | Exact CLI/TUI mode and view contract |
 | [`work-item-iteration-guide.md`](work-item-iteration-guide.md) | Work item iteration patterns |
 | [`concurrent-write-detection.md`](concurrent-write-detection.md) | Concurrent write detection and lease protocol |
 | [`adr/`](adr/README.md) | Architecture Decision Records |

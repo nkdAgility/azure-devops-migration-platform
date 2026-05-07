@@ -51,64 +51,74 @@ public static class CoreAgentServiceExtensions
         Uri controlPlaneBaseUrl,
         Action<IHttpClientBuilder>? configureControlPlane = null)
     {
-        // Ambient singletons shared across services within a lease/job lifecycle.
+        services
+            .AddAgentLifecycleStateServices()
+            .AddExecutionPlanningServices()
+            .AddAgentTelemetryAndDiagnostics(configuration, controlPlaneBaseUrl)
+            .AddControlPlaneIntegration(controlPlaneBaseUrl, configureControlPlane)
+            .AddPackageExecutionServices();
+
+        return services;
+    }
+
+    private static IServiceCollection AddAgentLifecycleStateServices(this IServiceCollection services)
+    {
         services.AddSingleton<ActiveLeaseState>();
         services.AddSingleton<ActivePackageState>();
-        services.AddSingleton<IJobConfiguration, JobConfiguration>();
+        services.AddSingleton<ICurrentPackageConfigAccessor, CurrentPackageConfigAccessor>();
+        services.AddSingleton<ICurrentAgentJobContextAccessor, CurrentAgentJobContextAccessor>();
+        services.AddSingleton<ICurrentJobEndpointAccessor, CurrentJobEndpointAccessor>();
         services.AddSingleton<IActiveJobState, ActiveJobState>();
+        return services;
+    }
 
-        // Execution plan builder — builds the ordered task list at job start.
+    private static IServiceCollection AddExecutionPlanningServices(this IServiceCollection services)
+    {
         services.AddSingleton<IJobExecutionPlanBuilder, JobExecutionPlanBuilder>();
-
-        // Execution plan executor — runs tasks in dependency-tier order with Task.WhenAll per tier.
         services.AddSingleton<IJobPlanExecutor, JobPlanExecutor>();
+        return services;
+    }
 
-        // Agent telemetry (IPlatformMetrics, IPlatformMetrics, TelemetryOptions).
+    private static IServiceCollection AddAgentTelemetryAndDiagnostics(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        Uri controlPlaneBaseUrl)
+    {
         services.AddAgentTelemetryServices(configuration);
-
-        // In-memory stores for job metrics and snapshots (IJobMetricsStore, IJobSnapshotStore).
         services.AddAgentJobMetricsServices();
-
-        // Named HttpClient for the Control Plane telemetry push.
-        services.AddControlPlaneTelemetryClient(controlPlaneBaseUrl);
-
-        // Named HttpClient used by the agent worker to poll /agents/lease and signal completion.
-        // The caller may inject Polly resilience handlers via configureControlPlane (net10.0 only).
-        var controlPlaneHttpBuilder = services.AddHttpClient("ControlPlane",
-            client => client.BaseAddress = controlPlaneBaseUrl);
-        configureControlPlane?.Invoke(controlPlaneHttpBuilder);
-
-        // Agent-side control-plane client — used for stale-lock detection by PackageLockFileService.
-        services.AddSingleton<AgentControlPlaneClientAdapter>();
-        services.AddSingleton<IControlPlaneAgentClient>(sp =>
-            sp.GetRequiredService<AgentControlPlaneClientAdapter>());
-
-        // Progress streaming to the Control Plane ring buffer.
-        services.AddControlPlaneProgressSink(controlPlaneBaseUrl);
-
-        // Phase tracking factory for Both mode (export + import phases).
-        services.AddSingleton<IPhaseTrackingServiceFactory, PhaseTrackingServiceFactory>();
-
-        // Package management — store factory, preparer, and config store.
-        services.AddPackageManagementServices();
-
-        // Checkpointing factory for per-job cursor management.
-        services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();
-
-        // Diagnostic log pipeline (writes to Logs/agent.jsonl and pushes to control plane).
         services.AddDiagnosticsServices(controlPlaneBaseUrl);
-
-        // Package progress persistence — writes ProgressEvent NDJSON to Logs/progress.jsonl.
         services.AddSingleton<PackageProgressSink>();
         services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<PackageProgressSink>());
         services.AddSingleton<IFlushable>(sp => sp.GetRequiredService<PackageProgressSink>());
-
-        // Composite sink fans out every ProgressEvent to all three sinks.
         services.AddCompositeProgressSink();
-
-        // Background timer that pushes JobMetrics to the Control Plane.
         services.AddSingleton<IHostedService, ControlPlaneTelemetryTimer>();
+        return services;
+    }
 
+    private static IServiceCollection AddControlPlaneIntegration(
+        this IServiceCollection services,
+        Uri controlPlaneBaseUrl,
+        Action<IHttpClientBuilder>? configureControlPlane)
+    {
+        services.AddControlPlaneTelemetryClient(controlPlaneBaseUrl);
+
+        var controlPlaneHttpBuilder = services.AddHttpClient(
+            "ControlPlane",
+            client => client.BaseAddress = controlPlaneBaseUrl);
+        configureControlPlane?.Invoke(controlPlaneHttpBuilder);
+
+        services.AddSingleton<AgentControlPlaneClientAdapter>();
+        services.AddSingleton<IControlPlaneAgentClient>(sp =>
+            sp.GetRequiredService<AgentControlPlaneClientAdapter>());
+        services.AddControlPlaneProgressSink(controlPlaneBaseUrl);
+        return services;
+    }
+
+    private static IServiceCollection AddPackageExecutionServices(this IServiceCollection services)
+    {
+        services.AddSingleton<IPhaseTrackingServiceFactory, PhaseTrackingServiceFactory>();
+        services.AddPackageManagementServices();
+        services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();
         return services;
     }
 }

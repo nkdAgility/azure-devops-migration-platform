@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
@@ -39,7 +40,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     /// <summary>Migration modules registered for this agent (ordered).
     /// Used only for ForceFresh cursor deletion by module name.
     /// For execution, modules are resolved per-job from <see cref="_moduleScopeFactory"/>
-    /// after <see cref="ActiveJobConfig"/> is populated with the per-job config.</summary>
+    /// after the current per-job package configuration is set.</summary>
     protected IEnumerable<IModule> MigrationModules { get; }
 
     /// <summary>Factory for creating per-job artefact and state stores.</summary>
@@ -60,8 +61,8 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     /// <summary>Reads <c>migration-config.json</c> from the package at job start.</summary>
     protected IPackageConfigStore PackageConfigStore { get; }
 
-    /// <summary>Ambient holder for the current job's per-job <see cref="Microsoft.Extensions.Configuration.IConfiguration"/> (PackageConfig).</summary>
-    protected IJobConfiguration ActiveJobConfig { get; }
+    /// <summary>Explicit holder for the current job's raw package configuration.</summary>
+    protected ICurrentPackageConfigAccessor CurrentPackageConfig { get; }
 
     /// <summary>Ambient holder for the identity (JobId, Kind) of the currently executing job.</summary>
     private readonly IActiveJobState? _activeJobState;
@@ -71,7 +72,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
 
     /// <summary>
     /// Used to create a per-job DI scope so that modules (and their tool dependencies)
-    /// are resolved AFTER <see cref="ActiveJobConfig.PackageConfig"/> is set from
+    /// are resolved AFTER the current package configuration is published from
     /// <c>migration-config.json</c>. This ensures Singleton tools whose
     /// <c>IOptions&lt;T&gt;.Value</c> is read at construction time receive the per-job config.
     /// </summary>
@@ -85,7 +86,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         IPhaseTrackingServiceFactory phaseTrackingFactory,
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
-        IJobConfiguration activeJobConfig,
+        ICurrentPackageConfigAccessor currentPackageConfigAccessor,
         IPackageConfigStore packageConfigStore,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
@@ -109,7 +110,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         PhaseTrackingFactory = phaseTrackingFactory ?? throw new ArgumentNullException(nameof(phaseTrackingFactory));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
         PackageConfigStore = packageConfigStore ?? throw new ArgumentNullException(nameof(packageConfigStore));
-        ActiveJobConfig = activeJobConfig ?? throw new ArgumentNullException(nameof(activeJobConfig));
+        CurrentPackageConfig = currentPackageConfigAccessor ?? throw new ArgumentNullException(nameof(currentPackageConfigAccessor));
         _activeJobState = activeJobState;
         _moduleScopeFactory = moduleScopeFactory ?? throw new ArgumentNullException(nameof(moduleScopeFactory));
     }
@@ -131,6 +132,37 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         => Task.CompletedTask;
 
     /// <summary>
+    /// Creates artefact/state stores for the package, sets the active package store,
+    /// and writes run metadata into the package when a run id is active.
+    /// </summary>
+    protected async Task<(IArtefactStore ArtefactStore, IStateStore StateStore)> InitializeJobPackageAsync(
+        Job job,
+        CancellationToken ct)
+    {
+        var (artefactStore, stateStore) = PackageStoreFactory.Create(job.Package.PackageUri ?? ".");
+        PackageState.CurrentStore = artefactStore;
+        await WriteRunMetadataAsync(job, artefactStore, ct).ConfigureAwait(false);
+        return (artefactStore, stateStore);
+    }
+
+    protected async Task WriteRunMetadataAsync(Job job, IArtefactStore artefactStore, CancellationToken ct)
+    {
+        var runId = PackageState.CurrentRunId;
+        if (string.IsNullOrEmpty(runId))
+            return;
+
+        var runJobPath = PackagePaths.RunJobFile(runId!);
+        var jobJson = JsonSerializer.Serialize(job, AgentJsonOptions);
+        await artefactStore.WriteAsync(runJobPath, jobJson, ct).ConfigureAwait(false);
+
+        if (!string.IsNullOrWhiteSpace(job.ConfigPayload))
+        {
+            var runConfigPath = PackagePaths.RunConfigFile(runId!);
+            await artefactStore.WriteAsync(runConfigPath, job.ConfigPayload!, ct).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
     /// Default Export-only job implementation.
     /// Sets up stores and checkpointing, handles ForceFresh (deleting cursors for every
     /// registered module), invokes the connector setup hook, runs the module export loop,
@@ -143,8 +175,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
         _activeJobState?.Set(job.JobId, job.Kind.ToString());
-        var (artefactStore, stateStore) = PackageStoreFactory.Create(job.Package.PackageUri ?? ".");
-        PackageState.CurrentStore = artefactStore;
+        var (artefactStore, stateStore) = await InitializeJobPackageAsync(job, ct).ConfigureAwait(false);
 
         // T035 — explicit fail-fast for pre-025 packages that have no migration-config.json.
         IConfiguration packageConfig;
@@ -158,12 +189,11 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
                 "Config file not found: {PackageUri}. Re-submit the job via CLI.",
                 job.Package.PackageUri);
             await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
-            ActiveJobConfig.Clear();
+            CurrentPackageConfig.Clear();
             return;
         }
         // Store the raw IConfiguration for per-job tool options binding.
-        // Modules resolve IOptionsSnapshot<T> from this config via ActiveJobConfigState.PackageConfig.
-        ActiveJobConfig.PackageConfig = packageConfig;
+        CurrentPackageConfig.Set(packageConfig);
 
         // Create a per-job DI scope AFTER PackageConfig is set. Modules (and their Singleton
         // tool dependencies like IFieldTransformTool) that read IOptions<T>.Value at
@@ -213,7 +243,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         finally
         {
             await OnAfterModulesAsync(ct).ConfigureAwait(false);
-            ActiveJobConfig.Clear();
+            CurrentPackageConfig.Clear();
             _activeJobState?.Clear();
         }
 

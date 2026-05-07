@@ -17,7 +17,7 @@ public sealed class AgentJobContext : IAgentJobContext
 {
     private static readonly HashSet<string> ValidModes = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Export", "Import", "Prepare", "Migrate"
+        "Inventory", "Dependencies", "Export", "Import", "Prepare", "Migrate"
     };
 
     private readonly ILogger<AgentJobContext>? _logger;
@@ -39,7 +39,7 @@ public sealed class AgentJobContext : IAgentJobContext
             if (!ValidModes.Contains(value))
             {
                 throw new InvalidOperationException(
-                    $"Invalid Mode '{value}'. Must be one of: Export, Import, Prepare, Migrate.");
+                    $"Invalid Mode '{value}'. Must be one of: Inventory, Dependencies, Export, Import, Prepare, Migrate.");
             }
             _mode = value;
 

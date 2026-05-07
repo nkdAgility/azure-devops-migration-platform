@@ -32,3 +32,4 @@ Context does not override guardrails. If context conflicts with guardrails, the 
 | `decision-records-summary.md` | ADR summaries and current implications |
 | `data-classification-summary.md` | Data classification — what is Customer vs System vs Derived data |
 | `cli-commands.md` | Canonical CLI commands reference — all commands, options, contract |
+| `ui-mode-summary.md` | Compressed CLI/TUI mode-to-view contract summary |

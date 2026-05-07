@@ -28,3 +28,4 @@ Each ADR records an important architectural decision: what was decided, why, wha
 | [0012](0012-imodule-five-phase-contract.md) | IModule five-phase contract | Accepted |
 | [0013](0013-simulated-connector-as-ci-infrastructure.md) | Simulated connector as first-class CI infrastructure | Accepted |
 | [0014](0014-icapture-unified-capture-contract.md) | ICapture: Unified capture contract | Accepted — amends ADR-0012 |
+| [0015](0015-mode-driven-cli-and-tui-ui-contract.md) | Mode-driven CLI and TUI UI contract | Accepted |

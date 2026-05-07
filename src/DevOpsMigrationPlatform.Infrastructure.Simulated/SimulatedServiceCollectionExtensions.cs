@@ -57,14 +57,14 @@ public static class SimulatedServiceCollectionExtensions
         services.TryAddSingleton<SimulatedGeneratorConfig>();
         services.TryAddSingleton<IProjectDiscoveryService, SimulatedProjectDiscoveryService>();
         services.TryAddSingleton(sp =>
-            new SimulatedWorkItemDiscoveryService(sp.GetRequiredService<IJobConfiguration>()));
+            new SimulatedWorkItemDiscoveryService(sp.GetRequiredService<ICurrentPackageConfigAccessor>()));
         services.AddWorkItemDiscoveryService<SimulatedWorkItemDiscoveryService>("Simulated");
 
         // Keyed discovery services — always resolve to simulated impls regardless of other registrations.
         // These are consumed by SimulatedInventoryServiceFactory via [FromKeyedServices("Simulated")].
         services.AddKeyedSingleton<IProjectDiscoveryService, SimulatedProjectDiscoveryService>("Simulated");
         services.AddKeyedSingleton<IWorkItemDiscoveryService>("Simulated", (sp, _) =>
-            new SimulatedWorkItemDiscoveryService(sp.GetRequiredService<IJobConfiguration>()));
+            new SimulatedWorkItemDiscoveryService(sp.GetRequiredService<ICurrentPackageConfigAccessor>()));
         services.AddKeyedSingleton<IRepoDiscoveryService, SimulatedRepoDiscoveryService>("Simulated");
 
         // Keyed inventory factory — used by InventoryDiscoveryModule when connector type is "Simulated".
@@ -128,7 +128,7 @@ public static class SimulatedServiceCollectionExtensions
 
     /// <summary>
     /// Registers <see cref="ISourceEndpointInfo"/> and <see cref="ITargetEndpointInfo"/> for the Simulated connector.
-    /// Uses TryAddSingleton so the dynamic ActiveJobConfigState-backed implementations registered
+    /// Uses TryAddSingleton so the dynamic active-job implementations registered
     /// by the MigrationAgent take precedence when both connectors are in the same host.
     /// </summary>
     private static IServiceCollection AddSimulatedEndpointInfo(this IServiceCollection services)

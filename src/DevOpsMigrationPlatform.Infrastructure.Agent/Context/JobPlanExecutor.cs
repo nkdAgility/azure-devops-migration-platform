@@ -20,7 +20,6 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Context;
@@ -44,20 +43,20 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
     private readonly IProgressSink? _progressSink;
     private readonly ILogger<JobPlanExecutor> _logger;
-    private readonly IJobConfiguration? _jobConfig;
+    private readonly ICurrentJobEndpointAccessor? _currentJobEndpointAccessor;
 
-    // IJobConfiguration.PackageConfig is a shared mutable reference for the entire job scope,
-    // so all capture-time overlay mutations must be serialised globally.
-    private readonly SemaphoreSlim _packageConfigLock = new(1, 1);
+    // The current source endpoint accessor is shared across the whole job scope,
+    // so capture-time source endpoint swaps must be serialised globally.
+    private readonly SemaphoreSlim _sourceEndpointLock = new(1, 1);
 
     public JobPlanExecutor(
         IProgressSink? progressSink,
         ILogger<JobPlanExecutor> logger,
-        IJobConfiguration? jobConfig = null)
+        ICurrentJobEndpointAccessor? currentJobEndpointAccessor = null)
     {
         _progressSink = progressSink;
         _logger = logger;
-        _jobConfig = jobConfig;
+        _currentJobEndpointAccessor = currentJobEndpointAccessor;
     }
 
     public async Task<bool> ExecuteTasksAsync(
@@ -643,29 +642,35 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                         SourceEndpoint = endpoint!
                     };
 
-                    // Apply a temporary config overlay so IJobConfiguration.PackageConfig
-                    // carries the correct Source.Type/Url/Auth for this capture.
-                    // The configuration object is shared across the whole job scope,
-                    // so mutation must be serialised globally.
-                    if (_jobConfig is not null && endpoint is not null)
+                    // Apply a temporary explicit source endpoint swap so singleton endpoint
+                    // adapters resolve the correct per-organisation source settings.
+                    if (_currentJobEndpointAccessor is not null && endpoint is not null)
                     {
-                        await _packageConfigLock.WaitAsync(ct).ConfigureAwait(false);
+                        await _sourceEndpointLock.WaitAsync(ct).ConfigureAwait(false);
                         try
                         {
-                            var prev = _jobConfig.PackageConfig;
-                            _jobConfig.PackageConfig = BuildCaptureConfigOverlay(prev, endpoint);
+                            var previousSource = _currentJobEndpointAccessor.Source;
+                            _currentJobEndpointAccessor.SetSource(
+                                BuildCaptureSourceEndpointInfo(endpoint, scopedCtx.Project));
                             try
                             {
                                 await captureHandler.CaptureAsync(scopedCtx, ct).ConfigureAwait(false);
                             }
                             finally
                             {
-                                _jobConfig.PackageConfig = prev;
+                                if (previousSource is not null)
+                                {
+                                    _currentJobEndpointAccessor.SetSource(previousSource);
+                                }
+                                else
+                                {
+                                    _currentJobEndpointAccessor.ClearSource();
+                                }
                             }
                         }
                         finally
                         {
-                            _packageConfigLock.Release();
+                            _sourceEndpointLock.Release();
                         }
                     }
                     else
@@ -844,29 +849,34 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         }
     }
 
-    /// <summary>
-    /// Builds a configuration that overlays the per-org source endpoint settings on top of
-    /// <paramref name="baseConfig"/>.  Used before executing a Capture task so that
-    /// <c>ActiveJobSourceEndpointInfo</c> resolves the correct connector type, URL, and
-    /// credentials for each organisation.
-    /// </summary>
-    private static IConfiguration BuildCaptureConfigOverlay(IConfiguration? baseConfig, OrganisationEndpoint endpoint)
+    private static ISourceEndpointInfo BuildCaptureSourceEndpointInfo(OrganisationEndpoint endpoint, string project)
+        => new CaptureSourceEndpointInfo(
+            endpoint.ResolvedUrl ?? string.Empty,
+            project,
+            endpoint.Type ?? string.Empty,
+            endpoint.ApiVersion,
+            endpoint.Authentication.Type,
+            endpoint.Authentication.ResolvedAccessToken);
+
+    private sealed record CaptureSourceEndpointInfo(
+        string Url,
+        string Project,
+        string ConnectorType,
+        string? ApiVersion,
+        AuthenticationType AuthenticationType,
+        string? AccessToken) : ISourceEndpointInfo
     {
-        var builder = new ConfigurationBuilder();
-        if (baseConfig is not null)
-            builder.AddConfiguration(baseConfig);
-
-        var overlay = new Dictionary<string, string?>
+        public OrganisationEndpoint ToOrganisationEndpoint() => new()
         {
-            ["MigrationPlatform:Source:Type"] = endpoint.Type,
-            ["MigrationPlatform:Source:Url"] = endpoint.ResolvedUrl,
-            ["MigrationPlatform:Source:Authentication:Type"] = endpoint.Authentication.Type.ToString(),
-            ["MigrationPlatform:Source:Authentication:AccessToken"] = endpoint.Authentication.ResolvedAccessToken,
+            ResolvedUrl = Url,
+            Type = ConnectorType,
+            ApiVersion = ApiVersion,
+            Authentication = new OrganisationEndpointAuthentication
+            {
+                Type = AuthenticationType,
+                ResolvedAccessToken = AccessToken
+            }
         };
-        if (endpoint.ApiVersion is not null)
-            overlay["MigrationPlatform:Source:ApiVersion"] = endpoint.ApiVersion;
-
-        return builder.AddInMemoryCollection(overlay).Build();
     }
 
     /// <summary>

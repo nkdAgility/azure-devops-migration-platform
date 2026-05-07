@@ -83,7 +83,8 @@
         {
             "fileMatch": [
                 "**/migration*.json",
-                "**/migration-config.json"
+                "**/migration-config.json",
+                "**/scenarios/**/*.json"
             ],
             "url": "./src/DevOpsMigrationPlatform.CLI.Migration/migration.schema.json"
         }
