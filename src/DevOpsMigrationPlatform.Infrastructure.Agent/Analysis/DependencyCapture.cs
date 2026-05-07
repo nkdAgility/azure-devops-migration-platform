@@ -73,12 +73,7 @@ public sealed class DependencyCapture : ICapture
         var project = context.Project;
         var jobId = context.Job.JobId;
 
-        var tags = new MetricsTagList
-        {
-            { "job.id", jobId },
-            { "org.url", orgUrl },
-            { "project.name", project }
-        };
+        var tags = MetricsTagList.Create(jobId, "capture", Name);
 
         // O-4: in-flight increment (decremented in finally)
         _metrics?.DependenciesCaptureInFlightIncrement(tags);

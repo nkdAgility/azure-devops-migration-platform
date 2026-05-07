@@ -46,10 +46,9 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     private readonly ILogger<JobPlanExecutor> _logger;
     private readonly IJobConfiguration? _jobConfig;
 
-    // Per-org semaphores ensure IJobConfiguration.PackageConfig is swapped exclusively
-    // for one org at a time. Capture tasks for different orgs still run concurrently.
-    private readonly ConcurrentDictionary<string, SemaphoreSlim> _orgConfigLocks =
-        new(StringComparer.OrdinalIgnoreCase);
+    // IJobConfiguration.PackageConfig is a shared mutable reference for the entire job scope,
+    // so all capture-time overlay mutations must be serialised globally.
+    private readonly SemaphoreSlim _packageConfigLock = new(1, 1);
 
     public JobPlanExecutor(
         IProgressSink? progressSink,
@@ -137,7 +136,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                                 plan = plan with { Tasks = taskList.AsReadOnly() };
                                 await PersistPlanAsync(plan, stateStore, ct).ConfigureAwait(false);
 
-                                 _progressSink?.Emit(new ProgressEvent
+                                _progressSink?.Emit(new ProgressEvent
                                 {
                                     Module = GetModuleName(task.Id, captureHandlersByName.Keys),
                                     Stage = $"{task.TaskKind}.Skipped",
@@ -470,16 +469,15 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             IModule? module = null;
             IAnalyser? analyserForTask = null;
             ICapture? captureHandler = null;
+            Exception? resolutionError = null;
 
             if (task.TaskKind == TaskKind.Analyse)
             {
                 handlerName = GetModuleName(task.Id, analysersByName?.Keys ?? Enumerable.Empty<string>());
                 if (analysersByName is null || !analysersByName.TryGetValue(handlerName, out analyserForTask))
                 {
-                    _logger.LogError(
-                        "Task {TaskId} references analyser '{Analyser}', but it is not registered. Skipping.",
-                        task.Id, handlerName);
-                    return;
+                    resolutionError = new InvalidOperationException(
+                        $"Task {task.Id} references analyser '{handlerName}', but it is not registered.");
                 }
             }
             else if (task.TaskKind == TaskKind.Capture)
@@ -487,23 +485,22 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 handlerName = GetModuleName(task.Id, captureHandlersByName.Keys);
                 if (!captureHandlersByName.TryGetValue(handlerName, out captureHandler))
                 {
-                    _logger.LogError(
-                        "Task {TaskId} references capture handler '{HandlerName}', but it is not registered. Skipping.",
-                        task.Id, handlerName);
-                    return;
+                    resolutionError = new InvalidOperationException(
+                        $"Task {task.Id} references capture handler '{handlerName}', but it is not registered.");
                 }
             }
             else
             {
                 handlerName = GetModuleName(task.Id, captureHandlersByName.Keys);
-                if (!captureHandlersByName.TryGetValue(handlerName, out var handler) || handler is not IModule m)
+                if (!captureHandlersByName.TryGetValue(handlerName, out var handler) || handler is not IModule resolvedModule)
                 {
-                    _logger.LogError(
-                        "Task {TaskId} references module '{Module}', but that module is not registered. Skipping.",
-                        task.Id, handlerName);
-                    return;
+                    resolutionError = new InvalidOperationException(
+                        $"Task {task.Id} references module '{handlerName}', but it is not registered.");
                 }
-                module = m;
+                else
+                {
+                    module = resolvedModule;
+                }
             }
 
             // Transition to Running.
@@ -553,6 +550,30 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
             try
             {
+                if (resolutionError is not null)
+                {
+                    switch (task.TaskKind)
+                    {
+                        case TaskKind.Analyse:
+                            _logger.LogError(
+                                "Task {TaskId} references analyser '{Analyser}', but it is not registered.",
+                                task.Id, handlerName);
+                            break;
+                        case TaskKind.Capture:
+                            _logger.LogError(
+                                "Task {TaskId} references capture handler '{HandlerName}', but it is not registered.",
+                                task.Id, handlerName);
+                            break;
+                        default:
+                            _logger.LogError(
+                                "Task {TaskId} references module '{Module}', but it is not registered.",
+                                task.Id, handlerName);
+                            break;
+                    }
+
+                    throw resolutionError;
+                }
+
                 _logger.LogInformation("Running {Handler}.{Kind}Async for task {TaskId}",
                     handlerName, task.TaskKind, task.Id);
 
@@ -597,26 +618,38 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                         throw new InvalidOperationException($"Capture task {task.Id} requires a base InventoryContext.");
 
                     var orgUrl = task.OrganisationUrl;
-                    var endpoint = (orgUrl is { Length: > 0 }
-                        && endpointsByUrl?.TryGetValue(orgUrl, out var ep) == true)
-                        ? ep
-                        : baseInventoryContext.SourceEndpoint;
+                    OrganisationEndpoint endpoint;
+                    if (orgUrl is { Length: > 0 })
+                    {
+                        if (endpointsByUrl?.TryGetValue(orgUrl, out var resolvedEndpoint) != true
+                            || resolvedEndpoint is null)
+                        {
+                            throw new InvalidOperationException(
+                                $"Capture task {task.Id} references organisation '{orgUrl}', but no matching endpoint was resolved.");
+                        }
+
+                        endpoint = resolvedEndpoint;
+                    }
+                    else
+                    {
+                        endpoint = baseInventoryContext.SourceEndpoint
+                            ?? throw new InvalidOperationException(
+                                $"Capture task {task.Id} requires a resolved source endpoint.");
+                    }
 
                     var scopedCtx = baseInventoryContext with
                     {
                         Project = task.ProjectName ?? string.Empty,
-                        SourceEndpoint = endpoint
+                        SourceEndpoint = endpoint!
                     };
 
-                    // Apply per-org config overlay so IJobConfiguration.PackageConfig
-                    // carries the correct Source.Type/Url/Auth for this org.
-                    // Per-org semaphore: same-org tasks are serialised; different-org
-                    // tasks run concurrently.
+                    // Apply a temporary config overlay so IJobConfiguration.PackageConfig
+                    // carries the correct Source.Type/Url/Auth for this capture.
+                    // The configuration object is shared across the whole job scope,
+                    // so mutation must be serialised globally.
                     if (_jobConfig is not null && endpoint is not null)
                     {
-                        var orgKey = orgUrl ?? string.Empty;
-                        var orgSem = _orgConfigLocks.GetOrAdd(orgKey, _ => new SemaphoreSlim(1, 1));
-                        await orgSem.WaitAsync(ct).ConfigureAwait(false);
+                        await _packageConfigLock.WaitAsync(ct).ConfigureAwait(false);
                         try
                         {
                             var prev = _jobConfig.PackageConfig;
@@ -632,7 +665,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                         }
                         finally
                         {
-                            orgSem.Release();
+                            _packageConfigLock.Release();
                         }
                     }
                     else

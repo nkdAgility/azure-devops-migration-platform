@@ -685,8 +685,8 @@ public sealed class PlatformMetrics : IPlatformMetrics, IDisposable
     public void RecordConfigReadFallback(MetricsTagList tags) => _configReadFallbacks.Add(1, ToTagList(tags));
 
     // --- Dependencies Capture ---
-    public void DependenciesCaptureStarted(MetricsTagList tags) => _dependenciesCaptureCount.Add(1, ToTagList(tags));
-    public void DependenciesCaptureCompleted(MetricsTagList tags) { /* count recorded at DependenciesCaptureStarted */ }
+    public void DependenciesCaptureStarted(MetricsTagList tags) { }
+    public void DependenciesCaptureCompleted(MetricsTagList tags) => _dependenciesCaptureCount.Add(1, ToTagList(tags));
     public void DependenciesCaptureFailed(MetricsTagList tags) => _dependenciesCaptureErrors.Add(1, ToTagList(tags));
     public void RecordDependenciesCaptureDuration(double milliseconds, MetricsTagList tags) => _dependenciesCaptureDuration.Record(milliseconds, ToTagList(tags));
     public void DependenciesCaptureInFlightIncrement(MetricsTagList tags) => _dependenciesCaptureInFlight.Add(1, ToTagList(tags));

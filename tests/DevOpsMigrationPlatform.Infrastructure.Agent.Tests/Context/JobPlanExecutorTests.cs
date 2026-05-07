@@ -533,11 +533,10 @@ public sealed class JobPlanExecutorTests
 
     /// <summary>
     /// When no capture handler matches the task's module name, the executor must log
-    /// an Error with {TaskId} and {HandlerName} structured parameters and skip the task
-    /// without throwing.
+    /// an Error with {TaskId} and {HandlerName} structured parameters and fail the task/job.
     /// </summary>
     [TestMethod]
-    public async Task ExecuteTasksAsync_CaptureTask_NoMatchingHandler_LogsErrorAndSkipsWithoutThrowing()
+    public async Task ExecuteTasksAsync_CaptureTask_NoMatchingHandler_LogsErrorAndFailsTask()
     {
         var mockLogger = new Mock<ILogger<JobPlanExecutor>>(MockBehavior.Loose);
         var executor = CreateExecutorWithLogger(mockLogger.Object);
@@ -555,7 +554,7 @@ public sealed class JobPlanExecutorTests
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
             null, null, null, null, stateStore, CancellationToken.None);
 
-        Assert.IsTrue(result, "ExecuteTasksAsync should still return true when a handler is missing (task is skipped, not failed)");
+        Assert.IsFalse(result, "ExecuteTasksAsync should fail when a handler is missing");
 
         mockLogger.Verify(
             x => x.Log(
@@ -566,6 +565,54 @@ public sealed class JobPlanExecutorTests
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once,
             "LogError must be called exactly once with {TaskId} and {HandlerName} structured parameters");
+    }
+
+    [TestMethod]
+    public async Task ExecuteTasksAsync_CaptureTask_UnknownOrganisationUrl_FailsWithoutInvokingHandler()
+    {
+        var invoked = false;
+        var captureHandler = new Mock<ICapture>(MockBehavior.Strict);
+        captureHandler.SetupGet(c => c.Name).Returns("dependencies");
+        captureHandler.Setup(c => c.CaptureAsync(It.IsAny<InventoryContext>(), It.IsAny<CancellationToken>()))
+            .Callback(() => invoked = true)
+            .Returns(Task.CompletedTask);
+
+        var handlers = new Dictionary<string, ICapture>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["dependencies"] = captureHandler.Object
+        };
+
+        var plan = CreatePlan(new[]
+        {
+            new JobTask
+            {
+                Id = "capture.dependencies.testorg.testproject",
+                Name = "Dependencies Capture",
+                Phase = "Capture",
+                TaskKind = TaskKind.Capture,
+                Status = JobTaskStatus.Pending,
+                OrganisationUrl = "https://missing.example",
+                ProjectName = "TestProject"
+            }
+        });
+
+        var executor = CreateExecutor();
+        var stateStore = new InMemoryStateStore();
+        var ctx = CreateMinimalInventoryContext(stateStore);
+
+        var result = await executor.ExecuteTasksAsync(
+            plan,
+            handlers,
+            new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
+            ctx,
+            null,
+            null,
+            new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase),
+            stateStore,
+            CancellationToken.None);
+
+        Assert.IsFalse(result, "ExecuteTasksAsync should fail when the capture task organisation URL cannot be resolved.");
+        Assert.IsFalse(invoked, "Capture handler must not be invoked when the task organisation URL cannot be resolved.");
     }
 
     private static bool LogStateHasTaskIdAndHandlerName(object v)

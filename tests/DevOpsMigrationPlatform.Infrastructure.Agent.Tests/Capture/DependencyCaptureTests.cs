@@ -198,24 +198,24 @@ public sealed class DependencyCaptureTests
 
         // Strict mocking: ALL expected calls must be set up
         metrics.Setup(m => m.DependenciesCaptureInFlightIncrement(
-                It.Is<MetricsTagList>(t => HasTag(t, "job.id", JobId) && HasTag(t, "org.url", OrgUrl) && HasTag(t, "project.name", Project))))
+                It.Is<MetricsTagList>(t => HasDefaultDependencyMetricTags(t))))
             .Verifiable();
         metrics.Setup(m => m.DependenciesCaptureStarted(
-                It.Is<MetricsTagList>(t => HasTag(t, "job.id", JobId) && HasTag(t, "org.url", OrgUrl) && HasTag(t, "project.name", Project))))
+                It.Is<MetricsTagList>(t => HasDefaultDependencyMetricTags(t))))
             .Verifiable();
         metrics.Setup(m => m.DependenciesCaptureCompleted(
-                It.Is<MetricsTagList>(t => HasTag(t, "job.id", JobId) && HasTag(t, "org.url", OrgUrl) && HasTag(t, "project.name", Project))))
+                It.Is<MetricsTagList>(t => HasDefaultDependencyMetricTags(t))))
             .Verifiable();
         metrics.Setup(m => m.RecordDependenciesCaptureDuration(
                 It.IsAny<double>(),
-                It.Is<MetricsTagList>(t => HasTag(t, "job.id", JobId) && HasTag(t, "org.url", OrgUrl) && HasTag(t, "project.name", Project))))
+                It.Is<MetricsTagList>(t => HasDefaultDependencyMetricTags(t))))
             .Verifiable();
         metrics.Setup(m => m.RecordWorkItemsAnalysed(
                 It.IsAny<int>(),
-                It.Is<MetricsTagList>(t => HasTag(t, "job.id", JobId) && HasTag(t, "org.url", OrgUrl) && HasTag(t, "project.name", Project))))
+                It.Is<MetricsTagList>(t => HasDefaultDependencyMetricTags(t))))
             .Verifiable();
         metrics.Setup(m => m.DependenciesCaptureInFlightDecrement(
-                It.Is<MetricsTagList>(t => HasTag(t, "job.id", JobId) && HasTag(t, "org.url", OrgUrl) && HasTag(t, "project.name", Project))))
+                It.Is<MetricsTagList>(t => HasDefaultDependencyMetricTags(t))))
             .Verifiable();
 
         var factory = new Mock<IDependencyDiscoveryServiceFactory>(MockBehavior.Strict);
@@ -591,4 +591,9 @@ public sealed class DependencyCaptureTests
         }
         return false;
     }
+
+    private static bool HasDefaultDependencyMetricTags(MetricsTagList tags)
+        => HasTag(tags, "job.id", JobId)
+            && HasTag(tags, "operation", "capture")
+            && HasTag(tags, "module", "dependencies");
 }

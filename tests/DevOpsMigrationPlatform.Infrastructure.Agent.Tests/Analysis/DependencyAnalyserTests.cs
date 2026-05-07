@@ -155,7 +155,7 @@ public sealed class DependencyAnalyserTests
         };
 
     [TestMethod]
-    public async Task AnalyseAsync_EC5_WhenPerProjectCsvAbsent_LogsErrorAndDoesNotThrow()
+    public async Task AnalyseAsync_EC5_WhenPerProjectCsvAbsent_ThrowsAndDoesNotWriteConsolidatedOutput()
     {
         // Arrange: a store that enumerates paths but ReadAsync returns null for them (simulates
         // a capture task that ran but did not write the CSV file).
@@ -184,10 +184,11 @@ public sealed class DependencyAnalyserTests
 
         var analyser = new DependencyAnalyser(factory.Object, orchestrator.Object, logger.Object);
 
-        // Act — must not throw
-        await analyser.AnalyseAsync(CreateContext(artefactStore: store), CancellationToken.None);
+        var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
+            await analyser.AnalyseAsync(CreateContext(artefactStore: store), CancellationToken.None));
 
         // Assert: LogError called once per missing file (2 paths, both null from ReadAsync)
+        StringAssert.Contains(ex.Message, "required per-project dependency CSV");
         logger.Verify(
             x => x.Log(
                 LogLevel.Error,
@@ -196,6 +197,8 @@ public sealed class DependencyAnalyserTests
                 It.IsAny<System.Exception?>(),
                 It.IsAny<System.Func<It.IsAnyType, System.Exception?, string>>()),
             Times.Exactly(2));
+        Assert.IsFalse(store.Exists("dependencies.csv"), "Consolidated root dependency output must not be written when required inputs are missing.");
+        Assert.IsFalse(store.Exists("analysis/dependencies.csv"), "Analysis dependency output must not be written when required inputs are missing.");
     }
 
     /// <summary>
@@ -223,6 +226,8 @@ public sealed class DependencyAnalyserTests
 
         public Task<bool> ExistsAsync(string path, CancellationToken cancellationToken)
             => Task.FromResult(_written.ContainsKey(path));
+
+        public bool Exists(string path) => _written.ContainsKey(path);
 
         public Task WriteBinaryAsync(string path, byte[] content, CancellationToken cancellationToken)
             => Task.CompletedTask;

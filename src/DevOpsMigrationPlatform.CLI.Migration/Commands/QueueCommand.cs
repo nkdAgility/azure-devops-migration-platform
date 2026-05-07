@@ -1349,7 +1349,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             s.Metrics?.Migration?.Nodes,
             s.Metrics?.Migration?.Identities,
             s.TeamsCount, s.NodesCount, s.IdentitiesCount,
-            s.Metrics?.Migration?.DependencyCapture);
+                s.Metrics?.Migration?.DependencyCapture ?? s.Metrics?.Discovery?.Dependencies);
     }
 
     /// <summary>

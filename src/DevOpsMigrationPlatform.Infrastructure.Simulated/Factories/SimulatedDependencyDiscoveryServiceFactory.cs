@@ -58,14 +58,10 @@ public sealed class SimulatedDependencyDiscoveryServiceFactory : IDependencyDisc
             }
         }
 
-        if (scoped.Count == 0 && allOrganisations.Count > 0)
+        if (scoped.Count == 0)
         {
-            // No matching org found — use first org with the single project.
-            scoped.Add(new ScopedOrganisationEndpoint
-            {
-                Endpoint = allOrganisations[0].Endpoint,
-                Projects = new List<string> { projectName }
-            });
+            throw new InvalidOperationException(
+                $"No simulated organisation matched '{orgUrl}' for dependency capture project '{projectName}'.");
         }
 
         return new SimulatedDependencyDiscoveryService(_linkAnalysisService, scoped);
@@ -105,6 +101,31 @@ public sealed class SimulatedDependencyDiscoveryServiceFactory : IDependencyDisc
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    var projectKey = $"{endpoint.GetResolvedUrl()}|{project}";
+                    if (completedProjectKeys?.Contains(projectKey) == true)
+                    {
+                        yield return new DependencyHeartbeatEvent(
+                            OrganisationUrl: endpoint.GetResolvedUrl(),
+                            ProjectName: project,
+                            WorkItemsAnalysed: 0,
+                            ExternalLinksFound: 0,
+                            CrossProjectCount: 0,
+                            CrossOrgCount: 0,
+                            IsComplete: true,
+                            TotalWorkItems: 0,
+                            SkippedWorkItems: 0);
+                        continue;
+                    }
+
+                    BatchContinuationToken? savedContinuationToken = null;
+                    Func<BatchContinuationToken, CancellationToken, Task>? projectCheckpointWriter = null;
+                    if (inProgressProjectKey is not null
+                        && string.Equals(projectKey, inProgressProjectKey, StringComparison.OrdinalIgnoreCase))
+                    {
+                        savedContinuationToken = inProgressToken;
+                        projectCheckpointWriter = continuationCheckpointWriter;
+                    }
+
                     int workItemsAnalysed = 0;
                     int linksFound = 0;
                     int crossProjectCount = 0;
@@ -114,8 +135,8 @@ public sealed class SimulatedDependencyDiscoveryServiceFactory : IDependencyDisc
                         endpoint,
                         project,
                         wiqlFilter,
-                        savedContinuationToken: null,
-                        continuationCheckpointWriter: null,
+                        savedContinuationToken,
+                        projectCheckpointWriter ?? continuationCheckpointWriter,
                         cancellationToken: cancellationToken).ConfigureAwait(false))
                     {
                         if (evt is DependencyFoundEvent found)

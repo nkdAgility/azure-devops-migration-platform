@@ -766,8 +766,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     /// </para>
     /// <para>
     /// Step 2: Unions with all pure <see cref="ICapture"/> registrations from DI (e.g. <c>DependencyCapture</c>),
-    /// de-duplicating by <see cref="ICapture.Name"/> using <see cref="StringComparer.OrdinalIgnoreCase"/>.
-    /// A module already registered in step 1 takes precedence over a same-named pure capture.
+    /// failing fast if any duplicate <see cref="ICapture.Name"/> is encountered using
+    /// <see cref="StringComparer.OrdinalIgnoreCase"/>.
     /// </para>
     /// </summary>
     private static IReadOnlyDictionary<string, ICapture> BuildCaptureHandlers(
@@ -779,16 +779,27 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         // Step 1: Add all IModule instances where SupportsInventory = true.
         foreach (var module in modules.Where(m => m.SupportsInventory))
         {
+            if (handlers.ContainsKey(module.Name))
+            {
+                throw new ArgumentException(
+                    $"Duplicate capture handler name '{module.Name}' was registered.",
+                    nameof(modules));
+            }
+
             handlers[module.Name] = module;
         }
 
-        // Step 2: Union with pure ICapture registrations, de-duplicating by name.
+        // Step 2: Union with pure ICapture registrations, failing fast on duplicate names.
         foreach (var capture in serviceProvider.GetServices<ICapture>())
         {
-            if (!handlers.ContainsKey(capture.Name))
+            if (handlers.ContainsKey(capture.Name))
             {
-                handlers[capture.Name] = capture;
+                throw new ArgumentException(
+                    $"Duplicate capture handler name '{capture.Name}' was registered.",
+                    nameof(serviceProvider));
             }
+
+            handlers[capture.Name] = capture;
         }
 
         return handlers;

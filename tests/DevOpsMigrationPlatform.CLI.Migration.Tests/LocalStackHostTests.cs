@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using DevOpsMigrationPlatform.CLI;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace DevOpsMigrationPlatform.CLI.Migration.Tests;
+
+[TestClass]
+public class LocalStackHostTests
+{
+    [TestMethod]
+    public async Task WaitForHealthyAsync_RetriesHealthEndpointUntilItSucceeds()
+    {
+        var requestedPaths = new List<string>();
+        var responses = new Queue<Func<HttpResponseMessage>>();
+        responses.Enqueue(() => throw new HttpRequestException("not ready"));
+        responses.Enqueue(() => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+        responses.Enqueue(() => new HttpResponseMessage(HttpStatusCode.OK));
+
+        using var http = new HttpClient(new DelegatingHandlerStub(request =>
+        {
+            requestedPaths.Add(request.RequestUri!.AbsolutePath);
+            return responses.Dequeue().Invoke();
+        }))
+        {
+            BaseAddress = new Uri("http://localhost:5101")
+        };
+
+        await LocalStackHost.WaitForHealthyAsync(
+            http,
+            new Uri("http://localhost:5101"),
+            controlPlaneHasExited: () => false,
+            readyTimeout: TimeSpan.FromSeconds(2));
+
+        CollectionAssert.AreEqual(
+            new[] { "/health", "/health", "/health" },
+            requestedPaths,
+            "Standalone readiness should probe the health endpoint until it succeeds.");
+    }
+
+    [TestMethod]
+    public async Task WaitForHealthyAsync_ThrowsWhenProcessExitsBeforeHealthy()
+    {
+        using var http = new HttpClient(new DelegatingHandlerStub(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)))
+        {
+            BaseAddress = new Uri("http://localhost:5101")
+        };
+
+        var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            LocalStackHost.WaitForHealthyAsync(
+                http,
+                new Uri("http://localhost:5101"),
+                controlPlaneHasExited: () => true,
+                readyTimeout: TimeSpan.FromSeconds(2)));
+
+        StringAssert.Contains(ex.Message, "5101");
+    }
+
+    private sealed class DelegatingHandlerStub : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _handler;
+
+        public DelegatingHandlerStub(Func<HttpRequestMessage, HttpResponseMessage> handler)
+            => _handler = handler;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(_handler(request));
+    }
+}

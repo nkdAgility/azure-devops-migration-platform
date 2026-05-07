@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
@@ -123,5 +124,81 @@ public sealed class SimulatedDependencyDiscoveryServiceFactoryTests
         Assert.AreEqual(0, linkEvents.Count, "Simulated factory CreateForProject must yield no link events");
         Assert.AreEqual(1, heartbeats.Count, "Simulated factory CreateForProject must emit one completion heartbeat");
         Assert.IsTrue(heartbeats[0].IsComplete, "Completion heartbeat must have IsComplete=true");
+    }
+
+    [TestMethod]
+    public void CreateForProject_UnknownOrg_ThrowsInvalidOperationException()
+    {
+        var linkService = new SimulatedWorkItemLinkAnalysisService();
+        var factory = new SimulatedDependencyDiscoveryServiceFactory(linkService);
+
+        var ex = Assert.ThrowsExactly<InvalidOperationException>(() =>
+            factory.CreateForProject(OneOrg(), "simulated://other-org", ProjectName, new JobPolicies()));
+
+        StringAssert.Contains(ex.Message, "No simulated organisation matched");
+    }
+
+    [TestMethod]
+    public async Task DiscoverDependenciesAsync_InProgressProject_ForwardsContinuationTokenAndWriter()
+    {
+        var linkService = new RecordingLinkAnalysisService();
+        var factory = new SimulatedDependencyDiscoveryServiceFactory(linkService);
+        var service = factory.CreateForProject(OneOrg(), SimOrgUrl, ProjectName, new JobPolicies());
+        var token = new BatchContinuationToken
+        {
+            ChangedDateUtc = new System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc),
+            WorkItemId = 42,
+            QueryFingerprint = "fingerprint",
+            GeneratedAtUtc = new System.DateTime(2026, 1, 1, 0, 1, 0, System.DateTimeKind.Utc)
+        };
+        var writerCalled = false;
+
+        async Task CheckpointWriter(BatchContinuationToken _, CancellationToken __)
+        {
+            writerCalled = true;
+            await Task.CompletedTask;
+        }
+
+        await foreach (var _ in service.DiscoverDependenciesAsync(
+            inProgressProjectKey: $"{SimOrgUrl}|{ProjectName}",
+            inProgressToken: token,
+            continuationCheckpointWriter: CheckpointWriter,
+            cancellationToken: CancellationToken.None))
+        {
+        }
+
+        Assert.IsNotNull(linkService.LastToken);
+        Assert.AreEqual(token.WorkItemId, linkService.LastToken!.WorkItemId);
+        Assert.IsNotNull(linkService.LastWriter);
+        await linkService.LastWriter!(token, CancellationToken.None);
+        Assert.IsTrue(writerCalled, "Continuation checkpoint writer must be forwarded to the link analysis service.");
+    }
+
+    private sealed class RecordingLinkAnalysisService : IWorkItemLinkAnalysisService
+    {
+        public BatchContinuationToken? LastToken { get; private set; }
+        public Func<BatchContinuationToken, CancellationToken, Task>? LastWriter { get; private set; }
+
+        public async IAsyncEnumerable<DependencyProgressEvent> AnalyseLinksAsync(
+            MigrationEndpointOptions endpoint,
+            string project,
+            string? wiqlFilter = null,
+            BatchContinuationToken? savedContinuationToken = null,
+            Func<BatchContinuationToken, CancellationToken, Task>? continuationCheckpointWriter = null,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            LastToken = savedContinuationToken;
+            LastWriter = continuationCheckpointWriter;
+            await Task.CompletedTask;
+
+            yield return new DependencyHeartbeatEvent(
+                OrganisationUrl: endpoint.GetResolvedUrl(),
+                ProjectName: project,
+                WorkItemsAnalysed: 0,
+                ExternalLinksFound: 0,
+                CrossProjectCount: 0,
+                CrossOrgCount: 0,
+                IsComplete: true);
+        }
     }
 }

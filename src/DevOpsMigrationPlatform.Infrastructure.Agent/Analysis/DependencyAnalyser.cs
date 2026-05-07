@@ -94,6 +94,7 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
                 "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemChangedDate,SourceWorkItemStateCategory";
             var consolidated = new System.Text.StringBuilder();
             consolidated.AppendLine(CsvHeader);
+            var missingRequiredInputs = 0;
             foreach (var path in perProjectPaths) // already lexicographic per EnumerateAsync contract
             {
                 var content = await context.ArtefactStore.ReadAsync(path, ct).ConfigureAwait(false);
@@ -108,6 +109,7 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
                             "Required dependency CSV not found at {Path}. Skipping project.",
                             path);
                     }
+                    missingRequiredInputs++;
                     continue;
                 }
                 if (string.IsNullOrWhiteSpace(content))
@@ -116,6 +118,13 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
                 foreach (var line in lines.Skip(1)) // skip each file's header
                     consolidated.AppendLine(line);
             }
+
+            if (missingRequiredInputs > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Dependency analysis cannot consolidate because {missingRequiredInputs} required per-project dependency CSV file(s) are missing.");
+            }
+
             csv = consolidated.ToString();
             await context.ArtefactStore.WriteAsync("dependencies.csv", csv, ct).ConfigureAwait(false);
             _logger.LogInformation(

@@ -52,6 +52,7 @@ public sealed class JobMetricsStore
             Teams = inMig?.Teams ?? exMig?.Teams,
             Nodes = inMig?.Nodes ?? exMig?.Nodes,
             Identities = inMig?.Identities ?? exMig?.Identities,
+            DependencyCapture = inMig?.DependencyCapture ?? exMig?.DependencyCapture,
             Diagnostics = inMig?.Diagnostics ?? exMig?.Diagnostics,
         };
 
