@@ -185,6 +185,8 @@ When `queue --follow` is active, the CLI renders a live progress table using Spe
 
 `BuildProgressRenderable` receives both inputs and merges them into the rendered table. Stage/cursor rows come from Channel 1. Counter values (e.g. work items completed, revisions written, attachment counts) come from Channel 2.
 
+For migration modes that use the shared task view, the live display includes per-task progress bars, WorkItems detail lines with explicit revision totals, completed-task duration when available, and a footer showing remaining task count plus an overall ETA when the CLI can calculate one.
+
 ### Why Not ProgressEvent.Metrics?
 
 `ProgressEvent` has an optional `Metrics` field. It is **only populated by the TFS subprocess (net481)**; for all .NET 10 Migration Agent jobs it is always null. Reading counters from `ProgressEvent.Metrics` is therefore only correct for TFS jobs and silently displays zeros for all .NET 10 jobs.

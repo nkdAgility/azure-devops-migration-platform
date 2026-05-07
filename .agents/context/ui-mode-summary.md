@@ -57,10 +57,13 @@ Dependencies:
 
 ## TUI Target
 
-- Stable shell with job list, mode-specific main canvas, detail rail, and progress/diagnostics event strip.
+- Stable shell with a job selector dropdown, task/progress panel, JobKind-specific metrics panel, and feed panel.
 - Main canvas is selected by job kind.
+- If `--job` is supplied, pre-select it when the shell appears.
+- If only one job is available, pre-select it as soon as it appears.
 - Migration modes use the shared task board built from bootstrap tasks.
 - Inventory and Dependencies use their own table-first workspaces and still include a task section.
+- The feed panel switches between logs, trace, and metrics-feed records.
 
 ## Shared Migration View Requirements
 
@@ -70,8 +73,13 @@ Dependencies:
 - Every completed task retains its completion duration.
 - Specific task types can replace the generic bar with a more informative bar.
 - `WorkItems` must use an `x/y` progress bar with estimated completion when possible.
+- `WorkItems` must show explicit revision totals on the row or detail lines.
+- `WorkItems` must retain its completed duration when the task is terminal.
 - `WorkItems` must warn when three or four unusually long writes in a row suggest probable exponential back-off.
 - The bottom of the task list must show remaining task count and the current overall estimated completion for the full list when possible.
+- That footer must stay visible as context for the active WorkItems row.
+- The task/progress panel is separate from the JobKind metrics panel.
+- The feed panel shows feed records, not aggregate metric values.
 
 ## Change Rule
 

@@ -137,7 +137,7 @@ The detail lines must add the following where applicable:
 
 | Task family | Required detail content |
 |---|---|
-| `WorkItems` | task-specific `x/y` progress bar, work item counts, revision counts, estimated completion, current or resuming work item, attachment progress, checkpoint/resume state, timing/back-off detail, and a user-visible warning when the row detects probable exponential back-off from repeated long writes |
+| `WorkItems` | task-specific `x/y` progress bar, work item counts, explicit revision-count display on the row or detail lines, estimated completion, current or resuming work item, attachment progress, checkpoint/resume state, timing/back-off detail, completed-task duration when terminal, and a user-visible warning when the row detects probable exponential back-off from repeated long writes |
 | `Identities` | task-specific progress bar when possible, completed/skipped/failed counts, estimated completion when possible, and current identity scope when known |
 | `Nodes` | task-specific progress bar when possible, completed/skipped/failed counts, estimated completion when possible, and current path when known |
 | `Teams` | task-specific progress bar when possible, completed/skipped/failed counts, estimated completion when possible, and current team when known |
@@ -151,6 +151,8 @@ At the bottom of every shared migration task list, the UI must show:
 - the current overall estimated completion time for the full list when it can be calculated from the active tasks and known totals
 
 When the estimate cannot yet be calculated, the footer should still render a clear pending or unknown state rather than implying completion.
+
+For WorkItems-heavy views, this footer is part of the context for the active WorkItems row and must remain visible while that row is active.
 
 ### WorkItems Back-Off Detection
 
@@ -223,26 +225,29 @@ The table is mandatory. The task section is mandatory.
 
 ## TUI Target Shell
 
-The TUI is intentionally not a mirror of the CLI. It is a persistent workspace with a stable shell and a mode-specific main canvas.
+The TUI is intentionally not a mirror of the CLI. It is a persistent workspace with a stable shell, a job selector, and mode-specific panels.
 
 ### Shell Regions
 
 | Region | Purpose |
 |---|---|
-| Job list pane | Select the job to inspect |
-| Main canvas | Render the mode-specific workspace for the selected job |
-| Detail rail | Show the selected task or selected project row details |
-| Bottom event strip | Toggle between progress events and diagnostics |
+| Job selector menu | Dropdown used to select the job to inspect |
+| Task and progress panel | Render the mode-specific task list and progress state for the selected job |
+| JobKind metrics panel | Show job-kind-specific metrics and explanatory status for the selected job |
+| Feed panel | Show selectable live feeds such as logs, trace, and metrics-feed records |
 
 ### TUI Behaviour Contract
 
-1. Launch without `--job` opens the job list first.
-2. Selecting a job switches the main canvas by job kind using the matrix above.
-3. `Export`/`Prepare`/`Import`/`Migrate` use the shared migration task board.
-4. `Inventory` uses the Inventory workspace.
-5. `Dependencies` uses the Dependencies workspace.
-6. The bottom strip must support a `Progress`/`Diagnostics` toggle without leaving the current workspace.
-7. Changing the selected job preserves the shell and swaps only the workspace-specific content.
+1. The shell must provide a dropdown menu for selecting a job from the available job list.
+2. Launch without `--job` opens the shell and populates the job selector when jobs become available.
+3. If `--job` is supplied, that job must be pre-selected when the shell appears.
+4. If only one job is available in the selector, it should be pre-selected as soon as it appears.
+5. Selecting a job updates the task/progress panel, the JobKind metrics panel, and the feed panel using the selected job kind and job state.
+6. `Export`/`Prepare`/`Import`/`Migrate` use the shared migration task board in the task/progress panel.
+7. `Inventory` uses the Inventory workspace in the task/progress panel.
+8. `Dependencies` uses the Dependencies workspace in the task/progress panel.
+9. The feed panel must support switching between logs, trace, and metrics-feed views without leaving the current workspace.
+10. Changing the selected job preserves the shell and swaps only the workspace-specific content.
 
 ### Shared Migration Task Board
 
@@ -252,13 +257,18 @@ The TUI migration board must provide:
 - a task list sourced from the bootstrap task list
 - a progress bar on every task row
 - a visible active-task focus
-- detail rail content for the selected task
 - counter summaries sourced from telemetry
 - cursor and stage context sourced from the progress stream
 - per-task estimated completion when possible
 - completed-task elapsed duration
 - remaining task count in the overall footer
 - an overall estimated completion footer for the full task list when possible
+
+The shared migration board is the primary content of the task/progress panel.
+
+The JobKind metrics panel must show metrics that explain what the selected migration job is currently doing, using the job kind to decide which metrics matter most.
+
+The feed panel must show stream records rather than aggregate values. It is for feeds such as logs, trace, and metrics-feed output, not for replacing the JobKind metrics panel.
 
 For `WorkItems`, the board must also surface a warning when recent timing suggests probable exponential back-off.
 
@@ -268,7 +278,8 @@ The TUI Inventory workspace must provide:
 
 - the required Inventory project table
 - the required task section
-- drill-in details for the selected project row or task
+- JobKind-specific metrics for the selected inventory job
+- feed-panel support for logs, trace, and metrics-feed records
 
 ### Dependencies Workspace
 
@@ -276,7 +287,8 @@ The TUI Dependencies workspace must provide:
 
 - the required Dependencies project table
 - the required task section
-- drill-in details for the selected project row or task
+- JobKind-specific metrics for the selected dependencies job
+- feed-panel support for logs, trace, and metrics-feed records
 
 ## Test Mapping
 
