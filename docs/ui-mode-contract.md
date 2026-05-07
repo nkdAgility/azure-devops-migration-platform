@@ -98,9 +98,11 @@ The shared migration view is the default view family for `Export`, `Prepare`, `I
 ### Required Structure
 
 1. Header identifying job ID, mode, and current state.
-2. Phase-grouped task section in execution order.
+2. Phase-grouped task section built from the async tasks returned by `GET /jobs/{id}/bootstrap`.
 3. One row per task in plan order within each phase.
-4. Per-task detail lines for the active task and any task whose state is not yet terminal.
+4. A progress bar on every task row.
+5. Per-task detail lines for the active task and any task whose state is not yet terminal.
+6. A footer at the bottom of the task list showing the current overall estimated completion time for the full task list when that can be calculated.
 
 ### Phase Order
 
@@ -121,17 +123,42 @@ Every task row must show:
 - task name
 - task state
 - current stage or summary message
+- a progress bar
 - progress summary based on telemetry counters
+- estimated time to complete when it can be calculated
+
+Every completed task row must retain how long that task took to complete.
+
+The default bar for generic async tasks should be a task-completion bar that advances from task state and any available completed/known-total information.
+
+Specific task types may replace the generic bar with a task-specific bar that is more informative.
 
 The detail lines must add the following where applicable:
 
 | Task family | Required detail content |
 |---|---|
-| `WorkItems` | work item counts, revision counts, current or resuming work item, attachment progress, checkpoint/resume state, timing/back-off detail |
-| `Identities` | completed/skipped/failed counts and current identity scope when known |
-| `Nodes` | completed/skipped/failed counts and current path when known |
-| `Teams` | completed/skipped/failed counts and current team when known |
-| Generic task | state, stage, and any available counter summary |
+| `WorkItems` | task-specific `x/y` progress bar, work item counts, revision counts, estimated completion, current or resuming work item, attachment progress, checkpoint/resume state, timing/back-off detail, and a user-visible warning when the row detects probable exponential back-off from repeated long writes |
+| `Identities` | task-specific progress bar when possible, completed/skipped/failed counts, estimated completion when possible, and current identity scope when known |
+| `Nodes` | task-specific progress bar when possible, completed/skipped/failed counts, estimated completion when possible, and current path when known |
+| `Teams` | task-specific progress bar when possible, completed/skipped/failed counts, estimated completion when possible, and current team when known |
+| Generic task | generic progress bar, state, stage, any available counter summary, and estimated completion when possible |
+
+### Overall Task List Timing
+
+At the bottom of every shared migration task list, the UI must show:
+
+- the number of tasks remaining
+- the current overall estimated completion time for the full list when it can be calculated from the active tasks and known totals
+
+When the estimate cannot yet be calculated, the footer should still render a clear pending or unknown state rather than implying completion.
+
+### WorkItems Back-Off Detection
+
+The WorkItems row must continuously evaluate recent per-item or per-write timing and detect probable exponential back-off.
+
+If three or four unusually long writes occur in a row, the row should surface a warning to the user that back-off is likely in effect.
+
+The warning is advisory. It does not change task state, but it must be visible in the WorkItems detail area while the slow-write sequence is active.
 
 ## Inventory View
 
@@ -222,10 +249,18 @@ The TUI is intentionally not a mirror of the CLI. It is a persistent workspace w
 The TUI migration board must provide:
 
 - phase-grouped task rows in canonical order
+- a task list sourced from the bootstrap task list
+- a progress bar on every task row
 - a visible active-task focus
 - detail rail content for the selected task
 - counter summaries sourced from telemetry
 - cursor and stage context sourced from the progress stream
+- per-task estimated completion when possible
+- completed-task elapsed duration
+- remaining task count in the overall footer
+- an overall estimated completion footer for the full task list when possible
+
+For `WorkItems`, the board must also surface a warning when recent timing suggests probable exponential back-off.
 
 ### Inventory Workspace
 

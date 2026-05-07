@@ -59,8 +59,19 @@ Dependencies:
 
 - Stable shell with job list, mode-specific main canvas, detail rail, and progress/diagnostics event strip.
 - Main canvas is selected by job kind.
-- Migration modes use the shared task board.
+- Migration modes use the shared task board built from bootstrap tasks.
 - Inventory and Dependencies use their own table-first workspaces and still include a task section.
+
+## Shared Migration View Requirements
+
+- Default mode is a list of async tasks from the bootstrap task list.
+- Every task row has a progress bar.
+- Every task row shows ETA when possible.
+- Every completed task retains its completion duration.
+- Specific task types can replace the generic bar with a more informative bar.
+- `WorkItems` must use an `x/y` progress bar with estimated completion when possible.
+- `WorkItems` must warn when three or four unusually long writes in a row suggest probable exponential back-off.
+- The bottom of the task list must show remaining task count and the current overall estimated completion for the full list when possible.
 
 ## Change Rule
 

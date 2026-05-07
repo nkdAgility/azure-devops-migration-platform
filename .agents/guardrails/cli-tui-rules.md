@@ -34,6 +34,7 @@ These rules are mandatory for all CLI and TUI code.
 13. The exact CLI/TUI mode-to-view contract is defined in `docs/ui-mode-contract.md`. UI work must preserve that contract or update it explicitly in the same change.
 14. Any change to `queue --follow`, `manage status`, `manage progress`, `manage diagnostics`, or `tui` rendering must update `docs/ui-mode-contract.md` and the corresponding tests in the same change.
 15. `queue` is a submission command, not a mode. Presentation must be selected from the job `Kind`, not inferred from the command name.
+16. Detailed shared-task-view behaviour — including bootstrap task-list rendering, per-task progress bars, ETA/completion-duration display, remaining-task footer timing, task-specific bar variants, and WorkItems back-off warning behaviour — belongs in `docs/ui-mode-contract.md`, not in this guardrail file.
 
 ## Related
 
