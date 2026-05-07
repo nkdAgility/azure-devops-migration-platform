@@ -1328,7 +1328,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         // When the task list has arrived, render a single unified view where every
         // task row IS its module progress bar. No separate checklist + divider.
         if (s.Tasks is { Tasks.Count: > 0 })
+        {
+            var phases = GetOrderedTaskPhases(s.Tasks.Tasks);
+            if (phases.Count > 1)
+                return BuildMultiStageTaskDisplay(s, phases);
+
             return BuildUnifiedTaskDisplay(s);
+        }
 
         // Initialising: task list not yet received.
         if (s.Tasks is null)
@@ -1357,7 +1363,23 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     /// Identities/Nodes/Teams show their completion bar inline.
     /// WorkItems shows the full bar + sub-rows (current WI, timing, attachments, checkpoint).
     /// </summary>
-    private static IRenderable BuildUnifiedTaskDisplay(JobProgressState s)
+    private static IRenderable BuildMultiStageTaskDisplay(JobProgressState s, IReadOnlyList<string> phases)
+    {
+        var currentPhase = DetermineCurrentTaskPhase(s, phases);
+        var rows = new System.Collections.Generic.List<IRenderable>
+        {
+            new Markup(BuildTaskStageStrip(phases, currentPhase)),
+            new Markup(string.Empty),
+            BuildUnifiedTaskDisplay(s, currentPhase, showPhaseHeaders: false)
+        };
+
+        return new Rows(rows);
+    }
+
+    private static IRenderable BuildUnifiedTaskDisplay(
+        JobProgressState s,
+        string? phaseFilter = null,
+        bool showPhaseHeaders = true)
     {
         const int BarWidth = 38;
         var spinnerFrame = s_spinnerFrames[(int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80 % s_spinnerFrames.Length)];
@@ -1367,9 +1389,14 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             ? (int)((double)s.Revisions / s.Completed * s.TotalWorkItems)
             : 0;
 
-        foreach (var task in s.Tasks!.Tasks.OrderBy(t => t.Order))
+        var tasksToRender = s.Tasks!.Tasks
+            .Where(t => ShouldRenderTaskInPhase(t, phaseFilter))
+            .OrderBy(t => t.Order)
+            .ToList();
+
+        foreach (var task in tasksToRender)
         {
-            if (task.Phase != currentPhase)
+            if (showPhaseHeaders && task.Phase != currentPhase)
             {
                 currentPhase = task.Phase;
                 if (!string.IsNullOrEmpty(currentPhase))
@@ -1617,6 +1644,60 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 : $"[bold]Remaining tasks:[/] {remainingTasks}  [bold]Overall ETA:[/] [grey]unknown[/]"));
 
         return rows.Count > 0 ? new Rows(rows) : new Markup("[grey]⠋ Running…[/]");
+    }
+
+    private static IReadOnlyList<string> GetOrderedTaskPhases(IReadOnlyList<JobTask> tasks) => tasks
+        .Select(t => t.Phase)
+        .Where(phase => !string.IsNullOrWhiteSpace(phase))
+        .Select(phase => phase!)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    private static string DetermineCurrentTaskPhase(JobProgressState s, IReadOnlyList<string> phases)
+    {
+        var runningPhase = s.Tasks!.Tasks
+            .Where(t => t.Status == JobTaskStatus.Running && !string.IsNullOrWhiteSpace(t.Phase))
+            .Select(t => t.Phase!)
+            .FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(runningPhase))
+            return runningPhase;
+
+        var pendingPhase = s.Tasks.Tasks
+            .Where(t => t.Status == JobTaskStatus.Pending && !string.IsNullOrWhiteSpace(t.Phase))
+            .Select(t => t.Phase!)
+            .FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(pendingPhase))
+            return pendingPhase;
+
+        if (!string.IsNullOrWhiteSpace(s.Stage))
+        {
+            var match = phases.FirstOrDefault(phase => s.Stage.Contains(phase, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(match))
+                return match;
+        }
+
+        return phases[0];
+    }
+
+    private static bool ShouldRenderTaskInPhase(JobTask task, string? phaseFilter)
+    {
+        if (string.IsNullOrWhiteSpace(phaseFilter))
+            return true;
+
+        if (string.IsNullOrWhiteSpace(task.Phase))
+            return true;
+
+        return string.Equals(task.Phase, phaseFilter, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string BuildTaskStageStrip(IReadOnlyList<string> phases, string currentPhase)
+    {
+        var segments = phases.Select(phase =>
+            string.Equals(phase, currentPhase, StringComparison.OrdinalIgnoreCase)
+                ? $"[black on white] {Markup.Escape(phase)} [/]"
+                : $"[grey]{Markup.Escape(phase)}[/]");
+
+        return string.Join(" [grey]>[/] ", segments);
     }
 
     /// <summary>

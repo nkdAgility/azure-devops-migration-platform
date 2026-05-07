@@ -4,9 +4,12 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Terminal.Gui;
 
 namespace DevOpsMigrationPlatform.CLI.Views;
@@ -28,7 +31,7 @@ namespace DevOpsMigrationPlatform.CLI.Views;
 /// </summary>
 public sealed class TuiLogView : FrameView
 {
-    private enum LogMode { Progress, Diagnostics }
+    private enum FeedMode { Trace, Logs, MetricsFeed }
 
     /// <summary>Maximum number of lines kept in the ring buffer before old lines are evicted.</summary>
     private const int MaxLines = 10_000;
@@ -37,7 +40,7 @@ public sealed class TuiLogView : FrameView
     private readonly ListView _listView;
     private readonly ObservableCollection<string> _lines = [];
 
-    private LogMode _mode = LogMode.Progress;
+    private FeedMode _mode = FeedMode.Trace;
     private CancellationTokenSource? _streamCts;
     private Guid? _currentJobId;
 
@@ -55,11 +58,12 @@ public sealed class TuiLogView : FrameView
 
     /// <summary>Fired for each <see cref="ProgressEvent"/> received in Progress mode.</summary>
     public event Action<ProgressEvent>? OnProgressReceived;
+    public event Action<string>? OnModeChanged;
 
     public TuiLogView(IControlPlaneClient client)
     {
         _client = client;
-        Title = "Log [Progress] (End=follow)";
+        Title = "Feed [Trace] (End=follow)";
         CanFocus = true;
 
         _listView = new ListView
@@ -119,9 +123,7 @@ public sealed class TuiLogView : FrameView
 
         Application.Invoke(() =>
         {
-            Title = _autoScroll
-                ? (_mode == LogMode.Progress ? "Log [Progress] (following)" : "Log [Diagnostics] (following)")
-                : (_mode == LogMode.Progress ? "Log [Progress] (paused — End=follow)" : "Log [Diagnostics] (paused — End=follow)");
+            Title = BuildTitle();
             SetNeedsDraw();
         });
     }
@@ -141,13 +143,19 @@ public sealed class TuiLogView : FrameView
         if (e.KeyCode != KeyCode.Tab)
             return;
 
-        _mode = _mode == LogMode.Progress ? LogMode.Diagnostics : LogMode.Progress;
+        _mode = _mode switch
+        {
+            FeedMode.Trace => FeedMode.Logs,
+            FeedMode.Logs => FeedMode.MetricsFeed,
+            _ => FeedMode.Trace
+        };
         _autoScroll = true;
         Application.Invoke(() =>
         {
-            Title = _mode == LogMode.Progress ? "Log [Progress] (following)" : "Log [Diagnostics] (following)";
+            Title = BuildTitle();
             SetNeedsDraw();
         });
+        OnModeChanged?.Invoke(GetModeLabel());
 
         if (_currentJobId.HasValue)
         {
@@ -172,10 +180,12 @@ public sealed class TuiLogView : FrameView
         {
             try
             {
-                if (_mode == LogMode.Progress)
-                    await StreamProgressAsync(jobId, ct).ConfigureAwait(false);
+                if (_mode == FeedMode.Trace)
+                    await StreamTraceAsync(jobId, ct).ConfigureAwait(false);
+                else if (_mode == FeedMode.MetricsFeed)
+                    await StreamMetricsFeedAsync(jobId, ct).ConfigureAwait(false);
                 else
-                    await StreamDiagnosticsAsync(jobId, ct).ConfigureAwait(false);
+                    await StreamLogsAsync(jobId, ct).ConfigureAwait(false);
 
                 // Stream ended cleanly (job-ended) — break
                 return;
@@ -199,7 +209,7 @@ public sealed class TuiLogView : FrameView
         }
     }
 
-    private async Task StreamProgressAsync(Guid jobId, CancellationToken ct)
+    private async Task StreamTraceAsync(Guid jobId, CancellationToken ct)
     {
         bool ended = false;
         await foreach (var evt in _client.FollowLogsAsync(jobId, ct).ConfigureAwait(false))
@@ -217,7 +227,28 @@ public sealed class TuiLogView : FrameView
         OnJobEnded?.Invoke("Completed");
     }
 
-    private async Task StreamDiagnosticsAsync(Guid jobId, CancellationToken ct)
+    private async Task StreamMetricsFeedAsync(Guid jobId, CancellationToken ct)
+    {
+        bool ended = false;
+        await foreach (var evt in _client.FollowLogsAsync(jobId, ct).ConfigureAwait(false))
+        {
+            OnProgressReceived?.Invoke(evt);
+
+            if (evt.Metrics is null)
+                continue;
+
+            var line = FormatMetricsFeedLine(evt);
+            Application.Invoke(() => AppendLine(line));
+            ended = true;
+        }
+
+        if (!ended) return;
+
+        Application.Invoke(() => AppendLine("\u2500\u2500 Job Completed \u2500\u2500"));
+        OnJobEnded?.Invoke("Completed");
+    }
+
+    private async Task StreamLogsAsync(Guid jobId, CancellationToken ct)
     {
         bool ended = false;
         await foreach (var rec in _client.StreamDiagnosticsAsync(jobId, MinLevel, ct).ConfigureAwait(false))
@@ -232,6 +263,54 @@ public sealed class TuiLogView : FrameView
 
         Application.Invoke(() => AppendLine("\u2500\u2500 Job Completed \u2500\u2500"));
         OnJobEnded?.Invoke("Completed");
+    }
+
+    private string BuildTitle()
+    {
+        var suffix = _autoScroll ? "(following)" : "(paused — End=follow)";
+        return $"Feed [{GetModeLabel()}] {suffix}";
+    }
+
+    private string GetModeLabel() => _mode switch
+    {
+        FeedMode.Trace => "Trace",
+        FeedMode.Logs => "Logs",
+        FeedMode.MetricsFeed => "Metrics-Feed",
+        _ => "Trace"
+    };
+
+    private static string FormatMetricsFeedLine(ProgressEvent evt)
+    {
+        var time = evt.Timestamp.ToLocalTime().ToString("HH:mm:ss");
+        var scope = evt.Metrics?.Scope;
+        var migrationWi = evt.Metrics?.Migration?.WorkItems;
+        var dependency = evt.Metrics?.Discovery?.Dependencies;
+        var parts = new List<string>
+        {
+            time,
+            evt.Module,
+            evt.Stage
+        };
+
+        if (migrationWi is not null)
+        {
+            parts.Add($"attempted={migrationWi.Attempted:N0}");
+            parts.Add($"completed={migrationWi.Completed:N0}");
+            parts.Add($"revisions={migrationWi.RevisionsProcessed:N0}");
+        }
+
+        if (scope is not null)
+        {
+            parts.Add($"projects={scope.ProjectsCompleted:N0}/{scope.ProjectsTotal:N0}");
+        }
+
+        if (dependency is not null)
+        {
+            parts.Add($"analysed={dependency.WorkItemsAnalysed:N0}");
+            parts.Add($"links={dependency.ExternalLinksFound:N0}");
+        }
+
+        return string.Join(" | ", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
     }
 
     private void AppendLine(string line)
