@@ -20,6 +20,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Configuration;
@@ -45,6 +46,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly IJobExecutionPlanBuilder _planBuilder;
     private readonly IJobPlanExecutor _planExecutor;
     private readonly ICurrentAgentJobContextAccessor _currentJobContextAccessor;
+    private readonly ICurrentJobEndpointAccessor _currentJobEndpointAccessor;
     private readonly IControlPlaneTelemetryClient _telemetryClient;
     private readonly ILogger<JobAgentWorker> _logger;
 
@@ -68,6 +70,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IJobExecutionPlanBuilder planBuilder,
         IJobPlanExecutor planExecutor,
         ICurrentAgentJobContextAccessor currentJobContextAccessor,
+        ICurrentJobEndpointAccessor currentJobEndpointAccessor,
         IControlPlaneTelemetryClient telemetryClient,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null,
@@ -84,6 +87,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         _planBuilder = planBuilder;
         _planExecutor = planExecutor;
         _currentJobContextAccessor = currentJobContextAccessor;
+        _currentJobEndpointAccessor = currentJobEndpointAccessor;
         _telemetryClient = telemetryClient;
         _logger = logger;
     }
@@ -120,6 +124,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
             ActiveJobConfig.PackageConfig = packageConfig;
             SetCurrentJobContext(packageConfig);
+            SetCurrentEndpointContext(packageConfig);
         }
         catch (PackageConfigNotFoundException ex)
         {
@@ -136,6 +141,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
                 ActiveJobConfig.Clear();
                 _currentJobContextAccessor.Clear();
+                _currentJobEndpointAccessor.Clear();
                 return;
             }
         }
@@ -178,6 +184,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         {
             ActiveJobConfig.Clear();
             _currentJobContextAccessor.Clear();
+            _currentJobEndpointAccessor.Clear();
         }
     }
 
@@ -209,6 +216,109 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 "Could not build explicit agent job context for job package configuration. Falling back to an empty job context view.");
             _currentJobContextAccessor.Clear();
         }
+    }
+
+    private void SetCurrentEndpointContext(IConfiguration packageConfig)
+    {
+        if (TryBuildSourceEndpoint(packageConfig, out var sourceEndpoint))
+            _currentJobEndpointAccessor.SetSource(sourceEndpoint);
+        else
+            _currentJobEndpointAccessor.ClearSource();
+
+        if (TryBuildTargetEndpoint(packageConfig, out var targetEndpoint))
+            _currentJobEndpointAccessor.SetTarget(targetEndpoint);
+        else
+            _currentJobEndpointAccessor.ClearTarget();
+    }
+
+    private static bool TryBuildSourceEndpoint(IConfiguration packageConfig, out ISourceEndpointInfo endpoint)
+    {
+        var url = ConfigTokenResolver.Resolve(packageConfig["MigrationPlatform:Source:Url"]);
+        var project = packageConfig["MigrationPlatform:Source:Project"];
+        var connectorType = packageConfig["MigrationPlatform:Source:Type"];
+
+        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(connectorType))
+        {
+            endpoint = null!;
+            return false;
+        }
+
+        var authSection = packageConfig.GetSection("MigrationPlatform:Source:Authentication");
+        _ = Enum.TryParse<AuthenticationType>(authSection?["Type"], ignoreCase: true, out var authType);
+        endpoint = new ExplicitSourceEndpointInfo(
+            url,
+            project ?? string.Empty,
+            connectorType,
+            packageConfig["MigrationPlatform:Source:ApiVersion"],
+            authType,
+            ConfigTokenResolver.Resolve(authSection?["AccessToken"]));
+        return true;
+    }
+
+    private static bool TryBuildTargetEndpoint(IConfiguration packageConfig, out ITargetEndpointInfo endpoint)
+    {
+        var url = ConfigTokenResolver.Resolve(packageConfig["MigrationPlatform:Target:Url"]);
+        var project = packageConfig["MigrationPlatform:Target:Project"];
+        var connectorType = packageConfig["MigrationPlatform:Target:Type"];
+
+        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(connectorType))
+        {
+            endpoint = null!;
+            return false;
+        }
+
+        var authSection = packageConfig.GetSection("MigrationPlatform:Target:Authentication");
+        _ = Enum.TryParse<AuthenticationType>(authSection?["Type"], ignoreCase: true, out var authType);
+        endpoint = new ExplicitTargetEndpointInfo(
+            url,
+            project ?? string.Empty,
+            connectorType,
+            packageConfig["MigrationPlatform:Target:ApiVersion"],
+            authType,
+            ConfigTokenResolver.Resolve(authSection?["AccessToken"]));
+        return true;
+    }
+
+    private sealed record ExplicitSourceEndpointInfo(
+        string Url,
+        string Project,
+        string ConnectorType,
+        string? ApiVersion,
+        AuthenticationType AuthenticationType,
+        string? AccessToken) : ISourceEndpointInfo
+    {
+        public OrganisationEndpoint ToOrganisationEndpoint() => new()
+        {
+            ResolvedUrl = Url,
+            Type = ConnectorType,
+            ApiVersion = ApiVersion,
+            Authentication = new OrganisationEndpointAuthentication
+            {
+                Type = AuthenticationType,
+                ResolvedAccessToken = AccessToken
+            }
+        };
+    }
+
+    private sealed record ExplicitTargetEndpointInfo(
+        string Url,
+        string Project,
+        string ConnectorType,
+        string? ApiVersion,
+        AuthenticationType AuthenticationType,
+        string? AccessToken) : ITargetEndpointInfo
+    {
+        public OrganisationEndpoint ToOrganisationEndpoint() => new()
+        {
+            ResolvedUrl = Url,
+            Type = ConnectorType,
+            ApiVersion = ApiVersion,
+            Authentication = new OrganisationEndpointAuthentication
+            {
+                Type = AuthenticationType,
+                ResolvedAccessToken = AccessToken
+            }
+        };
     }
 
     // ── Migration execution ───────────────────────────────────────────────────
