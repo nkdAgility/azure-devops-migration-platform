@@ -26,7 +26,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Analysis;
 public sealed class InventoryAnalyserTests
 {
     [TestMethod]
-    [TestCategory("SystemTest_Simulated")]
     public async Task AnalyseAsync_WritesRootInventoryArtefactsWithContent()
     {
         var artefactStore = CreateInventoryStore();

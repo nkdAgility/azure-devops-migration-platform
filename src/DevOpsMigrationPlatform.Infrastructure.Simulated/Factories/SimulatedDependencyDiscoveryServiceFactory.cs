@@ -105,6 +105,11 @@ public sealed class SimulatedDependencyDiscoveryServiceFactory : IDependencyDisc
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    int workItemsAnalysed = 0;
+                    int linksFound = 0;
+                    int crossProjectCount = 0;
+                    int crossOrgCount = 0;
+
                     await foreach (var evt in _linkAnalysis.AnalyseLinksAsync(
                         endpoint,
                         project,
@@ -113,8 +118,28 @@ public sealed class SimulatedDependencyDiscoveryServiceFactory : IDependencyDisc
                         continuationCheckpointWriter: null,
                         cancellationToken: cancellationToken).ConfigureAwait(false))
                     {
+                        if (evt is DependencyFoundEvent found)
+                        {
+                            linksFound++;
+                            if (found.Record.LinkScope == LinkScope.CrossProject) crossProjectCount++;
+                            if (found.Record.LinkScope == LinkScope.CrossOrganisation) crossOrgCount++;
+                        }
+                        else if (evt is DependencyHeartbeatEvent hb)
+                        {
+                            workItemsAnalysed = hb.WorkItemsAnalysed;
+                        }
                         yield return evt;
                     }
+
+                    // Final project-complete heartbeat so callers always get at least one heartbeat per project.
+                    yield return new DependencyHeartbeatEvent(
+                        OrganisationUrl: endpoint.GetResolvedUrl(),
+                        ProjectName: project,
+                        WorkItemsAnalysed: workItemsAnalysed,
+                        ExternalLinksFound: linksFound,
+                        CrossProjectCount: crossProjectCount,
+                        CrossOrgCount: crossOrgCount,
+                        IsComplete: true);
                 }
             }
         }

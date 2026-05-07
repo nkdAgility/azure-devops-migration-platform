@@ -111,12 +111,12 @@ void DependenciesCaptureInFlightDecrement(MetricsTagList tags);
 
 ### Tests Required for Observability
 
-- [ ] Unit test: `DependencyCapture` — verify `ActivitySource.StartActivity("dependency.capture")` is called; verify child spans `create_service`, `execute`, `write_csv` are started.
-- [ ] Unit test: `DependencyCapture` — verify `IPlatformMetrics.DependenciesCaptureStarted`, `DependenciesCaptureCompleted`, `RecordDependenciesCaptureDuration` are called on success; `DependenciesCaptureFailed` on exception.
-- [ ] Unit test: `DependencyCapture` — verify `IProgressSink.Emit` is called with `Stage = "Capturing"` at start and `Stage = "Captured"` (with `DiscoveryCounters`) at completion.
-- [ ] Unit test: `DependencyCapture` — verify `ILogger` receives `Information` log at start and completion with `{Org}` and `{Project}` structured fields.
-- [ ] Unit test: `JobPlanExecutor` — verify that when a `capture.*` task ID has no matching entry in `captureHandlersByName`, an `Error` log is emitted with `{TaskId}` and `{HandlerName}`, and the task is skipped.
-- [ ] Simulated system test: Dependencies job plan with `source.type = Simulated` → `DependencyCapture.CaptureAsync` called → `SimulatedDependencyDiscoveryServiceFactory` resolves → CSV written without external connectivity.
+- [x] Unit test: `DependencyCapture` — verify `ActivitySource.StartActivity("dependency.capture")` is called; verify child spans `create_service`, `execute`, `write_csv` are started.
+- [x] Unit test: `DependencyCapture` — verify `IPlatformMetrics.DependenciesCaptureStarted`, `DependenciesCaptureCompleted`, `RecordDependenciesCaptureDuration` are called on success; `DependenciesCaptureFailed` on exception.
+- [x] Unit test: `DependencyCapture` — verify `IProgressSink.Emit` is called with `Stage = "Capturing"` at start and `Stage = "Captured"` (with `DiscoveryCounters`) at completion.
+- [x] Unit test: `DependencyCapture` — verify `ILogger` receives `Information` log at start and completion with `{Org}` and `{Project}` structured fields.
+- [x] Unit test: `JobPlanExecutor` — verify that when a `capture.*` task ID has no matching entry in `captureHandlersByName`, an `Error` log is emitted with `{TaskId}` and `{HandlerName}`, and the task is skipped.
+- [x] Simulated system test: Dependencies job plan with `source.type = Simulated` → `DependencyCapture.CaptureAsync` called → `SimulatedDependencyDiscoveryServiceFactory` resolves → CSV written without external connectivity.
 
 ## Project Structure
 

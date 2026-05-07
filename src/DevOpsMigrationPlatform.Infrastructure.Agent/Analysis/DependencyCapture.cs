@@ -121,17 +121,19 @@ public sealed class DependencyCapture : ICapture
             }
 
             // O-1: child span — execute
+            DependencyCounters counters;
             using (var executeActivity = s_activitySource.StartActivity("dependency.capture.execute"))
             {
                 executeActivity?.SetTag(WellKnownTagNames.Organisation.Url, orgUrl);
                 executeActivity?.SetTag(WellKnownTagNames.Organisation.ProjectName, project);
 
-                await _orchestrator.CaptureProjectAsync(
+                counters = await _orchestrator.CaptureProjectAsync(
                     dependencyService, context, context.Policies, ct).ConfigureAwait(false);
             }
 
             // O-1: child span — write_csv (confirm output path)
-            var outputPath = $"discovery/{orgUrl.TrimEnd('/').Replace("://", "_").Replace('/', '_')}/{project}/dependencies.csv";
+            var orgFolder = PackagePathResolver.ExtractOrgFolderName(orgUrl);
+            var outputPath = $"discovery/{orgFolder}/{PackagePathResolver.Sanitise(project)}/dependencies.csv";
             using (var writeCsvActivity = s_activitySource.StartActivity("dependency.capture.write_csv"))
             {
                 writeCsvActivity?.SetTag(WellKnownTagNames.Organisation.Url, orgUrl);
@@ -141,9 +143,10 @@ public sealed class DependencyCapture : ICapture
 
             sw.Stop();
 
-            // O-2: completed + duration
+            // O-2: completed + duration + items analysed
             _metrics?.DependenciesCaptureCompleted(tags);
             _metrics?.RecordDependenciesCaptureDuration(sw.Elapsed.TotalMilliseconds, tags);
+            _metrics?.RecordWorkItemsAnalysed((int)counters.WorkItemsAnalysed, tags);
 
             // O-3: log completion (customer-data scope: orgUrl, project, outputPath)
             using (DataClassificationScope.Begin(DataClassification.Customer))
@@ -153,7 +156,7 @@ public sealed class DependencyCapture : ICapture
                     orgUrl, project, sw.Elapsed.TotalMilliseconds, outputPath, jobId);
             }
 
-            // O-4: emit Captured progress event
+            // O-4: emit Captured progress event with real counters from orchestrator
             (context.ProgressSink ?? _progressSink)?.Emit(new ProgressEvent
             {
                 Module = Name,
@@ -166,8 +169,10 @@ public sealed class DependencyCapture : ICapture
                     {
                         Dependencies = new DependencyCounters
                         {
-                            WorkItemsAnalysed = 0,
-                            ExternalLinksFound = 0
+                            WorkItemsAnalysed = counters.WorkItemsAnalysed,
+                            ExternalLinksFound = counters.ExternalLinksFound,
+                            CrossProjectLinks = counters.CrossProjectLinks,
+                            CrossOrgLinks = counters.CrossOrgLinks
                         }
                     }
                 }

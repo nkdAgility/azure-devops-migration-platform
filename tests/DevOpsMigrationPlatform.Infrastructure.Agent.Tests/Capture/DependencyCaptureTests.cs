@@ -91,7 +91,7 @@ public sealed class DependencyCaptureTests
                 It.IsAny<InventoryContext>(),
                 It.IsAny<JobPolicies>(),
                 It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(new DependencyCounters());
 
         var capture = CreateCapture(factory, orchestrator);
         await capture.CaptureAsync(CreateContext(), CancellationToken.None);
@@ -155,7 +155,7 @@ public sealed class DependencyCaptureTests
                 It.IsAny<InventoryContext>(),
                 It.IsAny<JobPolicies>(),
                 It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(new DependencyCounters());
 
         var capture = CreateCapture(factory, orchestrator);
         await capture.CaptureAsync(CreateContext(), CancellationToken.None);
@@ -188,17 +188,21 @@ public sealed class DependencyCaptureTests
                 It.Is<MetricsTagList>(t => HasTag(t, "job.id", JobId) && HasTag(t, "org.url", OrgUrl) && HasTag(t, "project.name", Project))))
             .Verifiable();
         metrics.Setup(m => m.DependenciesCaptureStarted(
-                It.Is<MetricsTagList>(t => HasTag(t, "job.id", JobId))))
+                It.Is<MetricsTagList>(t => HasTag(t, "job.id", JobId) && HasTag(t, "org.url", OrgUrl) && HasTag(t, "project.name", Project))))
             .Verifiable();
         metrics.Setup(m => m.DependenciesCaptureCompleted(
-                It.Is<MetricsTagList>(t => HasTag(t, "job.id", JobId))))
+                It.Is<MetricsTagList>(t => HasTag(t, "job.id", JobId) && HasTag(t, "org.url", OrgUrl) && HasTag(t, "project.name", Project))))
             .Verifiable();
         metrics.Setup(m => m.RecordDependenciesCaptureDuration(
                 It.IsAny<double>(),
-                It.Is<MetricsTagList>(t => HasTag(t, "job.id", JobId))))
+                It.Is<MetricsTagList>(t => HasTag(t, "job.id", JobId) && HasTag(t, "org.url", OrgUrl) && HasTag(t, "project.name", Project))))
+            .Verifiable();
+        metrics.Setup(m => m.RecordWorkItemsAnalysed(
+                It.IsAny<int>(),
+                It.Is<MetricsTagList>(t => HasTag(t, "job.id", JobId) && HasTag(t, "org.url", OrgUrl) && HasTag(t, "project.name", Project))))
             .Verifiable();
         metrics.Setup(m => m.DependenciesCaptureInFlightDecrement(
-                It.Is<MetricsTagList>(t => HasTag(t, "job.id", JobId))))
+                It.Is<MetricsTagList>(t => HasTag(t, "job.id", JobId) && HasTag(t, "org.url", OrgUrl) && HasTag(t, "project.name", Project))))
             .Verifiable();
 
         var factory = new Mock<IDependencyDiscoveryServiceFactory>(MockBehavior.Strict);
@@ -216,7 +220,7 @@ public sealed class DependencyCaptureTests
                 It.IsAny<InventoryContext>(),
                 It.IsAny<JobPolicies>(),
                 It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(new DependencyCounters());
 
         var capture = CreateCapture(factory, orchestrator, metrics.Object);
         await capture.CaptureAsync(CreateContext(), CancellationToken.None);
@@ -288,7 +292,13 @@ public sealed class DependencyCaptureTests
                 It.IsAny<InventoryContext>(),
                 It.IsAny<JobPolicies>(),
                 It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(new DependencyCounters
+            {
+                WorkItemsAnalysed = 42,
+                ExternalLinksFound = 7,
+                CrossProjectLinks = 3,
+                CrossOrgLinks = 1
+            });
 
         var capture = CreateCapture(factory, orchestrator, progressSink: sink.Object);
         await capture.CaptureAsync(CreateContext(sink.Object), CancellationToken.None);
@@ -296,8 +306,10 @@ public sealed class DependencyCaptureTests
         Assert.IsTrue(emittedEvents.Any(e => e.Stage == "Capturing"), "Missing 'Capturing' event");
         var capturedEvent = emittedEvents.FirstOrDefault(e => e.Stage == "Captured");
         Assert.IsNotNull(capturedEvent, "Missing 'Captured' event");
-        Assert.IsNotNull(capturedEvent!.Metrics?.Discovery?.Dependencies,
-            "Captured event must carry non-null Metrics.Discovery.Dependencies");
+        var deps = capturedEvent!.Metrics?.Discovery?.Dependencies;
+        Assert.IsNotNull(deps, "Captured event must carry non-null Metrics.Discovery.Dependencies");
+        Assert.AreEqual(42, deps.WorkItemsAnalysed, "WorkItemsAnalysed must match orchestrator return value");
+        Assert.AreEqual(7, deps.ExternalLinksFound, "ExternalLinksFound must match orchestrator return value");
     }
 
     [TestMethod]
@@ -354,7 +366,7 @@ public sealed class DependencyCaptureTests
                 It.IsAny<InventoryContext>(),
                 It.IsAny<JobPolicies>(),
                 It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(new DependencyCounters());
 
         var capture = new DependencyCapture(factory.Object, orchestrator.Object, logger.Object);
         await capture.CaptureAsync(CreateContext(), CancellationToken.None);
@@ -437,13 +449,18 @@ public sealed class DependencyCaptureTests
         var state = v as IReadOnlyList<KeyValuePair<string, object?>>;
         return state != null
             && state.Any(kv => kv.Key == "Org" && kv.Value?.ToString() == OrgUrl)
-            && state.Any(kv => kv.Key == "Project" && kv.Value?.ToString() == Project);
+            && state.Any(kv => kv.Key == "Project" && kv.Value?.ToString() == Project)
+            && state.Any(kv => kv.Key == "Handler" && kv.Value is string h && h.Length > 0)
+            && state.Any(kv => kv.Key == "JobId" && kv.Value?.ToString() == JobId);
     }
 
     private static bool LogStateHasDurationMs(object v)
     {
         var state = v as IReadOnlyList<KeyValuePair<string, object?>>;
-        return state != null && state.Any(kv => kv.Key == "DurationMs" && kv.Value is double d && d >= 0);
+        return state != null
+            && state.Any(kv => kv.Key == "DurationMs" && kv.Value is double d && d >= 0)
+            && state.Any(kv => kv.Key == "OutputPath" && kv.Value is string p && p.Length > 0)
+            && state.Any(kv => kv.Key == "JobId" && kv.Value?.ToString() == JobId);
     }
 
     private static bool LogStateHasErrorParams(object v)

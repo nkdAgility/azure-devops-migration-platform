@@ -63,8 +63,13 @@ public sealed class SimulatedDependencyDiscoveryServiceFactoryTests
             events.Add(evt);
         }
 
-        // SimulatedWorkItemLinkAnalysisService returns no links — empty sequence expected
-        Assert.AreEqual(0, events.Count, "Simulated dependency service should return empty link results");
+        // SimulatedWorkItemLinkAnalysisService returns no links.
+        // The simulated connector emits one completion heartbeat per project for progress visibility.
+        var linkEvents = events.OfType<DependencyFoundEvent>().ToList();
+        var heartbeats = events.OfType<DependencyHeartbeatEvent>().ToList();
+        Assert.AreEqual(0, linkEvents.Count, "Simulated connector must yield no DependencyFoundEvent (no real links)");
+        Assert.AreEqual(1, heartbeats.Count, "Simulated connector must emit exactly one completion heartbeat per project");
+        Assert.IsTrue(heartbeats[0].IsComplete, "Completion heartbeat must have IsComplete=true");
     }
 
     // ── T024: factory resolves without external connectivity ──────────────
@@ -112,7 +117,11 @@ public sealed class SimulatedDependencyDiscoveryServiceFactoryTests
             events.Add(evt);
         }
 
-        // Simulated returns no links regardless of project scope; verify count rather than null-check
-        Assert.AreEqual(0, events.Count, "Simulated factory CreateForProject must complete without throwing and yield no link events");
+        // Simulated returns no links; one completion heartbeat is emitted per project.
+        var linkEvents = events.OfType<DependencyFoundEvent>().ToList();
+        var heartbeats = events.OfType<DependencyHeartbeatEvent>().ToList();
+        Assert.AreEqual(0, linkEvents.Count, "Simulated factory CreateForProject must yield no link events");
+        Assert.AreEqual(1, heartbeats.Count, "Simulated factory CreateForProject must emit one completion heartbeat");
+        Assert.IsTrue(heartbeats[0].IsComplete, "Completion heartbeat must have IsComplete=true");
     }
 }
