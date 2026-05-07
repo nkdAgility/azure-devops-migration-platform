@@ -2,6 +2,8 @@
 
 Audience: Operators.
 
+This guide explains how to inspect and use the package operationally. For the exact layout and file-scope rules, see [`package-format-reference.md`](package-format-reference.md).
+
 ## What Is the Migration Package?
 
 The migration package is the intermediary between source and target. It is a directory tree that contains all exported data in a structured, human-readable format. The package is the source of truth for the migration.
@@ -15,7 +17,7 @@ The migration package is the intermediary between source and target. It is a dir
 
 ## What Is In It
 
-```
+```text
 <WorkingDirectory>/
   .migration/
     migration-config.json       # resolved config written by agent at startup
@@ -68,7 +70,7 @@ The `.migration/runs/<runId>/` folder is different: it is run-scoped audit data 
 
 The package can be compressed for transfer:
 
-```
+```text
 devopsmigration package zip --config migration.json --output migration-package.zip
 ```
 

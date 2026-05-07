@@ -1,16 +1,19 @@
 # Package Format
 
+Compressed agent context for the migration package. See `docs/package-format-reference.md` for the canonical human-readable reference and `docs/package-guide.md` for operator guidance.
+
 ## 1. Package Root Resolution
 
 `PackageRoot` is the configured `Package.WorkingDirectory`. Project artefacts live beneath org/project subfolders inside that root:
 
-```
+```text
 <WorkingDirectory>/
   .migration/
   <org-folder-name>/<project>/
 ```
 
 For example, given:
+
 - `WorkingDirectory`: `storage\my-export`
 - Organisation URL: `https://dev.azure.com/contoso`
 - Project: `MyProject`
@@ -23,7 +26,7 @@ This resolution is performed by `PathUtilities.ExtractOrgFolderName()` and appli
 
 ## 2. Package Structure (Canonical Format)
 
-```
+```text
 PackageRoot/
   .migration/
     migration-config.json
@@ -80,7 +83,7 @@ Run-scoped `job.json`, `plan.json`, and `config.json` are copies of what was exe
 
 The WorkItems layout is canonical and must not be altered:
 
-```
+```text
 WorkItems/
   yyyy-MM-dd/
     <ticks>-<workItemId>-<revisionIndex>/
@@ -103,11 +106,11 @@ Key characteristics:
 - Resume is trivial
 - Human-auditable
 
-### .migration/runs/<runId>/logs/
+### Run Log Folder
 
 The `.migration/runs/<runId>/logs/` folder contains structured observability records written by the Migration Agent during one specific job execution:
 
-```
+```text
 logs/
     progress.jsonl
     agent.jsonl
@@ -119,7 +122,7 @@ The run folder name uses second-level UTC timestamp format `<yyyyMMdd-HHmmss>` (
 Each run folder also contains `job.json`, `plan.json`, and `config.json` as audit copies of what was executed.
 
 | File | Format | Description |
-|---|---|---|
+| --- | --- | --- |
 | `progress.jsonl` | NDJSON | One `ProgressEvent` record per line. Tracks module cursor state, stage transitions, and item counts. Written by `PackageProgressSink`. |
 | `agent.jsonl` | NDJSON | Structured diagnostic log records (ILogger output). Each line is a JSON object with `timestamp`, `level`, `category`, `message`, and optional `exception` fields. Written by `PackageDiagnosticSink`. |
 | `agent-NNN.jsonl` | NDJSON | Rotated log segments when the primary segment exceeds the configured max size. |
@@ -131,7 +134,7 @@ Both files are append-only and survive resume. They are the durable audit record
 ### Naming Conventions
 
 | Segment | Format | Example |
-|---|---|---|
+| --- | --- | --- |
 | Date folder | `yyyy-MM-dd` | `2026-02-25` |
 | Revision folder | `<ticks>-<workItemId>-<revisionIndex>` | `638760123456789012-12345-17` |
 
@@ -139,7 +142,7 @@ Folder names sort lexicographically in chronological order. This invariant enabl
 
 ## 3. Manifest (Package Metadata)
 
-`manifest.json` at `PackageRoot/manifest.json`:
+`manifest.json` at `PackageRoot/{org}/{project}/manifest.json`:
 
 ```json
 {
@@ -182,12 +185,12 @@ The manifest is **not required** for streaming import, but is **required** for:
 - `packageVersion` is incremented on breaking changes to the package layout.
 - `schemaVersions` tracks per-module schema independently.
 - An upgrader must be provided for each breaking schema change.
-- Config versioning is handled separately; see [docs/configuration-reference.md](configuration.md).
+- Config versioning is handled separately; see `docs/configuration-reference.md`.
 
 ### Manifest Fields
 
 | Field | Required | Description |
-|---|---|---|
+| --- | --- | --- |
 | `packageVersion` | Yes | Package layout version |
 | `toolVersion` | Yes | Version of the tool that produced the package |
 | `runId` | Yes | Unique identifier for the export run |
