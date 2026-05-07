@@ -180,9 +180,11 @@ Required table columns:
 - `Work Items`
 - `Revisions`
 - `Repos`
-- `Time`
+- `Time` — elapsed time for that row so far, because Inventory does not yet know the final total when the row is live
 
 The task section must show capture/analyse tasks and their states.
+
+Inventory analyse tasks must show as waiting when they are blocked on dependent capture tasks. They must not appear as running until their dependencies are satisfied and analysis work has actually started.
 
 ### TUI Target Contract
 
@@ -193,6 +195,8 @@ The TUI Inventory workspace uses:
 - a details rail or footer for the selected project row or selected task
 
 The Inventory table and task rail must both live-update as new inventory data and task-state changes arrive.
+
+Inventory analyse tasks must remain visibly waiting in the task rail while dependent capture tasks are still in progress.
 
 The table is mandatory. The task section is mandatory.
 

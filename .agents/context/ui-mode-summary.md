@@ -42,8 +42,9 @@ Inventory:
 - `Work Items`
 - `Revisions`
 - `Repos`
-- `Time`
+- `Time` = elapsed time so far for that row
 - table live-updates as inventory data arrives, alongside the task section
+- analyse inventory stays waiting until dependent capture tasks have actually completed
 
 Dependencies:
 
