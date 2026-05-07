@@ -4,10 +4,22 @@
 
 Each migration concern is implemented as a module conforming to the `IModule` contract. Modules are the only extension point for adding new capabilities.
 
+### ICapture Interface
+
+```csharp
+interface ICapture
+{
+    string Name { get; }
+    Task CaptureAsync(InventoryContext context, CancellationToken ct);
+}
+```
+
+`Name` returns the second dot-segment of the task ID (e.g., `"workitems"` for `capture.workitems.org.project`). The `JobPlanExecutor` dispatches all `capture.*` tasks through a unified `captureHandlersByName` dictionary keyed by this name.
+
 ### IModule Contract
 
 ```csharp
-interface IModule
+interface IModule : ICapture
 {
     string Name { get; }
     IReadOnlyList<ModuleDependency> DependsOn { get; }
@@ -16,13 +28,40 @@ interface IModule
     bool SupportsExport { get; }
     bool SupportsPrepare { get; }
     bool SupportsImport { get; }
+    bool SupportsValidate { get; }
 
-    Task InventoryAsync(InventoryContext context, CancellationToken ct);
+    Task CaptureAsync(InventoryContext context, CancellationToken ct);
     Task ExportAsync(ExportContext context, CancellationToken ct);
     Task PrepareAsync(PrepareContext context, CancellationToken ct);
     Task ImportAsync(ImportContext context, CancellationToken ct);
     Task ValidateAsync(ValidationContext context, CancellationToken ct);
 }
+```
+
+```mermaid
+flowchart LR
+    subgraph IModule
+        Capture["CaptureAsync\n(Inventory)"]
+        Export["ExportAsync\n(Export)"]
+        Prepare["PrepareAsync\n(Prepare)"]
+        Import["ImportAsync\n(Import)"]
+        Validate["ValidateAsync\n(Validate)"]
+    end
+    Source["Source system\n(ADO / TFS / Simulated)"]
+    Target["Target system\n(ADO / Simulated)"]
+    Package["📦 Package\n(IArtefactStore)"]
+
+    Source -->|read| Capture
+    Source -->|read| Export
+    Capture -->|write| Package
+    Export -->|write| Package
+    Package -->|read| Prepare
+    Target -->|query| Prepare
+    Prepare -->|write mapping artefacts| Package
+    Package -->|read| Import
+    Import -->|write| Target
+    Package -->|read| Validate
+    Target -->|read| Validate
 ```
 
 ### Contract Invariants
@@ -45,6 +84,29 @@ Module (thin wrapper)
     → Service / Source / Target (external calls)
 ```
 
+```mermaid
+flowchart TD
+    subgraph Module["Module (thin wrapper ~100-130 lines)"]
+        MGuard["Guard checks\n(enabled? null service?)"]
+        MConfig["Resolve config/endpoints"]
+        MDelegate["Delegate to orchestrator"]
+    end
+    subgraph Orchestrator["Orchestrator (business logic)"]
+        OCheckpoint["Cursor read/write\n(IStateStore)"]
+        OProgress["Progress events\n(IProgressSink)"]
+        OMetrics["OTel metrics\n(IMigrationMetrics)"]
+        OLoop["Enumeration loops\n+ resume logic"]
+    end
+    subgraph Service["Service / Source / Target (connector-specific)"]
+        SADO["AzureDevOps\nimplementation"]
+        STFS["TFS\nimplementation"]
+        SSim["Simulated\nimplementation"]
+    end
+
+    Module --> Orchestrator
+    Orchestrator --> Service
+```
+
 #### Layer Responsibilities
 
 | Layer | Responsibility | Examples |
@@ -63,7 +125,7 @@ Orchestrator interfaces are declared in `DevOpsMigrationPlatform.Abstractions.Ag
 | `IIdentitiesOrchestrator` | `Abstractions.Agent/Modules/` | Identity descriptor export, import (lookup/resolution), and validation |
 | `ITeamsOrchestrator` | `Abstractions.Agent/Modules/` | Team export, import, and validation (net10.0 only) |
 | `IDependencyOrchestrator` | `Abstractions.Agent/Modules/` | Dependency analysis orchestration (`DependencyAnalyser`) |
-| `IInventoryOrchestrator` | `Abstractions.Agent/Discovery/` | Inventory collection orchestration (retained, now injected into `WorkItemsModule.InventoryAsync`) |
+| `IInventoryOrchestrator` | `Abstractions.Agent/Discovery/` | Inventory collection orchestration (retained, now injected into `WorkItemsModule.CaptureAsync`) |
 
 Orchestrator *implementations* are `internal sealed` classes in `Infrastructure.Agent`. They are registered in DI by the module's `ServiceCollectionExtensions` and constructor-injected into the module.
 
@@ -83,6 +145,7 @@ Orchestrator *implementations* are `internal sealed` classes in `Infrastructure.
 | `TeamsModule` | `ITeamsOrchestrator` | `ITeamSource`, `ITeamTarget`, `TeamExportOrchestrator`, `TeamImportOrchestrator` |
 | `WorkItemsModule` | `WorkItemExportOrchestrator`, `WorkItemImportOrchestrator` | `IWorkItemRevisionSource`, `IAttachmentBinarySource` |
 | `WorkItemsModule` (inventory phase) | `IInventoryOrchestrator` | `IInventoryService` |
+| `DependencyCapture` | `IDependencyOrchestrator` | `IDependencyDiscoveryServiceFactory`, `IDependencyOrchestrator` — pure `ICapture` (not IModule) |
 | `DependencyAnalyser` | `IDependencyOrchestrator` | `IDependencyDiscoveryService` |
 
 ### Dependency Graph Rules
@@ -99,7 +162,7 @@ Orchestrator *implementations* are `internal sealed` classes in `Infrastructure.
 
 | `DependencyPhase` value | Meaning |
 |---|---|
-| `Inventory = 0` | Applies to `InventoryAsync` task ordering |
+| `Inventory = 0` | Applies to `CaptureAsync` task ordering |
 | `Export = 1` | Applies to `ExportAsync` task ordering |
 | `Import = 2` | Applies to `ImportAsync` task ordering |
 | `Both = 3` | Applies to both export and import ordering |
@@ -271,7 +334,7 @@ Current analyser implementation:
 |---|---|---|
 | `DependencyAnalyser` | `IDependencyOrchestrator` | Analyses cross-project and cross-organisation work item links; writes dependency artefacts. |
 
-Inventory is now an intrinsic phase on each domain module (`InventoryAsync`) rather than standalone `InventoryModule` / `InventoryDiscoveryModule` classes.
+Inventory is now an intrinsic phase on each domain module (`CaptureAsync` via `ICapture`) rather than standalone `InventoryModule` / `InventoryDiscoveryModule` classes. `IProjectAnalyser` has been removed; per-project dependency capture is handled by `DependencyCapture : ICapture`.
 
 ### Tool Resolution
 
@@ -312,7 +375,7 @@ For the full tool schema and available options, see [docs/configuration-referenc
 | **Name** | `Identities` |
 | **DependsOn** | *(none — runs first)* |
 | **Package folder** | `Identities/` |
-| **Cursor** | `.migration/Checkpoints/identities.cursor.json` |
+| **Cursor** | `/{org}/{project}/.migration/{action}.identities.cursor.json` |
 
 **Behaviour:**
 - `ExportAsync`: streams all user and group identity descriptors from the source via `IIdentitySource`. Writes one descriptor per line to `Identities/descriptors.jsonl` (JSONL format). Emits `migration.identities.export.count` metric.
@@ -340,7 +403,7 @@ For the full tool schema and available options, see [docs/configuration-referenc
 | **Name** | `Nodes` |
 | **DependsOn** | *(none)* |
 | **Package folder** | `Nodes/` |
-| **Cursor** | `.migration/Checkpoints/nodes.cursor.json` |
+| **Cursor** | `/{org}/{project}/.migration/{action}.nodes.cursor.json` |
 
 **Behaviour:**
 - `ExportAsync`: delegates to `IClassificationTreeCapture.CaptureAsync()` — writes `Nodes/source-tree.json` with the full area/iteration tree from the source.
@@ -367,7 +430,7 @@ For the full tool schema and available options, see [docs/configuration-referenc
 | **Name** | `Teams` |
 | **DependsOn** | *(none — order is operator-controlled)* |
 | **Package folder** | `Teams/` |
-| **Cursor** | `.migration/Checkpoints/teams.cursor.json` |
+| **Cursor** | `/{org}/{project}/.migration/{action}.teams.cursor.json` |
 
 **Recommended execution order**: After `IdentitiesModule` and `NodesModule`, before `WorkItemsModule`.
 

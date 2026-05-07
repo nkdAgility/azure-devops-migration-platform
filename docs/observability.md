@@ -14,6 +14,28 @@ The platform emits telemetry on three channels:
 | 2 — Metrics (polling) | `GET /jobs/{id}/telemetry` | CLI, TUI Metrics | `JobMetrics` snapshot — counts, durations |
 | 3 — Diagnostics (SSE) | `GET /jobs/{id}/diagnostics?follow=true` | TUI Logs | Structured log events from the agent |
 
+```mermaid
+flowchart LR
+    Agent["Migration Agent"]
+    subgraph Channels["Telemetry Channels"]
+        C1["Channel 1 — Progress SSE\nGET /jobs/{id}/progress?follow=true\nProgressEvent objects"]
+        C2["Channel 2 — Metrics polling\nGET /jobs/{id}/telemetry\nJobMetrics snapshot"]
+        C3["Channel 3 — Diagnostics SSE\nGET /jobs/{id}/diagnostics?follow=true\nStructured log events"]
+    end
+    CLI["CLI / --follow display"]
+    TUI_Progress["TUI Progress table"]
+    TUI_Metrics["TUI Metrics panel"]
+    TUI_Logs["TUI Logs panel"]
+
+    Agent -->|ProgressEvent| C1
+    Agent -->|OTel metrics via IMigrationMetrics| C2
+    Agent -->|ILogger records| C3
+    C1 --> CLI
+    C1 --> TUI_Progress
+    C2 --> TUI_Metrics
+    C3 --> TUI_Logs
+```
+
 ## Traces
 
 Distributed traces are emitted via OpenTelemetry `ActivitySource`. Each module operation creates a span tagged with `module` and relevant context. Traces can be exported to Application Insights (system data only — see [Data Classification](#data-classification)).
@@ -59,6 +81,30 @@ Application Insights receives only `System` and `Derived` classification data (w
 ## Data Classification
 
 See [`security-and-data-sovereignty.md`](security-and-data-sovereignty.md#data-classification) for the full classification table.
+
+```mermaid
+flowchart TD
+    Log["Log statement\n(ILogger.LogXxx)"]
+    Scope{"DataClassification\nScope?"}
+    System["System (default)\nSafe for export"]
+    Customer["Customer\nBlocked from App Insights"]
+    Derived["Derived\nSafe for export"]
+
+    Log --> Scope
+    Scope -->|no scope| System
+    Scope -->|"BeginDataScope(Customer)"| Customer
+    Scope -->|"BeginDataScope(Derived)"| Derived
+
+    System -->|allowed| AppInsights["Azure Monitor / OTLP"]
+    Customer -->|blocked| AppInsights
+    Derived -->|allowed| AppInsights
+    System --> PackageLog["PackageLoggerProvider\n(all records)"]
+    Customer --> PackageLog
+    Derived --> PackageLog
+    System --> CPLog["ControlPlaneLoggerProvider\n(all records)"]
+    Customer --> CPLog
+    Derived --> CPLog
+```
 
 ---
 # Resilience Patterns

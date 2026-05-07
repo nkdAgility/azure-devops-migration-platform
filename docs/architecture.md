@@ -14,9 +14,9 @@ The system supports five pipeline phases, each of which can be run independently
 **Inventory → Export → Prepare → Import → Validate**
 
 1. **Inventory** — Count and catalogue everything in scope before export/import begins. Connects to the source system and enumerates work items, revisions, and related artefacts per project. Results are written to the package (inventory artefacts). Inventory may have been performed previously via `devopsmigration queue` with `Mode: Inventory`, but running it as a pipeline phase ensures results are recorded in the package and visible to downstream phases. Only the `source` connection is required.
-2. **Export** — Azure DevOps Services → Files, or TeamFoundationServer (via .NET 4 OM exporter) → Files, or Simulated → Files (for testing and development). Reads the source system and writes all in-scope data to the package via `IArtefactStore`. **Inventory gate**: if `.migration/Checkpoints/inventory.complete.json` is absent, Export auto-runs Inventory first.
+2. **Export** — Azure DevOps Services → Files, or TeamFoundationServer (via .NET 4 OM exporter) → Files, or Simulated → Files (for testing and development). Reads the source system and writes all in-scope data to the package via `IArtefactStore`. **Inventory gate**: if root `.migration/inventory.complete.json` is absent, Export auto-runs Inventory first.
 3. **Prepare** — Files + Target → Validation artefacts. Reads the exported package and connects to the target to cross-validate before import. Each module's `PrepareAsync` analyses the exported data against the target (e.g. identity mapping, node existence, field compatibility) and writes validation artefacts into the package for operator review. Any unresolved issue is blocking unless the operator adds an explicit skip. Prepare is idempotent and re-runnable; it overwrites its own output but never touches operator-edited mapping files.
-4. **Import** — Files → Azure DevOps Services, or Files → TeamFoundationServer (via .NET 4.8 TFS Migration Agent — not yet implemented; the TFS agent currently handles Export only), or Files → Simulated (for testing and development). If Prepare has not been run (no `.migration/Checkpoints/prepare.complete.json` marker), Import auto-runs Prepare first and aborts with a report if any blocking issues are found.
+4. **Import** — Files → Azure DevOps Services, or Files → TeamFoundationServer (via .NET 4.8 TFS Migration Agent — not yet implemented; the TFS agent currently handles Export only), or Files → Simulated (for testing and development). If Prepare has not been run (no root `.migration/prepare.complete.json` marker), Import auto-runs Prepare first and aborts with a report if any blocking issues are found.
 5. **Validate** — Post-import verification. Compares the import results against the exported package to identify missing or mismatched items. Runs Tier 3 post-flight checks (work item count parity, link integrity, attachment integrity, identity resolution completeness) and writes a comprehensive `validation-report.json`. Can be run independently after import to re-check at any time. Only the `target` connection and the package are required.
 
 Additionally, a convenience mode chains all five phases:
@@ -31,6 +31,14 @@ The Files layer is first-class. It is:
 - Resumable
 - Stream-importable
 - Human-readable
+
+The package uses three state scopes:
+
+- Root `.migration/` for authoritative package-wide operational state used across runs.
+- `/{org}/{project}/.migration/` for project-scoped cursors and resume state.
+- `.migration/runs/<runId>/` for run-scoped audit copies and logs from one specific execution.
+
+Run-scoped files are evidence of what executed; they are not the authoritative source for resume or phase-gate decisions.
 
 ### JobKind → Phase Dispatch
 
@@ -53,11 +61,11 @@ The platform separates **job coordination** (control plane) from **job execution
 
 | Component | Role |
 |---|---|
-| **CLI** | Operator interface. When `Environment.Type` is `Standalone` (the default), uses Aspire `DistributedApplication` APIs to start `ControlPlaneHost` and `MigrationAgent` as separate child processes (`ChildProcessHost`). When `Environment.Type` is `Hosted`, connects directly to `ControlPlane.BaseUrl` from config. Always communicates with the control plane via HTTP. Submits jobs, queries status, and manages job lifecycle. Contains no migration execution logic. |
+| **CLI** | Operator interface. When `Environment.Type` is `Standalone` (the default), uses `LocalStackHost` to start `ControlPlaneHost` and `MigrationAgent` as separate child processes (`ChildProcessHost`) via plain `System.Diagnostics.Process` — no Aspire at runtime. When `Environment.Type` is `Hosted`, connects directly to `ControlPlane.BaseUrl` from config. Always communicates with the control plane via HTTP. Submits jobs, queries status, and manages job lifecycle. Contains no migration execution logic. |
 | **TUI** | Connects to any control plane endpoint — on the same machine, a dedicated server, or in the cloud — and renders live job state. Never submits jobs. |
-| **ControlPlane** | Service library (`DevOpsMigrationPlatform.ControlPlane`). Contains the HTTP API controllers, job state machine, lease protocol, progress tracking, and EF Core data model. Has no entry point — it is referenced and hosted by `ControlPlaneHost`. |
-| **ControlPlaneHost** | Deployable ASP.NET Core host (`DevOpsMigrationPlatform.ControlPlaneHost`). References the `ControlPlane` service library and adds: process entry point, agent lifecycle management via `IAgentLauncher`, and Aspire resource integration. Always reachable over HTTP. `LocalProcessAgentLauncher` spawns agent processes on the same machine; `ContainerAgentLauncher` deploys and scales agent containers to a configurable target context — either the managed ACA environment co-located with the control plane, or a user-specified environment (for network zone isolation). The agent image source is configured separately from the target context. |
-| **Migration Agent** | (`DevOpsMigrationPlatform.MigrationAgent`) Stateless worker that executes migration jobs. Polls `ControlPlaneHost` for assigned jobs under a time-bounded lease, runs modules via the Job Engine, writes to the package, reports progress back. Lifecycle managed by `ControlPlaneHost` via `IAgentLauncher`. A single binary and container image supports all modes (`Inventory`, `Export`, `Prepare`, `Import`, `Validate`, `Migrate`). |
+| **ControlPlane** | Service library (`DevOpsMigrationPlatform.ControlPlane`). Contains the HTTP API controllers, job state machine, lease protocol, and progress tracking. Currently all stores are in-memory; durable EF Core / PostgreSQL persistence is planned for a later phase. Has no entry point — it is referenced and hosted by `ControlPlaneHost`. |
+| **ControlPlaneHost** | Deployable ASP.NET Core host (`DevOpsMigrationPlatform.ControlPlaneHost`). References the `ControlPlane` service library and adds: process entry point and `AgentLifecycleService` (currently monitors TFS agent on Windows). In Standalone mode the CLI (`LocalStackHost`) manages agent process lifecycle directly; in Cloud mode `ContainerAgentLauncher` deploys and scales agent containers to a configurable ACA environment. Always reachable over HTTP. |
+| **Migration Agent** | (`DevOpsMigrationPlatform.MigrationAgent`) Stateless worker that executes migration jobs. Polls `ControlPlaneHost` for assigned jobs under a time-bounded lease, runs modules via the Job Engine, writes to the package, reports progress back. In Standalone mode its lifecycle is managed by `LocalStackHost` in the CLI; in Cloud mode by `ContainerAgentLauncher` in `ControlPlaneHost`. A single binary and container image supports all modes (`Inventory`, `Export`, `Prepare`, `Import`, `Validate`, `Migrate`). |
 | **TFS Migration Agent** | (`DevOpsMigrationPlatform.TfsMigrationAgent`) A .NET 4.8 polling agent — structural peer of the `MigrationAgent` — that handles jobs with `source.type: TeamFoundationServer`. Polls `GET /agents/lease?capabilities=tfs`, acquires TFS jobs, runs `IModule` dispatch (`TfsJobAgentWorker` accepts `IEnumerable<IModule>`), connects to TFS via the TFS Object Model, writes to the package via `IArtefactStore` (`FileSystemArtefactStore`), maintains checkpoints via `IStateStore`, and reports progress via `ControlPlaneProgressSink`. Currently supports Export mode only; Import support will be added to the same binary. Windows-only — TFS OM cannot run in containers. `AgentLifecycleService` spawns it on Windows and skips it elsewhere. See [docs/agent-hosting.md — TFS Migration Agent](migration-agent.md#tfs-migration-agent). |
 
 ### Tools
@@ -85,6 +93,34 @@ Project references are compiler-enforced (no cyclic references allowed). Each la
 
 The CLI must **not** reference `Abstractions.Agent` or `Abstractions.ControlPlane`. Agent projects must **not** reference `ControlPlane`. `TfsMigrationAgent` must **not** be referenced from any .NET 10 project.
 
+```mermaid
+graph TD
+    CLI["CLI\nDevOpsMigrationPlatform.CLI.Migration"]
+    TUI["TUI\nDevOpsMigrationPlatform.TUI"]
+    CPHost["ControlPlaneHost"]
+    CP["ControlPlane\nservice library"]
+    Agent["MigrationAgent\nnet10.0"]
+    TFSAgent["TfsMigrationAgent\nnet481"]
+    Infra["Infrastructure.*"]
+    Abs["Abstractions"]
+    AbsAgent["Abstractions.Agent"]
+    AbsCP["Abstractions.ControlPlane"]
+
+    CLI --> Abs
+    CLI --> Infra
+    TUI --> Abs
+    CPHost --> Abs
+    CPHost --> AbsCP
+    CPHost --> Infra
+    CPHost --> CP
+    CP --> AbsCP
+    Agent --> AbsAgent
+    Agent --> Infra
+    TFSAgent --> AbsAgent
+    Infra --> Abs
+    Infra --> AbsAgent
+```
+
 ### Flow
 
 ```
@@ -97,7 +133,7 @@ CLI
   │  → creates Job (assigns jobId, normalises URI, serialises config into Job.ConfigPayload)
   │
   ▼
-ControlPlaneHost (Aspire-managed or remote — same HTTP interface)
+ControlPlaneHost (CLI-managed child process or remote — same HTTP interface)
   │  deduplication check (jobId)
   │  assigns to available agent by Job.Connectors capability matching
   │
@@ -114,6 +150,23 @@ Package (file:/// or https://<account>.blob.core.windows.net/...)
 
 > **TFS source:** The `TfsMigrationAgent` participates in this same flow. The control plane routes jobs with `source.type: TeamFoundationServer` to the TFS agent via capability matching (`?capabilities=tfs`). From the CLI's perspective, TFS and ADO exports are submitted identically — `POST /jobs` — and the appropriate agent picks up the work.
 
+```mermaid
+flowchart TD
+    Operator["🧑 Operator\n(migration-config.json)"]
+    CLI["CLI\nTier 0: Schema validation\nTier 1: Connectivity checks"]
+    CP["ControlPlaneHost\nDedup check · Capability routing"]
+    Agent["Migration Agent\nTier 2: Pre-flight validation\nJob Engine + Modules"]
+    TFSAgent["TFS Migration Agent\n(net481 · Windows-only)"]
+    Package["📦 Package\nfile:/// · blob://"]
+
+    Operator -->|config file| CLI
+    CLI -->|POST /jobs| CP
+    CP -->|lease: ADO/Simulated| Agent
+    CP -->|lease: TFS| TFSAgent
+    Agent -->|writes via IArtefactStore| Package
+    TFSAgent -->|writes via IArtefactStore| Package
+```
+
 ### `Job` is the Internal Contract
 
 The `ControlPlaneHost` receives a `Job` from the CLI. It is the fully serialisable dispatch token that `ControlPlaneHost` passes to an Agent under a lease. The class was named `MigrationJob` until feature 025.1-fold-to-job unified the class hierarchy (replacing both `MigrationJob` and `DiscoveryJob`). All job kinds now use the same `Job` wire format with a `Kind` discriminator (`JobKind` enum). The config file is never sent to the Agent directly — it travels as `Job.ConfigPayload` (raw JSON) and the Agent writes it to `migration-config.json` at the package root before any module executes.
@@ -124,7 +177,7 @@ See [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md).
 
 `ControlPlaneHost` is always reachable over HTTP. The CLI always communicates with it via `ControlPlaneClient`. The difference between topologies is only where `ControlPlaneHost` is running:
 
-- **Local / Dedicated Server**: CLI uses embedded Aspire `DistributedApplication` APIs to start `ControlPlaneHost`, listening on `http://localhost:5100`. Any machine with network access to that endpoint can connect a TUI and monitor the migration.
+- **Local / Dedicated Server**: CLI uses `LocalStackHost` to start `ControlPlaneHost` as a child process, listening on `http://localhost:5100`. Any machine with network access to that endpoint can connect a TUI and monitor the migration.
 - **Cloud (Self-Hosted / Managed)**: an HTTPS URL to the Azure-hosted `ControlPlaneHost`.
 
 Switching from local to cloud requires only a config change. No code changes.
@@ -148,7 +201,7 @@ Module code never references a concrete store implementation.
 
 **Concurrent Write Protection**: Packages are protected from simultaneous writes by a lease-based protocol. Only one agent may hold a lease on a package at any time. See [docs/concurrent-write-detection.md](concurrent-write-detection.md) for the lease mechanism and data integrity guarantees.
 
-> **Single-job-per-package constraint**: Only one job runs against a given package at a time. This is a deliberate design decision — checkpoint keys (e.g. `PackagePaths.CursorFile("workitems")`) are scoped by module name only, not by job ID. Adding job-ID scoping would be premature — the lease protocol already prevents concurrent access, and a second job on the same package would re-export or re-import atop the first job's data, which is never valid. If you need parallel execution, use separate packages.
+> **Single-job-per-package constraint**: Only one job runs against a given package at a time. Root `.migration/` remains package-scoped for orchestration state, while project item-progress cursors are scoped by org, project, action, and module under `/{org}/{project}/.migration/{action}.{module}.cursor.json`. The lease protocol still prevents concurrent writers against the same package.
 
 ### Cross-Environment Package Handoff
 
@@ -167,12 +220,12 @@ The package format is identical in all cases. See [docs/package-format-reference
 The Migration Agent emits structured `ProgressEvent` records through `IProgressSink`. Three sinks run simultaneously:
 
 - `ConsoleProgressSink` — writes NDJSON to the CLI terminal (local run output)
-- `PackageProgressSink` — appends to `Logs/progress.jsonl` in the package (always written; durable)
+- `PackageProgressSink` — appends to `.migration/runs/<runId>/logs/progress.jsonl` in the package (always written; durable)
 - `ControlPlaneProgressSink` — POSTs each event to the control plane ring buffer for live TUI streaming
 
 The TUI subscribes to `GET /jobs/{jobId}/progress?follow=true` (Server-Sent Events) for live progress, and polls `GET /jobs/{jobId}/telemetry` for metric counters. Both are independent. The package log is always written regardless of whether the TUI or CLI is connected.
 
-A separate **diagnostics channel** carries structured diagnostic log records (ILogger output). The agent writes diagnostic records to `Logs/agent.jsonl` in the package and, when connected to a control plane, streams them via `POST /agents/lease/{leaseId}/diagnostics`. The control plane buffers and exposes these on `GET /jobs/{jobId}/diagnostics?follow=true` (SSE). The diagnostics channel is independent of the progress channel — progress tracks migration cursor state, diagnostics track operational log messages.
+A separate **diagnostics channel** carries structured diagnostic log records (ILogger output). The agent writes diagnostic records to `.migration/runs/<runId>/logs/agent.jsonl` in the package and, when connected to a control plane, streams them via `POST /agents/lease/{leaseId}/diagnostics`. The control plane buffers and exposes these on `GET /jobs/{jobId}/diagnostics?follow=true` (SSE). The diagnostics channel is independent of the progress channel — progress tracks migration cursor state, diagnostics track operational log messages.
 
 The job engine has no knowledge of where progress is rendered.
 
@@ -207,10 +260,10 @@ See [docs/configuration-reference.md — Data Classification](configuration.md#d
 The working directory (`Package.WorkingDirectory`) and all package files are write-accessible **exclusively** by the Migration Agent (or TFS Migration Agent for TFS sources). This is a non-negotiable data residency guarantee.
 
 | Component | Package Write | Package Read | Rationale |
-|---|---|---|
+|---|---|---|---|
 | **Migration Agent** | ✅ Yes (via `IArtefactStore` / `IStateStore`) | ✅ Yes | Execution boundary — the only component that processes customer data. |
 | **TFS Migration Agent** | ✅ Yes (via `IArtefactStore` / `IStateStore`) | ✅ Yes | Same execution boundary for TFS sources; runs as a Windows polling agent. |
-| **CLI** | ❌ No | ✅ Read-only (post-job summaries) | Reads `dependencies.csv`, `inventory.json`, etc. for display after the Agent completes. Never writes. |
+| **CLI** | ❌ No | ❌ No | Reads job config (scenario JSON) before queuing; receives all results via the control plane API. Never accesses the package directory. |
 | **TUI** | ❌ No | ❌ No (reads via control plane API) | Pure progress viewer; all data arrives via SSE from the control plane. |
 | **Control Plane / ControlPlaneHost** | ❌ No | ❌ No | Coordinates jobs, manages leases, buffers progress events. Never accesses the package directly. |
 
@@ -226,18 +279,36 @@ Operators can run export, prepare, and import as separate steps, or as a single 
 
 The platform has a single architecture across all hosting topologies. The same control plane, agent, and job engine run in every environment. The only variable is where the components are hosted.
 
-| Topology | Control Plane host | Agent host | Package store | PostgreSQL |
+| Topology | Control Plane host | Agent host | Package store | DB |
 |---|---|---|---|---|
-| **Local** | Aspire-managed process on the operator's machine | Aspire-managed process(es) on the same machine | `file:///` | Aspire portable binary resource |
-| **Dedicated Server** | Aspire-managed process on a server | Aspire-managed process(es) on the same server | `file:///` | Aspire portable binary resource |
+| **Local** | CLI-managed child process (`LocalStackHost`) on the operator's machine | CLI-managed child process on the same machine | `file:///` | In-memory (no persistent DB) |
+| **Dedicated Server** | CLI-managed child process (`LocalStackHost`) on a server | CLI-managed child process on the same server | `file:///` | In-memory (no persistent DB) |
 | **Cloud (Self-Hosted)** | Azure Container App (customer subscription) | Azure Container App(s) | Azure Blob Storage | Azure PostgreSQL Flexible Server |
 | **Cloud (Managed)** | Azure Container App (NKD Agility subscription) | Azure Container App(s) | Azure Blob Storage | Azure PostgreSQL Flexible Server |
 
-In the Local and Dedicated Server topologies, the CLI drives Aspire programmatically to start `ControlPlaneHost`, which uses `LocalProcessAgentLauncher` to spawn agent processes on the same machine. PostgreSQL runs as an Aspire portable binary resource — no Docker, no installer required. The TUI can connect to the control plane from any machine with network access to the server.
+In the Local and Dedicated Server topologies, the CLI uses `LocalStackHost` to start `ControlPlaneHost` and `MigrationAgent` as child processes (`ChildProcessHost` — plain `System.Diagnostics.Process`, no Aspire). The control plane uses in-memory stores for this topology; durable PostgreSQL persistence is planned for a later phase. The TUI can connect to the control plane from any machine with network access to the server.
 
 In Cloud topologies, the CLI connects to a pre-existing HTTPS `ControlPlaneHost` endpoint. `ControlPlaneHost` uses `ContainerAgentLauncher` to deploy and scale agent containers. The target container environment is configurable — either the managed Azure Container Apps environment co-located with the control plane, or a user-specified environment for network zone isolation (different VNet, ACA environment, or AKS namespace).
 
-All topologies use the same orchestrator engine, the same modules, and the same cursor-based checkpoints. The package contract is identical. See [docs/cli-guide.md](cli.md), [docs/tui-guide.md](tui.md), [docs/control-plane.md](control-plane.md), and [docs/agent-hosting.md](migration-agent.md).
+```mermaid
+flowchart LR
+    subgraph Local["Local / Dedicated Server"]
+        direction TB
+        LCLI["CLI"] -->|LocalStackHost| LCP["ControlPlaneHost\nlocalhost:5100"]
+        LCP -->|AgentLifecycleService| LTFSAgent["TfsMigrationAgent\n(Windows only)"]
+        LCLI -->|LocalStackHost| LAgent["MigrationAgent"]
+        LAgent --> LPkg["📦 file:///"]
+        LTFSAgent --> LPkg
+    end
+    subgraph Cloud["Cloud (Self-Hosted / Managed)"]
+        direction TB
+        CCLI["CLI"] -->|HTTPS| CCP["ControlPlaneHost\nAzure Container App"]
+        CCP -->|ContainerAgentLauncher| CAgent["MigrationAgent\nContainer(s)"]
+        CAgent --> CPkg["📦 Azure Blob Storage"]
+    end
+```
+
+All topologies use the same orchestrator engine, the same modules, and the same cursor-based checkpoints.The package contract is identical. See [docs/cli-guide.md](cli.md), [docs/tui-guide.md](tui.md), [docs/control-plane.md](control-plane.md), and [docs/agent-hosting.md](migration-agent.md).
 
 Key properties:
 
@@ -259,7 +330,7 @@ Key properties:
 3. Migration Agent worker service (poll, execute, heartbeat, report) — spawned as child process by CLI
 4. Job Engine (orchestrator + modules contract + cursors)
 5. `IArtefactStore` + `FileSystemArtefactStore` (`file:///` URI)
-6. `IStateStore` / `PackageCheckpointStateStore` (`.migration/Checkpoints/` inside package)
+6. `IStateStore` / `PackageCheckpointStateStore` (root `.migration/` for package state, `/{org}/{project}/.migration/` for project cursors, and `.migration/runs/<runId>/` for run audit output)
 7. `IProgressSink` with `ConsoleProgressSink` + `PackageProgressSink` ✅
 8. `ControlPlaneClient` (CLI always uses this to talk to the in-process or remote control plane)
 9. WorkItems module (REST)

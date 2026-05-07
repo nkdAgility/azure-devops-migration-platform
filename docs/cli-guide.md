@@ -32,7 +32,7 @@ Spectre.Console is the only permitted CLI library in command-layer code. Do not 
 │  - Commands manage hosting lifecycle    │
 │    (start or connect to services)       │
 └────────────────┤────────────────────────┘
-                 │  Job
+                 │  HTTP
                  │
         ┌────────▼────────┐
         │ ControlPlane    │
@@ -208,7 +208,7 @@ These commands submit jobs to the control plane via `ControlPlaneClient`.
 | Command | Description |
 |---|---|
 | `prepare` | Submit a Prepare job through the full pipeline (CLI → Control Plane → Agent). The agent reads the exported package, connects to the target, and runs each module's `PrepareAsync` to cross-validate before import. Produces validation artefacts (identity mapping reports, node validation, field mapping reports) in each module's package folder for operator review. Any unresolved issue is blocking unless the operator adds an explicit skip. Idempotent — re-running overwrites Prepare output but preserves operator-edited mapping files. Requires a completed Export (package with `manifest.json`). |
-| `queue` | Submit a job. Behaviour is determined by the `mode` field in the config (`Inventory`, `Dependencies`, `Export`, `Prepare`, `Import`, `Validate`, or `Migrate`). `--follow` streams diagnostic logs inline (implicit in standalone mode). `--level` sets the agent's diagnostic minimum level per job. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). Phase gates apply automatically: Export auto-runs Inventory if missing; Import auto-runs Prepare if missing. |
+| `queue` | Submit a job. Behaviour is determined by the `mode` field in the config (`Inventory`, `Dependencies`, `Export`, `Prepare`, `Import`, or `Migrate`). `--follow` streams diagnostic logs inline (implicit in standalone mode). `--level` sets the agent's diagnostic minimum level per job. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). Phase gates apply automatically: Export auto-runs Inventory if missing; Import auto-runs Prepare if missing. |
 
 ### Job Management Commands (`manage`)
 
@@ -318,7 +318,7 @@ The CLI always communicates with the control plane via `ControlPlaneClient`. The
 
 The config file is the single source of truth for the control plane URL. The `--port` CLI flag overrides the listen port in Standalone mode, enabling multiple concurrent local runs on different ports (e.g. `--port 5200`). There is no `--url` CLI flag or `MIGRATION_API_URL` environment variable override.
 
-Running `devopsmigration export --config migration.json` on a local machine with default config will start the local stack, execute the job, and exit — all from a single command.
+Running `devopsmigration queue --config migration.json` on a local machine with default config will start the local stack, execute the job, and exit — all from a single command.
 
 ---
 

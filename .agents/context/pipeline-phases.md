@@ -4,7 +4,7 @@ The platform defines five phases and a convenience mode:
 
 | Phase | Command mode | Purpose |
 |---|---|---|
-| Inventory | `Inventory` | Count and catalogue source items. Produces an inventory manifest. |
+| Inventory | `Inventory` | Count and catalogue source items. Produces an inventory manifest. Followed by an `analyse` sub-phase where registered `IAnalyser` implementations run (e.g. consolidating inventory counts, computing dependency graphs). |
 | Export | `Export` | Read source items and write them to the package. Runs Inventory first if not already done. |
 | Prepare | `Prepare` | Validate target readiness: check node structure, identity mapping, permissions. |
 | Import | `Import` | Read the package and push items to the target. Runs Prepare first if not already done. |

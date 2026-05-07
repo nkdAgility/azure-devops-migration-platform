@@ -4,8 +4,9 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
@@ -32,7 +33,7 @@ public interface IDependencyOrchestrator
     /// Writes results to <c>discovery/{orgSlug}/{projectSlug}/dependencies.csv</c>.
     /// Called once per <c>capture.dependencies.{org}.{project}</c> plan task.
     /// </summary>
-    Task CaptureProjectAsync(
+    Task<DependencyCounters> CaptureProjectAsync(
         IDependencyDiscoveryService dependencyService,
         InventoryContext context,
         JobPolicies policies,

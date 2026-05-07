@@ -21,7 +21,7 @@ using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 
-public sealed class DependencyAnalyser : IOrganisationsAnalyser, IProjectAnalyser
+public sealed class DependencyAnalyser : IOrganisationsAnalyser
 {
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Discovery);
     private readonly IDependencyDiscoveryServiceFactory _dependencyFactory;
@@ -94,15 +94,37 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser, IProjectAnalyse
                 "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemChangedDate,SourceWorkItemStateCategory";
             var consolidated = new System.Text.StringBuilder();
             consolidated.AppendLine(CsvHeader);
+            var missingRequiredInputs = 0;
             foreach (var path in perProjectPaths) // already lexicographic per EnumerateAsync contract
             {
                 var content = await context.ArtefactStore.ReadAsync(path, ct).ConfigureAwait(false);
+                if (content is null)
+                {
+                    // Edge Case EC-5: capture task may have failed to write this file.
+                    // Log the missing file and continue processing remaining projects.
+                    // Path contains org URL + project name — customer-data scope required.
+                    using (DataClassificationScope.Begin(DataClassification.Customer))
+                    {
+                        _logger.LogError(
+                            "Required dependency CSV not found at {Path}. Skipping project.",
+                            path);
+                    }
+                    missingRequiredInputs++;
+                    continue;
+                }
                 if (string.IsNullOrWhiteSpace(content))
                     continue;
-                var lines = content!.Split(new[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+                var lines = content.Split(new[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
                 foreach (var line in lines.Skip(1)) // skip each file's header
                     consolidated.AppendLine(line);
             }
+
+            if (missingRequiredInputs > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Dependency analysis cannot consolidate because {missingRequiredInputs} required per-project dependency CSV file(s) are missing.");
+            }
+
             csv = consolidated.ToString();
             await context.ArtefactStore.WriteAsync("dependencies.csv", csv, ct).ConfigureAwait(false);
             _logger.LogInformation(
@@ -170,23 +192,6 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser, IProjectAnalyse
                 }
             }
         });
-    }
-
-    /// <inheritdoc />
-    public async Task CaptureProjectAsync(InventoryContext context, CancellationToken ct)
-    {
-        using var activity = ActivitySource.StartActivity("capture.dependencies.project");
-        activity?.SetTag("job.id", context.Job.JobId);
-        activity?.SetTag("organisation.url", context.SourceEndpoint?.ResolvedUrl);
-        activity?.SetTag("project.name", context.Project);
-
-        var dependencyService = _dependencyFactory.CreateForProject(
-            context.Organisations,
-            context.SourceEndpoint?.ResolvedUrl ?? string.Empty,
-            context.Project,
-            context.Policies);
-
-        await _orchestrator.CaptureProjectAsync(dependencyService, context, context.Policies, ct).ConfigureAwait(false);
     }
 
     private static int CountRows(string? csv)

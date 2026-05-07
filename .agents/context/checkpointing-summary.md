@@ -2,14 +2,14 @@
 
 ## 6. Cursor-Based Checkpointing
 
-Instead of per-work-item watermark tables, the system uses a forward-only cursor stored as a JSON file. This requires no database and makes resume O(1).
+Instead of per-work-item watermark tables, the system uses forward-only project cursors stored as JSON files. This requires no database and makes resume O(1).
 
-> **Single-job-per-package**: Cursor file paths are scoped by module name only (e.g. `workitems.cursor.json`), not by job ID. This is intentional — only one job runs against a given package at a time, enforced by the lease protocol. Parallel execution requires separate packages.
+> **Package split:** Root `.migration/` contains authoritative package-level orchestration state. Project-level resume state lives in `/{org}/{project}/.migration/` so analytics-style runs across multiple orgs/projects do not collide. Run-scoped audit copies and logs live under `.migration/runs/<runId>/` and are never authoritative for resume.
 
 ### Cursor File Location
 
 ```
-.migration/Checkpoints/workitems.cursor.json
+/{org}/{project}/.migration/{action}.{module}.cursor.json
 ```
 
 ### Schema
@@ -26,7 +26,7 @@ Instead of per-work-item watermark tables, the system uses a forward-only cursor
 
 | Field | Type | Description |
 |---|---|---|
-| `lastProcessed` | string | Relative path to the last successfully processed revision folder |
+| `lastProcessed` | string | Relative path within the project subtree to the last successfully processed revision folder |
 | `stage` | string | Last completed stage — must be one of the canonical values below |
 | `updatedAt` | ISO 8601 string | UTC timestamp of the last cursor update |
 
@@ -90,39 +90,47 @@ The strategy never auto-recovers from mismatch. Callers own the recovery decisio
 
 Continuation tokens are stored under `.migration/Checkpoints/` via `ICheckpointingService` methods (`ReadContinuationTokenAsync`, `WriteContinuationTokenAsync`, `DeleteContinuationTokenAsync`). The path is resolved by `PackagePaths.ContinuationFile()`. These paths do not conflict with existing cursor files.
 
-### Per-Module Cursors
+### Project Cursors
 
-Each module maintains its own cursor file under `.migration/Checkpoints/`:
+Each project maintains its own cursor files under its project-local `.migration/` folder:
 
 ```
-.migration/Checkpoints/
-  workitems.cursor.json       ← WorkItemsModule export/import resume
-  identities.cursor.json      ← IdentitiesModule export/import resume
-  nodes.cursor.json           ← NodesModule import resume
-  teams.cursor.json           ← TeamsModule export/import resume
-  idmap.db                    ← SQLite work item and attachment ID map
-  agent.lock                  ← Exclusive write lock held by the agent during execution
-  prepare.complete.json       ← Marker written when Prepare completes; Import checks for this
-  export_progress.db          ← Per-WI export revision index (fast-forward resume, legacy)
-  <module>.continuation.json  ← BatchContinuationToken files for IWorkItemFetchService callers
+/{org}/{project}/.migration/
+  inventory.workitems.cursor.json    ← Inventory phase, WorkItems module
+  export.workitems.cursor.json       ← Export phase, WorkItems module
+  import.workitems.cursor.json       ← Import phase, WorkItems module
+  export.identities.cursor.json      ← Export phase, Identities module
+  import.teams.cursor.json           ← Import phase, Teams module
 ```
 
-`ForceFresh` mode (via `--force-fresh` CLI flag or `Job.Resume.Mode = ForceFresh`) deletes all cursor files and the `prepare.complete.json` marker before execution begins. `idmap.db` is preserved — identity mapping survives a fresh restart.
-  nodes.cursor.json         ← cursor for NodesModule import resume
-  teams.cursor.json         ← cursor for TeamsModule export/import resume
-  permissions.cursor.json
-  builds.cursor.json
-  git.cursor.json
-  idmap.db              (ID map — source workItemId → target workItemId; see identity-and-mapping.md)
-  idmap.json            (fallback for small packages or tooling)
-  export_progress.db    (export revision-index store — records last written RevisionIndex per work item for fast-forward resume)
+The convention is `{action}.{module}.cursor.json` beneath the project subtree. Modules and phases must not share cursor files.
+
+`ForceFresh` mode (via `--force-fresh` CLI flag or `Job.Resume.Mode = ForceFresh`) deletes project cursor files and root phase marker files before execution begins. Shared ID mapping state is preserved.
+
+### Root Package State
+
+Root `.migration/` remains authoritative for package-level orchestration state:
+
+```
+/.migration/
+  migration-config.json
+  plan.json
+  inventory.complete.json
+  prepare.complete.json
+  validate.complete.json
+  runs/
+    <runId>/
+      job.json
+      plan.json
+      config.json
+      logs/
 ```
 
-The convention is `<moduleName-lowercase>.cursor.json`. Modules must not share cursor files.
+Completion markers stay at the root because they gate package-wide phases, not project-local item enumeration. Files under `.migration/runs/<runId>/` are audit copies for a single execution and must not be used as the authoritative source for later runs.
 
 ### ID Map
 
-The `Checkpoints/idmap.db` (or `idmap.json`) file (under `.migration/`) tracks source-to-target work item ID mappings and uploaded attachment records. It is written during Stage `CreatedOrUpdated` (work item ID) and Stage `UploadedAttachments` (attachment ID per revision). It is the sole mechanism for idempotency checks during resume. See [.agents/context/identity-and-mapping.md](identity-and-mapping.md) for the identity mapping counterpart.
+The root `.migration/idmap.db` (or `idmap.json`) file tracks source-to-target work item ID mappings and uploaded attachment records. It is written during Stage `CreatedOrUpdated` (work item ID) and Stage `UploadedAttachments` (attachment ID per revision). It is the sole mechanism for idempotency checks during resume. See [.agents/context/identity-and-mapping.md](identity-and-mapping.md) for the identity mapping counterpart.
 
 ---
 
@@ -140,7 +148,7 @@ On resume the orchestrator applies two checks in order:
 
 **Tier 1 — Progress store (fast-forward by revision index)**
 
-`export_progress.db` (see [Per-Module Cursors](#per-module-cursors) below) records the `RevisionIndex` of the last successfully written revision for each work item. The orchestrator queries this store **once per work item** on first encounter, then skips any revision whose `RevisionIndex ≤ storedRev` in O(1) memory without touching the filesystem.
+`export_progress.db` records the `RevisionIndex` of the last successfully written revision for each work item. The orchestrator queries this store **once per work item** on first encounter, then skips any revision whose `RevisionIndex ≤ storedRev` in O(1) memory without touching the filesystem.
 
 - A fully-exported work item (all revisions ≤ `storedRev`) is skipped in its entirety.
 - A partially-exported work item (crashed mid-item) resumes from the first unwritten revision automatically.
@@ -161,7 +169,7 @@ When a job runs in `Migrate` mode (export → prepare → import), a top-level p
 ### Phase Record Location
 
 ```
-.migration/Checkpoints/job.phase.json
+/.migration/job.phase.json
 ```
 
 ### Schema
@@ -177,7 +185,7 @@ When a job runs in `Migrate` mode (export → prepare → import), a top-level p
 
 ### Resume Logic (Migrate Mode)
 
-1. Read `.migration/Checkpoints/job.phase.json` before running any module.
+1. Read root `.migration/job.phase.json` before running any module.
 2. If `exportCompleted: true` → skip all export-phase modules; jump to prepare phase.
 3. If `prepareCompleted: true` → skip prepare-phase modules; jump to import phase (but abort if blocking issues exist in prepare reports).
 4. If `importCompleted: true` → skip import-phase modules too; job is already complete.
@@ -190,7 +198,21 @@ The phase record is absent for `Export`-only, `Prepare`-only, or `Import`-only j
 In addition to the phase record, a standalone marker file records successful Prepare completion:
 
 ```
-.migration/Checkpoints/prepare.complete.json
+/.migration/prepare.complete.json
 ```
 
 Import mode checks for this marker. If absent, Import auto-runs Prepare first and aborts on any blocking issues.
+
+### Run Scope
+
+Each job execution also gets a run folder:
+
+```
+/.migration/runs/<runId>/
+  job.json
+  plan.json
+  config.json
+  logs/
+```
+
+This run scope is audit-only. `job.json`, `plan.json`, and `config.json` here are copies of what was executed for traceability. Resume, phase gates, and package orchestration must continue to read the authoritative state from root `.migration/` and project-local cursor files.

@@ -79,7 +79,7 @@ public sealed class IdentitiesModule : IModule
 #endif
     }
 
-    public async Task InventoryAsync(InventoryContext context, CancellationToken ct)
+    public async Task CaptureAsync(InventoryContext context, CancellationToken ct)
     {
         using var activity = DiscoveryActivity.StartActivity("inventory.identities");
         activity?.SetTag("job.id", context.Job.JobId);
@@ -90,7 +90,7 @@ public sealed class IdentitiesModule : IModule
 
         if (string.IsNullOrWhiteSpace(context.Project))
         {
-            _logger.LogError("[Identities] InventoryAsync called with empty Project — executor contract violated. Skipping.");
+            _logger.LogError("[Identities] CaptureAsync called with empty Project — executor contract violated. Skipping.");
             return;
         }
 

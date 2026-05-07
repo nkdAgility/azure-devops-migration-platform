@@ -11,12 +11,12 @@ using DevOpsMigrationPlatform.Abstractions.Telemetry;
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 
 /// <summary>
-/// Context passed to <see cref="IModule.InventoryAsync(InventoryContext, System.Threading.CancellationToken)"/>.
+/// Context passed to <see cref="ICapture.CaptureAsync(InventoryContext, System.Threading.CancellationToken)"/>.
 /// </summary>
 /// <remarks>
-/// A module operates against exactly one project per call.
+/// A capture handler operates against exactly one project per call.
 /// The executor is responsible for supplying the correct <see cref="Project"/> and
-/// <see cref="SourceEndpoint"/> for each task. The module must not loop over projects
+/// <see cref="SourceEndpoint"/> for each task. The handler must not loop over projects
 /// or fall back to any other source of project name.
 /// </remarks>
 public sealed record InventoryContext

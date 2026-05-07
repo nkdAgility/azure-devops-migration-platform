@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -24,6 +25,9 @@ namespace DevOpsMigrationPlatform.CLI;
 /// </summary>
 public sealed class LocalStackHost : IAsyncDisposable
 {
+    internal static readonly TimeSpan DefaultReadyTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan ReadinessPollInterval = TimeSpan.FromMilliseconds(200);
+
     private readonly Uri _controlPlaneUrl;
     private readonly ILogger? _logger;
 
@@ -157,10 +161,30 @@ public sealed class LocalStackHost : IAsyncDisposable
 
     private async Task WaitForHealthyAsync(CancellationToken cancellationToken)
     {
-        using var http = new HttpClient { BaseAddress = _controlPlaneUrl };
-        var deadline = DateTime.UtcNow.AddSeconds(10);
+        using var http = new HttpClient
+        {
+            BaseAddress = _controlPlaneUrl,
+            Timeout = TimeSpan.FromSeconds(2)
+        };
 
-        while (DateTime.UtcNow < deadline)
+        await WaitForHealthyAsync(
+            http,
+            _controlPlaneUrl,
+            () => _controlPlaneProcess?.HasExited == true,
+            DefaultReadyTimeout,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    internal static async Task WaitForHealthyAsync(
+        HttpClient http,
+        Uri controlPlaneUrl,
+        Func<bool> controlPlaneHasExited,
+        TimeSpan readyTimeout,
+        CancellationToken cancellationToken = default)
+    {
+        var stopwatch = Stopwatch.StartNew();
+
+        while (stopwatch.Elapsed < readyTimeout)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -168,26 +192,38 @@ public sealed class LocalStackHost : IAsyncDisposable
             // likely already in use (e.g. a ControlPlaneHostRunner from a previous test
             // run is still alive). Fail fast rather than accidentally connecting to the
             // stale process and hanging indefinitely.
-            if (_controlPlaneProcess?.HasExited == true)
+            if (controlPlaneHasExited())
+            {
                 throw new InvalidOperationException(
                     $"ControlPlane process exited prematurely. " +
-                    $"Port {_controlPlaneUrl.Port} may already be in use by another process.");
+                    $"Port {controlPlaneUrl.Port} may already be in use by another process.");
+            }
 
-            try
-            {
-                var response = await http.GetAsync("/jobs", cancellationToken);
-                if (response.IsSuccessStatusCode || (int)response.StatusCode < 500)
-                    return;
-            }
-            catch (HttpRequestException)
-            {
-                // Not ready yet — keep polling
-            }
-            await Task.Delay(200, cancellationToken);
+            if (await IsHealthyAsync(http, cancellationToken).ConfigureAwait(false))
+                return;
+
+            await Task.Delay(ReadinessPollInterval, cancellationToken).ConfigureAwait(false);
         }
 
         throw new TimeoutException(
-            $"ControlPlane API at {_controlPlaneUrl} did not become ready within 10 seconds.");
+            $"ControlPlane API at {controlPlaneUrl} did not become ready within {readyTimeout.TotalSeconds:0} seconds.");
+    }
+
+    internal static async Task<bool> IsHealthyAsync(HttpClient http, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var response = await http.GetAsync("/health", cancellationToken).ConfigureAwait(false);
+            return response.IsSuccessStatusCode;
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
     }
 
     // ── Disposal ───────────────────────────────────────────────────────

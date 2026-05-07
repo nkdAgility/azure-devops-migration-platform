@@ -974,7 +974,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
     /// Writes <c>discovery/{orgFolder}/{projectFolder}/dependencies.csv</c>.
     /// No cursor management — the plan executor handles task-level resume.
     /// </summary>
-    public async Task CaptureProjectAsync(
+    public async Task<DependencyCounters> CaptureProjectAsync(
         IDependencyDiscoveryService dependencyService,
         InventoryContext context,
         JobPolicies policies,
@@ -1120,6 +1120,14 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         _logger.LogInformation(
             "Captured {Links} dependency links for project {Project} in {OrgUrl}. Written to {Path}.",
             linksFound, project, orgUrl, outputPath);
+
+        return new DependencyCounters
+        {
+            WorkItemsAnalysed = workItemsAnalysed,
+            ExternalLinksFound = linksFound,
+            CrossProjectLinks = crossProjectCount,
+            CrossOrgLinks = crossOrgCount
+        };
     }
 
     private static Task WriteCursorAsync(

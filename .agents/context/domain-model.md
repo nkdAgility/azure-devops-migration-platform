@@ -18,6 +18,14 @@ A discrete step in the migration process: Inventory, Export, Prepare, Import, Va
 
 A self-contained unit of migration logic for a specific data type (e.g. WorkItems, Teams, Nodes). Modules implement `IModule` and are the only extension point.
 
+## Analyser
+
+A cross-cutting analysis component that implements `IAnalyser`. Analysers run after inventory modules complete (in the `analyse` sub-phase) and write analysis artefacts to the package without connecting to the source or target system. They declare module dependencies via `DependsOn` and are dispatched by the job engine when those dependencies are satisfied.
+
+## Tool
+
+A stateless transformation or lookup service declared at the config root under `MigrationPlatform:Tools.*`. Tools perform pure data transforms or identity lookups with no I/O and no mutable state. Available tools: FieldTransform, NodeTranslation, IdentityLookup. Tools must satisfy full observability requirements (O-1 through O-4).
+
 ## Connector
 
 An adapter between the platform and an external system. Source connectors enumerate data. Target connectors accept data. All connectors have Simulated, AzureDevOps, and TFS variants.

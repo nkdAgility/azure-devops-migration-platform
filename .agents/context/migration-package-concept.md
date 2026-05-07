@@ -1,69 +1,89 @@
 # Package Format
 
+Compressed agent context for the migration package. See `docs/package-format-reference.md` for the canonical human-readable reference and `docs/package-guide.md` for operator guidance.
+
 ## 1. Package Root Resolution
 
-`PackageRoot` is derived by appending the organisation folder name and project name to the configured `Package.WorkingDirectory`:
+`PackageRoot` is the configured `Package.WorkingDirectory`. Project artefacts live beneath org/project subfolders inside that root:
 
-```
-<WorkingDirectory>/<org-folder-name>/<project>/
+```text
+<WorkingDirectory>/
+  .migration/
+  <org-folder-name>/<project>/
 ```
 
 For example, given:
+
 - `WorkingDirectory`: `storage\my-export`
 - Organisation URL: `https://dev.azure.com/contoso`
 - Project: `MyProject`
 
-The resulting `PackageRoot` is: `storage\my-export\contoso\MyProject\`
+The resulting project subtree is: `storage\my-export\contoso\MyProject\`
 
 The org folder name is extracted from the organisation URL (the last path segment, e.g. `contoso` from `https://dev.azure.com/contoso`). For TFS collection URLs like `http://tfs:8080/tfs/DefaultCollection`, the folder name is `DefaultCollection`.
 
-This resolution is performed by `PathUtilities.ExtractOrgFolderName()` and applied in the CLI commands (`QueueCommand`, `TfsExportCommand`) before the `IArtefactStore` is created. `WorkItems` and other module folders should never appear directly under `WorkingDirectory` — they always live under `<org>/<project>/`.
+This resolution is performed by `PathUtilities.ExtractOrgFolderName()` and applied when project-relative artefact paths are resolved. `WorkItems` and other module folders never appear directly under `WorkingDirectory` — they always live under `<org>/<project>/`.
 
 ## 2. Package Structure (Canonical Format)
 
-```
+```text
 PackageRoot/
-  manifest.json
-  WorkItems/
-  Nodes/
+  .migration/
+    migration-config.json
+    plan.json
+    inventory.complete.json
+    prepare.complete.json
+    Checkpoints/
+      idmap.db
+      export_progress.db
+    runs/
+      <runId>/
+        job.json
+        plan.json
+        config.json
+        logs/
+          progress.jsonl
+          agent.jsonl
+  {org}/{project}/
+    manifest.json
+    WorkItems/
+    Nodes/
     referenced-paths.json   ← all area/iteration paths referenced by exported work item revisions
     source-tree.json        ← full classification tree snapshot (area + iteration) from the source
     prepare-report.json     ← written by PrepareAsync: node existence validation against target
-  Teams/
-    {team-slug}/
-      team.json             ← team definition, settings, iterations, members, capacity, area paths
-    prepare-report.json     ← written by PrepareAsync: team/group validation against target
-  Permissions/
-    prepare-report.json     ← written by PrepareAsync: ACL compatibility validation against target
-  Builds/
-  Git/
-  Identities/
-    descriptors.jsonl       ← one identity descriptor JSON per line (JSONL format)
-    mapping.json            ← operator-editable identity override map (source → target)
-    unresolved.json         ← identities that could not be auto-resolved
-    prepare-report.json     ← written by PrepareAsync: identity auto-match and unresolved report
-  .migration/
-    migration-config.json   ← tool configuration written by CLI before job submission; read by Agent at job start (feature 025-agent-config-package)
-    plan.json               ← execution plan persisted after every task status transition
-    Checkpoints/
-      workitems.cursor.json
-      identities.cursor.json  ← cursor for IdentitiesModule export/import resume
-      nodes.cursor.json       ← cursor for NodesModule import resume
-      teams.cursor.json       ← cursor for TeamsModule export/import resume
-      prepare.complete.json ← marker written when Prepare completes successfully; Import checks for this
-      idmap.db              ← source→target work item ID mappings
-      export_progress.db    ← per-WI export revision index (fast-forward resume)
-    Logs/
-      <ticks>-<jobId>/
-        progress.jsonl
-        agent.jsonl
+    Teams/
+      {team-slug}/
+        team.json             ← team definition, settings, iterations, members, capacity, area paths
+      prepare-report.json     ← written by PrepareAsync: team/group validation against target
+    Permissions/
+      prepare-report.json     ← written by PrepareAsync: ACL compatibility validation against target
+    Builds/
+    Git/
+    Identities/
+      descriptors.jsonl       ← one identity descriptor JSON per line (JSONL format)
+      mapping.json            ← operator-editable identity override map (source → target)
+      unresolved.json         ← identities that could not be auto-resolved
+      prepare-report.json     ← written by PrepareAsync: identity auto-match and unresolved report
+    .migration/
+      inventory.workitems.cursor.json
+      export.workitems.cursor.json
+      import.workitems.cursor.json
+      export.identities.cursor.json
 ```
 
-> **Legacy fallback:** Packages created before the `.migration/` dotfolder change may store `Checkpoints/` and `Logs/` directly under `PackageRoot/`. All code that reads these paths tries the `.migration/` location first, then falls back to the legacy root-level location. The `PackagePaths` static class in `DevOpsMigrationPlatform.Abstractions` defines both current and legacy path constants.
+> **Legacy fallback:** Packages created before the split between root `.migration/` and project-local `.migration/` may store cursor files under root `.migration/Checkpoints/` (or legacy `Checkpoints/`). Readers should try the new project-local location first, then fall back to the older root-level locations.
+
+### Scope Semantics
+
+- Root `.migration/` is authoritative package state shared across runs.
+- `/{org}/{project}/.migration/` is authoritative project-scoped resume state.
+- `.migration/runs/<runId>/` is run-scoped audit output only.
+
+Run-scoped `job.json`, `plan.json`, and `config.json` are copies of what was executed for that run. They are not the source of truth for later resume or phase-gate decisions.
 
 The WorkItems layout is canonical and must not be altered:
 
-```
+```text
 WorkItems/
   yyyy-MM-dd/
     <ticks>-<workItemId>-<revisionIndex>/
@@ -86,38 +106,35 @@ Key characteristics:
 - Resume is trivial
 - Human-auditable
 
-### .migration/Logs/
+### Run Log Folder
 
-The `.migration/Logs/` folder contains structured observability records written by the Migration Agent during job execution. Each job writes to its own subfolder to prevent logs from different runs overwriting each other:
+The `.migration/runs/<runId>/logs/` folder contains structured observability records written by the Migration Agent during one specific job execution:
 
-```
-Logs/
-  <yyyyMMdd-HHmmss>/
+```text
+logs/
     progress.jsonl
     agent.jsonl
     agent-001.jsonl   ← rotated segment (when max size exceeded)
 ```
 
-The subfolder name uses second-level UTC timestamp format `<yyyyMMdd-HHmmss>` (for example `20260506-143822`) so folders sort chronologically.
+The run folder name uses second-level UTC timestamp format `<yyyyMMdd-HHmmss>` (for example `20260506-143822`) so folders sort chronologically.
 
-Each run folder under `.migration/runs/<yyyyMMdd-HHmmss>/` also contains `job.json`, which stores the raw leased job payload for audit and troubleshooting.
-
-Each run folder also contains `plan.json`, a run-scoped snapshot of the active execution plan (`.migration/plan.json`) copied at plan persistence time.
+Each run folder also contains `job.json`, `plan.json`, and `config.json` as audit copies of what was executed.
 
 | File | Format | Description |
-|---|---|---|
+| --- | --- | --- |
 | `progress.jsonl` | NDJSON | One `ProgressEvent` record per line. Tracks module cursor state, stage transitions, and item counts. Written by `PackageProgressSink`. |
 | `agent.jsonl` | NDJSON | Structured diagnostic log records (ILogger output). Each line is a JSON object with `timestamp`, `level`, `category`, `message`, and optional `exception` fields. Written by `PackageDiagnosticSink`. |
 | `agent-NNN.jsonl` | NDJSON | Rotated log segments when the primary segment exceeds the configured max size. |
 
-Both files are append-only and survive resume. They are the durable record of job execution — the control plane's in-memory ring buffer is ephemeral.
+Both files are append-only and survive resume. They are the durable audit record of that job execution — the control plane's in-memory ring buffer is ephemeral.
 
-**Backward compatibility:** Packages created before job-scoped logging may have log files directly under `.migration/Logs/` (e.g. `.migration/Logs/agent.jsonl`). The `LogDownloadController` falls back to this flat layout when no job-scoped subfolder is found.
+**Backward compatibility:** Packages created before run-scoped logging may have log files directly under `.migration/Logs/` (e.g. `.migration/Logs/agent.jsonl`). The `LogDownloadController` falls back to this flat layout when no run-scoped folder is found.
 
 ### Naming Conventions
 
 | Segment | Format | Example |
-|---|---|---|
+| --- | --- | --- |
 | Date folder | `yyyy-MM-dd` | `2026-02-25` |
 | Revision folder | `<ticks>-<workItemId>-<revisionIndex>` | `638760123456789012-12345-17` |
 
@@ -125,7 +142,7 @@ Folder names sort lexicographically in chronological order. This invariant enabl
 
 ## 3. Manifest (Package Metadata)
 
-`manifest.json` at `PackageRoot/manifest.json`:
+`manifest.json` at `PackageRoot/{org}/{project}/manifest.json`:
 
 ```json
 {
@@ -168,12 +185,12 @@ The manifest is **not required** for streaming import, but is **required** for:
 - `packageVersion` is incremented on breaking changes to the package layout.
 - `schemaVersions` tracks per-module schema independently.
 - An upgrader must be provided for each breaking schema change.
-- Config versioning is handled separately; see [docs/configuration-reference.md](configuration.md).
+- Config versioning is handled separately; see `docs/configuration-reference.md`.
 
 ### Manifest Fields
 
 | Field | Required | Description |
-|---|---|---|
+| --- | --- | --- |
 | `packageVersion` | Yes | Package layout version |
 | `toolVersion` | Yes | Version of the tool that produced the package |
 | `runId` | Yes | Unique identifier for the export run |

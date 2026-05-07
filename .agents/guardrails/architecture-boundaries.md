@@ -16,7 +16,7 @@ If a rule below forces a **clearly worse outcome**: Stop → Cite rule number �
 
 3. **No global in-memory sort.** Enumeration order = lexicographic folder traversal. In-memory sorting of `EnumerateAsync` results is forbidden.
 
-4. **Cursor-based checkpoints required.** Every module: `.migration/Checkpoints/`. No watermark tables, databases, or in-memory progress tracking.
+4. **Cursor-based checkpoints required.** Every module writes project-scoped cursor files under `/{org}/{project}/.migration/`. No watermark tables, databases, or in-memory progress tracking.
 
 5. **Attachments beside revision.json.** No global `Attachments/` root. No mandatory blob store.
 
@@ -28,11 +28,11 @@ If a rule below forces a **clearly worse outcome**: Stop → Cite rule number �
 
 9. **Config/schema versioning with upgrader.** Breaking changes require version increment + upgrader.
 
-10. **Phase gates: Inventory before Export, Prepare before Import.** Export checks `.migration/Checkpoints/inventory.complete.json`. Absent → auto-run Inventory. Import checks `.migration/Checkpoints/prepare.complete.json`. Absent → auto-run Prepare. Blocking issue in Prepare → abort. In `Migrate` mode: Inventory → Export → Prepare → Import → Validate; blocking issues abort after Prepare. See [docs/validation.md](../../docs/validation.md).
+10. **Phase gates: Inventory before Export, Prepare before Import.** Export checks root `.migration/inventory.complete.json`. Absent → auto-run Inventory. Import checks root `.migration/prepare.complete.json`. Absent → auto-run Prepare. Blocking issue in Prepare → abort. In `Migrate` mode: Inventory → Export → Prepare → Import → Validate; blocking issues abort after Prepare. See [docs/validation.md](../../docs/validation.md).
 
 11. **ControlPlane must not execute migrations.** Accepts, stores, assigns jobs only. No source/target API calls, no orchestrator logic, no package I/O, no secret unwrapping. `ControlPlaneHost` manages agent lifecycle but contains no job execution logic.
 
-12. **Agents are stateless; all durable state in the package.** All state lives in `.migration/Checkpoints/`, `.migration/Logs/`, revision folders via `IArtefactStore`/`IStateStore`. Crashed agent → new agent resumes from cursor.
+12. **Agents are stateless; all durable state in the package.** Package-level orchestration state lives in root `.migration/`; project-level cursor state lives in `/{org}/{project}/.migration/`; run-scoped audit artefacts live in `.migration/runs/<runId>/`; revision data lives in project folders via `IArtefactStore`/`IStateStore`. Crashed agent → new agent resumes from root/project state, never from run-scoped audit copies.
 
 13. **IArtefactStore is the only file abstraction.** Module code must not reference `FileSystemArtefactStore` or `AzureBlobArtefactStore` directly. Switching local↔cloud = zero module code changes.
 
@@ -44,7 +44,7 @@ If a rule below forces a **clearly worse outcome**: Stop → Cite rule number �
 
 17. **Job Engine hostable independently of TUI.** No console/UI dependency. Receives `Job` + `IProgressSink`; produces package output + cursor state. Runnable in child process, in container, or in test harness. No in-process agent execution permitted. The execution plan is a `JobTaskList` containing one `JobTask` per enabled module per applicable phase (Inventory, Export, Prepare, Import, Validate). Tasks within a phase are topologically sorted; phases execute sequentially.
 
-18. **No UI coupling in Job Engine or modules.** No `Console`, no `System.Console`, no interactive input. All output via `IProgressSink` or `IArtefactStore` (`.migration/Logs/`).
+18. **No UI coupling in Job Engine or modules.** No `Console`, no `System.Console`, no interactive input. All output via `IProgressSink` or `IArtefactStore` (`.migration/runs/<runId>/logs/`).
 
 19. **TFS Object Model runs in dedicated net481 agent (`TfsMigrationAgent`).** First-class polling agent using same HTTP lease protocol as MigrationAgent. Dispatches via `IModule` (`TfsJobAgentWorker`). Uses same `IArtefactStore`/`IStateStore`/`IProgressSink`. Windows-only. `AgentLifecycleService` spawns on Windows, skips elsewhere. No compiled reference from .NET 10 projects. See [docs/agent-hosting.md](../../docs/agent-hosting.md#tfs-migration-agent).
 
@@ -70,12 +70,14 @@ If a rule below forces a **clearly worse outcome**: Stop → Cite rule number �
 
 25. **⛔ Full observability mandatory on every module and tool.**
     - **O-1 Traces:** `using var activity = ActivitySource.StartActivity(...)` with tags. Source: `WellKnownActivitySourceNames.Migration`.
-    - **O-2 Metrics:** `IMigrationMetrics` for attempt, completion, error, duration, in-flight. Constants → `WellKnownMetricNames`.
+    - **O-2 Metrics:** `IMigrationMetrics` for attempt, completion, error, duration, in-flight. Constants → `WellKnownMetricNames`. Metric dimensions exported outside the package must be low-cardinality and non-customer; if correlation is required, use only safe surrogate identifiers.
     - **O-3 Logging:** `Information` start/end; `Warning` skips/errors; `Debug` per-item. Structured params only. Customer data → `DataClassification.Customer` scope.
     - **O-4 ProgressEvent:** `IProgressSink` (optional). Emit at start, per-item/batch ≤50, completion. `Metrics.Migration.{ModuleName}` populated. `BuildProgressRenderable` renders: Identities → Nodes → Teams → WorkItems.
     - **⚠️ `ProgressEvent.Metrics` is null for .NET 10 agents.** CLI reads from `GET /jobs/{id}/telemetry`, NOT from `ProgressEvent.Metrics`.
 
-26. **`IOptions<T>` is the only permitted runtime config injection pattern (spec 028).** `MigrationOptions` is a serialisation-only DTO — it MUST NOT be injected into modules, tools, or services. Every options class MUST declare `public const string SectionName = "MigrationPlatform:...";` and be registered via `AddSchemaEntry<T>()`. The `migration.schema.json` file MUST be generated from DI registrations. CI MUST fail if the committed schema differs from the generated schema. Adding options that bypass `SectionName` and `AddSchemaEntry<T>()` is an instant reject.
+26. **Capture handler registration and resolution must fail fast.** `BuildCaptureHandlers` must throw `ArgumentException` on any duplicate `ICapture.Name` (including module-backed captures and pure `ICapture` registrations). If a plan references an analyser, capture handler, module, or organisation endpoint that is not registered/resolved for the task, `JobPlanExecutor` must fail the task/job; log-and-skip is forbidden.
+
+27. **`IOptions<T>` is the only permitted runtime config injection pattern (spec 028).** `MigrationOptions` is a serialisation-only DTO — it MUST NOT be injected into modules, tools, or services. Every options class MUST declare `public const string SectionName = "MigrationPlatform:...";` and be registered via `AddSchemaEntry<T>()`. The `migration.schema.json` file MUST be generated from DI registrations. CI MUST fail if the committed schema differs from the generated schema. Adding options that bypass `SectionName` and `AddSchemaEntry<T>()` is an instant reject.
 
 ---
 

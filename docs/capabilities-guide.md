@@ -113,6 +113,10 @@ The control plane performs a secondary validation pass before beginning import w
 
 The simulated target accepts all work items presented during import without writing to any external system. It validates each revision against the package schema as it arrives (when `validateOnWrite: true`).
 
+**Simulated dependency discovery:**
+
+`SimulatedDependencyDiscoveryServiceFactory` is registered via `AddSimulatedDependencyAnalysis()` for Simulated-sourced jobs. It implements `IDependencyDiscoveryServiceFactory` and delegates to `SimulatedWorkItemLinkAnalysisService` (keyed `"Simulated"`), returning an empty link sequence without any network calls. This closes the Simulated connector gap — a full `capture.dependencies.*` → `analyse.dependencies.*` pipeline runs end-to-end without external connectivity when using `source.type: Simulated`.
+
 **Inventory:**
 
 A `devopsmigration queue` run with `Mode: Inventory` and `source.type: Simulated` returns per-project work item and revision counts derived directly from `generator.projects` configuration (no query windowing is needed). Output format is identical to the real ADO Services path.

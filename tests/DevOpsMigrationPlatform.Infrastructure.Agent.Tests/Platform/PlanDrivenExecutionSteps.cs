@@ -63,7 +63,7 @@ public sealed class TestModule : IModule
         return Task.CompletedTask;
     }
 
-    public Task InventoryAsync(InventoryContext context, CancellationToken ct) => Task.CompletedTask;
+    public Task CaptureAsync(InventoryContext context, CancellationToken ct) => Task.CompletedTask;
     public Task PrepareAsync(PrepareContext context, CancellationToken ct) => Task.CompletedTask;
 
     public Task ValidateAsync(ValidationContext context, CancellationToken ct)
@@ -82,7 +82,7 @@ public sealed class TestIdentitiesModule : IModule
     public bool SupportsPrepare => false;
     public bool SupportsImport => true;
     public bool SupportsValidate => false;
-    public Task InventoryAsync(InventoryContext context, CancellationToken ct) => Task.CompletedTask;
+    public Task CaptureAsync(InventoryContext context, CancellationToken ct) => Task.CompletedTask;
     public Task ExportAsync(ExportContext context, CancellationToken ct) => Task.CompletedTask;
     public Task PrepareAsync(PrepareContext context, CancellationToken ct) => Task.CompletedTask;
     public Task ImportAsync(ImportContext context, CancellationToken ct) => Task.CompletedTask;
@@ -98,7 +98,7 @@ public sealed class TestNodesModule : IModule
     public bool SupportsPrepare => false;
     public bool SupportsImport => true;
     public bool SupportsValidate => false;
-    public Task InventoryAsync(InventoryContext context, CancellationToken ct) => Task.CompletedTask;
+    public Task CaptureAsync(InventoryContext context, CancellationToken ct) => Task.CompletedTask;
     public Task ExportAsync(ExportContext context, CancellationToken ct) => Task.CompletedTask;
     public Task PrepareAsync(PrepareContext context, CancellationToken ct) => Task.CompletedTask;
     public Task ImportAsync(ImportContext context, CancellationToken ct) => Task.CompletedTask;
@@ -114,7 +114,7 @@ public sealed class TestWorkItemsModule : IModule
     public bool SupportsPrepare => false;
     public bool SupportsImport => true;
     public bool SupportsValidate => false;
-    public Task InventoryAsync(InventoryContext context, CancellationToken ct) => Task.CompletedTask;
+    public Task CaptureAsync(InventoryContext context, CancellationToken ct) => Task.CompletedTask;
     public Task ExportAsync(ExportContext context, CancellationToken ct) => Task.CompletedTask;
     public Task PrepareAsync(PrepareContext context, CancellationToken ct) => Task.CompletedTask;
     public Task ImportAsync(ImportContext context, CancellationToken ct) => Task.CompletedTask;

@@ -12,7 +12,8 @@ public enum TaskKind
 {
     /// <summary>
     /// Captures inventory data from the source for a single (org, project) scope.
-    /// Calls <c>IModule.InventoryAsync</c>. Unrelated to export.
+    /// Dispatched via <c>ICapture.CaptureAsync</c> using the unified <c>captureHandlersByName</c> dictionary.
+    /// Unrelated to export.
     /// </summary>
     Capture,
 

@@ -76,4 +76,31 @@ public static class WellKnownTagNames
         /// <summary>Command exit code (0 = success). Low cardinality.</summary>
         public const string ExitCode = "exit.code";
     }
+
+    /// <summary>Tags related to organisation/project context (high-cardinality — traces and logs only).</summary>
+    public static class Organisation
+    {
+        /// <summary>
+        /// Organisation URL (e.g. "https://dev.azure.com/myorg"). HIGH CARDINALITY — traces and logs only,
+        /// never use as a metric tag dimension.
+        /// </summary>
+        public const string Url = "org.url";
+
+        /// <summary>
+        /// Project name. HIGH CARDINALITY — traces and logs only, never use as a metric tag dimension.
+        /// </summary>
+        public const string ProjectName = "project.name";
+    }
+
+    /// <summary>Tags related to capture handler dispatch.</summary>
+    public static class Capture
+    {
+        /// <summary>Capture handler name (e.g. "dependencies", "workitems"). Low cardinality.</summary>
+        public const string HandlerName = "capture.handler";
+
+        /// <summary>
+        /// Output artefact path produced by a capture operation. HIGH CARDINALITY — traces and logs only.
+        /// </summary>
+        public const string OutputPath = "output.path";
+    }
 }

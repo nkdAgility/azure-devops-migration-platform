@@ -205,4 +205,12 @@ public interface IPlatformMetrics
     void RecordConfigReadCompleted(MetricsTagList tags);
     void RecordConfigReadError(MetricsTagList tags);
     void RecordConfigReadFallback(MetricsTagList tags);
+
+    // --- Dependencies Capture ---
+    void DependenciesCaptureStarted(MetricsTagList tags);
+    void DependenciesCaptureCompleted(MetricsTagList tags);
+    void DependenciesCaptureFailed(MetricsTagList tags);
+    void RecordDependenciesCaptureDuration(double milliseconds, MetricsTagList tags);
+    void DependenciesCaptureInFlightIncrement(MetricsTagList tags);
+    void DependenciesCaptureInFlightDecrement(MetricsTagList tags);
 }

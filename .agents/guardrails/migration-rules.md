@@ -13,8 +13,8 @@ Source → Files → Target. Migrations are: deterministic, resumable, portable,
 **Inventory → Export → Prepare → Import → Validate**
 
 Phase gates ensure prerequisites are met automatically:
-- Export auto-runs Inventory if `.migration/Checkpoints/inventory.complete.json` is absent.
-- Import auto-runs Prepare if `.migration/Checkpoints/prepare.complete.json` is absent.
+- Export auto-runs Inventory if root `.migration/inventory.complete.json` is absent.
+- Import auto-runs Prepare if root `.migration/prepare.complete.json` is absent.
 
 ---
 
@@ -24,14 +24,19 @@ Phase gates ensure prerequisites are met automatically:
 2. **WorkItems layout is canonical.** `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/revision.json`. Import order = lexicographic enumeration.
 3. **Attachments owned by WorkItems.** Stored beside the revision that introduced them. No global attachments module or top-level folder.
 4. **Import must be streaming.** One revision folder at a time. No materializing all revisions in memory. No global sorting beyond directory enumeration.
-5. **Resume is cursor-based.** Forward-only cursor under `.migration/Checkpoints/`. No hidden state elsewhere.
+5. **Resume is cursor-based.** Forward-only project cursor under `/{org}/{project}/.migration/`. No hidden state elsewhere.
 6. **Determinism mandatory.** Re-run Export = stable ordering. Re-run Import = idempotent via checkpoints + mapping.
 
 ---
 
 ## Package Layout
 
-Root MUST contain: `manifest.json`, `WorkItems/`, `.migration/Checkpoints/`, `.migration/Logs/`. Optional: `Teams/`, `Permissions/`, `Builds/`, `Git/`, `Identities/`.
+Root MUST contain: `.migration/`, plus one or more `/{org}/{project}/` project subtrees. Each project subtree contains `manifest.json`, `WorkItems/`, and optional module folders such as `Teams/`, `Permissions/`, `Builds/`, `Git/`, `Identities/`.
+
+Within `.migration/`:
+- root files are authoritative package state shared across runs
+- `runs/<runId>/` contains run-scoped audit copies and logs only
+- subsequent runs MUST NOT depend on files under `runs/<runId>/` for resume or orchestration
 
 ## Manifest
 
@@ -39,10 +44,11 @@ Root MUST contain: `manifest.json`, `WorkItems/`, `.migration/Checkpoints/`, `.m
 
 ## Checkpointing
 
-- Cursor: `.migration/Checkpoints/<module>.cursor.json`
-- Fields: `lastProcessed` (relative package path), `stage` (one of: `CreatedOrUpdated`, `AppliedFields`, `AppliedLinks`, `UploadedAttachments`, `Completed`), `updatedAt` (UTC).
+- Cursor: `/{org}/{project}/.migration/{action}.{module}.cursor.json`
+- Fields: `lastProcessed` (relative project path), `stage` (one of: `CreatedOrUpdated`, `AppliedFields`, `AppliedLinks`, `UploadedAttachments`, `Completed`), `updatedAt` (UTC).
 - Resume: skip folders ≤ `lastProcessed` lexicographically. Non-Completed stage → resume within that folder's stage.
 - No per-work-item watermark databases.
+- Run folders (`.migration/runs/<runId>/`) are audit-only and are not part of resume semantics.
 
 ---
 
@@ -54,14 +60,14 @@ Modules MAY declare `SupportsExport` and `SupportsImport` flags. Inventory-only 
 
 MUST: write only through `IArtefactStore`, persist state only through `IStateStore`, declare dependencies explicitly.
 
-MUST NOT: access another module's folder, persist state outside Checkpoints, perform ad-hoc file IO, perform live migrations.
+MUST NOT: access another module's folder, persist state outside root `.migration/`, project `/{org}/{project}/.migration/`, or run-scoped audit output, perform ad-hoc file IO, perform live migrations.
 
 ---
 
 ## Identity & Mapping
 
 - `Identities/`: `descriptors.jsonl`, `mapping.json` (user-editable overrides), `unresolved.json`.
-- ID mappings: `.migration/Checkpoints/idmap.db` or `idmap.json`. Deterministic, append-only or transactionally safe.
+- ID mappings: root `.migration/idmap.db` or `idmap.json`. Deterministic, append-only or transactionally safe.
 - Modules MUST use `IIdentityMappingService` — never implement own identity resolution.
 
 ---
@@ -84,7 +90,7 @@ MUST NOT: access another module's folder, persist state outside Checkpoints, per
 - Deterministic from `seed` + `workItemCount`. Same inputs = same package byte-for-byte.
 - Field values prefixed `[SIMULATED]`. Target accepts all items without external writes.
 - Both source and target emit `ProgressEvent` at same granularity as real implementations.
-- Identity mapping still runs. `discovery inventory` with Simulated returns counts from config without WIQL.
+- Identity mapping still runs. `queue` with `Mode: Inventory` and `source.type: Simulated` returns counts from config without WIQL.
 
 ---
 
@@ -117,7 +123,7 @@ Write cursor after each stage. Never skip/reorder. On crash, resume from next in
 
 ## Prepare Rules
 
-- Import checks `.migration/Checkpoints/prepare.complete.json`. Absent → auto-run Prepare.
+- Import checks root `.migration/prepare.complete.json`. Absent → auto-run Prepare.
 - `PrepareAsync`: reads package via `IArtefactStore`, connects to target via injected services, writes `<Module>/prepare-report.json`. Idempotent. Does NOT connect to source. Does NOT modify operator-edited mapping files.
 - Blocking issue → Import aborts. `Migrate` mode aborts after Prepare.
 
@@ -141,7 +147,7 @@ Fail-fast unless configured otherwise.
 - Comment/image export as separate top-level `IModule`.
 - Loading all WorkItems/revisions into memory.
 - Full graph before processing.
-- Hidden progress state outside `.migration/Checkpoints/`.
+- Hidden progress state outside root `.migration/`, project `/{org}/{project}/.migration/`, or run-scoped audit output under `.migration/runs/<runId>/`.
 - Direct source-to-target migration.
 - Breaking deterministic folder naming.
 - Bypassing identity/ID mapping services.

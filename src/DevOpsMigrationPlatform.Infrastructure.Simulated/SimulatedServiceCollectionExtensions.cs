@@ -100,11 +100,15 @@ public static class SimulatedServiceCollectionExtensions
     /// <summary>
     /// Registers Simulated dependency analysis services.
     /// The Simulated link analysis service returns empty link results.
+    /// Also registers <see cref="SimulatedDependencyDiscoveryServiceFactory"/> as
+    /// <see cref="IDependencyDiscoveryServiceFactory"/> via <c>TryAddSingleton</c> so it only
+    /// takes effect when no ADO factory is registered.
     /// </summary>
     public static IServiceCollection AddSimulatedDependencyAnalysis(this IServiceCollection services)
     {
         services.AddKeyedSingleton<IWorkItemLinkAnalysisService, SimulatedWorkItemLinkAnalysisService>(
             serviceKey: "Simulated");
+        services.TryAddSingleton<IDependencyDiscoveryServiceFactory, SimulatedDependencyDiscoveryServiceFactory>();
         return services;
     }
 

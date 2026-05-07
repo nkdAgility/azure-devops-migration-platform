@@ -18,7 +18,7 @@ These rules are mandatory for all agent-authored code.
 ## Logging Safety
 
 8. **No tokens in logs.** Authentication tokens, PATs, and passwords must never be logged at any level.
-9. **No customer-identifiable values in Application Insights.** Field values, project names, org URLs, display names, and attachment paths must carry `DataClassification.Customer` scope and must not be forwarded to Application Insights.
+9. **No customer-identifiable values in Application Insights.** Field values, project names, org URLs, display names, and attachment paths must carry `DataClassification.Customer` scope and must not be forwarded to Application Insights. Only safe surrogate identifiers and aggregate counts may be exported for external telemetry queryability.
 10. **Safe error messages.** Exception messages that bubble to the API or CLI must not include raw internal paths, connection strings, or tokens.
 
 ## Input Validation

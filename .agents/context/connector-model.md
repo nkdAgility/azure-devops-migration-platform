@@ -33,3 +33,7 @@ Azure DevOps connectors obtain clients from `IAzureDevOpsClientFactory`. This is
 - Retry is via `IResiliencePipelineProvider`, not inline.
 - All interfaces in `DevOpsMigrationPlatform.Abstractions`.
 - Concrete implementations in `DevOpsMigrationPlatform.Infrastructure.*`.
+
+## Simulated Dependency Discovery
+
+`SimulatedDependencyDiscoveryServiceFactory` implements `IDependencyDiscoveryServiceFactory` for the Simulated connector. It is registered via `AddSimulatedDependencyAnalysis()` using `TryAddSingleton` (ADO factory takes precedence when both are present). The factory delegates to `SimulatedWorkItemLinkAnalysisService` (keyed `"Simulated"`) which returns an empty link sequence — no network calls are made.

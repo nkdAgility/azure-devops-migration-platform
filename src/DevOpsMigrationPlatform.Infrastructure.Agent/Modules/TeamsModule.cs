@@ -90,7 +90,7 @@ public sealed class TeamsModule : IModule
         _checkpointingFactory = checkpointingFactory;
     }
 
-    public async Task InventoryAsync(InventoryContext context, CancellationToken ct)
+    public async Task CaptureAsync(InventoryContext context, CancellationToken ct)
     {
         using var activity = DiscoveryActivity.StartActivity("inventory.teams");
         activity?.SetTag("job.id", context.Job.JobId);
@@ -100,7 +100,7 @@ public sealed class TeamsModule : IModule
 
         if (string.IsNullOrWhiteSpace(context.Project))
         {
-            _logger.LogError("[Teams] InventoryAsync called with empty Project — executor contract violated. Skipping.");
+            _logger.LogError("[Teams] CaptureAsync called with empty Project — executor contract violated. Skipping.");
             return;
         }
 

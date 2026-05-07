@@ -464,7 +464,7 @@ dotnet run
 
 # In another terminal, submit a job via the CLI (TFS jobs are routed automatically to TfsMigrationAgent)
 cd src\DevOpsMigrationPlatform.CLI.Migration
-dotnet run -- export --config config.json
+dotnet run -- queue --config config.json
 ```
 
 ### Cloud Deployment (Azure Container Apps)

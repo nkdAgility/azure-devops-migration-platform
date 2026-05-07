@@ -24,6 +24,8 @@ Use these terms consistently throughout code, docs, and tests.
 | **Package** | The intermediate filesystem directory; the source of truth between Export and Import |
 | **Artefact** | A file or binary object stored in the package |
 | **Module** | A self-contained unit of migration logic for a specific data type (e.g. WorkItems, Teams, Nodes) |
+| **Analyser** | A cross-cutting analysis component that runs after inventory modules complete, reads package data, and writes analysis artefacts without connecting to source or target |
+| **Tool** | A stateless transformation or lookup service declared at the config root under `Tools.*`; applies pure data transforms during export and import with no I/O |
 | **Connector** | An adapter to an external system; every feature requires Simulated, AzureDevOps, and TFS variants |
 | **Source** | The system being migrated from |
 | **Target** | The system being migrated to |

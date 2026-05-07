@@ -657,7 +657,7 @@ Optional tuning knobs under `MigrationPlatform.Policies`:
 | `manage login --url <endpoint>` | Authenticate with control plane |
 | `manage logout --url <endpoint>` | Revoke session token |
 
-### Discovery Commands
+### Discovery Modes (via `queue`)
 
 | Command | Purpose |
 |---------|---------|
@@ -749,30 +749,32 @@ Runs after `ImportAsync` completes:
 ## Package Format
 
 ```
-<WorkingDirectory>/<org>/<project>/
-  manifest.json                      ← Package metadata, source info, included types
-  Identities/                        ← Identity descriptors and mappings
-  Nodes/                             ← Classification tree snapshots
-  Teams/                             ← Team definitions by slug
-  WorkItems/                         ← Revision folders by date
+<WorkingDirectory>/
   .migration/
-    migration-config.json            ← Config snapshot written by CLI before job submission
+    migration-config.json            ← Config snapshot written by agent at startup
     plan.json                        ← Execution plan persisted after every task transition
-    Checkpoints/                     ← Cursor files, idmap.db, lock file
-    Logs/                            ← Structured progress + diagnostic logs
+    inventory.complete.json          ← Inventory completion marker
+    prepare.complete.json            ← Prepare completion marker
+  <org>/<project>/
+    manifest.json                    ← Package metadata, source info, included types
+    Identities/                      ← Identity descriptors and mappings
+    Nodes/                           ← Classification tree snapshots
+    Teams/                           ← Team definitions by slug
+    WorkItems/                       ← Revision folders by date
+    .migration/                      ← Project-scoped cursor files
 ```
 
 ### Checkpoint State
 
 ```
-.migration/Checkpoints/
-  workitems.cursor.json              ← WorkItems resume position
-  identities.cursor.json             ← Identities resume position
-  nodes.cursor.json                  ← Nodes resume position
-  teams.cursor.json                  ← Teams resume position
+/.migration/
+  inventory.complete.json            ← Marker: Inventory completed
   prepare.complete.json              ← Marker: Prepare completed
-  idmap.db                           ← Source→target work item ID map (SQLite)
-  agent.lock                         ← Exclusive agent lease
+
+/{org}/{project}/.migration/
+  inventory.workitems.cursor.json    ← Inventory resume position for WorkItems in this project
+  export.workitems.cursor.json       ← Export resume position for WorkItems in this project
+  import.workitems.cursor.json       ← Import resume position for WorkItems in this project
 ```
 
 > `idmap.db` is locked exclusively during job execution. A second agent against the same package will fail fast.
