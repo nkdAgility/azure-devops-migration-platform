@@ -410,13 +410,13 @@ To add a new configurable section to the schema:
 
 ### IDE IntelliSense — `json.schemas` Integration
 
-The repository registers `migration.schema.json` in `.vscode/settings.json` so VS Code automatically applies it to any `migration.json` file opened in the workspace:
+The repository registers `migration.schema.json` in `.vscode/settings.json` so VS Code automatically applies it to migration config files and scenario JSON files opened in the workspace:
 
 ```json
 {
   "json.schemas": [
     {
-      "fileMatch": ["**/migration*.json", "**/scenario*.json"],
+      "fileMatch": ["**/migration*.json", "**/migration-config.json", "**/scenarios/**/*.json"],
       "url": "./src/DevOpsMigrationPlatform.CLI.Migration/migration.schema.json"
     }
   ]
