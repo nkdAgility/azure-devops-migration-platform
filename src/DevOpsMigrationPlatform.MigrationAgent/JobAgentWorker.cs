@@ -108,12 +108,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
         // ── Shared preamble: package stores, config write, config load ────────
-        var (artefactStore, stateStore) = PackageStoreFactory.Create(
-            job.Package.PackageUri ?? ".");
-
-        PackageState.CurrentStore = artefactStore;
-
-        await WriteRunMetadataAsync(job, artefactStore, ct).ConfigureAwait(false);
+        var (artefactStore, stateStore) = await InitializeJobPackageAsync(job, ct).ConfigureAwait(false);
 
         // Write config payload from the Job into the package before any config reads.
         await WriteConfigPayloadAsync(job, artefactStore, ct).ConfigureAwait(false);
@@ -359,29 +354,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         await artefactStore.WriteAsync(
             PackagePaths.MigrationConfigFileName, job.ConfigPayload, ct)
             .ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Persists the raw leased <see cref="Job"/> payload in the run folder as <c>job.json</c>
-    /// for audit and troubleshooting.
-    /// </summary>
-    private async Task WriteRunMetadataAsync(Job job, IArtefactStore artefactStore, CancellationToken ct)
-    {
-        var runId = PackageState.CurrentRunId;
-        if (string.IsNullOrEmpty(runId))
-        {
-            return;
-        }
-
-        var runJobPath = PackagePaths.RunJobFile(runId);
-        var jobJson = JsonSerializer.Serialize(job, AgentJsonOptions);
-        await artefactStore.WriteAsync(runJobPath, jobJson, ct).ConfigureAwait(false);
-
-        if (!string.IsNullOrWhiteSpace(job.ConfigPayload))
-        {
-            var runConfigPath = PackagePaths.RunConfigFile(runId);
-            await artefactStore.WriteAsync(runConfigPath, job.ConfigPayload, ct).ConfigureAwait(false);
-        }
     }
 
     /// <summary>

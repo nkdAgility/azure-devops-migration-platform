@@ -17,7 +17,7 @@ The package contract, modules, and cursors are unchanged across all deployment t
 | Poll for work | Call the control plane lease endpoint to receive a job. |
 | Acquire lease | Hold a time-bounded lease on the assigned job. |
 | Mount artefact store | Connect to the package URI from the job definition (filesystem or blob). See [.agents/context/artefact-store.md](../.agents/context/artefact-store.md). |
-| Materialise config | Write `Job.ConfigPayload` → `.migration/migration-config.json` in the package. Build per-job `IConfiguration` and `IOptions<T>` DI scope. Fail fast with `PackageConfigNotFoundException` if no payload and no existing file. |
+| Materialise config | Write `Job.ConfigPayload` → `.migration/migration-config.json` in the package. Build per-job `IConfiguration`, publish explicit current package/job/endpoint accessors, and create the per-job `IOptions<T>` DI scope. Fail fast with `PackageConfigNotFoundException` if no payload and no existing file. |
 | Write run audit copies | Write run-scoped audit copies of `job.json`, `plan.json`, and `config.json` under `.migration/runs/<runId>/`. |
 | Run orchestrator | Execute `ExportAsync`, `ImportAsync`, or both in sequence, exactly as in local mode. |
 | Write cursors | Write project-scoped cursor files into `/{org}/{project}/.migration/` after each stage, as always. |
@@ -45,8 +45,9 @@ Poll /agents/lease
        ├─ Extract credentials from job definition
        ├─ Connect to artefact store (packageUri)
        ├─ Read .migration/migration-config.json from package → bind MigrationOptions via IPackageConfigStore
-       │    └─ If absent → POST /agents/lease/{id}/fail  (PackageConfigNotFoundException)
-       │    └─ Build per-job IConfiguration and IOptions<T> scope for tool modules
+    │    └─ If absent → POST /agents/lease/{id}/fail  (PackageConfigNotFoundException)
+    │    └─ Publish per-job configuration, job-context, and endpoint accessors
+    │    └─ Build per-job IConfiguration and IOptions<T> scope for tool modules
     ├─ Write run audit copies → `.migration/runs/<runId>/job.json`, `plan.json`, `config.json`
     ├─ Load cursor → determine resume position
        ├─ Start heartbeat loop (background)

@@ -95,9 +95,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     protected override async Task OnJobAsync(
         Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
-        var (artefactStore, _) = PackageStoreFactory.Create(job.Package.PackageUri ?? ".");
-        PackageState.CurrentStore = artefactStore;
-        await WriteRunMetadataAsync(job, artefactStore, ct).ConfigureAwait(false);
+        await InitializeJobPackageAsync(job, ct).ConfigureAwait(false);
 
         switch (job.Kind)
         {
@@ -119,23 +117,6 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         }
     }
 
-    private async Task WriteRunMetadataAsync(Job job, IArtefactStore artefactStore, CancellationToken ct)
-    {
-        var runId = PackageState.CurrentRunId;
-        if (string.IsNullOrEmpty(runId))
-            return;
-
-        var runJobPath = PackagePaths.RunJobFile(runId!);
-        var jobJson = JsonSerializer.Serialize(job, AgentJsonOptions);
-        await artefactStore.WriteAsync(runJobPath, jobJson, ct).ConfigureAwait(false);
-
-        if (!string.IsNullOrWhiteSpace(job.ConfigPayload))
-        {
-            var runConfigPath = PackagePaths.RunConfigFile(runId!);
-            await artefactStore.WriteAsync(runConfigPath, job.ConfigPayload!, ct).ConfigureAwait(false);
-        }
-    }
-
     // ── Migration execution ───────────────────────────────────────────────────
 
     /// <summary>
@@ -153,12 +134,8 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     protected override async Task OnBeforeModulesAsync(Job job, CancellationToken ct)
     {
         // Bind the concrete TFS source endpoint from the raw IConfiguration stored in the
-        // ambient state (IConfiguration.Bind cannot instantiate abstract MigrationEndpointOptions).
-        var section = CurrentPackageConfig.Current?.GetSection("MigrationPlatform:Source");
-        TeamFoundationServerEndpointOptions? source = null;
-
-        if (section != null && section.Exists() && !string.IsNullOrEmpty(section["Url"]))
-            source = BindTfsSource(section);
+        // current per-job package configuration.
+        var source = TryBindTfsSource(CurrentPackageConfig.Current);
 
         if (source == null || string.IsNullOrEmpty(source.Url))
             throw new InvalidOperationException(
@@ -183,6 +160,15 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         var opts = new TeamFoundationServerEndpointOptions();
         section.Bind(opts);
         return opts;
+    }
+
+    private static TeamFoundationServerEndpointOptions? TryBindTfsSource(IConfiguration? packageConfig)
+    {
+        var section = packageConfig?.GetSection("MigrationPlatform:Source");
+        if (section == null || !section.Exists() || string.IsNullOrEmpty(section["Url"]))
+            return null;
+
+        return BindTfsSource(section);
     }
 
     /// <inheritdoc/>
@@ -278,6 +264,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         try
         {
             packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
+            CurrentPackageConfig.Set(packageConfig);
         }
         catch (PackageConfigNotFoundException ex)
         {
@@ -288,13 +275,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
             return;
         }
 
-        var section = packageConfig.GetSection("MigrationPlatform:Source");
-        TeamFoundationServerEndpointOptions? endpointOptions = null;
-        if (section != null && section.Exists() && !string.IsNullOrEmpty(section["Url"]))
-        {
-            endpointOptions = new TeamFoundationServerEndpointOptions();
-            section.Bind(endpointOptions);
-        }
+        var endpointOptions = TryBindTfsSource(packageConfig);
 
         if (endpointOptions == null || string.IsNullOrEmpty(endpointOptions.Url))
         {
@@ -348,6 +329,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         finally
         {
             tfsServices?.Dispose();
+            CurrentPackageConfig.Clear();
             ActiveJobIdentity?.Clear();
         }
 

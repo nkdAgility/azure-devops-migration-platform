@@ -43,6 +43,7 @@ public class BootstrapUiStateResolverTests
         var result = BootstrapUiStateResolver.ResolvePreferredMetrics(bootstrap, telemetryMetrics);
 
         Assert.AreSame(bootstrapMetrics, result);
+        Assert.IsNotNull(result);
         Assert.AreEqual(1245, result.Scope?.WorkItemsTotal);
         Assert.AreEqual(8119, result.Migration?.WorkItems?.RevisionsProcessed);
     }
@@ -68,6 +69,7 @@ public class BootstrapUiStateResolverTests
         var result = BootstrapUiStateResolver.ResolvePreferredMetrics(bootstrap, telemetryMetrics);
 
         Assert.AreSame(telemetryMetrics, result);
+        Assert.IsNotNull(result);
         Assert.AreEqual(42, result.Scope?.WorkItemsTotal);
     }
 

@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
@@ -131,6 +132,37 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         => Task.CompletedTask;
 
     /// <summary>
+    /// Creates artefact/state stores for the package, sets the active package store,
+    /// and writes run metadata into the package when a run id is active.
+    /// </summary>
+    protected async Task<(IArtefactStore ArtefactStore, IStateStore StateStore)> InitializeJobPackageAsync(
+        Job job,
+        CancellationToken ct)
+    {
+        var (artefactStore, stateStore) = PackageStoreFactory.Create(job.Package.PackageUri ?? ".");
+        PackageState.CurrentStore = artefactStore;
+        await WriteRunMetadataAsync(job, artefactStore, ct).ConfigureAwait(false);
+        return (artefactStore, stateStore);
+    }
+
+    protected async Task WriteRunMetadataAsync(Job job, IArtefactStore artefactStore, CancellationToken ct)
+    {
+        var runId = PackageState.CurrentRunId;
+        if (string.IsNullOrEmpty(runId))
+            return;
+
+        var runJobPath = PackagePaths.RunJobFile(runId!);
+        var jobJson = JsonSerializer.Serialize(job, AgentJsonOptions);
+        await artefactStore.WriteAsync(runJobPath, jobJson, ct).ConfigureAwait(false);
+
+        if (!string.IsNullOrWhiteSpace(job.ConfigPayload))
+        {
+            var runConfigPath = PackagePaths.RunConfigFile(runId!);
+            await artefactStore.WriteAsync(runConfigPath, job.ConfigPayload!, ct).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
     /// Default Export-only job implementation.
     /// Sets up stores and checkpointing, handles ForceFresh (deleting cursors for every
     /// registered module), invokes the connector setup hook, runs the module export loop,
@@ -143,8 +175,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
         _activeJobState?.Set(job.JobId, job.Kind.ToString());
-        var (artefactStore, stateStore) = PackageStoreFactory.Create(job.Package.PackageUri ?? ".");
-        PackageState.CurrentStore = artefactStore;
+        var (artefactStore, stateStore) = await InitializeJobPackageAsync(job, ct).ConfigureAwait(false);
 
         // T035 — explicit fail-fast for pre-025 packages that have no migration-config.json.
         IConfiguration packageConfig;
