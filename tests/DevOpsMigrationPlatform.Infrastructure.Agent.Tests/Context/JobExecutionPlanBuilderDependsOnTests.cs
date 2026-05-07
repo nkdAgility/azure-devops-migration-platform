@@ -136,13 +136,13 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     }
 
     [TestMethod]
-    public async Task BuildPlanAsync_ExportPhase_SkipsInventoryPrerequisitesWhenInventorySnapshotExists()
+    public async Task BuildPlanAsync_ExportPhase_AlwaysIncludesInventoryPrerequisitesWhenInventorySnapshotExists()
     {
         // Arrange
         var workItemsModule = CreateModule("WorkItems", new[]
         {
             new ModuleDependency(typeof(InventoryAnalyser), DependencyPhase.Import)
-        });
+        }, supportsInventory: true);
 
         var builder = CreateBuilder(
             new[] { workItemsModule },
@@ -168,7 +168,8 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         var plan = await builder.BuildPlanAsync(config, JobKind.Export, store.Object, stateStore.Object, CancellationToken.None);
 
         // Assert
-        Assert.IsFalse(plan.Tasks.Any(t => t.TaskKind is TaskKind.Capture or TaskKind.Analyse));
+        CollectionAssert.Contains(plan.Tasks.Select(t => t.Id).ToList(), "capture.workitems.testorg.testproject");
+        CollectionAssert.Contains(plan.Tasks.Select(t => t.Id).ToList(), "analyse.inventory.testorg.testproject");
     }
 
     [TestMethod]

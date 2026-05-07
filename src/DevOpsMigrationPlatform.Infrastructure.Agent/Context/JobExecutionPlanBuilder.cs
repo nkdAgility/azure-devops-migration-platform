@@ -31,8 +31,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 /// <list type="bullet">
 ///   <item>The job kind to select the applicable phases (Export / Import / Migrate).</item>
 ///   <item>Module-enabled flags in <c>migration-config.json</c>.</item>
-///   <item>Phase records in the state store to detect already-completed phases on resume.</item>
-///   <item><c>inventory.json</c> in the artefact store to populate <see cref="JobTask.KnownTotal"/> for WorkItems tasks.</item>
 ///   <item>Module <c>DependsOn</c> declarations to build the dependency graph for Import-phase tasks.</item>
 /// </list>
 /// </summary>
@@ -83,7 +81,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             string.Join(", ", _analysers.Select(a => a.Name)));
     }
 
-    public async Task<JobTaskList> BuildPlanAsync(
+    public Task<JobTaskList> BuildPlanAsync(
         IConfiguration packageConfig,
         JobKind kind,
         IArtefactStore artefactStore,
@@ -95,41 +93,26 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
         if (kind is JobKind.Inventory or JobKind.Dependencies)
         {
-            return await BuildCapturePlanAsync(packageConfig, kind, ct).ConfigureAwait(false);
+            return BuildCapturePlanAsync(packageConfig, kind, ct);
         }
 
         if (kind == JobKind.Prepare)
         {
-            return BuildPreparePlan(packageConfig);
+            return Task.FromResult(BuildPreparePlan(packageConfig));
         }
 
         var includeExport = kind is JobKind.Export or JobKind.Migrate
                             ;
         var includeImport = kind is JobKind.Import or JobKind.Migrate;
 
-        // Read phase record once (only relevant for Migrate kind).
-        JobPhaseRecord? phaseRecord = null;
-        if (kind == JobKind.Migrate)
-        {
-            var phaseTracker = _phaseTrackingFactory.Create(stateStore);
-            phaseRecord = await phaseTracker.ReadPhaseRecordAsync(ct).ConfigureAwait(false);
-        }
-
-        // inventory.json is used for KnownTotal; the completion marker gates whether
-        // Export must synthesize Inventory prerequisites.
-        long? workItemKnownTotal = await TryReadWorkItemTotalAsync(artefactStore, ct)
-            .ConfigureAwait(false);
-        bool hasInventorySnapshot = await HasInventoryCompletionMarkerAsync(stateStore, ct)
-            .ConfigureAwait(false);
-
         if (includeExport)
         {
-            tasks.AddRange(BuildExportTasks(packageConfig, kind, phaseRecord, workItemKnownTotal, hasInventorySnapshot, ref order));
+            tasks.AddRange(BuildExportTasks(packageConfig, ref order));
         }
 
         if (includeImport)
         {
-            tasks.AddRange(BuildImportTasks(packageConfig, phaseRecord, ref order));
+            tasks.AddRange(BuildImportTasks(packageConfig, ref order));
         }
 
         // Validate no circular dependencies in Import phase before returning.
@@ -142,11 +125,11 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             "Built execution plan with {TaskCount} tasks for job kind {Kind}.",
             tasks.Count, kind);
 
-        return new JobTaskList
+        return Task.FromResult(new JobTaskList
         {
             Tasks = tasks.AsReadOnly(),
             PushedAt = DateTimeOffset.UtcNow
-        };
+        });
     }
 
     /// <inheritdoc />
@@ -238,14 +221,8 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
     private List<JobTask> BuildExportTasks(
         IConfiguration config,
-        JobKind kind,
-        JobPhaseRecord? phaseRecord,
-        long? workItemKnownTotal,
-        bool hasInventorySnapshot,
         ref int order)
     {
-        bool exportAlreadyDone = phaseRecord?.ExportCompleted == true;
-
         var exportModules = _modules.Where(m => m.SupportsExport).ToList();
 
         _logger.LogDebug(
@@ -273,18 +250,15 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         var tasks = new List<JobTask>();
         var preExportAnalysisTaskIdsByModule = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
-        if (!hasInventorySnapshot)
-        {
-            tasks.AddRange(BuildExportPrerequisiteTasks(
-                config,
-                needed,
-                sourceUrl,
-                sourceProject,
-                orgSlug,
-                projectSlug,
-                preExportAnalysisTaskIdsByModule,
-                ref order));
-        }
+        tasks.AddRange(BuildExportPrerequisiteTasks(
+            config,
+            needed,
+            sourceUrl,
+            sourceProject,
+            orgSlug,
+            projectSlug,
+            preExportAnalysisTaskIdsByModule,
+            ref order));
 
         foreach (var module in exportModules)
         {
@@ -301,10 +275,6 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 module.Name, needed.Contains(module.Name), module.SupportsExport);
 
             var taskId = $"export.{module.Name.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
-            var knownTotal = module.Name.Equals("WorkItems", StringComparison.OrdinalIgnoreCase)
-                ? workItemKnownTotal
-                : null;
-
             // Export tasks honor module.DependsOn entries where phase is Export or Both.
             var exportDeps = new List<string>();
             foreach (var dep in module.DependsOn.Where(d => d.AppliesToExport))
@@ -333,9 +303,8 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 organisationUrl: sourceUrl,
                 projectName: sourceProject,
                 enabled: true,
-                exportAlreadyDone,
+                phaseAlreadyDone: false,
                 0, // placeholder — reassigned after topological sort
-                knownTotal: knownTotal,
                 dependsOn: dependsOn));
         }
 
@@ -486,10 +455,9 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
     private List<JobTask> BuildImportTasks(
         IConfiguration config,
-        JobPhaseRecord? phaseRecord,
         ref int order)
     {
-        bool importAlreadyDone = phaseRecord?.ImportCompleted == true;
+        bool importAlreadyDone = false;
 
         // Resolve org/project for task IDs (import jobs target Target, not Source).
         var targetUrl = config["MigrationPlatform:Target:Url"] ?? string.Empty;
@@ -982,7 +950,6 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         bool enabled,
         bool phaseAlreadyDone,
         int order,
-        long? knownTotal = null,
         IReadOnlyList<string>? dependsOn = null)
     {
         var (status, skipReason) = !enabled
@@ -1001,7 +968,6 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             ProjectName = projectName,
             Order = order,
             Status = status,
-            KnownTotal = knownTotal,
             SkipReason = skipReason,
             DependsOn = dependsOn
         };
@@ -1058,48 +1024,6 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
         return needed;
     }
-
-
-
-    private static async Task<long?> TryReadWorkItemTotalAsync(
-        IArtefactStore artefactStore,
-        CancellationToken ct)
-    {
-        try
-        {
-            var json = await artefactStore.ReadAsync("inventory.json", ct).ConfigureAwait(false);
-            if (json is null)
-                return null;
-
-            // inventory.json is serialised with camelCase naming policy, so use the
-            // deserialiser (case-insensitive by default) rather than JsonElement
-            // TryGetProperty (case-sensitive) to avoid a silent miss.
-            var report = JsonSerializer.Deserialize<InventoryReport>(json, _jsonOptions);
-            if (report?.Totals.WorkItems > 0)
-                return report.Totals.WorkItems;
-        }
-        catch (Exception)
-        {
-            // inventory.json may not exist or may be malformed — not an error.
-        }
-
-        return null;
-    }
-
-    private static async Task<bool> HasInventoryCompletionMarkerAsync(
-        IStateStore stateStore,
-        CancellationToken ct)
-    {
-        try
-        {
-            return await stateStore.ExistsAsync(PackagePaths.InventoryCompleteFile, ct).ConfigureAwait(false);
-        }
-        catch (Exception)
-        {
-            return false;
-        }
-    }
-
     private static IReadOnlyList<ScopedOrganisationEndpoint> BuildOrganisationEndpoints(IConfiguration packageConfig)
     {
         var organisations = new List<ScopedOrganisationEndpoint>();
