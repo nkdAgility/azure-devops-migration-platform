@@ -197,6 +197,9 @@ public sealed class JobAgentWorkerDispatchTests
             .Setup(executor => executor.ExecuteExportPhaseAsync(
                 It.IsAny<JobTaskList>(),
                 It.IsAny<IReadOnlyDictionary<string, IModule>>(),
+                It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
+                It.IsAny<InventoryContext?>(),
+                It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
                 It.IsAny<ExportContext>(),
                 It.IsAny<IStateStore>(),
                 It.IsAny<CancellationToken>()))
@@ -257,6 +260,9 @@ public sealed class JobAgentWorkerDispatchTests
         _planExecutor.Verify(executor => executor.ExecuteExportPhaseAsync(
             It.IsAny<JobTaskList>(),
             It.IsAny<IReadOnlyDictionary<string, IModule>>(),
+            It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
+            It.IsAny<InventoryContext?>(),
+            It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
             It.IsAny<ExportContext>(),
             It.IsAny<IStateStore>(),
             It.IsAny<CancellationToken>()), Times.Once);
@@ -298,6 +304,9 @@ public sealed class JobAgentWorkerDispatchTests
         _planExecutor.Verify(executor => executor.ExecuteExportPhaseAsync(
             It.IsAny<JobTaskList>(),
             It.IsAny<IReadOnlyDictionary<string, IModule>>(),
+            It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
+            It.IsAny<InventoryContext?>(),
+            It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
             It.IsAny<ExportContext>(),
             It.IsAny<IStateStore>(),
             It.IsAny<CancellationToken>()), Times.Never);
@@ -319,6 +328,9 @@ public sealed class JobAgentWorkerDispatchTests
         _planExecutor.Verify(executor => executor.ExecuteExportPhaseAsync(
             It.IsAny<JobTaskList>(),
             It.IsAny<IReadOnlyDictionary<string, IModule>>(),
+            It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
+            It.IsAny<InventoryContext?>(),
+            It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
             It.IsAny<ExportContext>(),
             It.IsAny<IStateStore>(),
             It.IsAny<CancellationToken>()), Times.Never);
@@ -344,6 +356,9 @@ public sealed class JobAgentWorkerDispatchTests
             .Setup(executor => executor.ExecuteExportPhaseAsync(
                 It.IsAny<JobTaskList>(),
                 It.IsAny<IReadOnlyDictionary<string, IModule>>(),
+                It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
+                It.IsAny<InventoryContext?>(),
+                It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
                 It.IsAny<ExportContext>(),
                 It.IsAny<IStateStore>(),
                 It.IsAny<CancellationToken>()))
@@ -405,6 +420,28 @@ public sealed class JobAgentWorkerDispatchTests
                 endpoint.ConnectorType == "Simulated" &&
                 endpoint.Project == "TargetProject" &&
                 endpoint.Url == string.Empty)),
+            Times.Once);
+    }
+
+    [TestMethod]
+    public async Task OnJobAsync_ForceFresh_DeletesInventoryCompletionMarker()
+    {
+        var worker = CreateWorker();
+        var job = CreateJob(JobKind.Export);
+        job.Resume = new JobResume
+        {
+            Mode = ResumeMode.ForceFresh
+        };
+
+        await JobAgentWorkerTestHelper.InvokeJobAsync(
+            worker,
+            job,
+            CreateControlPlaneClient(),
+            "lease-forcefresh",
+            CancellationToken.None);
+
+        _stateStore.Verify(
+            store => store.DeleteAsync(PackagePaths.InventoryCompleteFile, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 

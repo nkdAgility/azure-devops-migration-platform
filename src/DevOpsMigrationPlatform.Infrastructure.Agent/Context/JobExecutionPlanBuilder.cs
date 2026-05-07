@@ -115,10 +115,11 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             phaseRecord = await phaseTracker.ReadPhaseRecordAsync(ct).ConfigureAwait(false);
         }
 
-        // Try to read inventory.json for KnownTotal on WorkItems export task.
+        // inventory.json is used for KnownTotal; the completion marker gates whether
+        // Export must synthesize Inventory prerequisites.
         long? workItemKnownTotal = await TryReadWorkItemTotalAsync(artefactStore, ct)
             .ConfigureAwait(false);
-        bool hasInventorySnapshot = await HasInventorySnapshotAsync(artefactStore, ct)
+        bool hasInventorySnapshot = await HasInventoryCompletionMarkerAsync(stateStore, ct)
             .ConfigureAwait(false);
 
         if (includeExport)
@@ -349,7 +350,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
     private List<JobTask> BuildExportPrerequisiteTasks(
         IConfiguration config,
-        IReadOnlySet<string> neededExportModules,
+        IReadOnlyCollection<string> neededExportModules,
         string sourceUrl,
         string sourceProject,
         string orgSlug,
@@ -1085,13 +1086,13 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         return null;
     }
 
-    private static async Task<bool> HasInventorySnapshotAsync(
-        IArtefactStore artefactStore,
+    private static async Task<bool> HasInventoryCompletionMarkerAsync(
+        IStateStore stateStore,
         CancellationToken ct)
     {
         try
         {
-            return await artefactStore.ExistsAsync("inventory.json", ct).ConfigureAwait(false);
+            return await stateStore.ExistsAsync(PackagePaths.InventoryCompleteFile, ct).ConfigureAwait(false);
         }
         catch (Exception)
         {

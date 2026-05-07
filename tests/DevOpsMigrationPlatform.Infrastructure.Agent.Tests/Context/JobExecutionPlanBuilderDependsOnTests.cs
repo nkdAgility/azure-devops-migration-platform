@@ -121,11 +121,11 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
             })
             .Build();
         var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        store.Setup(s => s.ExistsAsync("inventory.json", It.IsAny<CancellationToken>())).ReturnsAsync(false);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose).Object;
+        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        stateStore.Setup(s => s.ExistsAsync(PackagePaths.InventoryCompleteFile, It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
         // Act
-        var plan = await builder.BuildPlanAsync(config, JobKind.Export, store.Object, stateStore, CancellationToken.None);
+        var plan = await builder.BuildPlanAsync(config, JobKind.Export, store.Object, stateStore.Object, CancellationToken.None);
 
         // Assert
         CollectionAssert.Contains(plan.Tasks.Select(t => t.Id).ToList(), "analyse.inventory.testorg.testproject");
@@ -161,11 +161,11 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
             .Build();
 
         var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        store.Setup(s => s.ExistsAsync("inventory.json", It.IsAny<CancellationToken>())).ReturnsAsync(true);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose).Object;
+        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        stateStore.Setup(s => s.ExistsAsync(PackagePaths.InventoryCompleteFile, It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         // Act
-        var plan = await builder.BuildPlanAsync(config, JobKind.Export, store.Object, stateStore, CancellationToken.None);
+        var plan = await builder.BuildPlanAsync(config, JobKind.Export, store.Object, stateStore.Object, CancellationToken.None);
 
         // Assert
         Assert.IsFalse(plan.Tasks.Any(t => t.TaskKind is TaskKind.Capture or TaskKind.Analyse));

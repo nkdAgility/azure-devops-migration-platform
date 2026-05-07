@@ -147,10 +147,10 @@ public sealed class JobExecutionPlanBuilderTests
         store
             .Setup(s => s.ReadAsync("inventory.json", It.IsAny<CancellationToken>()))
             .ReturnsAsync(inventoryJson);
-        store
-            .Setup(s => s.ExistsAsync("inventory.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true); // inventory.json exists → no Inventory phase prepended
         var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        stateStore
+            .Setup(s => s.ExistsAsync(PackagePaths.InventoryCompleteFile, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         var plan = await builder.BuildPlanAsync(
             AllEnabledConfig(), JobKind.Export, store.Object, stateStore.Object, CancellationToken.None);

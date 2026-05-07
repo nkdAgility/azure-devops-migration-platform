@@ -433,13 +433,22 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 var freshCheckpointer = CheckpointingFactory.Create(stateStore);
                 var freshPhaseTracker = PhaseTrackingFactory.Create(stateStore);
 
-                _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors and plan file.", job.JobId);
+                _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors, completion markers, and plan file.", job.JobId);
                 foreach (var module in MigrationModules)
                 {
                     await freshCheckpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
                     _logger.LogDebug("Deleted cursor for module {Module}.", module.Name);
                 }
                 await freshPhaseTracker.DeletePhaseRecordAsync(ct).ConfigureAwait(false);
+                try
+                {
+                    await stateStore.DeleteAsync(PackagePaths.InventoryCompleteFile, ct).ConfigureAwait(false);
+                    _logger.LogDebug("Deleted inventory completion marker {Path}.", PackagePaths.InventoryCompleteFile);
+                }
+                catch (System.IO.FileNotFoundException)
+                {
+                    // Marker didn't exist — not an error.
+                }
 
                 // Delete the persisted plan file so a fresh plan is built.
                 try
@@ -731,7 +740,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         if (job.Resume?.Mode == ResumeMode.ForceFresh)
         {
             _logger.LogInformation(
-                "ForceFresh requested for discovery job {JobId} — deleting module cursors.", job.JobId);
+                "ForceFresh requested for discovery job {JobId} — deleting module cursors, completion markers, and plan file.", job.JobId);
             foreach (var module in MigrationModules)
             {
                 var cursorPath = PackagePaths.CursorFile(module.Name);
@@ -741,6 +750,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     _logger.LogWarning(ex, "Could not delete cursor for discovery module {Module}.", module.Name);
                 }
             }
+
+            try { await stateStore.DeleteAsync(PackagePaths.InventoryCompleteFile, ct).ConfigureAwait(false); }
+            catch (System.IO.FileNotFoundException) { /* not an error */ }
 
             // Delete persisted plan so a fresh one is built.
             try { await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false); }
