@@ -12,7 +12,7 @@ Long-running migrations must be resumable after interruption. A progress trackin
 
 ## Decision
 
-Checkpoints are cursor-based. Each module records the last successfully processed item identifier (e.g. `WorkItems/2026-02-25/638760123456789012-12345-17`) as a cursor string in `.migration/Checkpoints/`. On resume, the module seeks to the cursor position in `IArtefactStore.EnumerateAsync()` and continues from there.
+Checkpoints are cursor-based. Each project/module/action combination records the last successfully processed item identifier (e.g. `WorkItems/2026-02-25/638760123456789012-12345-17`) as a cursor string in `/{org}/{project}/.migration/{action}.{module}.cursor.json`. On resume, the module seeks to the cursor position in `IArtefactStore.EnumerateAsync()` and continues from there. Package-level phase completion markers remain in root `.migration/`.
 
 ## Alternatives Considered
 

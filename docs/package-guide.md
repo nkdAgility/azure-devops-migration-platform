@@ -17,14 +17,17 @@ The migration package is the intermediary between source and target. It is a dir
 
 ```
 <WorkingDirectory>/
+  .migration/
+    migration-config.json       # resolved config written by agent at startup
+    plan.json                   # package-level execution plan
+    inventory.complete.json     # phase completion marker
+    prepare.complete.json       # phase completion marker
   <org>/
     <project>/
-      migration-config.json     # resolved config written by agent at startup
-      manifest.json             # package manifest (version, timestamps, modules run)
+      manifest.json             # project manifest (version, timestamps, modules run)
       .migration/
-        Checkpoints/            # cursor state for each module (resume data)
-        Logs/                   # structured logs and progress events
-        State/                  # transient state stores
+        export.workitems.cursor.json   # project-scoped cursor state
+        import.workitems.cursor.json   # project-scoped cursor state
       Identities/
         mapping.json            # identity map (operator editable)
         prepare-report.json     # prepare phase report
@@ -46,11 +49,10 @@ The migration package is the intermediary between source and target. It is a dir
 - `Identities/prepare-report.json` — review identity mapping issues.
 - `Identities/mapping.json` — edit to resolve unmapped identities.
 - `WorkItems/<date>/<id>/revision.json` — inspect exported work item data.
-- `.migration/Logs/progress.jsonl` — event-by-event log of what happened.
 
 ## How Package Data Supports Resume
 
-The `.migration/Checkpoints/` folder holds cursor files for each module. Each cursor records the last successfully processed item. On resume, the module seeks to that position and continues — no items are re-imported unnecessarily.
+Each project-local `.migration/` folder holds cursor files for that org/project/action/module combination. Each cursor records the last successfully processed item for that project scope. Root `.migration/` holds package-level orchestration state and phase completion markers.
 
 ## How Package Zip/Export Works
 

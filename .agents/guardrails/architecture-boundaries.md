@@ -16,7 +16,7 @@ If a rule below forces a **clearly worse outcome**: Stop → Cite rule number �
 
 3. **No global in-memory sort.** Enumeration order = lexicographic folder traversal. In-memory sorting of `EnumerateAsync` results is forbidden.
 
-4. **Cursor-based checkpoints required.** Every module: `.migration/Checkpoints/`. No watermark tables, databases, or in-memory progress tracking.
+4. **Cursor-based checkpoints required.** Every module writes project-scoped cursor files under `/{org}/{project}/.migration/`. No watermark tables, databases, or in-memory progress tracking.
 
 5. **Attachments beside revision.json.** No global `Attachments/` root. No mandatory blob store.
 
@@ -28,11 +28,11 @@ If a rule below forces a **clearly worse outcome**: Stop → Cite rule number �
 
 9. **Config/schema versioning with upgrader.** Breaking changes require version increment + upgrader.
 
-10. **Phase gates: Inventory before Export, Prepare before Import.** Export checks `.migration/Checkpoints/inventory.complete.json`. Absent → auto-run Inventory. Import checks `.migration/Checkpoints/prepare.complete.json`. Absent → auto-run Prepare. Blocking issue in Prepare → abort. In `Migrate` mode: Inventory → Export → Prepare → Import → Validate; blocking issues abort after Prepare. See [docs/validation.md](../../docs/validation.md).
+10. **Phase gates: Inventory before Export, Prepare before Import.** Export checks root `.migration/inventory.complete.json`. Absent → auto-run Inventory. Import checks root `.migration/prepare.complete.json`. Absent → auto-run Prepare. Blocking issue in Prepare → abort. In `Migrate` mode: Inventory → Export → Prepare → Import → Validate; blocking issues abort after Prepare. See [docs/validation.md](../../docs/validation.md).
 
 11. **ControlPlane must not execute migrations.** Accepts, stores, assigns jobs only. No source/target API calls, no orchestrator logic, no package I/O, no secret unwrapping. `ControlPlaneHost` manages agent lifecycle but contains no job execution logic.
 
-12. **Agents are stateless; all durable state in the package.** All state lives in `.migration/Checkpoints/`, `.migration/Logs/`, revision folders via `IArtefactStore`/`IStateStore`. Crashed agent → new agent resumes from cursor.
+12. **Agents are stateless; all durable state in the package.** Package-level orchestration state lives in root `.migration/`; project-level cursor state lives in `/{org}/{project}/.migration/`; revision data lives in project folders via `IArtefactStore`/`IStateStore`. Crashed agent → new agent resumes from cursor.
 
 13. **IArtefactStore is the only file abstraction.** Module code must not reference `FileSystemArtefactStore` or `AzureBlobArtefactStore` directly. Switching local↔cloud = zero module code changes.
 

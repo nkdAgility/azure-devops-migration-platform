@@ -2,10 +2,12 @@
 
 ## 1. Package Root Resolution
 
-`PackageRoot` is derived by appending the organisation folder name and project name to the configured `Package.WorkingDirectory`:
+`PackageRoot` is the configured `Package.WorkingDirectory`. Project artefacts live beneath org/project subfolders inside that root:
 
 ```
-<WorkingDirectory>/<org-folder-name>/<project>/
+<WorkingDirectory>/
+  .migration/
+  <org-folder-name>/<project>/
 ```
 
 For example, given:
@@ -13,53 +15,52 @@ For example, given:
 - Organisation URL: `https://dev.azure.com/contoso`
 - Project: `MyProject`
 
-The resulting `PackageRoot` is: `storage\my-export\contoso\MyProject\`
+The resulting project subtree is: `storage\my-export\contoso\MyProject\`
 
 The org folder name is extracted from the organisation URL (the last path segment, e.g. `contoso` from `https://dev.azure.com/contoso`). For TFS collection URLs like `http://tfs:8080/tfs/DefaultCollection`, the folder name is `DefaultCollection`.
 
-This resolution is performed by `PathUtilities.ExtractOrgFolderName()` and applied in the CLI queue path (`QueueCommand`) before the `IArtefactStore` is created. `WorkItems` and other module folders should never appear directly under `WorkingDirectory` — they always live under `<org>/<project>/`.
+This resolution is performed by `PathUtilities.ExtractOrgFolderName()` and applied when project-relative artefact paths are resolved. `WorkItems` and other module folders never appear directly under `WorkingDirectory` — they always live under `<org>/<project>/`.
 
 ## 2. Package Structure (Canonical Format)
 
 ```
 PackageRoot/
-  manifest.json
-  WorkItems/
-  Nodes/
+  .migration/
+    migration-config.json
+    plan.json
+    inventory.complete.json
+    prepare.complete.json
+    Checkpoints/
+      idmap.db
+      export_progress.db
+  {org}/{project}/
+    manifest.json
+    WorkItems/
+    Nodes/
     referenced-paths.json   ← all area/iteration paths referenced by exported work item revisions
     source-tree.json        ← full classification tree snapshot (area + iteration) from the source
     prepare-report.json     ← written by PrepareAsync: node existence validation against target
-  Teams/
-    {team-slug}/
-      team.json             ← team definition, settings, iterations, members, capacity, area paths
-    prepare-report.json     ← written by PrepareAsync: team/group validation against target
-  Permissions/
-    prepare-report.json     ← written by PrepareAsync: ACL compatibility validation against target
-  Builds/
-  Git/
-  Identities/
-    descriptors.jsonl       ← one identity descriptor JSON per line (JSONL format)
-    mapping.json            ← operator-editable identity override map (source → target)
-    unresolved.json         ← identities that could not be auto-resolved
-    prepare-report.json     ← written by PrepareAsync: identity auto-match and unresolved report
-  .migration/
-    migration-config.json   ← tool configuration written by CLI before job submission; read by Agent at job start (feature 025-agent-config-package)
-    plan.json               ← execution plan persisted after every task status transition
-    Checkpoints/
-      workitems.cursor.json
-      identities.cursor.json  ← cursor for IdentitiesModule export/import resume
-      nodes.cursor.json       ← cursor for NodesModule import resume
-      teams.cursor.json       ← cursor for TeamsModule export/import resume
-      prepare.complete.json ← marker written when Prepare completes successfully; Import checks for this
-      idmap.db              ← source→target work item ID mappings
-      export_progress.db    ← per-WI export revision index (fast-forward resume)
-    Logs/
-      <ticks>-<jobId>/
-        progress.jsonl
-        agent.jsonl
+    Teams/
+      {team-slug}/
+        team.json             ← team definition, settings, iterations, members, capacity, area paths
+      prepare-report.json     ← written by PrepareAsync: team/group validation against target
+    Permissions/
+      prepare-report.json     ← written by PrepareAsync: ACL compatibility validation against target
+    Builds/
+    Git/
+    Identities/
+      descriptors.jsonl       ← one identity descriptor JSON per line (JSONL format)
+      mapping.json            ← operator-editable identity override map (source → target)
+      unresolved.json         ← identities that could not be auto-resolved
+      prepare-report.json     ← written by PrepareAsync: identity auto-match and unresolved report
+    .migration/
+      inventory.workitems.cursor.json
+      export.workitems.cursor.json
+      import.workitems.cursor.json
+      export.identities.cursor.json
 ```
 
-> **Legacy fallback:** Packages created before the `.migration/` dotfolder change may store `Checkpoints/` and `Logs/` directly under `PackageRoot/`. All code that reads these paths tries the `.migration/` location first, then falls back to the legacy root-level location. The `PackagePaths` static class in `DevOpsMigrationPlatform.Abstractions` defines both current and legacy path constants.
+> **Legacy fallback:** Packages created before the split between root `.migration/` and project-local `.migration/` may store cursor files under root `.migration/Checkpoints/` (or legacy `Checkpoints/`). Readers should try the new project-local location first, then fall back to the older root-level locations.
 
 The WorkItems layout is canonical and must not be altered:
 

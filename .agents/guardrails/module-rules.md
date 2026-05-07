@@ -18,7 +18,7 @@ Checklist for every new or modified module. All items mandatory unless marked op
 
 ## 3. Cursor / Checkpoint
 
-- File: `.migration/Checkpoints/<module>.cursor.json`.
+- File: `/{org}/{project}/.migration/{action}.{module}.cursor.json`.
 - Fields: `lastProcessed`, `stage`, `updatedAt`.
 - Resume: skip folders ≤ cursor lexicographically. Resume incomplete stage.
 - First run: cursor absent → start from beginning.
@@ -134,6 +134,6 @@ Reject module if:
 - Connector stub/placeholder remains.
 - Test asserts only "no exception" or `count >= 0`.
 - Raw filesystem instead of `IArtefactStore`.
-- State outside `.migration/Checkpoints/`.
+- State outside root `.migration/` or project `/{org}/{project}/.migration/`.
 - Missing `DependsOn` declaration.
 - `ExportAsync`/`ImportAsync` completes with count=0 without emitting Warning log.

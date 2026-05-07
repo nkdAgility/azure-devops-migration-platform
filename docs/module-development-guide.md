@@ -375,7 +375,7 @@ For the full tool schema and available options, see [docs/configuration-referenc
 | **Name** | `Identities` |
 | **DependsOn** | *(none — runs first)* |
 | **Package folder** | `Identities/` |
-| **Cursor** | `.migration/Checkpoints/identities.cursor.json` |
+| **Cursor** | `/{org}/{project}/.migration/{action}.identities.cursor.json` |
 
 **Behaviour:**
 - `ExportAsync`: streams all user and group identity descriptors from the source via `IIdentitySource`. Writes one descriptor per line to `Identities/descriptors.jsonl` (JSONL format). Emits `migration.identities.export.count` metric.
@@ -403,7 +403,7 @@ For the full tool schema and available options, see [docs/configuration-referenc
 | **Name** | `Nodes` |
 | **DependsOn** | *(none)* |
 | **Package folder** | `Nodes/` |
-| **Cursor** | `.migration/Checkpoints/nodes.cursor.json` |
+| **Cursor** | `/{org}/{project}/.migration/{action}.nodes.cursor.json` |
 
 **Behaviour:**
 - `ExportAsync`: delegates to `IClassificationTreeCapture.CaptureAsync()` — writes `Nodes/source-tree.json` with the full area/iteration tree from the source.
@@ -430,7 +430,7 @@ For the full tool schema and available options, see [docs/configuration-referenc
 | **Name** | `Teams` |
 | **DependsOn** | *(none — order is operator-controlled)* |
 | **Package folder** | `Teams/` |
-| **Cursor** | `.migration/Checkpoints/teams.cursor.json` |
+| **Cursor** | `/{org}/{project}/.migration/{action}.teams.cursor.json` |
 
 **Recommended execution order**: After `IdentitiesModule` and `NodesModule`, before `WorkItemsModule`.
 

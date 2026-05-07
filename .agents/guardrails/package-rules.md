@@ -24,7 +24,7 @@ These rules are mandatory for all code that reads or writes the migration packag
 
 ## Hidden State
 
-9. No migration state may be stored outside `.migration/Checkpoints/` (cursors), `.migration/State/` (state stores), or `.migration/Logs/` (logs). No hidden state in other locations.
+9. No migration state may be stored outside root `.migration/` (plan, config snapshots, phase markers, shared state) or project `/{org}/{project}/.migration/` (project-scoped cursors). No hidden state in other locations.
 10. No external databases or service-side state stores may be used as the authoritative resume mechanism.
 
 ## Attachment Placement

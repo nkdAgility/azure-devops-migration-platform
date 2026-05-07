@@ -141,7 +141,7 @@ Job 3: mode=Import, artefacts.packageUri=https://<account>.blob.core.windows.net
         → Migration Agent reads package written by Job 1, validated by Job 2
 ```
 
-The package URI is the handoff point. The `manifest.json`, cursor state, `idmap.db`, and Prepare artefacts written by Jobs 1 and 2 are read by Job 3 without modification. If Prepare has not been run (no `.migration/Checkpoints/prepare.complete.json`), Import auto-runs Prepare and aborts on blocking issues.
+The package URI is the handoff point. The `manifest.json`, project cursor state, `idmap.db`, and Prepare artefacts written by Jobs 1 and 2 are read by Job 3 without modification. If Prepare has not been run (no root `.migration/prepare.complete.json`), Import auto-runs Prepare and aborts on blocking issues.
 
 See [docs/agent-hosting.md](migration-agent.md) for Migration Agent behaviour in each pattern.
 

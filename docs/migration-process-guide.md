@@ -78,7 +78,7 @@ Validate job → Build graph → ExportAsync (inventory-capable modules only) �
 - `target` is ignored.
 - Enumerates and catalogues in-scope items (work items, revisions, artefacts) per project.
 - Results written to the package as inventory artefacts.
-- Writes `.migration/Checkpoints/inventory.complete.json` on completion.
+- Writes root `.migration/inventory.complete.json` on completion.
 
 #### Export Mode
 
@@ -89,7 +89,7 @@ Validate job → Check Inventory gate → Build graph → ExportAsync (each modu
 - Only `source` connection is required.
 - `target` is ignored.
 - Package is written to the URI in `artefacts.packageUri`.
-- **Inventory gate**: Before building the module graph, the orchestrator checks for `.migration/Checkpoints/inventory.complete.json`. If the marker is absent, the orchestrator **auto-runs Inventory** (runs inventory-capable modules). This ensures export always has inventory data available.
+- **Inventory gate**: Before building the module graph, the orchestrator checks for root `.migration/inventory.complete.json`. If the marker is absent, the orchestrator **auto-runs Inventory** (runs inventory-capable modules). This ensures export always has inventory data available.
 
 #### Prepare Mode
 
@@ -101,7 +101,7 @@ Validate job → Validate package → Build graph → PrepareAsync (each module)
 - Only `target` connection is required (reads the package, queries the target).
 - `source` is ignored.
 - Each module's `PrepareAsync` reads exported artefacts from the package, queries the target system, and writes validation/mapping artefacts into the module's own folder (e.g. `Identities/prepare-report.json`, `Nodes/prepare-report.json`).
-- On successful completion, writes `.migration/Checkpoints/prepare.complete.json` as the completion marker.
+- On successful completion, writes root `.migration/prepare.complete.json` as the completion marker.
 - Prepare is **idempotent** — re-running overwrites Prepare output artefacts but never modifies operator-edited mapping files (e.g. `Identities/mapping.json`).
 - Any unresolved issue (unmapped identity, missing node, unmapped field) is a **blocking error** unless the operator has added an explicit skip annotation to the relevant mapping file.
 
@@ -114,7 +114,7 @@ Validate job → Check Prepare gate → Build graph → ImportAsync (each module
 - Only `target` connection is required.
 - `source` is ignored.
 - Package is read from the URI in `artefacts.packageUri`.
-- **Prepare gate**: Before building the module graph, the orchestrator checks for `.migration/Checkpoints/prepare.complete.json`. If the marker is absent, the orchestrator **auto-runs Prepare** (runs `PrepareAsync` for each module). If Prepare produces any blocking issues, the orchestrator **aborts** with a diagnostic report and does not proceed to Import. The operator must resolve the issues and re-run Import (or run `prepare` explicitly).
+- **Prepare gate**: Before building the module graph, the orchestrator checks for root `.migration/prepare.complete.json`. If the marker is absent, the orchestrator **auto-runs Prepare** (runs `PrepareAsync` for each module). If Prepare produces any blocking issues, the orchestrator **aborts** with a diagnostic report and does not proceed to Import. The operator must resolve the issues and re-run Import (or run `prepare` explicitly).
 
 #### Validate Mode
 
@@ -146,8 +146,8 @@ Each phase can be run independently, but downstream phases auto-run their prereq
 
 | Phase | Gate | Marker checked | Auto-runs |
 |---|---|---|---|
-| **Export** | Inventory gate | `.migration/Checkpoints/inventory.complete.json` | Inventory |
-| **Import** | Prepare gate | `.migration/Checkpoints/prepare.complete.json` | Prepare (aborts on blocking issues) |
+| **Export** | Inventory gate | `/.migration/inventory.complete.json` | Inventory |
+| **Import** | Prepare gate | `/.migration/prepare.complete.json` | Prepare (aborts on blocking issues) |
 
 These gates ensure the pipeline is self-healing: running Export alone will also produce inventory data; running Import alone will also run Prepare first.
 
