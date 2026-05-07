@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 
@@ -10,7 +11,18 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 /// </summary>
 public sealed class CheckpointingServiceFactory : ICheckpointingServiceFactory
 {
+    private readonly ICurrentJobEndpointAccessor? _currentJobEndpointAccessor;
+    private readonly ICurrentPackageConfigAccessor? _currentPackageConfigAccessor;
+
+    public CheckpointingServiceFactory(
+        ICurrentJobEndpointAccessor? currentJobEndpointAccessor = null,
+        ICurrentPackageConfigAccessor? currentPackageConfigAccessor = null)
+    {
+        _currentJobEndpointAccessor = currentJobEndpointAccessor;
+        _currentPackageConfigAccessor = currentPackageConfigAccessor;
+    }
+
     /// <inheritdoc/>
     public ICheckpointingService Create(IStateStore stateStore)
-        => new CheckpointingService(stateStore);
+        => new CheckpointingService(stateStore, _currentJobEndpointAccessor, _currentPackageConfigAccessor);
 }

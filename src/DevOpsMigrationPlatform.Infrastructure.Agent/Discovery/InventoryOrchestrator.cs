@@ -36,7 +36,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     /// Derives a module-scoped cursor key so that InventoryModule and InventoryDiscoveryModule
     /// can checkpoint independently when running in the same job.
     /// </summary>
-    private static string CursorKeyFor(string moduleName) => PackagePaths.CursorFile(moduleName);
+    private static string CursorKeyFor(string moduleName) => PackagePaths.CursorFile($"inventory.{moduleName}");
 
     private static string OrgCsvOutputPathFor(string orgSlug)
         => $"{orgSlug}/inventory.csv";
@@ -168,6 +168,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
 
         var checkpointInterval = TimeSpan.FromSeconds(checkpointIntervalSeconds);
         var lastCheckpoint = DateTime.UtcNow;
+        var lastCompletedProjectKey = lastCompleted;
 
         var metrics = _metrics;
         string? currentOrg = null;
@@ -321,6 +322,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             // Flush CSV and JSON after every completed project.
             await store.WriteAsync(csvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
             await WriteInventoryJsonAsync(store, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
+            lastCompletedProjectKey = projectKey;
 
             var snapshots = BuildScopedOrganisations(orgProjectData, context.SourceEndpoint?.ResolvedUrl);
             PushAggregateMetrics(metricsStore, orgProjectData, snapshots);
@@ -357,7 +359,10 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         await WriteInventoryJsonAsync(store, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
         await MergeAndWriteAggregateAsync(store, aggregateJsonPath, orgProjectData, ct).ConfigureAwait(false);
 
-        await state.DeleteAsync(CursorKeyFor(moduleName), ct).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(lastCompletedProjectKey))
+        {
+            await WriteCursorAsync(state, moduleName, lastCompletedProjectKey!, ct).ConfigureAwait(false);
+        }
 
         // Final snapshot push.
         var finalSnapshots = BuildScopedOrganisations(orgProjectData, context.SourceEndpoint?.ResolvedUrl);
@@ -677,6 +682,9 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     private static async Task<string?> ReadCursorAsync(IStateStore state, string moduleName, CancellationToken ct)
     {
         var raw = await state.ReadAsync(CursorKeyFor(moduleName), ct).ConfigureAwait(false);
+
+        if (raw is null)
+            raw = await state.ReadAsync(PackagePaths.CursorFile(moduleName), ct).ConfigureAwait(false);
 
         if (raw is null)
             raw = await state.ReadAsync(PackagePaths.Checkpoints + "/Inventory.cursor.json", ct).ConfigureAwait(false);
