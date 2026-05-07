@@ -1730,6 +1730,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     var bootstrap = await client.GetBootstrapAsync(jobId, ct).ConfigureAwait(false);
                     if (bootstrap?.Tasks is not null)
                     {
+                        if (bootstrap.Metrics is not null)
+                        {
+                            await updates.WriteAsync(
+                                new TelemetryPolled(bootstrap.Metrics), ct)
+                                .ConfigureAwait(false);
+                        }
+
                         await updates.WriteAsync(
                             new TaskListReceived(bootstrap.Tasks, bootstrap.LastEventSequence), ct)
                             .ConfigureAwait(false);

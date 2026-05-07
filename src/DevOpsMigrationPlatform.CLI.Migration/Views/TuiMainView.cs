@@ -236,7 +236,8 @@ public sealed class TuiMainView : Window, IDisposable
                 await Task.WhenAll(bootstrapTask, telemetryTask).ConfigureAwait(false);
 
                 var bootstrap = await bootstrapTask.ConfigureAwait(false);
-                var metrics = await telemetryTask.ConfigureAwait(false) ?? bootstrap?.Metrics;
+                var telemetry = await telemetryTask.ConfigureAwait(false);
+                var metrics = bootstrap?.Metrics ?? telemetry;
 
                 _metrics.Update(metrics);
                 _taskProgress.Update(GetSelectedSummary(jobId), bootstrap?.Tasks, metrics, _lastProgressEvent, bootstrap?.Snapshot);
