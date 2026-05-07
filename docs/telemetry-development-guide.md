@@ -20,10 +20,13 @@ Use the module's `ActivitySource` to wrap the main operation:
 ```csharp
 using var activity = _activitySource.StartActivity("export.workitems");
 activity?.SetTag("module", "WorkItems");
-activity?.SetTag("project", projectName);  // Note: not a CustomerData tag here
+using (DataClassificationScope.Begin(DataClassification.Customer))
+{
+    activity?.SetTag("project", projectName);
+}
 ```
 
-Tags that contain customer-identifiable data must NOT be exported to Application Insights. Work item IDs (integers) are not customer data.
+Tags that contain customer-identifiable data must NOT be exported to Application Insights. Work item IDs (integers) are not customer data. Metric dimensions exported to external telemetry backends must be low-cardinality and non-customer; if you need correlation beyond job/module scope, export only safe surrogate identifiers.
 
 ## Business Metrics (O-2)
 

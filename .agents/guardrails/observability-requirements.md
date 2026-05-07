@@ -10,6 +10,7 @@ Requirements:
 - Span name follows `{operation}.{subject}` convention, e.g. `export.workitems`, `import.teams`.
 - Span must have at minimum a `module` tag.
 - High-cardinality tags (e.g. org URL, project name) are permitted in traces but must carry `DataClassification.Customer` and must not be forwarded to Application Insights.
+- Metric dimensions exported to Application Insights or OTLP backends must be low-cardinality and non-customer. If queryability beyond module/job scope is needed, only safe surrogate identifiers may be exported.
 
 ## O-2 — Business Metrics
 

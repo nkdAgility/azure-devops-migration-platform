@@ -197,9 +197,11 @@ The two agents use the same lease protocol, the same abstractions, and the same 
 All `capture.*` tasks (e.g. `capture.workitems.{org}.{project}`) are dispatched through a unified `captureHandlersByName: IReadOnlyDictionary<string, ICapture>` dictionary assembled by `BuildCaptureHandlers` in both agents:
 
 1. Step 1 — all `IModule` instances where `SupportsInventory = true` are cast to `ICapture` and added, keyed by `ICapture.Name`.
-2. Step 2 — pure `ICapture` registrations (not `IModule`) from DI are unioned in, with OrdinalIgnoreCase de-duplication by name.
+2. Step 2 — pure `ICapture` registrations (not `IModule`) from DI are unioned in. Any duplicate `ICapture.Name` is a configuration error and must throw `ArgumentException` during handler assembly.
 
-**TFS agent constraint:** `AddDependencyCapture` is NOT called from `TfsMigrationAgentServiceExtensions`. The TFS plan builder emits no `capture.dependencies.*` tasks for TFS-sourced jobs. If an erroneous `capture.dependencies.*` task appears, the missing-handler log+skip path in `JobPlanExecutor` handles it gracefully — no exception is thrown.
+If a plan references an analyser, capture handler, module, or organisation endpoint that is not registered or resolved for that task, `JobPlanExecutor` fails the task/job explicitly. Silent skip-on-misconfiguration is forbidden.
+
+**TFS agent constraint:** `AddDependencyCapture` is NOT called from `TfsMigrationAgentServiceExtensions`. The TFS plan builder must not emit `capture.dependencies.*` tasks for TFS-sourced jobs; if it does, the executor treats that as a plan/configuration error and fails the task.
 
 ### Multi-Targeting
 
