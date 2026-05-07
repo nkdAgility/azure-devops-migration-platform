@@ -117,10 +117,10 @@ public class RebuildIdMapFromTargetSteps
     {
         // Cursor: no existing cursor
         _ctx.MockCheckpointing
-            .Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadCursorAsync("import.workitems", It.IsAny<CancellationToken>()))
             .ReturnsAsync((CursorEntry?)null);
         _ctx.MockCheckpointing
-            .Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteCursorAsync("import.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // ArtefactStore: empty enumeration — no folders to process

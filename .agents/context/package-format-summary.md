@@ -7,6 +7,7 @@ Short reference for agents. See `docs/package-format-reference.md` for the canon
 - Root `.migration/` holds authoritative package-wide orchestration state shared across runs.
 - `/{org}/{project}/.migration/` holds authoritative project-scoped cursors.
 - `.migration/runs/<runId>/` holds run-scoped audit copies and logs only.
+- Cursor keys are action-qualified (`<action>.<module>`) to isolate inventory/export/import resume identity.
 
 ## Top-Level Layout
 

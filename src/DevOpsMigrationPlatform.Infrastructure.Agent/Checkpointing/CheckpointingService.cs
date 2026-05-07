@@ -2,37 +2,50 @@
 // Copyright (c) Naked Agility Limited
 
 using System.Text.Json;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
+using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 
 public class CheckpointingService : ICheckpointingService
 {
+    private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
     private readonly IStateStore _stateStore;
     private readonly ICurrentJobEndpointAccessor? _currentJobEndpointAccessor;
     private readonly ICurrentPackageConfigAccessor? _currentPackageConfigAccessor;
+    private readonly ILogger<CheckpointingService>? _logger;
 
     public CheckpointingService(
         IStateStore stateStore,
         ICurrentJobEndpointAccessor? currentJobEndpointAccessor = null,
-        ICurrentPackageConfigAccessor? currentPackageConfigAccessor = null)
+        ICurrentPackageConfigAccessor? currentPackageConfigAccessor = null,
+        ILogger<CheckpointingService>? logger = null)
     {
         _stateStore = stateStore;
         _currentJobEndpointAccessor = currentJobEndpointAccessor;
         _currentPackageConfigAccessor = currentPackageConfigAccessor;
+        _logger = logger;
     }
 
     // ── Cursor ──────────────────────────────────────────────────────────
 
     public async Task<CursorEntry?> ReadCursorAsync(string moduleName, CancellationToken cancellationToken)
     {
+        using var activity = ActivitySource.StartActivity("state.cursor.update");
+        activity?.SetTag("operation", "read");
+        activity?.SetTag("module.name", moduleName);
         var key = ResolveCursorKey(moduleName);
+        activity?.SetTag("cursor.key", key);
+        _logger?.LogDebug("Reading cursor from {CursorKey}.", key);
         var json = await _stateStore.ReadAsync(key, cancellationToken).ConfigureAwait(false);
 
-        if (json is null && TrySplitActionQualifiedModule(moduleName, out _, out var legacyModule))
+        if (json is null && StateCursorIdentity.TryParse(moduleName, out _, out var legacyModule))
         {
             json = await _stateStore.ReadAsync(PackagePaths.CursorFile(moduleName), cancellationToken).ConfigureAwait(false);
             json ??= await _stateStore.ReadAsync(PackagePaths.CursorFile(legacyModule), cancellationToken).ConfigureAwait(false);
@@ -45,7 +58,12 @@ public class CheckpointingService : ICheckpointingService
 
     public async Task WriteCursorAsync(string moduleName, CursorEntry cursor, CancellationToken cancellationToken)
     {
+        using var activity = ActivitySource.StartActivity("state.cursor.update");
+        activity?.SetTag("operation", "write");
+        activity?.SetTag("module.name", moduleName);
         var key = ResolveCursorKey(moduleName);
+        activity?.SetTag("cursor.key", key);
+        _logger?.LogDebug("Writing cursor to {CursorKey}.", key);
         var json = JsonSerializer.Serialize(cursor);
         await _stateStore.WriteAsync(key, json, cancellationToken).ConfigureAwait(false);
     }
@@ -53,9 +71,10 @@ public class CheckpointingService : ICheckpointingService
     public async Task DeleteCursorAsync(string moduleName, CancellationToken cancellationToken)
     {
         var key = ResolveCursorKey(moduleName);
+        _logger?.LogDebug("Deleting cursor at {CursorKey}.", key);
         await _stateStore.DeleteAsync(key, cancellationToken).ConfigureAwait(false);
 
-        if (TrySplitActionQualifiedModule(moduleName, out _, out var legacyModule))
+        if (StateCursorIdentity.TryParse(moduleName, out _, out var legacyModule))
         {
             await _stateStore.DeleteAsync(PackagePaths.CursorFile(moduleName), cancellationToken).ConfigureAwait(false);
             await _stateStore.DeleteAsync(PackagePaths.CursorFile(legacyModule), cancellationToken).ConfigureAwait(false);
@@ -69,7 +88,7 @@ public class CheckpointingService : ICheckpointingService
         var key = ResolveContinuationKey(moduleName);
         var json = await _stateStore.ReadAsync(key, cancellationToken).ConfigureAwait(false);
 
-        if (json is null && TrySplitActionQualifiedModule(moduleName, out _, out var legacyModule))
+        if (json is null && StateCursorIdentity.TryParse(moduleName, out _, out var legacyModule))
         {
             json = await _stateStore.ReadAsync(PackagePaths.ContinuationFile(moduleName), cancellationToken).ConfigureAwait(false);
             json ??= await _stateStore.ReadAsync(PackagePaths.ContinuationFile(legacyModule), cancellationToken).ConfigureAwait(false);
@@ -91,7 +110,7 @@ public class CheckpointingService : ICheckpointingService
         var key = ResolveContinuationKey(moduleName);
         await _stateStore.DeleteAsync(key, cancellationToken).ConfigureAwait(false);
 
-        if (TrySplitActionQualifiedModule(moduleName, out _, out var legacyModule))
+        if (StateCursorIdentity.TryParse(moduleName, out _, out var legacyModule))
         {
             await _stateStore.DeleteAsync(PackagePaths.ContinuationFile(moduleName), cancellationToken).ConfigureAwait(false);
             await _stateStore.DeleteAsync(PackagePaths.ContinuationFile(legacyModule), cancellationToken).ConfigureAwait(false);
@@ -100,16 +119,16 @@ public class CheckpointingService : ICheckpointingService
 
     private string ResolveCursorKey(string moduleName)
     {
-        if (TrySplitActionQualifiedModule(moduleName, out var action, out var module) &&
+        if (StateCursorIdentity.TryParse(moduleName, out var parsedAction, out var parsedModule) &&
             TryResolveEndpoint(out var endpointUrl, out var projectName))
         {
-            return PackagePaths.CursorFile(action, module, endpointUrl, projectName);
+            return PackagePaths.CursorFile(parsedAction, parsedModule, endpointUrl, projectName);
         }
 
-        if (TryResolveActionFromConfig(out action) &&
-            TryResolveEndpoint(out endpointUrl, out projectName))
+        if (TryResolveActionFromConfig(out var configAction) &&
+            TryResolveEndpoint(out var configEndpointUrl, out var configProjectName))
         {
-            return PackagePaths.CursorFile(action, moduleName, endpointUrl, projectName);
+            return PackagePaths.CursorFile(configAction, moduleName, configEndpointUrl, configProjectName);
         }
 
         return PackagePaths.CursorFile(moduleName);
@@ -117,16 +136,16 @@ public class CheckpointingService : ICheckpointingService
 
     private string ResolveContinuationKey(string moduleName)
     {
-        if (TrySplitActionQualifiedModule(moduleName, out var action, out var module) &&
+        if (StateCursorIdentity.TryParse(moduleName, out var parsedAction, out var parsedModule) &&
             TryResolveEndpoint(out var endpointUrl, out var projectName))
         {
-            return PackagePaths.ContinuationFile(action, module, endpointUrl, projectName);
+            return PackagePaths.ContinuationFile(parsedAction, parsedModule, endpointUrl, projectName);
         }
 
-        if (TryResolveActionFromConfig(out action) &&
-            TryResolveEndpoint(out endpointUrl, out projectName))
+        if (TryResolveActionFromConfig(out var configAction) &&
+            TryResolveEndpoint(out var configEndpointUrl, out var configProjectName))
         {
-            return PackagePaths.ContinuationFile(action, moduleName, endpointUrl, projectName);
+            return PackagePaths.ContinuationFile(configAction, moduleName, configEndpointUrl, configProjectName);
         }
 
         return PackagePaths.ContinuationFile(moduleName);
@@ -156,21 +175,6 @@ public class CheckpointingService : ICheckpointingService
 
         endpointUrl = string.Empty;
         projectName = string.Empty;
-        return false;
-    }
-
-    private static bool TrySplitActionQualifiedModule(string moduleName, out string action, out string module)
-    {
-        var separatorIndex = moduleName.IndexOf('.');
-        if (separatorIndex > 0 && separatorIndex < moduleName.Length - 1)
-        {
-            action = moduleName.Substring(0, separatorIndex);
-            module = moduleName.Substring(separatorIndex + 1);
-            return true;
-        }
-
-        action = string.Empty;
-        module = string.Empty;
         return false;
     }
 

@@ -508,6 +508,16 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
         var checkpointer = CheckpointingFactory.Create(stateStore);
         var phaseTracker = PhaseTrackingFactory.Create(stateStore);
+        RunScopeAuthorityGuard.EnsureAuthoritativePath(PackagePaths.PlanFile, "job-execution");
+        RunScopeAuthorityGuard.EnsureAuthoritativePath(PackagePaths.InventoryCompleteFile, "inventory-phase-gate");
+
+        ProgressSink.Emit(new ProgressEvent
+        {
+            Module = "Job",
+            Stage = "State.Authority",
+            Message = "Authoritative runtime state verified (root/project scopes); run scope remains audit-only.",
+            Timestamp = DateTimeOffset.UtcNow
+        });
 
         var exportContext = new ExportContext
         {

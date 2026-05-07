@@ -152,7 +152,7 @@ public sealed class WorkItemExportOrchestrator
         }
 
         var cursor = await _checkpointingService
-            .ReadCursorAsync("workitems", cancellationToken)
+            .ReadCursorAsync("export.workitems", cancellationToken)
             .ConfigureAwait(false);
 
         if (cursor != null)
@@ -885,7 +885,7 @@ public sealed class WorkItemExportOrchestrator
                 // cancelled. Using the job token here causes the write to be aborted on shutdown,
                 // leaving no cursor on disk and forcing the next run to start from the beginning.
                 await _checkpointingService
-                    .WriteCursorAsync("workitems", newCursor, CancellationToken.None)
+                    .WriteCursorAsync("export.workitems", newCursor, CancellationToken.None)
                     .ConfigureAwait(false);
             }
 

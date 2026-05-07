@@ -4,6 +4,7 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
@@ -51,6 +52,12 @@ public class RerunDeltaImportContext
     public RerunDeltaImportContext()
     {
         CheckpointingService = new CheckpointingService(MockStateStore.Object);
+        MockStateStore
+            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("workitems"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+        MockStateStore
+            .Setup(s => s.DeleteAsync(PackagePaths.CursorFile("workitems"), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
     }
 
     public WorkItemImportOrchestrator BuildOrchestrator()

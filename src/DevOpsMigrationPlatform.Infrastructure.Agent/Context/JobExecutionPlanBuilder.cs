@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -19,6 +20,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -36,6 +38,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 /// </summary>
 internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 {
+    private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -140,6 +143,11 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         IStateStore stateStore,
         CancellationToken ct)
     {
+        using var guardActivity = ActivitySource.StartActivity("state.runscope.guard", ActivityKind.Internal);
+        guardActivity?.SetTag("operation", "plan.authority");
+        guardActivity?.SetTag("module.name", "JobExecutionPlanBuilder");
+        RunScopeAuthorityGuard.EnsureAuthoritativePath(PackagePaths.PlanFile, "execution-plan");
+
         // Resume: load persisted plan if present.
         var loadedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, ct).ConfigureAwait(false);
         if (loadedPlan is not null)
@@ -203,6 +211,8 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             if (!string.IsNullOrEmpty(runId))
             {
                 var runPlanPath = PackagePaths.RunPlanFile(runId!);
+                if (RunScopeAuthorityGuard.IsRunScopedPath(runPlanPath))
+                    _logger.LogDebug("Writing run-scope plan snapshot for audit only: {RunPlanPath}", runPlanPath);
                 await stateStore.WriteAsync(runPlanPath, json, ct).ConfigureAwait(false);
                 _logger.LogDebug("Persisted run plan snapshot to {Path}.", runPlanPath);
             }

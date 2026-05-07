@@ -20,6 +20,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
@@ -36,7 +37,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     /// Derives a module-scoped cursor key so that InventoryModule and InventoryDiscoveryModule
     /// can checkpoint independently when running in the same job.
     /// </summary>
-    private static string CursorKeyFor(string moduleName) => PackagePaths.CursorFile($"inventory.{moduleName}");
+    private static string CursorKeyFor(string moduleName) => PackagePaths.CursorFile(StateCursorIdentity.Build("inventory", moduleName));
 
     private static string OrgCsvOutputPathFor(string orgSlug)
         => $"{orgSlug}/inventory.csv";
@@ -51,13 +52,16 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
 
     private readonly ILogger _logger;
     private readonly IPlatformMetrics? _metrics;
+    private readonly ProcessingCadencePolicy _cadencePolicy;
 
     public InventoryOrchestrator(
         ILogger<InventoryOrchestrator> logger,
-        IPlatformMetrics? metrics = null)
+        IPlatformMetrics? metrics = null,
+        ProcessingCadencePolicy? cadencePolicy = null)
     {
         _logger = logger;
         _metrics = metrics;
+        _cadencePolicy = cadencePolicy ?? new ProcessingCadencePolicy();
     }
 
     /// <summary>
@@ -329,7 +333,12 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             PushSnapshot(snapshotStore, orgProjectData, snapshots);
 
             // Checkpoint cursor at configured interval for resume support.
-            if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
+            if (_cadencePolicy.ShouldPersist(
+                DateTimeOffset.UtcNow,
+                new DateTimeOffset(lastCheckpoint, TimeSpan.Zero),
+                processedSincePersist: 1,
+                minimumBatchSize: 1,
+                maxInterval: checkpointInterval))
             {
                 await WriteCursorAsync(state, moduleName, projectKey, ct).ConfigureAwait(false);
                 lastCheckpoint = DateTime.UtcNow;

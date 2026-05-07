@@ -43,3 +43,11 @@
 
 - Runtime behavior aligns with the four state categories in spec and plan.
 - Resume correctness and visibility are improved without violating package/streaming guardrails.
+
+## Execution Notes (T073-T078)
+
+- RED-first gate runs were enforced by introducing failing runtime-state tests before implementation updates in this branch.
+- Green-state verification evidence is recorded from the final required commands:
+  - `dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo`
+  - `dotnet test DevOpsMigrationPlatform.slnx --nologo`
+- Commit tasks `T076`-`T078` are satisfied as implementation-phase checkpoints in this session but no git commit was created, per explicit instruction.

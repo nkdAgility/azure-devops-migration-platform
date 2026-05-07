@@ -91,10 +91,10 @@ public class ImportCommentsSteps
             .Returns(Task.CompletedTask);
 
         _ctx.MockCheckpointing
-            .Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadCursorAsync("import.workitems", It.IsAny<CancellationToken>()))
             .ReturnsAsync((CursorEntry?)null);
         _ctx.MockCheckpointing
-            .Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteCursorAsync("import.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         _ctx.MockProgressSink.Setup(s => s.Emit(It.IsAny<ProgressEvent>()));
@@ -115,7 +115,7 @@ public class ImportCommentsSteps
     public void ThenCursorIsWrittenWithStageCompleted(string _stage)
     {
         _ctx.MockCheckpointing.Verify(
-            s => s.WriteCursorAsync("workitems",
+            s => s.WriteCursorAsync("import.workitems",
                 It.Is<CursorEntry>(c => c.Stage == CursorStage.Completed),
                 It.IsAny<CancellationToken>()),
             Times.AtLeastOnce);
@@ -163,10 +163,10 @@ public class ImportCommentsSteps
     public async Task WhenTheImportRuns()
     {
         _ctx.MockCheckpointing
-            .Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadCursorAsync("import.workitems", It.IsAny<CancellationToken>()))
             .ReturnsAsync((CursorEntry?)null);
         _ctx.MockCheckpointing
-            .Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteCursorAsync("import.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _ctx.MockProgressSink.Setup(s => s.Emit(It.IsAny<ProgressEvent>()));
 
@@ -186,7 +186,7 @@ public class ImportCommentsSteps
     public void ThenCursorIsAdvancedWithoutCallingCommentsApi()
     {
         _ctx.MockCheckpointing.Verify(
-            s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()),
+            s => s.WriteCursorAsync("import.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()),
             Times.Exactly(_ctx.FolderPaths.Count));
     }
 
@@ -286,10 +286,10 @@ public class ImportCommentsSteps
             .Returns(Task.CompletedTask);
 
         _ctx.MockCheckpointing
-            .Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadCursorAsync("import.workitems", It.IsAny<CancellationToken>()))
             .ReturnsAsync((CursorEntry?)null);
         _ctx.MockCheckpointing
-            .Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteCursorAsync("import.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _ctx.MockProgressSink.Setup(s => s.Emit(It.IsAny<ProgressEvent>()));
 
@@ -380,10 +380,10 @@ public class ImportCommentsSteps
             .Returns(Task.CompletedTask);
 
         _ctx.MockCheckpointing
-            .Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadCursorAsync("import.workitems", It.IsAny<CancellationToken>()))
             .ReturnsAsync((CursorEntry?)null);
         _ctx.MockCheckpointing
-            .Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteCursorAsync("import.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _ctx.MockProgressSink.Setup(s => s.Emit(It.IsAny<ProgressEvent>()));
 

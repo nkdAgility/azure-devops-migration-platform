@@ -105,6 +105,8 @@ Each project maintains its own cursor files under its project-local `.migration/
 
 The convention is `{action}.{module}.cursor.json` beneath the project subtree. Modules and phases must not share cursor files.
 
+Action-qualified cursor identity is mandatory. Legacy non-action keys are compatibility fallback only and are never authoritative when a project-scoped action-qualified cursor exists.
+
 `ForceFresh` mode (via `--force-fresh` CLI flag or `Job.Resume.Mode = ForceFresh`) deletes project cursor files and root phase marker files before execution begins. Shared ID mapping state is preserved.
 
 ### Root Package State

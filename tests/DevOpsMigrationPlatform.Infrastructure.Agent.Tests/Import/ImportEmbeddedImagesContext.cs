@@ -71,7 +71,7 @@ public class ImportEmbeddedImagesContext
 
         // Cursor
         MockCheckpointing
-            .Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteCursorAsync("import.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
             .Returns(System.Threading.Tasks.Task.CompletedTask);
 
         // IdMap

@@ -3,8 +3,10 @@
 
 using System;
 using System.Globalization;
+using System.Diagnostics;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 
@@ -19,6 +21,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 /// </remarks>
 public static class PackagePaths
 {
+    private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
     /// <summary>
     /// Root folder for all system/operational files inside a package.
     /// Hidden by convention (dot-prefix) so user data folders remain uncluttered.
@@ -34,13 +37,19 @@ public static class PackagePaths
     /// </summary>
     public static string ProjectStateRoot(string organisationUrl, string projectName)
     {
+        using var activity = ActivitySource.StartActivity("state.paths.resolve", ActivityKind.Internal);
+        activity?.SetTag("module.name", "state");
+        activity?.SetTag("operation", "project-state-root");
+
         if (string.IsNullOrWhiteSpace(projectName))
         {
             throw new ArgumentException("Project name must not be empty.", nameof(projectName));
         }
 
         var orgFolder = PackagePathResolver.ExtractOrgFolderName(organisationUrl);
-        return $"{orgFolder}/{projectName}/.migration";
+        var path = $"{orgFolder}/{projectName}/.migration";
+        activity?.SetTag("state.path", path);
+        return path;
     }
 
     /// <summary>
@@ -141,7 +150,14 @@ public static class PackagePaths
     /// e.g. <c>contoso/MyProject/.migration/export.workitems.cursor.json</c>.
     /// </summary>
     public static string CursorFile(string action, string moduleName, string organisationUrl, string projectName)
-        => $"{ProjectStateRoot(organisationUrl, projectName)}/{action.ToLowerInvariant()}.{moduleName.ToLowerInvariant()}.cursor.json";
+    {
+        using var activity = ActivitySource.StartActivity("state.paths.resolve", ActivityKind.Internal);
+        activity?.SetTag("module.name", moduleName);
+        activity?.SetTag("operation", action);
+        var path = $"{ProjectStateRoot(organisationUrl, projectName)}/{action.ToLowerInvariant()}.{moduleName.ToLowerInvariant()}.cursor.json";
+        activity?.SetTag("state.path", path);
+        return path;
+    }
 
     /// <summary>
     /// Returns the artefact-store key for a module's continuation token file,
@@ -156,7 +172,14 @@ public static class PackagePaths
     /// e.g. <c>contoso/MyProject/.migration/export.workitems.continuation.json</c>.
     /// </summary>
     public static string ContinuationFile(string action, string moduleName, string organisationUrl, string projectName)
-        => $"{ProjectStateRoot(organisationUrl, projectName)}/{action.ToLowerInvariant()}.{moduleName.ToLowerInvariant()}.continuation.json";
+    {
+        using var activity = ActivitySource.StartActivity("state.paths.resolve", ActivityKind.Internal);
+        activity?.SetTag("module.name", moduleName);
+        activity?.SetTag("operation", $"{action}.continuation");
+        var path = $"{ProjectStateRoot(organisationUrl, projectName)}/{action.ToLowerInvariant()}.{moduleName.ToLowerInvariant()}.continuation.json";
+        activity?.SetTag("state.path", path);
+        return path;
+    }
 
     /// <summary>
     /// The phase-tracking file for Migrate-mode jobs:

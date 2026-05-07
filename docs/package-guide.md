@@ -66,6 +66,8 @@ Each project-local `.migration/` folder holds cursor files for that org/project/
 
 The `.migration/runs/<runId>/` folder is different: it is run-scoped audit data for one execution only. It keeps copies of the job, plan, and config that were executed, plus that run's logs. Later runs do not depend on those files to resume.
 
+Action-qualified cursor naming (`inventory.<module>`, `export.<module>`, `import.<module>`) is required so inventory, export, and import state cannot overwrite each other for the same project.
+
 ## How Package Zip/Export Works
 
 The package can be compressed for transfer:

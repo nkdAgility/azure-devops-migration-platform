@@ -118,7 +118,7 @@ public class EmbeddedImagesSteps
         {
             _context.RewrittenHtml = await exportService.ProcessHtmlAsync(
                 _context.TestField.Value as string ?? string.Empty,
-                Path.Combine(_context.PackageRoot, "workitems", "2026-04-11", "123-12345-r0"),
+                Path.Combine(_context.PackageRoot, "export.workitems", "2026-04-11", "123-12345-r0"),
                 CancellationToken.None);
         }
 
@@ -126,7 +126,7 @@ public class EmbeddedImagesSteps
         {
             _context.RewrittenMarkdown = await exportService.ProcessMarkdownAsync(
                 _context.TestMarkdown,
-                Path.Combine(_context.PackageRoot, "workitems", "2026-04-11", "123-12345-r0"),
+                Path.Combine(_context.PackageRoot, "export.workitems", "2026-04-11", "123-12345-r0"),
                 CancellationToken.None);
         }
     }
@@ -134,7 +134,7 @@ public class EmbeddedImagesSteps
     [Then("the image file with SHA-256 derived filename \\(e\\.g (\\w+\\.\\w+)\\) is written beside revision\\.json")]
     public void ThenTheImageFileWithSha256DerivedFilenameIsWritten(string exampleFilename)
     {
-        var revisionDir = Path.Combine(_context.PackageRoot, "workitems", "2026-04-11", "123-12345-r0");
+        var revisionDir = Path.Combine(_context.PackageRoot, "export.workitems", "2026-04-11", "123-12345-r0");
         Assert.IsTrue(Directory.Exists(revisionDir), $"Revision folder should exist at {revisionDir}");
 
         var imageFiles = Directory.GetFiles(revisionDir, "image-*.png");
@@ -207,7 +207,7 @@ public class EmbeddedImagesSteps
             _context.ArtefactStore,
             mockLogger.Object);
 
-        var revisionDir = Path.Combine(_context.PackageRoot, "workitems", "2026-04-11", "123-12345-r0");
+        var revisionDir = Path.Combine(_context.PackageRoot, "export.workitems", "2026-04-11", "123-12345-r0");
         Directory.CreateDirectory(revisionDir);
 
         _context.RewrittenHtml = await exportService.ProcessHtmlAsync(
@@ -246,7 +246,7 @@ public class EmbeddedImagesSteps
     [Then("only one image file is written beside revision\\.json")]
     public void ThenOnlyOneImageFileIsWrittenBesideRevisionJson()
     {
-        var revisionDir = Path.Combine(_context.PackageRoot, "workitems", "2026-04-11", "123-12345-r0");
+        var revisionDir = Path.Combine(_context.PackageRoot, "export.workitems", "2026-04-11", "123-12345-r0");
         var imageFiles = Directory.GetFiles(revisionDir, "image-*.png");
         Assert.AreEqual(1, imageFiles.Length, "Only one image file should be written for deduplicated images");
     }
@@ -320,7 +320,7 @@ public class EmbeddedImagesSteps
             _context.ArtefactStore,
             mockLogger.Object);
 
-        var revisionDir = Path.Combine(_context.PackageRoot, "workitems", "2026-04-11", "123-12345-r0");
+        var revisionDir = Path.Combine(_context.PackageRoot, "export.workitems", "2026-04-11", "123-12345-r0");
         Directory.CreateDirectory(revisionDir);
 
         _context.RewrittenHtml = await exportService.ProcessHtmlAsync(
@@ -394,7 +394,7 @@ public class EmbeddedImagesSteps
             _context.ArtefactStore,
             mockLogger.Object);
 
-        var revisionDir = Path.Combine(_context.PackageRoot, "workitems", "2026-04-11", "123-12345-r0");
+        var revisionDir = Path.Combine(_context.PackageRoot, "export.workitems", "2026-04-11", "123-12345-r0");
         Directory.CreateDirectory(revisionDir);
 
         _context.RewrittenMarkdown = await exportService.ProcessMarkdownAsync(
