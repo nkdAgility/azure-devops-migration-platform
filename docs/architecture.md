@@ -252,7 +252,7 @@ See [docs/configuration-reference.md — Data Classification](configuration.md#d
 The working directory (`Package.WorkingDirectory`) and all package files are write-accessible **exclusively** by the Migration Agent (or TFS Migration Agent for TFS sources). This is a non-negotiable data residency guarantee.
 
 | Component | Package Write | Package Read | Rationale |
-|---|---|---|
+|---|---|---|---|
 | **Migration Agent** | ✅ Yes (via `IArtefactStore` / `IStateStore`) | ✅ Yes | Execution boundary — the only component that processes customer data. |
 | **TFS Migration Agent** | ✅ Yes (via `IArtefactStore` / `IStateStore`) | ✅ Yes | Same execution boundary for TFS sources; runs as a Windows polling agent. |
 | **CLI** | ❌ No | ✅ Read-only (post-job summaries) | Reads `dependencies.csv`, `inventory.json`, etc. for display after the Agent completes. Never writes. |

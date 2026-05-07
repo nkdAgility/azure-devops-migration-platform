@@ -62,7 +62,7 @@ public sealed class EnvironmentOptions : IValidatableObject
 /// <summary>Execution environment type.</summary>
 public enum EnvironmentType
 {
-    /// <summary>Local or dedicated-server deployment. The CLI drives Aspire in-process.</summary>
+    /// <summary>Local or dedicated-server deployment. The CLI uses <c>LocalStackHost</c> to start <c>ControlPlaneHost</c> and <c>MigrationAgent</c> as child processes.</summary>
     Standalone,
 
     /// <summary>Cloud or remote deployment. The CLI connects to a remote control plane.</summary>

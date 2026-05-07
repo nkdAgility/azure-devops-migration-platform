@@ -6,12 +6,17 @@
 // Hosts the ControlPlane service library and manages Migration Agent lifecycle.
 // This is the SAME binary for ALL connected deployment modes:
 //
-//   Mode 1 — Local / Self-Host (Aspire-managed)
-//     The AppHost starts this process on localhost:5100 alongside a local
-//     PostgreSQL binary and the MigrationAgent(s). Aspire handles process
-//     spawning; ControlPlaneHost monitors liveness via AgentLifecycleService.
+//   Mode 1 — Local / Self-Host (CLI-managed)
+//     The CLI uses LocalStackHost to start this process on localhost:5100 alongside
+//     the MigrationAgent. LocalStackHost manages process lifecycle directly via
+//     ChildProcessHost (plain System.Diagnostics.Process — no Aspire at runtime).
 //
-//   Mode 2 — Cloud (Azure Container Apps via azd up)
+//   Mode 2 — Developer standalone (AppHost / Aspire dashboard)
+//     Run 'dotnet run --project AppHost' to start the full stack with the Aspire
+//     dashboard. AppHost also configures PostgreSQL as a portable binary resource.
+//     This mode is for development only; the CLI does NOT drive AppHost at runtime.
+//
+//   Mode 3 — Cloud (Azure Container Apps via azd up)
 //     This image is deployed to Azure Container Apps. The CLI connects via HTTPS.
 //     Azure Container Apps auto-scaling handles MigrationAgent container lifecycle.
 //
