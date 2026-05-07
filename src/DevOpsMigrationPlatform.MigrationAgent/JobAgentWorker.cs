@@ -165,11 +165,11 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 case JobKind.Migrate:
                 case JobKind.Prepare:
                 case JobKind.Inventory:
-                    await OnMigrationJobAsync(job, controlPlane, leaseId, artefactStore, stateStore, ct).ConfigureAwait(false);
+                    await OnMigrationJobAsync(job, controlPlane, leaseId, artefactStore, stateStore, packageConfig, ct).ConfigureAwait(false);
                     break;
 
                 case JobKind.Dependencies:
-                    await OnDiscoveryJobAsync(job, controlPlane, leaseId, artefactStore, stateStore, ct).ConfigureAwait(false);
+                    await OnDiscoveryJobAsync(job, controlPlane, leaseId, artefactStore, stateStore, packageConfig, ct).ConfigureAwait(false);
                     break;
 
                 default:
@@ -436,10 +436,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     private async Task OnMigrationJobAsync(
         Job job, HttpClient controlPlane, string leaseId,
-        IArtefactStore artefactStore, IStateStore stateStore, CancellationToken ct)
+        IArtefactStore artefactStore, IStateStore stateStore, IConfiguration? packageConfig, CancellationToken ct)
     {
-        // PackageConfig is already loaded by OnJobAsync — use it directly.
-        var packageConfig = ActiveJobConfig.PackageConfig!;
+        var planConfig = packageConfig ?? new ConfigurationBuilder().Build();
 
         // Build the execution planand push it to the Control Plane so clients can
         // see the ordered task list immediately via GET /jobs/{id}/bootstrap.
@@ -482,7 +481,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
             // Load persisted plan (resume) or build and persist a fresh one.
             executionPlan = await _planBuilder
-                .BuildAndSaveAsync(packageConfig, job.Kind, artefactStore, stateStore, ct)
+                .BuildAndSaveAsync(planConfig, job.Kind, artefactStore, stateStore, ct)
                 .ConfigureAwait(false);
 
             // Push plan to the control plane for display.
@@ -556,7 +555,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         // FileSystem today and Azure Blob Storage in the future.
         if (runImport)
         {
-            await _packagePreparer.PrepareForImportAsync(artefactStore, packageConfig, ct)
+            await _packagePreparer.PrepareForImportAsync(artefactStore, planConfig, ct)
                 .ConfigureAwait(false);
         }
 
@@ -726,7 +725,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     private async Task OnDiscoveryJobAsync(
         Job job, HttpClient controlPlane, string leaseId,
-        IArtefactStore artefactStore, IStateStore stateStore, CancellationToken ct)
+        IArtefactStore artefactStore, IStateStore stateStore, IConfiguration? packageConfig, CancellationToken ct)
     {
         if (job.Resume?.Mode == ResumeMode.ForceFresh)
         {
@@ -813,7 +812,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         JobTaskList? discoveryPlan = null;
         try
         {
-            var planConfig = ActiveJobConfig.PackageConfig ?? new ConfigurationBuilder().Build();
+            var planConfig = packageConfig ?? new ConfigurationBuilder().Build();
             discoveryPlan = await _planBuilder
                 .BuildAndSaveAsync(planConfig, job.Kind, artefactStore, stateStore, ct)
                 .ConfigureAwait(false);
