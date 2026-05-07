@@ -657,7 +657,7 @@ Optional tuning knobs under `MigrationPlatform.Policies`:
 | `manage login --url <endpoint>` | Authenticate with control plane |
 | `manage logout --url <endpoint>` | Revoke session token |
 
-### Discovery Commands
+### Discovery Modes (via `queue`)
 
 | Command | Purpose |
 |---------|---------|

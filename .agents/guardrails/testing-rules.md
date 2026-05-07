@@ -128,6 +128,6 @@ Every CLI command MUST have `[TestCategory("SystemTest")]` test that:
 | CLI command | Test class | Assertion |
 |---|---|---|
 | `export` (ADO) | `AzureDevOpsExportCommandTests` | `WorkItems/` directory + zip |
-| `discovery inventory` | `InventoryCommandTests` | Records against live ADO |
+| `queue` (`Mode: Inventory`) | `InventoryCommandTests` | Records against live ADO |
 | `migrate` (Simulated) | `SimulatedMigrationCommandTests` | `WorkItems/`, `Checkpoints/`, `Logs/progress.jsonl` |
 | `tfsexport` | (environment-gated: requires live TFS) | — |

@@ -84,7 +84,7 @@ MUST NOT: access another module's folder, persist state outside Checkpoints, per
 - Deterministic from `seed` + `workItemCount`. Same inputs = same package byte-for-byte.
 - Field values prefixed `[SIMULATED]`. Target accepts all items without external writes.
 - Both source and target emit `ProgressEvent` at same granularity as real implementations.
-- Identity mapping still runs. `discovery inventory` with Simulated returns counts from config without WIQL.
+- Identity mapping still runs. `queue` with `Mode: Inventory` and `source.type: Simulated` returns counts from config without WIQL.
 
 ---
 
