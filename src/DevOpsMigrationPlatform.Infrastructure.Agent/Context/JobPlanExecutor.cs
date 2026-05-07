@@ -418,8 +418,10 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         ProjectInventoryData? projectInventory = null;
         if (!string.IsNullOrWhiteSpace(task.OrganisationUrl) && !string.IsNullOrWhiteSpace(task.ProjectName))
         {
-            var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(task.OrganisationUrl);
-            var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, task.ProjectName);
+            var orgUrl = task.OrganisationUrl!;
+            var projectName = task.ProjectName!;
+            var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
+            var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, projectName);
             projectInventory = await ProjectInventoryFile.ReadAsync(artefactStore, projectPath, ct).ConfigureAwait(false);
         }
 
@@ -429,7 +431,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
     private static string? GetTaskModuleName(string taskId)
     {
-        var parts = taskId.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        var parts = taskId.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
         return parts.Length >= 2 ? parts[1] : null;
     }
 

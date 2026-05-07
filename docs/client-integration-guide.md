@@ -305,7 +305,7 @@ The bootstrap response is the single most important call for correctly initialis
 
 | Field | Rule |
 |---|---|
-| `tasks` | MUST populate the task/module list. Use `status`, `knownTotal`, `completedCount` for initial progress state. If `null`: wait for the first SSE event that carries `taskId + taskStatus`. |
+| `tasks` | MUST populate the task/module list once from bootstrap. Use `status`, `knownTotal`, `completedCount` as the initial task-row state. After bootstrap, treat later SSE `ProgressEvent` records carrying `taskId + taskStatus` as partial patches to the stored task row; merge `knownTotal` and `completedCount` when present. If `tasks` is `null`: wait for the first bootstrap response that includes them. |
 | `snapshot` | MUST pre-populate per-project rows (org → project → counters + status). MUST be applied as **insert-only** — never overwrite a row already updated by a live SSE event. If `snapshot` is `null` or `snapshot.Organisations` is empty: leave the project table empty; rows appear as SSE events arrive. |
 | `metrics` | MUST seed aggregate counters. Treat as "last known" until the first successful Channel 2 poll. If `null`: display zeros. |
 | `lastEventSequence` | MUST pass as `Last-Event-ID` on the SSE subscription. If `0` or absent: open SSE with no `Last-Event-ID` (stream starts from current position). MUST NOT pass a stale value from a previous session. |
@@ -351,7 +351,7 @@ Last-Event-ID: <lastEventSequence>
 
 ```
 id: 4824
-data: {"module":"WorkItems","stage":"ExportRevisions","message":"Exported 312/1500","timestamp":"2026-05-06T10:05:01Z","eventSequence":4824,"taskId":"capture.workitems.myorg.projecta","taskStatus":"Running","completedCount":312,"lastCheckpointAt":"2026-05-06T10:04:55Z","metrics":null}
+data: {"module":"WorkItems","stage":"ExportRevisions","message":"Exported 312/1500","timestamp":"2026-05-06T10:05:01Z","eventSequence":4824,"taskId":"capture.workitems.myorg.projecta","taskStatus":"Running","knownTotal":1500,"completedCount":312,"lastCheckpointAt":"2026-05-06T10:04:55Z","metrics":null}
 
 ```
 
@@ -379,6 +379,7 @@ data: {"state":"Completed"}
 |---|---|
 | `module` + `stage` | Update the module row's stage label |
 | `taskId` + `taskStatus` | Update the matching task's status indicator |
+| `knownTotal` | Patch the matching task row's `knownTotal` when present |
 | `completedCount` | Update task progress bar (`completedCount / task.knownTotal`) |
 | `lastCheckpointAt` | Show "last saved" timestamp |
 | `message` | Append to the live log / diagnostic panel |
@@ -526,6 +527,7 @@ stateDiagram-v2
   nextCheckpointDueAt: ISO8601 | null // Estimated next checkpoint time; null = per-item (always safe)
   taskId:           string | null     // JobTask.Id this event is attributed to
   taskStatus:       JobTaskStatus | null  // New task status; null if not a task-lifecycle event
+  knownTotal:       long | null       // Authoritative total for the task when runtime/package state knows it
   completedCount:   long | null       // Running completed count for the task
   metrics:          JobMetrics | null // ⚠️ MUST NOT use for display — see §6 Channel 1
 }
@@ -612,8 +614,8 @@ ProjectSnapshot {
   projectName:     string | null
   order:           int                 // 0-based execution order
   status:          JobTaskStatus
-  knownTotal:      long | null         // Total items if known at plan time
-  completedCount:  long | null         // Running count; updated via SSE events
+  knownTotal:      long | null         // Total items if known from bootstrap or later task-scoped SSE patches
+  completedCount:  long | null         // Running count; updated via task-scoped SSE patches
   startedAt:       ISO8601 | null
   completedAt:     ISO8601 | null
   skipReason:      string | null       // Non-null only when status = Skipped
