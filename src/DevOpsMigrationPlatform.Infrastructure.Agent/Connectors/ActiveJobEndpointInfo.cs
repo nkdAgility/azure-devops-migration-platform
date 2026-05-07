@@ -87,21 +87,19 @@ public sealed class ActiveJobTargetEndpointInfo : ITargetEndpointInfo
 }
 
 /// <summary>
-/// Dynamic <see cref="IAgentJobContext"/> that resolves Mode, PackagePath, and ConfigVersion
-/// from <see cref="ActiveJobConfigState.PackageConfig"/> on every access.
+/// Dynamic <see cref="IAgentJobContext"/> that exposes the current explicit per-job context.
 /// Registered as a singleton so the same object survives across jobs while always
-/// reflecting the active job's configuration.
+/// reflecting the active job's immutable context when one is active.
 /// </summary>
-public sealed class ActiveJobAgentJobContext(IJobConfiguration state) : IAgentJobContext
+public sealed class ActiveJobAgentJobContext(ICurrentAgentJobContextAccessor accessor) : IAgentJobContext
 {
     public string Mode
-        => state.PackageConfig?["MigrationPlatform:Mode"] ?? string.Empty;
+        => accessor.Current?.Mode ?? string.Empty;
 
     public string PackagePath
-        => System.Environment.ExpandEnvironmentVariables(
-            state.PackageConfig?["MigrationPlatform:Package:WorkingDirectory"] ?? string.Empty);
+        => accessor.Current?.PackagePath ?? string.Empty;
 
     public string ConfigVersion
-        => state.PackageConfig?["MigrationPlatform:ConfigVersion"] ?? string.Empty;
+        => accessor.Current?.ConfigVersion ?? string.Empty;
 }
 #endif

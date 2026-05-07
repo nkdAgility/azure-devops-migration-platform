@@ -67,6 +67,7 @@ public sealed class JobAgentWorkerDispatchTests
     private Mock<IPackageConfigStore> _packageConfigStore = null!;
     private Mock<IJobExecutionPlanBuilder> _planBuilder = null!;
     private Mock<IJobPlanExecutor> _planExecutor = null!;
+    private Mock<ICurrentAgentJobContextAccessor> _currentJobContextAccessor = null!;
     private Mock<IControlPlaneTelemetryClient> _telemetryClient = null!;
     private Mock<IJobMetricsStore> _metricsStore = null!;
     private Mock<IJobSnapshotStore> _snapshotStore = null!;
@@ -96,6 +97,7 @@ public sealed class JobAgentWorkerDispatchTests
         _packageConfigStore = new Mock<IPackageConfigStore>();
         _planBuilder = new Mock<IJobExecutionPlanBuilder>();
         _planExecutor = new Mock<IJobPlanExecutor>();
+        _currentJobContextAccessor = new Mock<ICurrentAgentJobContextAccessor>();
         _telemetryClient = new Mock<IControlPlaneTelemetryClient>();
         _metricsStore = new Mock<IJobMetricsStore>();
         _snapshotStore = new Mock<IJobSnapshotStore>();
@@ -382,6 +384,7 @@ public sealed class JobAgentWorkerDispatchTests
             flushables: _flushables,
             planBuilder: _planBuilder.Object,
             planExecutor: _planExecutor.Object,
+                currentJobContextAccessor: _currentJobContextAccessor.Object,
             telemetryClient: _telemetryClient.Object,
             logger: _logger);
     }

@@ -10,7 +10,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Context;
 public interface IAgentJobContext
 {
     /// <summary>
-    /// The execution mode for this job: "Export", "Import", "Prepare", or "Migrate".
+    /// The execution mode for this job: "Inventory", "Dependencies", "Export", "Prepare", "Import", or "Migrate".
     /// </summary>
     string Mode { get; }
 

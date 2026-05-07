@@ -44,6 +44,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly IPackagePreparer _packagePreparer;
     private readonly IJobExecutionPlanBuilder _planBuilder;
     private readonly IJobPlanExecutor _planExecutor;
+    private readonly ICurrentAgentJobContextAccessor _currentJobContextAccessor;
     private readonly IControlPlaneTelemetryClient _telemetryClient;
     private readonly ILogger<JobAgentWorker> _logger;
 
@@ -66,6 +67,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IEnumerable<IFlushable> flushables,
         IJobExecutionPlanBuilder planBuilder,
         IJobPlanExecutor planExecutor,
+        ICurrentAgentJobContextAccessor currentJobContextAccessor,
         IControlPlaneTelemetryClient telemetryClient,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null,
@@ -81,6 +83,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         _packagePreparer = packagePreparer;
         _planBuilder = planBuilder;
         _planExecutor = planExecutor;
+        _currentJobContextAccessor = currentJobContextAccessor;
         _telemetryClient = telemetryClient;
         _logger = logger;
     }
@@ -116,6 +119,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         {
             packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
             ActiveJobConfig.PackageConfig = packageConfig;
+            SetCurrentJobContext(packageConfig);
         }
         catch (PackageConfigNotFoundException ex)
         {
@@ -131,6 +135,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     job.Package.PackageUri, job.JobId);
                 await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
                 ActiveJobConfig.Clear();
+                _currentJobContextAccessor.Clear();
                 return;
             }
         }
@@ -172,6 +177,37 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         finally
         {
             ActiveJobConfig.Clear();
+            _currentJobContextAccessor.Clear();
+        }
+    }
+
+    private void SetCurrentJobContext(IConfiguration packageConfig)
+    {
+        var mode = packageConfig["MigrationPlatform:Mode"];
+        var packagePath = System.Environment.ExpandEnvironmentVariables(
+            packageConfig["MigrationPlatform:Package:WorkingDirectory"] ?? string.Empty);
+        var configVersion = packageConfig["MigrationPlatform:ConfigVersion"];
+
+        if (string.IsNullOrWhiteSpace(mode) || string.IsNullOrWhiteSpace(packagePath) || string.IsNullOrWhiteSpace(configVersion))
+        {
+            _currentJobContextAccessor.Clear();
+            return;
+        }
+
+        try
+        {
+            _currentJobContextAccessor.Set(new AgentJobContext
+            {
+                Mode = mode,
+                PackagePath = packagePath,
+                ConfigVersion = configVersion,
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex,
+                "Could not build explicit agent job context for job package configuration. Falling back to an empty job context view.");
+            _currentJobContextAccessor.Clear();
         }
     }
 

@@ -26,7 +26,35 @@ public sealed class AgentJobContextTests
 
         Assert.IsTrue(ex.Message.Contains("Invalid Mode"));
         Assert.IsTrue(ex.Message.Contains("InvalidMode"));
+        Assert.IsTrue(ex.Message.Contains("Inventory"));
+        Assert.IsTrue(ex.Message.Contains("Dependencies"));
         Assert.IsTrue(ex.Message.Contains("Export"));
+    }
+
+    [TestMethod]
+    public void Constructor_InventoryMode_Succeeds()
+    {
+        var context = new AgentJobContext
+        {
+            Mode = "Inventory",
+            PackagePath = @"C:\temp\package",
+            ConfigVersion = "2.0"
+        };
+
+        Assert.AreEqual("Inventory", context.Mode);
+    }
+
+    [TestMethod]
+    public void Constructor_DependenciesMode_Succeeds()
+    {
+        var context = new AgentJobContext
+        {
+            Mode = "Dependencies",
+            PackagePath = @"C:\temp\package",
+            ConfigVersion = "2.0"
+        };
+
+        Assert.AreEqual("Dependencies", context.Mode);
     }
 
     [TestMethod]

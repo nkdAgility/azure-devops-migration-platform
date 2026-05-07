@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -105,5 +106,34 @@ public sealed class AgentJobContextIntegrationTests
             $"Expected structured param Mode=Import, got: {stateStr}");
         Assert.IsTrue(stateStr.Contains("ConfigVersion=3.1") || stateStr.Contains("ConfigVersion = 3.1"),
             $"Expected structured param ConfigVersion=3.1, got: {stateStr}");
+    }
+
+    [TestMethod]
+    public void ActiveJobAgentJobContext_UsesExplicitCurrentContext_WhenAvailable()
+    {
+        var accessor = new CurrentAgentJobContextAccessor();
+        accessor.Set(new AgentJobContext
+        {
+            Mode = "Inventory",
+            PackagePath = @"C:\pkg",
+            ConfigVersion = "2.0"
+        });
+
+        var context = new ActiveJobAgentJobContext(accessor);
+
+        Assert.AreEqual("Inventory", context.Mode);
+        Assert.AreEqual(@"C:\pkg", context.PackagePath);
+        Assert.AreEqual("2.0", context.ConfigVersion);
+    }
+
+    [TestMethod]
+    public void ActiveJobAgentJobContext_ReturnsEmptyValues_WhenNoCurrentContextExists()
+    {
+        var accessor = new CurrentAgentJobContextAccessor();
+        var context = new ActiveJobAgentJobContext(accessor);
+
+        Assert.AreEqual(string.Empty, context.Mode);
+        Assert.AreEqual(string.Empty, context.PackagePath);
+        Assert.AreEqual(string.Empty, context.ConfigVersion);
     }
 }

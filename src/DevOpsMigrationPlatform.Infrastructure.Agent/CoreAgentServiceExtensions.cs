@@ -55,6 +55,7 @@ public static class CoreAgentServiceExtensions
         services.AddSingleton<ActiveLeaseState>();
         services.AddSingleton<ActivePackageState>();
         services.AddSingleton<IJobConfiguration, JobConfiguration>();
+        services.AddSingleton<ICurrentAgentJobContextAccessor, CurrentAgentJobContextAccessor>();
         services.AddSingleton<IActiveJobState, ActiveJobState>();
 
         // Execution plan builder — builds the ordered task list at job start.
