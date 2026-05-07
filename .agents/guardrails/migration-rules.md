@@ -33,6 +33,11 @@ Phase gates ensure prerequisites are met automatically:
 
 Root MUST contain: `.migration/`, plus one or more `/{org}/{project}/` project subtrees. Each project subtree contains `manifest.json`, `WorkItems/`, and optional module folders such as `Teams/`, `Permissions/`, `Builds/`, `Git/`, `Identities/`.
 
+Within `.migration/`:
+- root files are authoritative package state shared across runs
+- `runs/<runId>/` contains run-scoped audit copies and logs only
+- subsequent runs MUST NOT depend on files under `runs/<runId>/` for resume or orchestration
+
 ## Manifest
 
 `manifest.json` MUST include: `packageVersion`, `toolVersion`, `runId`, `configHash`, source metadata (`type`, `org/collection`, `project`, `apiVersion`), `includedTypes`, `schemaVersions`. Written before import begins.
@@ -43,6 +48,7 @@ Root MUST contain: `.migration/`, plus one or more `/{org}/{project}/` project s
 - Fields: `lastProcessed` (relative project path), `stage` (one of: `CreatedOrUpdated`, `AppliedFields`, `AppliedLinks`, `UploadedAttachments`, `Completed`), `updatedAt` (UTC).
 - Resume: skip folders ≤ `lastProcessed` lexicographically. Non-Completed stage → resume within that folder's stage.
 - No per-work-item watermark databases.
+- Run folders (`.migration/runs/<runId>/`) are audit-only and are not part of resume semantics.
 
 ---
 
@@ -54,14 +60,14 @@ Modules MAY declare `SupportsExport` and `SupportsImport` flags. Inventory-only 
 
 MUST: write only through `IArtefactStore`, persist state only through `IStateStore`, declare dependencies explicitly.
 
-MUST NOT: access another module's folder, persist state outside Checkpoints, perform ad-hoc file IO, perform live migrations.
+MUST NOT: access another module's folder, persist state outside root `.migration/`, project `/{org}/{project}/.migration/`, or run-scoped audit output, perform ad-hoc file IO, perform live migrations.
 
 ---
 
 ## Identity & Mapping
 
 - `Identities/`: `descriptors.jsonl`, `mapping.json` (user-editable overrides), `unresolved.json`.
-- ID mappings: `.migration/Checkpoints/idmap.db` or `idmap.json`. Deterministic, append-only or transactionally safe.
+- ID mappings: root `.migration/idmap.db` or `idmap.json`. Deterministic, append-only or transactionally safe.
 - Modules MUST use `IIdentityMappingService` — never implement own identity resolution.
 
 ---
@@ -141,7 +147,7 @@ Fail-fast unless configured otherwise.
 - Comment/image export as separate top-level `IModule`.
 - Loading all WorkItems/revisions into memory.
 - Full graph before processing.
-- Hidden progress state outside root `.migration/` or project `/{org}/{project}/.migration/`.
+- Hidden progress state outside root `.migration/`, project `/{org}/{project}/.migration/`, or run-scoped audit output under `.migration/runs/<runId>/`.
 - Direct source-to-target migration.
 - Breaking deterministic folder naming.
 - Bypassing identity/ID mapping services.

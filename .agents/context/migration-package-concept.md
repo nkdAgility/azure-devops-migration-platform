@@ -33,6 +33,14 @@ PackageRoot/
     Checkpoints/
       idmap.db
       export_progress.db
+    runs/
+      <runId>/
+        job.json
+        plan.json
+        config.json
+        logs/
+          progress.jsonl
+          agent.jsonl
   {org}/{project}/
     manifest.json
     WorkItems/
@@ -62,6 +70,14 @@ PackageRoot/
 
 > **Legacy fallback:** Packages created before the split between root `.migration/` and project-local `.migration/` may store cursor files under root `.migration/Checkpoints/` (or legacy `Checkpoints/`). Readers should try the new project-local location first, then fall back to the older root-level locations.
 
+### Scope Semantics
+
+- Root `.migration/` is authoritative package state shared across runs.
+- `/{org}/{project}/.migration/` is authoritative project-scoped resume state.
+- `.migration/runs/<runId>/` is run-scoped audit output only.
+
+Run-scoped `job.json`, `plan.json`, and `config.json` are copies of what was executed for that run. They are not the source of truth for later resume or phase-gate decisions.
+
 The WorkItems layout is canonical and must not be altered:
 
 ```
@@ -87,23 +103,20 @@ Key characteristics:
 - Resume is trivial
 - Human-auditable
 
-### .migration/Logs/
+### .migration/runs/<runId>/logs/
 
-The `.migration/Logs/` folder contains structured observability records written by the Migration Agent during job execution. Each job writes to its own subfolder to prevent logs from different runs overwriting each other:
+The `.migration/runs/<runId>/logs/` folder contains structured observability records written by the Migration Agent during one specific job execution:
 
 ```
-Logs/
-  <yyyyMMdd-HHmmss>/
+logs/
     progress.jsonl
     agent.jsonl
     agent-001.jsonl   ← rotated segment (when max size exceeded)
 ```
 
-The subfolder name uses second-level UTC timestamp format `<yyyyMMdd-HHmmss>` (for example `20260506-143822`) so folders sort chronologically.
+The run folder name uses second-level UTC timestamp format `<yyyyMMdd-HHmmss>` (for example `20260506-143822`) so folders sort chronologically.
 
-Each run folder under `.migration/runs/<yyyyMMdd-HHmmss>/` also contains `job.json`, which stores the raw leased job payload for audit and troubleshooting.
-
-Each run folder also contains `plan.json`, a run-scoped snapshot of the active execution plan (`.migration/plan.json`) copied at plan persistence time.
+Each run folder also contains `job.json`, `plan.json`, and `config.json` as audit copies of what was executed.
 
 | File | Format | Description |
 |---|---|---|
@@ -111,9 +124,9 @@ Each run folder also contains `plan.json`, a run-scoped snapshot of the active e
 | `agent.jsonl` | NDJSON | Structured diagnostic log records (ILogger output). Each line is a JSON object with `timestamp`, `level`, `category`, `message`, and optional `exception` fields. Written by `PackageDiagnosticSink`. |
 | `agent-NNN.jsonl` | NDJSON | Rotated log segments when the primary segment exceeds the configured max size. |
 
-Both files are append-only and survive resume. They are the durable record of job execution — the control plane's in-memory ring buffer is ephemeral.
+Both files are append-only and survive resume. They are the durable audit record of that job execution — the control plane's in-memory ring buffer is ephemeral.
 
-**Backward compatibility:** Packages created before job-scoped logging may have log files directly under `.migration/Logs/` (e.g. `.migration/Logs/agent.jsonl`). The `LogDownloadController` falls back to this flat layout when no job-scoped subfolder is found.
+**Backward compatibility:** Packages created before run-scoped logging may have log files directly under `.migration/Logs/` (e.g. `.migration/Logs/agent.jsonl`). The `LogDownloadController` falls back to this flat layout when no run-scoped folder is found.
 
 ### Naming Conventions
 

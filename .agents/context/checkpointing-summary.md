@@ -4,7 +4,7 @@
 
 Instead of per-work-item watermark tables, the system uses forward-only project cursors stored as JSON files. This requires no database and makes resume O(1).
 
-> **Package split:** Root `.migration/` contains package-level orchestration state (plan, config snapshot, phase markers). Project-level resume state lives in `/{org}/{project}/.migration/` so analytics-style runs across multiple orgs/projects do not collide.
+> **Package split:** Root `.migration/` contains authoritative package-level orchestration state. Project-level resume state lives in `/{org}/{project}/.migration/` so analytics-style runs across multiple orgs/projects do not collide. Run-scoped audit copies and logs live under `.migration/runs/<runId>/` and are never authoritative for resume.
 
 ### Cursor File Location
 
@@ -118,9 +118,15 @@ Root `.migration/` remains authoritative for package-level orchestration state:
   inventory.complete.json
   prepare.complete.json
   validate.complete.json
+  runs/
+    <runId>/
+      job.json
+      plan.json
+      config.json
+      logs/
 ```
 
-Completion markers stay at the root because they gate package-wide phases, not project-local item enumeration.
+Completion markers stay at the root because they gate package-wide phases, not project-local item enumeration. Files under `.migration/runs/<runId>/` are audit copies for a single execution and must not be used as the authoritative source for later runs.
 
 ### ID Map
 
@@ -142,7 +148,7 @@ On resume the orchestrator applies two checks in order:
 
 **Tier 1 — Progress store (fast-forward by revision index)**
 
-`export_progress.db` (see [Per-Module Cursors](#per-module-cursors) below) records the `RevisionIndex` of the last successfully written revision for each work item. The orchestrator queries this store **once per work item** on first encounter, then skips any revision whose `RevisionIndex ≤ storedRev` in O(1) memory without touching the filesystem.
+`export_progress.db` records the `RevisionIndex` of the last successfully written revision for each work item. The orchestrator queries this store **once per work item** on first encounter, then skips any revision whose `RevisionIndex ≤ storedRev` in O(1) memory without touching the filesystem.
 
 - A fully-exported work item (all revisions ≤ `storedRev`) is skipped in its entirety.
 - A partially-exported work item (crashed mid-item) resumes from the first unwritten revision automatically.
@@ -196,3 +202,17 @@ In addition to the phase record, a standalone marker file records successful Pre
 ```
 
 Import mode checks for this marker. If absent, Import auto-runs Prepare first and aborts on any blocking issues.
+
+### Run Scope
+
+Each job execution also gets a run folder:
+
+```
+/.migration/runs/<runId>/
+  job.json
+  plan.json
+  config.json
+  logs/
+```
+
+This run scope is audit-only. `job.json`, `plan.json`, and `config.json` here are copies of what was executed for traceability. Resume, phase gates, and package orchestration must continue to read the authoritative state from root `.migration/` and project-local cursor files.

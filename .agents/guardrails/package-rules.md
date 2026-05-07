@@ -24,16 +24,17 @@ These rules are mandatory for all code that reads or writes the migration packag
 
 ## Hidden State
 
-9. No migration state may be stored outside root `.migration/` (plan, config snapshots, phase markers, shared state) or project `/{org}/{project}/.migration/` (project-scoped cursors). No hidden state in other locations.
+9. No migration state may be stored outside root `.migration/` (authoritative package state), project `/{org}/{project}/.migration/` (project-scoped cursors), or `.migration/runs/<runId>/` (run-scoped audit copies and logs). No hidden state in other locations.
 10. No external databases or service-side state stores may be used as the authoritative resume mechanism.
+11. Files under `.migration/runs/<runId>/` are audit artefacts only. Resume, phase gates, and orchestration MUST use root `.migration/` and project `/{org}/{project}/.migration/`, never run-scoped copies.
 
 ## Attachment Placement
 
-11. Attachments must be stored beside the revision data in `attachments/` sub-folders within each revision directory. Global attachment dumping (all attachments in one folder) is forbidden.
+12. Attachments must be stored beside the revision data in `attachments/` sub-folders within each revision directory. Global attachment dumping (all attachments in one folder) is forbidden.
 
 ## Enumeration
 
-12. `IArtefactStore.EnumerateAsync()` returns results in lexicographic order. Do not sort the results in memory. Do not call `ToList()` or `ToArray()` on an `EnumerateAsync` result set.
+13. `IArtefactStore.EnumerateAsync()` returns results in lexicographic order. Do not sort the results in memory. Do not call `ToList()` or `ToArray()` on an `EnumerateAsync` result set.
 
 ## Related
 

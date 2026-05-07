@@ -22,6 +22,14 @@ The migration package is the intermediary between source and target. It is a dir
     plan.json                   # package-level execution plan
     inventory.complete.json     # phase completion marker
     prepare.complete.json       # phase completion marker
+    runs/
+      20260506-161053/
+        job.json                # audit copy of the leased job
+        plan.json               # audit copy of the run plan
+        config.json             # audit copy of the run config
+        logs/
+          progress.jsonl
+          agent.jsonl
   <org>/
     <project>/
       manifest.json             # project manifest (version, timestamps, modules run)
@@ -53,6 +61,8 @@ The migration package is the intermediary between source and target. It is a dir
 ## How Package Data Supports Resume
 
 Each project-local `.migration/` folder holds cursor files for that org/project/action/module combination. Each cursor records the last successfully processed item for that project scope. Root `.migration/` holds package-level orchestration state and phase completion markers.
+
+The `.migration/runs/<runId>/` folder is different: it is run-scoped audit data for one execution only. It keeps copies of the job, plan, and config that were executed, plus that run's logs. Later runs do not depend on those files to resume.
 
 ## How Package Zip/Export Works
 

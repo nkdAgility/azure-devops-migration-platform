@@ -32,6 +32,14 @@ The Files layer is first-class. It is:
 - Stream-importable
 - Human-readable
 
+The package uses three state scopes:
+
+- Root `.migration/` for authoritative package-wide operational state used across runs.
+- `/{org}/{project}/.migration/` for project-scoped cursors and resume state.
+- `.migration/runs/<runId>/` for run-scoped audit copies and logs from one specific execution.
+
+Run-scoped files are evidence of what executed; they are not the authoritative source for resume or phase-gate decisions.
+
 ### JobKind → Phase Dispatch
 
 | JobKind | Phases executed (in order) |
@@ -212,12 +220,12 @@ The package format is identical in all cases. See [docs/package-format-reference
 The Migration Agent emits structured `ProgressEvent` records through `IProgressSink`. Three sinks run simultaneously:
 
 - `ConsoleProgressSink` — writes NDJSON to the CLI terminal (local run output)
-- `PackageProgressSink` — appends to `Logs/progress.jsonl` in the package (always written; durable)
+- `PackageProgressSink` — appends to `.migration/runs/<runId>/logs/progress.jsonl` in the package (always written; durable)
 - `ControlPlaneProgressSink` — POSTs each event to the control plane ring buffer for live TUI streaming
 
 The TUI subscribes to `GET /jobs/{jobId}/progress?follow=true` (Server-Sent Events) for live progress, and polls `GET /jobs/{jobId}/telemetry` for metric counters. Both are independent. The package log is always written regardless of whether the TUI or CLI is connected.
 
-A separate **diagnostics channel** carries structured diagnostic log records (ILogger output). The agent writes diagnostic records to `Logs/agent.jsonl` in the package and, when connected to a control plane, streams them via `POST /agents/lease/{leaseId}/diagnostics`. The control plane buffers and exposes these on `GET /jobs/{jobId}/diagnostics?follow=true` (SSE). The diagnostics channel is independent of the progress channel — progress tracks migration cursor state, diagnostics track operational log messages.
+A separate **diagnostics channel** carries structured diagnostic log records (ILogger output). The agent writes diagnostic records to `.migration/runs/<runId>/logs/agent.jsonl` in the package and, when connected to a control plane, streams them via `POST /agents/lease/{leaseId}/diagnostics`. The control plane buffers and exposes these on `GET /jobs/{jobId}/diagnostics?follow=true` (SSE). The diagnostics channel is independent of the progress channel — progress tracks migration cursor state, diagnostics track operational log messages.
 
 The job engine has no knowledge of where progress is rendered.
 
@@ -322,7 +330,7 @@ Key properties:
 3. Migration Agent worker service (poll, execute, heartbeat, report) — spawned as child process by CLI
 4. Job Engine (orchestrator + modules contract + cursors)
 5. `IArtefactStore` + `FileSystemArtefactStore` (`file:///` URI)
-6. `IStateStore` / `PackageCheckpointStateStore` (`.migration/Checkpoints/` inside package)
+6. `IStateStore` / `PackageCheckpointStateStore` (root `.migration/` for package state, `/{org}/{project}/.migration/` for project cursors, and `.migration/runs/<runId>/` for run audit output)
 7. `IProgressSink` with `ConsoleProgressSink` + `PackageProgressSink` ✅
 8. `ControlPlaneClient` (CLI always uses this to talk to the in-process or remote control plane)
 9. WorkItems module (REST)
