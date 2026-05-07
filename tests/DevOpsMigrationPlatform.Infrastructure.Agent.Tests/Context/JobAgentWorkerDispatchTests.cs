@@ -427,10 +427,15 @@ public sealed class JobAgentWorkerDispatchTests
     public async Task OnJobAsync_ForceFresh_DeletesInventoryCompletionMarker()
     {
         var worker = CreateWorker();
-        var job = CreateJob(JobKind.Export);
-        job.Resume = new JobResume
+        var job = new Job
         {
-            Mode = ResumeMode.ForceFresh
+            JobId = "job-Export",
+            Kind = JobKind.Export,
+            Package = new JobPackage { PackageUri = "." },
+            Resume = new JobResume
+            {
+                Mode = ResumeMode.ForceFresh
+            }
         };
 
         await JobAgentWorkerTestHelper.InvokeJobAsync(
