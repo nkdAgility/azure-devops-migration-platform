@@ -58,7 +58,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IProgressSink progressSink,
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
-        IJobConfiguration activeJobConfig,
         IActiveJobState activeJobState,
         ICurrentPackageConfigAccessor currentPackageConfigAccessor,
         IPackageConfigStore packageConfigStore,
@@ -78,7 +77,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         PolymorphicEndpointOptionsConverter? endpointConverter = null,
         PolymorphicOrganisationEntryConverter? organisationConverter = null)
         : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
-             phaseTrackingFactory, leaseState, packageState, activeJobConfig, currentPackageConfigAccessor, packageConfigStore,
+             phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageConfigStore,
                moduleScopeFactory, httpClientFactory, logger, activeJobState, endpointConverter, organisationConverter)
     {
         _metricsStore = metricsStore;
@@ -125,7 +124,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         try
         {
             packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
-            ActiveJobConfig.PackageConfig = packageConfig;
             _currentPackageConfigAccessor.Set(packageConfig);
             SetCurrentJobContext(packageConfig);
             SetCurrentEndpointContext(packageConfig);
@@ -143,7 +141,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     "Config file not found in {PackageUri} for job {JobId}. Re-submit the job via CLI.",
                     job.Package.PackageUri, job.JobId);
                 await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
-                ActiveJobConfig.Clear();
                 _currentPackageConfigAccessor.Clear();
                 _currentJobContextAccessor.Clear();
                 _currentJobEndpointAccessor.Clear();
@@ -187,7 +184,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         }
         finally
         {
-            ActiveJobConfig.Clear();
             _currentPackageConfigAccessor.Clear();
             _currentJobContextAccessor.Clear();
             _currentJobEndpointAccessor.Clear();
@@ -243,7 +239,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         var project = packageConfig["MigrationPlatform:Source:Project"];
         var connectorType = packageConfig["MigrationPlatform:Source:Type"];
 
-        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(connectorType))
+        if (string.IsNullOrWhiteSpace(connectorType))
         {
             endpoint = null!;
             return false;
@@ -252,7 +248,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         var authSection = packageConfig.GetSection("MigrationPlatform:Source:Authentication");
         _ = Enum.TryParse<AuthenticationType>(authSection?["Type"], ignoreCase: true, out var authType);
         endpoint = new ExplicitSourceEndpointInfo(
-            url,
+            url ?? string.Empty,
             project ?? string.Empty,
             connectorType,
             packageConfig["MigrationPlatform:Source:ApiVersion"],
@@ -267,7 +263,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         var project = packageConfig["MigrationPlatform:Target:Project"];
         var connectorType = packageConfig["MigrationPlatform:Target:Type"];
 
-        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(connectorType))
+        if (string.IsNullOrWhiteSpace(connectorType))
         {
             endpoint = null!;
             return false;
@@ -276,7 +272,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         var authSection = packageConfig.GetSection("MigrationPlatform:Target:Authentication");
         _ = Enum.TryParse<AuthenticationType>(authSection?["Type"], ignoreCase: true, out var authType);
         endpoint = new ExplicitTargetEndpointInfo(
-            url,
+            url ?? string.Empty,
             project ?? string.Empty,
             connectorType,
             packageConfig["MigrationPlatform:Target:ApiVersion"],

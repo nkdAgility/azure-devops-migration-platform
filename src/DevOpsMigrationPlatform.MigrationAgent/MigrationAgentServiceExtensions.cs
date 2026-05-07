@@ -66,7 +66,7 @@ public static class MigrationAgentServiceExtensions
 
         // Register flat IOptions<T> bindings for top-level config sections.
         // These are read-only per-host bindings; per-job re-reads go through IOptionsSnapshot<T>
-        // with ActiveJobConfigState.PackageConfig (see tool DI extensions).
+        // with the explicit current package-config accessor (see tool DI extensions).
         builder.Services.AddOptions<MigrationPackageOptions>()
             .BindConfiguration(MigrationPackageOptions.SectionName);
         builder.Services.AddSchemaEntry<MigrationPackageOptions>("Package storage and path configuration");
@@ -78,7 +78,7 @@ public static class MigrationAgentServiceExtensions
         builder.Services.AddNodeTranslationToolServices();
 
         // Register dynamic endpoint info — reads ConnectorType/Url/Project from
-        // ActiveJobConfigState.Current on every access, so every job picks the
+        // the current per-job endpoint accessor on every access, so every job picks the
         // correct connector regardless of which connectors are registered.
         // Must be registered BEFORE any connector calls AddSingleton/TryAddSingleton
         // so connectors never override these with a static per-connector value.

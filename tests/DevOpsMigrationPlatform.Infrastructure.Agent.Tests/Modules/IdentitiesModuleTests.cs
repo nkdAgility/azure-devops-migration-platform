@@ -19,9 +19,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -41,32 +39,18 @@ public class IdentitiesModuleTests
     private static IdentitiesModule CreateModule(
         IdentitiesModuleOptions? options = null,
         IIdentitySource? identitySource = null,
-        JobConfiguration? activeJobConfig = null)
+        string sourceProject = "TestProject")
     {
         options ??= new IdentitiesModuleOptions { Enabled = true };
-        activeJobConfig ??= CreateActiveJobConfig();
         return new IdentitiesModule(
             NullLogger<IdentitiesModule>.Instance,
             Options.Create(options),
-            sourceEndpointInfo: CreateSourceEndpointInfo(activeJobConfig),
+            sourceEndpointInfo: CreateSourceEndpointInfo(sourceProject),
             orchestrator: new IdentitiesOrchestrator(NullLogger<IdentitiesOrchestrator>.Instance),
             identitySource: identitySource);
     }
 
-    private static JobConfiguration CreateActiveJobConfig(string sourceProject = "TestProject")
-    {
-        var state = new JobConfiguration();
-        state.PackageConfig = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["MigrationPlatform:Source:Type"] = "Simulated",
-                ["MigrationPlatform:Source:Project"] = sourceProject,
-            })
-            .Build();
-        return state;
-    }
-
-    private static IAgentJobContext CreateAgentJobContext(JobConfiguration activeJobConfig)
+    private static IAgentJobContext CreateAgentJobContext()
     {
         var mock = new Mock<IAgentJobContext>();
         mock.SetupGet(x => x.PackagePath).Returns("/tmp/test-package");
@@ -75,11 +59,11 @@ public class IdentitiesModuleTests
         return mock.Object;
     }
 
-    private static ISourceEndpointInfo CreateSourceEndpointInfo(JobConfiguration activeJobConfig)
+    private static ISourceEndpointInfo CreateSourceEndpointInfo(string sourceProject = "TestProject")
     {
         var mock = new Mock<ISourceEndpointInfo>();
         mock.SetupGet(x => x.Url).Returns("https://dev.azure.com/test");
-        mock.SetupGet(x => x.Project).Returns(activeJobConfig.PackageConfig?["MigrationPlatform:Source:Project"] ?? "TestProject");
+        mock.SetupGet(x => x.Project).Returns(sourceProject);
         mock.SetupGet(x => x.ConnectorType).Returns("Simulated");
         return mock.Object;
     }
@@ -132,7 +116,7 @@ public class IdentitiesModuleTests
             new IdentityDescriptor("desc-2", "Bob", "bob@src.com", "User", "Simulated", true),
         });
 
-        var module = CreateModule(identitySource: source, activeJobConfig: CreateActiveJobConfig());
+        var module = CreateModule(identitySource: source);
         var context = CreateExportContext(storeMock);
 
         // Act

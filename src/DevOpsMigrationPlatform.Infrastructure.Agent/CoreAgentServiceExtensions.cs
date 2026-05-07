@@ -54,7 +54,6 @@ public static class CoreAgentServiceExtensions
         // Ambient singletons shared across services within a lease/job lifecycle.
         services.AddSingleton<ActiveLeaseState>();
         services.AddSingleton<ActivePackageState>();
-        services.AddSingleton<IJobConfiguration, JobConfiguration>();
         services.AddSingleton<ICurrentPackageConfigAccessor, CurrentPackageConfigAccessor>();
         services.AddSingleton<ICurrentAgentJobContextAccessor, CurrentAgentJobContextAccessor>();
         services.AddSingleton<ICurrentJobEndpointAccessor, CurrentJobEndpointAccessor>();

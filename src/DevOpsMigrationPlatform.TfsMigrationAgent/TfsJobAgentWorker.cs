@@ -61,7 +61,6 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         IProgressSink progressSink,
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
-        IJobConfiguration activeJobConfig,
         IActiveJobState activeJobState,
         ICurrentPackageConfigAccessor currentPackageConfigAccessor,
         IPackageConfigStore packageConfigStore,
@@ -74,7 +73,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         ActiveTfsJobServices activeTfsJobServices,
         ILogger<TfsJobAgentWorker> logger)
         : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
-             phaseTrackingFactory, leaseState, packageState, activeJobConfig, currentPackageConfigAccessor, packageConfigStore,
+             phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageConfigStore,
                moduleScopeFactory, httpClientFactory, logger, activeJobState)
     {
         _flushables = flushables;

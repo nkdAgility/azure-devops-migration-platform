@@ -17,10 +17,8 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -35,17 +33,17 @@ public class NodesModuleTests
         NodesModuleOptions? options = null,
         IClassificationTreeCapture? capture = null,
         INodesOrchestrator? orchestrator = null,
-        JobConfiguration? activeJobConfig = null)
+        string sourceProject = "TestProject",
+        string targetProject = "TargetProject")
     {
         options ??= new NodesModuleOptions { Enabled = true };
-        activeJobConfig ??= CreateActiveJobConfig();
         return new NodesModule(
             NullLogger<NodesModule>.Instance,
             Options.Create(options),
-            sourceEndpointInfo: CreateSourceEndpointInfo(activeJobConfig),
+            sourceEndpointInfo: CreateSourceEndpointInfo(sourceProject),
             orchestrator: orchestrator ?? CreateRealOrchestrator(),
             capture: capture,
-            targetEndpointInfo: Mock.Of<ITargetEndpointInfo>());
+            targetEndpointInfo: CreateTargetEndpointInfo(targetProject));
     }
 
     private static NodesOrchestrator CreateRealOrchestrator()
@@ -60,24 +58,7 @@ public class NodesModuleTests
             optsMon.Object);
     }
 
-    private static JobConfiguration CreateActiveJobConfig(
-        string sourceProject = "TestProject",
-        string targetProject = "TargetProject")
-    {
-        var state = new JobConfiguration();
-        state.PackageConfig = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["MigrationPlatform:Source:Type"] = "Simulated",
-                ["MigrationPlatform:Source:Project"] = sourceProject,
-                ["MigrationPlatform:Target:Type"] = "Simulated",
-                ["MigrationPlatform:Target:Project"] = targetProject,
-            })
-            .Build();
-        return state;
-    }
-
-    private static IAgentJobContext CreateAgentJobContext(JobConfiguration activeJobConfig)
+    private static IAgentJobContext CreateAgentJobContext()
     {
         var mock = new Mock<IAgentJobContext>();
         mock.SetupGet(x => x.PackagePath).Returns("/tmp/test-package");
@@ -86,11 +67,20 @@ public class NodesModuleTests
         return mock.Object;
     }
 
-    private static ISourceEndpointInfo CreateSourceEndpointInfo(JobConfiguration activeJobConfig)
+    private static ISourceEndpointInfo CreateSourceEndpointInfo(string sourceProject = "TestProject")
     {
         var mock = new Mock<ISourceEndpointInfo>();
         mock.SetupGet(x => x.Url).Returns("https://dev.azure.com/test");
-        mock.SetupGet(x => x.Project).Returns(activeJobConfig.PackageConfig?["MigrationPlatform:Source:Project"] ?? "TestProject");
+        mock.SetupGet(x => x.Project).Returns(sourceProject);
+        mock.SetupGet(x => x.ConnectorType).Returns("Simulated");
+        return mock.Object;
+    }
+
+    private static ITargetEndpointInfo CreateTargetEndpointInfo(string targetProject = "TargetProject")
+    {
+        var mock = new Mock<ITargetEndpointInfo>();
+        mock.SetupGet(x => x.Url).Returns("https://dev.azure.com/target");
+        mock.SetupGet(x => x.Project).Returns(targetProject);
         mock.SetupGet(x => x.ConnectorType).Returns("Simulated");
         return mock.Object;
     }
@@ -141,7 +131,7 @@ public class NodesModuleTests
                 It.IsAny<string>()))
             .Returns(Task.FromResult(0));
 
-        var module = CreateModule(capture: captureMock.Object, activeJobConfig: CreateActiveJobConfig());
+        var module = CreateModule(capture: captureMock.Object);
         var store = Mock.Of<IArtefactStore>();
         var context = CreateExportContext(store);
 
@@ -189,7 +179,7 @@ public class NodesModuleTests
             .Returns(Task.CompletedTask);
 
         var opts = new NodesModuleOptions { Enabled = true, ReplicateSourceTree = true };
-        var module = CreateModule(opts, orchestrator: orchestratorMock.Object, activeJobConfig: CreateActiveJobConfig());
+        var module = CreateModule(opts, orchestrator: orchestratorMock.Object);
         var store = Mock.Of<IArtefactStore>();
         var context = CreateImportContext(store);
 
@@ -226,7 +216,7 @@ public class NodesModuleTests
             Enabled = true,
             ReplicateSourceTree = false
         };
-        var module = CreateModule(opts, orchestrator: orchestratorMock.Object, activeJobConfig: CreateActiveJobConfig());
+        var module = CreateModule(opts, orchestrator: orchestratorMock.Object);
         var store = Mock.Of<IArtefactStore>();
         var context = CreateImportContext(store);
 

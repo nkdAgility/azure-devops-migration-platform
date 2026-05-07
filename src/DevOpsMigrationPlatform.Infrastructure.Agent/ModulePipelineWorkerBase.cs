@@ -39,7 +39,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     /// <summary>Migration modules registered for this agent (ordered).
     /// Used only for ForceFresh cursor deletion by module name.
     /// For execution, modules are resolved per-job from <see cref="_moduleScopeFactory"/>
-    /// after <see cref="ActiveJobConfig"/> is populated with the per-job config.</summary>
+    /// after the current per-job package configuration is set.</summary>
     protected IEnumerable<IModule> MigrationModules { get; }
 
     /// <summary>Factory for creating per-job artefact and state stores.</summary>
@@ -60,9 +60,6 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     /// <summary>Reads <c>migration-config.json</c> from the package at job start.</summary>
     protected IPackageConfigStore PackageConfigStore { get; }
 
-    /// <summary>Ambient holder for the current job's per-job <see cref="Microsoft.Extensions.Configuration.IConfiguration"/> (PackageConfig).</summary>
-    protected IJobConfiguration ActiveJobConfig { get; }
-
     /// <summary>Explicit holder for the current job's raw package configuration.</summary>
     protected ICurrentPackageConfigAccessor CurrentPackageConfig { get; }
 
@@ -74,7 +71,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
 
     /// <summary>
     /// Used to create a per-job DI scope so that modules (and their tool dependencies)
-    /// are resolved AFTER <see cref="ActiveJobConfig.PackageConfig"/> is set from
+    /// are resolved AFTER the current package configuration is published from
     /// <c>migration-config.json</c>. This ensures Singleton tools whose
     /// <c>IOptions&lt;T&gt;.Value</c> is read at construction time receive the per-job config.
     /// </summary>
@@ -88,7 +85,6 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         IPhaseTrackingServiceFactory phaseTrackingFactory,
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
-        IJobConfiguration activeJobConfig,
         ICurrentPackageConfigAccessor currentPackageConfigAccessor,
         IPackageConfigStore packageConfigStore,
         IServiceScopeFactory moduleScopeFactory,
@@ -113,7 +109,6 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         PhaseTrackingFactory = phaseTrackingFactory ?? throw new ArgumentNullException(nameof(phaseTrackingFactory));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
         PackageConfigStore = packageConfigStore ?? throw new ArgumentNullException(nameof(packageConfigStore));
-        ActiveJobConfig = activeJobConfig ?? throw new ArgumentNullException(nameof(activeJobConfig));
         CurrentPackageConfig = currentPackageConfigAccessor ?? throw new ArgumentNullException(nameof(currentPackageConfigAccessor));
         _activeJobState = activeJobState;
         _moduleScopeFactory = moduleScopeFactory ?? throw new ArgumentNullException(nameof(moduleScopeFactory));
@@ -163,12 +158,10 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
                 "Config file not found: {PackageUri}. Re-submit the job via CLI.",
                 job.Package.PackageUri);
             await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
-            ActiveJobConfig.Clear();
+            CurrentPackageConfig.Clear();
             return;
         }
         // Store the raw IConfiguration for per-job tool options binding.
-        // Modules resolve IOptionsSnapshot<T> from this config via ActiveJobConfigState.PackageConfig.
-        ActiveJobConfig.PackageConfig = packageConfig;
         CurrentPackageConfig.Set(packageConfig);
 
         // Create a per-job DI scope AFTER PackageConfig is set. Modules (and their Singleton
@@ -219,7 +212,6 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         finally
         {
             await OnAfterModulesAsync(ct).ConfigureAwait(false);
-            ActiveJobConfig.Clear();
             CurrentPackageConfig.Clear();
             _activeJobState?.Clear();
         }

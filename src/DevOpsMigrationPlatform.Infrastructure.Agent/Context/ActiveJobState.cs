@@ -8,8 +8,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 /// <summary>
 /// Default implementation of <see cref="IActiveJobState"/>.
 /// Registered as a singleton so the same instance is shared across all consumers
-/// within a lease/job lifecycle. Thread-safe via <c>volatile</c> reads/writes
-/// (same pattern as <see cref="JobConfiguration"/>).
+/// within a lease/job lifecycle. Thread-safe via <c>volatile</c> reads/writes.
 /// </summary>
 public sealed class ActiveJobState : IActiveJobState
 {

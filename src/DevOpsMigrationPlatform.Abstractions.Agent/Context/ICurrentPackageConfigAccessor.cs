@@ -7,8 +7,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Context;
 
 /// <summary>
 /// Holds the raw package configuration for the currently executing job.
-/// This is a transition seam for option binding while ambient <see cref="IJobConfiguration"/>
-/// is being retired from tool registrations.
+/// This is the explicit per-job source of raw package configuration for option binding
+/// and connector setup.
 /// </summary>
 public interface ICurrentPackageConfigAccessor
 {

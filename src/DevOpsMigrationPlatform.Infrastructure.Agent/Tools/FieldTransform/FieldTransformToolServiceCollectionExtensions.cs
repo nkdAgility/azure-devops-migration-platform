@@ -24,7 +24,7 @@ public static class FieldTransformToolServiceCollectionExtensions
     /// and <see cref="IFieldTransformValidator"/> to the service collection.
     /// <para>
     /// Tools are registered as <b>Scoped</b> so that <see cref="IOptionsSnapshot{TOptions}"/>
-    /// is recomputed from <see cref="ActiveJobConfigState.PackageConfig"/> on every per-job
+    /// is recomputed from the explicit current package configuration on every per-job
     /// DI scope. This ensures options reflect the <c>migration-config.json</c> loaded for
     /// the current job, not the empty <c>appsettings.json</c> present at host startup.
     /// </para>

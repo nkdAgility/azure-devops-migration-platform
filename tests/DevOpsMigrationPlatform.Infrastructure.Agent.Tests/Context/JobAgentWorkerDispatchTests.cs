@@ -77,7 +77,6 @@ public sealed class JobAgentWorkerDispatchTests
     private MockHttpMessageHandler _httpHandler = null!;
     private ActiveLeaseState _leaseState = null!;
     private ActivePackageState _packageState = null!;
-    private JobConfiguration _jobConfiguration = null!;
     private IConfiguration _packageConfiguration = null!;
     private JobTaskList _plan = null!;
     private IServiceScopeFactory _scopeFactory = null!;
@@ -109,7 +108,6 @@ public sealed class JobAgentWorkerDispatchTests
         _httpHandler = new MockHttpMessageHandler();
         _leaseState = new ActiveLeaseState();
         _packageState = new ActivePackageState();
-        _jobConfiguration = new JobConfiguration();
         _logger = NullLogger<JobAgentWorker>.Instance;
 
         _packageConfiguration = new ConfigurationBuilder()
@@ -340,7 +338,7 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestMethod]
-    public async Task OnJobAsync_WhenMigrationExecutionThrows_ClearsActiveJobConfig()
+    public async Task OnJobAsync_WhenMigrationExecutionThrows_ClearsCurrentPackageConfigAccessor()
     {
         _planExecutor
             .Setup(executor => executor.ExecuteExportPhaseAsync(
@@ -361,10 +359,53 @@ public sealed class JobAgentWorkerDispatchTests
             "lease-failure",
             CancellationToken.None);
 
-        Assert.IsNull(_jobConfiguration.PackageConfig);
+        _currentPackageConfigAccessor.Verify(accessor => accessor.Clear(), Times.AtLeastOnce);
         Assert.IsTrue(_httpHandler.RequestLog.Exists(request =>
             request.Method == HttpMethod.Post &&
             request.RequestUri!.PathAndQuery.Contains("/fail", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    [TestMethod]
+    public async Task OnJobAsync_WhenConnectorConfigOmitsUrl_PopulatesCurrentEndpointAccessor()
+    {
+        _packageConfiguration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Source:Type"] = "Simulated",
+                ["MigrationPlatform:Source:Project"] = "SourceProject",
+                ["MigrationPlatform:Target:Type"] = "Simulated",
+                ["MigrationPlatform:Target:Project"] = "TargetProject",
+                ["MigrationPlatform:Mode"] = "Export",
+            })
+            .Build();
+
+        _packageConfigStore
+            .Setup(store => store.ReadAsync(It.IsAny<IArtefactStore>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_packageConfiguration);
+
+        var worker = CreateWorker();
+        var job = CreateJob(JobKind.Export);
+
+        await JobAgentWorkerTestHelper.InvokeJobAsync(
+            worker,
+            job,
+            CreateControlPlaneClient(),
+            "lease-no-url",
+            CancellationToken.None);
+
+        _currentJobEndpointAccessor.Verify(
+            accessor => accessor.SetSource(It.Is<ISourceEndpointInfo>(endpoint =>
+                endpoint.ConnectorType == "Simulated" &&
+                endpoint.Project == "SourceProject" &&
+                endpoint.Url == string.Empty)),
+            Times.Once);
+
+        _currentJobEndpointAccessor.Verify(
+            accessor => accessor.SetTarget(It.Is<ITargetEndpointInfo>(endpoint =>
+                endpoint.ConnectorType == "Simulated" &&
+                endpoint.Project == "TargetProject" &&
+                endpoint.Url == string.Empty)),
+            Times.Once);
     }
 
     private JobAgentWorker CreateWorker()
@@ -376,7 +417,6 @@ public sealed class JobAgentWorkerDispatchTests
             progressSink: _progressSink.Object,
             leaseState: _leaseState,
             packageState: _packageState,
-            activeJobConfig: _jobConfiguration,
             activeJobState: _activeJobState.Object,
             currentPackageConfigAccessor: _currentPackageConfigAccessor.Object,
             packageConfigStore: _packageConfigStore.Object,

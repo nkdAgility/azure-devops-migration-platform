@@ -29,7 +29,7 @@ public static class NodeTranslationToolServiceCollectionExtensions
     /// </para>
     /// <para>
     /// Tools are registered as <b>Scoped</b> so that <see cref="IOptionsSnapshot{TOptions}"/>
-    /// is recomputed from <see cref="ActiveJobConfigState.PackageConfig"/> on every per-job
+    /// is recomputed from the explicit current package configuration on every per-job
     /// DI scope.
     /// </para>
     /// </summary>

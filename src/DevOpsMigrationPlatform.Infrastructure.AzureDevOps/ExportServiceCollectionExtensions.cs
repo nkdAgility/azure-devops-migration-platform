@@ -171,7 +171,7 @@ public static class ExportServiceCollectionExtensions
     /// <summary>
     /// Registers <see cref="ISourceEndpointInfo"/> and <see cref="ITargetEndpointInfo"/> for the AzureDevOps connector.
     /// Reads values from <see cref="IOptions{AzureDevOpsEndpointOptions}"/>.
-    /// Uses TryAddSingleton so the dynamic ActiveJobConfigState-backed implementations registered
+    /// Uses TryAddSingleton so the dynamic active-job implementations registered
     /// by the MigrationAgent take precedence when both connectors are in the same host.
     /// </summary>
     private static IServiceCollection AddAzureDevOpsEndpointInfo(this IServiceCollection services)
