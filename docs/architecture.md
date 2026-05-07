@@ -255,7 +255,7 @@ The working directory (`Package.WorkingDirectory`) and all package files are wri
 |---|---|---|---|
 | **Migration Agent** | ✅ Yes (via `IArtefactStore` / `IStateStore`) | ✅ Yes | Execution boundary — the only component that processes customer data. |
 | **TFS Migration Agent** | ✅ Yes (via `IArtefactStore` / `IStateStore`) | ✅ Yes | Same execution boundary for TFS sources; runs as a Windows polling agent. |
-| **CLI** | ❌ No | ✅ Read-only (post-job summaries) | Reads `dependencies.csv`, `inventory.json`, etc. for display after the Agent completes. Never writes. |
+| **CLI** | ❌ No | ❌ No | Reads job config (scenario JSON) before queuing; receives all results via the control plane API. Never accesses the package directory. |
 | **TUI** | ❌ No | ❌ No (reads via control plane API) | Pure progress viewer; all data arrives via SSE from the control plane. |
 | **Control Plane / ControlPlaneHost** | ❌ No | ❌ No | Coordinates jobs, manages leases, buffers progress events. Never accesses the package directly. |
 
