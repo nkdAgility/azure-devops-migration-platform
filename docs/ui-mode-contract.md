@@ -170,6 +170,8 @@ The warning is advisory. It does not change task state, but it must be visible i
 
 The table is the primary surface. The task section is secondary and appears after or beneath the table.
 
+In the live Inventory view, the table must update incrementally as inventory data arrives. The task section must update alongside it; neither surface waits for the other to complete before refreshing.
+
 Required table columns:
 
 - `Organisation`
@@ -189,6 +191,8 @@ The TUI Inventory workspace uses:
 - a primary project table using the same required columns as the CLI contract
 - a secondary task rail showing capture and analyse tasks in execution order
 - a details rail or footer for the selected project row or selected task
+
+The Inventory table and task rail must both live-update as new inventory data and task-state changes arrive.
 
 The table is mandatory. The task section is mandatory.
 

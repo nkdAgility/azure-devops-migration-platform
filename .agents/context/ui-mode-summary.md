@@ -43,6 +43,7 @@ Inventory:
 - `Revisions`
 - `Repos`
 - `Time`
+- table live-updates as inventory data arrives, alongside the task section
 
 Dependencies:
 
