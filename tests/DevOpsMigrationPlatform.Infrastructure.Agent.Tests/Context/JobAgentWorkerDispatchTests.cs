@@ -280,6 +280,57 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestMethod]
+    public async Task OnJobAsync_Export_PassesConfiguredAndResolvedSourceEndpointAliases()
+    {
+        var configuredSourceUrl = "$ENV:AZDEVOPS_SYSTEM_TEST_ORG";
+        _packageConfiguration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Source:Type"] = "Simulated",
+                ["MigrationPlatform:Source:Url"] = configuredSourceUrl,
+                ["MigrationPlatform:Source:Project"] = "SourceProject",
+                ["MigrationPlatform:Target:Type"] = "Simulated",
+                ["MigrationPlatform:Target:Url"] = "https://simulated.example/target",
+                ["MigrationPlatform:Target:Project"] = "TargetProject",
+                ["MigrationPlatform:Mode"] = "Export",
+            })
+            .Build();
+
+        _packageConfigStore
+            .Setup(store => store.ReadAsync(It.IsAny<IArtefactStore>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_packageConfiguration);
+
+        IReadOnlyDictionary<string, OrganisationEndpoint>? capturedEndpoints = null;
+        _planExecutor
+            .Setup(executor => executor.ExecuteExportPhaseAsync(
+                It.IsAny<JobTaskList>(),
+                It.IsAny<IReadOnlyDictionary<string, IModule>>(),
+                It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
+                It.IsAny<InventoryContext?>(),
+                It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
+                It.IsAny<ExportContext>(),
+                It.IsAny<IStateStore>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<JobTaskList, IReadOnlyDictionary<string, IModule>, IReadOnlyDictionary<string, IAnalyser>, InventoryContext?, IReadOnlyDictionary<string, OrganisationEndpoint>?, ExportContext, IStateStore, CancellationToken>(
+                (_, _, _, _, endpoints, _, _, _) => capturedEndpoints = endpoints)
+            .ReturnsAsync(true);
+
+        var worker = CreateWorker();
+        var job = CreateJob(JobKind.Export);
+
+        await JobAgentWorkerTestHelper.InvokeJobAsync(
+            worker,
+            job,
+            CreateControlPlaneClient(),
+            "lease-export",
+            CancellationToken.None);
+
+        Assert.IsNotNull(capturedEndpoints);
+        Assert.IsTrue(capturedEndpoints.ContainsKey(configuredSourceUrl));
+        Assert.IsTrue(capturedEndpoints.ContainsKey("https://simulated.example/source"));
+    }
+
+    [TestMethod]
     public async Task OnJobAsync_Dependencies_RoutesToUnifiedTaskExecution()
     {
         var worker = CreateWorker();

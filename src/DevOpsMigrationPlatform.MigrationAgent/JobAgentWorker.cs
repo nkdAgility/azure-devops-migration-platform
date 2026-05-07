@@ -623,12 +623,20 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                         SourceEndpoint = sourceEndpoint,
                         Project = sourceEndpointInfo.Project
                     };
-                    var endpointsByUrl = string.IsNullOrWhiteSpace(sourceEndpoint.ResolvedUrl)
-                        ? null
-                        : new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase)
+                    Dictionary<string, OrganisationEndpoint>? endpointsByUrl = null;
+                    if (!string.IsNullOrWhiteSpace(sourceEndpoint.ResolvedUrl))
+                    {
+                        endpointsByUrl = new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase)
                         {
                             [sourceEndpoint.ResolvedUrl] = sourceEndpoint
                         };
+
+                        var configuredSourceUrl = packageConfig?["MigrationPlatform:Source:Url"];
+                        if (!string.IsNullOrWhiteSpace(configuredSourceUrl))
+                        {
+                            endpointsByUrl[configuredSourceUrl] = sourceEndpoint;
+                        }
+                    }
 
                     var exportOk = await _planExecutor.ExecuteExportPhaseAsync(
                         executionPlan,
