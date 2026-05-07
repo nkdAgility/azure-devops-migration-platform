@@ -2,12 +2,16 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -49,6 +53,54 @@ public class QueueCommandTests
 
         var result = settings.Validate();
         Assert.IsFalse(result.Successful, "Validation should fail for invalid log level.");
+    }
+
+    [TestMethod]
+    public void DetermineCurrentTaskPhase_WithOnlyTerminalTasks_ReturnsLastTerminalPhase()
+    {
+        var stateType = typeof(QueueCommand).GetNestedType("JobProgressState", BindingFlags.NonPublic);
+        Assert.IsNotNull(stateType, "JobProgressState nested type was not found.");
+
+        var initialMethod = stateType!.GetMethod("Initial", BindingFlags.Public | BindingFlags.Static);
+        Assert.IsNotNull(initialMethod, "JobProgressState.Initial factory was not found.");
+
+        var state = initialMethod!.Invoke(null, [0]);
+        Assert.IsNotNull(state, "JobProgressState.Initial returned null.");
+
+        stateType.GetProperty("Stage")!.SetValue(state, "Job.Completed");
+        stateType.GetProperty("Tasks")!.SetValue(
+            state,
+            new JobTaskList
+            {
+                Tasks = new List<JobTask>
+                {
+                    new()
+                    {
+                        Id = "export.workitems.org.project",
+                        Name = "WorkItems Export",
+                        TaskKind = TaskKind.Export,
+                        Phase = "Export",
+                        Order = 0,
+                        Status = JobTaskStatus.Completed,
+                    },
+                    new()
+                    {
+                        Id = "import.workitems.org.project",
+                        Name = "WorkItems Import",
+                        TaskKind = TaskKind.Import,
+                        Phase = "Import",
+                        Order = 1,
+                        Status = JobTaskStatus.Completed,
+                    },
+                }
+            });
+
+        var determineCurrentTaskPhase = typeof(QueueCommand).GetMethod("DetermineCurrentTaskPhase", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(determineCurrentTaskPhase, "DetermineCurrentTaskPhase method was not found.");
+
+        var phase = determineCurrentTaskPhase!.Invoke(null, [state!, (IReadOnlyList<string>)new List<string> { "Export", "Import" }]) as string;
+
+        Assert.AreEqual("Import", phase, "Completed multi-stage jobs should remain on their last terminal phase.");
     }
 
     // ── System tests ───────────────────────────────────────────────────────
