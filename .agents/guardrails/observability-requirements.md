@@ -1,6 +1,6 @@
 # Observability Requirements
 
-These requirements are mandatory for all module and connector implementations.
+These requirements are mandatory for all module, tool, analyser, and connector implementations.
 
 ## O-1 — Activity Spans
 

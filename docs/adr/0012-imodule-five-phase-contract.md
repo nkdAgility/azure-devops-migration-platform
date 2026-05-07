@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted — amended by ADR-0014
 
 ## Context
 
@@ -54,5 +54,6 @@ The standalone `InventoryModule`, `InventoryDiscoveryModule`, and `DependencyDis
 - [docs/architecture.md](../architecture.md) — phase gate rules
 - [docs/modules.md](../modules.md) — module contract
 - [ADR-0010](0010-plan-driven-dag-execution.md) — plan executor that calls phase methods
+- [ADR-0014](0014-icapture-unified-capture-contract.md) — ICapture extraction that amends this ADR
 - [.agents/guardrails/module-template.md](../../.agents/guardrails/module-template.md) — module implementation template
 - Driving spec: `specs/030-module-analiser-refactor/spec.md`

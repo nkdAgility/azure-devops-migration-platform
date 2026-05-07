@@ -40,9 +40,17 @@ public interface ICapture
 
 `Name` returns the second dot-segment of task IDs (e.g., `"workitems"` for `capture.workitems.org.project`).
 
-## Pure Capture Handlers
+## Related Extension Points
 
-A **pure capture handler** implements `ICapture` only — not `IModule`. Use this pattern when a data type needs per-project capture but has no export/import/validate lifecycle.
+Modules are one of three extension points in the job engine:
+
+| Extension point | Interface | When it runs |
+|---|---|---|
+| Module | `IModule` | Inventory, Export, Prepare, Import, Validate phases |
+| Pure Capture Handler | `ICapture` (not `IModule`) | Inventory capture only; no export/import lifecycle |
+| Analyser | `IAnalyser` | After all inventory modules complete; writes analysis artefacts to the package |
+
+**Tools** (`MigrationPlatform:Tools.*`) are a fourth extension point but are stateless services, not phase participants. They are injected into modules and orchestrators to perform pure transformations (field rewriting, path translation, identity lookup) with no I/O.
 
 Current pure capture handlers:
 - `DependencyCapture` — captures per-project dependency links via `IDependencyDiscoveryServiceFactory.CreateForProject` and `IDependencyOrchestrator.CaptureProjectAsync`. Registered as `ICapture` only via `AddDependencyCaptureServices()`. TFS agents must NOT register this.

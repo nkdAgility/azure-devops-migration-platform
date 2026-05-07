@@ -48,3 +48,5 @@ CLI/TUI → Control Plane → Agent → Source → Package → Agent → Target
 - CLI/TUI never write package data.
 - Modules never call connectors from other modules.
 - All package access goes through `IArtefactStore` or `IStateStore`.
+- Tools and Analysers are distinct extension points alongside Modules; all three must satisfy full observability requirements (O-1 through O-4).
+- Analysers run only after their declared module dependencies complete. They must not connect to source or target systems.

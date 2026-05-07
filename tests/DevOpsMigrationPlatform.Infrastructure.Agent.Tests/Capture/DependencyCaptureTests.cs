@@ -38,9 +38,12 @@ public sealed class DependencyCaptureTests
         Mock<IArtefactStore>? artefactStoreMock = null)
     {
         var store = artefactStoreMock ?? new Mock<IArtefactStore>(MockBehavior.Strict);
-        // Allow ExistsAsync for any path — used by debug log check in CaptureAsync
-        store.Setup(s => s.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-             .ReturnsAsync(false);
+        // Only add the default ExistsAsync setup when we created the mock ourselves
+        if (artefactStoreMock is null)
+        {
+            store.Setup(s => s.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(false);
+        }
         return new()
         {
             Job = new Job { JobId = JobId },

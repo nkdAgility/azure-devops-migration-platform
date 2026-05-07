@@ -27,3 +27,4 @@ Each ADR records an important architectural decision: what was decided, why, wha
 | [0011](0011-unified-platform-metric-namespace.md) | Unified `platform.*` metric namespace | Accepted |
 | [0012](0012-imodule-five-phase-contract.md) | IModule five-phase contract | Accepted |
 | [0013](0013-simulated-connector-as-ci-infrastructure.md) | Simulated connector as first-class CI infrastructure | Accepted |
+| [0014](0014-icapture-unified-capture-contract.md) | ICapture: Unified capture contract | Accepted — amends ADR-0012 |
