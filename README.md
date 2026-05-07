@@ -17,16 +17,18 @@ Live migration tools connect directly from source to target. If the network drop
 
 This platform takes a different approach:
 
-```
-Source  ──Export──▶  Package (files on disk)  ──Import──▶  Target
-                             │
-                          Prepare
-                     (validate & map identities,
-                      nodes, fields — before a
-                      single write to target)
+```mermaid
+flowchart LR
+    Source["🗄️ Source\nADO Services / TFS"]
+    Package["📦 Package\nfiles on disk"]
+    Target["🎯 Target\nADO Services"]
+
+    Source -->|"1️⃣ Export\nread-only"| Package
+    Package -->|"2️⃣ Prepare\nvalidate identities, nodes,\nfields — no writes to target yet"| Package
+    Package -->|"3️⃣ Import\nwhen ready"| Target
 ```
 
-The package is a versioned, portable snapshot on disk. Zip it, move it, review it, resume it. Export and import don't need to run on the same machine or at the same time.
+The package is a versioned, portable snapshot on disk.Zip it, move it, review it, resume it. Export and import don't need to run on the same machine or at the same time.
 
 ---
 
@@ -74,6 +76,16 @@ To start the Control Plane and Migration Agent locally after install:
 ---
 
 ## Get started
+
+```mermaid
+flowchart LR
+    S1["1️⃣ Create config\ndevopsmigration config new"]
+    S2["2️⃣ Check scope\ndevopsmigration discovery inventory"]
+    S3["3️⃣ Export\ndevopsmigration queue --mode Export"]
+    S4["4️⃣ Prepare\ndevopsmigration queue --mode Prepare"]
+    S5["5️⃣ Import\ndevopsmigration queue --mode Import"]
+    S1 --> S2 --> S3 --> S4 --> S5
+```
 
 ### 1. Create a config file
 

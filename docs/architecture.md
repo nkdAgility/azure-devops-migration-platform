@@ -53,11 +53,11 @@ The platform separates **job coordination** (control plane) from **job execution
 
 | Component | Role |
 |---|---|
-| **CLI** | Operator interface. When `Environment.Type` is `Standalone` (the default), uses Aspire `DistributedApplication` APIs to start `ControlPlaneHost` and `MigrationAgent` as separate child processes (`ChildProcessHost`). When `Environment.Type` is `Hosted`, connects directly to `ControlPlane.BaseUrl` from config. Always communicates with the control plane via HTTP. Submits jobs, queries status, and manages job lifecycle. Contains no migration execution logic. |
+| **CLI** | Operator interface. When `Environment.Type` is `Standalone` (the default), uses `LocalStackHost` to start `ControlPlaneHost` and `MigrationAgent` as separate child processes (`ChildProcessHost`) via plain `System.Diagnostics.Process` — no Aspire at runtime. When `Environment.Type` is `Hosted`, connects directly to `ControlPlane.BaseUrl` from config. Always communicates with the control plane via HTTP. Submits jobs, queries status, and manages job lifecycle. Contains no migration execution logic. |
 | **TUI** | Connects to any control plane endpoint — on the same machine, a dedicated server, or in the cloud — and renders live job state. Never submits jobs. |
-| **ControlPlane** | Service library (`DevOpsMigrationPlatform.ControlPlane`). Contains the HTTP API controllers, job state machine, lease protocol, progress tracking, and EF Core data model. Has no entry point — it is referenced and hosted by `ControlPlaneHost`. |
-| **ControlPlaneHost** | Deployable ASP.NET Core host (`DevOpsMigrationPlatform.ControlPlaneHost`). References the `ControlPlane` service library and adds: process entry point, agent lifecycle management via `IAgentLauncher`, and Aspire resource integration. Always reachable over HTTP. `LocalProcessAgentLauncher` spawns agent processes on the same machine; `ContainerAgentLauncher` deploys and scales agent containers to a configurable target context — either the managed ACA environment co-located with the control plane, or a user-specified environment (for network zone isolation). The agent image source is configured separately from the target context. |
-| **Migration Agent** | (`DevOpsMigrationPlatform.MigrationAgent`) Stateless worker that executes migration jobs. Polls `ControlPlaneHost` for assigned jobs under a time-bounded lease, runs modules via the Job Engine, writes to the package, reports progress back. Lifecycle managed by `ControlPlaneHost` via `IAgentLauncher`. A single binary and container image supports all modes (`Inventory`, `Export`, `Prepare`, `Import`, `Validate`, `Migrate`). |
+| **ControlPlane** | Service library (`DevOpsMigrationPlatform.ControlPlane`). Contains the HTTP API controllers, job state machine, lease protocol, and progress tracking. Currently all stores are in-memory; durable EF Core / PostgreSQL persistence is planned for a later phase. Has no entry point — it is referenced and hosted by `ControlPlaneHost`. |
+| **ControlPlaneHost** | Deployable ASP.NET Core host (`DevOpsMigrationPlatform.ControlPlaneHost`). References the `ControlPlane` service library and adds: process entry point and `AgentLifecycleService` (currently monitors TFS agent on Windows). In Standalone mode the CLI (`LocalStackHost`) manages agent process lifecycle directly; in Cloud mode `ContainerAgentLauncher` deploys and scales agent containers to a configurable ACA environment. Always reachable over HTTP. |
+| **Migration Agent** | (`DevOpsMigrationPlatform.MigrationAgent`) Stateless worker that executes migration jobs. Polls `ControlPlaneHost` for assigned jobs under a time-bounded lease, runs modules via the Job Engine, writes to the package, reports progress back. In Standalone mode its lifecycle is managed by `LocalStackHost` in the CLI; in Cloud mode by `ContainerAgentLauncher` in `ControlPlaneHost`. A single binary and container image supports all modes (`Inventory`, `Export`, `Prepare`, `Import`, `Validate`, `Migrate`). |
 | **TFS Migration Agent** | (`DevOpsMigrationPlatform.TfsMigrationAgent`) A .NET 4.8 polling agent — structural peer of the `MigrationAgent` — that handles jobs with `source.type: TeamFoundationServer`. Polls `GET /agents/lease?capabilities=tfs`, acquires TFS jobs, runs `IModule` dispatch (`TfsJobAgentWorker` accepts `IEnumerable<IModule>`), connects to TFS via the TFS Object Model, writes to the package via `IArtefactStore` (`FileSystemArtefactStore`), maintains checkpoints via `IStateStore`, and reports progress via `ControlPlaneProgressSink`. Currently supports Export mode only; Import support will be added to the same binary. Windows-only — TFS OM cannot run in containers. `AgentLifecycleService` spawns it on Windows and skips it elsewhere. See [docs/agent-hosting.md — TFS Migration Agent](migration-agent.md#tfs-migration-agent). |
 
 ### Tools
@@ -125,7 +125,7 @@ CLI
   │  → creates Job (assigns jobId, normalises URI, serialises config into Job.ConfigPayload)
   │
   ▼
-ControlPlaneHost (Aspire-managed or remote — same HTTP interface)
+ControlPlaneHost (CLI-managed child process or remote — same HTTP interface)
   │  deduplication check (jobId)
   │  assigns to available agent by Job.Connectors capability matching
   │
@@ -169,7 +169,7 @@ See [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md).
 
 `ControlPlaneHost` is always reachable over HTTP. The CLI always communicates with it via `ControlPlaneClient`. The difference between topologies is only where `ControlPlaneHost` is running:
 
-- **Local / Dedicated Server**: CLI uses embedded Aspire `DistributedApplication` APIs to start `ControlPlaneHost`, listening on `http://localhost:5100`. Any machine with network access to that endpoint can connect a TUI and monitor the migration.
+- **Local / Dedicated Server**: CLI uses `LocalStackHost` to start `ControlPlaneHost` as a child process, listening on `http://localhost:5100`. Any machine with network access to that endpoint can connect a TUI and monitor the migration.
 - **Cloud (Self-Hosted / Managed)**: an HTTPS URL to the Azure-hosted `ControlPlaneHost`.
 
 Switching from local to cloud requires only a config change. No code changes.
@@ -271,14 +271,14 @@ Operators can run export, prepare, and import as separate steps, or as a single 
 
 The platform has a single architecture across all hosting topologies. The same control plane, agent, and job engine run in every environment. The only variable is where the components are hosted.
 
-| Topology | Control Plane host | Agent host | Package store | PostgreSQL |
+| Topology | Control Plane host | Agent host | Package store | DB |
 |---|---|---|---|---|
-| **Local** | Aspire-managed process on the operator's machine | Aspire-managed process(es) on the same machine | `file:///` | Aspire portable binary resource |
-| **Dedicated Server** | Aspire-managed process on a server | Aspire-managed process(es) on the same server | `file:///` | Aspire portable binary resource |
+| **Local** | CLI-managed child process (`LocalStackHost`) on the operator's machine | CLI-managed child process on the same machine | `file:///` | In-memory (no persistent DB) |
+| **Dedicated Server** | CLI-managed child process (`LocalStackHost`) on a server | CLI-managed child process on the same server | `file:///` | In-memory (no persistent DB) |
 | **Cloud (Self-Hosted)** | Azure Container App (customer subscription) | Azure Container App(s) | Azure Blob Storage | Azure PostgreSQL Flexible Server |
 | **Cloud (Managed)** | Azure Container App (NKD Agility subscription) | Azure Container App(s) | Azure Blob Storage | Azure PostgreSQL Flexible Server |
 
-In the Local and Dedicated Server topologies, the CLI drives Aspire programmatically to start `ControlPlaneHost`, which uses `LocalProcessAgentLauncher` to spawn agent processes on the same machine. PostgreSQL runs as an Aspire portable binary resource — no Docker, no installer required. The TUI can connect to the control plane from any machine with network access to the server.
+In the Local and Dedicated Server topologies, the CLI uses `LocalStackHost` to start `ControlPlaneHost` and `MigrationAgent` as child processes (`ChildProcessHost` — plain `System.Diagnostics.Process`, no Aspire). The control plane uses in-memory stores for this topology; durable PostgreSQL persistence is planned for a later phase. The TUI can connect to the control plane from any machine with network access to the server.
 
 In Cloud topologies, the CLI connects to a pre-existing HTTPS `ControlPlaneHost` endpoint. `ControlPlaneHost` uses `ContainerAgentLauncher` to deploy and scale agent containers. The target container environment is configurable — either the managed Azure Container Apps environment co-located with the control plane, or a user-specified environment for network zone isolation (different VNet, ACA environment, or AKS namespace).
 
@@ -286,9 +286,9 @@ In Cloud topologies, the CLI connects to a pre-existing HTTPS `ControlPlaneHost`
 flowchart LR
     subgraph Local["Local / Dedicated Server"]
         direction TB
-        LCLI["CLI"] -->|Aspire| LCP["ControlPlaneHost\nlocalhost:5100"]
-        LCP -->|LocalProcessAgentLauncher| LAgent["MigrationAgent"]
-        LCP -->|LocalProcessAgentLauncher| LTFSAgent["TfsMigrationAgent\n(Windows only)"]
+        LCLI["CLI"] -->|LocalStackHost| LCP["ControlPlaneHost\nlocalhost:5100"]
+        LCP -->|AgentLifecycleService| LTFSAgent["TfsMigrationAgent\n(Windows only)"]
+        LCLI -->|LocalStackHost| LAgent["MigrationAgent"]
         LAgent --> LPkg["📦 file:///"]
         LTFSAgent --> LPkg
     end

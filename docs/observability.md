@@ -92,8 +92,8 @@ flowchart TD
 
     Log --> Scope
     Scope -->|no scope| System
-    Scope -->|BeginDataScope(Customer)| Customer
-    Scope -->|BeginDataScope(Derived)| Derived
+    Scope -->|"BeginDataScope(Customer)"| Customer
+    Scope -->|"BeginDataScope(Derived)"| Derived
 
     System -->|allowed| AppInsights["Azure Monitor / OTLP"]
     Customer -->|blocked| AppInsights

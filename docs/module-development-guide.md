@@ -37,6 +37,32 @@ interface IModule : ICapture
 }
 ```
 
+```mermaid
+flowchart LR
+    subgraph IModule
+        Capture["CaptureAsync\n(Inventory)"]
+        Export["ExportAsync\n(Export)"]
+        Prepare["PrepareAsync\n(Prepare)"]
+        Import["ImportAsync\n(Import)"]
+        Validate["ValidateAsync\n(Validate)"]
+    end
+    Source["Source system\n(ADO / TFS / Simulated)"]
+    Target["Target system\n(ADO / Simulated)"]
+    Package["📦 Package\n(IArtefactStore)"]
+
+    Source -->|read| Capture
+    Source -->|read| Export
+    Capture -->|write| Package
+    Export -->|write| Package
+    Package -->|read| Prepare
+    Target -->|query| Prepare
+    Prepare -->|write mapping artefacts| Package
+    Package -->|read| Import
+    Import -->|write| Target
+    Package -->|read| Validate
+    Target -->|read| Validate
+```
+
 ### Contract Invariants
 
 - `Name` is unique across all registered modules.

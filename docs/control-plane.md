@@ -71,16 +71,6 @@ The control plane does **not** run the Job Engine, call source or target APIs, o
 
 ## Job States
 
-```
-Queued → Leased → Running → Completed
-                          → Failed
-                ↓
-              Paused → Queued (resume)
-                     → Cancelled
-         ↑
-       Cancelled (from Queued)
-```
-
 | State | Description |
 |---|---|
 | `Queued` | Waiting for an agent to pick up. |
