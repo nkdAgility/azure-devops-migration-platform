@@ -17,7 +17,7 @@ The resulting `PackageRoot` is: `storage\my-export\contoso\MyProject\`
 
 The org folder name is extracted from the organisation URL (the last path segment, e.g. `contoso` from `https://dev.azure.com/contoso`). For TFS collection URLs like `http://tfs:8080/tfs/DefaultCollection`, the folder name is `DefaultCollection`.
 
-This resolution is performed by `PathUtilities.ExtractOrgFolderName()` and applied in the CLI commands (`QueueCommand`, `TfsExportCommand`) before the `IArtefactStore` is created. `WorkItems` and other module folders should never appear directly under `WorkingDirectory` — they always live under `<org>/<project>/`.
+This resolution is performed by `PathUtilities.ExtractOrgFolderName()` and applied in the CLI queue path (`QueueCommand`) before the `IArtefactStore` is created. `WorkItems` and other module folders should never appear directly under `WorkingDirectory` — they always live under `<org>/<project>/`.
 
 ## 2. Package Structure (Canonical Format)
 

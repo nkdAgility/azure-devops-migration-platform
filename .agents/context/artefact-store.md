@@ -4,13 +4,13 @@
 
 `IArtefactStore` is the abstraction through which all modules read and write the migration package. It is the only permitted mechanism for file operations inside modules; direct filesystem or blob SDK calls in module code are forbidden.
 
-`IArtefactStore` is defined in `DevOpsMigrationPlatform.Abstractions`, which targets both `net481` and `net10.0`. Both the .NET 10 `MigrationAgent` and the .NET 4.8 `TfsExportAgent` use it directly. The `IAsyncEnumerable<T>` dependency is satisfied on net481 via the `Microsoft.Bcl.AsyncInterfaces` NuGet package.
+`IArtefactStore` is defined in `DevOpsMigrationPlatform.Abstractions`, which targets both `net481` and `net10.0`. Both the .NET 10 `MigrationAgent` and the .NET 4.8 `TfsMigrationAgent` use it directly. The `IAsyncEnumerable<T>` dependency is satisfied on net481 via the `Microsoft.Bcl.AsyncInterfaces` NuGet package.
 
 Three implementations exist:
 
 | Implementation | Target frameworks | Use case |
 |---|---|---|
-| `FileSystemArtefactStore` | `net481;net10.0` | Local / Dedicated Server topology (CLI drives Aspire, package at `file:///`) and `TfsExportAgent` subprocess |
+| `FileSystemArtefactStore` | `net481;net10.0` | Local / Dedicated Server topology (CLI drives Aspire, package at `file:///`) and `TfsMigrationAgent` subprocess |
 | `AzureBlobArtefactStore` | `net10.0` only | Cloud Self-Hosted and Cloud Managed topologies — `MigrationAgent` with Azure Blob Storage |
 
 Both implementations preserve the canonical package layout. The path conventions documented in [.agents/context/migration-package-concept.md](migration-package-concept.md) and [.agents/context/workitems-format-summary.md](workitems-format-summary.md) apply identically to both.

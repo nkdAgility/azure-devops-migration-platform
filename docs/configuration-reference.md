@@ -165,7 +165,7 @@ All fields below are children of the `MigrationPlatform` root key. Keys are Pasc
 | Field | Required | Description |
 |---|---|---|
 | `ConfigVersion` | Yes | Config schema version; used by the upgrader. Current value: `"1.0"`. |
-| `Mode` | Yes | `Export`, `Prepare`, `Import`, or `Migrate` |
+| `Mode` | Yes | `Inventory`, `Dependencies`, `Export`, `Prepare`, `Import`, or `Migrate` |
 | `Package.WorkingDirectory` | Yes | Absolute or `%ENV%`-expanded path to the package root directory |
 | `Package.CreatePackage` | No | If `true`, zip/unzip the package around the run; default `false` |
 | `Source` | Required for `Export` and `Migrate`; Mode 1 inventory | Source system connection details. `Type` must be one of `AzureDevOpsServices`, `TeamFoundationServer`, or `Simulated`. |

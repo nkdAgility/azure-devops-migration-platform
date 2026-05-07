@@ -66,7 +66,7 @@ Telemetry events: Job submitted, Lease acquired, Heartbeat, Module started/compl
 
 ## Deployment
 
-- **Local:** `dotnet run -- export --config migration.json` from CLI project. No Docker/installer/manual AppHost startup required.
+- **Local:** `dotnet run -- queue --config migration.json` from CLI project. No Docker/installer/manual AppHost startup required.
 - **Cloud:** `azd up` → Container Apps + PostgreSQL Flexible Server + Blob Storage + Managed Identity + Key Vault. Not App Service or VMs.
 
 ---
