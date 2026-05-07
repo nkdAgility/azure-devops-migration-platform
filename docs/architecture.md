@@ -213,7 +213,7 @@ Because the package is a first-class artefact identified by URI, export and impo
 | Cloud → Air-gapped | Cloud | Local CLI-hosted control plane | Operator downloads package or zip, resubmits import config pointing at `file:///` URI |
 | Migrate, same environment | Same control plane for both phases | — | Control plane chains export → prepare → import internally |
 
-The package format is identical in all cases. See [docs/package-format-reference.md](packaging-zip.md) for the zip transfer mechanism.
+The package format is identical in all cases. See [docs/package-format-reference.md](package-format-reference.md) for the zip transfer mechanism.
 
 ### Progress is Event-Driven
 
@@ -308,7 +308,7 @@ flowchart LR
     end
 ```
 
-All topologies use the same orchestrator engine, the same modules, and the same cursor-based checkpoints.The package contract is identical. See [docs/cli-guide.md](cli.md), [docs/tui-guide.md](tui.md), [docs/control-plane.md](control-plane.md), and [docs/agent-hosting.md](migration-agent.md).
+All topologies use the same orchestrator engine, the same modules, and the same cursor-based checkpoints. The package contract is identical. See [docs/cli-guide.md](cli-guide.md), [docs/tui-guide.md](tui-guide.md), [docs/control-plane.md](control-plane.md), and [docs/agent-hosting.md](agent-hosting.md).
 
 Key properties:
 
@@ -386,19 +386,19 @@ Key properties:
 | 3. WorkItems on-disk layout | [.agents/context/workitems-format-summary.md](../.agents/context/workitems-format-summary.md) |
 | 4. Streaming import model | [.agents/context/import-streaming.md](../.agents/context/import-streaming.md) |
 | 5. Cursor-based checkpointing | [.agents/context/checkpointing-summary.md](../.agents/context/checkpointing-summary.md) |
-| 6. Module architecture | [docs/module-development-guide.md](modules.md) |
+| 6. Module architecture | [docs/module-development-guide.md](module-development-guide.md) |
 | 7. Identity & mapping | [.agents/context/identity-and-mapping.md](../.agents/context/identity-and-mapping.md) |
-| 8. Source types | [docs/capabilities-guide.md](source-types.md) |
-| 9. Configuration model | [docs/configuration-reference.md](configuration.md) |
-| 10. Orchestration | [docs/migration-process-guide.md](orchestration.md) |
-| 11. Zip packaging | [docs/package-format-reference.md](packaging-zip.md) |
+| 8. Source types | [docs/capabilities-guide.md](capabilities-guide.md) |
+| 9. Configuration model | [docs/configuration-reference.md](configuration-reference.md) |
+| 10. Orchestration | [docs/migration-process-guide.md](migration-process-guide.md) |
+| 11. Zip packaging | [docs/package-format-reference.md](package-format-reference.md) |
 | 12. Validation (pre-flight & post-flight) | [docs/validation.md](validation.md) |
 | 13. Artefact store abstraction | [.agents/context/artefact-store.md](../.agents/context/artefact-store.md) |
 | 14. Job contract | [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md) |
 | 15. Control plane | [docs/control-plane.md](control-plane.md) |
-| 16. Migration Agent (worker) | [docs/agent-hosting.md](migration-agent.md) |
-| 17. CLI | [docs/cli-guide.md](cli.md) |
-| 18. TUI (Terminal UI) | [docs/tui-guide.md](tui.md) |
+| 16. Migration Agent (worker) | [docs/agent-hosting.md](agent-hosting.md) |
+| 17. CLI | [docs/cli-guide.md](cli-guide.md) |
+| 18. TUI (Terminal UI) | [docs/tui-guide.md](tui-guide.md) |
 
 ## Agent Guardrails
 

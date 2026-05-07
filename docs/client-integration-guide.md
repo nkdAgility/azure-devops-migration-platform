@@ -1,20 +1,10 @@
 # Client Integration Guide
 
-> **For AI agents:** This file is the authoritative client-side API contract. Read it fully before generating any client code, UI, or integration. All MUST/MUST NOT rules are hard constraints. Reject conditions in [§12](#12-reject-conditions) are build-blocking violations — treat them the same as the rules in `/.agents/guardrails/`.
->
-> **For humans:** This guide covers everything you need to build a new interface to the migration platform — a web dashboard, a VS Code extension, a CI/CD integration, or any other client that submits jobs and monitors their progress.
+This contributor guide explains the current Control Plane client protocol for building a web dashboard, VS Code extension, CI/CD integration, or other client.
+
+Enforced client-side constraints live in [cli-tui-rules.md](../.agents/guardrails/cli-tui-rules.md) and the relevant ADRs. This guide explains the protocol and expected usage patterns.
 
 All client communication uses the **Control Plane HTTP API** exclusively. There is no SDK, no shared-memory bus, and no direct file-system access. The control plane is always the single source of truth.
-
----
-
-## Hard Guardrails
-
-- The connection flow in [§3](#3-startup-and-connection-flow) is the **only permitted startup sequence**. Any other order produces stale or empty UI state.
-- The three-channel model in [§6](#6-three-live-data-channels) is the **only permitted live-data architecture**. No new channels may be invented.
-- `ProgressEvent.Metrics` MUST NOT be read for counter display in any client. See [§6 Channel 1](#channel-1--sse-event-stream-real-time-events) for the mandatory explanation.
-- Bootstrap MUST be fetched before subscribing to SSE. `LastEventSequence` from bootstrap MUST be passed as `Last-Event-ID` on every SSE subscription.
-- Any change to the data flow MUST map to an existing section of this document. If it cannot, raise a guardrail challenge before implementing.
 
 ---
 
@@ -31,7 +21,7 @@ All client communication uses the **Control Plane HTTP API** exclusively. There 
 9. [Data Schemas](#9-data-schemas)
 10. [Complete Example Flows](#10-complete-example-flows)
 11. [Error Handling](#11-error-handling)
-12. [Reject Conditions](#12-reject-conditions)
+12. [Implementation Notes](#12-implementation-notes)
 
 ---
 
@@ -105,7 +95,7 @@ A job that exists but is not visible to the caller returns `403 Forbidden` — n
 
 ## 3. Startup and Connection Flow
 
-> **For AI agents:** This sequence is mandatory. Every step MUST execute in this order for every job view. Skipping or reordering steps produces incorrect UI state.
+This sequence is the current client contract. Execute it in this order for every job view to avoid stale or incomplete UI state.
 
 ```mermaid
 sequenceDiagram
@@ -428,7 +418,7 @@ Poll every ~5 minutes, or on-demand when a user navigates to a project detail vi
 
 ## 7. Reconnect Protocol
 
-> **For AI agents:** The reconnect sequence is identical to the startup sequence in §3 with one difference: apply bootstrap as insert-only if any in-memory state is being reused.
+The reconnect sequence is the same as the startup sequence in §3 with one extra rule: if any in-memory state is being reused, apply bootstrap as insert-only.
 
 When a client reconnects (browser tab returns, network resumes, explicit user action):
 
@@ -707,25 +697,20 @@ Accepts `?level=` filter: `Trace`, `Debug`, `Information`, `Warning`, `Error`, `
 
 ---
 
-## 12. Reject Conditions
+## 12. Implementation Notes
 
-> **For AI agents:** Any client code that violates a condition below MUST be rejected and rewritten. These are not style guidelines — they are architectural correctness requirements.
+Common client mistakes to avoid:
 
-A client implementation MUST be rejected if it:
-
-- Opens the SSE stream **before** calling `GET /jobs/{jobId}/bootstrap`
-- Omits `Last-Event-ID` on the initial SSE subscription
-- Reads counter values from `ProgressEvent.Metrics` instead of `GET /jobs/{jobId}/telemetry`
-- Treats `204 No Content` from `/telemetry` or `/snapshot` as an error condition
-- Treats `403 Forbidden` as `404 Not Found`
-- Polls `GET /jobs/{jobId}` indefinitely without a timeout or terminal-state check
-- Overwrites live SSE-sourced rows in the project table with a later bootstrap fetch (insert-only rule)
-- Invents a fourth data channel or new endpoint not listed in this document
-- Connects directly to an `IProgressSink` or in-process event bus — no such connection exists outside the Migration Agent process
-- Reads from the migration package file system directly — clients MUST use the Control Plane API only
-- Uses `ProgressEvent.Metrics` as the primary counter source (silently zeros .NET 10 jobs)
-- Stores `lastEventSequence` from a previous session and passes it without first calling bootstrap
-- Displays `JobMetrics.migration` fields for a discovery job or `JobMetrics.discovery` fields for a migration job (exactly one is non-null per job)
+- opening SSE before calling `GET /jobs/{jobId}/bootstrap`
+- reading counter values from `ProgressEvent.Metrics` instead of `GET /jobs/{jobId}/telemetry`
+- treating `204 No Content` from `/telemetry` or `/snapshot` as a failure instead of an empty current snapshot
+- treating `403 Forbidden` as if the job does not exist
+- polling `GET /jobs/{jobId}` indefinitely without a timeout or terminal-state check
+- overwriting live SSE-sourced project rows with a later bootstrap fetch
+- inventing a fourth live-data channel instead of using bootstrap, telemetry polling, and SSE
+- attempting to connect directly to an in-process sink or read package files instead of using the Control Plane API
+- reusing a stale `lastEventSequence` from an earlier session without first fetching bootstrap
+- showing `JobMetrics.migration` values for discovery jobs or `JobMetrics.discovery` values for migration jobs
 
 ---
 
@@ -734,7 +719,7 @@ A client implementation MUST be rejected if it:
 | Document | Purpose |
 |---|---|
 | [docs/control-plane.md](control-plane.md) | Full API surface, authentication, data store, and authorisation rules |
-| [docs/cli-guide.md](cli.md) | CLI implementation — reference client using this flow |
-| [docs/tui-guide.md](tui.md) | TUI implementation — reference client using this flow |
+| [docs/cli-guide.md](cli-guide.md) | CLI implementation — reference client using this flow |
+| [docs/tui-guide.md](tui-guide.md) | TUI implementation — reference client using this flow |
 | [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md) | Job definition schema and field semantics |
 | [.agents/context/telemetry-model.md](../.agents/context/telemetry-model.md) | Three-channel model — agent-side contract |

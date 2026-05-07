@@ -560,6 +560,6 @@ Non-resume callers retain the existing traversal behavior.
 - `DevOpsMigrationPlatform.Infrastructure.Export.WorkItemExportOrchestrator` — the canonical export implementation
 - `DevOpsMigrationPlatform.Infrastructure.Modules.WorkItemsModule` — the module that uses the orchestrator
 - `DevOpsMigrationPlatform.Abstractions.Services.IWorkItemRevisionSource` — the source interface
-- [docs/module-development-guide.md](modules.md) — module architecture and module contract
+- [docs/module-development-guide.md](module-development-guide.md) — module architecture and module contract
 - [.agents/context/workitems-format-summary.md](../.agents/context/workitems-format-summary.md) — on-disk format specification
 - [.agents/context/import-streaming.md](../.agents/context/import-streaming.md) — import streaming semantics (future)

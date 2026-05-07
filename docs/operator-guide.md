@@ -2,7 +2,7 @@
 
 This guide is for migration operators — people who configure, run, monitor, and troubleshoot migrations using the Azure DevOps Migration Platform. It covers everything from first config to production troubleshooting.
 
-For architecture internals, see [architecture.md](architecture.md). For module developer details, see [modules.md](modules.md).
+For architecture internals, see [architecture.md](architecture.md). For module developer details, see [module-development-guide.md](module-development-guide.md).
 
 ---
 

@@ -604,8 +604,8 @@ If the system was previously built without Aspire:
 ## See Also
 
 - [Control Plane](control-plane.md) — API contract and responsibilities
-- [Migration Agent](migration-agent.md) — Worker execution model
-- [TUI](tui.md) — Terminal UI progress display
-- [CLI](cli.md) — Command-line interface and job submission
-- [Configuration](configuration.md) — Config schema and validation
+- [Migration Agent](agent-hosting.md) — Worker execution model
+- [TUI](tui-guide.md) — Terminal UI progress display
+- [CLI](cli-guide.md) — Command-line interface and job submission
+- [Configuration](configuration-reference.md) — Config schema and validation
 - [Artefact Store](../.agents/context/artefact-store.md) — Storage abstraction and URI schemes

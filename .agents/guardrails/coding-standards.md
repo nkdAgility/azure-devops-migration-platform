@@ -263,7 +263,7 @@ See [`coding-standards-examples.md`](coding-standards-examples.md) for SDK abstr
 
 ## Documentation
 
-- ADRs MUST be created in `/docs/decisions/` for significant design decisions.
+- ADRs MUST be created in `/docs/adr/` for significant design decisions.
 - All `Abstractions` interfaces MUST have XML doc-comments describing contract semantics.
 - Feature files in `features/` MUST be kept in sync with implementation.
 - `.agents/context/` files MUST be updated when the corresponding implementation changes.

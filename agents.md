@@ -144,112 +144,35 @@ After completing any unit of work (a logical change, a file edit, a task), befor
    - Job/agent changes → re-read `.agents/context/job-lifecycle.md`
    - Settings/config changes → re-read `docs/configuration-reference.md`
 2. **Check each change against the docs line by line.** Ask:
-   - Does the implementation match what the documentation specifies?
-   - Does it add anything not documented (parameters, options, commands, behaviour)?
-   - Does it omit anything the documentation requires?
-3. **If any non-compliance is found**, fix it immediately and repeat from step 1.
-4. **Only when the review loop finds zero violations** may the task be declared complete.
+This file is the entry point, not the rule source. The non-negotiable constraints live in:
 
-**This loop is mandatory. A task is not done until the compliance review passes with no findings.**
-**A change that adds undocumented parameters, options, commands, or behaviour = non-compliant. Fix before declaring done.**
-
-## Structured Workflows
-
-Use SpecKit agents (`.github/agents/speckit.*.agent.md`) for specification, planning, and implementation workflows. Use session skills (`.agents/skills/*/SKILL.md`) for ATDD lifecycle, architecture checks, and doc updates.
+- `/.agents/guardrails/architecture-boundaries.md`
+- `/.agents/guardrails/migration-rules.md`
+- `/.agents/guardrails/workitems-rules.md`
+- `/.agents/guardrails/package-rules.md`
+- `/.agents/guardrails/control-plane-rules.md`
+- `/.agents/guardrails/cli-tui-rules.md`
+- `/.agents/guardrails/coding-standards.md`
+- `/.agents/guardrails/module-rules.md`
+- `/.agents/guardrails/connector-rules.md`
+- `/.agents/guardrails/observability-requirements.md`
+- `/.agents/guardrails/security-rules.md`
+- `/.agents/guardrails/data-sovereignty-rules.md`
+- `/.agents/guardrails/configuration-rules.md`
+- `/.agents/guardrails/definition-of-done.md`
 
 All Gherkin `.feature` files live under `/features/` (organised by `cli/`, `export/`, `import/`, `inventory/`, `platform/`, `services/`). Code that conflicts with feature files must be rejected.
 
 ---
 
-# 🔒 Non-Negotiable Summary
+Reject any proposal that violates a guardrail or ADR. Common instant-reject areas:
 
-1. Pipeline phases are: **Inventory → Export → Prepare → Import → Validate** (each independent, or chained via Migrate).
-2. Export auto-runs Inventory if inventory artefacts are missing. Import auto-runs Prepare if prepare artefacts are missing.
-3. WorkItems layout is canonical and chronological.
-4. Import must be streaming and memory-safe.
-5. Resume must use cursor-based checkpointing.
-6. Attachments must live beside revision.json.
-7. No direct Source → Target migration.
-8. Modules must be isolated.
-9. All persistence goes through IArtefactStore and IStateStore.
-10. Determinism is mandatory.
+- architecture bypasses: direct Source → Target flow, package writes outside the agent boundary, control-plane migration execution, custom work item loops, or in-memory sorting/buffering that breaks streaming
+- quality and completion bypasses: stubs in reachable code, ignored or inconclusive tests, missing build/test/scenario validation, or missing required doc updates
+- observability and UI bypasses: missing O-1..O-5 instrumentation or any CLI/TUI path that reads counters from in-process sinks instead of the Control Plane API
+- connector or module shortcuts: placeholder connectors, fake SDK integrations, zero-item simulated sources, or tests that only assert "no exception"
 
-Detailed logic is in `/.agents/guardrails`.
-
----
-
-# 🚨 Reject Conditions
-
-Reject any proposal that:
-
-- Breaks chronological folder ordering.
-- Introduces global attachment storage.
-- Requires loading all revisions into memory.
-- Adds hidden state outside `.migration/Checkpoints/`.
-- Couples modules directly.
-- Performs live streaming migration.
-- Violates coding standards.
-- Adds migration execution logic to the control plane.
-- References a concrete artefact store implementation inside module code.
-- Sorts `EnumerateAsync` results in memory.
-- Creates agent rule files under `/docs` instead of `/.agents/guardrails`.
-- **Implements a custom work item export/import loop instead of using `WorkItemExportOrchestrator` and `IWorkItemRevisionSource`** (see [docs/work-item-iteration-guide.md](docs/work-item-iteration-guide.md)).
-- **Implements custom progress tracking instead of using `ICheckpointingService` with cursor-based state in `IStateStore`** (watermark tables, in-memory dictionaries, and progress databases are forbidden).
-- **Implements custom enumeration or sorting logic instead of using `IArtefactStore.EnumerateAsync()` in lexicographic order** (no in-memory result sets, no custom sorting).
-- **Buffers attachments or binary data in memory instead of streaming via `IArtefactStore.WriteBinaryAsync()` or `IAttachmentBinarySource`**.
-- **Invents a new abstraction for work item processing without extending an existing pattern or documenting why no existing abstraction could be reused** (motivated by rule 21 of [.agents/guardrails/architecture-boundaries.md](.agents/guardrails/architecture-boundaries.md)).
-- **Logs a field value, project name, org URL, or attachment path without a `DataClassification.Customer` scope** (see [docs/configuration-reference.md — Data Classification](docs/configuration-reference.md#data-classification)). Work item IDs are integer identifiers, not customer data.
-- **Writes to the working directory or package files from any component other than the Migration Agent or TFS Export Agent** — the CLI, TUI, Control Plane, and ControlPlaneHost have no write access to the package (data residency requirement; see [docs/architecture.md — Data Residency](docs/architecture.md#data-residency--agent-only-write-access) and rule 23 of [.agents/guardrails/architecture-boundaries.md](.agents/guardrails/architecture-boundaries.md)).
-- Leaves any `throw new NotImplementedException()` or `throw new NotSupportedException("... not yet implemented")` in any reachable code path — ephemeral stubs are only permitted within a single session and must be replaced before the task is marked complete.
-- Leaves any `Assert.Inconclusive()` in a test — `Inconclusive` is treated as a build-breaking error. Either implement the assertion or delete the test.
-- Commits code containing `@ignore` (Gherkin) or `[Ignore]` (MSTest) — these markers may only be used temporarily within a session for isolation; they must be removed before done.
-- Declares a task complete without a passing `dotnet clean && dotnet build --no-incremental`.
-- Declares a task complete without all tests passing (`dotnet test`).
-- Creates a new `.cs` file without the correct SPDX header block (enforced by SA1633 as a build error):
-  - **All assemblies** (default):
-    ```
-    // SPDX-License-Identifier: AGPL-3.0-only
-    // Copyright (c) Naked Agility Limited
-    ```
-  - **`DevOpsMigrationPlatform.Proprietary.*` assemblies** only:
-    ```
-    // SPDX-License-Identifier: LicenseRef-NakedAgility-Separate
-    // Copyright (c) Naked Agility Limited
-    ```
-- Declares a task complete without running at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `launch.json` debug profile and verifying observable output.
-- Marks a spec's last task `[X]` without all items in `specs/<feature>/discrepancies.md` being `Resolved` or `N/A`.
-- Closes a spec branch without reviewing and updating `analysis/pending-actions.md`.
-- Implements a feature for one connector (Simulated, AzureDevOps, or TFS) while leaving stubs or placeholders in the others where the API supports the capability.
-- Defers a connector implementation to a follow-up PR or future task.
-- Declares done without updating every canonical doc named in any doc-task in `tasks.md`.
-- **Writes a module or tool without O-1 activity spans** — every operation MUST create an `ActivitySource.StartActivity` span with meaningful tags.
-- **Writes a module or tool without O-2 business metrics** — every operation MUST call `IMigrationMetrics` for attempt, completion, error, duration, and in-flight.
-- **Writes a module or tool without O-3 structured logging** — every operation MUST log at `Information` on start/end, `Warning` on skips/errors, `Debug` for per-item detail.
-- **Writes a module or tool without O-4 ProgressEvent emission** — `IProgressSink` MUST be injected (optional) and `ProgressEvent` MUST be emitted at start, per item (or per ≤50 batch), and completion with `Metrics.Migration.{ModuleName}` populated.
-- **Writes a module or tool without O-5 per-batch fetch progress** — every call to `DiscoverWorkItemsAsync`, `CountWorkItemsAsync`, or any `IWorkItemFetchService` method MUST pass a non-null `IProgress<int>` callback wired to `IProgressSink.Emit`. Passing `null` (except at documented exception call sites such as `InventoryService`) is a violation.
-- **Adds a module counter to `MigrationCounters` without a corresponding row in `QueueCommand.BuildProgressRenderable`** — every module counter added to the DTO MUST be rendered in the CLI progress display in correct execution order (Identities → Nodes → Teams → WorkItems).
-- **Wires `QueueCommand.BuildProgressRenderable` to an in-process `IProgressSink` or any source other than the ControlPlane API** — the CLI progress display MUST read aggregate counters from `GET /jobs/{id}/telemetry` (Channel 2 — `JobMetrics` polling) AND real-time stage/cursor updates from `GET /jobs/{id}/progress?follow=true` (Channel 1 — SSE). `ProgressEvent.Metrics` is populated only by the TFS subprocess (net481); for .NET 10 agents it is always null. CLI code that reads metrics from `ProgressEvent.Metrics` instead of the telemetry endpoint will silently display zeros for all .NET 10 jobs.
-- **Wires the TUI to an in-process `IProgressSink` or any source other than the ControlPlane API** — the TUI Metrics panel MUST poll `GET /jobs/{jobId}/telemetry`; the Progress table and Log panel MUST subscribe to `GET /jobs/{jobId}/progress?follow=true` and `GET /jobs/{jobId}/diagnostics?follow=true` respectively. No direct sink wiring is permitted in TUI code.
-- **Ships an export module whose `SystemTest_Simulated` only asserts that no exception was thrown** — every export test MUST assert that the expected artefact path exists in `IArtefactStore` AND contains non-trivially non-empty content (line count > 0 or byte count > 0). A test that only checks `Assert.IsNotNull(result)` or does not assert artefact content is a failing test.
-- **Ships an import module whose `SystemTest_Simulated` only asserts that no exception was thrown** — every import test MUST assert that the target connector received data (e.g., `SimulatedTeamTarget.Teams.Count > 0`, `SimulatedNodeTarget.NodesCreated > 0`). Asserting count `>= 0` is always true and is forbidden.
-- **Ships a Simulated connector that returns an empty collection** — a `Simulated*Source` MUST yield at least 2 items per operation. A zero-item source silently makes every downstream test vacuously pass. Unit tests MUST assert `count > 0`.
-- **Ships a module that silently completes with count=0 when enabled** — if `ExportAsync` or `ImportAsync` completes with an item count of zero and the module is enabled, the module MUST emit a structured `Warning` log. A silent zero-count completion is indistinguishable from a fake implementation and is forbidden.
-- **Ships an ADO connector method that never calls the SDK** — every method in an `AzureDevOps*` connector MUST invoke at least one method on a client obtained from `IAzureDevOpsClientFactory`. An implementation that only logs "connected" or returns a hard-coded result without calling the SDK is a fake.
-- **Uses `Assert.IsTrue(count >= 0)` or `Assert.IsTrue(true)` as the sole assertion in a test** — these patterns assert nothing about functional output. They are forbidden in any test for a module or connector.
----
-
-# 🧭 Development Flow
-
-When implementing:
-
-1. Read relevant `/docs` file.
-2. Apply constraints from `/.agents/guardrails`.
-3. Implement via module abstraction.
-4. Add tests.
-5. Update schemas if required.
-6. Run `dotnet clean && dotnet build --no-incremental` — MUST pass before the task is considered complete.
-7. Run `dotnet test` — ALL tests MUST pass before the task is considered complete.
-8. Run at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile — MUST execute without errors and produce expected output before the task is considered complete.
+Use the owning guardrail file for exact rejection logic.
 
 ---
 
@@ -258,9 +181,3 @@ When implementing:
 `/docs` explains the architecture.
 `/.agents/guardrails` enforces the architecture.
 `agents.md` binds the two.
-
-Preserve:
-- Determinism
-- Streaming
-- Portability
-- Clarity
