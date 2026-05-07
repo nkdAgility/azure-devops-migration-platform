@@ -1289,6 +1289,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     Nodes = inMig?.Nodes ?? exMig?.Nodes,
                     Identities = inMig?.Identities ?? exMig?.Identities,
                     Diagnostics = inMig?.Diagnostics ?? exMig?.Diagnostics,
+                    DependencyCapture = inMig?.DependencyCapture ?? exMig?.DependencyCapture,
                 },
                 Scope = incoming.Scope ?? existing?.Scope ?? new JobScopeCounters(),
             });
@@ -1347,7 +1348,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             s.Metrics?.Migration?.Teams,
             s.Metrics?.Migration?.Nodes,
             s.Metrics?.Migration?.Identities,
-            s.TeamsCount, s.NodesCount, s.IdentitiesCount);
+            s.TeamsCount, s.NodesCount, s.IdentitiesCount,
+            s.Metrics?.Migration?.DependencyCapture);
     }
 
     /// <summary>
@@ -1733,7 +1735,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         TeamsCounters? teams = null,
         NodesCounters? nodes = null,
         IdentitiesCounters? identities = null,
-        int teamsCount = 0, int nodesCount = 0, int identitiesCount = 0)
+        int teamsCount = 0, int nodesCount = 0, int identitiesCount = 0,
+        DependencyCounters? dependencyCapture = null)
     {
         const int BarWidth = 38;
         int processed = completed + skipped;
@@ -1920,7 +1923,29 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             teamsRow = new Markup($"[bold]Teams[/]{tmCheck}  [{tmBarColor}]{Markup.Escape(tmBar)}[/]{tmCounts}");
         }
 
-        var dependenciesRow = new Markup("[bold]Dependencies[/]  [grey]─[/]");
+        // ── Row 0: dependency capture ─────────────────────────────────────────────────
+        IRenderable dependenciesRow;
+        {
+            if (dependencyCapture is not null)
+            {
+                var depBar = new string('━', BarWidth);
+                var depCounts = (dependencyCapture.WorkItemsAnalysed > 0
+                        ? $"  [bold]{dependencyCapture.WorkItemsAnalysed:N0}[/][grey] analysed[/]"
+                        : string.Empty)
+                    + (dependencyCapture.ExternalLinksFound > 0
+                        ? $"  [bold]{dependencyCapture.ExternalLinksFound:N0}[/][grey] links[/]"
+                        : string.Empty)
+                    + (dependencyCapture.CrossProjectLinks > 0
+                        ? $"  [grey]{dependencyCapture.CrossProjectLinks:N0} cross-project[/]"
+                        : string.Empty);
+                dependenciesRow = new Markup($"[bold]Dependencies[/] [green]✓[/]  [green]{Markup.Escape(depBar)}[/]{depCounts}");
+            }
+            else
+            {
+                dependenciesRow = new Markup("[bold]Dependencies[/]  [grey]─[/]");
+            }
+        }
+
         return new Rows(dependenciesRow, nodesRow, teamsRow, identitiesRow, wiRow, revRow, timingRow, attachmentRow, checkpointRow);
     }
 

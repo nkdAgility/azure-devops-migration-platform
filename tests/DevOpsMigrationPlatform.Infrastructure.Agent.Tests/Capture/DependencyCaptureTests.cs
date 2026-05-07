@@ -334,11 +334,8 @@ public sealed class DependencyCaptureTests
     }
 
     // ── T044 — O-3 Log assertions ──────────────────────────────────────────
-    // TODO: [test-validity] Score 14/25 — Weak assertions: Times.AtLeast(2) with loose string-contains on OrgUrl.
-    // Rewrite: assert that structured log parameters include OrgUrl AND Project as named parameters,
-    // and that a second LogInformation call includes DurationMs as a parameter > 0.
     [TestMethod]
-    public async Task CaptureAsync_O3_SuccessPath_LogsStartAndCompletion()
+    public async Task CaptureAsync_O3_SuccessPath_LogsStartAndCompletionWithStructuredParams()
     {
         var logger = new Mock<ILogger<DependencyCapture>>();
 
@@ -362,31 +359,42 @@ public sealed class DependencyCaptureTests
         var capture = new DependencyCapture(factory.Object, orchestrator.Object, logger.Object);
         await capture.CaptureAsync(CreateContext(), CancellationToken.None);
 
-        // Verify at least two LogInformation calls (start + completion)
+        // Start log: structured params must include Org=OrgUrl and Project=Project
         logger.Verify(
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains(OrgUrl)),
+                It.Is<It.IsAnyType>((v, _) => LogStateHasOrgAndProject(v)),
                 It.IsAny<Exception?>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.AtLeastOnce());
+            Times.AtLeastOnce(),
+            "Start log must carry Org and Project as structured parameters");
 
+        // Completion log: must include DurationMs (>= 0 double)
         logger.Verify(
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, _) => true),
+                It.Is<It.IsAnyType>((v, _) => LogStateHasDurationMs(v)),
                 It.IsAny<Exception?>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.AtLeast(2));
+            Times.Once,
+            "Completion log must carry DurationMs as a structured parameter");
+
+        // Total: exactly 2 Information calls (start + completion)
+        logger.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.IsAny<It.IsAnyType>(),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Exactly(2),
+            "Expected exactly 2 LogInformation calls: start and completion");
     }
 
-    // TODO: [test-validity] Score 13/25 — Times.AtLeastOnce only. Rewrite to assert:
-    // (1) LogLevel.Error called exactly once; (2) the structured log state contains ErrorType and ErrorMessage
-    // as named parameters so log aggregators can group by error type.
     [TestMethod]
-    public async Task CaptureAsync_O3_FailurePath_LogsError()
+    public async Task CaptureAsync_O3_FailurePath_LogsErrorWithStructuredParams()
     {
         var logger = new Mock<ILogger<DependencyCapture>>();
 
@@ -412,14 +420,40 @@ public sealed class DependencyCaptureTests
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => capture.CaptureAsync(CreateContext(), CancellationToken.None));
 
+        // Error log must be called exactly once with Org, Project, ErrorType, ErrorMessage as named params
         logger.Verify(
             x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, _) => true),
+                It.Is<It.IsAnyType>((v, _) => LogStateHasErrorParams(v)),
                 It.IsAny<Exception?>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.AtLeastOnce());
+            Times.Once,
+            "LogError must be called exactly once with Org, Project, ErrorType, and ErrorMessage structured params");
+    }
+
+    private static bool LogStateHasOrgAndProject(object v)
+    {
+        var state = v as IReadOnlyList<KeyValuePair<string, object?>>;
+        return state != null
+            && state.Any(kv => kv.Key == "Org" && kv.Value?.ToString() == OrgUrl)
+            && state.Any(kv => kv.Key == "Project" && kv.Value?.ToString() == Project);
+    }
+
+    private static bool LogStateHasDurationMs(object v)
+    {
+        var state = v as IReadOnlyList<KeyValuePair<string, object?>>;
+        return state != null && state.Any(kv => kv.Key == "DurationMs" && kv.Value is double d && d >= 0);
+    }
+
+    private static bool LogStateHasErrorParams(object v)
+    {
+        var state = v as IReadOnlyList<KeyValuePair<string, object?>>;
+        return state != null
+            && state.Any(kv => kv.Key == "Org" && kv.Value?.ToString() == OrgUrl)
+            && state.Any(kv => kv.Key == "Project" && kv.Value?.ToString() == Project)
+            && state.Any(kv => kv.Key == "ErrorType" && kv.Value?.ToString() == nameof(InvalidOperationException))
+            && state.Any(kv => kv.Key == "ErrorMessage" && kv.Value?.ToString() == "sim error");
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────

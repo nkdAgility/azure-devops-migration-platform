@@ -6,6 +6,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
@@ -14,9 +17,12 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -449,6 +455,127 @@ public sealed class JobPlanExecutorTests
         Assert.AreEqual("WorkItems", exportCalled[0]);
     }
 
+    // ── T013: GetModuleName extraction for capture tasks ──────────────────────
+
+    /// <summary>
+    /// "capture.workitems.org.project" must route to the handler named "workitems".
+    /// Validates GetModuleName extracts the second dot-segment (index 1) correctly.
+    /// </summary>
+    [TestMethod]
+    public async Task ExecuteTasksAsync_CaptureTask_WorkitemsId_RoutesToWorkitemsHandler()
+    {
+        var invoked = false;
+        var captureHandler = new Mock<ICapture>(MockBehavior.Strict);
+        captureHandler.SetupGet(c => c.Name).Returns("workitems");
+        captureHandler.Setup(c => c.CaptureAsync(It.IsAny<InventoryContext>(), It.IsAny<CancellationToken>()))
+            .Callback(() => invoked = true)
+            .Returns(Task.CompletedTask);
+
+        var handlers = new Dictionary<string, ICapture>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["workitems"] = captureHandler.Object
+        };
+
+        var plan = CreatePlan(new[]
+        {
+            CreateTask("capture.workitems.testorg.testproject", "WorkItems Capture", "Capture")
+        });
+
+        var executor = CreateExecutor();
+        var stateStore = new InMemoryStateStore();
+        var ctx = CreateMinimalInventoryContext(stateStore);
+
+        var result = await executor.ExecuteTasksAsync(
+            plan, handlers,
+            new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
+            ctx, null, null, null, stateStore, CancellationToken.None);
+
+        Assert.IsTrue(result, "ExecuteTasksAsync should succeed when handler is found");
+        Assert.IsTrue(invoked, "Handler named 'workitems' must be invoked for task 'capture.workitems.org.project'");
+    }
+
+    /// <summary>
+    /// "capture.dependencies.org.project" must route to the handler named "dependencies".
+    /// Validates GetModuleName extracts the second dot-segment (index 1) correctly.
+    /// </summary>
+    [TestMethod]
+    public async Task ExecuteTasksAsync_CaptureTask_DependenciesId_RoutesToDependenciesHandler()
+    {
+        var invoked = false;
+        var captureHandler = new Mock<ICapture>(MockBehavior.Strict);
+        captureHandler.SetupGet(c => c.Name).Returns("dependencies");
+        captureHandler.Setup(c => c.CaptureAsync(It.IsAny<InventoryContext>(), It.IsAny<CancellationToken>()))
+            .Callback(() => invoked = true)
+            .Returns(Task.CompletedTask);
+
+        var handlers = new Dictionary<string, ICapture>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["dependencies"] = captureHandler.Object
+        };
+
+        var plan = CreatePlan(new[]
+        {
+            CreateTask("capture.dependencies.testorg.testproject", "Dependencies Capture", "Capture")
+        });
+
+        var executor = CreateExecutor();
+        var stateStore = new InMemoryStateStore();
+        var ctx = CreateMinimalInventoryContext(stateStore);
+
+        var result = await executor.ExecuteTasksAsync(
+            plan, handlers,
+            new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
+            ctx, null, null, null, stateStore, CancellationToken.None);
+
+        Assert.IsTrue(result, "ExecuteTasksAsync should succeed when handler is found");
+        Assert.IsTrue(invoked, "Handler named 'dependencies' must be invoked for task 'capture.dependencies.org.project'");
+    }
+
+    /// <summary>
+    /// When no capture handler matches the task's module name, the executor must log
+    /// an Error with {TaskId} and {HandlerName} structured parameters and skip the task
+    /// without throwing.
+    /// </summary>
+    [TestMethod]
+    public async Task ExecuteTasksAsync_CaptureTask_NoMatchingHandler_LogsErrorAndSkipsWithoutThrowing()
+    {
+        var mockLogger = new Mock<ILogger<JobPlanExecutor>>(MockBehavior.Loose);
+        var executor = CreateExecutorWithLogger(mockLogger.Object);
+
+        var plan = CreatePlan(new[]
+        {
+            CreateTask("capture.dependencies.testorg.testproject", "Dependencies Capture", "Capture")
+        });
+
+        var stateStore = new InMemoryStateStore();
+
+        var result = await executor.ExecuteTasksAsync(
+            plan,
+            new Dictionary<string, ICapture>(StringComparer.OrdinalIgnoreCase),
+            new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
+            null, null, null, null, stateStore, CancellationToken.None);
+
+        Assert.IsTrue(result, "ExecuteTasksAsync should still return true when a handler is missing (task is skipped, not failed)");
+
+        mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, _) => LogStateHasTaskIdAndHandlerName(v)),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once,
+            "LogError must be called exactly once with {TaskId} and {HandlerName} structured parameters");
+    }
+
+    private static bool LogStateHasTaskIdAndHandlerName(object v)
+    {
+        var state = v as IReadOnlyList<KeyValuePair<string, object?>>;
+        return state != null
+            && state.Any(kv => kv.Key == "TaskId" && kv.Value?.ToString() == "capture.dependencies.testorg.testproject")
+            && state.Any(kv => kv.Key == "HandlerName" && kv.Value?.ToString() == "dependencies");
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static JobPlanExecutor CreateExecutor()
@@ -456,6 +583,24 @@ public sealed class JobPlanExecutorTests
         var progressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object;
         return new JobPlanExecutor(progressSink, NullLogger<JobPlanExecutor>.Instance);
     }
+
+    private static JobPlanExecutor CreateExecutorWithLogger(ILogger<JobPlanExecutor> logger)
+    {
+        var progressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object;
+        return new JobPlanExecutor(progressSink, logger);
+    }
+
+    private static InventoryContext CreateMinimalInventoryContext(IStateStore? stateStore = null)
+        => new()
+        {
+            Job = new Job { JobId = "test-job" },
+            ArtefactStore = new Mock<IArtefactStore>(MockBehavior.Loose).Object,
+            StateStore = stateStore ?? new InMemoryStateStore(),
+            SourceEndpoint = new OrganisationEndpoint(),
+            Project = string.Empty,
+            Organisations = Array.AsReadOnly(Array.Empty<ScopedOrganisationEndpoint>()),
+            Policies = new JobPolicies()
+        };
 
     private static JobTaskList CreatePlan(IEnumerable<JobTask> tasks)
     {

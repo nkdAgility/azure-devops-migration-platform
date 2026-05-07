@@ -112,7 +112,7 @@ public sealed class SimulatedDependencyDiscoveryServiceFactoryTests
             events.Add(evt);
         }
 
-        // Simulated returns no links regardless — just verify it doesn't crash
-        Assert.IsNotNull(events);
+        // Simulated returns no links regardless of project scope; verify count rather than null-check
+        Assert.AreEqual(0, events.Count, "Simulated factory CreateForProject must complete without throwing and yield no link events");
     }
 }
