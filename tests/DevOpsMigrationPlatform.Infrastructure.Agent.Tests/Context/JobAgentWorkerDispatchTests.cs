@@ -365,6 +365,133 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestMethod]
+    public async Task OnJobAsync_Inventory_WhenInventoryPlanSucceeds_WritesInventoryCompletionMarker()
+    {
+        _plan = new JobTaskList
+        {
+            Tasks = new List<JobTask>
+            {
+                new()
+                {
+                    Id = "capture.workitems.simulated.sourceproject",
+                    Name = "WorkItems Capture",
+                    TaskKind = TaskKind.Capture,
+                    ProjectName = "SourceProject",
+                    Order = 0,
+                    Status = JobTaskStatus.Pending,
+                    DependsOn = Array.Empty<string>()
+                },
+                new()
+                {
+                    Id = "analyse.inventory",
+                    Name = "Inventory Analyse",
+                    TaskKind = TaskKind.Analyse,
+                    Order = 1,
+                    Status = JobTaskStatus.Pending,
+                    DependsOn = new[] { "capture.workitems.simulated.sourceproject" }
+                }
+            }.AsReadOnly()
+        };
+
+        _planBuilder
+            .Setup(builder => builder.BuildAndSaveAsync(
+                It.IsAny<IConfiguration>(),
+                It.IsAny<JobKind>(),
+                It.IsAny<IArtefactStore>(),
+                It.IsAny<IStateStore>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_plan);
+
+        var worker = CreateWorker();
+        var job = CreateJob(JobKind.Inventory);
+
+        await JobAgentWorkerTestHelper.InvokeJobAsync(
+            worker,
+            job,
+            CreateControlPlaneClient(),
+            "lease-inventory",
+            CancellationToken.None);
+
+        _stateStore.Verify(
+            store => store.WriteAsync(
+                PackagePaths.InventoryCompleteFile,
+                It.Is<string>(value =>
+                    value.Contains("\"phase\":\"Inventory\"", StringComparison.Ordinal) &&
+                    value.Contains("\"jobId\":\"job-Inventory\"", StringComparison.Ordinal)),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [TestMethod]
+    public async Task OnJobAsync_Export_WhenExportPhaseFails_DoesNotWriteInventoryCompletionMarker()
+    {
+        _plan = new JobTaskList
+        {
+            Tasks = new List<JobTask>
+            {
+                new()
+                {
+                    Id = "analyse.inventory",
+                    Name = "Inventory Analyse",
+                    TaskKind = TaskKind.Analyse,
+                    Order = 0,
+                    Status = JobTaskStatus.Pending,
+                    DependsOn = Array.Empty<string>()
+                },
+                new()
+                {
+                    Id = "export.workitems.simulated.sourceproject",
+                    Name = "WorkItems Export",
+                    TaskKind = TaskKind.Export,
+                    Phase = "Export",
+                    ProjectName = "SourceProject",
+                    Order = 1,
+                    Status = JobTaskStatus.Pending,
+                    DependsOn = new[] { "analyse.inventory" }
+                }
+            }.AsReadOnly()
+        };
+
+        _planBuilder
+            .Setup(builder => builder.BuildAndSaveAsync(
+                It.IsAny<IConfiguration>(),
+                It.IsAny<JobKind>(),
+                It.IsAny<IArtefactStore>(),
+                It.IsAny<IStateStore>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_plan);
+
+        _planExecutor
+            .Setup(executor => executor.ExecuteExportPhaseAsync(
+                It.IsAny<JobTaskList>(),
+                It.IsAny<IReadOnlyDictionary<string, IModule>>(),
+                It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
+                It.IsAny<InventoryContext?>(),
+                It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
+                It.IsAny<ExportContext>(),
+                It.IsAny<IStateStore>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var worker = CreateWorker();
+        var job = CreateJob(JobKind.Export);
+
+        await JobAgentWorkerTestHelper.InvokeJobAsync(
+            worker,
+            job,
+            CreateControlPlaneClient(),
+            "lease-export-fail",
+            CancellationToken.None);
+
+        _stateStore.Verify(
+            store => store.WriteAsync(
+                PackagePaths.InventoryCompleteFile,
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [TestMethod]
     public async Task OnJobAsync_UnknownKind_FailsWithoutRunningPlanExecutor()
     {
         var worker = CreateWorker();

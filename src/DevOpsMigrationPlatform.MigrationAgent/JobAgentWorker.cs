@@ -276,6 +276,20 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         return true;
     }
 
+    private static bool PlanMaterializesInventorySnapshot(JobTaskList plan)
+        => plan.Tasks.Any(task => task.Id.Equals("analyse.inventory", StringComparison.OrdinalIgnoreCase));
+
+    private static Task WriteInventoryCompletionMarkerAsync(Job job, IStateStore stateStore, CancellationToken ct)
+        => stateStore.WriteAsync(
+            PackagePaths.InventoryCompleteFile,
+            JsonSerializer.Serialize(new
+            {
+                phase = "Inventory",
+                completedAtUtc = DateTimeOffset.UtcNow,
+                jobId = job.JobId,
+            }),
+            ct);
+
     private sealed record ExplicitSourceEndpointInfo(
         string Url,
         string Project,
@@ -602,6 +616,11 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     baseInventoryContext, baseExportContext: null, importContext: null,
                     endpointsByUrl, stateStore, ct).ConfigureAwait(false);
 
+                if (inventoryOk && PlanMaterializesInventorySnapshot(executionPlan))
+                {
+                    await WriteInventoryCompletionMarkerAsync(job, stateStore, ct).ConfigureAwait(false);
+                }
+
                 failed = !inventoryOk;
             }
             else
@@ -647,6 +666,11 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                         exportContext,
                         stateStore,
                         ct).ConfigureAwait(false);
+
+                    if (exportOk && PlanMaterializesInventorySnapshot(executionPlan))
+                    {
+                        await WriteInventoryCompletionMarkerAsync(job, stateStore, ct).ConfigureAwait(false);
+                    }
 
                     failed = !exportOk;
 
@@ -881,6 +905,12 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                         discoveryPlan, captureHandlersByName, depAnalysersByName,
                         baseInventoryContext, baseExportContext: null, importContext: null,
                         endpointsByUrl, stateStore, ct).ConfigureAwait(false);
+
+                    if (depsOk && PlanMaterializesInventorySnapshot(discoveryPlan))
+                    {
+                        await WriteInventoryCompletionMarkerAsync(job, stateStore, ct).ConfigureAwait(false);
+                    }
+
                     failed = !depsOk;
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)

@@ -23,7 +23,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Inventory;
 public sealed class InventoryOrchestratorTests
 {
     [TestMethod]
-    public async Task RunAsync_WhenInventoryCompletes_WritesInventoryCompletionMarker()
+    public async Task RunAsync_WhenInventoryCompletes_DoesNotWriteInventoryCompletionMarker()
     {
         var artefactStore = new Mock<IArtefactStore>(MockBehavior.Loose);
         var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
@@ -51,11 +51,9 @@ public sealed class InventoryOrchestratorTests
         stateStore.Verify(
             store => store.WriteAsync(
                 PackagePaths.InventoryCompleteFile,
-                It.Is<string>(value =>
-                    value.Contains("\"phase\":\"Inventory\"", StringComparison.Ordinal) &&
-                    value.Contains("\"jobId\":\"job-inventory\"", StringComparison.Ordinal)),
+                It.IsAny<string>(),
                 It.IsAny<CancellationToken>()),
-            Times.Once);
+            Times.Never);
     }
 
     private static async IAsyncEnumerable<InventoryProgressEvent> GetEvents([EnumeratorCancellation] CancellationToken ct = default)

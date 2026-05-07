@@ -49,8 +49,6 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
 
     private static string JsonOutputPath => "inventory.json";
 
-    private static string InventoryCompletionMarkerPath => PackagePaths.InventoryCompleteFile;
-
     private readonly ILogger _logger;
     private readonly IPlatformMetrics? _metrics;
 
@@ -358,15 +356,6 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         await store.WriteAsync(csvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
         await WriteInventoryJsonAsync(store, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
         await MergeAndWriteAggregateAsync(store, aggregateJsonPath, orgProjectData, ct).ConfigureAwait(false);
-        await state.WriteAsync(
-            InventoryCompletionMarkerPath,
-            JsonSerializer.Serialize(new
-            {
-                phase = "Inventory",
-                completedAtUtc = DateTimeOffset.UtcNow,
-                jobId = job.JobId,
-            }),
-            ct).ConfigureAwait(false);
 
         await state.DeleteAsync(CursorKeyFor(moduleName), ct).ConfigureAwait(false);
 
