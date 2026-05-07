@@ -78,6 +78,7 @@ public sealed class ProgressController : ControllerBase
                 evt.TaskId,
                 evt.TaskStatus.Value,
                 evt.CompletedCount,
+                evt.KnownTotal,
                 evt.Timestamp);
         }
 

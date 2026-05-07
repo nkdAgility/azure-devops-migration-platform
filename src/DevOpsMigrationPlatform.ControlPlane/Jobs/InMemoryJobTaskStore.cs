@@ -43,6 +43,7 @@ public sealed class InMemoryJobTaskStore
         string taskId,
         JobTaskStatus newStatus,
         long? completedCount,
+        long? knownTotal,
         DateTimeOffset timestamp)
     {
         _lists.AddOrUpdate(
@@ -73,6 +74,7 @@ public sealed class InMemoryJobTaskStore
                     {
                         Status = newStatus,
                         CompletedCount = completedCount ?? task.CompletedCount,
+                        KnownTotal = knownTotal ?? task.KnownTotal,
                         StartedAt = startedAt,
                         CompletedAt = completedAt
                     });

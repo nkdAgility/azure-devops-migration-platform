@@ -61,6 +61,13 @@ public record ProgressEvent
     public long? CompletedCount { get; init; }
 
     /// <summary>
+    /// Authoritative total item count for the task identified by <see cref="TaskId"/>.
+    /// Emitted by runtime executors when the total becomes known from package or execution state.
+    /// Null when the total is still unknown or unchanged.
+    /// </summary>
+    public long? KnownTotal { get; init; }
+
+    /// <summary>
     /// Optional <see cref="JobMetrics"/> emitted alongside this progress event.
     /// <para>
     /// <strong>When to populate:</strong> Every module MUST set this on its completion event
