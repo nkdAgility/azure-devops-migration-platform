@@ -29,9 +29,16 @@ These rules are mandatory for all CLI and TUI code.
 
 12. CLI commands must return non-zero exit codes on failure. The exit code must be documented in `docs/cli-guide.md`.
 
+## UI Contract
+
+13. The exact CLI/TUI mode-to-view contract is defined in `docs/ui-mode-contract.md`. UI work must preserve that contract or update it explicitly in the same change.
+14. Any change to `queue --follow`, `manage status`, `manage progress`, `manage diagnostics`, or `tui` rendering must update `docs/ui-mode-contract.md` and the corresponding tests in the same change.
+15. `queue` is a submission command, not a mode. Presentation must be selected from the job `Kind`, not inferred from the command name.
+
 ## Related
 
 - [control-plane-rules.md](./control-plane-rules.md) — Control Plane API contracts
 - [.agents/context/cli-commands.md](../context/cli-commands.md) — canonical command reference
 - [docs/cli-guide.md](../docs/cli-guide.md) — CLI operator guide
 - [docs/tui-guide.md](../docs/tui-guide.md) — TUI operator guide
+- [docs/ui-mode-contract.md](../docs/ui-mode-contract.md) — canonical mode-to-view contract

@@ -6,6 +6,8 @@ The CLI is the operator's entry point to the migration platform. It is a **thin 
 
 Migration logic lives exclusively in the **Job Engine**, which runs inside Migration Agents. CLI commands manage their own hosting lifecycle — starting or connecting to the required services as needed before submitting the job. The CLI always communicates with the control plane via `ControlPlaneClient`.
 
+The exact mode-to-view contract for `queue --follow` and `manage status` lives in [ui-mode-contract.md](ui-mode-contract.md). Use this guide for command behaviour and data-source rules; use the UI mode contract when changing what the operator sees.
+
 See [docs/tui-guide.md](tui.md) for how progress is rendered in the terminal.
 
 ---

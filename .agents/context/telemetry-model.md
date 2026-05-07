@@ -23,14 +23,15 @@ There are **two independent pipelines**:
    Used for cloud telemetry, traces, history
 
 2. CLI / TUI display  
-   ProgressEvent.Metrics → SSE → ControlPlane → JobMetricsStore → polling  
+   Agent progress + agent telemetry → ControlPlane → `GET /jobs/{id}/progress?follow=true` + `GET /jobs/{id}/telemetry`  
    Used for live progress display
 
 ### Rules
 
 - OTel metrics **do not feed CLI/TUI**
-- CLI/TUI metrics **must come from ProgressEvent.Metrics**
-- .NET 10 agent does not populate JobMetrics via OTel exporter
+- CLI/TUI aggregate counters **must come from `GET /jobs/{id}/telemetry`**
+- CLI/TUI stage and cursor updates **must come from `GET /jobs/{id}/progress?follow=true`**
+- `ProgressEvent.Metrics` must be correct when present, but for .NET 10 jobs it is not guaranteed to be a complete always-present aggregate snapshot on every event, so it must not be treated as the sole UI counter source
 
 ### Required pattern (for CLI/TUI visibility)
 
@@ -55,8 +56,9 @@ sink?.Emit(new ProgressEvent
 ### Consequence
 
 * Calling only `_metrics.RecordXxx(...)` → visible in Azure only
-* Emitting only ProgressEvent → visible in CLI/TUI only
-* **Both are required for full observability**
+* Progress events carry fast-changing narrative state for SSE consumers and may also carry correct per-event metrics
+* Control Plane telemetry snapshots are the authoritative aggregate counter source consumed by CLI/TUI
+* **Both channels are required for full observability**
 
 ---
 
@@ -134,11 +136,12 @@ CLI / TUI:
 * MUST NOT:
 
   * Depend on OTel metrics
+   * Treat `ProgressEvent.Metrics` as the authoritative counter source for .NET 10 jobs
   * Use in-process sinks
 
 Failure mode:
 
-* No ProgressEvent.Metrics → counters remain zero
+* If the UI shows zero counters while the job is progressing correctly, the display path is wrong and must be fixed
 
 ---
 
@@ -150,7 +153,7 @@ Failure mode:
 4. Record via TagList
 5. Register meter (`WellKnownMeterNames.Agent`) in hosts
 6. Map to JobMetrics if needed
-7. Emit ProgressEvent.Metrics for CLI/TUI
+7. Emit progress events and record aggregate telemetry so the Control Plane can serve both UI channels
 8. Add tests
 
 ---
@@ -182,7 +185,7 @@ Old prefixes `discovery.*`, `migration.*`, `controlplane.*`, `cli.*` are **remov
 | `DependenciesCaptureErrors` | `platform.dependencies.capture.errors` | Counter |
 | `DependenciesCaptureInFlight` | `platform.dependencies.capture.in_flight` | UpDownCounter |
 
-All four instruments live on `WellKnownMeterNames.Agent` (`DevOpsMigrationPlatform.Agent`). Emitting `ProgressEvent.Metrics.Migration.DependencyCapture` (of type `DependencyCounters`) is ALSO required for CLI/TUI visibility — OTel metrics alone do not feed the TUI.
+All four instruments live on `WellKnownMeterNames.Agent` (`DevOpsMigrationPlatform.Agent`). OTel metrics alone do not feed the TUI; the Control Plane must receive the job telemetry snapshot used by CLI/TUI polling.
 
 ---
 
@@ -249,7 +252,7 @@ Progress:
 
 1. Metric recorded via OTel
 2. Metric mapped into JobMetrics (if required)
-3. Metric emitted via ProgressEvent.Metrics
+3. Metric reflected in the `GET /jobs/{id}/telemetry` snapshot consumed by CLI/TUI
 4. CLI shows updated counters
 5. TUI shows updated counters
 6. Traces + logs allow diagnosis

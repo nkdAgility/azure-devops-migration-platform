@@ -25,6 +25,7 @@ The table below is a **quick reference only**. It does **NOT** satisfy the manda
 Before writing, editing, or suggesting any code, settings, config, or docs change:
 
 1. Use `read_file` to read **every** guardrail file in `/.agents/guardrails/` and every relevant context file in `/.agents/context/` — the complete file lists are in [agents.md](../agents.md) under **Guardrails Validation**.
+	For CLI/TUI contract work, this includes the UI mode summary listed in [agents.md](../agents.md).
 2. State explicitly which guardrails apply to the current task.
 3. Explicitly reject any approach that violates them before writing any code.
 

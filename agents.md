@@ -60,7 +60,9 @@ See:
 | Agent hosting | `docs/agent-hosting.md` |
 | TUI | `docs/tui-guide.md` |
 | CLI guide | `docs/cli-guide.md` |
+| UI mode contract | `docs/ui-mode-contract.md` |
 | CLI commands | `.agents/context/cli-commands.md` |
+| UI mode summary | `.agents/context/ui-mode-summary.md` |
 | Validation | `docs/validation.md` |
 | Identity/mapping | `.agents/context/identity-and-mapping.md` |
 | Package zip | `docs/package-format-reference.md` |
@@ -107,6 +109,7 @@ See:
    - [artefact-store.md](.agents/context/artefact-store.md) — IArtefactStore abstraction
    - [job-lifecycle.md](.agents/context/job-lifecycle.md) — Job contract specification
    - [telemetry-model.md](.agents/context/telemetry-model.md) — Telemetry layer model and metric addition guide
+   - [ui-mode-summary.md](.agents/context/ui-mode-summary.md) — CLI/TUI mode-to-view contract summary
    - [identity-and-mapping.md](.agents/context/identity-and-mapping.md) — Identity mapping service
 
 3. **State your understanding** of which guardrails apply to the current task
@@ -136,7 +139,7 @@ This protocol exists because guardrails are authored by humans and may contain e
 After completing any unit of work (a logical change, a file edit, a task), before marking it done:
 
 1. **Re-read the relevant docs** — use `read_file` on any doc file referenced by the guardrails that is relevant to what was just changed. Examples:
-   - CLI changes → re-read `docs/cli-guide.md` and `.agents/context/cli-commands.md`
+   - CLI/TUI changes → re-read `docs/ui-mode-contract.md`, `docs/cli-guide.md` and/or `docs/tui-guide.md`, plus `.agents/context/cli-commands.md` and `.agents/context/ui-mode-summary.md`
    - Package/export/import changes → re-read `.agents/context/migration-package-concept.md`
    - Job/agent changes → re-read `.agents/context/job-lifecycle.md`
    - Settings/config changes → re-read `docs/configuration-reference.md`
