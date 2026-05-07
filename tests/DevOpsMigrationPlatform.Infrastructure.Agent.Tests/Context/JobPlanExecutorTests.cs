@@ -22,6 +22,7 @@ using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -531,6 +532,89 @@ public sealed class JobPlanExecutorTests
         Assert.IsTrue(invoked, "Handler named 'dependencies' must be invoked for task 'capture.dependencies.org.project'");
     }
 
+    [TestMethod]
+    public async Task ExecuteTasksAsync_CaptureTask_ExposesResolvedSourceEndpointThroughAccessor_AndRestoresPreviousSource()
+    {
+        var endpointAccessor = new CurrentJobEndpointAccessor();
+        endpointAccessor.SetSource(new TestSourceEndpointInfo(
+            "https://original.example",
+            "OriginalProject",
+            "OriginalConnector",
+            new OrganisationEndpoint
+            {
+                ResolvedUrl = "https://original.example",
+                Type = "OriginalConnector"
+            }));
+
+        var activeSourceEndpoint = new ActiveJobSourceEndpointInfo(endpointAccessor);
+        var captureHandler = new Mock<ICapture>(MockBehavior.Strict);
+        captureHandler.SetupGet(c => c.Name).Returns("dependencies");
+        captureHandler.Setup(c => c.CaptureAsync(It.IsAny<InventoryContext>(), It.IsAny<CancellationToken>()))
+            .Callback(() =>
+            {
+                Assert.AreEqual("https://resolved.example", activeSourceEndpoint.Url);
+                Assert.AreEqual("TestProject", activeSourceEndpoint.Project);
+                Assert.AreEqual("AzureDevOpsServices", activeSourceEndpoint.ConnectorType);
+                Assert.AreEqual(AuthenticationType.Pat, activeSourceEndpoint.ToOrganisationEndpoint().Authentication.Type);
+                Assert.AreEqual("secret-token", activeSourceEndpoint.ToOrganisationEndpoint().Authentication.ResolvedAccessToken);
+            })
+            .Returns(Task.CompletedTask);
+
+        var handlers = new Dictionary<string, ICapture>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["dependencies"] = captureHandler.Object
+        };
+
+        var plan = CreatePlan(new[]
+        {
+            new JobTask
+            {
+                Id = "capture.dependencies.testorg.testproject",
+                Name = "Dependencies Capture",
+                Phase = "Capture",
+                TaskKind = TaskKind.Capture,
+                Status = JobTaskStatus.Pending,
+                OrganisationUrl = "https://resolved.example",
+                ProjectName = "TestProject"
+            }
+        });
+
+        var endpointsByUrl = new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["https://resolved.example"] = new()
+            {
+                ResolvedUrl = "https://resolved.example",
+                Type = "AzureDevOpsServices",
+                ApiVersion = "7.1",
+                Authentication = new OrganisationEndpointAuthentication
+                {
+                    Type = AuthenticationType.Pat,
+                    ResolvedAccessToken = "secret-token"
+                }
+            }
+        };
+
+        var executor = CreateExecutor(endpointAccessor);
+        var stateStore = new InMemoryStateStore();
+        var ctx = CreateMinimalInventoryContext(stateStore);
+
+        var result = await executor.ExecuteTasksAsync(
+            plan,
+            handlers,
+            new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
+            ctx,
+            null,
+            null,
+            endpointsByUrl,
+            stateStore,
+            CancellationToken.None);
+
+        Assert.IsTrue(result, "ExecuteTasksAsync should succeed when the capture handler is present.");
+        Assert.AreEqual("https://original.example", activeSourceEndpoint.Url);
+        Assert.AreEqual("OriginalProject", activeSourceEndpoint.Project);
+        Assert.AreEqual("OriginalConnector", activeSourceEndpoint.ConnectorType);
+    }
+
     /// <summary>
     /// When no capture handler matches the task's module name, the executor must log
     /// an Error with {TaskId} and {HandlerName} structured parameters and fail the task/job.
@@ -625,10 +709,10 @@ public sealed class JobPlanExecutorTests
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private static JobPlanExecutor CreateExecutor()
+    private static JobPlanExecutor CreateExecutor(ICurrentJobEndpointAccessor? endpointAccessor = null)
     {
         var progressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object;
-        return new JobPlanExecutor(progressSink, NullLogger<JobPlanExecutor>.Instance);
+        return new JobPlanExecutor(progressSink, NullLogger<JobPlanExecutor>.Instance, endpointAccessor);
     }
 
     private static JobPlanExecutor CreateExecutorWithLogger(ILogger<JobPlanExecutor> logger)
@@ -718,5 +802,10 @@ public sealed class JobPlanExecutorTests
             _data.Remove(key);
             return Task.CompletedTask;
         }
+    }
+
+    private sealed record TestSourceEndpointInfo(string Url, string Project, string ConnectorType, OrganisationEndpoint Endpoint) : ISourceEndpointInfo
+    {
+        public OrganisationEndpoint ToOrganisationEndpoint() => Endpoint;
     }
 }
