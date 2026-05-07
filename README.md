@@ -48,6 +48,21 @@ The package is a versioned, portable snapshot on disk.Zip it, move it, review it
 | Area & Iteration Nodes | Classification tree | ✅ |
 | Teams | Team membership and settings | ✅ |
 
+**Analysers** run cross-cutting analysis after inventory and write artefacts to the package for operator review. They do not write to the source or target systems.
+
+| Analyser | Purpose |
+|----------|---------|
+| Inventory | Consolidates per-module inventory counts into a unified package-level report |
+| Dependencies | Maps cross-project work item links so operators can assess scope before import |
+
+**Tools** are stateless transformation and lookup services declared once at the config root (under `Tools.*`). They apply during export and import with no I/O of their own.
+
+| Tool | Purpose |
+|------|---------|
+| FieldTransform | Apply declarative field-rewrite rules to each work item revision |
+| NodeTranslation | Translate area and iteration path strings against configured mappings |
+| IdentityLookup | Resolve and remap user identities across organisations |
+
 ---
 
 ## Install

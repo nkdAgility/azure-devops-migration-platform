@@ -34,11 +34,17 @@ public sealed class DependencyCaptureTests
     // ── Helper: create a minimal InventoryContext ──────────────────────────
     private static InventoryContext CreateContext(
         IProgressSink? progressSink = null,
-        string project = Project)
-        => new()
+        string project = Project,
+        Mock<IArtefactStore>? artefactStoreMock = null)
+    {
+        var store = artefactStoreMock ?? new Mock<IArtefactStore>(MockBehavior.Strict);
+        // Allow ExistsAsync for any path — used by debug log check in CaptureAsync
+        store.Setup(s => s.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+             .ReturnsAsync(false);
+        return new()
         {
             Job = new Job { JobId = JobId },
-            ArtefactStore = new Mock<IArtefactStore>(MockBehavior.Strict).Object,
+            ArtefactStore = store.Object,
             StateStore = new Mock<IStateStore>(MockBehavior.Strict).Object,
             ProgressSink = progressSink,
             SourceEndpoint = new OrganisationEndpoint
@@ -58,19 +64,23 @@ public sealed class DependencyCaptureTests
             }),
             Policies = new JobPolicies()
         };
+    }
 
     // ── Helper: build a capture instance with mocked deps ─────────────────
     private static DependencyCapture CreateCapture(
         Mock<IDependencyDiscoveryServiceFactory> factory,
         Mock<IDependencyOrchestrator> orchestrator,
         IPlatformMetrics? metrics = null,
-        IProgressSink? progressSink = null)
+        IProgressSink? progressSink = null,
+        ILogger<DependencyCapture>? logger = null,
+        double slowCaptureThresholdMs = 30_000)
         => new(
             factory.Object,
             orchestrator.Object,
-            new Microsoft.Extensions.Logging.Abstractions.NullLogger<DependencyCapture>(),
+            logger ?? new Microsoft.Extensions.Logging.Abstractions.NullLogger<DependencyCapture>(),
             metrics,
-            progressSink);
+            progressSink,
+            slowCaptureThresholdMs);
 
     // ── T023 — Happy path ──────────────────────────────────────────────────
     [TestMethod]
@@ -470,10 +480,105 @@ public sealed class DependencyCaptureTests
             && state.Any(kv => kv.Key == "Org" && kv.Value?.ToString() == OrgUrl)
             && state.Any(kv => kv.Key == "Project" && kv.Value?.ToString() == Project)
             && state.Any(kv => kv.Key == "ErrorType" && kv.Value?.ToString() == nameof(InvalidOperationException))
-            && state.Any(kv => kv.Key == "ErrorMessage" && kv.Value?.ToString() == "sim error");
+            && state.Any(kv => kv.Key == "ErrorMessage" && kv.Value?.ToString() == "sim error")
+            && state.Any(kv => kv.Key == "DurationMs")
+            && state.Any(kv => kv.Key == "JobId" && kv.Value?.ToString() == JobId);
+    }
+
+    [TestMethod]
+    public async Task CaptureAsync_O3_WhenCsvAlreadyExists_LogsDebugWithOutputPath()
+    {
+        var logger = new Mock<ILogger<DependencyCapture>>();
+
+        var factory = new Mock<IDependencyDiscoveryServiceFactory>(MockBehavior.Strict);
+        var orchestrator = new Mock<IDependencyOrchestrator>(MockBehavior.Strict);
+        var service = new Mock<IDependencyDiscoveryService>(MockBehavior.Strict);
+        var artefactStore = new Mock<IArtefactStore>(MockBehavior.Strict);
+
+        artefactStore.Setup(s => s.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true); // file already exists → should trigger debug log
+
+        factory.Setup(f => f.CreateForProject(
+                It.IsAny<IReadOnlyList<ScopedOrganisationEndpoint>>(),
+                OrgUrl, Project,
+                It.IsAny<JobPolicies>()))
+            .Returns(service.Object);
+
+        orchestrator.Setup(o => o.CaptureProjectAsync(
+                service.Object,
+                It.IsAny<InventoryContext>(),
+                It.IsAny<JobPolicies>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DependencyCounters());
+
+        var capture = new DependencyCapture(factory.Object, orchestrator.Object, logger.Object);
+        await capture.CaptureAsync(CreateContext(artefactStoreMock: artefactStore), CancellationToken.None);
+
+        logger.Verify(
+            x => x.Log(
+                LogLevel.Debug,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, _) => LogStateHasOutputPath(v)),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once,
+            "LogDebug must be called exactly once with OutputPath when CSV already exists");
+    }
+
+    [TestMethod]
+    public async Task CaptureAsync_O3_WhenCaptureDurationExceedsThreshold_LogsWarning()
+    {
+        var logger = new Mock<ILogger<DependencyCapture>>();
+
+        var factory = new Mock<IDependencyDiscoveryServiceFactory>(MockBehavior.Strict);
+        var orchestrator = new Mock<IDependencyOrchestrator>(MockBehavior.Strict);
+        var service = new Mock<IDependencyDiscoveryService>(MockBehavior.Strict);
+
+        factory.Setup(f => f.CreateForProject(
+                It.IsAny<IReadOnlyList<ScopedOrganisationEndpoint>>(),
+                OrgUrl, Project,
+                It.IsAny<JobPolicies>()))
+            .Returns(service.Object);
+
+        orchestrator.Setup(o => o.CaptureProjectAsync(
+                service.Object,
+                It.IsAny<InventoryContext>(),
+                It.IsAny<JobPolicies>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DependencyCounters());
+
+        // Pass threshold = 0 so any real capture duration is "slow"
+        var capture = CreateCapture(factory, orchestrator, logger: logger.Object, slowCaptureThresholdMs: 0);
+        await capture.CaptureAsync(CreateContext(), CancellationToken.None);
+
+        logger.Verify(
+            x => x.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, _) => LogStateHasSlowWarningParams(v)),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once,
+            "LogWarning must be called exactly once with Dependency, DurationMs, ThresholdMs when slow");
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
+    private static bool LogStateHasOutputPath(object v)
+    {
+        var state = v as IReadOnlyList<KeyValuePair<string, object?>>;
+        return state != null
+            && state.Any(kv => kv.Key == "OutputPath" && kv.Value is string p && p.Length > 0);
+    }
+
+    private static bool LogStateHasSlowWarningParams(object v)
+    {
+        var state = v as IReadOnlyList<KeyValuePair<string, object?>>;
+        return state != null
+            && state.Any(kv => kv.Key == "Dependency" && kv.Value is string d && d.Length > 0)
+            && state.Any(kv => kv.Key == "DurationMs" && kv.Value is double dur && dur >= 0)
+            && state.Any(kv => kv.Key == "ThresholdMs");
+    }
+
     private static bool HasTag(MetricsTagList tags, string key, string value)
     {
         for (var i = 0; i < tags.Count; i++)

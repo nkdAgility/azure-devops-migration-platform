@@ -36,6 +36,13 @@ public sealed class DependencyCapture : ICapture
     private readonly ILogger<DependencyCapture> _logger;
     private readonly IPlatformMetrics? _metrics;
     private readonly IProgressSink? _progressSink;
+    private readonly double _slowCaptureThresholdMs;
+
+    /// <summary>
+    /// Default duration (ms) above which a per-project capture is considered slow.
+    /// Override via the <c>slowCaptureThresholdMs</c> constructor parameter (for tests).
+    /// </summary>
+    private const double DefaultSlowCaptureThresholdMs = 30_000; // 30 seconds
 
     /// <summary>
     /// The second dot-segment extracted from <c>capture.dependencies.{org}.{project}</c> task IDs.
@@ -48,13 +55,15 @@ public sealed class DependencyCapture : ICapture
         IDependencyOrchestrator orchestrator,
         ILogger<DependencyCapture> logger,
         IPlatformMetrics? metrics = null,
-        IProgressSink? progressSink = null)
+        IProgressSink? progressSink = null,
+        double slowCaptureThresholdMs = DefaultSlowCaptureThresholdMs)
     {
         _dependencyFactory = dependencyFactory ?? throw new ArgumentNullException(nameof(dependencyFactory));
         _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _metrics = metrics;
         _progressSink = progressSink;
+        _slowCaptureThresholdMs = slowCaptureThresholdMs;
     }
 
     /// <inheritdoc />
@@ -134,6 +143,19 @@ public sealed class DependencyCapture : ICapture
             // O-1: child span — write_csv (confirm output path)
             var orgFolder = PackagePathResolver.ExtractOrgFolderName(orgUrl);
             var outputPath = $"discovery/{orgFolder}/{PackagePathResolver.Sanitise(project)}/dependencies.csv";
+
+            // O-3: debug log if file already exists (overwrite path)
+            if (context.ArtefactStore != null &&
+                await context.ArtefactStore.ExistsAsync(outputPath, ct).ConfigureAwait(false))
+            {
+                using (DataClassificationScope.Begin(DataClassification.Customer))
+                {
+                    _logger.LogDebug(
+                        "CSV already exists at {OutputPath}, overwriting (job {JobId})",
+                        outputPath, jobId);
+                }
+            }
+
             using (var writeCsvActivity = s_activitySource.StartActivity("dependency.capture.write_csv"))
             {
                 writeCsvActivity?.SetTag(WellKnownTagNames.Organisation.Url, orgUrl);
@@ -148,12 +170,25 @@ public sealed class DependencyCapture : ICapture
             _metrics?.RecordDependenciesCaptureDuration(sw.Elapsed.TotalMilliseconds, tags);
             _metrics?.RecordWorkItemsAnalysed((int)counters.WorkItemsAnalysed, tags);
 
+            var durationMs = sw.Elapsed.TotalMilliseconds;
+
             // O-3: log completion (customer-data scope: orgUrl, project, outputPath)
             using (DataClassificationScope.Begin(DataClassification.Customer))
             {
                 _logger.LogInformation(
                     "Capture completed for {Org}/{Project} in {DurationMs}ms → {OutputPath} (job {JobId})",
-                    orgUrl, project, sw.Elapsed.TotalMilliseconds, outputPath, jobId);
+                    orgUrl, project, durationMs, outputPath, jobId);
+            }
+
+            // O-3: warn if capture was slow
+            if (durationMs > _slowCaptureThresholdMs)
+            {
+                using (DataClassificationScope.Begin(DataClassification.Customer))
+                {
+                    _logger.LogWarning(
+                        "Dependency slow: {Dependency} took {DurationMs}ms > {ThresholdMs}ms (job {JobId})",
+                        $"{orgUrl}/{project}", durationMs, _slowCaptureThresholdMs, jobId);
+                }
             }
 
             // O-4: emit Captured progress event with real counters from orchestrator
@@ -199,8 +234,8 @@ public sealed class DependencyCapture : ICapture
             using (DataClassificationScope.Begin(DataClassification.Customer))
             {
                 _logger.LogError(
-                    "Capture failed for {Org}/{Project}: {ErrorType} {ErrorMessage} (job {JobId})",
-                    orgUrl, project, ex.GetType().Name, ex.Message, jobId);
+                    "Capture failed for {Org}/{Project}: {ErrorType} {ErrorMessage} after {DurationMs}ms (job {JobId})",
+                    orgUrl, project, ex.GetType().Name, ex.Message, sw.Elapsed.TotalMilliseconds, jobId);
             }
 
             // O-4: emit Failed progress event
