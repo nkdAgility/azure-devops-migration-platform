@@ -29,6 +29,7 @@ using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 
@@ -51,7 +52,8 @@ public sealed class WorkItemsModule : IModule
     public IReadOnlyList<ModuleDependency> DependsOn => new[]
     {
         new ModuleDependency(typeof(IdentitiesModule), DependencyPhase.Import),
-        new ModuleDependency(typeof(NodesModule), DependencyPhase.Import)
+        new ModuleDependency(typeof(NodesModule), DependencyPhase.Import),
+        new ModuleDependency(typeof(InventoryAnalyser), DependencyPhase.Import),
     };
     public bool SupportsExport => true;
     public bool SupportsInventory => true;
