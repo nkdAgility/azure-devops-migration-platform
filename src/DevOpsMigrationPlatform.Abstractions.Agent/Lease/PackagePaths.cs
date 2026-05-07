@@ -141,6 +141,12 @@ public static class PackagePaths
     public const string PlanFile = $"{SystemRoot}/plan.json";
 
     /// <summary>
+    /// Inventory phase completion marker written after the root inventory artefacts
+    /// have been fully materialised: <c>.migration/inventory.complete.json</c>.
+    /// </summary>
+    public const string InventoryCompleteFile = $"{SystemRoot}/inventory.complete.json";
+
+    /// <summary>
     /// Returns the OS-native filesystem path for the ID-map database,
     /// e.g. <c>&lt;packageRoot&gt;\.migration\Checkpoints\idmap.db</c>.
     /// Use this when constructing a SQLite connection string (which needs native separators).

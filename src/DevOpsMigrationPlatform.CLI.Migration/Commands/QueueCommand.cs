@@ -1676,7 +1676,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 return match;
         }
 
-        return phases[0];
+        var terminalPhase = s.Tasks.Tasks
+            .Where(t => IsTerminal(t.Status) && !string.IsNullOrWhiteSpace(t.Phase))
+            .OrderBy(t => t.Order)
+            .Select(t => t.Phase!)
+            .LastOrDefault();
+        if (!string.IsNullOrWhiteSpace(terminalPhase))
+            return terminalPhase;
+
+        return phases[^1];
     }
 
     private static bool ShouldRenderTaskInPhase(JobTask task, string? phaseFilter)

@@ -18,6 +18,8 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 public sealed class CliRunner
 {
     private const string ExeName = "devopsmigration.exe";
+    private const string ControlPlaneExeName = "DevOpsMigrationPlatform.ControlPlaneHost.exe";
+    private const string MigrationAgentExeName = "DevOpsMigrationPlatform.MigrationAgent.exe";
 
     /// <summary>
     /// Root folder (relative to the repo root) used by system tests as their working directory.
@@ -65,6 +67,12 @@ public sealed class CliRunner
 
         /// <summary>Absolute path to the test-scoped output folder under <see cref="TestWorkingFolder"/>.</summary>
         public string OutputDirectory { get; }
+    }
+
+    private sealed class StagedExecutableLayout
+    {
+        public required string RootDirectory { get; init; }
+        public required string CliExecutablePath { get; init; }
     }
 
     /// <summary>
@@ -182,12 +190,13 @@ public sealed class CliRunner
         var exePath = FindExe();
         var repoRoot = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(exePath)!,
                                                      "..", "..", "..", "..", ".."));
+        var stagedLayout = StageExecutableLayout(repoRoot, exePath);
         var cwd = workingDirectory ?? repoRoot;
         var effectiveTimeout = timeout ?? TimeSpan.FromMinutes(10);
 
         var psi = new ProcessStartInfo
         {
-            FileName = exePath,
+            FileName = stagedLayout.CliExecutablePath,
             WorkingDirectory = cwd,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -236,23 +245,33 @@ public sealed class CliRunner
         process.OutputDataReceived += (_, e) => { if (e.Data != null) stdout.AppendLine(e.Data); };
         process.ErrorDataReceived += (_, e) => { if (e.Data != null) stderr.AppendLine(e.Data); };
 
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(effectiveTimeout);
 
         bool timedOut = false;
         try
         {
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
             await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
+            process.WaitForExit();
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             // Timed out (not externally cancelled) — kill the process.
             timedOut = true;
-            try { process.Kill(entireProcessTree: true); } catch { /* best-effort */ }
+            TryTerminateProcess(process);
+        }
+        catch
+        {
+            TryTerminateProcess(process);
+            throw;
+        }
+        finally
+        {
+            TryTerminateProcess(process);
+            TryDeleteDirectory(stagedLayout.RootDirectory);
         }
 
         return new CliResult
@@ -262,5 +281,103 @@ public sealed class CliRunner
             StandardError = StripAnsi(stderr.ToString()),
             TimedOut = timedOut,
         };
+    }
+
+    private static StagedExecutableLayout StageExecutableLayout(string repoRoot, string cliExePath)
+    {
+        var stagingRoot = Path.Combine(
+            Path.GetTempPath(),
+            "devopsmigration-cli-tests",
+            Guid.NewGuid().ToString("N"));
+
+        var stagedCliDirectory = Path.Combine(stagingRoot, "CLI");
+        var stagedControlPlaneDirectory = Path.Combine(stagingRoot, "ControlPlane");
+        var stagedMigrationAgentDirectory = Path.Combine(stagingRoot, "MigrationAgent");
+
+        CopyDirectory(
+            Path.GetDirectoryName(cliExePath)
+                ?? throw new DirectoryNotFoundException($"Could not determine directory for executable '{cliExePath}'."),
+            stagedCliDirectory);
+
+        CopyDirectory(
+            Path.GetDirectoryName(FindComponentExe(repoRoot, "DevOpsMigrationPlatform.ControlPlaneHost", ControlPlaneExeName))!,
+            stagedControlPlaneDirectory);
+
+        CopyDirectory(
+            Path.GetDirectoryName(FindComponentExe(repoRoot, "DevOpsMigrationPlatform.MigrationAgent", MigrationAgentExeName))!,
+            stagedMigrationAgentDirectory);
+
+        return new StagedExecutableLayout
+        {
+            RootDirectory = stagingRoot,
+            CliExecutablePath = Path.Combine(stagedCliDirectory, Path.GetFileName(cliExePath)),
+        };
+    }
+
+    private static string FindComponentExe(string repoRoot, string projectName, string exeName)
+    {
+        var candidates = new[]
+        {
+            Path.Combine(repoRoot, "src", projectName, "bin", "Debug", "net10.0", exeName),
+            Path.Combine(repoRoot, "src", projectName, "bin", "Release", "net10.0", exeName),
+        };
+
+        foreach (var candidate in candidates)
+        {
+            if (File.Exists(candidate))
+                return candidate;
+        }
+
+        throw new FileNotFoundException(
+            $"Could not find '{exeName}' in the expected build output paths. Run 'build-all' first.",
+            exeName);
+    }
+
+    private static void CopyDirectory(string sourceDirectory, string destinationDirectory)
+    {
+        Directory.CreateDirectory(destinationDirectory);
+
+        foreach (var directory in Directory.GetDirectories(sourceDirectory, "*", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(sourceDirectory, directory);
+            Directory.CreateDirectory(Path.Combine(destinationDirectory, relativePath));
+        }
+
+        foreach (var file in Directory.GetFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(sourceDirectory, file);
+            var destinationPath = Path.Combine(destinationDirectory, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+            File.Copy(file, destinationPath, overwrite: true);
+        }
+    }
+
+    private static void TryTerminateProcess(Process process)
+    {
+        try
+        {
+            if (process.HasExited)
+                return;
+
+            process.Kill(entireProcessTree: true);
+            process.WaitForExit(5000);
+        }
+        catch
+        {
+            // Best-effort cleanup.
+        }
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+                Directory.Delete(path, recursive: true);
+        }
+        catch
+        {
+            // Best-effort cleanup.
+        }
     }
 }

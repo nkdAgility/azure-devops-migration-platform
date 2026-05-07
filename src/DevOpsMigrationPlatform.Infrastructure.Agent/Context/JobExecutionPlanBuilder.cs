@@ -31,8 +31,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 /// <list type="bullet">
 ///   <item>The job kind to select the applicable phases (Export / Import / Migrate).</item>
 ///   <item>Module-enabled flags in <c>migration-config.json</c>.</item>
-///   <item>Phase records in the state store to detect already-completed phases on resume.</item>
-///   <item><c>inventory.json</c> in the artefact store to populate <see cref="JobTask.KnownTotal"/> for WorkItems tasks.</item>
 ///   <item>Module <c>DependsOn</c> declarations to build the dependency graph for Import-phase tasks.</item>
 /// </list>
 /// </summary>
@@ -83,7 +81,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             string.Join(", ", _analysers.Select(a => a.Name)));
     }
 
-    public async Task<JobTaskList> BuildPlanAsync(
+    public Task<JobTaskList> BuildPlanAsync(
         IConfiguration packageConfig,
         JobKind kind,
         IArtefactStore artefactStore,
@@ -95,38 +93,26 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
         if (kind is JobKind.Inventory or JobKind.Dependencies)
         {
-            return await BuildCapturePlanAsync(packageConfig, kind, ct).ConfigureAwait(false);
+            return BuildCapturePlanAsync(packageConfig, kind, ct);
         }
 
         if (kind == JobKind.Prepare)
         {
-            return BuildPreparePlan(packageConfig);
+            return Task.FromResult(BuildPreparePlan(packageConfig));
         }
 
         var includeExport = kind is JobKind.Export or JobKind.Migrate
                             ;
         var includeImport = kind is JobKind.Import or JobKind.Migrate;
 
-        // Read phase record once (only relevant for Migrate kind).
-        JobPhaseRecord? phaseRecord = null;
-        if (kind == JobKind.Migrate)
-        {
-            var phaseTracker = _phaseTrackingFactory.Create(stateStore);
-            phaseRecord = await phaseTracker.ReadPhaseRecordAsync(ct).ConfigureAwait(false);
-        }
-
-        // Try to read inventory.json for KnownTotal on WorkItems export task.
-        long? workItemKnownTotal = await TryReadWorkItemTotalAsync(artefactStore, ct)
-            .ConfigureAwait(false);
-
         if (includeExport)
         {
-            tasks.AddRange(BuildExportTasks(packageConfig, kind, phaseRecord, workItemKnownTotal, ref order));
+            tasks.AddRange(BuildExportTasks(packageConfig, ref order));
         }
 
         if (includeImport)
         {
-            tasks.AddRange(BuildImportTasks(packageConfig, phaseRecord, ref order));
+            tasks.AddRange(BuildImportTasks(packageConfig, ref order));
         }
 
         // Validate no circular dependencies in Import phase before returning.
@@ -139,11 +125,11 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             "Built execution plan with {TaskCount} tasks for job kind {Kind}.",
             tasks.Count, kind);
 
-        return new JobTaskList
+        return Task.FromResult(new JobTaskList
         {
             Tasks = tasks.AsReadOnly(),
             PushedAt = DateTimeOffset.UtcNow
-        };
+        });
     }
 
     /// <inheritdoc />
@@ -235,13 +221,8 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
     private List<JobTask> BuildExportTasks(
         IConfiguration config,
-        JobKind kind,
-        JobPhaseRecord? phaseRecord,
-        long? workItemKnownTotal,
         ref int order)
     {
-        bool exportAlreadyDone = phaseRecord?.ExportCompleted == true;
-
         var exportModules = _modules.Where(m => m.SupportsExport).ToList();
 
         _logger.LogDebug(
@@ -267,6 +248,17 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             StringComparer.OrdinalIgnoreCase);
 
         var tasks = new List<JobTask>();
+        var preExportAnalysisTaskIdsByModule = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        tasks.AddRange(BuildExportPrerequisiteTasks(
+            config,
+            needed,
+            sourceUrl,
+            sourceProject,
+            orgSlug,
+            projectSlug,
+            preExportAnalysisTaskIdsByModule,
+            ref order));
 
         foreach (var module in exportModules)
         {
@@ -283,10 +275,6 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 module.Name, needed.Contains(module.Name), module.SupportsExport);
 
             var taskId = $"export.{module.Name.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
-            var knownTotal = module.Name.Equals("WorkItems", StringComparison.OrdinalIgnoreCase)
-                ? workItemKnownTotal
-                : null;
-
             // Export tasks honor module.DependsOn entries where phase is Export or Both.
             var exportDeps = new List<string>();
             foreach (var dep in module.DependsOn.Where(d => d.AppliesToExport))
@@ -294,6 +282,15 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 var depTaskId = $"export.{dep.ModuleName.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
                 if (exportTaskIds.Contains(depTaskId) && !exportDeps.Contains(depTaskId, StringComparer.OrdinalIgnoreCase))
                     exportDeps.Add(depTaskId);
+            }
+
+            if (preExportAnalysisTaskIdsByModule.TryGetValue(module.Name, out var analysisDeps))
+            {
+                foreach (var analysisDep in analysisDeps)
+                {
+                    if (!exportDeps.Contains(analysisDep, StringComparer.OrdinalIgnoreCase))
+                        exportDeps.Add(analysisDep);
+                }
             }
 
             var dependsOn = exportDeps.Count > 0 ? exportDeps.AsReadOnly() : null;
@@ -306,9 +303,8 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 organisationUrl: sourceUrl,
                 projectName: sourceProject,
                 enabled: true,
-                exportAlreadyDone,
+                phaseAlreadyDone: false,
                 0, // placeholder — reassigned after topological sort
-                knownTotal: knownTotal,
                 dependsOn: dependsOn));
         }
 
@@ -321,14 +317,147 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         return tasks;
     }
 
+    private List<JobTask> BuildExportPrerequisiteTasks(
+        IConfiguration config,
+        IReadOnlyCollection<string> neededExportModules,
+        string sourceUrl,
+        string sourceProject,
+        string orgSlug,
+        string projectSlug,
+        Dictionary<string, List<string>> analysisTaskIdsByModule,
+        ref int order)
+    {
+        var tasks = new List<JobTask>();
+        var queuedCaptures = new Dictionary<string, JobTask>(StringComparer.OrdinalIgnoreCase);
+        var queuedAnalyses = new Dictionary<string, JobTask>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var moduleName in neededExportModules)
+        {
+            if (!_modulesByName.TryGetValue(moduleName, out var module))
+                continue;
+
+            foreach (var dependency in module.DependsOn)
+            {
+                if (!_analysersByName.ContainsKey(dependency.ModuleName))
+                    continue;
+
+                var analysisTaskId = EnsureExportAnalysisTask(
+                    dependency.ModuleName,
+                    config,
+                    sourceUrl,
+                    sourceProject,
+                    orgSlug,
+                    projectSlug,
+                    queuedCaptures,
+                    queuedAnalyses);
+
+                if (!analysisTaskIdsByModule.TryGetValue(module.Name, out var taskIds))
+                {
+                    taskIds = new List<string>();
+                    analysisTaskIdsByModule[module.Name] = taskIds;
+                }
+
+                if (!taskIds.Contains(analysisTaskId, StringComparer.OrdinalIgnoreCase))
+                    taskIds.Add(analysisTaskId);
+            }
+        }
+
+        tasks.AddRange(queuedCaptures.Values);
+        tasks.AddRange(queuedAnalyses.Values);
+
+        tasks = TopologicalSort(tasks);
+        for (int i = 0; i < tasks.Count; i++)
+            tasks[i] = tasks[i] with { Order = order++ };
+
+        return tasks;
+    }
+
+    private string EnsureExportAnalysisTask(
+        string analyserName,
+        IConfiguration config,
+        string sourceUrl,
+        string sourceProject,
+        string orgSlug,
+        string projectSlug,
+        Dictionary<string, JobTask> queuedCaptures,
+        Dictionary<string, JobTask> queuedAnalyses)
+    {
+        var taskId = $"analyse.{analyserName.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
+        if (queuedAnalyses.ContainsKey(taskId))
+            return taskId;
+
+        if (!_analysersByName.TryGetValue(analyserName, out var analyser))
+            throw new InvalidOperationException($"Export prerequisite analyser '{analyserName}' is not registered.");
+
+        var dependsOn = new List<string>();
+        foreach (var dependency in analyser.DependsOn)
+        {
+            if (_analysersByName.ContainsKey(dependency.ModuleName))
+            {
+                dependsOn.Add(EnsureExportAnalysisTask(
+                    dependency.ModuleName,
+                    config,
+                    sourceUrl,
+                    sourceProject,
+                    orgSlug,
+                    projectSlug,
+                    queuedCaptures,
+                    queuedAnalyses));
+                continue;
+            }
+
+            if (!_modulesByName.TryGetValue(dependency.ModuleName, out var dependencyModule)
+                || !dependencyModule.SupportsInventory
+                || !IsEnabled(config, dependencyModule.Name))
+            {
+                _logger.LogWarning(
+                    "Export prerequisite analyser {Analyser} depends on inventory module {Module}, but it is not enabled or not registered. Dependency omitted.",
+                    analyserName,
+                    dependency.ModuleName);
+                continue;
+            }
+
+            var captureTaskId = $"capture.{dependency.ModuleName.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
+            if (!queuedCaptures.ContainsKey(captureTaskId))
+            {
+                queuedCaptures[captureTaskId] = MakeTask(
+                    captureTaskId,
+                    $"{dependency.ModuleName} Capture [{sourceProject}]",
+                    phase: null,
+                    TaskKind.Capture,
+                    organisationUrl: sourceUrl,
+                    projectName: sourceProject,
+                    enabled: true,
+                    phaseAlreadyDone: false,
+                    order: 0);
+            }
+
+            if (!dependsOn.Contains(captureTaskId, StringComparer.OrdinalIgnoreCase))
+                dependsOn.Add(captureTaskId);
+        }
+
+        queuedAnalyses[taskId] = MakeTask(
+            taskId,
+            $"{analyser.Name} Analyse",
+            phase: null,
+            TaskKind.Analyse,
+            organisationUrl: sourceUrl,
+            projectName: sourceProject,
+            enabled: true,
+            phaseAlreadyDone: false,
+            order: 0,
+            dependsOn: dependsOn.Count > 0 ? dependsOn.AsReadOnly() : null);
+
+        return taskId;
+    }
+
     // ── Import phase ─────────────────────────────────────────────────────────
 
     private List<JobTask> BuildImportTasks(
         IConfiguration config,
-        JobPhaseRecord? phaseRecord,
         ref int order)
     {
-        bool importAlreadyDone = phaseRecord?.ImportCompleted == true;
+        bool importAlreadyDone = false;
 
         // Resolve org/project for task IDs (import jobs target Target, not Source).
         var targetUrl = config["MigrationPlatform:Target:Url"] ?? string.Empty;
@@ -821,7 +950,6 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         bool enabled,
         bool phaseAlreadyDone,
         int order,
-        long? knownTotal = null,
         IReadOnlyList<string>? dependsOn = null)
     {
         var (status, skipReason) = !enabled
@@ -840,7 +968,6 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             ProjectName = projectName,
             Order = order,
             Status = status,
-            KnownTotal = knownTotal,
             SkipReason = skipReason,
             DependsOn = dependsOn
         };
@@ -897,34 +1024,6 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
         return needed;
     }
-
-
-
-    private static async Task<long?> TryReadWorkItemTotalAsync(
-        IArtefactStore artefactStore,
-        CancellationToken ct)
-    {
-        try
-        {
-            var json = await artefactStore.ReadAsync("inventory.json", ct).ConfigureAwait(false);
-            if (json is null)
-                return null;
-
-            // inventory.json is serialised with camelCase naming policy, so use the
-            // deserialiser (case-insensitive by default) rather than JsonElement
-            // TryGetProperty (case-sensitive) to avoid a silent miss.
-            var report = JsonSerializer.Deserialize<InventoryReport>(json, _jsonOptions);
-            if (report?.Totals.WorkItems > 0)
-                return report.Totals.WorkItems;
-        }
-        catch (Exception)
-        {
-            // inventory.json may not exist or may be malformed — not an error.
-        }
-
-        return null;
-    }
-
     private static IReadOnlyList<ScopedOrganisationEndpoint> BuildOrganisationEndpoints(IConfiguration packageConfig)
     {
         var organisations = new List<ScopedOrganisationEndpoint>();

@@ -53,12 +53,18 @@ public sealed record JobTask
     public JobTaskStatus Status { get; init; } = JobTaskStatus.Pending;
 
     /// <summary>
-    /// Known total item count if available at plan time (e.g. from inventory.json).
+    /// Known total item count for this task when runtime or package state can determine it.
+    /// Seeded from the pushed task list when available and patched later by standard
+    /// <see cref="ProgressEvent"/> updates carrying <c>TaskId</c>, <c>TaskStatus</c>,
+    /// <c>KnownTotal</c>, and <c>CompletedCount</c>.
     /// Null when unknown.
     /// </summary>
     public long? KnownTotal { get; init; }
 
-    /// <summary>Number of items completed so far. Updated via <see cref="ProgressEvent"/> emissions.</summary>
+    /// <summary>
+    /// Number of items completed so far for this task.
+    /// Updated via standard <see cref="ProgressEvent"/> task-lifecycle emissions.
+    /// </summary>
     public long? CompletedCount { get; init; }
 
     /// <summary>UTC timestamp when this task transitioned to <see cref="JobTaskStatus.Running"/>.</summary>

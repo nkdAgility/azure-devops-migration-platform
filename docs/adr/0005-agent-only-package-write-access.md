@@ -4,7 +4,7 @@
 
 Accepted
 
-**Amendment (ADR-0008):** The CLI is permitted to write `migration-config.json` to the package root as a pre-submission step. This is the only CLI package write permitted. See [ADR-0008](0008-configuration-travels-in-package.md) for the full rationale.
+**Amendment (feature 025.1-fold-to-job):** Configuration now travels as `Job.ConfigPayload`, and the agent writes `migration-config.json` after lease acquisition. The earlier CLI pre-submission write design was superseded.
 
 ## Context
 
@@ -26,6 +26,8 @@ Only the Migration Agent and the TFS Migration Agent may write package artefacts
 - CLI/TUI code must never reference `IArtefactStore` for writes.
 - The Control Plane must not cache or write artefact data.
 - The data residency boundary is the package working directory.
+- The CLI serialises configuration into `Job.ConfigPayload` but does not write `migration-config.json` itself.
+- The agent materialises `Job.ConfigPayload` to `migration-config.json` at the package root before any module executes.
 
 ## Related
 

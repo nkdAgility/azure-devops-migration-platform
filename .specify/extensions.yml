@@ -7,69 +7,116 @@ hooks:
     command: red-team-review
     enabled: true
     optional: false
-    description: Challenge the specification with adversarial thinking to surface blind spots, wrong assumptions, and missing failure modes
+    description: Challenge the specification with adversarial thinking to surface
+      blind spots, wrong assumptions, and missing failure modes
     condition: null
   - extension: observability-contract
-    command: "observability-contract --stage spec"
+    command: observability-contract --stage spec
     enabled: true
     optional: false
-    description: Inspect, validate, and amend the specification to ensure complete decision-driven observability coverage across metrics, traces, and logs
+    description: Inspect, validate, and amend the specification to ensure complete
+      decision-driven observability coverage across metrics, traces, and logs
     condition: null
   - extension: connector-coverage-check
-    command: "connector-coverage-check --stage spec"
+    command: connector-coverage-check --stage spec
     enabled: true
     optional: false
-    description: Inspect, validate, and amend the specification to ensure full implementation coverage across all three connectors (Simulated, AzureDevOps, TFS)
+    description: Inspect, validate, and amend the specification to ensure full implementation
+      coverage across all three connectors (Simulated, AzureDevOps, TFS)
     condition: null
   after_plan:
   - extension: observability-contract
-    command: "observability-contract --stage plan"
+    command: observability-contract --stage plan
     enabled: true
     optional: false
-    description: Validate and amend plan.md to ensure the Observability Contract section specifies complete, decision-driven observability coverage (O-1 traces, O-2 metrics, O-3 logs, O-4 progress events, CLI visibility) across metrics, traces, and logs for every operation
+    description: Validate and amend plan.md to ensure the Observability Contract section
+      specifies complete, decision-driven observability coverage (O-1 traces, O-2
+      metrics, O-3 logs, O-4 progress events, CLI visibility) across metrics, traces,
+      and logs for every operation
     condition: null
   - extension: plan-architecture-compliance
     command: plan-architecture-compliance
     enabled: true
     optional: false
-    description: Design-time compliance review — validates spec.md and plan.md against all five architecture perspectives plus constitution and guardrails before task generation begins
+    description: Design-time compliance review — validates spec.md and plan.md against
+      all five architecture perspectives plus constitution and guardrails before task
+      generation begins
     condition: null
   after_tasks:
   - extension: observability-contract
-    command: "observability-contract --stage tasks"
+    command: observability-contract --stage tasks
     enabled: true
     optional: false
-    description: Validate and amend tasks.md to ensure every user story phase contains explicit O-1, O-2, O-3, and O-4 observability tasks
+    description: Validate and amend tasks.md to ensure every user story phase contains
+      explicit O-1, O-2, O-3, and O-4 observability tasks
+    condition: null
+  - extension: superb
+    command: speckit.superb.review
+    enabled: true
+    optional: true
+    prompt: Review tasks.md for coverage and TDD-readiness before implementation?
+    description: 'Catches missing or under-specified tasks at planning time. Produces
+      a requirement coverage and TDD-readiness report. Bridge-native logic.
+
+      '
     condition: null
   after_implement:
   - extension: update-docs
     command: update-docs
     enabled: true
     optional: false
-    description: Scan every changed file and update every affected canonical doc in /docs and /.agents/context — CLI commands, configuration keys, modules, connectors, architecture. Mark all doc-tasks in tasks.md as complete.
+    description: Scan every changed file and update every affected canonical doc in
+      /docs and /.agents/context — CLI commands, configuration keys, modules, connectors,
+      architecture. Mark all doc-tasks in tasks.md as complete.
     condition: null
   - extension: observability-contract
-    command: "observability-contract --stage implement"
+    command: observability-contract --stage implement
     enabled: true
     optional: false
-    description: Scan every modified .cs file for O-1 spans, O-2 metrics, O-3 structured logging, and O-4 progress events — implement any missing instrumentation before proceeding
+    description: Scan every modified .cs file for O-1 spans, O-2 metrics, O-3 structured
+      logging, and O-4 progress events — implement any missing instrumentation before
+      proceeding
     condition: null
   - extension: test-validity
     command: test-validity
     enabled: true
     optional: false
-    description: Score every test for intrinsic value and delete WASTE tests before promotion analysis
+    description: Score every test for intrinsic value and delete WASTE tests before
+      promotion analysis
     condition: null
   - extension: test-promotion
     command: test-promotion
     enabled: true
     optional: false
-    description: Analyse tests touched by implementation — promote to faster categories and retire redundant slower tests
+    description: Analyse tests touched by implementation — promote to faster categories
+      and retire redundant slower tests
     condition: null
   - extension: definition-of-done
     command: definition-of-done
     enabled: true
     optional: false
-    description: Validate that the completed work meets every criterion in the Definition of Done — build, tests, code quality, connector coverage, documentation, and compliance review
+    description: Validate that the completed work meets every criterion in the Definition
+      of Done — build, tests, code quality, connector coverage, documentation, and
+      compliance review
     condition: null
-  
+  - extension: superb
+    command: speckit.superb.verify
+    enabled: true
+    optional: false
+    prompt: Execute speckit.superb.verify?
+    description: 'Mandatory completion gate. Bridges an installed superpowers verification-before-completion
+      skill and extends it with spec-kit spec-coverage checks. Prevents false completions.
+
+      '
+    condition: null
+  before_implement:
+  - extension: superb
+    command: speckit.superb.tdd
+    enabled: true
+    optional: false
+    prompt: Execute speckit.superb.tdd?
+    description: 'Mandatory TDD gate. Bridges an installed superpowers test-driven-development
+      skill into the spec-kit task structure before any code is written.
+
+      '
+    condition: null

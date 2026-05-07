@@ -75,7 +75,15 @@ public sealed class JobPlanExecutorTests
         var exportContext = new ExportContext();
 
         // Act
-        var result = await executor.ExecuteExportPhaseAsync(plan, modules, exportContext, stateStore, CancellationToken.None);
+        var result = await executor.ExecuteExportPhaseAsync(
+            plan,
+            modules,
+            new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
+            baseInventoryContext: null,
+            endpointsByUrl: null,
+            exportContext,
+            stateStore,
+            CancellationToken.None);
 
         // Assert
         Assert.IsTrue(result, "Export phase should succeed");
@@ -85,6 +93,327 @@ public sealed class JobPlanExecutorTests
         var minStart = startTimes.Min();
         var concurrentStarts = startTimes.Count(t => (t - minStart).TotalMilliseconds < 500);
         Assert.IsTrue(concurrentStarts >= 3, $"At least 3 tasks should start within 500ms, but only {concurrentStarts} did");
+    }
+
+    [TestMethod]
+    public async Task ExecuteExportPhaseAsync_WithCaptureAndAnalysePrerequisites_RunsThemBeforeExport()
+    {
+        // Arrange
+        var executionOrder = new List<string>();
+        var lockObj = new object();
+
+        var workItemsModule = new Mock<IModule>(MockBehavior.Loose);
+        workItemsModule.SetupGet(m => m.Name).Returns("WorkItems");
+        workItemsModule.Setup(m => m.CaptureAsync(It.IsAny<InventoryContext>(), It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                lock (lockObj)
+                {
+                    executionOrder.Add("Capture");
+                }
+
+                return Task.CompletedTask;
+            });
+        workItemsModule.Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                lock (lockObj)
+                {
+                    executionOrder.Add("Export");
+                }
+
+                return Task.CompletedTask;
+            });
+
+        var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["WorkItems"] = workItemsModule.Object
+        };
+
+        var inventoryAnalyser = new Mock<IAnalyser>(MockBehavior.Loose);
+        inventoryAnalyser.SetupGet(a => a.Name).Returns("Inventory");
+        inventoryAnalyser.Setup(a => a.AnalyseAsync(It.IsAny<AnalyseContext>(), It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                lock (lockObj)
+                {
+                    executionOrder.Add("Analyse");
+                }
+
+                return Task.CompletedTask;
+            });
+
+        var analysers = new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Inventory"] = inventoryAnalyser.Object
+        };
+
+        var plan = CreatePlan(new[]
+        {
+            CreateTask("capture.workitems.testorg.testproject", "WorkItems Capture", "Capture"),
+            CreateTask(
+                "analyse.inventory.testorg.testproject",
+                "Inventory Analyse",
+                "Analyse",
+                dependsOn: new[] { "capture.workitems.testorg.testproject" }),
+            CreateTask(
+                "export.workitems.testorg.testproject",
+                "WorkItems Export",
+                "Export",
+                dependsOn: new[] { "analyse.inventory.testorg.testproject" })
+        });
+
+        var executor = CreateExecutor();
+        var stateStore = new InMemoryStateStore();
+        var inventoryContext = CreateMinimalInventoryContext(stateStore) with
+        {
+            SourceEndpoint = new OrganisationEndpoint { ResolvedUrl = "https://dev.azure.com/testorg", Type = "Simulated" },
+            Project = "testproject"
+        };
+        var exportContext = new ExportContext
+        {
+            Job = new Job { JobId = "test-job" },
+            ArtefactStore = new Mock<IArtefactStore>(MockBehavior.Loose).Object,
+            StateStore = stateStore
+        };
+        var endpointsByUrl = new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["https://dev.azure.com/testorg"] = new() { ResolvedUrl = "https://dev.azure.com/testorg", Type = "Simulated" }
+        };
+
+        // Act
+        var result = await executor.ExecuteExportPhaseAsync(
+            plan,
+            modules,
+            analysers,
+            inventoryContext,
+            endpointsByUrl,
+            exportContext,
+            stateStore,
+            CancellationToken.None);
+
+        // Assert
+        Assert.IsTrue(result, "Export phase should succeed when prerequisite capture/analyse tasks succeed.");
+        CollectionAssert.AreEqual(new[] { "Capture", "Analyse", "Export" }, executionOrder);
+    }
+
+    [TestMethod]
+    public async Task ExecuteExportPhaseAsync_WhenInventoryMarkerExists_SkipsPrerequisitesAndRunsExport()
+    {
+        var executionOrder = new List<string>();
+        var lockObj = new object();
+
+        var workItemsModule = new Mock<IModule>(MockBehavior.Loose);
+        workItemsModule.SetupGet(m => m.Name).Returns("WorkItems");
+        workItemsModule.Setup(m => m.CaptureAsync(It.IsAny<InventoryContext>(), It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                lock (lockObj)
+                {
+                    executionOrder.Add("Capture");
+                }
+
+                return Task.CompletedTask;
+            });
+        workItemsModule.Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                lock (lockObj)
+                {
+                    executionOrder.Add("Export");
+                }
+
+                return Task.CompletedTask;
+            });
+
+        var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["WorkItems"] = workItemsModule.Object
+        };
+
+        var inventoryAnalyser = new Mock<IAnalyser>(MockBehavior.Loose);
+        inventoryAnalyser.SetupGet(a => a.Name).Returns("Inventory");
+        inventoryAnalyser.Setup(a => a.AnalyseAsync(It.IsAny<AnalyseContext>(), It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                lock (lockObj)
+                {
+                    executionOrder.Add("Analyse");
+                }
+
+                return Task.CompletedTask;
+            });
+
+        var analysers = new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Inventory"] = inventoryAnalyser.Object
+        };
+
+        var plan = CreatePlan(new[]
+        {
+            CreateTask("capture.workitems.testorg.testproject", "WorkItems Capture", "Capture"),
+            CreateTask(
+                "analyse.inventory.testorg.testproject",
+                "Inventory Analyse",
+                "Analyse",
+                dependsOn: new[] { "capture.workitems.testorg.testproject" }),
+            CreateTask(
+                "export.workitems.testorg.testproject",
+                "WorkItems Export",
+                "Export",
+                dependsOn: new[] { "analyse.inventory.testorg.testproject" })
+        });
+
+        var executor = CreateExecutor();
+        var stateStore = new InMemoryStateStore();
+        await stateStore.WriteAsync(
+            PackagePaths.InventoryCompleteFile,
+            "{}",
+            CancellationToken.None);
+
+        var inventoryJson = System.Text.Json.JsonSerializer.Serialize(new InventoryReport
+        {
+            Totals = new InventoryTotals { WorkItems = 5 },
+            Organisations = new[]
+            {
+                new OrganisationInventory
+                {
+                    Url = "https://dev.azure.com/testorg",
+                    Projects = new[]
+                    {
+                        new ProjectInventory { Name = "testproject", WorkItems = 5 }
+                    }
+                }
+            }
+        });
+
+        var inventoryContext = CreateMinimalInventoryContext(stateStore) with
+        {
+            SourceEndpoint = new OrganisationEndpoint { ResolvedUrl = "https://dev.azure.com/testorg", Type = "Simulated" },
+            Project = "testproject"
+        };
+        var artefactStore = new Mock<IArtefactStore>(MockBehavior.Loose);
+        artefactStore
+            .Setup(store => store.ReadAsync("inventory.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(inventoryJson);
+        var exportContext = new ExportContext
+        {
+            Job = new Job { JobId = "test-job" },
+            ArtefactStore = artefactStore.Object,
+            StateStore = stateStore
+        };
+        var endpointsByUrl = new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["https://dev.azure.com/testorg"] = new() { ResolvedUrl = "https://dev.azure.com/testorg", Type = "Simulated" }
+        };
+
+        var result = await executor.ExecuteExportPhaseAsync(
+            plan,
+            modules,
+            analysers,
+            inventoryContext,
+            endpointsByUrl,
+            exportContext,
+            stateStore,
+            CancellationToken.None);
+
+        Assert.IsTrue(result);
+        CollectionAssert.AreEqual(new[] { "Export" }, executionOrder);
+
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None);
+        Assert.IsNotNull(persistedPlan);
+        var skippedCapture = persistedPlan.Tasks.First(t => t.Id == "capture.workitems.testorg.testproject");
+        Assert.AreEqual(JobTaskStatus.Skipped, skippedCapture.Status);
+        Assert.AreEqual(5L, skippedCapture.KnownTotal);
+        Assert.AreEqual(5L, skippedCapture.CompletedCount);
+        Assert.AreEqual(JobTaskStatus.Skipped, persistedPlan.Tasks.First(t => t.Id == "analyse.inventory.testorg.testproject").Status);
+        Assert.AreEqual(JobTaskStatus.Completed, persistedPlan.Tasks.First(t => t.Id == "export.workitems.testorg.testproject").Status);
+    }
+
+    [TestMethod]
+    public async Task ExecuteExportPhaseAsync_WhenLiveTaskCompletes_EmitsKnownTotalAndCompletedCount()
+    {
+        var progressEvents = new List<ProgressEvent>();
+
+        var workItemsModule = new Mock<IModule>(MockBehavior.Loose);
+        workItemsModule.SetupGet(m => m.Name).Returns("WorkItems");
+        workItemsModule
+            .Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["WorkItems"] = workItemsModule.Object
+        };
+
+        var plan = CreatePlan(new[]
+        {
+            CreateTask(
+                "export.workitems.testorg.testproject",
+                "WorkItems Export",
+                "Export",
+                orgUrl: "https://dev.azure.com/testorg",
+                projectName: "testproject")
+        });
+
+        var inventoryJson = System.Text.Json.JsonSerializer.Serialize(new InventoryReport
+        {
+            Totals = new InventoryTotals { WorkItems = 5 },
+            Organisations = new[]
+            {
+                new OrganisationInventory
+                {
+                    Url = "https://dev.azure.com/testorg",
+                    Projects = new[]
+                    {
+                        new ProjectInventory { Name = "testproject", WorkItems = 5 }
+                    }
+                }
+            }
+        });
+
+        var progressSink = new Mock<IProgressSink>(MockBehavior.Loose);
+        progressSink
+            .Setup(sink => sink.Emit(It.IsAny<ProgressEvent>()))
+            .Callback<ProgressEvent>(evt => progressEvents.Add(evt));
+
+        var executor = CreateExecutor(progressSink: progressSink.Object);
+        var stateStore = new InMemoryStateStore();
+        var artefactStore = new Mock<IArtefactStore>(MockBehavior.Loose);
+        artefactStore
+            .Setup(store => store.ReadAsync("inventory.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(inventoryJson);
+        var exportContext = new ExportContext
+        {
+            Job = new Job { JobId = "test-job" },
+            ArtefactStore = artefactStore.Object,
+            StateStore = stateStore
+        };
+
+        var result = await executor.ExecuteExportPhaseAsync(
+            plan,
+            modules,
+            new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
+            baseInventoryContext: null,
+            endpointsByUrl: null,
+            exportContext,
+            stateStore,
+            CancellationToken.None);
+
+        Assert.IsTrue(result);
+
+        var completedEvent = progressEvents.Last(evt =>
+            evt.TaskId == "export.workitems.testorg.testproject"
+            && evt.TaskStatus == JobTaskStatus.Completed);
+
+        Assert.AreEqual(5L, completedEvent.KnownTotal);
+        Assert.AreEqual(5L, completedEvent.CompletedCount);
+
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None);
+        Assert.IsNotNull(persistedPlan);
+        var completedTask = persistedPlan.Tasks.Single(t => t.Id == "export.workitems.testorg.testproject");
+        Assert.AreEqual(5L, completedTask.KnownTotal);
+        Assert.AreEqual(5L, completedTask.CompletedCount);
     }
 
     [TestMethod]
@@ -362,7 +691,15 @@ public sealed class JobPlanExecutorTests
         var exportContext = new ExportContext();
 
         // Act
-        var result = await executor.ExecuteExportPhaseAsync(plan, modules, exportContext, stateStore, CancellationToken.None);
+        var result = await executor.ExecuteExportPhaseAsync(
+            plan,
+            modules,
+            new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
+            baseInventoryContext: null,
+            endpointsByUrl: null,
+            exportContext,
+            stateStore,
+            CancellationToken.None);
 
         // Assert
         Assert.IsTrue(result, "Export phase should return true when all tasks are already completed");
@@ -448,7 +785,15 @@ public sealed class JobPlanExecutorTests
         var exportContext = new ExportContext();
 
         // Act
-        var result = await executor.ExecuteExportPhaseAsync(plan, modules, exportContext, stateStore, CancellationToken.None);
+        var result = await executor.ExecuteExportPhaseAsync(
+            plan,
+            modules,
+            new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
+            baseInventoryContext: null,
+            endpointsByUrl: null,
+            exportContext,
+            stateStore,
+            CancellationToken.None);
 
         // Assert
         Assert.IsTrue(result, "Export phase should succeed");
@@ -709,9 +1054,11 @@ public sealed class JobPlanExecutorTests
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private static JobPlanExecutor CreateExecutor(ICurrentJobEndpointAccessor? endpointAccessor = null)
+    private static JobPlanExecutor CreateExecutor(
+        ICurrentJobEndpointAccessor? endpointAccessor = null,
+        IProgressSink? progressSink = null)
     {
-        var progressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object;
+        progressSink ??= new Mock<IProgressSink>(MockBehavior.Loose).Object;
         return new JobPlanExecutor(progressSink, NullLogger<JobPlanExecutor>.Instance, endpointAccessor);
     }
 
@@ -749,7 +1096,9 @@ public sealed class JobPlanExecutorTests
         JobTaskStatus status = JobTaskStatus.Pending,
         string? skipReason = null,
         IReadOnlyList<string>? dependsOn = null,
-        DateTimeOffset? startedAt = null)
+        DateTimeOffset? startedAt = null,
+        string? orgUrl = null,
+        string? projectName = null)
     {
         var kind = phase.ToUpperInvariant() switch
         {
@@ -769,7 +1118,9 @@ public sealed class JobPlanExecutorTests
             Status = status,
             SkipReason = skipReason,
             DependsOn = dependsOn,
-            StartedAt = startedAt
+            StartedAt = startedAt,
+            OrganisationUrl = orgUrl,
+            ProjectName = projectName
         };
     }
 

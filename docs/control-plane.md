@@ -62,7 +62,7 @@ The control plane does **not** run the Job Engine, call source or target APIs, o
 |---|---|---|
 | `GET` | `/agents/lease` | Migration Agent polls for available work. Returns a leased job if one is available. |
 | `POST` | `/agents/lease/{leaseId}/heartbeat` | Migration Agent signals it is alive. Lease expiry is extended on each heartbeat. |
-| `POST` | `/agents/lease/{leaseId}/progress` | Migration Agent reports a `ProgressEvent` (module, stage, lastProcessed, counts, timestamp). Stored in the job's in-memory ring buffer and broadcast to active SSE subscribers. |
+| `POST` | `/agents/lease/{leaseId}/progress` | Migration Agent reports a `ProgressEvent`. Stored in the job's in-memory ring buffer, broadcast to active SSE subscribers, and when `taskId + taskStatus` are present, merged into the stored `JobTask` row using `knownTotal` and `completedCount` as partial task-state patches. |
 | `POST` | `/agents/lease/{leaseId}/complete` | Migration Agent signals successful job completion. |
 | `POST` | `/agents/lease/{leaseId}/fail` | Migration Agent signals non-recoverable failure with error detail. |
 | `POST` | `/agents/lease/{leaseId}/release` | Migration Agent releases lease without completing (e.g. on pause). |
@@ -128,16 +128,16 @@ sequenceDiagram
 
 ## Progress Reporting
 
-Migration Agents push a `ProgressEvent` after each stage:
+Migration Agents push a `ProgressEvent` after each stage. Task lifecycle events also carry task-scoped patch data so the Control Plane can update the already-pushed `JobTaskList` without re-pushing the full plan:
 
 ```json
 {
   "module": "WorkItems",
-  "stage": "AppliedFields",
-  "lastProcessed": "WorkItems/2026-02-25/638760123456789012-12345-17",
-  "totalWorkItems": 1500,
-  "workItemsProcessed": 312,
-  "revisionsProcessed": 874,
+    "stage": "Export.Complete",
+    "taskId": "export.workitems.myorg.projecta",
+    "taskStatus": "Completed",
+    "knownTotal": 1500,
+    "completedCount": 1500,
   "workItemId": 12345,
   "timestamp": "2026-02-25T18:12:34Z"
 }
@@ -147,6 +147,7 @@ The control plane stores each event in a bounded per-job **ring buffer** (`Bound
 
 - Powers `GET /jobs/{jobId}/progress` (snapshot of current buffer contents)
 - Powers `GET /jobs/{jobId}/progress?follow=true` (SSE broadcast from the buffer to all active subscribers)
+- Patches the in-memory `JobTaskList` when events carry `taskId + taskStatus`, merging `knownTotal` and `completedCount` into the matching task row
 - Is in-memory only — it is cleared when the control plane restarts, but the package's `.migration/Logs/progress.jsonl` is the durable record
 
 The ring buffer always reflects the most recent activity. For very long jobs, oldest events are evicted to stay within capacity. The cursor in the package remains the authoritative resume state.

@@ -4,7 +4,7 @@
 
 The TUI is the visual progress layer rendered in the terminal during a migration. It subscribes to structured progress events and metrics **from the ControlPlane API**. It contains no migration logic, no command routing, and no direct connection to any `IProgressSink`.
 
-Command parsing, mode selection, and job dispatch are handled by the CLI shell. See [docs/cli-guide.md](cli.md).
+Command parsing, mode selection, and job dispatch are handled by the CLI shell. See [docs/cli-guide.md](cli-guide.md).
 
 The exact target mode-to-workspace contract lives in [ui-mode-contract.md](ui-mode-contract.md). This guide remains the operator guide for launch, authentication, data-source rules, and the current TUI shell; the UI mode contract records the intended future-state TUI workspace behaviour.
 
@@ -172,4 +172,4 @@ Progress data comes from the control plane's latest cursor mirror. The authorita
 
 The TUI holds an SSE connection for the progress table (see Status Display above) but this connection does not affect the running job. The Migration Agent holds the lease independently of any connected TUI. When the TUI process exits or loses connectivity, the job continues running unaffected.
 
-Reconnecting is always safe and requires only the `jobId`. The TUI will re-subscribe to the SSE stream and receive events from the ring buffer (last 1000 events) on reconnect. See [docs/cli-guide.md](cli.md) for the `status` and `logs` commands.
+Reconnecting is always safe and requires only the `jobId`. The TUI will re-subscribe to the SSE stream and receive events from the ring buffer (last 1000 events) on reconnect. See [docs/cli-guide.md](cli-guide.md) for the `status` and `logs` commands.

@@ -8,7 +8,7 @@ Migration logic lives exclusively in the **Job Engine**, which runs inside Migra
 
 The exact mode-to-view contract for `queue --follow` and `manage status` lives in [ui-mode-contract.md](ui-mode-contract.md). Use this guide for command behaviour and data-source rules; use the UI mode contract when changing what the operator sees.
 
-See [docs/tui-guide.md](tui.md) for how progress is rendered in the terminal.
+See [docs/tui-guide.md](tui-guide.md) for how progress is rendered in the terminal.
 
 ---
 
@@ -254,7 +254,7 @@ Supported preference keys:
 
 | Command | Description |
 |---|---|
-| `tui` | Open the interactive Terminal UI showing live job state for jobs visible to the current user. See [docs/tui-guide.md](tui.md). |
+| `tui` | Open the interactive Terminal UI showing live job state for jobs visible to the current user. See [docs/tui-guide.md](tui-guide.md). |
 
 ### Control Plane Management (`controlplane`)
 

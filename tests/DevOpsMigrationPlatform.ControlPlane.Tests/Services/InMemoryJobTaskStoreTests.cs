@@ -48,7 +48,7 @@ public sealed class InMemoryJobTaskStoreTests
         store.Store(jobId, MakeList("export.identities", "export.workitems"));
         var now = DateTimeOffset.UtcNow;
 
-        store.UpdateTask(jobId, "export.identities", JobTaskStatus.Running, null, now);
+        store.UpdateTask(jobId, "export.identities", JobTaskStatus.Running, null, null, now);
 
         var result = store.GetLatest(jobId)!;
         var updated = result.Tasks[0];
@@ -65,7 +65,7 @@ public sealed class InMemoryJobTaskStoreTests
         store.Store(jobId, MakeList("export.identities"));
         var now = DateTimeOffset.UtcNow;
 
-        store.UpdateTask(jobId, "export.identities", JobTaskStatus.Completed, 42L, now);
+        store.UpdateTask(jobId, "export.identities", JobTaskStatus.Completed, 42L, null, now);
 
         var task = store.GetLatest(jobId)!.Tasks[0];
         Assert.AreEqual(JobTaskStatus.Completed, task.Status);
@@ -80,10 +80,47 @@ public sealed class InMemoryJobTaskStoreTests
         var jobId = Guid.NewGuid();
         store.Store(jobId, MakeList("export.identities"));
 
-        store.UpdateTask(jobId, "nonexistent.task", JobTaskStatus.Running, null, DateTimeOffset.UtcNow);
+        store.UpdateTask(jobId, "nonexistent.task", JobTaskStatus.Running, null, null, DateTimeOffset.UtcNow);
 
         var task = store.GetLatest(jobId)!.Tasks[0];
         Assert.AreEqual(JobTaskStatus.Pending, task.Status);
+    }
+
+    [TestMethod]
+    public void UpdateTask_KnownTotalProvided_MergesIntoStoredTask()
+    {
+        var store = new InMemoryJobTaskStore();
+        var jobId = Guid.NewGuid();
+        store.Store(jobId, MakeList("export.identities"));
+        var now = DateTimeOffset.UtcNow;
+
+        store.UpdateTask(jobId, "export.identities", JobTaskStatus.Running, 7L, 12L, now);
+
+        var task = store.GetLatest(jobId)!.Tasks[0];
+        Assert.AreEqual(JobTaskStatus.Running, task.Status);
+        Assert.AreEqual(7L, task.CompletedCount);
+        Assert.AreEqual(12L, task.KnownTotal);
+    }
+
+    [TestMethod]
+    public void UpdateTask_KnownTotalNull_PreservesExistingValue()
+    {
+        var store = new InMemoryJobTaskStore();
+        var jobId = Guid.NewGuid();
+        var list = new JobTaskList
+        {
+            Tasks = new List<JobTask>
+            {
+                new() { Id = "export.identities", Name = "export.identities", Order = 0, Status = JobTaskStatus.Pending, KnownTotal = 12L }
+            }.AsReadOnly()
+        };
+        store.Store(jobId, list);
+
+        store.UpdateTask(jobId, "export.identities", JobTaskStatus.Running, 3L, null, DateTimeOffset.UtcNow);
+
+        var task = store.GetLatest(jobId)!.Tasks[0];
+        Assert.AreEqual(12L, task.KnownTotal);
+        Assert.AreEqual(3L, task.CompletedCount);
     }
 
     [TestMethod]

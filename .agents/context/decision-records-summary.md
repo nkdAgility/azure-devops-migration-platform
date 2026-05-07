@@ -38,9 +38,9 @@ The Control Plane coordinates but never executes migration phases. Migration log
 
 **Status:** Accepted — amended by ADR-0008
 
-Only Migration Agent and TFS Export Agent may write to the package. CLI, TUI, Control Plane, and ControlPlaneHost are read-only. **Exception:** The CLI may write `migration-config.json` to the package root as a pre-submission step (see ADR-0008).
+Only Migration Agent and TFS Export Agent may write to the package. CLI, TUI, Control Plane, and ControlPlaneHost are read-only.
 
-**Current implication:** Reject any code that calls `IArtefactStore` write methods from CLI, TUI, or Control Plane code. The single permitted CLI write is `migration-config.json` before job submission.
+**Current implication:** Reject any code that calls `IArtefactStore` write methods from CLI, TUI, or Control Plane code. The CLI may serialise config into the job token, but the agent performs the package write.
 
 ## ADR 0006 — Three-Channel Observability
 
@@ -48,7 +48,7 @@ Only Migration Agent and TFS Export Agent may write to the package. CLI, TUI, Co
 
 OTel signals (O-1), `IProgressSink` progress events (O-2), and `ILogger` diagnostics (O-3) are three distinct channels that must not be conflated. O-2 is stored as `Logs/progress.jsonl` and streamed via SSE. O-3 is stored as `Logs/agent.jsonl` and streamed via SSE. O-1 is exported via OTLP.
 
-**Current implication:** Every module must inject `IProgressSink`, instrument with `ActivitySource` spans, call `IPlatformMetrics`, and log via `ILogger`. CLI/TUI read metrics from `GET /jobs/{id}/telemetry` and progress from `GET /jobs/{id}/progress?follow=true` — never from an in-process sink.
+**Current implication:** Every module must emit progress, traces, metrics, and structured logs through the defined channels. CLI/TUI read metrics from `GET /jobs/{id}/telemetry` and progress from `GET /jobs/{id}/progress?follow=true` — never from an in-process sink.
 
 ## ADR 0007 — Compiler-Enforced Project Boundary Topology
 
@@ -62,9 +62,9 @@ Project reference topology enforces layer isolation at compile time. CLI may onl
 
 **Status:** Accepted
 
-The CLI writes `migration-config.json` to the package working directory before submitting the job. The `Job` payload carries only dispatch metadata. The Agent reads config from the package and builds per-job `IOptions<T>` DI scope.
+The CLI serialises config into `Job.ConfigPayload`. The agent writes `migration-config.json` to the package after lease acquisition and builds the per-job `IOptions<T>` scope from that materialised file.
 
-**Current implication:** Module options are never populated from the `Job` record. If `migration-config.json` is missing at agent startup, the agent fails fast. The Control Plane never sees credential or transform config.
+**Current implication:** Module options are rebuilt from agent-materialised package config. The Control Plane routes opaque config payload but does not inspect or proxy configuration fields.
 
 ## ADR 0009 — Single Job Class with Kind Discriminator
 
@@ -80,7 +80,7 @@ The CLI writes `migration-config.json` to the package working directory before s
 
 The Agent builds an execution plan from `IModule.DependsOn`, persists it to `.migration/Checkpoints/plan.json`, and drives all execution from the plan. Independent modules run concurrently. The plan enables task-level resume without re-executing completed modules.
 
-**Current implication:** `IModule.DependsOn` is authoritative — the plan executor enforces it. `WorkItems` import cannot start until `Identities` and `Nodes` import complete. A crashed agent resumes from the persisted plan, skipping completed tasks. Circular dependencies fail the job before any module executes.
+**Current implication:** `IModule.DependsOn` is authoritative — the plan executor enforces it. A crashed agent resumes from persisted plan state, skipping completed tasks. Circular dependencies fail the job before any module executes.
 
 ## ADR 0011 — Unified `platform.*` Metric Namespace
 
@@ -88,7 +88,7 @@ The Agent builds an execution plan from `IModule.DependsOn`, persists it to `.mi
 
 All metric strings across Agent, ControlPlane, and CLI use `platform.<domain>.<phase>.<measure>`. `IDiscoveryMetrics` + `IMigrationMetrics` are merged into `IPlatformMetrics`.
 
-**Current implication:** No metric string may begin with `discovery.*`, `migration.*`, `controlplane.*`, or `cli.*`. Inject `IPlatformMetrics` in modules — not `IDiscoveryMetrics` or `IMigrationMetrics`. High-cardinality identifiers (`WorkItemId`, `RevisionIndex`) must not appear as metric tags.
+**Current implication:** No metric string may begin with `discovery.*`, `migration.*`, `controlplane.*`, or `cli.*`. High-cardinality identifiers (`WorkItemId`, `RevisionIndex`) must not appear as metric tags.
 
 ## ADR 0012 — IModule Five-Phase Contract
 

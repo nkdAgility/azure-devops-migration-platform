@@ -46,6 +46,6 @@ Each channel has a dedicated API endpoint on the Control Plane. Progress and dia
 ## Related
 
 - [docs/architecture.md](../architecture.md) — component overview
-- [.agents/context/telemetry-architecture.md](../../.agents/context/telemetry-architecture.md) — detailed telemetry model
+- [.agents/context/telemetry-model.md](../../.agents/context/telemetry-model.md) — detailed telemetry model
 - [.agents/guardrails/observability-requirements.md](../../.agents/guardrails/observability-requirements.md) — O-1 through O-4 requirements
 - Driving spec: `specs/007-observability-logging/spec.md`

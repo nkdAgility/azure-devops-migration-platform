@@ -197,6 +197,9 @@ public sealed class JobAgentWorkerDispatchTests
             .Setup(executor => executor.ExecuteExportPhaseAsync(
                 It.IsAny<JobTaskList>(),
                 It.IsAny<IReadOnlyDictionary<string, IModule>>(),
+                It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
+                It.IsAny<InventoryContext?>(),
+                It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
                 It.IsAny<ExportContext>(),
                 It.IsAny<IStateStore>(),
                 It.IsAny<CancellationToken>()))
@@ -236,6 +239,7 @@ public sealed class JobAgentWorkerDispatchTests
 
         var services = new ServiceCollection();
         services.AddSingleton<IModule>(new FakeModule("WorkItems", supportsPrepare: true));
+        services.AddSingleton<ISourceEndpointInfo>(new FakeSourceEndpointInfo());
         services.AddSingleton<ITargetEndpointInfo>(new FakeTargetEndpointInfo());
         services.AddSingleton<IAnalyser>(new FakeAnalyser("Dependencies"));
         _scopeFactory = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
@@ -257,6 +261,9 @@ public sealed class JobAgentWorkerDispatchTests
         _planExecutor.Verify(executor => executor.ExecuteExportPhaseAsync(
             It.IsAny<JobTaskList>(),
             It.IsAny<IReadOnlyDictionary<string, IModule>>(),
+            It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
+            It.IsAny<InventoryContext?>(),
+            It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
             It.IsAny<ExportContext>(),
             It.IsAny<IStateStore>(),
             It.IsAny<CancellationToken>()), Times.Once);
@@ -270,6 +277,57 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
             It.IsAny<IStateStore>(),
             It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [TestMethod]
+    public async Task OnJobAsync_Export_PassesConfiguredAndResolvedSourceEndpointAliases()
+    {
+        var configuredSourceUrl = "configured://source-alias";
+        _packageConfiguration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Source:Type"] = "Simulated",
+                ["MigrationPlatform:Source:Url"] = configuredSourceUrl,
+                ["MigrationPlatform:Source:Project"] = "SourceProject",
+                ["MigrationPlatform:Target:Type"] = "Simulated",
+                ["MigrationPlatform:Target:Url"] = "https://simulated.example/target",
+                ["MigrationPlatform:Target:Project"] = "TargetProject",
+                ["MigrationPlatform:Mode"] = "Export",
+            })
+            .Build();
+
+        _packageConfigStore
+            .Setup(store => store.ReadAsync(It.IsAny<IArtefactStore>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_packageConfiguration);
+
+        IReadOnlyDictionary<string, OrganisationEndpoint>? capturedEndpoints = null;
+        _planExecutor
+            .Setup(executor => executor.ExecuteExportPhaseAsync(
+                It.IsAny<JobTaskList>(),
+                It.IsAny<IReadOnlyDictionary<string, IModule>>(),
+                It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
+                It.IsAny<InventoryContext?>(),
+                It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
+                It.IsAny<ExportContext>(),
+                It.IsAny<IStateStore>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<JobTaskList, IReadOnlyDictionary<string, IModule>, IReadOnlyDictionary<string, IAnalyser>, InventoryContext?, IReadOnlyDictionary<string, OrganisationEndpoint>?, ExportContext, IStateStore, CancellationToken>(
+                (_, _, _, _, endpoints, _, _, _) => capturedEndpoints = endpoints)
+            .ReturnsAsync(true);
+
+        var worker = CreateWorker();
+        var job = CreateJob(JobKind.Export);
+
+        await JobAgentWorkerTestHelper.InvokeJobAsync(
+            worker,
+            job,
+            CreateControlPlaneClient(),
+            "lease-export",
+            CancellationToken.None);
+
+        Assert.IsNotNull(capturedEndpoints);
+        Assert.IsTrue(capturedEndpoints.ContainsKey(configuredSourceUrl));
+        Assert.IsTrue(capturedEndpoints.ContainsKey("https://simulated.example/source"));
     }
 
     [TestMethod]
@@ -298,9 +356,139 @@ public sealed class JobAgentWorkerDispatchTests
         _planExecutor.Verify(executor => executor.ExecuteExportPhaseAsync(
             It.IsAny<JobTaskList>(),
             It.IsAny<IReadOnlyDictionary<string, IModule>>(),
+            It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
+            It.IsAny<InventoryContext?>(),
+            It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
             It.IsAny<ExportContext>(),
             It.IsAny<IStateStore>(),
             It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [TestMethod]
+    public async Task OnJobAsync_Inventory_WhenInventoryPlanSucceeds_WritesInventoryCompletionMarker()
+    {
+        _plan = new JobTaskList
+        {
+            Tasks = new List<JobTask>
+            {
+                new()
+                {
+                    Id = "capture.workitems.simulated.sourceproject",
+                    Name = "WorkItems Capture",
+                    TaskKind = TaskKind.Capture,
+                    ProjectName = "SourceProject",
+                    Order = 0,
+                    Status = JobTaskStatus.Pending,
+                    DependsOn = Array.Empty<string>()
+                },
+                new()
+                {
+                    Id = "analyse.inventory",
+                    Name = "Inventory Analyse",
+                    TaskKind = TaskKind.Analyse,
+                    Order = 1,
+                    Status = JobTaskStatus.Pending,
+                    DependsOn = new[] { "capture.workitems.simulated.sourceproject" }
+                }
+            }.AsReadOnly()
+        };
+
+        _planBuilder
+            .Setup(builder => builder.BuildAndSaveAsync(
+                It.IsAny<IConfiguration>(),
+                It.IsAny<JobKind>(),
+                It.IsAny<IArtefactStore>(),
+                It.IsAny<IStateStore>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_plan);
+
+        var worker = CreateWorker();
+        var job = CreateJob(JobKind.Inventory);
+
+        await JobAgentWorkerTestHelper.InvokeJobAsync(
+            worker,
+            job,
+            CreateControlPlaneClient(),
+            "lease-inventory",
+            CancellationToken.None);
+
+        _stateStore.Verify(
+            store => store.WriteAsync(
+                PackagePaths.InventoryCompleteFile,
+                It.Is<string>(value =>
+                    value.Contains("\"phase\":\"Inventory\"", StringComparison.Ordinal) &&
+                    value.Contains("\"jobId\":\"job-Inventory\"", StringComparison.Ordinal)),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [TestMethod]
+    public async Task OnJobAsync_Export_WhenExportPhaseFails_DoesNotWriteInventoryCompletionMarker()
+    {
+        _plan = new JobTaskList
+        {
+            Tasks = new List<JobTask>
+            {
+                new()
+                {
+                    Id = "analyse.inventory",
+                    Name = "Inventory Analyse",
+                    TaskKind = TaskKind.Analyse,
+                    Order = 0,
+                    Status = JobTaskStatus.Pending,
+                    DependsOn = Array.Empty<string>()
+                },
+                new()
+                {
+                    Id = "export.workitems.simulated.sourceproject",
+                    Name = "WorkItems Export",
+                    TaskKind = TaskKind.Export,
+                    Phase = "Export",
+                    ProjectName = "SourceProject",
+                    Order = 1,
+                    Status = JobTaskStatus.Pending,
+                    DependsOn = new[] { "analyse.inventory" }
+                }
+            }.AsReadOnly()
+        };
+
+        _planBuilder
+            .Setup(builder => builder.BuildAndSaveAsync(
+                It.IsAny<IConfiguration>(),
+                It.IsAny<JobKind>(),
+                It.IsAny<IArtefactStore>(),
+                It.IsAny<IStateStore>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_plan);
+
+        _planExecutor
+            .Setup(executor => executor.ExecuteExportPhaseAsync(
+                It.IsAny<JobTaskList>(),
+                It.IsAny<IReadOnlyDictionary<string, IModule>>(),
+                It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
+                It.IsAny<InventoryContext?>(),
+                It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
+                It.IsAny<ExportContext>(),
+                It.IsAny<IStateStore>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var worker = CreateWorker();
+        var job = CreateJob(JobKind.Export);
+
+        await JobAgentWorkerTestHelper.InvokeJobAsync(
+            worker,
+            job,
+            CreateControlPlaneClient(),
+            "lease-export-fail",
+            CancellationToken.None);
+
+        _stateStore.Verify(
+            store => store.WriteAsync(
+                PackagePaths.InventoryCompleteFile,
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [TestMethod]
@@ -319,6 +507,9 @@ public sealed class JobAgentWorkerDispatchTests
         _planExecutor.Verify(executor => executor.ExecuteExportPhaseAsync(
             It.IsAny<JobTaskList>(),
             It.IsAny<IReadOnlyDictionary<string, IModule>>(),
+            It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
+            It.IsAny<InventoryContext?>(),
+            It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
             It.IsAny<ExportContext>(),
             It.IsAny<IStateStore>(),
             It.IsAny<CancellationToken>()), Times.Never);
@@ -344,6 +535,9 @@ public sealed class JobAgentWorkerDispatchTests
             .Setup(executor => executor.ExecuteExportPhaseAsync(
                 It.IsAny<JobTaskList>(),
                 It.IsAny<IReadOnlyDictionary<string, IModule>>(),
+                It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
+                It.IsAny<InventoryContext?>(),
+                It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
                 It.IsAny<ExportContext>(),
                 It.IsAny<IStateStore>(),
                 It.IsAny<CancellationToken>()))
@@ -405,6 +599,33 @@ public sealed class JobAgentWorkerDispatchTests
                 endpoint.ConnectorType == "Simulated" &&
                 endpoint.Project == "TargetProject" &&
                 endpoint.Url == string.Empty)),
+            Times.Once);
+    }
+
+    [TestMethod]
+    public async Task OnJobAsync_ForceFresh_DeletesInventoryCompletionMarker()
+    {
+        var worker = CreateWorker();
+        var job = new Job
+        {
+            JobId = "job-Export",
+            Kind = JobKind.Export,
+            Package = new JobPackage { PackageUri = "." },
+            Resume = new JobResume
+            {
+                Mode = ResumeMode.ForceFresh
+            }
+        };
+
+        await JobAgentWorkerTestHelper.InvokeJobAsync(
+            worker,
+            job,
+            CreateControlPlaneClient(),
+            "lease-forcefresh",
+            CancellationToken.None);
+
+        _stateStore.Verify(
+            store => store.DeleteAsync(PackagePaths.InventoryCompleteFile, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -476,6 +697,18 @@ public sealed class JobAgentWorkerDispatchTests
     {
         public string Url => "https://simulated.example/target";
         public string Project => "TargetProject";
+        public string ConnectorType => "Simulated";
+        public OrganisationEndpoint ToOrganisationEndpoint() => new()
+        {
+            Type = ConnectorType,
+            ResolvedUrl = Url,
+        };
+    }
+
+    private sealed class FakeSourceEndpointInfo : ISourceEndpointInfo
+    {
+        public string Url => "https://simulated.example/source";
+        public string Project => "SourceProject";
         public string ConnectorType => "Simulated";
         public OrganisationEndpoint ToOrganisationEndpoint() => new()
         {

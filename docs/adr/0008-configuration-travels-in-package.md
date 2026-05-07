@@ -12,41 +12,41 @@ A secondary constraint is data residency: customer configuration contains creden
 
 ## Decision
 
-Configuration does not travel in the `Job` record. It travels in the package.
+Configuration travels with the job dispatch token and is materialised into the package by the agent.
 
 **Config flow:**
 
 ```
 1. CLI reads migration.json
-2. CLI writes migration-config.json → package working directory  ← pre-submission step
-3. CLI submits Job (jobId, packageUri, kind, connectors — NO config)
+2. CLI serialises the full config JSON into `Job.ConfigPayload`
+3. CLI submits Job (jobId, packageUri, kind, connectors, configPayload)
 4. Control Plane stores Job, assigns lease to Agent
 5. Agent receives Job via lease
-6. Agent reads migration-config.json from package
-7. Agent builds per-job IConfiguration from migration-config.json
+6. Agent writes `Job.ConfigPayload` to `migration-config.json` at the package root
+7. Agent builds per-job IConfiguration from `migration-config.json`
 8. Agent builds per-job IOptions<T> DI scope
 9. Modules execute with correctly populated options
 ```
 
-The `Job` record carries only dispatch metadata: `JobId`, `PackageUri`, `Kind`, `Connectors`, `ConfigVersion`. It carries no credentials, no field transforms, no module options.
+The `Job` record carries dispatch metadata plus opaque configuration payload. The Control Plane routes and persists the `Job` but does not inspect configuration contents.
 
-**Amendment to ADR-0005:** This decision creates a narrow exception to the agent-only write rule. The CLI is permitted to write `migration-config.json` to the package root as a pre-submission step. This is the only CLI package write permitted. See [ADR-0005](0005-agent-only-package-write-access.md).
+**Amendment to ADR-0005:** The agent-only write boundary remains intact. The CLI serialises config into `Job.ConfigPayload`; the agent performs the package write after lease acquisition. See [ADR-0005](0005-agent-only-package-write-access.md).
 
 ## Alternatives Considered
 
-**Config in the Job payload (original approach)**: Simple routing but stores customer credentials in Control Plane memory/database. Violates data residency. Also proved unreliable — the per-job DI scope was never populated from the payload.
+**Config omitted from the Job payload**: Avoids persistence in the control plane, but leaves the agent with no deterministic way to materialise per-job configuration at execution time.
 
 **Config fetched from a secrets service**: The Agent calls a vault at job start. Adds an external dependency, increases latency, requires the operator to register secrets separately from the migration config file they already have. Inconsistent with the "package is self-contained" principle.
 
-**Config written by the Agent before job start**: The Agent cannot write to the package before it receives the job. The CLI must write it before submission so it is present when the Agent opens the package.
+**CLI writes `migration-config.json` directly before submission**: Simpler packaging flow, but breaks the agent-only write boundary and was superseded by the `ConfigPayload` approach finalised in feature 025.1-fold-to-job.
 
 ## Consequences
 
 - `migration-config.json` is a well-known path at the package root. Its schema is versioned (`ConfigVersion`).
-- If `migration-config.json` is missing when the Agent starts, the Agent fails fast with a clear error instructing the operator to re-submit.
-- If `migration-config.json` already exists and `Job.Resume.Mode != ForceFresh`, the Agent throws `InvalidOperationException` — the package is already configured for a job in progress.
-- The Control Plane is permanently opaque to module configuration contents.
-- Customer credentials never enter Control Plane storage.
+- The CLI remains read-only with respect to the package; all package writes stay inside the agent execution boundary.
+- The agent writes `migration-config.json` from `Job.ConfigPayload` before any module reads configuration.
+- The Control Plane stores and routes the opaque job token but does not inspect or proxy module configuration contents.
+- Per-job options are reconstructed deterministically from the materialised package config.
 
 ## Related
 

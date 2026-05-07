@@ -135,32 +135,6 @@ public sealed class JobExecutionPlanBuilderTests
     }
 
     [TestMethod]
-    public async Task BuildPlanAsync_InventoryJsonPresent_SetsKnownTotalOnWorkItemsExport()
-    {
-        var builder = CreateBuilder();
-        var inventoryJson = JsonSerializer.Serialize(new
-        {
-            Totals = new { WorkItems = 500L, Revisions = 1500L, Repos = 2, Projects = 3 },
-            Organisations = Array.Empty<object>()
-        });
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        store
-            .Setup(s => s.ReadAsync("inventory.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(inventoryJson);
-        store
-            .Setup(s => s.ExistsAsync("inventory.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true); // inventory.json exists → no Inventory phase prepended
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
-
-        var plan = await builder.BuildPlanAsync(
-            AllEnabledConfig(), JobKind.Export, store.Object, stateStore.Object, CancellationToken.None);
-
-        var workItemsTask = plan.Tasks[3];
-        Assert.IsTrue(workItemsTask.Id.StartsWith("export.workitems"), $"Expected workitems task but got: {workItemsTask.Id}");
-        Assert.AreEqual(500L, workItemsTask.KnownTotal);
-    }
-
-    [TestMethod]
     public async Task BuildPlanAsync_AllTasksHaveAscendingOrder()
     {
         var builder = CreateBuilder();
