@@ -239,6 +239,7 @@ public sealed class JobAgentWorkerDispatchTests
 
         var services = new ServiceCollection();
         services.AddSingleton<IModule>(new FakeModule("WorkItems", supportsPrepare: true));
+        services.AddSingleton<ISourceEndpointInfo>(new FakeSourceEndpointInfo());
         services.AddSingleton<ITargetEndpointInfo>(new FakeTargetEndpointInfo());
         services.AddSingleton<IAnalyser>(new FakeAnalyser("Dependencies"));
         _scopeFactory = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
@@ -518,6 +519,18 @@ public sealed class JobAgentWorkerDispatchTests
     {
         public string Url => "https://simulated.example/target";
         public string Project => "TargetProject";
+        public string ConnectorType => "Simulated";
+        public OrganisationEndpoint ToOrganisationEndpoint() => new()
+        {
+            Type = ConnectorType,
+            ResolvedUrl = Url,
+        };
+    }
+
+    private sealed class FakeSourceEndpointInfo : ISourceEndpointInfo
+    {
+        public string Url => "https://simulated.example/source";
+        public string Project => "SourceProject";
         public string ConnectorType => "Simulated";
         public OrganisationEndpoint ToOrganisationEndpoint() => new()
         {
