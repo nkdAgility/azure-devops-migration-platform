@@ -20,6 +20,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Context;
@@ -375,30 +376,55 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
     private static (long? KnownTotal, long? CompletedCount) TryResolveTaskProgressSnapshot(
         JobTask task,
-        InventoryReport? inventoryReport)
+        InventoryReport? inventoryReport,
+        ProjectInventoryData? projectInventory = null)
     {
-        if (inventoryReport is null)
-            return (null, null);
-
         var moduleName = GetTaskModuleName(task.Id);
         if (moduleName is null)
             return (null, null);
 
-        var project = inventoryReport.Organisations
+        var hasProjectInventory = projectInventory is not null
+            && (!string.IsNullOrWhiteSpace(projectInventory.Project)
+                || !string.IsNullOrWhiteSpace(projectInventory.OrgUrl));
+
+        var project = inventoryReport?.Organisations
             .FirstOrDefault(org => string.Equals(org.Url, task.OrganisationUrl, StringComparison.OrdinalIgnoreCase))?
             .Projects
             .FirstOrDefault(p => string.Equals(p.Name, task.ProjectName, StringComparison.OrdinalIgnoreCase));
 
         long? knownTotal = moduleName switch
         {
-            "workitems" => project?.WorkItems ?? inventoryReport.Totals.WorkItems,
-            "identities" => project?.Identities ?? inventoryReport.Totals.Identities,
-            "nodes" => project?.Nodes ?? inventoryReport.Totals.Nodes,
-            "teams" => project?.Teams ?? inventoryReport.Totals.Teams,
+            "workitems" => hasProjectInventory ? projectInventory!.WorkItems : project?.WorkItems ?? inventoryReport?.Totals.WorkItems,
+            "repos" => hasProjectInventory ? projectInventory!.Repos : project?.Repos ?? inventoryReport?.Totals.Repos,
+            "identities" => hasProjectInventory ? projectInventory!.Identities : project?.Identities ?? inventoryReport?.Totals.Identities,
+            "nodes" => hasProjectInventory ? projectInventory!.Nodes : project?.Nodes ?? inventoryReport?.Totals.Nodes,
+            "teams" => hasProjectInventory ? projectInventory!.Teams : project?.Teams ?? inventoryReport?.Totals.Teams,
+            "inventory" => hasProjectInventory ? projectInventory!.WorkItems : project?.WorkItems ?? inventoryReport?.Totals.WorkItems,
+            "dependencies" => hasProjectInventory ? projectInventory!.WorkItems : project?.WorkItems ?? inventoryReport?.Totals.WorkItems,
             _ => null
         };
 
         return knownTotal.HasValue ? (knownTotal, knownTotal) : (null, null);
+    }
+
+    private static async Task<(long? KnownTotal, long? CompletedCount)> TryResolveTaskProgressSnapshotAsync(
+        JobTask task,
+        IArtefactStore? artefactStore,
+        CancellationToken ct)
+    {
+        if (artefactStore is null)
+            return (null, null);
+
+        ProjectInventoryData? projectInventory = null;
+        if (!string.IsNullOrWhiteSpace(task.OrganisationUrl) && !string.IsNullOrWhiteSpace(task.ProjectName))
+        {
+            var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(task.OrganisationUrl);
+            var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, task.ProjectName);
+            projectInventory = await ProjectInventoryFile.ReadAsync(artefactStore, projectPath, ct).ConfigureAwait(false);
+        }
+
+        var inventoryReport = await TryReadInventoryReportAsync(artefactStore, ct).ConfigureAwait(false);
+        return TryResolveTaskProgressSnapshot(task, inventoryReport, projectInventory);
     }
 
     private static string? GetTaskModuleName(string taskId)
@@ -850,11 +876,21 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                     }
                 }
 
+                var artefactStoreForTask = baseInventoryContext?.ArtefactStore
+                    ?? exportContext?.ArtefactStore
+                    ?? importContext?.ArtefactStore;
+                var (knownTotal, completedCount) = await TryResolveTaskProgressSnapshotAsync(
+                    task,
+                    artefactStoreForTask,
+                    ct).ConfigureAwait(false);
+
                 // Transition to Completed.
                 updated = updated with
                 {
                     Status = JobTaskStatus.Completed,
-                    CompletedAt = DateTimeOffset.UtcNow
+                    CompletedAt = DateTimeOffset.UtcNow,
+                    KnownTotal = knownTotal ?? updated.KnownTotal,
+                    CompletedCount = completedCount ?? updated.CompletedCount
                 };
 
                 lock (planLock)
@@ -891,7 +927,9 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                     Message = $"{handlerName} {task.TaskKind} completed.",
                     Timestamp = updated.CompletedAt!.Value,
                     TaskId = task.Id,
-                    TaskStatus = JobTaskStatus.Completed
+                    TaskStatus = JobTaskStatus.Completed,
+                    KnownTotal = updated.KnownTotal,
+                    CompletedCount = updated.CompletedCount
                 });
             }
             catch (OperationCanceledException)
