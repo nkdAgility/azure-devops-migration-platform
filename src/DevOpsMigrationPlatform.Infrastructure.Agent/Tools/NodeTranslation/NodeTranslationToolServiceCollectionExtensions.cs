@@ -4,6 +4,7 @@
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -39,11 +40,13 @@ public static class NodeTranslationToolServiceCollectionExtensions
         services.AddSchemaEntry<NodeTranslationOptions>("Classification node path translation configuration");
 #endif
 
-        // Bind from per-job PackageConfig via ActiveJobConfigState (set before job scope is created).
+        services.TryAddSingleton<ICurrentPackageConfigAccessor, CurrentPackageConfigAccessor>();
+
+        // Bind from the explicit current package config set for the current job.
         services.AddOptions<NodeTranslationOptions>()
-            .Configure<IJobConfiguration>((opts, state) =>
+            .Configure<ICurrentPackageConfigAccessor>((opts, state) =>
             {
-                state.PackageConfig?.GetSection(NodeTranslationOptions.SectionName).Bind(opts);
+                state.Current?.GetSection(NodeTranslationOptions.SectionName).Bind(opts);
             });
 
 #if !NET481

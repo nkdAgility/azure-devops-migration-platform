@@ -45,6 +45,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly IPackagePreparer _packagePreparer;
     private readonly IJobExecutionPlanBuilder _planBuilder;
     private readonly IJobPlanExecutor _planExecutor;
+    private readonly ICurrentPackageConfigAccessor _currentPackageConfigAccessor;
     private readonly ICurrentAgentJobContextAccessor _currentJobContextAccessor;
     private readonly ICurrentJobEndpointAccessor _currentJobEndpointAccessor;
     private readonly IControlPlaneTelemetryClient _telemetryClient;
@@ -59,6 +60,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         ActivePackageState packageState,
         IJobConfiguration activeJobConfig,
         IActiveJobState activeJobState,
+        ICurrentPackageConfigAccessor currentPackageConfigAccessor,
         IPackageConfigStore packageConfigStore,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
@@ -76,7 +78,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         PolymorphicEndpointOptionsConverter? endpointConverter = null,
         PolymorphicOrganisationEntryConverter? organisationConverter = null)
         : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
-               phaseTrackingFactory, leaseState, packageState, activeJobConfig, packageConfigStore,
+             phaseTrackingFactory, leaseState, packageState, activeJobConfig, currentPackageConfigAccessor, packageConfigStore,
                moduleScopeFactory, httpClientFactory, logger, activeJobState, endpointConverter, organisationConverter)
     {
         _metricsStore = metricsStore;
@@ -86,6 +88,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         _packagePreparer = packagePreparer;
         _planBuilder = planBuilder;
         _planExecutor = planExecutor;
+        _currentPackageConfigAccessor = currentPackageConfigAccessor;
         _currentJobContextAccessor = currentJobContextAccessor;
         _currentJobEndpointAccessor = currentJobEndpointAccessor;
         _telemetryClient = telemetryClient;
@@ -123,6 +126,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         {
             packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
             ActiveJobConfig.PackageConfig = packageConfig;
+            _currentPackageConfigAccessor.Set(packageConfig);
             SetCurrentJobContext(packageConfig);
             SetCurrentEndpointContext(packageConfig);
         }
@@ -140,6 +144,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     job.Package.PackageUri, job.JobId);
                 await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
                 ActiveJobConfig.Clear();
+                _currentPackageConfigAccessor.Clear();
                 _currentJobContextAccessor.Clear();
                 _currentJobEndpointAccessor.Clear();
                 return;
@@ -183,6 +188,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         finally
         {
             ActiveJobConfig.Clear();
+            _currentPackageConfigAccessor.Clear();
             _currentJobContextAccessor.Clear();
             _currentJobEndpointAccessor.Clear();
         }

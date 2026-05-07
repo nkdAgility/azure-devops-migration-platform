@@ -15,23 +15,23 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
 /// Creates a <see cref="SimulatedWorkItemRevisionSource"/> for endpoints with
 /// <c>Type == "Simulated"</c>. No credentials are required.
 /// Reads the <see cref="SimulatedGeneratorConfig"/> from the current job's Source
-/// via <see cref="ActiveJobConfigState.PackageConfig"/> so that the Generator (including Projects)
+/// via <see cref="ICurrentPackageConfigAccessor.Current"/> so that the Generator (including Projects)
 /// always reflects the per-job migration-config.json rather than a stale singleton value.
 /// </summary>
 public sealed class SimulatedWorkItemRevisionSourceFactory : IWorkItemRevisionSourceFactory
 {
-    private readonly IJobConfiguration _activeJobConfig;
+    private readonly ICurrentPackageConfigAccessor _packageConfigAccessor;
 
-    public SimulatedWorkItemRevisionSourceFactory(IJobConfiguration activeJobConfig)
+    public SimulatedWorkItemRevisionSourceFactory(ICurrentPackageConfigAccessor packageConfigAccessor)
     {
-        _activeJobConfig = activeJobConfig ?? throw new ArgumentNullException(nameof(activeJobConfig));
+        _packageConfigAccessor = packageConfigAccessor ?? throw new ArgumentNullException(nameof(packageConfigAccessor));
     }
 
     /// <inheritdoc/>
     public Task<IWorkItemRevisionSource> CreateAsync(CancellationToken cancellationToken)
     {
         var generator = new SimulatedGeneratorConfig();
-        _activeJobConfig.PackageConfig?
+        _packageConfigAccessor.Current?
             .GetSection("MigrationPlatform:Source:Generator")
             .Bind(generator);
         return Task.FromResult<IWorkItemRevisionSource>(

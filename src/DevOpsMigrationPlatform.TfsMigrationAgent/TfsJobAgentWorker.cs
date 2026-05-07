@@ -63,6 +63,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         ActivePackageState packageState,
         IJobConfiguration activeJobConfig,
         IActiveJobState activeJobState,
+        ICurrentPackageConfigAccessor currentPackageConfigAccessor,
         IPackageConfigStore packageConfigStore,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
@@ -73,7 +74,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         ActiveTfsJobServices activeTfsJobServices,
         ILogger<TfsJobAgentWorker> logger)
         : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
-               phaseTrackingFactory, leaseState, packageState, activeJobConfig, packageConfigStore,
+             phaseTrackingFactory, leaseState, packageState, activeJobConfig, currentPackageConfigAccessor, packageConfigStore,
                moduleScopeFactory, httpClientFactory, logger, activeJobState)
     {
         _flushables = flushables;
@@ -154,7 +155,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     {
         // Bind the concrete TFS source endpoint from the raw IConfiguration stored in the
         // ambient state (IConfiguration.Bind cannot instantiate abstract MigrationEndpointOptions).
-        var section = ActiveJobConfig.PackageConfig?.GetSection("MigrationPlatform:Source");
+        var section = CurrentPackageConfig.Current?.GetSection("MigrationPlatform:Source");
         TeamFoundationServerEndpointOptions? source = null;
 
         if (section != null && section.Exists() && !string.IsNullOrEmpty(section["Url"]))

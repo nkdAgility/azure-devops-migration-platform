@@ -1363,6 +1363,9 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var spinnerFrame = s_spinnerFrames[(int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80 % s_spinnerFrames.Length)];
         var rows = new System.Collections.Generic.List<IRenderable>();
         string? currentPhase = null;
+        var estimatedTotalRevisions = s.Completed > 0
+            ? (int)((double)s.Revisions / s.Completed * s.TotalWorkItems)
+            : 0;
 
         foreach (var task in s.Tasks!.Tasks.OrderBy(t => t.Order))
         {
@@ -1478,8 +1481,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                                 : task.Status == JobTaskStatus.Running ? "blue" : "grey";
                     var exportedStr = s.Completed > 0 ? $"  [green]{s.Completed:N0} exported[/]" : string.Empty;
                     var skippedStr = s.Skipped > 0 ? $"  [grey]{s.Skipped:N0} skipped[/]" : string.Empty;
-                    int estimatedTotalRevisions = s.Completed > 0
-                        ? (int)((double)s.Revisions / s.Completed * s.TotalWorkItems) : 0;
                     var etaStr = ComputeRevisionEta(s.Revisions, estimatedTotalRevisions, s.AverageRevDurationMs);
                     countsSuffix = $"  [bold]{processed:N0}[/][grey]/{s.TotalWorkItems:N0}[/]{exportedStr}{skippedStr}"
                                  + $"  [grey]{wiPct * 100.0:F1}%[/]  [grey]ETA: {Markup.Escape(etaStr)}[/]";
@@ -1507,6 +1508,14 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 var stageStr = string.IsNullOrEmpty(s.Stage) ? string.Empty : $"  [grey]{Markup.Escape(s.Stage)}[/]";
                 rows.Add(new Markup(
                     $"  [{iconColor}]{icon}[/]  [bold]{Markup.Escape(task.Name)}[/]{stageStr}  [{wiBarColor}]{Markup.Escape(wiBar)}[/]{countsSuffix}"));
+
+                if (s.Revisions > 0 || estimatedTotalRevisions > 0)
+                {
+                    var revisionTotalText = estimatedTotalRevisions > 0
+                        ? $"[bold]{s.Revisions:N0}[/][grey]/{estimatedTotalRevisions:N0} revisions[/]"
+                        : $"[bold]{s.Revisions:N0}[/][grey] revisions[/]";
+                    rows.Add(new Markup($"     [grey]↳ Overall revisions:[/] {revisionTotalText}"));
+                }
 
                 if (task.Status == JobTaskStatus.Running || s.CurrentWiId > 0)
                 {
@@ -1569,6 +1578,16 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     }
                     else
                         rows.Add(new Markup("     [grey]─[/]"));
+
+                    var completedDuration = TryGetTaskElapsed(task);
+                    if (task.Status == JobTaskStatus.Completed && completedDuration.HasValue)
+                        rows.Add(new Markup($"     [grey]duration:[/] [white]{Markup.Escape(FormatElapsed(completedDuration.Value))}[/]"));
+                }
+                else if (task.Status == JobTaskStatus.Completed)
+                {
+                    var completedDuration = TryGetTaskElapsed(task);
+                    if (completedDuration.HasValue)
+                        rows.Add(new Markup($"     [grey]duration:[/] [white]{Markup.Escape(FormatElapsed(completedDuration.Value))}[/]"));
                 }
             }
             else
@@ -1588,6 +1607,14 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 rows.Add(new Markup($"  [{iconColor}]{icon}[/]  {Markup.Escape(task.Name)}{suffix}"));
             }
         }
+
+        var remainingTasks = s.Tasks.Tasks.Count(task => !IsTerminal(task.Status));
+        var overallEta = ComputeOverallTaskEta(s, estimatedTotalRevisions);
+        rows.Add(new Markup("[grey]────────────────────────────────────────────────────────────────────────[/]"));
+        rows.Add(new Markup(
+            overallEta.HasValue
+                ? $"[bold]Remaining tasks:[/] {remainingTasks}  [bold]Overall ETA:[/] [white]{Markup.Escape(FormatEta(overallEta.Value))}[/]"
+                : $"[bold]Remaining tasks:[/] {remainingTasks}  [bold]Overall ETA:[/] [grey]unknown[/]"));
 
         return rows.Count > 0 ? new Rows(rows) : new Markup("[grey]⠋ Running…[/]");
     }
@@ -1960,6 +1987,100 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             ? $"{(int)eta.TotalHours}:{eta.Minutes:D2}:{eta.Seconds:D2}"
             : $"--:{eta.Minutes:D2}:{eta.Seconds:D2}";
     }
+
+    private static bool IsTerminal(JobTaskStatus status) =>
+        status is JobTaskStatus.Completed or JobTaskStatus.Failed or JobTaskStatus.Skipped;
+
+    private static TimeSpan? TryGetTaskElapsed(JobTask task)
+    {
+        if (!task.StartedAt.HasValue || !task.CompletedAt.HasValue)
+            return null;
+
+        var elapsed = task.CompletedAt.Value - task.StartedAt.Value;
+        return elapsed > TimeSpan.Zero ? elapsed : null;
+    }
+
+    private static TimeSpan? ComputeOverallTaskEta(JobProgressState state, int estimatedTotalRevisions)
+    {
+        if (state.Tasks is null)
+            return null;
+
+        var completedDurations = state.Tasks.Tasks
+            .Select(TryGetTaskElapsed)
+            .Where(duration => duration.HasValue)
+            .Select(duration => duration!.Value)
+            .ToArray();
+
+        var averageCompletedTaskDuration = completedDurations.Length > 0
+            ? TimeSpan.FromMilliseconds(completedDurations.Average(duration => duration.TotalMilliseconds))
+            : (TimeSpan?)null;
+
+        TimeSpan totalRemaining = TimeSpan.Zero;
+        var hasEstimate = false;
+
+        foreach (var task in state.Tasks.Tasks)
+        {
+            if (IsTerminal(task.Status))
+                continue;
+
+            if (task.Id.Contains("workitems", StringComparison.OrdinalIgnoreCase))
+            {
+                var workItemsEta = ComputeRemainingRevisionTime(state.Revisions, estimatedTotalRevisions, state.AverageRevDurationMs);
+                if (workItemsEta.HasValue)
+                {
+                    totalRemaining += workItemsEta.Value;
+                    hasEstimate = true;
+                    continue;
+                }
+            }
+
+            if (task.Status == JobTaskStatus.Running
+                && task.StartedAt.HasValue
+                && task.KnownTotal.HasValue
+                && task.KnownTotal.Value > 0
+                && task.CompletedCount.HasValue
+                && task.CompletedCount.Value > 0)
+            {
+                var elapsed = DateTimeOffset.UtcNow - task.StartedAt.Value;
+                var remainingCount = task.KnownTotal.Value - task.CompletedCount.Value;
+                if (remainingCount > 0)
+                {
+                    totalRemaining += TimeSpan.FromMilliseconds(elapsed.TotalMilliseconds / task.CompletedCount.Value * remainingCount);
+                    hasEstimate = true;
+                    continue;
+                }
+            }
+
+            if (averageCompletedTaskDuration.HasValue)
+            {
+                totalRemaining += averageCompletedTaskDuration.Value;
+                hasEstimate = true;
+            }
+        }
+
+        return hasEstimate ? totalRemaining : null;
+    }
+
+    private static TimeSpan? ComputeRemainingRevisionTime(int revisionsWritten, int estimatedTotalRevisions, double avgRevDurationMs)
+    {
+        if (avgRevDurationMs <= 0 || estimatedTotalRevisions <= 0 || revisionsWritten <= 0)
+            return null;
+
+        var remainingRevisions = Math.Max(0, estimatedTotalRevisions - revisionsWritten);
+        return remainingRevisions > 0
+            ? TimeSpan.FromMilliseconds(remainingRevisions * avgRevDurationMs)
+            : TimeSpan.Zero;
+    }
+
+    private static string FormatEta(TimeSpan eta) =>
+        eta.TotalHours >= 1
+            ? $"{(int)eta.TotalHours}:{eta.Minutes:D2}:{eta.Seconds:D2}"
+            : $"--:{eta.Minutes:D2}:{eta.Seconds:D2}";
+
+    private static string FormatElapsed(TimeSpan elapsed) =>
+        elapsed.TotalHours >= 1
+            ? $"{(int)elapsed.TotalHours}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}"
+            : $"{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
 
     private static string FormatBytes(long bytes) =>
         bytes switch

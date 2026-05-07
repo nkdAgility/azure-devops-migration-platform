@@ -67,6 +67,7 @@ public sealed class JobAgentWorkerDispatchTests
     private Mock<IPackageConfigStore> _packageConfigStore = null!;
     private Mock<IJobExecutionPlanBuilder> _planBuilder = null!;
     private Mock<IJobPlanExecutor> _planExecutor = null!;
+    private Mock<ICurrentPackageConfigAccessor> _currentPackageConfigAccessor = null!;
     private Mock<ICurrentAgentJobContextAccessor> _currentJobContextAccessor = null!;
     private Mock<ICurrentJobEndpointAccessor> _currentJobEndpointAccessor = null!;
     private Mock<IControlPlaneTelemetryClient> _telemetryClient = null!;
@@ -98,6 +99,7 @@ public sealed class JobAgentWorkerDispatchTests
         _packageConfigStore = new Mock<IPackageConfigStore>();
         _planBuilder = new Mock<IJobExecutionPlanBuilder>();
         _planExecutor = new Mock<IJobPlanExecutor>();
+        _currentPackageConfigAccessor = new Mock<ICurrentPackageConfigAccessor>();
         _currentJobContextAccessor = new Mock<ICurrentAgentJobContextAccessor>();
         _currentJobEndpointAccessor = new Mock<ICurrentJobEndpointAccessor>();
         _telemetryClient = new Mock<IControlPlaneTelemetryClient>();
@@ -376,6 +378,7 @@ public sealed class JobAgentWorkerDispatchTests
             packageState: _packageState,
             activeJobConfig: _jobConfiguration,
             activeJobState: _activeJobState.Object,
+            currentPackageConfigAccessor: _currentPackageConfigAccessor.Object,
             packageConfigStore: _packageConfigStore.Object,
             moduleScopeFactory: _scopeFactory,
             httpClientFactory: new TestHttpClientFactory(CreateControlPlaneClient()),
@@ -386,8 +389,8 @@ public sealed class JobAgentWorkerDispatchTests
             flushables: _flushables,
             planBuilder: _planBuilder.Object,
             planExecutor: _planExecutor.Object,
-                currentJobContextAccessor: _currentJobContextAccessor.Object,
-                currentJobEndpointAccessor: _currentJobEndpointAccessor.Object,
+            currentJobContextAccessor: _currentJobContextAccessor.Object,
+            currentJobEndpointAccessor: _currentJobEndpointAccessor.Object,
             telemetryClient: _telemetryClient.Object,
             logger: _logger);
     }

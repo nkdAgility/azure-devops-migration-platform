@@ -63,6 +63,9 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     /// <summary>Ambient holder for the current job's per-job <see cref="Microsoft.Extensions.Configuration.IConfiguration"/> (PackageConfig).</summary>
     protected IJobConfiguration ActiveJobConfig { get; }
 
+    /// <summary>Explicit holder for the current job's raw package configuration.</summary>
+    protected ICurrentPackageConfigAccessor CurrentPackageConfig { get; }
+
     /// <summary>Ambient holder for the identity (JobId, Kind) of the currently executing job.</summary>
     private readonly IActiveJobState? _activeJobState;
 
@@ -86,6 +89,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
         IJobConfiguration activeJobConfig,
+        ICurrentPackageConfigAccessor currentPackageConfigAccessor,
         IPackageConfigStore packageConfigStore,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
@@ -110,6 +114,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
         PackageConfigStore = packageConfigStore ?? throw new ArgumentNullException(nameof(packageConfigStore));
         ActiveJobConfig = activeJobConfig ?? throw new ArgumentNullException(nameof(activeJobConfig));
+        CurrentPackageConfig = currentPackageConfigAccessor ?? throw new ArgumentNullException(nameof(currentPackageConfigAccessor));
         _activeJobState = activeJobState;
         _moduleScopeFactory = moduleScopeFactory ?? throw new ArgumentNullException(nameof(moduleScopeFactory));
     }
@@ -164,6 +169,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         // Store the raw IConfiguration for per-job tool options binding.
         // Modules resolve IOptionsSnapshot<T> from this config via ActiveJobConfigState.PackageConfig.
         ActiveJobConfig.PackageConfig = packageConfig;
+        CurrentPackageConfig.Set(packageConfig);
 
         // Create a per-job DI scope AFTER PackageConfig is set. Modules (and their Singleton
         // tool dependencies like IFieldTransformTool) that read IOptions<T>.Value at
@@ -214,6 +220,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         {
             await OnAfterModulesAsync(ct).ConfigureAwait(false);
             ActiveJobConfig.Clear();
+            CurrentPackageConfig.Clear();
             _activeJobState?.Clear();
         }
 

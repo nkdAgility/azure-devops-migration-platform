@@ -16,22 +16,22 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Discovery;
 /// Simulated implementation of <see cref="IWorkItemDiscoveryService"/>.
 /// Returns a single final <see cref="ProjectDiscoverySummary"/> with counts
 /// derived from the <see cref="SimulatedGeneratorConfig"/> configuration.
-/// The config is read from <see cref="IJobConfiguration.PackageConfig"/> on every call
+/// The config is read from <see cref="ICurrentPackageConfigAccessor.Current"/> on every call
 /// so that per-job generator settings (including project definitions) are always current.
 /// No network calls are made.
 /// </summary>
 public sealed class SimulatedWorkItemDiscoveryService : IWorkItemDiscoveryService
 {
-    private readonly IJobConfiguration? _jobConfig;
+    private readonly ICurrentPackageConfigAccessor? _packageConfigAccessor;
     private readonly SimulatedGeneratorConfig? _staticConfig;
 
     /// <summary>
     /// Preferred constructor — reads the generator config from the active job's
-    /// <see cref="IJobConfiguration.PackageConfig"/> on every call.
+    /// <see cref="ICurrentPackageConfigAccessor.Current"/> on every call.
     /// </summary>
-    public SimulatedWorkItemDiscoveryService(IJobConfiguration jobConfig)
+    public SimulatedWorkItemDiscoveryService(ICurrentPackageConfigAccessor packageConfigAccessor)
     {
-        _jobConfig = jobConfig ?? throw new System.ArgumentNullException(nameof(jobConfig));
+        _packageConfigAccessor = packageConfigAccessor ?? throw new System.ArgumentNullException(nameof(packageConfigAccessor));
     }
 
     /// <summary>
@@ -122,7 +122,7 @@ public sealed class SimulatedWorkItemDiscoveryService : IWorkItemDiscoveryServic
             return _staticConfig;
 
         var generator = new SimulatedGeneratorConfig();
-        _jobConfig?.PackageConfig?
+        _packageConfigAccessor?.Current?
             .GetSection("MigrationPlatform:Source:Generator")
             .Bind(generator);
         return generator;

@@ -55,6 +55,7 @@ public static class CoreAgentServiceExtensions
         services.AddSingleton<ActiveLeaseState>();
         services.AddSingleton<ActivePackageState>();
         services.AddSingleton<IJobConfiguration, JobConfiguration>();
+        services.AddSingleton<ICurrentPackageConfigAccessor, CurrentPackageConfigAccessor>();
         services.AddSingleton<ICurrentAgentJobContextAccessor, CurrentAgentJobContextAccessor>();
         services.AddSingleton<ICurrentJobEndpointAccessor, CurrentJobEndpointAccessor>();
         services.AddSingleton<IActiveJobState, ActiveJobState>();
