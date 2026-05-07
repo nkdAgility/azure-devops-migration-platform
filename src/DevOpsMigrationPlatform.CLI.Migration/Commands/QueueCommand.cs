@@ -13,6 +13,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.JobRunners;
+using DevOpsMigrationPlatform.CLI.Migration;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.CLI.Views;
@@ -37,7 +38,6 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 /// All source types (AzureDevOpsServices, TeamFoundationServer, Simulated) submit
 /// jobs to the control plane. The appropriate agent picks up the job via
 /// capability-based routing.
-///
 /// No migration logic runs in this command — all execution happens in the agent.
 /// See docs/cli.md and system-architecture guardrail rules 16 and 19.
 /// </summary>

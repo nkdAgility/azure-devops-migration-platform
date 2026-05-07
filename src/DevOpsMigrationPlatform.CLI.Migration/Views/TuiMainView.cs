@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
+using DevOpsMigrationPlatform.CLI.Migration;
 using Terminal.Gui;
 
 namespace DevOpsMigrationPlatform.CLI.Views;
