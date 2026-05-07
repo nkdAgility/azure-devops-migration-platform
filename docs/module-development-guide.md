@@ -57,6 +57,29 @@ Module (thin wrapper)
     → Service / Source / Target (external calls)
 ```
 
+```mermaid
+flowchart TD
+    subgraph Module["Module (thin wrapper ~100-130 lines)"]
+        MGuard["Guard checks\n(enabled? null service?)"]
+        MConfig["Resolve config/endpoints"]
+        MDelegate["Delegate to orchestrator"]
+    end
+    subgraph Orchestrator["Orchestrator (business logic)"]
+        OCheckpoint["Cursor read/write\n(IStateStore)"]
+        OProgress["Progress events\n(IProgressSink)"]
+        OMetrics["OTel metrics\n(IMigrationMetrics)"]
+        OLoop["Enumeration loops\n+ resume logic"]
+    end
+    subgraph Service["Service / Source / Target (connector-specific)"]
+        SADO["AzureDevOps\nimplementation"]
+        STFS["TFS\nimplementation"]
+        SSim["Simulated\nimplementation"]
+    end
+
+    Module --> Orchestrator
+    Orchestrator --> Service
+```
+
 #### Layer Responsibilities
 
 | Layer | Responsibility | Examples |

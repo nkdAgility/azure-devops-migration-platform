@@ -58,6 +58,25 @@ Poll /agents/lease
   └─ Failure → POST /agents/lease/{id}/fail  (cursor preserved for resume)
 ```
 
+```mermaid
+flowchart TD
+    Poll["Poll GET /agents/lease"] --> Receive["Receive leased job"]
+    Receive --> Store["Connect to IArtefactStore\n(packageUri)"]
+    Store --> Config["Read migration-config.json\nBuild IOptions scope"]
+    Config --> Cursor["Load cursor → resume position"]
+    Cursor --> HB["Start heartbeat loop"]
+    HB --> Sinks["Register IProgressSink composite:\n- ConsoleProgressSink\n- PackageProgressSink\n- ControlPlaneProgressSink"]
+    Sinks --> Engine["Run Job Engine"]
+    Engine --> Export["ExportAsync\n(Export / Migrate)"]
+    Engine --> Prepare["PrepareAsync\n(Prepare / Migrate)"]
+    Engine --> Import["ImportAsync\n(Import / Migrate)"]
+    Export --> Done{Success?}
+    Prepare --> Done
+    Import --> Done
+    Done -->|Yes| Complete["POST /agents/lease/{id}/complete"]
+    Done -->|No| Fail["POST /agents/lease/{id}/fail\n(cursor preserved)"]
+```
+
 ---
 
 ## Deployment and Zone Isolation
@@ -76,6 +95,24 @@ Agents are stateless. All durable state lives either:
 - In the control plane (job status, latest reported progress).
 
 An Agent may be stopped, rescheduled, or replaced at any point. The new Agent reads the cursor to determine where to resume. This makes Agents safe to run in auto-scaling container environments.
+
+```mermaid
+flowchart LR
+    subgraph Package["📦 Migration Package"]
+        RevFiles["revision.json files"]
+        Cursors[".migration/Checkpoints/"]
+        IDMap["idmap.db"]
+        Logs[".migration/Logs/"]
+    end
+    subgraph ControlPlane["Control Plane"]
+        JobState["Job status"]
+        LatestProgress["Latest reported progress\n(display-only snapshot)"]
+    end
+    Agent["Migration Agent\n(stateless)"]
+    Agent -->|reads/writes via IArtefactStore| Package
+    Agent -->|reports progress to| ControlPlane
+    Agent2["New Agent instance"] -->|reads cursor to resume| Cursors
+```
 
 ---
 

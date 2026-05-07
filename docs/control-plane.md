@@ -91,6 +91,19 @@ Queued → Leased → Running → Completed
 | `Failed` | A non-recoverable error occurred. Cursor state is preserved for investigation. |
 | `Cancelled` | Operator cancelled the job. |
 
+```mermaid
+stateDiagram-v2
+    [*] --> Queued : Job submitted
+    Queued --> Leased : Agent polls /agents/lease
+    Leased --> Running : Agent starts execution
+    Running --> Completed : All modules succeeded
+    Running --> Failed : Non-recoverable error
+    Running --> Paused : Operator pause signal
+    Paused --> Queued : Operator resumes
+    Paused --> Cancelled : Operator cancels
+    Queued --> Cancelled : Operator cancels
+```
+
 ---
 
 ## Lease Protocol
@@ -100,6 +113,26 @@ Queued → Leased → Running → Completed
 3. Migration Agent sends `POST /agents/lease/{leaseId}/heartbeat` on a configurable interval (default: every 30 seconds).
 4. If the control plane does not receive a heartbeat within `leaseExpiry` (default: 2× heartbeat interval), the job is returned to `Queued` and another Migration Agent may pick it up.
 5. The cursor in the package ensures the new Migration Agent resumes from where the previous one stopped.
+
+```mermaid
+sequenceDiagram
+    participant A as Migration Agent
+    participant CP as ControlPlane
+
+    A->>CP: GET /agents/lease
+    CP-->>A: 200 {leaseId, job}
+    loop Every 30s
+        A->>CP: POST /agents/lease/{leaseId}/heartbeat
+        CP-->>A: 200 OK (lease extended)
+    end
+    A->>CP: POST /agents/lease/{leaseId}/progress
+    CP-->>A: 200 OK
+    alt Job completed
+        A->>CP: POST /agents/lease/{leaseId}/complete
+    else Job failed
+        A->>CP: POST /agents/lease/{leaseId}/fail
+    end
+```
 
 ---
 

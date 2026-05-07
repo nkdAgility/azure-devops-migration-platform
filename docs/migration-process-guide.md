@@ -41,7 +41,30 @@ Which phases appear depends on the job `mode`:
 | `Validate` | Validate |
 | `Migrate` | Inventory + Export + Prepare + Import + Validate |
 
-Tasks within a phase are topologically sorted by `DependsOn`. Tasks across phases execute sequentially (all Inventory tasks complete before Export begins, etc.). Phase gates (Inventory before Export, Prepare before Import) are enforced by the plan builder — prerequisite phase tasks are injected automatically when the completion marker is absent.
+```mermaid
+flowchart LR
+    subgraph Inventory
+        INV[inventory phase]
+    end
+    subgraph Export
+        INV2[inventory gate] --> EXP[export phase]
+    end
+    subgraph Prepare
+        PRE[prepare phase]
+    end
+    subgraph Import
+        PRE2[prepare gate] --> IMP[import phase]
+    end
+    subgraph Validate
+        VAL[validate phase]
+    end
+    subgraph Migrate
+        direction LR
+        M1[inventory] --> M2[export] --> M3[prepare] --> M4[import] --> M5[validate]
+    end
+```
+
+Tasks within a phase are topologically sorted by `DependsOn`.Tasks across phases execute sequentially (all Inventory tasks complete before Export begins, etc.). Phase gates (Inventory before Export, Prepare before Import) are enforced by the plan builder — prerequisite phase tasks are injected automatically when the completion marker is absent.
 
 ### Mode Behaviour
 
@@ -127,6 +150,29 @@ Each phase can be run independently, but downstream phases auto-run their prereq
 | **Import** | Prepare gate | `.migration/Checkpoints/prepare.complete.json` | Prepare (aborts on blocking issues) |
 
 These gates ensure the pipeline is self-healing: running Export alone will also produce inventory data; running Import alone will also run Prepare first.
+
+```mermaid
+sequenceDiagram
+    participant Orch as Orchestrator
+    participant Pkg as Package
+
+    Orch->>Pkg: Check inventory.complete.json
+    alt Marker absent
+        Orch->>Orch: Auto-run Inventory phase
+        Orch->>Pkg: Write inventory.complete.json
+    end
+    Orch->>Orch: Run Export phase
+
+    Orch->>Pkg: Check prepare.complete.json
+    alt Marker absent
+        Orch->>Orch: Auto-run Prepare phase
+        alt Blocking issues found
+            Orch->>Orch: ABORT — emit diagnostic report
+        end
+        Orch->>Pkg: Write prepare.complete.json
+    end
+    Orch->>Orch: Run Import phase
+```
 
 ### Validate Step Placement
 

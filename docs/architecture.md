@@ -85,6 +85,34 @@ Project references are compiler-enforced (no cyclic references allowed). Each la
 
 The CLI must **not** reference `Abstractions.Agent` or `Abstractions.ControlPlane`. Agent projects must **not** reference `ControlPlane`. `TfsMigrationAgent` must **not** be referenced from any .NET 10 project.
 
+```mermaid
+graph TD
+    CLI["CLI\nDevOpsMigrationPlatform.CLI.Migration"]
+    TUI["TUI\nDevOpsMigrationPlatform.TUI"]
+    CPHost["ControlPlaneHost"]
+    CP["ControlPlane\nservice library"]
+    Agent["MigrationAgent\nnet10.0"]
+    TFSAgent["TfsMigrationAgent\nnet481"]
+    Infra["Infrastructure.*"]
+    Abs["Abstractions"]
+    AbsAgent["Abstractions.Agent"]
+    AbsCP["Abstractions.ControlPlane"]
+
+    CLI --> Abs
+    CLI --> Infra
+    TUI --> Abs
+    CPHost --> Abs
+    CPHost --> AbsCP
+    CPHost --> Infra
+    CPHost --> CP
+    CP --> AbsCP
+    Agent --> AbsAgent
+    Agent --> Infra
+    TFSAgent --> AbsAgent
+    Infra --> Abs
+    Infra --> AbsAgent
+```
+
 ### Flow
 
 ```
@@ -113,6 +141,23 @@ Package (file:/// or https://<account>.blob.core.windows.net/...)
 ```
 
 > **TFS source:** The `TfsMigrationAgent` participates in this same flow. The control plane routes jobs with `source.type: TeamFoundationServer` to the TFS agent via capability matching (`?capabilities=tfs`). From the CLI's perspective, TFS and ADO exports are submitted identically — `POST /jobs` — and the appropriate agent picks up the work.
+
+```mermaid
+flowchart TD
+    Operator["🧑 Operator\n(migration-config.json)"]
+    CLI["CLI\nTier 0: Schema validation\nTier 1: Connectivity checks"]
+    CP["ControlPlaneHost\nDedup check · Capability routing"]
+    Agent["Migration Agent\nTier 2: Pre-flight validation\nJob Engine + Modules"]
+    TFSAgent["TFS Migration Agent\n(net481 · Windows-only)"]
+    Package["📦 Package\nfile:/// · blob://"]
+
+    Operator -->|config file| CLI
+    CLI -->|POST /jobs| CP
+    CP -->|lease: ADO/Simulated| Agent
+    CP -->|lease: TFS| TFSAgent
+    Agent -->|writes via IArtefactStore| Package
+    TFSAgent -->|writes via IArtefactStore| Package
+```
 
 ### `Job` is the Internal Contract
 
@@ -237,7 +282,25 @@ In the Local and Dedicated Server topologies, the CLI drives Aspire programmatic
 
 In Cloud topologies, the CLI connects to a pre-existing HTTPS `ControlPlaneHost` endpoint. `ControlPlaneHost` uses `ContainerAgentLauncher` to deploy and scale agent containers. The target container environment is configurable — either the managed Azure Container Apps environment co-located with the control plane, or a user-specified environment for network zone isolation (different VNet, ACA environment, or AKS namespace).
 
-All topologies use the same orchestrator engine, the same modules, and the same cursor-based checkpoints. The package contract is identical. See [docs/cli-guide.md](cli.md), [docs/tui-guide.md](tui.md), [docs/control-plane.md](control-plane.md), and [docs/agent-hosting.md](migration-agent.md).
+```mermaid
+flowchart LR
+    subgraph Local["Local / Dedicated Server"]
+        direction TB
+        LCLI["CLI"] -->|Aspire| LCP["ControlPlaneHost\nlocalhost:5100"]
+        LCP -->|LocalProcessAgentLauncher| LAgent["MigrationAgent"]
+        LCP -->|LocalProcessAgentLauncher| LTFSAgent["TfsMigrationAgent\n(Windows only)"]
+        LAgent --> LPkg["📦 file:///"]
+        LTFSAgent --> LPkg
+    end
+    subgraph Cloud["Cloud (Self-Hosted / Managed)"]
+        direction TB
+        CCLI["CLI"] -->|HTTPS| CCP["ControlPlaneHost\nAzure Container App"]
+        CCP -->|ContainerAgentLauncher| CAgent["MigrationAgent\nContainer(s)"]
+        CAgent --> CPkg["📦 Azure Blob Storage"]
+    end
+```
+
+All topologies use the same orchestrator engine, the same modules, and the same cursor-based checkpoints.The package contract is identical. See [docs/cli-guide.md](cli.md), [docs/tui-guide.md](tui.md), [docs/control-plane.md](control-plane.md), and [docs/agent-hosting.md](migration-agent.md).
 
 Key properties:
 
