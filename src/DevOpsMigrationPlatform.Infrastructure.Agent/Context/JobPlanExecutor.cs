@@ -184,6 +184,58 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 && t.Status != JobTaskStatus.Completed)
             .ToList();
 
+        if (await HasInventoryCompletionMarkerAsync(stateStore, ct).ConfigureAwait(false))
+        {
+            var inventoryReport = await TryReadInventoryReportAsync(exportContext.ArtefactStore, ct).ConfigureAwait(false);
+            var prerequisiteTaskIds = tasks
+                .Where(t => t.TaskKind is TaskKind.Capture or TaskKind.Analyse)
+                .Select(t => t.Id)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (prerequisiteTaskIds.Count > 0)
+            {
+                var taskList = plan.Tasks.ToList();
+                foreach (var taskId in prerequisiteTaskIds)
+                {
+                    var idx = taskList.FindIndex(t => t.Id == taskId);
+                    if (idx < 0)
+                        continue;
+
+                    var (knownTotal, completedCount) = TryResolveTaskProgressSnapshot(taskList[idx], inventoryReport);
+
+                    taskList[idx] = taskList[idx] with
+                    {
+                        Status = JobTaskStatus.Skipped,
+                        SkipReason = "Inventory already completed for this package.",
+                        KnownTotal = knownTotal ?? taskList[idx].KnownTotal,
+                        CompletedCount = completedCount ?? taskList[idx].CompletedCount
+                    };
+                }
+
+                plan = plan with { Tasks = taskList.AsReadOnly() };
+                await PersistPlanAsync(plan, stateStore, ct).ConfigureAwait(false);
+
+                foreach (var skippedTask in taskList.Where(t => prerequisiteTaskIds.Contains(t.Id)))
+                {
+                    _progressSink?.Emit(new ProgressEvent
+                    {
+                        Module = GetModuleName(skippedTask.Id, modulesByName.Keys),
+                        Stage = "Export.Skipped",
+                        Message = skippedTask.SkipReason,
+                        Timestamp = DateTimeOffset.UtcNow,
+                        TaskId = skippedTask.Id,
+                        TaskStatus = JobTaskStatus.Skipped,
+                        KnownTotal = skippedTask.KnownTotal,
+                        CompletedCount = skippedTask.CompletedCount
+                    });
+                }
+
+                tasks = tasks
+                    .Where(t => !prerequisiteTaskIds.Contains(t.Id))
+                    .ToList();
+            }
+        }
+
         if (tasks.Count == 0)
         {
             _logger.LogInformation("Export phase: no tasks to execute (all skipped or completed).");
@@ -287,6 +339,72 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         }
 
         return true;
+    }
+
+    private static async Task<bool> HasInventoryCompletionMarkerAsync(
+        IStateStore stateStore,
+        CancellationToken ct)
+    {
+        try
+        {
+            return await stateStore.ExistsAsync(PackagePaths.InventoryCompleteFile, ct).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    private static async Task<InventoryReport?> TryReadInventoryReportAsync(
+        IArtefactStore artefactStore,
+        CancellationToken ct)
+    {
+        try
+        {
+            var json = await artefactStore.ReadAsync("inventory.json", ct).ConfigureAwait(false);
+            if (json is null)
+                return null;
+
+            return JsonSerializer.Deserialize<InventoryReport>(json, _jsonOptions);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private static (long? KnownTotal, long? CompletedCount) TryResolveTaskProgressSnapshot(
+        JobTask task,
+        InventoryReport? inventoryReport)
+    {
+        if (inventoryReport is null)
+            return (null, null);
+
+        var moduleName = GetTaskModuleName(task.Id);
+        if (moduleName is null)
+            return (null, null);
+
+        var project = inventoryReport.Organisations
+            .FirstOrDefault(org => string.Equals(org.Url, task.OrganisationUrl, StringComparison.OrdinalIgnoreCase))?
+            .Projects
+            .FirstOrDefault(p => string.Equals(p.Name, task.ProjectName, StringComparison.OrdinalIgnoreCase));
+
+        long? knownTotal = moduleName switch
+        {
+            "workitems" => project?.WorkItems ?? inventoryReport.Totals.WorkItems,
+            "identities" => project?.Identities ?? inventoryReport.Totals.Identities,
+            "nodes" => project?.Nodes ?? inventoryReport.Totals.Nodes,
+            "teams" => project?.Teams ?? inventoryReport.Totals.Teams,
+            _ => null
+        };
+
+        return knownTotal.HasValue ? (knownTotal, knownTotal) : (null, null);
+    }
+
+    private static string? GetTaskModuleName(string taskId)
+    {
+        var parts = taskId.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2 ? parts[1] : null;
     }
 
     public async Task<bool> ExecuteImportPhaseAsync(

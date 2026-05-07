@@ -198,6 +198,140 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestMethod]
+    public async Task ExecuteExportPhaseAsync_WhenInventoryMarkerExists_SkipsPrerequisitesAndRunsExport()
+    {
+        var executionOrder = new List<string>();
+        var progressEvents = new List<ProgressEvent>();
+        var lockObj = new object();
+
+        var workItemsModule = new Mock<IModule>(MockBehavior.Loose);
+        workItemsModule.SetupGet(m => m.Name).Returns("WorkItems");
+        workItemsModule.Setup(m => m.CaptureAsync(It.IsAny<InventoryContext>(), It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                lock (lockObj)
+                {
+                    executionOrder.Add("Capture");
+                }
+
+                return Task.CompletedTask;
+            });
+        workItemsModule.Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                lock (lockObj)
+                {
+                    executionOrder.Add("Export");
+                }
+
+                return Task.CompletedTask;
+            });
+
+        var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["WorkItems"] = workItemsModule.Object
+        };
+
+        var inventoryAnalyser = new Mock<IAnalyser>(MockBehavior.Loose);
+        inventoryAnalyser.SetupGet(a => a.Name).Returns("Inventory");
+        inventoryAnalyser.Setup(a => a.AnalyseAsync(It.IsAny<AnalyseContext>(), It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                lock (lockObj)
+                {
+                    executionOrder.Add("Analyse");
+                }
+
+                return Task.CompletedTask;
+            });
+
+        var analysers = new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Inventory"] = inventoryAnalyser.Object
+        };
+
+        var plan = CreatePlan(new[]
+        {
+            CreateTask("capture.workitems.testorg.testproject", "WorkItems Capture", "Capture"),
+            CreateTask(
+                "analyse.inventory.testorg.testproject",
+                "Inventory Analyse",
+                "Analyse",
+                dependsOn: new[] { "capture.workitems.testorg.testproject" }),
+            CreateTask(
+                "export.workitems.testorg.testproject",
+                "WorkItems Export",
+                "Export",
+                dependsOn: new[] { "analyse.inventory.testorg.testproject" })
+        });
+
+        var executor = CreateExecutor();
+        var stateStore = new InMemoryStateStore();
+        await stateStore.WriteAsync(
+            PackagePaths.InventoryCompleteFile,
+            "{}",
+            CancellationToken.None);
+
+        var inventoryJson = System.Text.Json.JsonSerializer.Serialize(new InventoryReport
+        {
+            Totals = new InventoryTotals { WorkItems = 5 },
+            Organisations = new[]
+            {
+                new OrganisationInventory
+                {
+                    Url = "https://dev.azure.com/testorg",
+                    Projects = new[]
+                    {
+                        new ProjectInventory { Name = "testproject", WorkItems = 5 }
+                    }
+                }
+            }
+        });
+
+        var inventoryContext = CreateMinimalInventoryContext(stateStore) with
+        {
+            SourceEndpoint = new OrganisationEndpoint { ResolvedUrl = "https://dev.azure.com/testorg", Type = "Simulated" },
+            Project = "testproject"
+        };
+        var artefactStore = new Mock<IArtefactStore>(MockBehavior.Loose);
+        artefactStore
+            .Setup(store => store.ReadAsync("inventory.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(inventoryJson);
+        var exportContext = new ExportContext
+        {
+            Job = new Job { JobId = "test-job" },
+            ArtefactStore = artefactStore.Object,
+            StateStore = stateStore
+        };
+        var endpointsByUrl = new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["https://dev.azure.com/testorg"] = new() { ResolvedUrl = "https://dev.azure.com/testorg", Type = "Simulated" }
+        };
+
+        var result = await executor.ExecuteExportPhaseAsync(
+            plan,
+            modules,
+            analysers,
+            inventoryContext,
+            endpointsByUrl,
+            exportContext,
+            stateStore,
+            CancellationToken.None);
+
+        Assert.IsTrue(result);
+        CollectionAssert.AreEqual(new[] { "Export" }, executionOrder);
+
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None);
+        Assert.IsNotNull(persistedPlan);
+        var skippedCapture = persistedPlan.Tasks.First(t => t.Id == "capture.workitems.testorg.testproject");
+        Assert.AreEqual(JobTaskStatus.Skipped, skippedCapture.Status);
+        Assert.AreEqual(5L, skippedCapture.KnownTotal);
+        Assert.AreEqual(5L, skippedCapture.CompletedCount);
+        Assert.AreEqual(JobTaskStatus.Skipped, persistedPlan.Tasks.First(t => t.Id == "analyse.inventory.testorg.testproject").Status);
+        Assert.AreEqual(JobTaskStatus.Completed, persistedPlan.Tasks.First(t => t.Id == "export.workitems.testorg.testproject").Status);
+    }
+
+    [TestMethod]
     public async Task ExecuteImportPhaseAsync_WorkItemsDependsOnIdentities_WaitsForIdentities()
     {
         // Arrange
@@ -835,9 +969,11 @@ public sealed class JobPlanExecutorTests
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private static JobPlanExecutor CreateExecutor(ICurrentJobEndpointAccessor? endpointAccessor = null)
+    private static JobPlanExecutor CreateExecutor(
+        ICurrentJobEndpointAccessor? endpointAccessor = null,
+        IProgressSink? progressSink = null)
     {
-        var progressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object;
+        progressSink ??= new Mock<IProgressSink>(MockBehavior.Loose).Object;
         return new JobPlanExecutor(progressSink, NullLogger<JobPlanExecutor>.Instance, endpointAccessor);
     }
 
