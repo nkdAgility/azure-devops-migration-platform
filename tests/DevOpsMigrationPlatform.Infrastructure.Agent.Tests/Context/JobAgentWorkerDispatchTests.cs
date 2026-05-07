@@ -282,7 +282,7 @@ public sealed class JobAgentWorkerDispatchTests
     [TestMethod]
     public async Task OnJobAsync_Export_PassesConfiguredAndResolvedSourceEndpointAliases()
     {
-        var configuredSourceUrl = "$ENV:AZDEVOPS_SYSTEM_TEST_ORG";
+        var configuredSourceUrl = "configured://source-alias";
         _packageConfiguration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
