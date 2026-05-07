@@ -118,10 +118,12 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         // Try to read inventory.json for KnownTotal on WorkItems export task.
         long? workItemKnownTotal = await TryReadWorkItemTotalAsync(artefactStore, ct)
             .ConfigureAwait(false);
+        bool hasInventorySnapshot = await HasInventorySnapshotAsync(artefactStore, ct)
+            .ConfigureAwait(false);
 
         if (includeExport)
         {
-            tasks.AddRange(BuildExportTasks(packageConfig, kind, phaseRecord, workItemKnownTotal, ref order));
+            tasks.AddRange(BuildExportTasks(packageConfig, kind, phaseRecord, workItemKnownTotal, hasInventorySnapshot, ref order));
         }
 
         if (includeImport)
@@ -238,6 +240,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         JobKind kind,
         JobPhaseRecord? phaseRecord,
         long? workItemKnownTotal,
+        bool hasInventorySnapshot,
         ref int order)
     {
         bool exportAlreadyDone = phaseRecord?.ExportCompleted == true;
@@ -267,6 +270,20 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             StringComparer.OrdinalIgnoreCase);
 
         var tasks = new List<JobTask>();
+        var preExportAnalysisTaskIdsByModule = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        if (!hasInventorySnapshot)
+        {
+            tasks.AddRange(BuildExportPrerequisiteTasks(
+                config,
+                needed,
+                sourceUrl,
+                sourceProject,
+                orgSlug,
+                projectSlug,
+                preExportAnalysisTaskIdsByModule,
+                ref order));
+        }
 
         foreach (var module in exportModules)
         {
@@ -296,6 +313,15 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                     exportDeps.Add(depTaskId);
             }
 
+            if (preExportAnalysisTaskIdsByModule.TryGetValue(module.Name, out var analysisDeps))
+            {
+                foreach (var analysisDep in analysisDeps)
+                {
+                    if (!exportDeps.Contains(analysisDep, StringComparer.OrdinalIgnoreCase))
+                        exportDeps.Add(analysisDep);
+                }
+            }
+
             var dependsOn = exportDeps.Count > 0 ? exportDeps.AsReadOnly() : null;
 
             tasks.Add(MakeTask(
@@ -319,6 +345,140 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             tasks[i] = tasks[i] with { Order = order++ };
 
         return tasks;
+    }
+
+    private List<JobTask> BuildExportPrerequisiteTasks(
+        IConfiguration config,
+        IReadOnlySet<string> neededExportModules,
+        string sourceUrl,
+        string sourceProject,
+        string orgSlug,
+        string projectSlug,
+        Dictionary<string, List<string>> analysisTaskIdsByModule,
+        ref int order)
+    {
+        var tasks = new List<JobTask>();
+        var queuedCaptures = new Dictionary<string, JobTask>(StringComparer.OrdinalIgnoreCase);
+        var queuedAnalyses = new Dictionary<string, JobTask>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var moduleName in neededExportModules)
+        {
+            if (!_modulesByName.TryGetValue(moduleName, out var module))
+                continue;
+
+            foreach (var dependency in module.DependsOn)
+            {
+                if (!_analysersByName.ContainsKey(dependency.ModuleName))
+                    continue;
+
+                var analysisTaskId = EnsureExportAnalysisTask(
+                    dependency.ModuleName,
+                    config,
+                    sourceUrl,
+                    sourceProject,
+                    orgSlug,
+                    projectSlug,
+                    queuedCaptures,
+                    queuedAnalyses);
+
+                if (!analysisTaskIdsByModule.TryGetValue(module.Name, out var taskIds))
+                {
+                    taskIds = new List<string>();
+                    analysisTaskIdsByModule[module.Name] = taskIds;
+                }
+
+                if (!taskIds.Contains(analysisTaskId, StringComparer.OrdinalIgnoreCase))
+                    taskIds.Add(analysisTaskId);
+            }
+        }
+
+        tasks.AddRange(queuedCaptures.Values);
+        tasks.AddRange(queuedAnalyses.Values);
+
+        tasks = TopologicalSort(tasks);
+        for (int i = 0; i < tasks.Count; i++)
+            tasks[i] = tasks[i] with { Order = order++ };
+
+        return tasks;
+    }
+
+    private string EnsureExportAnalysisTask(
+        string analyserName,
+        IConfiguration config,
+        string sourceUrl,
+        string sourceProject,
+        string orgSlug,
+        string projectSlug,
+        Dictionary<string, JobTask> queuedCaptures,
+        Dictionary<string, JobTask> queuedAnalyses)
+    {
+        var taskId = $"analyse.{analyserName.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
+        if (queuedAnalyses.ContainsKey(taskId))
+            return taskId;
+
+        if (!_analysersByName.TryGetValue(analyserName, out var analyser))
+            throw new InvalidOperationException($"Export prerequisite analyser '{analyserName}' is not registered.");
+
+        var dependsOn = new List<string>();
+        foreach (var dependency in analyser.DependsOn)
+        {
+            if (_analysersByName.ContainsKey(dependency.ModuleName))
+            {
+                dependsOn.Add(EnsureExportAnalysisTask(
+                    dependency.ModuleName,
+                    config,
+                    sourceUrl,
+                    sourceProject,
+                    orgSlug,
+                    projectSlug,
+                    queuedCaptures,
+                    queuedAnalyses));
+                continue;
+            }
+
+            if (!_modulesByName.TryGetValue(dependency.ModuleName, out var dependencyModule)
+                || !dependencyModule.SupportsInventory
+                || !IsEnabled(config, dependencyModule.Name))
+            {
+                _logger.LogWarning(
+                    "Export prerequisite analyser {Analyser} depends on inventory module {Module}, but it is not enabled or not registered. Dependency omitted.",
+                    analyserName,
+                    dependency.ModuleName);
+                continue;
+            }
+
+            var captureTaskId = $"capture.{dependency.ModuleName.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
+            if (!queuedCaptures.ContainsKey(captureTaskId))
+            {
+                queuedCaptures[captureTaskId] = MakeTask(
+                    captureTaskId,
+                    $"{dependency.ModuleName} Capture [{sourceProject}]",
+                    phase: null,
+                    TaskKind.Capture,
+                    organisationUrl: sourceUrl,
+                    projectName: sourceProject,
+                    enabled: true,
+                    phaseAlreadyDone: false,
+                    order: 0);
+            }
+
+            if (!dependsOn.Contains(captureTaskId, StringComparer.OrdinalIgnoreCase))
+                dependsOn.Add(captureTaskId);
+        }
+
+        queuedAnalyses[taskId] = MakeTask(
+            taskId,
+            $"{analyser.Name} Analyse",
+            phase: null,
+            TaskKind.Analyse,
+            organisationUrl: sourceUrl,
+            projectName: sourceProject,
+            enabled: true,
+            phaseAlreadyDone: false,
+            order: 0,
+            dependsOn: dependsOn.Count > 0 ? dependsOn.AsReadOnly() : null);
+
+        return taskId;
     }
 
     // ── Import phase ─────────────────────────────────────────────────────────
@@ -923,6 +1083,20 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         }
 
         return null;
+    }
+
+    private static async Task<bool> HasInventorySnapshotAsync(
+        IArtefactStore artefactStore,
+        CancellationToken ct)
+    {
+        try
+        {
+            return await artefactStore.ExistsAsync("inventory.json", ct).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     private static IReadOnlyList<ScopedOrganisationEndpoint> BuildOrganisationEndpoints(IConfiguration packageConfig)

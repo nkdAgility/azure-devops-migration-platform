@@ -65,6 +65,9 @@ public interface IJobPlanExecutor
     Task<bool> ExecuteExportPhaseAsync(
         JobTaskList plan,
         IReadOnlyDictionary<string, IModule> modulesByName,
+        IReadOnlyDictionary<string, IAnalyser> analysersByName,
+        InventoryContext? baseInventoryContext,
+        IReadOnlyDictionary<string, OrganisationEndpoint>? endpointsByUrl,
         ExportContext exportContext,
         IStateStore stateStore,
         CancellationToken ct);

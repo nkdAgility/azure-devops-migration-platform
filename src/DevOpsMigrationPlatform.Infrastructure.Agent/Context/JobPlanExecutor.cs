@@ -171,12 +171,17 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     public async Task<bool> ExecuteExportPhaseAsync(
         JobTaskList plan,
         IReadOnlyDictionary<string, IModule> modulesByName,
+        IReadOnlyDictionary<string, IAnalyser> analysersByName,
+        InventoryContext? baseInventoryContext,
+        IReadOnlyDictionary<string, OrganisationEndpoint>? endpointsByUrl,
         ExportContext exportContext,
         IStateStore stateStore,
         CancellationToken ct)
     {
         var tasks = plan.Tasks
-            .Where(t => t.Phase == "Export" && t.Status != JobTaskStatus.Skipped && t.Status != JobTaskStatus.Completed)
+            .Where(t => (t.Phase == "Export" || t.TaskKind is TaskKind.Capture or TaskKind.Analyse)
+                && t.Status != JobTaskStatus.Skipped
+                && t.Status != JobTaskStatus.Completed)
             .ToList();
 
         if (tasks.Count == 0)
@@ -209,8 +214,16 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 tierIndex, tier.Count, string.Join(", ", tier.Select(t => t.Id)));
 
             var result = await ExecuteTierAsync(
-                tier, modulesByName.ToDictionary(kvp => kvp.Key, kvp => (ICapture)kvp.Value, StringComparer.OrdinalIgnoreCase), analysersByName: null, baseInventoryContext: null,
-                exportContext, importContext: null, endpointsByUrl: null, stateStore, plan, ct)
+                tier,
+                modulesByName.ToDictionary(kvp => kvp.Key, kvp => (ICapture)kvp.Value, StringComparer.OrdinalIgnoreCase),
+                analysersByName,
+                baseInventoryContext,
+                exportContext,
+                importContext: null,
+                endpointsByUrl,
+                stateStore,
+                plan,
+                ct)
                 .ConfigureAwait(false);
 
             plan = result.UpdatedPlan; // Propagate plan updates

@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
@@ -17,6 +18,7 @@ using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -83,6 +85,90 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
             Assert.IsTrue(task.DependsOn == null || task.DependsOn.Count == 0,
                 $"Export task {task.Id} should have no dependencies");
         }
+    }
+
+    [TestMethod]
+    public async Task BuildPlanAsync_ExportPhase_ExpandsInventoryPrerequisitesFromAnalyserDependency()
+    {
+        // Arrange
+        var workItemsModule = CreateModule("WorkItems", new[]
+        {
+            new ModuleDependency(typeof(InventoryAnalyser), DependencyPhase.Import)
+        }, supportsInventory: true);
+        var identitiesModule = CreateModule("Identities", Array.Empty<ModuleDependency>(), supportsInventory: true);
+        var nodesModule = CreateModule("Nodes", Array.Empty<ModuleDependency>(), supportsInventory: true);
+        var teamsModule = CreateModule("Teams", Array.Empty<ModuleDependency>(), supportsInventory: true);
+
+        var builder = CreateBuilder(
+            new[] { workItemsModule, identitiesModule, nodesModule, teamsModule },
+            new[] { CreateAnalyser("Inventory", new[]
+            {
+                new ModuleDependency(typeof(FakeIdentitiesModule), DependencyPhase.Inventory) { ModuleNameOverride = "Identities" },
+                new ModuleDependency(typeof(FakeNodesModule), DependencyPhase.Inventory) { ModuleNameOverride = "Nodes" },
+                new ModuleDependency(typeof(FakeTeamsModule), DependencyPhase.Inventory) { ModuleNameOverride = "Teams" },
+                new ModuleDependency(typeof(FakeWorkItemsModule), DependencyPhase.Inventory) { ModuleNameOverride = "WorkItems" }
+            }) });
+
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Source:Url"] = "https://dev.azure.com/testorg",
+                ["MigrationPlatform:Source:Project"] = "testproject",
+                ["MigrationPlatform:Modules:Identities:Enabled"] = "true",
+                ["MigrationPlatform:Modules:Nodes:Enabled"] = "true",
+                ["MigrationPlatform:Modules:Teams:Enabled"] = "true",
+                ["MigrationPlatform:Modules:WorkItems:Enabled"] = "true"
+            })
+            .Build();
+        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
+        store.Setup(s => s.ExistsAsync("inventory.json", It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        var stateStore = new Mock<IStateStore>(MockBehavior.Loose).Object;
+
+        // Act
+        var plan = await builder.BuildPlanAsync(config, JobKind.Export, store.Object, stateStore, CancellationToken.None);
+
+        // Assert
+        CollectionAssert.Contains(plan.Tasks.Select(t => t.Id).ToList(), "analyse.inventory.testorg.testproject");
+        CollectionAssert.Contains(plan.Tasks.Select(t => t.Id).ToList(), "capture.workitems.testorg.testproject");
+        var workItemsTask = plan.Tasks.First(t => t.Id == "export.workitems.testorg.testproject");
+        Assert.IsNotNull(workItemsTask.DependsOn);
+        Assert.IsTrue(workItemsTask.DependsOn.Contains("analyse.inventory.testorg.testproject"));
+    }
+
+    [TestMethod]
+    public async Task BuildPlanAsync_ExportPhase_SkipsInventoryPrerequisitesWhenInventorySnapshotExists()
+    {
+        // Arrange
+        var workItemsModule = CreateModule("WorkItems", new[]
+        {
+            new ModuleDependency(typeof(InventoryAnalyser), DependencyPhase.Import)
+        });
+
+        var builder = CreateBuilder(
+            new[] { workItemsModule },
+            new[] { CreateAnalyser("Inventory", new[]
+            {
+                new ModuleDependency(typeof(FakeWorkItemsModule), DependencyPhase.Inventory) { ModuleNameOverride = "WorkItems" }
+            }) });
+
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Source:Url"] = "https://dev.azure.com/testorg",
+                ["MigrationPlatform:Source:Project"] = "testproject",
+                ["MigrationPlatform:Modules:WorkItems:Enabled"] = "true"
+            })
+            .Build();
+
+        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
+        store.Setup(s => s.ExistsAsync("inventory.json", It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var stateStore = new Mock<IStateStore>(MockBehavior.Loose).Object;
+
+        // Act
+        var plan = await builder.BuildPlanAsync(config, JobKind.Export, store.Object, stateStore, CancellationToken.None);
+
+        // Assert
+        Assert.IsFalse(plan.Tasks.Any(t => t.TaskKind is TaskKind.Capture or TaskKind.Analyse));
     }
 
     [TestMethod]
@@ -160,7 +246,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private static JobExecutionPlanBuilder CreateBuilder(IEnumerable<IModule> modules)
+    private static JobExecutionPlanBuilder CreateBuilder(IEnumerable<IModule> modules, IEnumerable<IAnalyser>? analysers = null)
     {
         var phaseFactory = new Mock<IPhaseTrackingServiceFactory>(MockBehavior.Loose);
         var phaseService = new Mock<IPhaseTrackingService>(MockBehavior.Loose);
@@ -171,16 +257,17 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
             .Setup(f => f.Create(It.IsAny<IStateStore>()))
             .Returns(phaseService.Object);
 
-        return new JobExecutionPlanBuilder(modules, [], phaseFactory.Object, NullLogger<JobExecutionPlanBuilder>.Instance);
+        return new JobExecutionPlanBuilder(modules, analysers ?? [], phaseFactory.Object, NullLogger<JobExecutionPlanBuilder>.Instance);
     }
 
-    private static IModule CreateModule(string name, ModuleDependency[] dependsOn)
+    private static IModule CreateModule(string name, ModuleDependency[] dependsOn, bool supportsInventory = false)
     {
         var module = new Mock<IModule>(MockBehavior.Loose);
         module.SetupGet(m => m.Name).Returns(name);
         module.SetupGet(m => m.DependsOn).Returns((IReadOnlyList<ModuleDependency>)dependsOn);
         module.SetupGet(m => m.SupportsExport).Returns(true);
         module.SetupGet(m => m.SupportsImport).Returns(true);
+        module.SetupGet(m => m.SupportsInventory).Returns(supportsInventory);
         module.Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         module.Setup(m => m.ImportAsync(It.IsAny<ImportContext>(), It.IsAny<CancellationToken>()))
@@ -188,6 +275,16 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         module.Setup(m => m.ValidateAsync(It.IsAny<ValidationContext>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         return module.Object;
+    }
+
+    private static IAnalyser CreateAnalyser(string name, ModuleDependency[] dependsOn)
+    {
+        var analyser = new Mock<IAnalyser>(MockBehavior.Loose);
+        analyser.SetupGet(a => a.Name).Returns(name);
+        analyser.SetupGet(a => a.DependsOn).Returns((IReadOnlyList<ModuleDependency>)dependsOn);
+        analyser.Setup(a => a.AnalyseAsync(It.IsAny<AnalyseContext>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        return analyser.Object;
     }
 
     // Fake module types for testing

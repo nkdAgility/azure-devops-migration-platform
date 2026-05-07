@@ -601,8 +601,35 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 {
                     // Execute export phase using the plan executor (includes Inventory if needed).
                     var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
+                    var analyserMap = jobScope.ServiceProvider.GetServices<IAnalyser>()
+                        .ToDictionary(a => a.Name, StringComparer.OrdinalIgnoreCase);
+                    var sourceEndpointInfo = jobScope.ServiceProvider.GetRequiredService<ISourceEndpointInfo>();
+                    var sourceEndpoint = sourceEndpointInfo.ToOrganisationEndpoint();
+                    var exportInventoryContext = new InventoryContext
+                    {
+                        Job = job,
+                        ArtefactStore = artefactStore,
+                        StateStore = stateStore,
+                        ProgressSink = ProgressSink,
+                        SourceEndpoint = sourceEndpoint,
+                        Project = sourceEndpointInfo.Project
+                    };
+                    var endpointsByUrl = string.IsNullOrWhiteSpace(sourceEndpoint.ResolvedUrl)
+                        ? null
+                        : new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase)
+                        {
+                            [sourceEndpoint.ResolvedUrl] = sourceEndpoint
+                        };
+
                     var exportOk = await _planExecutor.ExecuteExportPhaseAsync(
-                        executionPlan, moduleMap, exportContext, stateStore, ct).ConfigureAwait(false);
+                        executionPlan,
+                        moduleMap,
+                        analyserMap,
+                        exportInventoryContext,
+                        endpointsByUrl,
+                        exportContext,
+                        stateStore,
+                        ct).ConfigureAwait(false);
 
                     failed = !exportOk;
 
