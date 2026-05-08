@@ -71,14 +71,27 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         IStateStore stateStore,
         CancellationToken ct)
     {
+        plan = await MarkBlockedDependenciesSkippedAsync(
+            plan,
+            _ => true,
+            "Task.Skipped",
+            captureHandlersByName.Keys.Concat(analysersByName.Keys),
+            stateStore,
+            ct).ConfigureAwait(false);
+
+        var hasCanonicalFailures = HasFailedTasks(plan, _ => true);
         var tasks = plan.Tasks
-            .Where(t => t.Status != JobTaskStatus.Skipped && t.Status != JobTaskStatus.Completed)
+            .Where(t => t.Status != JobTaskStatus.Skipped
+                && t.Status != JobTaskStatus.Completed
+                && t.Status != JobTaskStatus.Failed)
             .ToList();
 
         if (tasks.Count == 0)
         {
-            _logger.LogInformation("ExecuteTasksAsync: no tasks to execute (all skipped or completed).");
-            return true;
+            _logger.LogInformation(
+                "ExecuteTasksAsync: no tasks to execute (all skipped, completed, or failed). Failed task(s) present: {HasFailedTasks}.",
+                hasCanonicalFailures);
+            return !hasCanonicalFailures;
         }
 
         var tiers = ExtractTiers(tasks);
@@ -160,13 +173,87 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 tierIndex, tier.Count - result.FailedTaskIds.Count, result.FailedTaskIds.Count);
         }
 
-        if (anyFailed)
+        if (anyFailed || hasCanonicalFailures)
         {
-            _logger.LogWarning("ExecuteTasksAsync completed with {FailedCount} failed task(s).", failedTasks.Count);
+            _logger.LogWarning(
+                "ExecuteTasksAsync completed with {FailedCount} newly failed task(s). Persisted failed task(s) present: {HasFailedTasks}.",
+                failedTasks.Count,
+                hasCanonicalFailures);
             return false;
         }
 
         return true;
+    }
+
+    private static bool HasFailedTasks(JobTaskList plan, Func<JobTask, bool> isInScope)
+        => plan.Tasks.Any(t => isInScope(t) && t.Status == JobTaskStatus.Failed);
+
+    private async Task<JobTaskList> MarkBlockedDependenciesSkippedAsync(
+        JobTaskList plan,
+        Func<JobTask, bool> isInScope,
+        string stage,
+        IEnumerable<string> registeredNames,
+        IStateStore stateStore,
+        CancellationToken ct)
+    {
+        var scopedTasks = plan.Tasks.Where(isInScope).ToList();
+        var blockedTaskIds = scopedTasks
+            .Where(t => t.Status is JobTaskStatus.Skipped or JobTaskStatus.Failed)
+            .Select(t => t.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (blockedTaskIds.Count == 0)
+            return plan;
+
+        bool changed;
+        do
+        {
+            changed = false;
+            foreach (var task in plan.Tasks.Where(isInScope))
+            {
+                if (task.Status is JobTaskStatus.Completed or JobTaskStatus.Skipped or JobTaskStatus.Failed)
+                    continue;
+
+                if (task.DependsOn is null || !task.DependsOn.Any(dep => blockedTaskIds.Contains(dep)))
+                    continue;
+
+                var matchedDep = task.DependsOn.First(dep => blockedTaskIds.Contains(dep));
+                var updated = task with
+                {
+                    Status = JobTaskStatus.Skipped,
+                    SkipReason = $"Dependency '{matchedDep}' failed or was skipped."
+                };
+
+                var taskList = plan.Tasks.ToList();
+                var idx = taskList.FindIndex(t => t.Id == task.Id);
+                if (idx < 0)
+                    continue;
+
+                taskList[idx] = updated;
+                plan = plan with { Tasks = taskList.AsReadOnly() };
+                await PersistPlanAsync(plan, stateStore, ct).ConfigureAwait(false);
+
+                _progressSink?.Emit(new ProgressEvent
+                {
+                    Module = GetModuleName(task.Id, registeredNames),
+                    Stage = stage,
+                    Message = $"Skipped due to failed dependency: {matchedDep}",
+                    Timestamp = DateTimeOffset.UtcNow,
+                    TaskId = task.Id,
+                    TaskStatus = JobTaskStatus.Skipped
+                });
+
+                _logger.LogWarning(
+                    "Task {TaskId} skipped — dependency {Dependency} failed or was skipped.",
+                    task.Id, matchedDep);
+
+                blockedTaskIds.Add(task.Id);
+                changed = true;
+            }
+        }
+        while (changed);
+
+        return plan;
     }
 
     public async Task<bool> ExecuteExportPhaseAsync(
@@ -179,10 +266,20 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         IStateStore stateStore,
         CancellationToken ct)
     {
+        plan = await MarkBlockedDependenciesSkippedAsync(
+            plan,
+            t => t.Phase == "Export" || t.TaskKind is TaskKind.Capture or TaskKind.Analyse,
+            "Export.Skipped",
+            modulesByName.Keys.Concat(analysersByName.Keys),
+            stateStore,
+            ct).ConfigureAwait(false);
+
+        var hasCanonicalFailures = HasFailedTasks(plan, t => t.Phase == "Export" || t.TaskKind is TaskKind.Capture or TaskKind.Analyse);
         var tasks = plan.Tasks
             .Where(t => (t.Phase == "Export" || t.TaskKind is TaskKind.Capture or TaskKind.Analyse)
                 && t.Status != JobTaskStatus.Skipped
-                && t.Status != JobTaskStatus.Completed)
+                && t.Status != JobTaskStatus.Completed
+                && t.Status != JobTaskStatus.Failed)
             .ToList();
 
         if (await HasInventoryCompletionMarkerAsync(stateStore, ct).ConfigureAwait(false))
@@ -239,8 +336,10 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
         if (tasks.Count == 0)
         {
-            _logger.LogInformation("Export phase: no tasks to execute (all skipped or completed).");
-            return true;
+            _logger.LogInformation(
+                "Export phase: no tasks to execute (all skipped, completed, or failed). Failed task(s) present: {HasFailedTasks}.",
+                hasCanonicalFailures);
+            return !hasCanonicalFailures;
         }
 
         // Use the same tier-based execution as Import so that tasks with DependsOn
@@ -333,9 +432,12 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 tierIndex, tier.Count - result.FailedTaskIds.Count, result.FailedTaskIds.Count);
         }
 
-        if (anyFailed)
+        if (anyFailed || hasCanonicalFailures)
         {
-            _logger.LogWarning("Export phase completed with {FailedCount} failed task(s).", failedTasks.Count);
+            _logger.LogWarning(
+                "Export phase completed with {FailedCount} newly failed task(s). Persisted failed task(s) present: {HasFailedTasks}.",
+                failedTasks.Count,
+                hasCanonicalFailures);
             return false;
         }
 
@@ -442,61 +544,28 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         IStateStore stateStore,
         CancellationToken ct)
     {
-        // Filter out already-completed or skipped tasks, and mark tasks with skipped dependencies as skipped.
-        var skippedOrCompletedIds = plan.Tasks
-            .Where(t => t.Phase == "Import" && (t.Status == JobTaskStatus.Skipped || t.Status == JobTaskStatus.Completed || t.Status == JobTaskStatus.Failed))
-            .Select(t => t.Id)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        plan = await MarkBlockedDependenciesSkippedAsync(
+            plan,
+            t => t.Phase == "Import",
+            "Import.Skipped",
+            modulesByName.Keys,
+            stateStore,
+            ct).ConfigureAwait(false);
 
-        // Mark tasks depending on skipped/failed tasks as skipped before tier extraction.
-        var tasksToExecute = new List<JobTask>();
-        foreach (var task in plan.Tasks.Where(t => t.Phase == "Import"))
-        {
-            if (skippedOrCompletedIds.Contains(task.Id))
-                continue; // Already skipped/completed/failed
-
-            // Check if any dependency is skipped or failed
-            if (task.DependsOn is not null && task.DependsOn.Any(dep => skippedOrCompletedIds.Contains(dep)))
-            {
-                var matchedDep = task.DependsOn.First(dep => skippedOrCompletedIds.Contains(dep));
-                var updated = task with
-                {
-                    Status = JobTaskStatus.Skipped,
-                    SkipReason = $"Dependency '{matchedDep}' was skipped or failed."
-                };
-
-                // Update in plan and persist
-                var taskList = plan.Tasks.ToList();
-                var idx = taskList.FindIndex(t => t.Id == task.Id);
-                if (idx >= 0)
-                {
-                    taskList[idx] = updated;
-                    plan = plan with { Tasks = taskList.AsReadOnly() };
-                    await PersistPlanAsync(plan, stateStore, ct).ConfigureAwait(false);
-
-                    _progressSink?.Emit(new ProgressEvent
-                    {
-                        Module = GetModuleName(task.Id, modulesByName.Keys),
-                        Stage = "Import.Skipped",
-                        Message = $"Skipped due to dependency: {matchedDep}",
-                        Timestamp = DateTimeOffset.UtcNow,
-                        TaskId = task.Id,
-                        TaskStatus = JobTaskStatus.Skipped
-                    });
-                }
-
-                skippedOrCompletedIds.Add(task.Id); // Add to skipped set for cascading dependencies
-            }
-            else
-            {
-                tasksToExecute.Add(task);
-            }
-        }
+        var hasCanonicalFailures = HasFailedTasks(plan, t => t.Phase == "Import");
+        var tasksToExecute = plan.Tasks
+            .Where(t => t.Phase == "Import"
+                && t.Status != JobTaskStatus.Skipped
+                && t.Status != JobTaskStatus.Completed
+                && t.Status != JobTaskStatus.Failed)
+            .ToList();
 
         if (tasksToExecute.Count == 0)
         {
-            _logger.LogInformation("Import phase: no tasks to execute (all skipped or completed).");
-            return true;
+            _logger.LogInformation(
+                "Import phase: no tasks to execute (all skipped, completed, or failed). Failed task(s) present: {HasFailedTasks}.",
+                hasCanonicalFailures);
+            return !hasCanonicalFailures;
         }
 
         var tiers = ExtractTiers(tasksToExecute);
@@ -583,9 +652,12 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 0); // Skipped count is zero at tier-exec time; skips happen after failures.
         }
 
-        if (anyFailed)
+        if (anyFailed || hasCanonicalFailures)
         {
-            _logger.LogWarning("Import phase completed with {FailedCount} failed task(s).", failedTasks.Count);
+            _logger.LogWarning(
+                "Import phase completed with {FailedCount} newly failed task(s). Persisted failed task(s) present: {HasFailedTasks}.",
+                failedTasks.Count,
+                hasCanonicalFailures);
             return false;
         }
 
