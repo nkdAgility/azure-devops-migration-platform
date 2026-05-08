@@ -27,6 +27,8 @@ public sealed class IdMapStoreFactory : IIdMapStoreFactory
         else
             localRoot = packageUri;
 
+        localRoot = Path.GetFullPath(localRoot);
+
         var newPath = PackagePaths.IdMapDbNative(localRoot);
 
         return new SqliteIdMapStore(newPath);

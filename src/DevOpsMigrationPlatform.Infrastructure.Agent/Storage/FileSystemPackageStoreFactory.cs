@@ -30,9 +30,9 @@ public sealed class FileSystemPackageStoreFactory : IPackageStoreFactory
         if (uri.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
         {
             var path = uri.Substring("file:///".Length).Replace('/', Path.DirectorySeparatorChar);
-            return path;
+            return Path.GetFullPath(path);
         }
 
-        return uri;
+        return Path.GetFullPath(uri);
     }
 }

@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -47,7 +48,7 @@ public sealed class SqliteIdMapStore : IIdMapStore
         if (dir is not null && !Directory.Exists(dir))
             Directory.CreateDirectory(dir); // Permitted: SQLite requires real file-system path (see class remarks)
 
-        _connection = new SqliteConnection($"Data Source={_dbFilePath}");
+        _connection = new SqliteConnection($"Data Source={GetSqliteConnectionPath(_dbFilePath)}");
         await _connection.OpenAsync(ct).ConfigureAwait(false);
 
         // Use memory journal to avoid creating <filename>-journal files whose path
@@ -249,6 +250,19 @@ public sealed class SqliteIdMapStore : IIdMapStore
         if (_connection is null)
             throw new InvalidOperationException(
                 $"{nameof(SqliteIdMapStore)} has not been initialised. Call {nameof(InitializeAsync)} first.");
+    }
+
+    private static string GetSqliteConnectionPath(string dbFilePath)
+    {
+        var fullPath = Path.GetFullPath(dbFilePath);
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) || fullPath.Length < 260)
+        {
+            return fullPath;
+        }
+
+        return fullPath.StartsWith(@"\\", StringComparison.Ordinal)
+            ? $@"\\?\UNC\{fullPath.Substring(2)}"
+            : $@"\\?\{fullPath}";
     }
 }
 #endif

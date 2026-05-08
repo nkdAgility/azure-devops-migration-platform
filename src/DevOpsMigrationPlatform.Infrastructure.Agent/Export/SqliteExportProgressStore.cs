@@ -3,6 +3,7 @@
 
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
@@ -42,7 +43,7 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
                 if (dir is not null && !Directory.Exists(dir))
                         Directory.CreateDirectory(dir); // Permitted: SQLite requires real file-system path (see class remarks)
 
-                _connection = new SqliteConnection($"Data Source={_dbFilePath}");
+                _connection = new SqliteConnection($"Data Source={GetSqliteConnectionPath(_dbFilePath)}");
                 await _connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
                 // Use memory journal to avoid creating <filename>-journal files whose path
@@ -52,7 +53,7 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
 #if NET481
                 using var pragmaCmd = _connection.CreateCommand();
 #else
-        await using var pragmaCmd = _connection.CreateCommand();
+                await using var pragmaCmd = _connection.CreateCommand();
 #endif
                 pragmaCmd.CommandText = "PRAGMA journal_mode=MEMORY;";
                 await pragmaCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -60,7 +61,7 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
 #if NET481
                 using var cmd = _connection.CreateCommand();
 #else
-        await using var cmd = _connection.CreateCommand();
+                await using var cmd = _connection.CreateCommand();
 #endif
                 cmd.CommandText = """
             CREATE TABLE IF NOT EXISTS export_progress (
@@ -79,7 +80,7 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
 #if NET481
                 using var cmd = _connection!.CreateCommand();
 #else
-        await using var cmd = _connection!.CreateCommand();
+                await using var cmd = _connection!.CreateCommand();
 #endif
                 cmd.CommandText = """
             SELECT work_item_id, rev
@@ -91,7 +92,7 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
 #if NET481
                 using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
 #else
-        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+                await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
 #endif
                 if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                         return null;
@@ -108,7 +109,7 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
 #if NET481
                 using var cmd = _connection!.CreateCommand();
 #else
-        await using var cmd = _connection!.CreateCommand();
+                await using var cmd = _connection!.CreateCommand();
 #endif
                 cmd.CommandText = """
             INSERT OR REPLACE INTO export_progress (work_item_id, rev, recorded_at)
@@ -126,7 +127,7 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
 #if NET481
                 using var cmd = _connection!.CreateCommand();
 #else
-        await using var cmd = _connection!.CreateCommand();
+                await using var cmd = _connection!.CreateCommand();
 #endif
                 cmd.CommandText = "SELECT COUNT(*) FROM export_progress";
                 var result = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
@@ -141,7 +142,7 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
 #if NET481
                         _connection.Dispose();
 #else
-            await _connection.DisposeAsync().ConfigureAwait(false);
+                        await _connection.DisposeAsync().ConfigureAwait(false);
 #endif
                         _connection = null;
                 }
@@ -152,5 +153,16 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
                 if (_connection is null)
                         throw new InvalidOperationException(
                             $"{nameof(SqliteExportProgressStore)} has not been initialised. Call {nameof(InitializeAsync)} first.");
+        }
+
+        private static string GetSqliteConnectionPath(string dbFilePath)
+        {
+                var fullPath = Path.GetFullPath(dbFilePath);
+                if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) || fullPath.Length < 260)
+                        return fullPath;
+
+                return fullPath.StartsWith(@"\\", StringComparison.Ordinal)
+                                        ? $@"\\?\UNC\{fullPath.Substring(2)}"
+                    : $@"\\?\{fullPath}";
         }
 }
