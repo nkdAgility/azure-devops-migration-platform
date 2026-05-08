@@ -79,6 +79,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             stateStore,
             ct).ConfigureAwait(false);
 
+        var hasCanonicalFailures = HasFailedTasks(plan, _ => true);
         var tasks = plan.Tasks
             .Where(t => t.Status != JobTaskStatus.Skipped
                 && t.Status != JobTaskStatus.Completed
@@ -87,8 +88,10 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
         if (tasks.Count == 0)
         {
-            _logger.LogInformation("ExecuteTasksAsync: no tasks to execute (all skipped or completed).");
-            return true;
+            _logger.LogInformation(
+                "ExecuteTasksAsync: no tasks to execute (all skipped, completed, or failed). Failed task(s) present: {HasFailedTasks}.",
+                hasCanonicalFailures);
+            return !hasCanonicalFailures;
         }
 
         var tiers = ExtractTiers(tasks);
@@ -170,14 +173,20 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 tierIndex, tier.Count - result.FailedTaskIds.Count, result.FailedTaskIds.Count);
         }
 
-        if (anyFailed)
+        if (anyFailed || hasCanonicalFailures)
         {
-            _logger.LogWarning("ExecuteTasksAsync completed with {FailedCount} failed task(s).", failedTasks.Count);
+            _logger.LogWarning(
+                "ExecuteTasksAsync completed with {FailedCount} newly failed task(s). Persisted failed task(s) present: {HasFailedTasks}.",
+                failedTasks.Count,
+                hasCanonicalFailures);
             return false;
         }
 
         return true;
     }
+
+    private static bool HasFailedTasks(JobTaskList plan, Func<JobTask, bool> isInScope)
+        => plan.Tasks.Any(t => isInScope(t) && t.Status == JobTaskStatus.Failed);
 
     private async Task<JobTaskList> MarkBlockedDependenciesSkippedAsync(
         JobTaskList plan,
@@ -265,6 +274,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             stateStore,
             ct).ConfigureAwait(false);
 
+        var hasCanonicalFailures = HasFailedTasks(plan, t => t.Phase == "Export" || t.TaskKind is TaskKind.Capture or TaskKind.Analyse);
         var tasks = plan.Tasks
             .Where(t => (t.Phase == "Export" || t.TaskKind is TaskKind.Capture or TaskKind.Analyse)
                 && t.Status != JobTaskStatus.Skipped
@@ -326,8 +336,10 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
         if (tasks.Count == 0)
         {
-            _logger.LogInformation("Export phase: no tasks to execute (all skipped or completed).");
-            return true;
+            _logger.LogInformation(
+                "Export phase: no tasks to execute (all skipped, completed, or failed). Failed task(s) present: {HasFailedTasks}.",
+                hasCanonicalFailures);
+            return !hasCanonicalFailures;
         }
 
         // Use the same tier-based execution as Import so that tasks with DependsOn
@@ -420,9 +432,12 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 tierIndex, tier.Count - result.FailedTaskIds.Count, result.FailedTaskIds.Count);
         }
 
-        if (anyFailed)
+        if (anyFailed || hasCanonicalFailures)
         {
-            _logger.LogWarning("Export phase completed with {FailedCount} failed task(s).", failedTasks.Count);
+            _logger.LogWarning(
+                "Export phase completed with {FailedCount} newly failed task(s). Persisted failed task(s) present: {HasFailedTasks}.",
+                failedTasks.Count,
+                hasCanonicalFailures);
             return false;
         }
 
@@ -537,6 +552,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             stateStore,
             ct).ConfigureAwait(false);
 
+        var hasCanonicalFailures = HasFailedTasks(plan, t => t.Phase == "Import");
         var tasksToExecute = plan.Tasks
             .Where(t => t.Phase == "Import"
                 && t.Status != JobTaskStatus.Skipped
@@ -546,8 +562,10 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
         if (tasksToExecute.Count == 0)
         {
-            _logger.LogInformation("Import phase: no tasks to execute (all skipped or completed).");
-            return true;
+            _logger.LogInformation(
+                "Import phase: no tasks to execute (all skipped, completed, or failed). Failed task(s) present: {HasFailedTasks}.",
+                hasCanonicalFailures);
+            return !hasCanonicalFailures;
         }
 
         var tiers = ExtractTiers(tasksToExecute);
@@ -634,9 +652,12 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 0); // Skipped count is zero at tier-exec time; skips happen after failures.
         }
 
-        if (anyFailed)
+        if (anyFailed || hasCanonicalFailures)
         {
-            _logger.LogWarning("Import phase completed with {FailedCount} failed task(s).", failedTasks.Count);
+            _logger.LogWarning(
+                "Import phase completed with {FailedCount} newly failed task(s). Persisted failed task(s) present: {HasFailedTasks}.",
+                failedTasks.Count,
+                hasCanonicalFailures);
             return false;
         }
 

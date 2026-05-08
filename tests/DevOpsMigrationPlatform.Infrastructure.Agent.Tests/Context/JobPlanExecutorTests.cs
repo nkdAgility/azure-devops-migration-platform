@@ -778,6 +778,52 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestMethod]
+    public async Task ExecuteTasksAsync_FailedDependencyOnResume_ReturnsFalseAndSkipsDependentTask()
+    {
+        var invoked = false;
+        var captureHandler = new Mock<ICapture>(MockBehavior.Strict);
+        captureHandler.SetupGet(c => c.Name).Returns("workitems");
+        captureHandler.Setup(c => c.CaptureAsync(It.IsAny<InventoryContext>(), It.IsAny<CancellationToken>()))
+            .Callback(() => invoked = true)
+            .Returns(Task.CompletedTask);
+
+        var handlers = new Dictionary<string, ICapture>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["workitems"] = captureHandler.Object
+        };
+
+        var stateStore = new InMemoryStateStore();
+        var plan = CreatePlan(new[]
+        {
+            CreateTask("capture.identities.org.project", "Identities Capture", "Capture", status: JobTaskStatus.Failed),
+            CreateTask(
+                "capture.workitems.org.project",
+                "WorkItems Capture",
+                "Capture",
+                dependsOn: new[] { "capture.identities.org.project" })
+        });
+
+        var result = await CreateExecutor().ExecuteTasksAsync(
+            plan,
+            handlers,
+            new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
+            CreateMinimalInventoryContext(stateStore),
+            null,
+            null,
+            new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase),
+            stateStore,
+            CancellationToken.None);
+
+        Assert.IsFalse(result, "A resumed canonical plan containing a failed task must keep the job failed.");
+        Assert.IsFalse(invoked, "Dependent capture handlers must not run when their dependency already failed.");
+
+        var persisted = await stateStore.ReadAsync(PackagePaths.PlanFile, CancellationToken.None);
+        Assert.IsNotNull(persisted, "The skipped dependent state should be persisted for resume and UI bootstrap.");
+        StringAssert.Contains(persisted, "capture.workitems.org.project");
+        StringAssert.Contains(persisted, "failed or was skipped");
+    }
+
+    [TestMethod]
     public async Task ExecuteTasksAsync_SkippedDependency_SkipsDependentTaskWithoutInvokingHandler()
     {
         var invoked = false;
@@ -820,6 +866,44 @@ public sealed class JobPlanExecutorTests
         var persisted = await stateStore.ReadAsync(PackagePaths.PlanFile, CancellationToken.None);
         Assert.IsNotNull(persisted, "The skipped dependent state should be persisted for resume and UI bootstrap.");
         StringAssert.Contains(persisted, "capture.workitems.org.project");
+        StringAssert.Contains(persisted, "failed or was skipped");
+    }
+
+    [TestMethod]
+    public async Task ExecuteImportPhaseAsync_FailedDependencyOnResume_ReturnsFalseAndSkipsDependentTask()
+    {
+        var invoked = false;
+        var workItemsModule = new Mock<IModule>(MockBehavior.Strict);
+        workItemsModule.SetupGet(m => m.Name).Returns("WorkItems");
+        workItemsModule.Setup(m => m.ImportAsync(It.IsAny<ImportContext>(), It.IsAny<CancellationToken>()))
+            .Callback(() => invoked = true)
+            .Returns(Task.CompletedTask);
+
+        var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["WorkItems"] = workItemsModule.Object
+        };
+
+        var stateStore = new InMemoryStateStore();
+        var plan = CreatePlan(new[]
+        {
+            CreateTask("import.identities", "Identities Import", "Import", status: JobTaskStatus.Failed),
+            CreateTask("import.workitems", "WorkItems Import", "Import", dependsOn: new[] { "import.identities" })
+        });
+
+        var result = await CreateExecutor().ExecuteImportPhaseAsync(
+            plan,
+            modules,
+            new ImportContext(),
+            stateStore,
+            CancellationToken.None);
+
+        Assert.IsFalse(result, "A resumed import plan containing a failed task must keep the phase failed.");
+        Assert.IsFalse(invoked, "Dependent import modules must not run when their dependency already failed.");
+
+        var persisted = await stateStore.ReadAsync(PackagePaths.PlanFile, CancellationToken.None);
+        Assert.IsNotNull(persisted, "The skipped dependent state should be persisted for resume and UI bootstrap.");
+        StringAssert.Contains(persisted, "import.workitems");
         StringAssert.Contains(persisted, "failed or was skipped");
     }
 
