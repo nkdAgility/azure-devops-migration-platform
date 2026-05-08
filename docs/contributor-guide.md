@@ -10,7 +10,7 @@ Contributors must use RED → GREEN → REFACTOR for every addition, bug fix, an
 - GREEN: make the minimal code change that turns that test green.
 - REFACTOR: clean up only after the changed slice is green, while keeping it green.
 
-This repository treats production-first additions as non-compliant work. See [.agents/guardrails/atdd-workflow.md](../.agents/guardrails/atdd-workflow.md) and [.agents/guardrails/definition-of-done.md](../.agents/guardrails/definition-of-done.md).
+This repository treats production-first additions as non-compliant work. See [.agents/guardrails/test-first-workflow.md](../.agents/guardrails/test-first-workflow.md) and [.agents/guardrails/definition-of-done.md](../.agents/guardrails/definition-of-done.md).
 
 ## Testing
 

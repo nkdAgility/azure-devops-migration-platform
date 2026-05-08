@@ -50,7 +50,7 @@ Bump rationale:    Clarification — Spec-Completion Gate added to Governance:
                        updated before the branch may merge.
                    The gate is codified in both the Governance section of this
                    constitution and propagated to agents.md (3 new reject conditions),
-                   .agents/guardrails/atdd-workflow.md (Phase 5), and
+                   .agents/guardrails/test-first-workflow.md (Phase 5), and
                    .agents/skills/end-session/SKILL.md (doc-sync checklist).
 
 Principles modified:
@@ -508,7 +508,7 @@ Reject any proposal that:
   4. Confirm that every `.agents/context/*.md` file affected by the implementation has been updated.
   5. If any of steps 1–4 are not satisfied, the branch MUST NOT be merged.
   Skipping this gate because "the tests pass" is a violation. The gate is enforced by
-  `.agents/guardrails/atdd-workflow.md` Phase 5 and `.agents/skills/end-session/SKILL.md`.
+  `.agents/guardrails/test-first-workflow.md` Phase 5 and `.agents/skills/end-session/SKILL.md`.
 - Amendments to this constitution require:
   1. A version increment following semantic versioning (MAJOR for removals or
      redefinitions of principles; MINOR for new sections or material expansions;

@@ -98,7 +98,7 @@ See:
    - [configuration-rules.md](.agents/guardrails/configuration-rules.md) — Configuration rules
    - [documentation-rules.md](.agents/guardrails/documentation-rules.md) — Doc structure, naming, and rename rules
    - [definition-of-done.md](.agents/guardrails/definition-of-done.md) — Mandatory completion criteria
-   - [atdd-workflow.md](.agents/guardrails/atdd-workflow.md) — ATDD session lifecycle rules
+   - [test-first-workflow.md](.agents/guardrails/test-first-workflow.md) — tests-first session lifecycle rules
    - [acceptance-test-format.md](.agents/guardrails/acceptance-test-format.md) — Gherkin format rules
 
 2. **Read relevant context files** in `/.agents/context/`:
@@ -163,7 +163,7 @@ This file is the entry point, not the rule source. The non-negotiable constraint
 
 All Gherkin `.feature` files live under `/features/` (organised by `cli/`, `export/`, `import/`, `inventory/`, `platform/`, `services/`). Code that conflicts with feature files must be rejected.
 
-The repository workflow is tests-first. TDD is the primary method for design and implementation, while ATDD is used to capture intent in scenario and acceptance assets. The enforceable rule lives in `/.agents/guardrails/atdd-workflow.md`; `agents.md` only points you to it.
+The repository workflow is tests-first. TDD is the primary method for design and implementation, while ATDD is used to capture intent in scenario and acceptance assets. The enforceable rule lives in `/.agents/guardrails/test-first-workflow.md`; `agents.md` only points you to it.
 
 ---
 

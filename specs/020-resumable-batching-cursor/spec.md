@@ -29,7 +29,7 @@
 - `.agents/guardrails/testing-rules.md` - Confirmed as applicable (system-test and deterministic test expectations).
 - `.agents/guardrails/module-rules.md` - Confirmed as applicable (cursor schema and resume behavior requirements).
 - `.agents/guardrails/control-plane-rules.md` - Confirmed as applicable for topology neutrality.
-- `.agents/guardrails/atdd-workflow.md` - Confirmed as applicable for downstream implementation workflow.
+- `.agents/guardrails/test-first-workflow.md` - Confirmed as applicable for downstream implementation workflow.
 - `.agents/guardrails/acceptance-test-format.md` - Confirmed as applicable for feature acceptance formatting.
 - `.agents/context/cli-commands.md` - Confirmed as applicable for CLI-level exposure boundaries.
 - `.agents/context/migration-package-concept.md` - Confirmed as applicable for checkpoint location and package invariants.
@@ -180,7 +180,7 @@ As a module owner, I need deterministic ordering and explicit duplicate-tolerant
   - `.agents/guardrails/testing-rules.md`
   - `.agents/guardrails/module-rules.md`
   - `.agents/guardrails/control-plane-rules.md`
-  - `.agents/guardrails/atdd-workflow.md`
+  - `.agents/guardrails/test-first-workflow.md`
   - `.agents/guardrails/acceptance-test-format.md`
   - `.agents/context/cli-commands.md`
   - `.agents/context/migration-package-concept.md`

@@ -28,7 +28,7 @@ Agents must read the relevant guardrails before making changes and must check co
 | `data-sovereignty-rules.md` | Data sovereignty rules — agent-only package writes, customer data boundaries |
 | `observability-requirements.md` | Observability requirements — O-1 through O-5 mandatory for every module, tool, analyser, and connector operation |
 | `definition-of-done.md` | Completion criteria — build, tests, docs, no stubs, no ignored tests |
-| `atdd-workflow.md` | ATDD session lifecycle rules |
+| `test-first-workflow.md` | Tests-first session lifecycle rules |
 | `acceptance-test-format.md` | Gherkin feature file format rules |
 | `documentation-rules.md` | Doc structure, naming conventions, and rename rules |
 

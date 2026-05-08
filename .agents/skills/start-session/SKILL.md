@@ -17,7 +17,7 @@ In this workflow, ATDD is the intent-capture layer and TDD is the design and imp
 2. **Assemble session context** by loading:
    - The project context: [.github/copilot-instructions.md](../../copilot-instructions.md)
    - The architectural guardrails: [agents/architecture-boundaries.md](../../.agents/guardrails/architecture-boundaries.md)
-   - The tests-first workflow: [agents/atdd-workflow.md](../../.agents/guardrails/atdd-workflow.md)
+   - The tests-first workflow: [agents/test-first-workflow.md](../../.agents/guardrails/test-first-workflow.md)
    - Relevant existing feature files in [features/](../../features/) for ATDD intent naming reference.
 
 3. **Generate a session ID** in the format `<feature-slug>-<scenario-slug>-<YYYYMMDD-HHmmss>`.
