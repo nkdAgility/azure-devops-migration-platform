@@ -365,6 +365,34 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestMethod]
+    public async Task OnJobAsync_Dependencies_EmitsJobReadyAfterPushingTaskList()
+    {
+        var progressEvents = new List<ProgressEvent>();
+        _progressSink
+            .Setup(sink => sink.Emit(It.IsAny<ProgressEvent>()))
+            .Callback<ProgressEvent>(evt => progressEvents.Add(evt));
+
+        var worker = CreateWorker();
+        var job = CreateJob(JobKind.Dependencies);
+
+        await JobAgentWorkerTestHelper.InvokeJobAsync(
+            worker,
+            job,
+            CreateControlPlaneClient(),
+            "lease-deps",
+            CancellationToken.None);
+
+        _telemetryClient.Verify(client => client.PushTaskListAsync(
+            "lease-deps",
+            It.IsAny<JobTaskList>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        Assert.IsTrue(
+            progressEvents.Any(evt => evt.Module == "Job" && evt.Stage == "Job.Ready"),
+            "Dependencies jobs must emit Job.Ready after the plan is pushed so the CLI can fetch bootstrap.");
+    }
+
+    [TestMethod]
     public async Task OnJobAsync_Inventory_WhenInventoryPlanSucceeds_WritesInventoryCompletionMarker()
     {
         _plan = new JobTaskList

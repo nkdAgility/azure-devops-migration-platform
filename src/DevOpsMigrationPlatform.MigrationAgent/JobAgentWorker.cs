@@ -870,11 +870,27 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         JobTaskList? discoveryPlan = null;
         try
         {
+            ProgressSink.Emit(new ProgressEvent
+            {
+                Module = "Job",
+                Stage = "Job.Planning",
+                Message = "Building execution plan from package configuration.",
+                Timestamp = DateTimeOffset.UtcNow
+            });
+
             var planConfig = packageConfig ?? new ConfigurationBuilder().Build();
             discoveryPlan = await _planBuilder
                 .BuildAndSaveAsync(planConfig, job.Kind, artefactStore, stateStore, ct)
                 .ConfigureAwait(false);
             await _telemetryClient.PushTaskListAsync(leaseId, discoveryPlan, ct).ConfigureAwait(false);
+
+            ProgressSink.Emit(new ProgressEvent
+            {
+                Module = "Job",
+                Stage = "Job.Ready",
+                Message = $"Execution plan ready. {discoveryPlan.Tasks.Count} task(s) queued.",
+                Timestamp = DateTimeOffset.UtcNow
+            });
         }
         catch (Exception ex)
         {
