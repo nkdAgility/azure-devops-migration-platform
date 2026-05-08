@@ -66,7 +66,7 @@
         OR restore from the local tool manifest:
             dotnet tool restore
 
-    Artefact outputs (placed under ./output/, one zip per RID):
+    Artefact outputs (placed under ./.output/, one zip per RID):
       - MigrationTools-{SemVer}-{rid}.zip
 
     Each zip contains:
@@ -121,7 +121,7 @@ $ProgressPreference = 'SilentlyContinue'
 
 $RepoRoot = $PSScriptRoot
 $SolutionFile = Join-Path $RepoRoot 'DevOpsMigrationPlatform.slnx'
-$ArtifactsDir = Join-Path $RepoRoot 'output'
+$ArtifactsDir = Join-Path $RepoRoot '.output/build'
 $TestResultsDir = Join-Path $RepoRoot 'TestResults'
 $TimingsFile = Join-Path $TestResultsDir 'build-timings.json'
 
