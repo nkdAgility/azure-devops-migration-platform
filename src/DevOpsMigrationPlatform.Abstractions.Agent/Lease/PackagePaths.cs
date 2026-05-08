@@ -3,7 +3,10 @@
 
 using System;
 using System.Globalization;
+using System.Diagnostics;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 
@@ -18,6 +21,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 /// </remarks>
 public static class PackagePaths
 {
+    private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
     /// <summary>
     /// Root folder for all system/operational files inside a package.
     /// Hidden by convention (dot-prefix) so user data folders remain uncluttered.
@@ -26,6 +30,27 @@ public static class PackagePaths
 
     /// <summary>Checkpoint cursor folder: <c>.migration/Checkpoints</c>.</summary>
     public const string Checkpoints = $"{SystemRoot}/Checkpoints";
+
+    /// <summary>
+    /// Root project-scoped state folder for the given organisation/project.
+    /// Example: <c>contoso/MyProject/.migration</c>.
+    /// </summary>
+    public static string ProjectStateRoot(string organisationUrl, string projectName)
+    {
+        using var activity = ActivitySource.StartActivity("state.paths.resolve", ActivityKind.Internal);
+        activity?.SetTag("module.name", "state");
+        activity?.SetTag("operation", "project-state-root");
+
+        if (string.IsNullOrWhiteSpace(projectName))
+        {
+            throw new ArgumentException("Project name must not be empty.", nameof(projectName));
+        }
+
+        var orgFolder = PackagePathResolver.ExtractOrgFolderName(organisationUrl);
+        var path = $"{orgFolder}/{projectName}/.migration";
+        activity?.SetTag("state.path", path);
+        return path;
+    }
 
     /// <summary>
     /// Fallback log folder used when no job is active: <c>.migration/Logs</c>.
@@ -121,12 +146,40 @@ public static class PackagePaths
         => $"{Checkpoints}/{moduleName.ToLowerInvariant()}.cursor.json";
 
     /// <summary>
+    /// Returns the project-scoped artefact-store key for an action-qualified module cursor,
+    /// e.g. <c>contoso/MyProject/.migration/export.workitems.cursor.json</c>.
+    /// </summary>
+    public static string CursorFile(string action, string moduleName, string organisationUrl, string projectName)
+    {
+        using var activity = ActivitySource.StartActivity("state.paths.resolve", ActivityKind.Internal);
+        activity?.SetTag("module.name", moduleName);
+        activity?.SetTag("operation", action);
+        var path = $"{ProjectStateRoot(organisationUrl, projectName)}/{action.ToLowerInvariant()}.{moduleName.ToLowerInvariant()}.cursor.json";
+        activity?.SetTag("state.path", path);
+        return path;
+    }
+
+    /// <summary>
     /// Returns the artefact-store key for a module's continuation token file,
     /// e.g. <c>.migration/Checkpoints/inventory.continuation.json</c>.
     /// Scoped per-module to prevent concurrent callers from corrupting each other.
     /// </summary>
     public static string ContinuationFile(string moduleName)
         => $"{Checkpoints}/{moduleName.ToLowerInvariant()}.continuation.json";
+
+    /// <summary>
+    /// Returns the project-scoped artefact-store key for an action-qualified continuation token file,
+    /// e.g. <c>contoso/MyProject/.migration/export.workitems.continuation.json</c>.
+    /// </summary>
+    public static string ContinuationFile(string action, string moduleName, string organisationUrl, string projectName)
+    {
+        using var activity = ActivitySource.StartActivity("state.paths.resolve", ActivityKind.Internal);
+        activity?.SetTag("module.name", moduleName);
+        activity?.SetTag("operation", $"{action}.continuation");
+        var path = $"{ProjectStateRoot(organisationUrl, projectName)}/{action.ToLowerInvariant()}.{moduleName.ToLowerInvariant()}.continuation.json";
+        activity?.SetTag("state.path", path);
+        return path;
+    }
 
     /// <summary>
     /// The phase-tracking file for Migrate-mode jobs:

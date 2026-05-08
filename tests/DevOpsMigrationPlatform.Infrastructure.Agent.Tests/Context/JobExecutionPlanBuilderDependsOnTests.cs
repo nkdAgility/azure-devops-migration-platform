@@ -20,6 +20,7 @@ using DevOpsMigrationPlatform.Abstractions.Validation;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -88,13 +89,14 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     }
 
     [TestMethod]
-    public async Task BuildPlanAsync_ExportPhase_ExpandsInventoryPrerequisitesFromAnalyserDependency()
+    public async Task BuildPlanAsync_ExportPhase_InventoryPrerequisiteContract_HoldsAcrossMarkerVariants()
     {
-        // Arrange
+        // Arrange shared prerequisites
         var workItemsModule = CreateModule("WorkItems", new[]
         {
             new ModuleDependency(typeof(InventoryAnalyser), DependencyPhase.Import)
         }, supportsInventory: true);
+
         var identitiesModule = CreateModule("Identities", Array.Empty<ModuleDependency>(), supportsInventory: true);
         var nodesModule = CreateModule("Nodes", Array.Empty<ModuleDependency>(), supportsInventory: true);
         var teamsModule = CreateModule("Teams", Array.Empty<ModuleDependency>(), supportsInventory: true);
@@ -120,56 +122,32 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
                 ["MigrationPlatform:Modules:WorkItems:Enabled"] = "true"
             })
             .Build();
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
-        stateStore.Setup(s => s.ExistsAsync(PackagePaths.InventoryCompleteFile, It.IsAny<CancellationToken>())).ReturnsAsync(false);
-
-        // Act
-        var plan = await builder.BuildPlanAsync(config, JobKind.Export, store.Object, stateStore.Object, CancellationToken.None);
-
-        // Assert
-        CollectionAssert.Contains(plan.Tasks.Select(t => t.Id).ToList(), "analyse.inventory.testorg.testproject");
-        CollectionAssert.Contains(plan.Tasks.Select(t => t.Id).ToList(), "capture.workitems.testorg.testproject");
-        var workItemsTask = plan.Tasks.First(t => t.Id == "export.workitems.testorg.testproject");
-        Assert.IsNotNull(workItemsTask.DependsOn);
-        Assert.IsTrue(workItemsTask.DependsOn.Contains("analyse.inventory.testorg.testproject"));
-    }
-
-    [TestMethod]
-    public async Task BuildPlanAsync_ExportPhase_AlwaysIncludesInventoryPrerequisitesWhenInventorySnapshotExists()
-    {
-        // Arrange
-        var workItemsModule = CreateModule("WorkItems", new[]
-        {
-            new ModuleDependency(typeof(InventoryAnalyser), DependencyPhase.Import)
-        }, supportsInventory: true);
-
-        var builder = CreateBuilder(
-            new[] { workItemsModule },
-            new[] { CreateAnalyser("Inventory", new[]
-            {
-                new ModuleDependency(typeof(FakeWorkItemsModule), DependencyPhase.Inventory) { ModuleNameOverride = "WorkItems" }
-            }) });
-
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["MigrationPlatform:Source:Url"] = "https://dev.azure.com/testorg",
-                ["MigrationPlatform:Source:Project"] = "testproject",
-                ["MigrationPlatform:Modules:WorkItems:Enabled"] = "true"
-            })
-            .Build();
 
         var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
-        stateStore.Setup(s => s.ExistsAsync(PackagePaths.InventoryCompleteFile, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var markerAbsentStateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        markerAbsentStateStore.Setup(s => s.ExistsAsync(PackagePaths.InventoryCompleteFile, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        var markerPresentStateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        markerPresentStateStore.Setup(s => s.ExistsAsync(PackagePaths.InventoryCompleteFile, It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         // Act
-        var plan = await builder.BuildPlanAsync(config, JobKind.Export, store.Object, stateStore.Object, CancellationToken.None);
+        var markerAbsentPlan = await builder.BuildPlanAsync(config, JobKind.Export, store.Object, markerAbsentStateStore.Object, CancellationToken.None);
+        var markerPresentPlan = await builder.BuildPlanAsync(config, JobKind.Export, store.Object, markerPresentStateStore.Object, CancellationToken.None);
 
         // Assert
-        CollectionAssert.Contains(plan.Tasks.Select(t => t.Id).ToList(), "capture.workitems.testorg.testproject");
-        CollectionAssert.Contains(plan.Tasks.Select(t => t.Id).ToList(), "analyse.inventory.testorg.testproject");
+        var absentIds = markerAbsentPlan.Tasks.Select(t => t.Id).ToList();
+        var presentIds = markerPresentPlan.Tasks.Select(t => t.Id).ToList();
+
+        CollectionAssert.Contains(absentIds, "analyse.inventory.testorg.testproject");
+        CollectionAssert.Contains(presentIds, "analyse.inventory.testorg.testproject");
+        CollectionAssert.Contains(absentIds, "capture.workitems.testorg.testproject");
+        CollectionAssert.Contains(presentIds, "capture.workitems.testorg.testproject");
+
+        var absentExport = markerAbsentPlan.Tasks.First(t => t.Id == "export.workitems.testorg.testproject");
+        var presentExport = markerPresentPlan.Tasks.First(t => t.Id == "export.workitems.testorg.testproject");
+        Assert.IsNotNull(absentExport.DependsOn);
+        Assert.IsNotNull(presentExport.DependsOn);
+        Assert.IsTrue(absentExport.DependsOn.Contains("analyse.inventory.testorg.testproject"));
+        Assert.IsTrue(presentExport.DependsOn.Contains("analyse.inventory.testorg.testproject"));
     }
 
     [TestMethod]
@@ -230,8 +208,9 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     {
         // Arrange
         var moduleA = CreateModule("ModuleA", new[] { new ModuleDependency(typeof(FakeNonExistentModule), DependencyPhase.Import) { ModuleNameOverride = "NonExistentModule" } });
+        var logger = new CapturingLogger<JobExecutionPlanBuilder>();
 
-        var builder = CreateBuilder(new[] { moduleA });
+        var builder = CreateBuilder(new[] { moduleA }, logger: logger);
         var config = AllEnabledConfig();
         var store = new Mock<IArtefactStore>(MockBehavior.Loose).Object;
         var stateStore = new Mock<IStateStore>(MockBehavior.Loose).Object;
@@ -243,11 +222,253 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         var taskA = plan.Tasks.First(t => t.Id.StartsWith("import.modulea"));
         Assert.IsTrue(taskA.DependsOn == null || !taskA.DependsOn.Any(d => d.StartsWith("import.nonexistentmodule")),
             "Dependency on non-existent module should be omitted");
+
+        var warning = logger.Entries.FirstOrDefault(e =>
+            e.Level == LogLevel.Warning
+            && e.Message.Contains("ModuleA", StringComparison.Ordinal)
+            && e.Message.Contains("NonExistentModule", StringComparison.Ordinal));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(warning.Message),
+            "Expected warning log containing module and missing dependency names");
+    }
+
+    [TestMethod]
+    public async Task BuildPlanAsync_PrepareKind_AddsAnalyseTasksFromPrepareDependencies()
+    {
+        // Arrange
+        var moduleA = CreateModule(
+            "ModuleA",
+            new[] { new ModuleDependency(typeof(FakeInventoryAnalyser), DependencyPhase.Analyse) { ModuleNameOverride = "Inventory" } },
+            supportsPrepare: true);
+        var moduleB = CreateModule(
+            "ModuleB",
+            new[] { new ModuleDependency(typeof(FakeDependenciesAnalyser), DependencyPhase.Analyse) { ModuleNameOverride = "Dependencies" } },
+            supportsPrepare: true);
+
+        var builder = CreateBuilder(
+            new[] { moduleA, moduleB },
+            new[]
+            {
+                CreateAnalyser("Inventory", Array.Empty<ModuleDependency>()),
+                CreateAnalyser("Dependencies", Array.Empty<ModuleDependency>())
+            });
+
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Modules:ModuleA:Enabled"] = "true",
+                ["MigrationPlatform:Modules:ModuleB:Enabled"] = "true"
+            })
+            .Build();
+
+        // Act
+        var plan = await builder.BuildPlanAsync(
+            config,
+            JobKind.Prepare,
+            new Mock<IArtefactStore>(MockBehavior.Loose).Object,
+            new Mock<IStateStore>(MockBehavior.Loose).Object,
+            CancellationToken.None);
+
+        // Assert
+        var analyseTasks = plan.Tasks.Where(t => t.TaskKind == TaskKind.Analyse).ToList();
+        CollectionAssert.AreEquivalent(
+            new[] { "analyse.inventory", "analyse.dependencies" },
+            analyseTasks.Select(t => t.Id).ToList());
+
+        var prepareTasks = plan.Tasks.Where(t => t.TaskKind == TaskKind.Prepare).ToList();
+        CollectionAssert.AreEquivalent(
+            new[] { "prepare.modulea", "prepare.moduleb" },
+            prepareTasks.Select(t => t.Id).ToList());
+    }
+
+    [TestMethod]
+    public async Task BuildPlanAsync_PrepareKind_PrepareTasksDependOnAnalyseTasks()
+    {
+        // Arrange
+        var module = CreateModule(
+            "ModuleA",
+            new[]
+            {
+                new ModuleDependency(typeof(FakeInventoryAnalyser), DependencyPhase.Analyse) { ModuleNameOverride = "Inventory" },
+                new ModuleDependency(typeof(FakeDependenciesAnalyser), DependencyPhase.Analyse) { ModuleNameOverride = "Dependencies" }
+            },
+            supportsPrepare: true);
+
+        var builder = CreateBuilder(
+            new[] { module },
+            new[]
+            {
+                CreateAnalyser("Inventory", Array.Empty<ModuleDependency>()),
+                CreateAnalyser("Dependencies", Array.Empty<ModuleDependency>())
+            });
+
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Modules:ModuleA:Enabled"] = "true"
+            })
+            .Build();
+
+        // Act
+        var plan = await builder.BuildPlanAsync(
+            config,
+            JobKind.Prepare,
+            new Mock<IArtefactStore>(MockBehavior.Loose).Object,
+            new Mock<IStateStore>(MockBehavior.Loose).Object,
+            CancellationToken.None);
+
+        // Assert
+        var prepareTask = plan.Tasks.Single(t => t.Id == "prepare.modulea");
+        Assert.IsNotNull(prepareTask.DependsOn);
+        CollectionAssert.AreEquivalent(
+            new[] { "analyse.inventory", "analyse.dependencies" },
+            prepareTask.DependsOn.ToList());
+    }
+
+    [TestMethod]
+    public async Task BuildPlanAsync_InventoryKind_MultiOrgProjects_BuildsScopedCaptureTasks()
+    {
+        // Arrange
+        var identities = CreateModule("Identities", Array.Empty<ModuleDependency>(), supportsInventory: true);
+        var nodes = CreateModule("Nodes", Array.Empty<ModuleDependency>(), supportsInventory: true);
+        var builder = CreateBuilder(
+            new[] { identities, nodes },
+            new[] { CreateAnalyser("Inventory", Array.Empty<ModuleDependency>()) });
+
+        var config = BuildOrganisationsConfig(
+            ("Simulated", "", new[] { "ProjectA", "ProjectB" }),
+            ("Simulated", "", new[] { "ProjectC" }));
+
+        // Act
+        var plan = await builder.BuildPlanAsync(
+            config,
+            JobKind.Inventory,
+            new Mock<IArtefactStore>(MockBehavior.Loose).Object,
+            new Mock<IStateStore>(MockBehavior.Loose).Object,
+            CancellationToken.None);
+
+        // Assert
+        var captureIds = plan.Tasks
+            .Where(t => t.TaskKind == TaskKind.Capture)
+            .Select(t => t.Id)
+            .ToList();
+
+        static bool ContainsId(IEnumerable<string> ids, string expected)
+            => ids.Any(id => string.Equals(id, expected, StringComparison.OrdinalIgnoreCase));
+
+        Assert.AreEqual(6, captureIds.Count, "Expected two capture modules across three project scopes");
+        Assert.IsTrue(ContainsId(captureIds, "capture.identities.simulated.projecta"));
+        Assert.IsTrue(ContainsId(captureIds, "capture.nodes.simulated.projecta"));
+        Assert.IsTrue(ContainsId(captureIds, "capture.identities.simulated.projectb"));
+        Assert.IsTrue(ContainsId(captureIds, "capture.nodes.simulated.projectb"));
+        Assert.IsTrue(ContainsId(captureIds, "capture.identities.simulated.projectc"));
+        Assert.IsTrue(ContainsId(captureIds, "capture.nodes.simulated.projectc"));
+    }
+
+    [TestMethod]
+    public async Task BuildPlanAsync_InventoryKind_NoProjectsConfigured_ProducesNoCaptureTasks()
+    {
+        // Arrange
+        var identities = CreateModule("Identities", Array.Empty<ModuleDependency>(), supportsInventory: true);
+        var builder = CreateBuilder(new[] { identities }, new[] { CreateAnalyser("Inventory", Array.Empty<ModuleDependency>()) });
+
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Organisations:0:Type"] = "Simulated",
+                ["MigrationPlatform:Organisations:0:Enabled"] = "true"
+            })
+            .Build();
+
+        // Act
+        var plan = await builder.BuildPlanAsync(
+            config,
+            JobKind.Inventory,
+            new Mock<IArtefactStore>(MockBehavior.Loose).Object,
+            new Mock<IStateStore>(MockBehavior.Loose).Object,
+            CancellationToken.None);
+
+        // Assert
+        Assert.IsFalse(plan.Tasks.Any(t => t.TaskKind == TaskKind.Capture),
+            "No capture tasks should be generated when no projects are configured");
+    }
+
+    [TestMethod]
+    public async Task BuildPlanAsync_DependenciesKind_DependencyCaptureTasksDependOnAnalyseInventory()
+    {
+        // Arrange
+        var identities = CreateModule("Identities", Array.Empty<ModuleDependency>(), supportsInventory: true);
+        var builder = CreateBuilder(
+            new[] { identities },
+            new[]
+            {
+                CreateAnalyser("Inventory", Array.Empty<ModuleDependency>()),
+                CreateAnalyser("Dependencies", Array.Empty<ModuleDependency>())
+            });
+
+        var config = BuildOrganisationsConfig(("Simulated", "", new[] { "ProjectA", "ProjectB" }));
+
+        // Act
+        var plan = await builder.BuildPlanAsync(
+            config,
+            JobKind.Dependencies,
+            new Mock<IArtefactStore>(MockBehavior.Loose).Object,
+            new Mock<IStateStore>(MockBehavior.Loose).Object,
+            CancellationToken.None);
+
+        // Assert
+        var dependencyCaptureTasks = plan.Tasks.Where(t => t.Id.StartsWith("capture.dependencies.", StringComparison.OrdinalIgnoreCase)).ToList();
+        Assert.AreEqual(2, dependencyCaptureTasks.Count);
+        foreach (var task in dependencyCaptureTasks)
+        {
+            Assert.IsNotNull(task.DependsOn);
+            CollectionAssert.AreEqual(new[] { "analyse.inventory" }, task.DependsOn.ToList());
+        }
+    }
+
+    [TestMethod]
+    public async Task BuildPlanAsync_DependenciesKind_AnalyseDependenciesDependsOnAllDependencyCaptures()
+    {
+        // Arrange
+        var identities = CreateModule("Identities", Array.Empty<ModuleDependency>(), supportsInventory: true);
+        var builder = CreateBuilder(
+            new[] { identities },
+            new[]
+            {
+                CreateAnalyser("Inventory", Array.Empty<ModuleDependency>()),
+                CreateAnalyser("Dependencies", Array.Empty<ModuleDependency>())
+            });
+
+        var config = BuildOrganisationsConfig(("Simulated", "", new[] { "ProjectA", "ProjectB", "ProjectC" }));
+
+        // Act
+        var plan = await builder.BuildPlanAsync(
+            config,
+            JobKind.Dependencies,
+            new Mock<IArtefactStore>(MockBehavior.Loose).Object,
+            new Mock<IStateStore>(MockBehavior.Loose).Object,
+            CancellationToken.None);
+
+        // Assert
+        var expectedDependencyCaptureIds = plan.Tasks
+            .Where(t => t.Id.StartsWith("capture.dependencies.", StringComparison.OrdinalIgnoreCase))
+            .Select(t => t.Id)
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .ToList();
+
+        var analyseDependenciesTask = plan.Tasks.Single(t => t.Id == "analyse.dependencies");
+        Assert.IsNotNull(analyseDependenciesTask.DependsOn);
+        var actualDependsOn = analyseDependenciesTask.DependsOn
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .ToList();
+        CollectionAssert.AreEqual(expectedDependencyCaptureIds, actualDependsOn);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private static JobExecutionPlanBuilder CreateBuilder(IEnumerable<IModule> modules, IEnumerable<IAnalyser>? analysers = null)
+    private static JobExecutionPlanBuilder CreateBuilder(
+        IEnumerable<IModule> modules,
+        IEnumerable<IAnalyser>? analysers = null,
+        ILogger<JobExecutionPlanBuilder>? logger = null)
     {
         var phaseFactory = new Mock<IPhaseTrackingServiceFactory>(MockBehavior.Loose);
         var phaseService = new Mock<IPhaseTrackingService>(MockBehavior.Loose);
@@ -258,10 +479,14 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
             .Setup(f => f.Create(It.IsAny<IStateStore>()))
             .Returns(phaseService.Object);
 
-        return new JobExecutionPlanBuilder(modules, analysers ?? [], phaseFactory.Object, NullLogger<JobExecutionPlanBuilder>.Instance);
+        return new JobExecutionPlanBuilder(modules, analysers ?? [], phaseFactory.Object, logger ?? NullLogger<JobExecutionPlanBuilder>.Instance);
     }
 
-    private static IModule CreateModule(string name, ModuleDependency[] dependsOn, bool supportsInventory = false)
+    private static IModule CreateModule(
+        string name,
+        ModuleDependency[] dependsOn,
+        bool supportsInventory = false,
+        bool supportsPrepare = false)
     {
         var module = new Mock<IModule>(MockBehavior.Loose);
         module.SetupGet(m => m.Name).Returns(name);
@@ -269,13 +494,36 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         module.SetupGet(m => m.SupportsExport).Returns(true);
         module.SetupGet(m => m.SupportsImport).Returns(true);
         module.SetupGet(m => m.SupportsInventory).Returns(supportsInventory);
+        module.SetupGet(m => m.SupportsPrepare).Returns(supportsPrepare);
         module.Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         module.Setup(m => m.ImportAsync(It.IsAny<ImportContext>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        module.Setup(m => m.PrepareAsync(It.IsAny<PrepareContext>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
         module.Setup(m => m.ValidateAsync(It.IsAny<ValidationContext>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         return module.Object;
+    }
+
+    private static IConfiguration BuildOrganisationsConfig(params (string Type, string Url, string[] Projects)[] organisations)
+    {
+        var values = new Dictionary<string, string?>();
+        for (int i = 0; i < organisations.Length; i++)
+        {
+            var org = organisations[i];
+            values[$"MigrationPlatform:Organisations:{i}:Type"] = org.Type;
+            if (!string.IsNullOrWhiteSpace(org.Url))
+                values[$"MigrationPlatform:Organisations:{i}:Url"] = org.Url;
+            values[$"MigrationPlatform:Organisations:{i}:Enabled"] = "true";
+
+            for (int p = 0; p < org.Projects.Length; p++)
+                values[$"MigrationPlatform:Organisations:{i}:Projects:{p}"] = org.Projects[p];
+        }
+
+        return new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .Build();
     }
 
     private static IAnalyser CreateAnalyser(string name, ModuleDependency[] dependsOn)
@@ -296,6 +544,18 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     private sealed class FakeModuleA { }
     private sealed class FakeModuleB { }
     private sealed class FakeNonExistentModule { }
+    private sealed class FakeInventoryAnalyser { }
+    private sealed class FakeDependenciesAnalyser { }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = new();
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            => Entries.Add((logLevel, formatter(state, exception)));
+    }
 
     private static IConfiguration AllEnabledConfig()
     {

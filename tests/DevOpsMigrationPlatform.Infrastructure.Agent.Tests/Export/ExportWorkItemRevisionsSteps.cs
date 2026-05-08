@@ -30,10 +30,10 @@ public class ExportWorkItemRevisionsSteps
     private void SetupCursorNoOp()
     {
         _ctx.MockCheckpointingService
-            .Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadCursorAsync("export.workitems", It.IsAny<CancellationToken>()))
             .ReturnsAsync((CursorEntry?)null);
         _ctx.MockCheckpointingService
-            .Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteCursorAsync("export.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
             .Callback<string, CursorEntry, CancellationToken>((_, c, _) => _ctx.WrittenCursors.Add(c))
             .Returns(Task.CompletedTask);
     }
@@ -149,10 +149,10 @@ public class ExportWorkItemRevisionsSteps
             new() { WorkItemId = 99, RevisionIndex = 0, ChangedDate = date }
         };
         _ctx.MockCheckpointingService
-            .Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadCursorAsync("export.workitems", It.IsAny<CancellationToken>()))
             .ReturnsAsync((CursorEntry?)null);
         _ctx.MockCheckpointingService
-            .Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteCursorAsync("export.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
             .Callback<string, CursorEntry, CancellationToken>((_, c, _) => _ctx.WrittenCursors.Add(c))
             .Returns(Task.CompletedTask);
         SetupSource(_ctx.SourceRevisions);
@@ -199,10 +199,10 @@ public class ExportWorkItemRevisionsSteps
         await _ctx.RealArtefactStore!.WriteAsync($"{folderAtCursor}revision.json", "{}", CancellationToken.None);
 
         _ctx.MockCheckpointingService
-            .Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadCursorAsync("export.workitems", It.IsAny<CancellationToken>()))
             .ReturnsAsync(_ctx.InitialCursor);
         _ctx.MockCheckpointingService
-            .Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteCursorAsync("export.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
             .Callback<string, CursorEntry, CancellationToken>((_, c, _) => _ctx.WrittenCursors.Add(c))
             .Returns(Task.CompletedTask);
         SetupSource(_ctx.SourceRevisions);
@@ -237,7 +237,7 @@ public class ExportWorkItemRevisionsSteps
     {
         _ctx.SourceRevisions = new List<WorkItemRevision>();
         _ctx.MockCheckpointingService
-            .Setup(s => s.ReadCursorAsync("workitems", It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadCursorAsync("export.workitems", It.IsAny<CancellationToken>()))
             .ReturnsAsync((CursorEntry?)null);
         SetupSource(_ctx.SourceRevisions);
         _ctx.Sut = new WorkItemExportOrchestrator(_ctx.RealArtefactStore!, _ctx.MockCheckpointingService.Object);

@@ -2,6 +2,8 @@
 // Copyright (c) Naked Agility Limited
 
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
@@ -41,6 +43,12 @@ public class ImportCursorResumeContext
     public ImportCursorResumeContext()
     {
         CheckpointingService = new CheckpointingService(MockStateStore.Object);
+        MockStateStore
+            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("workitems"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+        MockStateStore
+            .Setup(s => s.DeleteAsync(PackagePaths.CursorFile("workitems"), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
     }
 
     public WorkItemImportOrchestrator BuildOrchestrator()

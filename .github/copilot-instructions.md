@@ -69,6 +69,5 @@ enforced by [.agents/guardrails/coding-standards.md](../.agents/guardrails/codin
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan at
-[specs/032-icapture-interface/plan.md](../specs/032-icapture-interface/plan.md).
+shell commands, and other important information, read the current plan
 <!-- SPECKIT END -->

@@ -74,6 +74,7 @@ public static class CoreAgentServiceExtensions
 
     private static IServiceCollection AddExecutionPlanningServices(this IServiceCollection services)
     {
+        services.AddSingleton<ProcessingCadencePolicy>();
         services.AddSingleton<IJobExecutionPlanBuilder, JobExecutionPlanBuilder>();
         services.AddSingleton<IJobPlanExecutor, JobPlanExecutor>();
         return services;

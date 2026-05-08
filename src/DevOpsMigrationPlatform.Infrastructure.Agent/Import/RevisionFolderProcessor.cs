@@ -456,7 +456,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     }
 
     private Task WriteCursorAsync(string folderPath, string stage, CancellationToken ct)
-        => _checkpointing.WriteCursorAsync("workitems", new CursorEntry
+        => _checkpointing.WriteCursorAsync("import.workitems", new CursorEntry
         {
             LastProcessed = folderPath,
             Stage = stage,

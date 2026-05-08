@@ -131,7 +131,7 @@ The tasks.md should be immediately executable - each task must be specific enoug
 
 **CRITICAL**: Tasks MUST be organized by user story to enable independent implementation and testing.
 
-**Tests are OPTIONAL for business logic**: Only generate business logic test tasks if explicitly requested in the feature specification or if user requests TDD approach. **Observability tests (O-1, O-2, O-4) are MANDATORY in every user story phase — always generate them, no exceptions.**
+**Tests are OPTIONAL**: Only generate test tasks if explicitly requested in the feature specification or if user requests TDD approach.
 
 ### Checklist Format (REQUIRED)
 
@@ -195,27 +195,6 @@ Every task MUST strictly follow this format:
 - **Phase 1**: Setup (project initialization)
 - **Phase 2**: Foundational (blocking prerequisites - MUST complete before user stories)
 - **Phase 3+**: User Stories in priority order (P1, P2, P3...)
-  - Within each story: Tests (if requested) → Models → Services → Endpoints → Integration → **Observability (MANDATORY)**
-  - Each phase must include a mandatory `### Observability for User Story N ⛔ MANDATORY` sub-section (see Observability Rules below)
+  - Within each story: Tests (if requested) → Models → Services → Endpoints → Integration
   - Each phase should be a complete, independently testable increment
 - **Final Phase**: Polish & Cross-Cutting Concerns
-
-### Observability Rules for Task Generation — NON-NEGOTIABLE
-
-**These rules apply to every `tasks.md` generated for this project. They are not optional.**
-
-For every user story phase that contains implementation tasks (i.e., any phase that adds or modifies production code), you MUST generate the following tasks as a mandatory sub-section titled `### Observability for User Story N ⛔ MANDATORY`. Generate these AFTER the implementation tasks but BEFORE the phase checkpoint. Use the Operations Table from `plan.md ## Observability Contract` for the exact span names, metric instruments, log events, and ProgressEvent stages.
-
-```
-- [ ] TXXX [USN] **O-1 Traces** — Add ActivitySource.StartActivity("[span-name from plan.md]") with tags (job.id, module.name, connector.type) to [ClassName.MethodName] and every per-item processing method
-- [ ] TXXX [USN] **O-2 Metrics** — Call IMigrationMetrics.RecordAttempt(tags), RecordCompleted(tags), RecordError(tags), RecordDuration(elapsed, tags), and RecordInFlight(±1, tags) at every operation boundary in [ClassName]
-- [ ] TXXX [USN] **O-3 Logs** — Add ILogger: LogInformation at start/end with counts (structured params only, no string interpolation), LogWarning on skip paths, LogDebug per-item in [ClassName]
-- [ ] TXXX [USN] **O-4 ProgressEvents** — Inject IProgressSink? optional; call EmitAsync at start, per-item (≤50 batch), and completion; populate Metrics.Migration.[ModuleName] on completion in [ClassName]
-- [ ] TXXX [USN] **O-4 CLI Visible** — Add/verify progress bar row for [ModuleName] in QueueCommand.BuildProgressRenderable in correct execution order; add counter property to MigrationCounters if new; update SnapshotMetricExporter.cs to extract the counter
-- [ ] TXXX [USN] **DI Wiring** — Verify Add[ModuleName]Services() registers all new classes; verify the extension is called from host startup; no orphaned registrations
-- [ ] TXXX [P] [USN] **Test O-1** — Unit test: assert StartActivity called with span name "[span-name]" and correct tags
-- [ ] TXXX [P] [USN] **Test O-2** — Unit test: assert IMigrationMetrics RecordAttempt, RecordCompleted, RecordDuration called with correct TagList (inject Mock<IMigrationMetrics>)
-- [ ] TXXX [P] [USN] **Test O-4** — Unit test: assert IProgressSink.EmitAsync called at start and completion with correct Stage and non-null Metrics on completion (inject Mock<IProgressSink>)
-```
-
-**If `plan.md` does not have an `## Observability Contract` section**, stop task generation and report: "BLOCKED: `plan.md` is missing the mandatory `## Observability Contract` section. Run `/observability-contract` against `plan.md` to generate it before tasks can be produced."

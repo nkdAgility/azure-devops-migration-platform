@@ -85,12 +85,12 @@ public sealed class WorkItemImportOrchestrator
         // ForceFresh: delete cursor (but preserve idmap.db)
         if (resumeMode == ResumeMode.ForceFresh)
         {
-            await _checkpointing.DeleteCursorAsync("workitems", ct).ConfigureAwait(false);
+            await _checkpointing.DeleteCursorAsync("import.workitems", ct).ConfigureAwait(false);
             _logger.LogInformation("[WorkItems] Force-fresh: cursor deleted. idmap.db preserved.");
         }
 
         // Read existing cursor for resume
-        var cursor = await _checkpointing.ReadCursorAsync("workitems", ct).ConfigureAwait(false);
+        var cursor = await _checkpointing.ReadCursorAsync("import.workitems", ct).ConfigureAwait(false);
         var lastProcessed = cursor?.LastProcessed ?? string.Empty;
         var lastStage = cursor?.Stage;
 
@@ -445,7 +445,7 @@ public sealed class WorkItemImportOrchestrator
     };
 
     private Task WriteCompletedCursorAsync(string folderPath, CancellationToken ct)
-        => _checkpointing.WriteCursorAsync("workitems", new CursorEntry
+        => _checkpointing.WriteCursorAsync("import.workitems", new CursorEntry
         {
             LastProcessed = folderPath,
             Stage = CursorStage.Completed,

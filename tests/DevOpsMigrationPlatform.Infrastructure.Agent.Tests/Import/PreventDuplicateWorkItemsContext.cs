@@ -60,7 +60,7 @@ public class PreventDuplicateWorkItemsContext
     public void SetupCommonMocks()
     {
         MockCheckpointing
-            .Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteCursorAsync("import.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
             .Callback<string, CursorEntry, CancellationToken>((_, cursor, _) => WrittenCursors.Add(cursor))
             .Returns(System.Threading.Tasks.Task.CompletedTask);
 

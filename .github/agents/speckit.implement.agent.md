@@ -85,23 +85,8 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **IF EXISTS**: Read data-model.md for entities and relationships
    - **IF EXISTS**: Read contracts/ for API specifications and test requirements
    - **IF EXISTS**: Read research.md for technical decisions and constraints
+   - **IF EXISTS**: Read .specify/memory/constitution.md for governance constraints
    - **IF EXISTS**: Read quickstart.md for integration scenarios
-
-3a. **Architecture Discrepancy Resolution**: Before touching any production code, check for flagged discrepancies from earlier stages:
-
-   1. Check if `FEATURE_DIR/discrepancies.md` exists and does **not** contain only `No discrepancies found.`
-   2. If discrepancies exist, apply each one by making the minimum edit described in its **Suggested update** field to the referenced `docs/` or `.agents/` file.
-   3. After applying each edit, mark the entry resolved:
-      ```markdown
-      - **Status**: ✓ Resolved in speckit.implement
-      ```
-   4. If a suggested update conflicts with another guardrail or the current production code, flag it with:
-      ```markdown
-      - **Status**: ⚠ Conflict — [brief explanation] — requires manual review
-      ```
-      and continue (do not halt).
-   5. Once all entries are processed, update the top-level `Status` line in `discrepancies.md` to `Resolved`.
-   6. If the file does not exist or contains `No discrepancies found.`, skip silently.
 
 4. **Project Setup Verification**:
    - **REQUIRED**: Create/verify ignore files based on actual project setup:
@@ -159,42 +144,6 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **Follow TDD approach**: Execute test tasks before their corresponding implementation tasks
    - **File-based coordination**: Tasks affecting the same files must run sequentially
    - **Validation checkpoints**: Verify each phase completion before proceeding
-   - **After each phase**: Run the Phase Observability Gate (step 6a) before marking the phase complete
-
-6a. **Phase Observability Gate — MANDATORY after every implementation phase that produces or modifies production code**
-
-   This gate fires after every phase checkpoint. It is not a final gate — it runs per phase. A phase is not complete until this gate passes.
-
-   **Step A — Identify changed files.** List every `.cs` file written or modified in this phase that contains a class implementing `IModule`, `IJob`, `ICommandHandler`, a service class, or a tool class (i.e. any class that performs an operation, not pure models/options/DTOs).
-
-   **Step B — For each identified file, verify all four requirements:**
-
-   | Check | What to look for | FAIL condition |
-   |-------|-----------------|----------------|
-   | **O-1 Traces** | `ActivitySource.StartActivity(` present in every public method that performs an operation | Method performs I/O, loops over data, or calls an external service but has no `StartActivity` call |
-   | **O-2 Metrics** | `_metrics?.Record` (or equivalent) called for attempt, completion, error, and duration at each operation boundary | Any operation boundary missing attempt, completion, or error recording |
-   | **O-3 Logs** | `_logger.Log` calls with `LogInformation` at start/end with counts, `LogWarning` for skips/errors, `LogDebug` per-item | `LogInformation` missing at method start or end; string interpolation used instead of structured params |
-   | **O-4 ProgressEvents** | `_progressSink?.EmitAsync` called at operation start, per-item (or per ≤50 batch), and completion | Sink injected but `EmitAsync` never called; or `Metrics.Migration.{ModuleName}` not populated on completion event |
-
-   **Step C — Verify DI wiring.** For every new `class` added in this phase that implements an interface:
-   1. Confirm a `services.Add*<IFoo, Foo>()` registration exists in a `ServiceCollectionExtensions` file.
-   2. Confirm that `ServiceCollectionExtensions` method is called from a host startup or parent registration method.
-   3. If the class is injectable but not registered: **STOP — add the registration before continuing.**
-
-   **Step D — Verify O-4 CLI row.** If this phase added or modified `MigrationCounters`, `DiscoveryCounters`, or any counter DTO:
-   1. Open `QueueCommand.BuildProgressRenderable` (or equivalent CLI progress renderer).
-   2. Confirm a row for the new/modified module exists in correct execution order.
-   3. If missing: **STOP — add the row before marking this phase complete.**
-
-   **Step E — Produce a gap table.** Format findings as:
-
-   ```
-   | File | O-1 | O-2 | O-3 | O-4 | DI | CLI Row | Action Required |
-   |------|-----|-----|-----|-----|----|---------|-----------------|
-   | Foo.cs | ✅ | ✅ | ❌ missing LogWarning on skip path | ✅ | ✅ | N/A | Add LogWarning("Skipping {Id}: {Reason}", id, reason) |
-   ```
-
-   **Step F — Close every gap before proceeding.** For every ❌ in the table: implement the fix, re-verify, update the table to ✅. Only when the table is all ✅ may the phase be marked complete and the next phase begun.
 
 7. Implementation execution rules:
    - **Setup first**: Initialize project structure, dependencies, configuration
@@ -217,38 +166,6 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Validate that tests pass and coverage meets requirements
    - Confirm the implementation follows the technical plan
    - Report final status with summary of completed work
-
-9a. **Mandatory test run** — run the full test suite and fix any failures before declaring done:
-   - Build the solution: detect the build system from plan.md (e.g. `dotnet clean <solution> && dotnet build <solution> --no-incremental`)
-   - Run all tests: `dotnet clean <solution> && dotnet test <solution> --logger "console;verbosity=normal"`
-   - Parse output for `Failed`, `Error`, or process crash (`exited with error`)
-   - **If any tests fail**:
-     - Fix the root cause (compilation error, ambiguous step binding, missing using, wrong API call, etc.)
-     - Rebuild and re-run until all tests pass
-     - Do NOT declare implementation complete while any test is red
-   - **If all tests pass**: report the pass count and proceed
-   - Report final status with summary of completed work and test results
-
-9b. **End-to-end pipeline wiring verification** — verify the complete telemetry and progress data flow before declaring done:
-   This step is mandatory. It verifies that data actually flows from module code through to the CLI display. Confirming that code compiles is not sufficient.
-   **Trace the pipeline for every new or modified module/tool:**
-   ```
-   Module/Tool
-     → IProgressSink.EmitAsync(ProgressEvent)          [O-4: verify EmitAsync is CALLED, not just injected]
-     → ControlPlaneClient or in-process fan-out         [verify the sink implementation actually forwards events]
-     → JobMetrics counter property populated            [verify MigrationCounters has the new property]
-     → SnapshotMetricExporter extracts the counter      [verify SnapshotMetricExporter.cs maps the OTel metric to JobMetrics]
-     → QueueCommand.BuildProgressRenderable shows row   [verify the CLI renders it]
-   ```
-   For each link in the chain above, identify the concrete class/method responsible and confirm it exists and is non-stub:
-   | Pipeline Link | Concrete class/method | Status |
-   |--------------|----------------------|--------|
-   | EmitAsync called | `[ClassName].Method` line `[N]` | ✅ / ❌ |
-   | Sink forwards events | `[SinkClassName].EmitAsync` | ✅ / ❌ |
-   | Counter property on DTO | `MigrationCounters.[PropertyName]` | ✅ / ❌ |
-   | Exporter maps counter | `SnapshotMetricExporter.cs` case for `[metric-name]` | ✅ / ❌ |
-   | CLI row rendered | `QueueCommand.BuildProgressRenderable` row | ✅ / ❌ |
-   Fix every ❌ before proceeding. A module that emits events but is invisible in the CLI is not done.
 
 Note: This command assumes a complete task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `/speckit.tasks` first to regenerate the task list.
 

@@ -299,7 +299,7 @@ public class RevisionFolderProcessorTests
     private void SetupCursorWrites()
     {
         _mockCheckpointing
-            .Setup(s => s.WriteCursorAsync("workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteCursorAsync("import.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
     }
 

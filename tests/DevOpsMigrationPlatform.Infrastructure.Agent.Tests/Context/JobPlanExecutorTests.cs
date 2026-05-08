@@ -617,7 +617,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestMethod]
-    public async Task LoadOrResetAsync_RunningTaskResetToPending()
+    public async Task LoadOrResetAsync_RunningTasksAreResetToPending()
     {
         // Arrange
         var stateStore = new InMemoryStateStore();
@@ -645,7 +645,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestMethod]
-    public async Task LoadOrResetAsync_CorruptFile_ReturnsNull()
+    public async Task LoadOrResetAsync_CorruptPlan_ReturnsNull()
     {
         // Arrange
         var stateStore = new InMemoryStateStore();

@@ -1205,9 +1205,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         {
             Metrics = metrics,
             TotalWorkItems = scopeTotal > 0 ? scopeTotal : state.TotalWorkItems,
-            Completed = wi is not null ? (int)wi.Completed : state.Completed,
-            Skipped = wi is not null ? (int)wi.Skipped : state.Skipped,
-            Revisions = wi is not null && wi.RevisionsProcessed > 0 ? (int)wi.RevisionsProcessed : state.Revisions,
+            Completed = wi is not null ? Math.Max(state.Completed, (int)wi.Completed) : state.Completed,
+            Skipped = wi is not null ? Math.Max(state.Skipped, (int)wi.Skipped) : state.Skipped,
+            Revisions = wi is not null && wi.RevisionsProcessed > 0
+                ? Math.Max(state.Revisions, (int)wi.RevisionsProcessed)
+                : state.Revisions,
             LastWiRevisions = wi?.LastWorkItemRevisions > 0 ? (int)wi.LastWorkItemRevisions : state.LastWiRevisions,
             LastRevDurationMs = wi?.LastRevisionDurationMs > 0 ? wi.LastRevisionDurationMs : state.LastRevDurationMs,
             AverageRevDurationMs = wi?.AverageRevisionDurationMs > 0 ? wi.AverageRevisionDurationMs : state.AverageRevDurationMs,

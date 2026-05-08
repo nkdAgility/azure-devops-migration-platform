@@ -1,5 +1,16 @@
 # Checkpointing
 
+**Canonical checkpointing model for agents:** cursor schema, resume logic, phase tracking, and idempotency. For code component details, tests, and sequence diagrams, see [.agents/context/architecture/agent-checkpoint-phase-tracking.md](architecture/agent-checkpoint-phase-tracking.md).
+
+## Where to Read Next
+
+- Architecture subsystem index: [.agents/context/architecture/agent-checkpoint-phase-tracking.md](architecture/agent-checkpoint-phase-tracking.md)
+- Decision record: [docs/adr/0003-cursor-based-checkpointing.md](../../docs/adr/0003-cursor-based-checkpointing.md)
+- Complementary task-level resume: [docs/adr/0010-plan-driven-dag-execution.md](../../docs/adr/0010-plan-driven-dag-execution.md)
+- Enforced rules: [.agents/guardrails/migration-rules.md](../guardrails/migration-rules.md), [.agents/guardrails/module-rules.md](../guardrails/module-rules.md), [.agents/guardrails/package-rules.md](../guardrails/package-rules.md)
+
+This file remains the canonical context summary for cursor schema, phase records, and resume semantics.
+
 ## 6. Cursor-Based Checkpointing
 
 Instead of per-work-item watermark tables, the system uses forward-only project cursors stored as JSON files. This requires no database and makes resume O(1).
@@ -104,6 +115,8 @@ Each project maintains its own cursor files under its project-local `.migration/
 ```
 
 The convention is `{action}.{module}.cursor.json` beneath the project subtree. Modules and phases must not share cursor files.
+
+Action-qualified cursor identity is mandatory. Legacy non-action keys are compatibility fallback only and are never authoritative when a project-scoped action-qualified cursor exists.
 
 `ForceFresh` mode (via `--force-fresh` CLI flag or `Job.Resume.Mode = ForceFresh`) deletes project cursor files and root phase marker files before execution begins. Shared ID mapping state is preserved.
 

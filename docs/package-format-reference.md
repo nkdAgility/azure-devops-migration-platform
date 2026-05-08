@@ -29,6 +29,7 @@ The package has three state scopes:
 - Root `.migration/` is authoritative package-wide orchestration state shared across runs.
 - `/{org}/{project}/.migration/` is authoritative project-scoped resume state.
 - `.migration/runs/<runId>/` is run-scoped audit output only.
+- Cursor identity is action-qualified per module (`<action>.<module>.cursor.json`) to prevent cross-phase collisions.
 
 Run-scoped `job.json`, `plan.json`, and `config.json` are copies of what was executed for that run. They are not the source of truth for later resume, phase-gate, or orchestration decisions.
 
