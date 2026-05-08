@@ -22,7 +22,7 @@ Submit and drive migration jobs via the control plane. Each command creates or q
 | Command | Settings Key | Description |
 |---------|-------------|-------------|
 | `prepare` | `MigrationCommandSettings` | Submit a Prepare job through the full pipeline (CLI → Control Plane → Agent). The agent reads the exported package, connects to the target, and runs each module's `PrepareAsync` to cross-validate before import. Produces validation artefacts (identity mapping reports, node validation, field mapping reports) in each module's package folder for operator review. Any unresolved issue is blocking unless the operator adds an explicit skip. Idempotent — re-running overwrites Prepare output but preserves operator-edited mapping files. Requires a completed Export (package with `manifest.json`). |
-| `queue` | `QueueCommandSettings` | Submit a job. Behaviour is determined by the `mode` field in the config (`Inventory`, `Dependencies`, `Export`, `Prepare`, `Import`, or `Migrate`). `--follow` streams diagnostic logs inline. `--level` sets the agent's diagnostic minimum level. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). Phase gates apply automatically: Export auto-runs Inventory if missing; Import auto-runs Prepare if missing. |
+| `queue` | `QueueCommandSettings` | Submit a job. Behaviour is determined by the `mode` field in the config (`Inventory`, `Dependencies`, `Export`, `Prepare`, `Import`, or `Migrate`). `--follow` streams diagnostic logs inline. `--level` sets the agent's diagnostic minimum level. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). `--diagnostics` enables detailed CLI/control-plane call logging, writes OTel diagnostics files under `Telemetry:DiagnosticsPath` (default `.otel-diagnostics`), and prints the resolved diagnostics path at startup. Phase gates apply automatically: Export auto-runs Inventory if missing; Import auto-runs Prepare if missing. |
 
 ### 2. Job Management Commands (`manage`)
 
@@ -111,6 +111,12 @@ The interactive prompt runs inside the command's `ExecuteInternalAsync` (before 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--force-fresh` | `false` | Delete module cursor file(s) (and the job phase record for `Migrate` mode) before job execution. Enumeration restarts from the beginning. The identity map (`.migration/Checkpoints/idmap.json`) is **not** deleted so no duplicate items are created in the target. |
+
+## Diagnostics Options (`queue`)
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--diagnostics` | `false` | Enables detailed CLI/control-plane request diagnostics and file exporters. If `Telemetry:DiagnosticsPath` is unset, the CLI sets it to `.otel-diagnostics` for the process and spawned standalone child processes. |
 
 ## Control Plane Endpoint Resolution (control-plane commands only)
 

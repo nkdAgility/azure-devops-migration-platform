@@ -24,6 +24,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Diagnostics;
+using Microsoft.Extensions.Configuration;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Rendering;
@@ -48,6 +50,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         QueueCommandSettings settings,
         CancellationToken cancellationToken = default)
     {
+        ConfigureDetailedDiagnostics(settings);
+
         await CreateHost(Environment.GetCommandLineArgs(), (services, config) =>
         {
             services.AddHttpClient<ControlPlaneClient>((sp, client) =>
@@ -67,6 +71,14 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 }));
             services.AddSingleton<IConfigSchemaValidator, JsonSchemaConfigValidator>();
         });
+
+        if (settings.Diagnostics)
+        {
+            var console = GetRequiredService<IAnsiConsole>();
+            var diagnosticsPath = ResolveDiagnosticsPath();
+            if (!string.IsNullOrWhiteSpace(diagnosticsPath))
+                ShowInfo(console, $"DiagnosticsPath: {diagnosticsPath}");
+        }
 
         var configPath = GetConfigurationPath(settings);
         var rawJson = configPath != null
@@ -125,6 +137,27 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             "Dependencies" => await ExecuteDiscoveryJobAsync(JobKind.Dependencies, rawJson, settings, cancellationToken),
             _ => ExecuteInvalidMode(mode ?? "(none)")
         };
+    }
+
+    private static void ConfigureDetailedDiagnostics(QueueCommandSettings settings)
+    {
+        if (!settings.Diagnostics)
+            return;
+
+        Environment.SetEnvironmentVariable("Telemetry__DetailedDiagnostics", "true");
+
+        var diagnosticsPath = Environment.GetEnvironmentVariable("Telemetry__DiagnosticsPath");
+        if (string.IsNullOrWhiteSpace(diagnosticsPath))
+        {
+            diagnosticsPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), ".otel-diagnostics"));
+            Environment.SetEnvironmentVariable("Telemetry__DiagnosticsPath", diagnosticsPath);
+        }
+    }
+
+    private string? ResolveDiagnosticsPath()
+    {
+        var configuration = GetRequiredService<IConfiguration>();
+        return FileDiagnosticsExtensions.GetDiagnosticsPath(configuration);
     }
 
 

@@ -210,7 +210,7 @@
         },
         // ── Migration CLI: queue ──────────────────────────────────────────────
         // Behaviour is determined by the 'mode' field in the config (Inventory, Dependencies, Export, Prepare, Import, or Migrate).
-        // Options: [-c|--config] [--follow] [--level] [--force-fresh] [-v|--verbose] [--disable-telemetry]
+        // Options: [-c|--config] [--follow] [--level] [--force-fresh] [--diagnostics] [-v|--verbose] [--disable-telemetry]
         {
             "name": "📤 Migration CLI: Queue Export ADO WorkItems (Single Project)",
             "type": "coreclr",
@@ -261,6 +261,7 @@
                 "queue",
                 "--config",
                 "scenarios/queue-export-ado-workitems-single-project.json",
+                "--diagnostics",
                 "--follow",
                 "--level",
                 "Warning"

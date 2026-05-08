@@ -56,6 +56,20 @@ public class QueueCommandTests
     }
 
     [TestMethod]
+    public void QueueCommandSettings_WithDiagnosticsFlag_PassesValidation()
+    {
+        var settings = new DevOpsMigrationPlatform.CLI.Migration.Settings.QueueCommandSettings
+        {
+            ConfigFile = "test.json",
+            Diagnostics = true,
+            Level = "Information"
+        };
+
+        var result = settings.Validate();
+        Assert.IsTrue(result.Successful, "Validation should pass when diagnostics flag is enabled.");
+    }
+
+    [TestMethod]
     public void DetermineCurrentTaskPhase_WithOnlyTerminalTasks_ReturnsLastTerminalPhase()
     {
         var stateType = typeof(QueueCommand).GetNestedType("JobProgressState", BindingFlags.NonPublic);

@@ -31,6 +31,10 @@ public class QueueCommandSettings : MigrationCommandSettings
     [Description("Delete module cursor(s) and restart enumeration from the beginning. The identity map is preserved so no duplicate items are created.")]
     public bool ForceFresh { get; init; }
 
+    [CommandOption("--diagnostics")]
+    [Description("Enable detailed CLI/control-plane call diagnostics and write telemetry files under Telemetry:DiagnosticsPath (default: .otel-diagnostics).")]
+    public bool Diagnostics { get; init; }
+
     public override ValidationResult Validate()
     {
         var baseResult = base.Validate();

@@ -212,7 +212,7 @@ These commands submit jobs to the control plane via `ControlPlaneClient`.
 | Command | Description |
 |---|---|
 | `prepare` | Submit a Prepare job through the full pipeline (CLI → Control Plane → Agent). The agent reads the exported package, connects to the target, and runs each module's `PrepareAsync` to cross-validate before import. Produces validation artefacts (identity mapping reports, node validation, field mapping reports) in each module's package folder for operator review. Any unresolved issue is blocking unless the operator adds an explicit skip. Idempotent — re-running overwrites Prepare output but preserves operator-edited mapping files. Requires a completed Export (package with `manifest.json`). |
-| `queue` | Submit a job. Behaviour is determined by the `mode` field in the config (`Inventory`, `Dependencies`, `Export`, `Prepare`, `Import`, or `Migrate`). `--follow` streams diagnostic logs inline (implicit in standalone mode). `--level` sets the agent's diagnostic minimum level per job. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). Phase gates apply automatically: Export auto-runs Inventory if missing; Import auto-runs Prepare if missing. |
+| `queue` | Submit a job. Behaviour is determined by the `mode` field in the config (`Inventory`, `Dependencies`, `Export`, `Prepare`, `Import`, or `Migrate`). `--follow` streams diagnostic logs inline (implicit in standalone mode). `--level` sets the agent's diagnostic minimum level per job. `--force-fresh` deletes module cursor(s) before running so enumeration restarts from the beginning (identity map preserved). `--diagnostics` enables detailed CLI/control-plane call logging, writes OTel diagnostic files under `Telemetry:DiagnosticsPath` (default `.otel-diagnostics` when unset), and prints the resolved diagnostics path when the command starts. Phase gates apply automatically: Export auto-runs Inventory if missing; Import auto-runs Prepare if missing. |
 
 ### Job Management Commands (`manage`)
 
@@ -271,6 +271,7 @@ devopsmigration prepare  --config migration.json
 devopsmigration queue    --config migration.json
 devopsmigration queue    --config migration.json --force-fresh
 devopsmigration queue    --config migration.json --follow --level Warning
+devopsmigration queue    --config migration.json --diagnostics --follow --level Information
 
 devopsmigration manage list
 devopsmigration manage status  --job 550e8400-e29b-41d4-a716-446655440000

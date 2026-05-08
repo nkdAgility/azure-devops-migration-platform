@@ -62,7 +62,8 @@ public static class MigrationPlatformHost
                 services.AddLogging(logging =>
                 {
                     logging.AddConsole();
-                    logging.SetMinimumLevel(LogLevel.Warning);
+                    var detailedDiagnostics = configuration.GetValue<bool>("Telemetry:DetailedDiagnostics");
+                    logging.SetMinimumLevel(detailedDiagnostics ? LogLevel.Information : LogLevel.Warning);
                 });
 
                 // ── Environment options — bound centrally so every command resolves
