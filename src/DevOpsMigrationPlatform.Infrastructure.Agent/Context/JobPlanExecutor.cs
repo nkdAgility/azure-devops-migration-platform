@@ -928,7 +928,8 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                                     MetricsStore = exportContext.MetricsStore,
                                     SnapshotStore = exportContext.SnapshotStore,
                                     Organisations = exportContext.Organisations,
-                                    Project = task.ProjectName ?? string.Empty
+                                    Project = task.ProjectName ?? string.Empty,
+                                    TaskId = task.Id
                                 };
 
                                 await module!.ExportAsync(scopedCtx, ct).ConfigureAwait(false);

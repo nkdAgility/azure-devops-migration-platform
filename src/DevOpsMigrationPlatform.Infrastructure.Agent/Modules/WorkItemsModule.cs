@@ -449,6 +449,7 @@ public sealed class WorkItemsModule : IModule
             metrics: _metrics,
             jobId: job.JobId,
             logger: _logger,
+            taskId: context.TaskId,
 #if !NET481
             wiqlQuery: ext.Query,
             discoveryService: _discoveryService,

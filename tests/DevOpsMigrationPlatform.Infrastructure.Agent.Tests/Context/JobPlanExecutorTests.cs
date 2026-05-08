@@ -524,6 +524,57 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestMethod]
+    public async Task ExecuteExportPhaseAsync_PassesTaskIdIntoScopedExportContext()
+    {
+        ExportContext? observedContext = null;
+
+        var workItemsModule = new Mock<IModule>(MockBehavior.Strict);
+        workItemsModule.SetupGet(m => m.Name).Returns("WorkItems");
+        workItemsModule.Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
+            .Callback<ExportContext, CancellationToken>((context, _) => observedContext = context)
+            .Returns(Task.CompletedTask);
+
+        var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["WorkItems"] = workItemsModule.Object
+        };
+
+        var plan = CreatePlan(new[]
+        {
+            CreateTask(
+                "export.workitems.testorg.testproject",
+                "WorkItems Export",
+                "Export",
+                projectName: "testproject")
+        });
+
+        var executor = CreateExecutor();
+        var stateStore = new InMemoryStateStore();
+        var exportContext = new ExportContext
+        {
+            Job = new Job { JobId = "test-job" },
+            ArtefactStore = new Mock<IArtefactStore>(MockBehavior.Loose).Object,
+            StateStore = stateStore,
+            ProgressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object
+        };
+
+        var result = await executor.ExecuteExportPhaseAsync(
+            plan,
+            modules,
+            new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
+            baseInventoryContext: null,
+            endpointsByUrl: null,
+            exportContext,
+            stateStore,
+            CancellationToken.None);
+
+        Assert.IsTrue(result, "Export phase should succeed.");
+        Assert.IsNotNull(observedContext, "The module should receive a scoped export context.");
+        Assert.AreEqual("export.workitems.testorg.testproject", observedContext!.TaskId);
+        Assert.AreEqual("testproject", observedContext.Project);
+    }
+
+    [TestMethod]
     public async Task ExecuteImportPhaseAsync_DisabledDependency_DependentSkipped()
     {
         // Arrange
