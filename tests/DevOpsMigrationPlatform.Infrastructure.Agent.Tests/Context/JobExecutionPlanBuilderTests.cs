@@ -94,7 +94,7 @@ public sealed class JobExecutionPlanBuilderTests
     }
 
     [TestMethod]
-    public async Task BuildPlanAsync_MigrateKind_Returns8Tasks()
+    public async Task BuildPlanAsync_MigrateKind_ContainsOrderedExportThenImportTaskSets()
     {
         var builder = CreateBuilder();
         var store = new Mock<IArtefactStore>(MockBehavior.Loose);
@@ -103,7 +103,39 @@ public sealed class JobExecutionPlanBuilderTests
         var plan = await builder.BuildPlanAsync(
             AllEnabledConfig(), JobKind.Migrate, store.Object, stateStore.Object, CancellationToken.None);
 
-        Assert.AreEqual(8, plan.Tasks.Count);
+        var exportTasks = plan.Tasks.Where(t => string.Equals(t.Phase, "Export", StringComparison.Ordinal)).ToList();
+        var importTasks = plan.Tasks.Where(t => string.Equals(t.Phase, "Import", StringComparison.Ordinal)).ToList();
+
+        Assert.AreEqual(4, exportTasks.Count, "Expected four export tasks for the standard module set");
+        Assert.AreEqual(4, importTasks.Count, "Expected four import tasks for the standard module set");
+
+        var expectedExportPrefixes = new[] { "export.identities", "export.nodes", "export.teams", "export.workitems" };
+        foreach (var prefix in expectedExportPrefixes)
+        {
+            Assert.IsTrue(exportTasks.Any(t => t.Id.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)),
+                $"Missing expected export task with prefix {prefix}");
+        }
+
+        var expectedImportPrefixes = new[] { "import.identities", "import.nodes", "import.teams", "import.workitems" };
+        foreach (var prefix in expectedImportPrefixes)
+        {
+            Assert.IsTrue(importTasks.Any(t => t.Id.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)),
+                $"Missing expected import task with prefix {prefix}");
+        }
+
+        var maxExportOrder = exportTasks.Max(t => t.Order);
+        var minImportOrder = importTasks.Min(t => t.Order);
+        Assert.IsTrue(maxExportOrder < minImportOrder,
+            "Export tasks must be ordered before import tasks in migrate plans");
+
+        Assert.AreEqual(plan.Tasks.Count, plan.Tasks.Select(t => t.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+            "Task IDs must be unique across phases");
+
+        for (int i = 0; i < plan.Tasks.Count; i++)
+        {
+            Assert.AreEqual(i, plan.Tasks[i].Order,
+                "Task order must remain contiguous and deterministic");
+        }
     }
 
     [TestMethod]
@@ -267,6 +299,45 @@ public sealed class JobExecutionPlanBuilderTests
             "Already-Completed task must stay Completed");
         Assert.AreEqual(JobTaskStatus.Pending, result.Tasks.First(t => t.Id == "export.teams").Status,
             "Pending task must remain Pending on resume");
+    }
+
+    [TestMethod]
+    public async Task BuildAndSaveAsync_ForKindMismatch_DeletesPlanAndBuildsFreshForRequestedKind()
+    {
+        // Arrange: persist an Export plan, then request Import.
+        var stalePlan = new JobTaskList
+        {
+            ForKind = JobKind.Export,
+            Tasks = new[]
+            {
+                MakeTask("export.identities", JobTaskStatus.Completed),
+                MakeTask("export.nodes", JobTaskStatus.Completed),
+                MakeTask("export.teams", JobTaskStatus.Completed),
+                MakeTask("export.workitems", JobTaskStatus.Completed)
+            }.ToList().AsReadOnly(),
+            PushedAt = DateTimeOffset.UtcNow
+        };
+
+        var stateStore = new InMemoryStateStore();
+        await stateStore.WriteAsync(
+            ".migration/plan.json",
+            JsonSerializer.Serialize(stalePlan),
+            CancellationToken.None);
+
+        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var builder = CreateBuilder();
+
+        // Act
+        var result = await builder.BuildAndSaveAsync(
+            AllEnabledConfig(), JobKind.Import, store.Object, stateStore, CancellationToken.None);
+
+        // Assert
+        Assert.AreEqual(JobKind.Import, result.ForKind, "Returned plan must be stamped with the requested kind");
+        Assert.IsTrue(result.Tasks.All(t => t.Phase == "Import"), "All tasks must be import-phase tasks");
+        Assert.IsTrue(result.Tasks.All(t => t.Id.StartsWith("import.", StringComparison.OrdinalIgnoreCase)),
+            "Fresh plan must not contain stale export task IDs");
+        Assert.IsFalse(result.Tasks.Any(t => t.Id.StartsWith("export.", StringComparison.OrdinalIgnoreCase)),
+            "Export task IDs from stale plan must be removed");
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
