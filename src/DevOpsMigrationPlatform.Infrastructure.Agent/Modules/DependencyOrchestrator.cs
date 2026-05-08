@@ -1529,7 +1529,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         IArtefactStore store, string rootCsvContent, CancellationToken ct)
     {
         // ── Step 1: Parse root CSV into grouped project-pair records ─────
-        var pairAccumulator = new Dictionary<string, (string SourceProject, string TargetProject, string TargetOrganisation, LinkScope Scope, int Count)>(
+        var pairAccumulator = new Dictionary<string, (string SourceProject, string TargetProject, string TargetOrganisation, LinkScope Scope, int Count, DateTimeOffset? MostRecentLinkDate, DateTimeOffset? MostRecentSourceWorkItemChangedDate)>(
             StringComparer.OrdinalIgnoreCase);
 
         var lines = rootCsvContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
@@ -1543,6 +1543,8 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
             var linkScopeStr = cols[5];
             var targetProject = cols[7];
             var targetOrg = cols[8];
+            var linkChangedDate = cols.Count > 10 ? ParseOptionalDate(cols[10]) : null;
+            var sourceWorkItemChangedDate = cols.Count > 11 ? ParseOptionalDate(cols[11]) : null;
 
             if (string.IsNullOrWhiteSpace(sourceProject)) continue;
 
@@ -1555,11 +1557,18 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
             var pairKey = $"{sourceProject}|{targetProject}|{targetOrg}|{scope}";
             if (pairAccumulator.TryGetValue(pairKey, out var existing))
             {
-                pairAccumulator[pairKey] = (existing.SourceProject, existing.TargetProject, existing.TargetOrganisation, existing.Scope, existing.Count + 1);
+                pairAccumulator[pairKey] = (
+                    existing.SourceProject,
+                    existing.TargetProject,
+                    existing.TargetOrganisation,
+                    existing.Scope,
+                    existing.Count + 1,
+                    MaxDate(existing.MostRecentLinkDate, linkChangedDate),
+                    MaxDate(existing.MostRecentSourceWorkItemChangedDate, sourceWorkItemChangedDate));
             }
             else
             {
-                pairAccumulator[pairKey] = (sourceProject, targetProject, targetOrg, scope, 1);
+                pairAccumulator[pairKey] = (sourceProject, targetProject, targetOrg, scope, 1, linkChangedDate, sourceWorkItemChangedDate);
             }
         }
 
@@ -1573,14 +1582,16 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         var records = new List<ProjectDependencyRecord>();
         foreach (var kvp in pairAccumulator)
         {
-            var (sourceProject, targetProject, targetOrg, scope, count) = kvp.Value;
+            var (sourceProject, targetProject, targetOrg, scope, count, mostRecentLinkDate, mostRecentSourceWorkItemChangedDate) = kvp.Value;
             records.Add(new ProjectDependencyRecord
             {
                 SourceProject = sourceProject,
                 TargetProject = targetProject,
                 TargetOrganisation = targetOrg,
                 LinkCount = count,
-                LinkScope = scope
+                LinkScope = scope,
+                MostRecentLinkDate = mostRecentLinkDate,
+                MostRecentSourceWorkItemChangedDate = mostRecentSourceWorkItemChangedDate
             });
         }
 
@@ -1597,12 +1608,13 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
 
         // ── Step 2: Write discovery-project-dependencies.csv ─────────────
         var groupedCsv = new StringBuilder();
-        groupedCsv.AppendLine("SourceProject,TargetProject,TargetOrganisation,LinkCount,LinkScope,GroupId");
+        groupedCsv.AppendLine("SourceProject,TargetProject,TargetOrganisation,LinkCount,LinkScope,GroupId,MostRecentLinkDate,MostRecentSourceWorkItemChangedDate");
         foreach (var rec in records)
         {
             groupedCsv.AppendLine(
                 $"{EscapeCsv(rec.SourceProject)},{EscapeCsv(rec.TargetProject)},{EscapeCsv(rec.TargetOrganisation)}," +
-                $"{rec.LinkCount},{rec.LinkScope},{rec.GroupId}");
+            $"{rec.LinkCount},{rec.LinkScope},{rec.GroupId}," +
+            $"{FormatOptionalDate(rec.MostRecentLinkDate)},{FormatOptionalDate(rec.MostRecentSourceWorkItemChangedDate)}");
         }
         await store.WriteAsync("discovery-project-dependencies.csv", groupedCsv.ToString(), ct).ConfigureAwait(false);
         _logger.LogInformation("Wrote discovery-project-dependencies.csv with {PairCount} project pairs.", records.Count);
@@ -1675,6 +1687,15 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
             "Generated analysis outputs: {PairCount} grouped pairs, {ProjectCount} per-project graphs.",
             records.Count, writtenProjects.Count);
     }
+
+    private static DateTimeOffset? ParseOptionalDate(string value)
+        => DateTimeOffset.TryParse(value, out var parsed) ? parsed : null;
+
+    private static DateTimeOffset? MaxDate(DateTimeOffset? left, DateTimeOffset? right)
+        => left is null ? right : right is null ? left : left >= right ? left : right;
+
+    private static string FormatOptionalDate(DateTimeOffset? value)
+        => value.HasValue ? value.Value.ToString("O") : string.Empty;
 
     /// <summary>
     /// Scans root CSV lines to find the organisation URL for a given source project,
