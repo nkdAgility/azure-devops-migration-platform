@@ -235,10 +235,12 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
             if (string.IsNullOrEmpty(json))
                 continue;
 
-            await RecordJsonAsync("progress", json, ct).ConfigureAwait(false);
             var evt = JsonSerializer.Deserialize<ProgressEvent>(json, _jsonOptions);
-            if (evt is not null)
-                yield return evt;
+            if (evt is null)
+                continue;
+
+            await RecordProgressAsync(evt, json, ct).ConfigureAwait(false);
+            yield return evt;
         }
     }
 
@@ -294,10 +296,12 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
             if (string.IsNullOrEmpty(json))
                 continue;
 
-            await RecordJsonAsync("diagnostics", json, ct).ConfigureAwait(false);
             var record = JsonSerializer.Deserialize<DiagnosticLogRecord>(json, _jsonOptions);
-            if (record is not null)
-                yield return record;
+            if (record is null)
+                continue;
+
+            await RecordDiagnosticAsync(record, json, ct).ConfigureAwait(false);
+            yield return record;
         }
     }
 
@@ -384,4 +388,14 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
         => _diagnosticsRecorder is null
             ? Task.CompletedTask
             : _diagnosticsRecorder.RecordJsonAsync(kind, json, ct);
+
+    private Task RecordProgressAsync(ProgressEvent progressEvent, string json, CancellationToken ct)
+        => _diagnosticsRecorder is null
+            ? Task.CompletedTask
+            : _diagnosticsRecorder.RecordProgressAsync(progressEvent, json, ct);
+
+    private Task RecordDiagnosticAsync(DiagnosticLogRecord diagnostic, string json, CancellationToken ct)
+        => _diagnosticsRecorder is null
+            ? Task.CompletedTask
+            : _diagnosticsRecorder.RecordDiagnosticAsync(diagnostic, json, ct);
 }
