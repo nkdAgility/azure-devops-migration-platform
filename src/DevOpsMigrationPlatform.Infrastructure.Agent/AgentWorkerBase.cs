@@ -151,13 +151,23 @@ public abstract class AgentWorkerBase : BackgroundService
         _leaseState.CurrentLeaseId = lease.LeaseId;
         _packageState.CurrentJob = lease.Job;
 
-        await OnJobAsync(lease.Job, controlPlane, lease.LeaseId, ct).ConfigureAwait(false);
+        try
+        {
+            await OnJobAsync(lease.Job, controlPlane, lease.LeaseId, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _leaseState.CurrentLeaseId = null;
 
-        _leaseState.CurrentLeaseId = null;
-
-        await OnPostJobFlushAsync().ConfigureAwait(false);
-
-        _packageState.Clear();
+            try
+            {
+                await OnPostJobFlushAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                _packageState.Clear();
+            }
+        }
     }
 
     /// <summary>

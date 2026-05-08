@@ -34,3 +34,10 @@ sequenceDiagram
   end
   TE-->>JW: bool success
 ```
+## Dependency and Resume Semantics
+
+- Tasks execute only after their declared `DependsOn` task IDs are satisfied.
+- `Completed` dependencies are satisfied, including when a persisted plan is resumed with downstream tasks still `Pending`.
+- `Skipped` and `Failed` dependencies are blockers. The executor cascades `Skipped` to pending downstream tasks before tier extraction and persists the updated plan.
+- Skip propagation applies to generic task execution, export/prerequisite execution, and import execution so control-plane progress and package state remain consistent across phases.
+- `Running` tasks are transient; crash recovery resets them to `Pending` before execution resumes.
