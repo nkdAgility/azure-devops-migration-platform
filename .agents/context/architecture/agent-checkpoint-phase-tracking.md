@@ -3,6 +3,20 @@
 - Tag: `agent_checkpoint_phase_tracking`
 - Responsibility: Persist cursor and phase records (`job.phase.json`, module cursors) to enable deterministic resume and force-fresh semantics.
 
+## Scope
+
+This file is the subsystem map for checkpoint and phase-tracking components.
+It is intentionally concise and architecture-focused.
+
+Canonical behavior, schema, and resume semantics are defined in:
+
+- [.agents/context/checkpointing-summary.md](../checkpointing-summary.md)
+- [docs/adr/0003-cursor-based-checkpointing.md](../../../docs/adr/0003-cursor-based-checkpointing.md)
+- [.agents/guardrails/migration-rules.md](../../guardrails/migration-rules.md)
+
+Use this file to find the implementation surface.
+Use the linked files above for normative cursor and phase-tracking behavior.
+
 ## Core Classes
 
 - `CheckpointingService`

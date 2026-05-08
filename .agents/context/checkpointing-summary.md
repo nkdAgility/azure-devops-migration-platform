@@ -1,5 +1,14 @@
 # Checkpointing
 
+## Where to Read Next
+
+- Architecture subsystem index: [.agents/context/architecture/agent-checkpoint-phase-tracking.md](architecture/agent-checkpoint-phase-tracking.md)
+- Decision record: [docs/adr/0003-cursor-based-checkpointing.md](../../docs/adr/0003-cursor-based-checkpointing.md)
+- Complementary task-level resume: [docs/adr/0010-plan-driven-dag-execution.md](../../docs/adr/0010-plan-driven-dag-execution.md)
+- Enforced rules: [.agents/guardrails/migration-rules.md](../guardrails/migration-rules.md), [.agents/guardrails/module-rules.md](../guardrails/module-rules.md), [.agents/guardrails/package-rules.md](../guardrails/package-rules.md)
+
+This file remains the canonical context summary for cursor schema, phase records, and resume semantics.
+
 ## 6. Cursor-Based Checkpointing
 
 Instead of per-work-item watermark tables, the system uses forward-only project cursors stored as JSON files. This requires no database and makes resume O(1).
