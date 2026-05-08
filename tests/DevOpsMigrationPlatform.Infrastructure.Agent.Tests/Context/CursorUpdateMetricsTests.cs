@@ -10,8 +10,16 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 public sealed class CursorUpdateMetricsTests
 {
     [TestMethod]
-    public void ReplayCoverageRatio_WhenNoReplay_IsOne()
+    public void ReplayCoverageRatio_EnforcesNearLatestThreshold_ForResume()
     {
-        Assert.AreEqual(1d, ProcessingCadencePolicy.ReplayCoverageRatio(42, 0), 0.00001d);
+        var ratio = ProcessingCadencePolicy.ReplayCoverageRatio(totalProcessed: 1_000, replayedAfterResume: 50);
+        Assert.IsTrue(ratio >= 0.95d, $"Expected replay coverage >= 0.95 but was {ratio:0.000}.");
+    }
+
+    [TestMethod]
+    public void ReplayCoverageRatio_FallsBelowThreshold_WhenReplayWindowTooLarge()
+    {
+        var ratio = ProcessingCadencePolicy.ReplayCoverageRatio(totalProcessed: 1_000, replayedAfterResume: 200);
+        Assert.IsTrue(ratio < 0.95d, $"Expected replay coverage < 0.95 but was {ratio:0.000}.");
     }
 }

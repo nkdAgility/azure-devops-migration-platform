@@ -10,12 +10,22 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.WorkItems;
 [TestClass]
 public sealed class WorkItemCadenceProgressTests
 {
-    [TestMethod]
-    public void ShouldPersist_WhenMaxIntervalElapsed_ReturnsTrue()
+    [DataTestMethod]
+    [DataRow(50, 1, 10, true)]
+    [DataRow(1, 11, 10, true)]
+    [DataRow(49, 1, 10, false)]
+    public void ShouldPersist_UsesBatchOrIntervalThreshold(int processedSincePersist, int elapsedMinutes, int maxIntervalMinutes, bool expected)
     {
         var sut = new ProcessingCadencePolicy();
-        var now = DateTimeOffset.UtcNow;
-        var shouldPersist = sut.ShouldPersist(now, now.AddMinutes(-2), 0, 50, TimeSpan.FromMinutes(1));
-        Assert.IsTrue(shouldPersist);
+        var now = new DateTimeOffset(2026, 5, 7, 11, 0, 0, TimeSpan.Zero);
+
+        var shouldPersist = sut.ShouldPersist(
+            nowUtc: now,
+            lastPersistUtc: now.AddMinutes(-elapsedMinutes),
+            processedSincePersist: processedSincePersist,
+            minimumBatchSize: 50,
+            maxInterval: TimeSpan.FromMinutes(maxIntervalMinutes));
+
+        Assert.AreEqual(expected, shouldPersist);
     }
 }

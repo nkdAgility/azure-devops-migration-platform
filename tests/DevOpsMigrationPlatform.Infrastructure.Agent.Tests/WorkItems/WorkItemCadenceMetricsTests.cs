@@ -10,9 +10,9 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.WorkItems;
 public sealed class WorkItemCadenceMetricsTests
 {
     [TestMethod]
-    public void ReplayCoverageRatio_WithReplay_IsLessThanOne()
+    public void ReplayCoverageRatio_ForSingleReplayedItemFromHundred_RemainsHigh()
     {
         var ratio = ProcessingCadencePolicy.ReplayCoverageRatio(100, 1);
-        Assert.IsTrue(ratio < 1d);
+        Assert.IsTrue(ratio >= 0.99d, $"Expected coverage >= 0.99 but was {ratio:0.000}.");
     }
 }

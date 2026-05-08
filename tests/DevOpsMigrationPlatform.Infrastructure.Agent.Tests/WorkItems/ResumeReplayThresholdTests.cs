@@ -15,4 +15,11 @@ public sealed class ResumeReplayThresholdTests
         var ratio = ProcessingCadencePolicy.ReplayCoverageRatio(totalProcessed: 1_000, replayedAfterResume: 50);
         Assert.IsTrue(ratio >= 0.95d, $"Expected coverage >= 0.95 but was {ratio:0.000}.");
     }
+
+    [TestMethod]
+    public void ReplayCoverageRatio_DropsBelow95Percent_WhenReplayExceedsAllowedWindow()
+    {
+        var ratio = ProcessingCadencePolicy.ReplayCoverageRatio(totalProcessed: 1_000, replayedAfterResume: 51);
+        Assert.IsTrue(ratio < 0.95d, $"Expected coverage < 0.95 but was {ratio:0.000}.");
+    }
 }

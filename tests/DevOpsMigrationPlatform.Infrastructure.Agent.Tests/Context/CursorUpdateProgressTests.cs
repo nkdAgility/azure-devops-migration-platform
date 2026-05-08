@@ -11,10 +11,22 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 public sealed class CursorUpdateProgressTests
 {
     [TestMethod]
-    public void ShouldPersist_WhenBatchAndIntervalNotMet_ReturnsFalse()
+    public void ShouldPersist_WhenElapsedIntervalExactlyMatchesThreshold()
     {
         var sut = new ProcessingCadencePolicy();
-        var shouldPersist = sut.ShouldPersist(DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 1, 50, TimeSpan.FromMinutes(10));
+        var now = new DateTimeOffset(2026, 5, 7, 11, 0, 0, TimeSpan.Zero);
+        var shouldPersist = sut.ShouldPersist(now, now.AddMinutes(-5), processedSincePersist: 0, minimumBatchSize: 50, maxInterval: TimeSpan.FromMinutes(5));
+
+        Assert.IsTrue(shouldPersist);
+    }
+
+    [TestMethod]
+    public void ShouldNotPersist_WhenBatchAndIntervalThresholdsNotMet()
+    {
+        var sut = new ProcessingCadencePolicy();
+        var now = new DateTimeOffset(2026, 5, 7, 11, 0, 0, TimeSpan.Zero);
+        var shouldPersist = sut.ShouldPersist(now, now.AddMinutes(-4), processedSincePersist: 49, minimumBatchSize: 50, maxInterval: TimeSpan.FromMinutes(5));
+
         Assert.IsFalse(shouldPersist);
     }
 }
