@@ -44,17 +44,22 @@ public sealed class AgentJobContextTests
         Assert.AreEqual("Inventory", context.Mode);
     }
 
-    [TestMethod]
-    public void Constructor_DependenciesMode_Succeeds()
+    [DataTestMethod]
+    [DataRow("Dependencies")]
+    [DataRow("Export")]
+    [DataRow("Import")]
+    [DataRow("Prepare")]
+    [DataRow("Migrate")]
+    public void Constructor_ValidMode_Succeeds(string mode)
     {
         var context = new AgentJobContext
         {
-            Mode = "Dependencies",
+            Mode = mode,
             PackagePath = @"C:\temp\package",
             ConfigVersion = "2.0"
         };
 
-        Assert.AreEqual("Dependencies", context.Mode);
+        Assert.AreEqual(mode, context.Mode);
     }
 
     [TestMethod]

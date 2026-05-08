@@ -3,6 +3,11 @@
 - Tag: `agent_runtime_context`
 - Responsibility: Materialize `Job.ConfigPayload` into package config and expose current job/package/source/target context accessors.
 
+## Runtime Context Rules
+
+- `AgentJobContext.PackagePath` must be absolute and is validated independent of the host OS so Windows drive-rooted paths, UNC paths, and Unix rooted paths are accepted consistently in agent tests and package materialisation.
+- Current context accessors are singleton holders: `Set` publishes a non-null active value, `Clear` removes it at job completion, and source/target endpoint clearing can be performed independently.
+
 ## Core Classes
 
 - `PackageConfigStore`

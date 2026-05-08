@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using Microsoft.Extensions.Logging;
 
@@ -11,7 +10,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 
 /// <summary>
 /// Concrete implementation of <see cref="IAgentJobContext"/>.
-/// Validates that PackagePath is absolute and Mode is one of the four known values.
+/// Validates that PackagePath is absolute and Mode is one of the known runtime values.
 /// </summary>
 public sealed class AgentJobContext : IAgentJobContext
 {
@@ -55,7 +54,7 @@ public sealed class AgentJobContext : IAgentJobContext
         get => _packagePath;
         init
         {
-            if (!Path.IsPathRooted(value))
+            if (!IsAbsolutePackagePath(value))
             {
                 throw new InvalidOperationException(
                     $"PackagePath must be an absolute path. Received: '{value}'");
@@ -75,5 +74,28 @@ public sealed class AgentJobContext : IAgentJobContext
                 _logger?.LogDebug("Agent job context resolved — Mode={Mode} ConfigVersion={ConfigVersion}", _mode, _configVersion);
             }
         }
+    }
+
+    private static bool IsAbsolutePackagePath(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        if (value[0] == '/')
+        {
+            return true;
+        }
+
+        if (value.StartsWith(@"\\", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return value.Length >= 3
+            && char.IsLetter(value[0])
+            && value[1] == ':'
+            && (value[2] == '\\' || value[2] == '/');
     }
 }
