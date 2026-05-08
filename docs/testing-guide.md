@@ -2,6 +2,16 @@
 
 Audience: Contributors.
 
+## Required Development Flow
+
+All additions, bug fixes, and behaviour changes must follow RED → GREEN → REFACTOR:
+
+- RED: write or update the smallest behavioural test first and verify it fails for the intended reason.
+- GREEN: implement the minimum production change needed to make that test pass.
+- REFACTOR: improve naming, structure, and duplication only after the relevant tests are green.
+
+Adding production code before the intended failing test exists is not compliant with the repository workflow.
+
 ## Testing Model Overview
 
 The project uses three test categories:

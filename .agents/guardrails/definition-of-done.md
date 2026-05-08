@@ -13,6 +13,8 @@ Every unit of work must satisfy **all** criteria below. Zero exceptions.
 ## 2. Tests
 
 - All tests run and pass. Zero failures, zero errors.
+- Every addition, bug fix, and behaviour change has evidence of RED → GREEN → REFACTOR: a failing behavioural test first, the minimal passing implementation second, and only then refactoring.
+- No production-first additions. If the change did not begin from an intended failing test, it is not done.
 - No `Assert.Inconclusive()` — treated as build-breaking. Implement the assertion or delete the test.
 - No `@ignore` (Gherkin) or `[Ignore]` (MSTest) in committed code. Session-only temporary use permitted.
 - No `throw new NotImplementedException()` in any reachable code path.
@@ -96,6 +98,7 @@ Re-read every relevant doc. Check each change line by line. Fix any non-complian
 ```
 [ ] Build passes (0 errors)
 [ ] All tests pass (0 failures, no Inconclusive/Ignore/NotImplementedException)
+[ ] RED → GREEN → REFACTOR evidence exists for every addition, bug fix, and behaviour change
 [ ] build.ps1 install passes
 [ ] O-1: Traces verified
 [ ] O-2: Metrics verified (5 call sites per operation)

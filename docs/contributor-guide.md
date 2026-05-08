@@ -2,6 +2,16 @@
 
 This guide provides information for developers contributing to the Azure DevOps Migration Platform.
 
+## Required Workflow
+
+Contributors must use RED → GREEN → REFACTOR for every addition, bug fix, and behaviour change.
+
+- RED: create or update the smallest relevant failing test first.
+- GREEN: make the minimal code change that turns that test green.
+- REFACTOR: clean up only after the changed slice is green, while keeping it green.
+
+This repository treats production-first additions as non-compliant work. See [.agents/guardrails/atdd-workflow.md](../.agents/guardrails/atdd-workflow.md) and [.agents/guardrails/definition-of-done.md](../.agents/guardrails/definition-of-done.md).
+
 ## Testing
 
 The project uses a comprehensive testing strategy with multiple types of tests:
@@ -15,6 +25,7 @@ The project uses a comprehensive testing strategy with multiple types of tests:
 ### Running Tests
 
 #### All Tests
+
 ```bash
 dotnet test
 ```
@@ -200,8 +211,8 @@ public async Task MyCommand_SystemTest_CanConnectToLiveSystem()
     var requiredVar = Environment.GetEnvironmentVariable("REQUIRED_VAR");
     if (string.IsNullOrEmpty(requiredVar))
     {
-        Assert.Inconclusive("System test skipped: REQUIRED_VAR not set");
-        return;
+    Assert.Inconclusive("System test skipped: REQUIRED_VAR not set");
+    return;
     }
 
     // Test implementation...

@@ -39,7 +39,7 @@ Use this skill after the Reviewer Agent has returned `"verdict": "Approved"` **a
      "feature_file": "<path>",
      "scenario": "<title>",
      "phase": "complete",
-     "completed_phases": ["specification", "test-generation", "implementation", "review", "doc-sync"],
+    "completed_phases": ["specification", "spec-hardening", "test-generation", "implementation", "review", "doc-sync"],
      "doc_sync": {
        "discrepancies_resolved": true,
        "doc_tasks_checked": true,

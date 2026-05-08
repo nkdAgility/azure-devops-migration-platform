@@ -1,19 +1,19 @@
 ---
 name: session-hooks
-description: Manages session lifecycle events for the ATDD Orchestrator, including log writes and phase transitions.
+description: Manages session lifecycle events for the tests-first orchestrator, including log writes and phase transitions.
 ---
 
 # Session Hooks — Skill Instructions
 
 ## Role
 
-When this skill is active, manage session lifecycle events for the ATDD Orchestrator.
+When this skill is active, manage session lifecycle events for the tests-first orchestrator.
 
 ---
 
 ## Hook 1 — Session Start
 
-At the beginning of every ATDD session, record:
+At the beginning of every tests-first session, record:
 
 ```
 [SESSION START]
@@ -34,6 +34,7 @@ After each phase completes, append to the session log:
 ```
 [PHASE COMPLETE]
 Phase:       <1 Specification | 2 Test Generation | 3 Implementation | 4 Review>
+Phase:       <1 Specification | 2 Spec Hardening | 3 Test Generation | 4 Implementation | 5 Review | 6 Doc Sync>
 Timestamp:   <ISO 8601 timestamp>
 Status:      COMPLETE | FAILED | ESCALATED
 Detail:      <brief description of outcome or error>
@@ -43,7 +44,7 @@ Detail:      <brief description of outcome or error>
 
 ## Hook 3 — Test Run Results
 
-After the test suite runs (Phase 3 and Phase 4), append:
+After the test suite runs (Phase 3, Phase 4, and Phase 5 when applicable), append:
 
 ```
 [TEST RUN]

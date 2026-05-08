@@ -1,12 +1,37 @@
-# ATDD Workflow
+# Tests-First Workflow
 
-Rules for Acceptance Test-Driven Development sessions. One scenario = one session = one commit.
+Rules for tests-first sessions. One scenario = one session = one commit.
 
 ---
 
 ## Core Principle
 
-Every feature change follows: Specification → Test Generation → Implementation → Review → Doc Sync. A session is atomic — it either completes all phases or rolls back.
+The repository delivery model is tests-first.
+
+- TDD is the primary tests-first design and implementation method. It is the mechanism that drives RED → GREEN → REFACTOR.
+- ATDD is used for intent: it captures expected behaviour in scenario language and acceptance assets before implementation.
+
+Every feature change follows: Specification → Spec Hardening → Test Generation → Implementation → Review → Doc Sync. A session is atomic — it either completes all phases or rolls back.
+
+After ATDD intent is approved and before tests or production changes proceed, the session must harden the spec by running all of the following against the feature scope:
+
+- `.agents/skills/nkda-archimprove-red-team-review`
+- `.agents/skills/nkda-observability-contract`
+- `.agents/skills/nkda-archcheck-architecture-review`
+
+Blocking findings from those runs must be resolved in the specification before continuing.
+
+Implementation is mandatory RED → GREEN → REFACTOR:
+
+- RED: add or update the smallest failing behavioural test first.
+- GREEN: make the minimal production change required to turn that test green.
+- REFACTOR: improve the design only after the relevant tests are green, while keeping them green.
+
+No addition, bug fix, or behaviour change may skip the failing-test-first step. If work starts from existing code without a failing test, the session is out of compliance and must return to RED before continuing.
+
+ATDD intent artefacts and TDD implementation artefacts serve different purposes and must not be conflated: acceptance scenarios express what should happen; TDD drives how the design is proven incrementally.
+
+Implementation execution must also run `.agents/commands/nkda-tddsn-autonomous.md` scoped to the subsystem under change. Its six output artefacts are mandatory implementation evidence for the session.
 
 ---
 
@@ -15,18 +40,22 @@ Every feature change follows: Specification → Test Generation → Implementati
 | Phase | Owner | Output | Gate |
 |-------|-------|--------|------|
 | 1. Specification | speckit.specify | `spec.md` | Human approval of spec |
-| 2. Test Generation | parse-criteria + test-templates | `.feature` + `*Steps.cs` | Tests compile (red — failures expected) |
-| 3. Implementation | speckit.implement | Production code | All tests green + build clean |
-| 4. Review | review skill | Verdict in session log | Pass verdict (no blockers) |
-| 5. Doc Sync | Manual/agent | Updated docs | Docs match implementation |
+| 2. Spec Hardening | `.agents/skills/nkda-archimprove-red-team-review` + `.agents/skills/nkda-observability-contract` + `.agents/skills/nkda-archcheck-architecture-review` | Reviewed and corrected `spec.md` plus review outputs | All blocking architecture, observability, and red-team findings resolved or explicitly approved by the human before continuing |
+| 3. Test Generation | parse-criteria + test-templates | `.feature` + `*Steps.cs` | Tests compile and fail for the intended missing behaviour (RED) |
+| 4. Implementation | `.agents/commands/nkda-tddsn-autonomous.md` | Production code plus six NKDA TDD Safety Net artefacts | Minimal code turns the relevant tests green, refactor stays green, and the command produces all required outputs |
+| 5. Review | review skill | Verdict in session log | Pass verdict (no blockers) |
+| 6. Doc Sync | Manual/agent | Updated docs | Docs match implementation |
 
 ---
 
 ## Handoff Rules
 
 - Phase N output is Phase N+1 input. No skipping phases.
-- If Phase 3 reveals spec gaps → return to Phase 1 (update spec, regenerate tests).
-- If Review finds issues → return to Phase 3 (fix, re-review).
+- Phase 2 is mandatory for every approved spec; do not proceed from specification directly to tests or implementation.
+- Phase 3 must preserve the RED → GREEN → REFACTOR order; writing production code before the intended failing test exists is a workflow violation.
+- Phase 4 must run `.agents/commands/nkda-tddsn-autonomous.md`; bypassing the command or omitting any of its six artefacts is a workflow violation.
+- If Phase 3 or Phase 4 reveals spec gaps → return to Phase 1, then re-run Phase 2 before continuing.
+- If Review finds issues → return to Phase 4 (fix, re-review).
 - Each return-to-earlier-phase is logged in session log.
 
 ---
@@ -36,6 +65,7 @@ Every feature change follows: Specification → Test Generation → Implementati
 File: `Logs/atdd-sessions/<session-id>.md`
 
 Format:
+
 ```markdown
 # Session: <session-id>
 Scenario: <feature>/<scenario-name>
@@ -45,19 +75,32 @@ Started: <ISO 8601>
 - Status: Complete
 - Output: specs/<feature>/spec.md
 
-## Phase 2: Test Generation
+## Phase 2: Spec Hardening
+- Status: Complete
+- Reviews: nkda-archimprove-red-team-review, nkda-observability-contract, nkda-archcheck-architecture-review
+- Findings: <none or list>
+
+## Phase 3: Test Generation
 - Status: Complete
 - Tests: <list of generated test files>
 
-## Phase 3: Implementation
+## Phase 4: Implementation
 - Status: Complete
+- Command: .agents/commands/nkda-tddsn-autonomous.md
 - Files changed: <list>
+- Artefacts:
+  - .output/nkda-tddsn/<subsystem>/01-assessment.md
+  - .output/nkda-tddsn/<subsystem>/02-target-test-suite.md
+  - .output/nkda-tddsn/<subsystem>/03-architecture-update.md
+  - .output/nkda-tddsn/<subsystem>/04-rebuild-plan.md
+  - .output/nkda-tddsn/<subsystem>/05-implementation-summary.md
+  - .output/nkda-tddsn/<subsystem>/06-verification.md
 
-## Phase 4: Review
+## Phase 5: Review
 - Status: Pass
 - Findings: <none or list>
 
-## Phase 5: Doc Sync
+## Phase 6: Doc Sync
 - Status: Complete
 - Docs updated: <list>
 
@@ -70,7 +113,12 @@ Completed: <ISO 8601>
 
 - Working directory clean (no uncommitted changes unrelated to session).
 - Branch exists for feature (e.g. `024-teams-module`).
-- Guardrails read and acknowledged before Phase 3.
+- Guardrails read and acknowledged before Phase 2.
+- The four mandatory assets are available before execution begins:
+  - `.agents/skills/nkda-archimprove-red-team-review`
+  - `.agents/skills/nkda-observability-contract`
+  - `.agents/skills/nkda-archcheck-architecture-review`
+  - `.agents/commands/nkda-tddsn-autonomous.md`
 
 ---
 
@@ -79,13 +127,15 @@ Completed: <ISO 8601>
 - One session = one scenario (one `.feature` file or one scenario within).
 - Sessions MUST NOT span multiple unrelated features.
 - Sessions MUST NOT modify code outside the feature scope without explicit justification logged.
-- `@ignore` / `[Ignore]` may be used during Phase 3 for isolation — MUST be removed before Phase 4 verdict.
+- `@ignore` / `[Ignore]` may be used during Phase 4 for isolation — MUST be removed before Phase 5 verdict.
 
 ---
 
 ## Adoption
 
 Sessions can start at any phase if prior phases are already complete:
-- Spec exists + tests exist → start at Phase 3.
-- Implementation done + needs review → start at Phase 4.
-- All phases done but docs stale → Phase 5 only.
+
+- Spec exists but has not been hardened → start at Phase 2.
+- Spec exists, hardening is complete, and tests exist → start at Phase 4.
+- Implementation done + needs review → start at Phase 5.
+- All phases done but docs stale → Phase 6 only.

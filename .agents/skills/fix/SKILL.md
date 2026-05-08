@@ -1,6 +1,6 @@
 ---
 name: fix
-description: Resumes a failed or interrupted ATDD session from the last successful phase.
+description: Resumes a failed or interrupted tests-first session from the last successful phase.
 ---
 
 # Skill: Fix
@@ -19,12 +19,14 @@ Use this skill when a session has been interrupted, a phase has failed, or the R
    | Last completed phase | Resume at |
    |---|---|
    | _(none)_ | Specification Agent |
-   | `"specification"` | Test Generation Agent |
+   | `"specification"` | Spec Hardening |
+   | `"spec-hardening"` | Test Generation Agent |
    | `"test-generation"` | Implementation Agent |
    | `"implementation"` | `/review` |
+   | `"review"` | Documentation Sync |
    | Review rejected | Implementation Agent (with Reviewer's `required_changes`) |
 
-4. **Do not restart from Phase 1** unless the feature definition itself is wrong. A rejection from the Reviewer returns to Implementation only.
+4. **Do not restart from Phase 1** unless the feature definition itself is wrong. A rejection from the Reviewer returns to Implementation only. If specification intent changes, re-run Spec Hardening before continuing.
 
 5. **Update the session log** to reflect the resumed phase before continuing.
 

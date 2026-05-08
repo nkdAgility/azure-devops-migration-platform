@@ -163,6 +163,8 @@ This file is the entry point, not the rule source. The non-negotiable constraint
 
 All Gherkin `.feature` files live under `/features/` (organised by `cli/`, `export/`, `import/`, `inventory/`, `platform/`, `services/`). Code that conflicts with feature files must be rejected.
 
+The repository workflow is tests-first. TDD is the primary method for design and implementation, while ATDD is used to capture intent in scenario and acceptance assets. The enforceable rule lives in `/.agents/guardrails/atdd-workflow.md`; `agents.md` only points you to it.
+
 ---
 
 Reject any proposal that violates a guardrail or ADR. Common instant-reject areas:

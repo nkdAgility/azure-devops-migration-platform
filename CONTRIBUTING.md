@@ -14,7 +14,7 @@ Pull requests that do not pass the CLA check will not be merged.
 
 1. Open an issue before starting substantial work.
 2. Keep pull requests focused and small.
-3. Include tests for behavioural changes.
+3. Use RED → GREEN → REFACTOR for every addition, bug fix, and behaviour change: start from a failing behavioural test, make it pass with the smallest production change, then refactor while staying green.
 4. Do not include secrets, customer data, migration packages, logs, generated artefacts, or `.migration` folders.
 5. Follow the existing architecture and module boundaries.
 6. Ensure all source files include the appropriate SPDX header.
