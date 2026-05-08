@@ -3,6 +3,7 @@
 
 using Azure.Monitor.OpenTelemetry.Exporter;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.Diagnostics;
@@ -113,6 +114,7 @@ public static class MigrationPlatformHost
         configuration.GetSection(TelemetryOptions.SectionName).Bind(telOpts);
 
         var diagnosticsPath = FileDiagnosticsExtensions.GetDiagnosticsPath(configuration);
+        var detailedDiagnostics = configuration.GetValue<bool>("Telemetry:DetailedDiagnostics");
 
         // Read deployment context so Application Insights can distinguish
         // Standalone vs Hosted runs and correlate with a specific control plane.
@@ -127,6 +129,9 @@ public static class MigrationPlatformHost
                 logging.AddFileDiagnostics(diagnosticsPath, WellKnownServiceNames.Cli);
                 logging.AddCliFileDiagnostics(diagnosticsPath, WellKnownServiceNames.Cli);
             });
+
+            if (detailedDiagnostics)
+                services.AddSingleton(new ControlPlaneCommunicationRecorder(diagnosticsPath));
         }
 
         services.AddOpenTelemetry()

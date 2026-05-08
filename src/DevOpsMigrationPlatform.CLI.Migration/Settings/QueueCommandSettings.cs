@@ -32,7 +32,7 @@ public class QueueCommandSettings : MigrationCommandSettings
     public bool ForceFresh { get; init; }
 
     [CommandOption("--diagnostics")]
-    [Description("Enable detailed CLI/control-plane call diagnostics and write telemetry files under Telemetry:DiagnosticsPath (default: .otel-diagnostics).")]
+    [Description("Enable detailed CLI/control-plane call diagnostics, write telemetry files under Telemetry:DiagnosticsPath, and dump raw control-plane JSON payloads into the inbox subfolder (default: .otel-diagnostics).")]
     public bool Diagnostics { get; init; }
 
     public override ValidationResult Validate()

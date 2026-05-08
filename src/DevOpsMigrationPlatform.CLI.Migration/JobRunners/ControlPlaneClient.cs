@@ -25,6 +25,7 @@ namespace DevOpsMigrationPlatform.CLI.JobRunners;
 public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, IControlPlaneClient
 {
     private readonly JsonSerializerOptions _jsonOptions;
+    private readonly ControlPlaneCommunicationRecorder? _diagnosticsRecorder;
 
     private readonly HttpClient _http;
     private readonly ILogger<ControlPlaneClient> _logger;
@@ -36,10 +37,12 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
     public ControlPlaneClient(
         HttpClient http,
         ILogger<ControlPlaneClient> logger,
-        PolymorphicEndpointOptionsConverter? endpointConverter = null)
+        PolymorphicEndpointOptionsConverter? endpointConverter = null,
+        ControlPlaneCommunicationRecorder? diagnosticsRecorder = null)
     {
         _http = http ?? throw new ArgumentNullException(nameof(http));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _diagnosticsRecorder = diagnosticsRecorder;
         _jsonOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
@@ -138,9 +141,9 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
         }
 
         response.EnsureSuccessStatusCode();
-        var metrics = await response.Content
-            .ReadFromJsonAsync<JobMetrics>(_jsonOptions, ct)
-            .ConfigureAwait(false);
+        var metricsJson = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        await RecordJsonAsync("telemetry", metricsJson, ct).ConfigureAwait(false);
+        var metrics = JsonSerializer.Deserialize<JobMetrics>(metricsJson, _jsonOptions);
         _logger.LogInformation(
             "Control plane response GET /jobs/{JobId}/telemetry => {StatusCode}, hasMetrics={HasMetrics}",
             jobId,
@@ -232,6 +235,7 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
             if (string.IsNullOrEmpty(json))
                 continue;
 
+            await RecordJsonAsync("progress", json, ct).ConfigureAwait(false);
             var evt = JsonSerializer.Deserialize<ProgressEvent>(json, _jsonOptions);
             if (evt is not null)
                 yield return evt;
@@ -290,6 +294,7 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
             if (string.IsNullOrEmpty(json))
                 continue;
 
+            await RecordJsonAsync("diagnostics", json, ct).ConfigureAwait(false);
             var record = JsonSerializer.Deserialize<DiagnosticLogRecord>(json, _jsonOptions);
             if (record is not null)
                 yield return record;
@@ -331,9 +336,9 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
         }
 
         response.EnsureSuccessStatusCode();
-        var bootstrap = await response.Content
-            .ReadFromJsonAsync<JobBootstrap>(_jsonOptions, ct)
-            .ConfigureAwait(false);
+        var bootstrapJson = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        await RecordJsonAsync("bootstrap", bootstrapJson, ct).ConfigureAwait(false);
+        var bootstrap = JsonSerializer.Deserialize<JobBootstrap>(bootstrapJson, _jsonOptions);
         _logger.LogInformation(
             "Control plane response GET /jobs/{JobId}/bootstrap => {StatusCode} {Bootstrap}",
             jobId,
@@ -374,4 +379,9 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
             taskList?.Tasks?.Count ?? 0);
         return taskList;
     }
+
+    private Task RecordJsonAsync(string kind, string json, CancellationToken ct)
+        => _diagnosticsRecorder is null
+            ? Task.CompletedTask
+            : _diagnosticsRecorder.RecordJsonAsync(kind, json, ct);
 }

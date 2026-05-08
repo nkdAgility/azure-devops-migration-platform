@@ -1,0 +1,143 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
+using System.Net;
+using System.Text;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
+using DevOpsMigrationPlatform.CLI.JobRunners;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
+
+[TestClass]
+public sealed class ControlPlaneClientDiagnosticsTests
+{
+    [TestMethod]
+    public async Task GetTelemetryAndBootstrapAsync_WriteRawJsonResponses_ToInboxFolder()
+    {
+        var tempRoot = CreateTempDirectory();
+        try
+        {
+            var telemetryJson = """
+                {"migration":{"workItems":{"completed":42,"revisionsProcessed":314}},"scope":{"workItemsTotal":100}}
+                """;
+            var bootstrapJson = """
+                {"snapshot":null,"metrics":{"migration":{"workItems":{"completed":42}}},"lastEventSequence":7,"tasks":{"tasks":[],"pushedAt":"2026-05-08T13:27:04.2055597+00:00","forKind":0}}
+                """;
+
+            using var httpClient = new HttpClient(new DelegatingHandlerStub(request =>
+            {
+                if (request.RequestUri?.AbsolutePath.EndsWith("/telemetry", StringComparison.Ordinal) == true)
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(telemetryJson, Encoding.UTF8, "application/json")
+                    };
+                }
+
+                if (request.RequestUri?.AbsolutePath.EndsWith("/bootstrap", StringComparison.Ordinal) == true)
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(bootstrapJson, Encoding.UTF8, "application/json")
+                    };
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }))
+            {
+                BaseAddress = new Uri("http://localhost:5100")
+            };
+
+            var recorder = new ControlPlaneCommunicationRecorder(tempRoot);
+            var client = new ControlPlaneClient(httpClient, NullLogger<ControlPlaneClient>.Instance, diagnosticsRecorder: recorder);
+
+            _ = await client.GetTelemetryAsync(Guid.NewGuid(), CancellationToken.None);
+            _ = await client.GetBootstrapAsync(Guid.NewGuid(), CancellationToken.None);
+
+            var inboxPath = Path.Combine(tempRoot, "inbox");
+            var files = Directory.GetFiles(inboxPath, "*.json").OrderBy(Path.GetFileName, StringComparer.Ordinal).ToArray();
+
+            Assert.AreEqual(2, files.Length);
+            StringAssert.EndsWith(files[0], "-telemetry.json");
+            StringAssert.EndsWith(files[1], "-bootstrap.json");
+            Assert.AreEqual(NormalizeJson(telemetryJson), NormalizeJson(await File.ReadAllTextAsync(files[0])));
+            Assert.AreEqual(NormalizeJson(bootstrapJson), NormalizeJson(await File.ReadAllTextAsync(files[1])));
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public async Task FollowLogsAsync_WritesEachProgressEvent_ToInboxFolderInArrivalOrder()
+    {
+        var tempRoot = CreateTempDirectory();
+        try
+        {
+            var firstJson = "{" + "\"eventSequence\":1,\"module\":\"Job\",\"stage\":\"Job.Ready\",\"message\":\"ready\"}";
+            var secondJson = "{" + "\"eventSequence\":2,\"module\":\"WorkItems\",\"stage\":\"Export\",\"message\":\"progress\"}";
+            var ssePayload = string.Join('\n', new[]
+            {
+                $"data: {firstJson}",
+                string.Empty,
+                $"data: {secondJson}",
+                string.Empty,
+                "event: job-ended",
+                string.Empty
+            });
+
+            using var httpClient = new HttpClient(new DelegatingHandlerStub(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(ssePayload, Encoding.UTF8, "text/event-stream")
+            }))
+            {
+                BaseAddress = new Uri("http://localhost:5100")
+            };
+
+            var recorder = new ControlPlaneCommunicationRecorder(tempRoot);
+            var client = new ControlPlaneClient(httpClient, NullLogger<ControlPlaneClient>.Instance, diagnosticsRecorder: recorder);
+
+            var received = new List<ProgressEvent>();
+            await foreach (var evt in client.FollowLogsAsync(Guid.NewGuid(), CancellationToken.None))
+                received.Add(evt);
+
+            var inboxPath = Path.Combine(tempRoot, "inbox");
+            var files = Directory.GetFiles(inboxPath, "*.json").OrderBy(Path.GetFileName, StringComparer.Ordinal).ToArray();
+
+            Assert.AreEqual(2, received.Count);
+            Assert.AreEqual(2, files.Length);
+            StringAssert.EndsWith(files[0], "-progress.json");
+            StringAssert.EndsWith(files[1], "-progress.json");
+            Assert.AreEqual(NormalizeJson(firstJson), NormalizeJson(await File.ReadAllTextAsync(files[0])));
+            Assert.AreEqual(NormalizeJson(secondJson), NormalizeJson(await File.ReadAllTextAsync(files[1])));
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    private static string CreateTempDirectory()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "ControlPlaneClientDiagnosticsTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(path);
+        return path;
+    }
+
+    private static string NormalizeJson(string json)
+        => json.Replace("\r", string.Empty).Replace("\n", string.Empty).Trim();
+
+    private sealed class DelegatingHandlerStub : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _handler;
+
+        public DelegatingHandlerStub(Func<HttpRequestMessage, HttpResponseMessage> handler)
+            => _handler = handler;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(_handler(request));
+    }
+}
