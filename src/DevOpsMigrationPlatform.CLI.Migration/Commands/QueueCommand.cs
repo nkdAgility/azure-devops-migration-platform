@@ -2497,6 +2497,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     {
         var spinnerFrame = s_spinnerFrames[(int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80 % s_spinnerFrames.Length)];
         var rows = new List<IRenderable>();
+        var hasDependencyProjectState = s.Projects.Any(project =>
+            project.IsCounting ||
+            project.WorkItemsAnalysed > 0 ||
+            project.ExternalLinks > 0 ||
+            project.CrossProjectLinks > 0 ||
+            project.CrossOrgLinks > 0 ||
+            project.StageText is "Analysis" or "Counting" or "ProjectComplete");
 
         if (s.Tasks is null && s.Projects.Count == 0)
         {
@@ -2512,7 +2519,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 .OrderBy(t => t.Order)
                 .ToList();
 
-            if (captureTasks.Count > 0)
+            if (captureTasks.Count > 0 && !hasDependencyProjectState)
             {
                 // Determine which module columns are active in this job.
                 var moduleOrder = new[] { "identities", "nodes", "teams", "workitems", "repos" };
