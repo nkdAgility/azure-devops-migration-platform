@@ -99,7 +99,7 @@
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
                 "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}",
-                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/inventory-ado-single-project"
+                "DEVOPS_MIGRATION_TEST_STORAGE": ".build/teststore/inventory-ado-single-project"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",

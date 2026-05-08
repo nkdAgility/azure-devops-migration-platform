@@ -109,10 +109,61 @@ public sealed class ControlPlaneClientDiagnosticsTests
 
             Assert.AreEqual(2, received.Count);
             Assert.AreEqual(2, files.Length);
-            StringAssert.EndsWith(files[0], "-progress.json");
-            StringAssert.EndsWith(files[1], "-progress.json");
+            StringAssert.EndsWith(files[0], "-progress-job-job-ready.json");
+            StringAssert.EndsWith(files[1], "-progress-workitems-export.json");
             Assert.AreEqual(NormalizeJson(firstJson), NormalizeJson(await File.ReadAllTextAsync(files[0])));
             Assert.AreEqual(NormalizeJson(secondJson), NormalizeJson(await File.ReadAllTextAsync(files[1])));
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public async Task StreamDiagnosticsAsync_DoesNotWriteHttpNoise_ToInboxFolder()
+    {
+        var tempRoot = CreateTempDirectory();
+        try
+        {
+            var httpNoiseJson = """
+                {"timestamp":"2026-05-08T14:26:17.0000000+00:00","level":"Information","category":"System.Net.Http.HttpClient.ControlPlaneClient","message":"Sending HTTP request"}
+                """;
+            var platformJson = """
+                {"timestamp":"2026-05-08T14:26:18.0000000+00:00","level":"Information","category":"DevOpsMigrationPlatform.ControlPlane.JobProgressController","message":"Forwarded progress"}
+                """;
+            var ssePayload = string.Join('\n', new[]
+            {
+                $"data: {httpNoiseJson}",
+                string.Empty,
+                $"data: {platformJson}",
+                string.Empty,
+                "event: job-ended",
+                string.Empty
+            });
+
+            using var httpClient = new HttpClient(new DelegatingHandlerStub(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(ssePayload, Encoding.UTF8, "text/event-stream")
+            }))
+            {
+                BaseAddress = new Uri("http://localhost:5100")
+            };
+
+            var recorder = new ControlPlaneCommunicationRecorder(tempRoot);
+            var client = new ControlPlaneClient(httpClient, NullLogger<ControlPlaneClient>.Instance, diagnosticsRecorder: recorder);
+
+            var received = new List<DiagnosticLogRecord>();
+            await foreach (var record in client.StreamDiagnosticsAsync(Guid.NewGuid(), null, CancellationToken.None))
+                received.Add(record);
+
+            var inboxPath = Path.Combine(tempRoot, "inbox");
+            var files = Directory.GetFiles(inboxPath, "*.json").OrderBy(Path.GetFileName, StringComparer.Ordinal).ToArray();
+
+            Assert.AreEqual(2, received.Count);
+            Assert.AreEqual(1, files.Length, "Only platform diagnostics should be persisted to inbox.");
+            StringAssert.EndsWith(files[0], "-diagnostics.json");
+            Assert.AreEqual(NormalizeJson(platformJson), NormalizeJson(await File.ReadAllTextAsync(files[0])));
         }
         finally
         {
