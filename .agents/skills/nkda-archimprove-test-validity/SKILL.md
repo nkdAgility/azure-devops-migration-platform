@@ -1,6 +1,6 @@
 ---
 name: nkda-archimprove-test-validity
-description: Scores every test in the target scope for intrinsic value across five dimensions. Tests classified as WASTE are deleted immediately. Runs before nkda-test-promotion so that only valuable tests enter the promotion pipeline.
+description: Scores every test in the target scope for intrinsic value across five dimensions. Tests classified as WASTE are deleted immediately. Runs before nkda-archimprove-test-promotion so that only valuable tests enter the promotion pipeline.
 ---
 
 # Skill: Test Validity
@@ -15,7 +15,7 @@ Evaluate every test for the value it provides against credible regressions. Dele
 
 | Mode | How to invoke | Input | Output |
 |---|---|---|---|
-| **Targeted** | After `speckit.implement` completes (runs before `nkda-test-promotion`) | The test projects touched by the implementation | Validity report + deletions |
+| **Targeted** | After `speckit.implement` completes (runs before `nkda-archimprove-test-promotion`) | The test projects touched by the implementation | Validity report + deletions |
 | **Full sweep** | Standalone, run against the entire test suite | Solution root or `tests/` folder | Full validity report + deletions |
 
 When no path is given, default to the solution root and scan all `tests/` projects.
@@ -223,7 +223,7 @@ For each evaluated test, the detailed log must include:
 2. **LOW VALUE tests get a TODO comment, not deletion.** They need human attention to rewrite.
 3. **Never delete a test that is the only coverage for a behaviour scoring ≥ 3 on Impact of Failure.** If a test scores WASTE overall but is the sole guard on something impactful, bump it to LOW VALUE and flag for rewrite.
 4. **Build must stay green.** If a deletion breaks the build, restore and reclassify.
-5. **Run this skill BEFORE nkda-test-promotion.** Only valuable tests should enter the promotion pipeline.
+5. **Run this skill BEFORE nkda-archimprove-test-promotion.** Only valuable tests should enter the promotion pipeline.
 6. **Score conservatively for integration/system tests.** Tests at higher levels (Simulated, Live) often have hidden integration value — consider whether the test catches wiring or serialisation bugs that unit tests cannot.
 
 ---
@@ -259,10 +259,10 @@ The following patterns are unconditional WASTE in any test for a module (`Export
 
 ## Integration with SpecKit
 
-When run as a post-`speckit.implement` hook (before `nkda-test-promotion`):
+When run as a post-`speckit.implement` hook (before `nkda-archimprove-test-promotion`):
 
 1. Scope analysis to the test projects touched by the implementation.
 2. Score all tests in those projects — both new and existing.
 3. Delete WASTE, annotate LOW VALUE.
-4. Pass clean test suite to `nkda-test-promotion` for category optimisation.
+4. Pass clean test suite to `nkda-archimprove-test-promotion` for category optimisation.
 5. Include the validity report in the implementation session log.

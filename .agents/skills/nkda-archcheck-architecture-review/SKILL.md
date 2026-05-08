@@ -1,6 +1,6 @@
 ---
 name: nkda-archcheck-architecture-review
-description: Runs all five architecture perspective checks (Modular Monolith, Clean Architecture, Hexagonal, Vertical Slice, Screaming Architecture), then runs nkda-improve-codebase-architecture to propose deepening opportunities, and produces a single combined, prioritised report.
+description: Runs all five architecture perspective checks (Modular Monolith, Clean Architecture, Hexagonal, Vertical Slice, Screaming Architecture), then runs nkda-archimprove-codebase to propose deepening opportunities, and produces a single combined, prioritised report.
 ---
 
 # Skill: Architecture Review
@@ -11,7 +11,7 @@ Use this skill when you need a complete, cross-perspective audit of the codebase
 
 ## Role
 
-When this skill is active, execute all five architecture-perspective skills in sequence, then execute `nkda-improve-codebase-architecture`, collect every violation and deepening opportunity found, and produce a consolidated report. Do **not** apply any fixes automatically — report findings first. If instructed to fix, address the highest-severity violations first and re-run the affected checks to confirm resolution.
+When this skill is active, execute all five architecture-perspective skills in sequence, then execute `nkda-archimprove-codebase`, collect every violation and deepening opportunity found, and produce a consolidated report. Do **not** apply any fixes automatically — report findings first. If instructed to fix, address the highest-severity violations first and re-run the affected checks to confirm resolution.
 
 ---
 
@@ -21,12 +21,12 @@ Each perspective answers a different architectural question about this codebase:
 
 | Perspective | Question it answers | Skill |
 |---|---|---|
-| **Modular Monolith** | How do we isolate change? | `nkda-modular-monolith-check` |
-| **Clean Architecture** | What should be central? | `nkda-clean-architecture-check` |
-| **Hexagonal Architecture** | How do we interact with the outside world? | `nkda-hexagonal-check` |
-| **Vertical Slice** | How do we deliver value? | `nkda-vertical-slice-check` |
-| **Screaming Architecture** | How do we make intent visible? | `nkda-screaming-architecture-check` |
-| **Architecture Deepening** | Where can we increase depth, leverage, and locality? | `nkda-improve-codebase-architecture` |
+| **Modular Monolith** | How do we isolate change? | `nkda-archcheck-modular-monolith` |
+| **Clean Architecture** | What should be central? | `nkda-archcheck-clean-architecture` |
+| **Hexagonal Architecture** | How do we interact with the outside world? | `nkda-archcheck-hexagonal` |
+| **Vertical Slice** | How do we deliver value? | `nkda-archcheck-vertical-slice` |
+| **Screaming Architecture** | How do we make intent visible? | `nkda-archcheck-screaming-architecture` |
+| **Architecture Deepening** | Where can we increase depth, leverage, and locality? | `nkda-archimprove-codebase` |
 
 These perspectives are **orthogonal, not mutually exclusive**. A single violation may surface in more than one perspective — this is intentional and helps prioritise fixes.
 
@@ -38,7 +38,7 @@ Run the checks in the following order. Each check is independent; run all even i
 
 ### Step 1 — Modular Monolith Check
 
-Execute the full `nkda-modular-monolith-check` skill. Record all findings tagged `[MM]`.
+Execute the full `nkda-archcheck-modular-monolith` skill. Record all findings tagged `[MM]`.
 
 Key questions:
 - Are module projects coupled to each other directly?
@@ -47,7 +47,7 @@ Key questions:
 
 ### Step 2 — Clean Architecture Check
 
-Execute the full `nkda-clean-architecture-check` skill. Record all findings tagged `[CA]`.
+Execute the full `nkda-archcheck-clean-architecture` skill. Record all findings tagged `[CA]`.
 
 Key questions:
 - Does any inner-ring type reference an outer-ring type?
@@ -56,7 +56,7 @@ Key questions:
 
 ### Step 3 — Hexagonal Architecture Check
 
-Execute the full `nkda-hexagonal-check` skill. Record all findings tagged `[HX]`.
+Execute the full `nkda-archcheck-hexagonal` skill. Record all findings tagged `[HX]`.
 
 Key questions:
 - Do modules reference concrete store implementations?
@@ -65,7 +65,7 @@ Key questions:
 
 ### Step 4 — Vertical Slice Check
 
-Execute the full `nkda-vertical-slice-check` skill. Record all findings tagged `[VS]`.
+Execute the full `nkda-archcheck-vertical-slice` skill. Record all findings tagged `[VS]`.
 
 Key questions:
 - Is business logic shared across slices via static helpers?
@@ -74,7 +74,7 @@ Key questions:
 
 ### Step 5 — Screaming Architecture Check
 
-Execute the full `nkda-screaming-architecture-check` skill. Record all findings tagged `[SA]`.
+Execute the full `nkda-archcheck-screaming-architecture` skill. Record all findings tagged `[SA]`.
 
 Key questions:
 - Are project, namespace, and class names business-meaningful?
@@ -83,7 +83,7 @@ Key questions:
 
 ### Step 6 — Architecture Deepening Pass
 
-Execute the full `nkda-improve-codebase-architecture` skill. Record all deepening opportunities tagged `[DC]`.
+Execute the full `nkda-archimprove-codebase` skill. Record all deepening opportunities tagged `[DC]`.
 
 Key questions:
 - Which seams are currently shallow and leaking complexity to callers?
@@ -173,7 +173,7 @@ List each High violation:
 
 #### Deepening Opportunities (candidate refactors)
 
-List each deepening opportunity surfaced by `nkda-improve-codebase-architecture`:
+List each deepening opportunity surfaced by `nkda-archimprove-codebase`:
 
 ```
 [DC-H1] Work item field normalisation split across three pass-through helpers
