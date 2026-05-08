@@ -1,5 +1,5 @@
 ---
-name: nkda-plan-architecture-compliance
+name: nkda-core-plan-architecture-compliance
 description: Design-time compliance review — validates spec.md and plan.md against all five architecture perspectives (Modular Monolith, Clean, Hexagonal, Vertical Slice, Screaming) plus constitution and guardrails before task generation begins. Analyses proposed design, not code.
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: nkda-screaming-architecture-check
+name: nkda-archcheck-screaming-architecture
 description: Scans the codebase for Screaming Architecture violations — generic names, purpose-obscuring structure, and missing intent signals — and produces a prioritised fix list.
 ---
 

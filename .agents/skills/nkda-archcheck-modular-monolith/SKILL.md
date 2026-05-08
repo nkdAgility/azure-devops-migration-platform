@@ -1,5 +1,5 @@
 ---
-name: nkda-modular-monolith-check
+name: nkda-archcheck-modular-monolith
 description: Scans the codebase for Modular Monolith violations — cross-module coupling, missing module boundaries, and structural integrity issues — and produces a prioritised fix list.
 ---
 

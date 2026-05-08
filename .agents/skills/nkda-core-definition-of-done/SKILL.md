@@ -1,5 +1,5 @@
 ---
-name: nkda-definition-of-done
+name: nkda-core-definition-of-done
 description: Validates that a completed unit of work meets every criterion in the Definition of Done — build, tests, code quality, connector coverage, documentation, and compliance review. Fails if any redline is violated.
 ---
 

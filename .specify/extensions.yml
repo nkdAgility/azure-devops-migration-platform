@@ -3,8 +3,8 @@ settings:
   auto_execute_hooks: true
 hooks:
   after_specify:
-  - extension: nkda-red-team-review
-    command: nkda-red-team-review
+  - extension: nkda-archimprove-red-team-review
+    command: nkda-archimprove-red-team-review
     enabled: true
     optional: false
     description: Challenge the specification with adversarial thinking to surface
@@ -41,8 +41,8 @@ hooks:
       metrics, O-3 logs, O-4 progress events, CLI visibility) across metrics, traces,
       and logs for every operation
     condition: null
-  - extension: nkda-plan-architecture-compliance
-    command: nkda-plan-architecture-compliance
+  - extension: nkda-core-plan-architecture-compliance
+    command: nkda-core-plan-architecture-compliance
     enabled: true
     optional: false
     description: Design-time compliance review — validates spec.md and plan.md against
@@ -98,22 +98,22 @@ hooks:
       logging, and O-4 progress events — implement any missing instrumentation before
       proceeding
     condition: null
-  - extension: nkda-test-validity
-    command: nkda-test-validity
+  - extension: nkda-archimprove-test-validity
+    command: nkda-archimprove-test-validity
     enabled: true
     optional: false
     description: Score every test for intrinsic value and delete WASTE tests before
       promotion analysis
     condition: null
-  - extension: nkda-test-promotion
-    command: nkda-test-promotion
+  - extension: nkda-archimprove-test-promotion
+    command: nkda-archimprove-test-promotion
     enabled: true
     optional: false
     description: Analyse tests touched by implementation — promote to faster categories
       and retire redundant slower tests
     condition: null
-  - extension: nkda-definition-of-done
-    command: nkda-definition-of-done
+  - extension: nkda-core-definition-of-done
+    command: nkda-core-definition-of-done
     enabled: true
     optional: false
     description: Validate that the completed work meets every criterion in the Definition
