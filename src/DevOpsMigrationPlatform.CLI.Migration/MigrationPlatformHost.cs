@@ -61,9 +61,22 @@ public static class MigrationPlatformHost
                 // ── Shared infrastructure (every command gets these)
                 services.AddLogging(logging =>
                 {
-                    logging.AddConsole();
                     var detailedDiagnostics = configuration.GetValue<bool>("Telemetry:DetailedDiagnostics");
-                    logging.SetMinimumLevel(detailedDiagnostics ? LogLevel.Information : LogLevel.Warning);
+                    if (detailedDiagnostics)
+                    {
+                        // Lower the global minimum so OTel/file exporters receive Information,
+                        // but keep the console provider filtered to Warning so diagnostics
+                        // detail does not pollute the terminal.
+                        logging.SetMinimumLevel(LogLevel.Information);
+                        logging.AddConsole(o => { })
+                               .AddFilter<Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider>(
+                                   null, LogLevel.Warning);
+                    }
+                    else
+                    {
+                        logging.AddConsole();
+                        logging.SetMinimumLevel(LogLevel.Warning);
+                    }
                 });
 
                 // ── Environment options — bound centrally so every command resolves
@@ -109,7 +122,11 @@ public static class MigrationPlatformHost
 
         if (diagnosticsPath is not null)
         {
-            services.AddLogging(logging => logging.AddFileDiagnostics(diagnosticsPath, WellKnownServiceNames.Cli));
+            services.AddLogging(logging =>
+            {
+                logging.AddFileDiagnostics(diagnosticsPath, WellKnownServiceNames.Cli);
+                logging.AddCliFileDiagnostics(diagnosticsPath, WellKnownServiceNames.Cli);
+            });
         }
 
         services.AddOpenTelemetry()
