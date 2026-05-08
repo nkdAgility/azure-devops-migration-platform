@@ -1,5 +1,5 @@
 ---
-name: improve-documentation-architecture
+name: nkda-improve-documentation-architecture
 description: Analyse repository documentation and propose restructuring, deepening, and broadening opportunities across docs, .agents/context, and .agents/guardrails. Use when the user wants documentation architecture, documentation audits, audience separation, agent token control, or documentation growth as features are added.
 ---
 

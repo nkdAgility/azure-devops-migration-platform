@@ -1,7 +1,7 @@
 # Documentation Rules
 
-Full placement model: [PLACEMENT-RULES.md](../skills/improve-documentation-architecture/PLACEMENT-RULES.md)
-Token budgets: [TOKEN-BUDGETS.md](../skills/improve-documentation-architecture/TOKEN-BUDGETS.md)
+Full placement model: [PLACEMENT-RULES.md](../skills/nkda-improve-documentation-architecture/PLACEMENT-RULES.md)
+Token budgets: [TOKEN-BUDGETS.md](../skills/nkda-improve-documentation-architecture/TOKEN-BUDGETS.md)
 
 ---
 

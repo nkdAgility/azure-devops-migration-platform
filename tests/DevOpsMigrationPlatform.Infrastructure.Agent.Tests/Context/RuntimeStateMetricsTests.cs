@@ -23,7 +23,7 @@ public sealed class RuntimeStateMetricsTests
         Assert.AreEqual(0d, ratio, 0.00001d);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(100, 4, 0.96d)]
     [DataRow(200, 5, 0.975d)]
     [DataRow(1000, 50, 0.95d)]
@@ -33,7 +33,7 @@ public sealed class RuntimeStateMetricsTests
         Assert.AreEqual(expected, ratio, 0.00001d);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(0, 100)]
     [DataRow(-1, 10)]
     public void ReplayCoverageRatio_WhenTotalIsNonPositive_ReturnsOne(int totalProcessed, int replayedAfterResume)

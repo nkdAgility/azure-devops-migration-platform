@@ -1,5 +1,5 @@
 ---
-name: observability-contract
+name: nkda-observability-contract
 description: Inspects, validates, and amends a feature specification to ensure complete, decision-driven observability coverage across metrics, traces, and logs. Fails if minimum standards cannot be met.
 ---
 

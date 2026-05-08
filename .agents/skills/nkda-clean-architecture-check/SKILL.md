@@ -1,5 +1,5 @@
 ---
-name: clean-architecture-check
+name: nkda-clean-architecture-check
 description: Scans the codebase for Clean Architecture violations — business rule leakage, inverted dependencies, and use-case pollution — and produces a prioritised fix list.
 ---
 

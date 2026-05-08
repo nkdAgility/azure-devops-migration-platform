@@ -3,15 +3,15 @@ settings:
   auto_execute_hooks: true
 hooks:
   after_specify:
-  - extension: red-team-review
-    command: red-team-review
+  - extension: nkda-red-team-review
+    command: nkda-red-team-review
     enabled: true
     optional: false
     description: Challenge the specification with adversarial thinking to surface
       blind spots, wrong assumptions, and missing failure modes
     condition: null
-  - extension: observability-contract
-    command: observability-contract --stage spec
+  - extension: nkda-observability-contract
+    command: nkda-observability-contract --stage spec
     enabled: true
     optional: false
     description: Inspect, validate, and amend the specification to ensure complete
@@ -32,8 +32,8 @@ hooks:
     description: Auto-commit after specification
     condition: null
   after_plan:
-  - extension: observability-contract
-    command: observability-contract --stage plan
+  - extension: nkda-observability-contract
+    command: nkda-observability-contract --stage plan
     enabled: true
     optional: false
     description: Validate and amend plan.md to ensure the Observability Contract section
@@ -41,8 +41,8 @@ hooks:
       metrics, O-3 logs, O-4 progress events, CLI visibility) across metrics, traces,
       and logs for every operation
     condition: null
-  - extension: plan-architecture-compliance
-    command: plan-architecture-compliance
+  - extension: nkda-plan-architecture-compliance
+    command: nkda-plan-architecture-compliance
     enabled: true
     optional: false
     description: Design-time compliance review — validates spec.md and plan.md against
@@ -57,8 +57,8 @@ hooks:
     description: Auto-commit after implementation planning
     condition: null
   after_tasks:
-  - extension: observability-contract
-    command: observability-contract --stage tasks
+  - extension: nkda-observability-contract
+    command: nkda-observability-contract --stage tasks
     enabled: true
     optional: false
     description: Validate and amend tasks.md to ensure every user story phase contains
@@ -90,30 +90,30 @@ hooks:
       /docs and /.agents/context — CLI commands, configuration keys, modules, connectors,
       architecture. Mark all doc-tasks in tasks.md as complete.
     condition: null
-  - extension: observability-contract
-    command: observability-contract --stage implement
+  - extension: nkda-observability-contract
+    command: nkda-observability-contract --stage implement
     enabled: true
     optional: false
     description: Scan every modified .cs file for O-1 spans, O-2 metrics, O-3 structured
       logging, and O-4 progress events — implement any missing instrumentation before
       proceeding
     condition: null
-  - extension: test-validity
-    command: test-validity
+  - extension: nkda-test-validity
+    command: nkda-test-validity
     enabled: true
     optional: false
     description: Score every test for intrinsic value and delete WASTE tests before
       promotion analysis
     condition: null
-  - extension: test-promotion
-    command: test-promotion
+  - extension: nkda-test-promotion
+    command: nkda-test-promotion
     enabled: true
     optional: false
     description: Analyse tests touched by implementation — promote to faster categories
       and retire redundant slower tests
     condition: null
-  - extension: definition-of-done
-    command: definition-of-done
+  - extension: nkda-definition-of-done
+    command: nkda-definition-of-done
     enabled: true
     optional: false
     description: Validate that the completed work meets every criterion in the Definition

@@ -1,5 +1,5 @@
 ---
-name: hexagonal-check
+name: nkda-hexagonal-check
 description: Scans the codebase for Hexagonal Architecture violations — infrastructure leakage into domain/module code — and produces a prioritised fix list.
 ---
 

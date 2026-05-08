@@ -1,5 +1,5 @@
 ---
-name: plan-architecture-compliance
+name: nkda-plan-architecture-compliance
 description: Design-time compliance review — validates spec.md and plan.md against all five architecture perspectives (Modular Monolith, Clean, Hexagonal, Vertical Slice, Screaming) plus constitution and guardrails before task generation begins. Analyses proposed design, not code.
 ---
 
@@ -8,9 +8,9 @@ description: Design-time compliance review — validates spec.md and plan.md aga
 Use this skill as an `after_plan` hook to validate that the **proposed changes** in `spec.md` and `plan.md` are architecturally compliant **before any code is written or tasks generated**. This is a design-time review — it analyses specification and plan artifacts, not source code.
 
 > **This skill does NOT scan `.cs` files or `.csproj` references.**
-> For post-implementation code scanning, use `architecture-review` (which invokes
-> `modular-monolith-check`, `clean-architecture-check`, `hexagonal-check`,
-> `vertical-slice-check`, `screaming-architecture-check`).
+> For post-implementation code scanning, use `nkda-architecture-review` (which invokes
+> `nkda-modular-monolith-check`, `nkda-clean-architecture-check`, `nkda-hexagonal-check`,
+> `nkda-vertical-slice-check`, `nkda-screaming-architecture-check`).
 
 ---
 
@@ -47,7 +47,7 @@ Additionally, the skill loads:
 
 ## The Five Perspectives
 
-Each perspective asks a different design-time question about the **proposed changes**. The rules below are derived from the corresponding code-scanning skills (`modular-monolith-check`, `clean-architecture-check`, `hexagonal-check`, `vertical-slice-check`, `screaming-architecture-check`) — adapted for plan-level analysis.
+Each perspective asks a different design-time question about the **proposed changes**. The rules below are derived from the corresponding code-scanning skills (`nkda-modular-monolith-check`, `nkda-clean-architecture-check`, `nkda-hexagonal-check`, `nkda-vertical-slice-check`, `nkda-screaming-architecture-check`) — adapted for plan-level analysis.
 
 | Perspective | Design-Time Question | Tag |
 |---|---|---|
@@ -76,7 +76,7 @@ Review `plan.md` for proposed module structure, project references, and DI regis
 - Cross-module state sharing through anything other than `IArtefactStore` or `IStateStore`
 - A new module without a self-contained registration entry point
 
-**Pass criteria (from `modular-monolith-check`):**
+**Pass criteria (from `nkda-modular-monolith-check`):**
 - Every new module depends only on `DevOpsMigrationPlatform.Abstractions`
 - Every new shared type is placed in `Abstractions`
 - Every new module exposes a single `Add<ModuleName>` extension method
@@ -93,7 +93,7 @@ Review `plan.md` for proposed dependency directions and layer assignments.
 - A domain port interface placed outside `Abstractions`
 - An orchestrator or job that directly constructs infrastructure types
 
-**Pass criteria (from `clean-architecture-check`):**
+**Pass criteria (from `nkda-clean-architecture-check`):**
 - All proposed dependencies point inward (Infrastructure → Use Cases → Domain)
 - All domain interfaces are placed in `Abstractions`
 - Business logic is in modules/orchestrators, not in CLI or infrastructure
@@ -112,7 +112,7 @@ Review `plan.md` for proposed port/adapter boundaries.
 - Environment branching (`if (env == "Production")`) in module/domain code
 - `Console.Write*` usage outside CLI/TUI boundary
 
-**Pass criteria (from `hexagonal-check`):**
+**Pass criteria (from `nkda-hexagonal-check`):**
 - All proposed module code depends only on abstractions
 - All proposed infrastructure interaction flows through injected interfaces
 - No proposed file I/O, SDK calls, or `Console` usage in module/domain layer
@@ -130,7 +130,7 @@ Review `spec.md` and `plan.md` for proposed slice boundaries and ownership.
 - A new slice that cannot evolve or be deleted independently
 - A slice without planned end-to-end `[TestCategory("SystemTest")]` coverage
 
-**Pass criteria (from `vertical-slice-check`):**
+**Pass criteria (from `nkda-vertical-slice-check`):**
 - Each proposed slice owns its full path from entry point to storage
 - Shared logic is elevated to `Abstractions` interfaces, not static helpers
 - Each slice has planned acceptance tests and feature files
@@ -147,7 +147,7 @@ Review `spec.md` and `plan.md` for proposed naming, project structure, and inten
 - Public method names using technical verbs (`Process`, `Execute`, `Handle`, `Perform`) where business verbs would be clearer
 - Folder structure organised by technical layer (`Services/`, `Models/`, `Helpers/`) instead of by concern
 
-**Pass criteria (from `screaming-architecture-check`):**
+**Pass criteria (from `nkda-screaming-architecture-check`):**
 - All proposed names communicate business purpose
 - All proposed projects are named after business operations or well-understood platform boundaries
 - Proposed feature files use domain language

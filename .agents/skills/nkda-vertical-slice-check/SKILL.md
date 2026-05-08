@@ -1,5 +1,5 @@
 ---
-name: vertical-slice-check
+name: nkda-vertical-slice-check
 description: Scans the codebase for Vertical Slice Architecture violations — cross-slice coupling, anemic slices missing end-to-end ownership, and feature leakage — and produces a prioritised fix list.
 ---
 

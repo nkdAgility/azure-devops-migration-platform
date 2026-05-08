@@ -1,5 +1,5 @@
 ---
-name: test-promotion
+name: nkda-test-promotion
 description: Analyses the test suite to identify tests that can be promoted to a faster category (Live→Simulated→Feature→Unit) and retires slower tests that are made redundant by faster equivalents. Runs standalone or as a post-implementation hook.
 ---
 

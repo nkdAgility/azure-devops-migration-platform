@@ -1,5 +1,5 @@
 ---
-name: red-team-review
+name: nkda-red-team-review
 description: Challenges a feature specification with adversarial thinking to surface blind spots, wrong assumptions, missing failure modes, and unstated risks before planning begins.
 ---
 
