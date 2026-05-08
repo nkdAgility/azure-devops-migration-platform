@@ -23,7 +23,7 @@ public sealed class ControlPlaneClientDiagnosticsTests
                 {"migration":{"workItems":{"completed":42,"revisionsProcessed":314}},"scope":{"workItemsTotal":100}}
                 """;
             var bootstrapJson = """
-                {"snapshot":null,"metrics":{"migration":{"workItems":{"completed":42}}},"lastEventSequence":7,"tasks":{"tasks":[],"pushedAt":"2026-05-08T13:27:04.2055597+00:00","forKind":0}}
+                {"snapshot":null,"metrics":{"migration":{"workItems":{"completed":42}}},"lastEventSequence":7,"tasks":{"tasks":[],"phases":[{"name":"Export","order":0,"taskIds":["export.workitems.org.project"]}],"pushedAt":"2026-05-08T13:27:04.2055597+00:00","forKind":0}}
                 """;
 
             using var httpClient = new HttpClient(new DelegatingHandlerStub(request =>
@@ -54,7 +54,14 @@ public sealed class ControlPlaneClientDiagnosticsTests
             var client = new ControlPlaneClient(httpClient, NullLogger<ControlPlaneClient>.Instance, diagnosticsRecorder: recorder);
 
             _ = await client.GetTelemetryAsync(Guid.NewGuid(), CancellationToken.None);
-            _ = await client.GetBootstrapAsync(Guid.NewGuid(), CancellationToken.None);
+            var bootstrap = await client.GetBootstrapAsync(Guid.NewGuid(), CancellationToken.None);
+
+            Assert.IsNotNull(bootstrap?.Tasks);
+            Assert.AreEqual(1, bootstrap!.Tasks!.Phases.Count);
+            Assert.AreEqual("Export", bootstrap.Tasks.Phases[0].Name);
+            CollectionAssert.AreEqual(
+                new[] { "export.workitems.org.project" },
+                (System.Collections.ICollection)bootstrap.Tasks.Phases[0].TaskIds.ToArray());
 
             var inboxPath = Path.Combine(tempRoot, "inbox");
             var files = Directory.GetFiles(inboxPath, "*.json").OrderBy(Path.GetFileName, StringComparer.Ordinal).ToArray();

@@ -321,6 +321,21 @@ public sealed class JobExecutionPlanBuilderTests
         var partialPlan = new JobTaskList
         {
             ForKind = JobKind.Export,
+            Phases = new[]
+            {
+                new JobPhaseSummary
+                {
+                    Name = "Export",
+                    Order = 0,
+                    TaskIds = new[]
+                    {
+                        "export.identities",
+                        "export.nodes",
+                        "export.teams",
+                        "export.workitems"
+                    }
+                }
+            }.ToList().AsReadOnly(),
             Tasks = new[]
             {
                 MakeTask("export.identities", JobTaskStatus.Completed),
@@ -348,6 +363,12 @@ public sealed class JobExecutionPlanBuilderTests
             "Already-Completed task must stay Completed");
         Assert.AreEqual(JobTaskStatus.Pending, result.Tasks.First(t => t.Id == "export.teams").Status,
             "Pending task must remain Pending on resume");
+        Assert.AreEqual(1, result.Phases.Count, "Resume should preserve phase summaries from the persisted plan.");
+        Assert.AreEqual("Export", result.Phases[0].Name);
+        CollectionAssert.AreEqual(
+            new[] { "export.identities", "export.nodes", "export.teams", "export.workitems" },
+            result.Phases[0].TaskIds.ToArray(),
+            "Resume should preserve phase membership when loading an existing plan.");
     }
 
     [TestMethod]
