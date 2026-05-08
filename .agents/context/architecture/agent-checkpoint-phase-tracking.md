@@ -1,5 +1,7 @@
 # agent_checkpoint_phase_tracking — Checkpoint and Phase Tracking System
 
+**Subsystem implementation map:** core classes, tests, and execution diagrams. For checkpointing behavior model, cursor schema, resume logic, and phase tracking semantics, see [.agents/context/checkpointing-summary.md](../checkpointing-summary.md).
+
 - Tag: `agent_checkpoint_phase_tracking`
 - Responsibility: Persist cursor and phase records (`job.phase.json`, module cursors) to enable deterministic resume and force-fresh semantics.
 

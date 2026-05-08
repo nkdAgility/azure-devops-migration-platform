@@ -1,5 +1,7 @@
 # Checkpointing
 
+**Canonical checkpointing model for agents:** cursor schema, resume logic, phase tracking, and idempotency. For code component details, tests, and sequence diagrams, see [.agents/context/architecture/agent-checkpoint-phase-tracking.md](architecture/agent-checkpoint-phase-tracking.md).
+
 ## Where to Read Next
 
 - Architecture subsystem index: [.agents/context/architecture/agent-checkpoint-phase-tracking.md](architecture/agent-checkpoint-phase-tracking.md)
