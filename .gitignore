@@ -62,3 +62,4 @@ Thumbs.db
 test_results.txt
 
 %DEVOPS_MIGRATION_TEST_STORAGE%/**
+.output/**
