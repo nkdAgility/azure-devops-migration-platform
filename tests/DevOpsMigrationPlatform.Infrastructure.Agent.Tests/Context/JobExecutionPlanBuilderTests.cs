@@ -79,6 +79,25 @@ public sealed class JobExecutionPlanBuilderTests
     }
 
     [TestMethod]
+    public async Task BuildPlanAsync_ExportKind_PopulatesOrderedPhaseSummaries()
+    {
+        var builder = CreateBuilder();
+        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+
+        var plan = await builder.BuildPlanAsync(
+            AllEnabledConfig(), JobKind.Export, store.Object, stateStore.Object, CancellationToken.None);
+
+        Assert.AreEqual(1, plan.Phases.Count, "Export plans should expose a single Export phase summary");
+        Assert.AreEqual("Export", plan.Phases[0].Name);
+        Assert.AreEqual(0, plan.Phases[0].Order);
+        CollectionAssert.AreEqual(
+            plan.Tasks.OrderBy(t => t.Order).Select(t => t.Id).ToArray(),
+            plan.Phases[0].TaskIds.ToArray(),
+            "Phase summary should reference export tasks in plan order");
+    }
+
+    [TestMethod]
     public async Task BuildPlanAsync_ImportKind_Returns4ImportTasks()
     {
         var builder = CreateBuilder();
@@ -135,6 +154,36 @@ public sealed class JobExecutionPlanBuilderTests
         {
             Assert.AreEqual(i, plan.Tasks[i].Order,
                 "Task order must remain contiguous and deterministic");
+        }
+    }
+
+    [TestMethod]
+    public async Task BuildPlanAsync_MigrateKind_PopulatesOrderedPhaseSummaries()
+    {
+        var builder = CreateBuilder();
+        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+
+        var plan = await builder.BuildPlanAsync(
+            AllEnabledConfig(), JobKind.Migrate, store.Object, stateStore.Object, CancellationToken.None);
+
+        CollectionAssert.AreEqual(
+            new[] { "Export", "Import" },
+            plan.Phases.OrderBy(p => p.Order).Select(p => p.Name).ToArray(),
+            "Migrate plans should expose phases in canonical order");
+
+        foreach (var phase in plan.Phases)
+        {
+            var expectedTaskIds = plan.Tasks
+                .Where(t => string.Equals(t.Phase, phase.Name, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(t => t.Order)
+                .Select(t => t.Id)
+                .ToArray();
+
+            CollectionAssert.AreEqual(
+                expectedTaskIds,
+                phase.TaskIds.ToArray(),
+                $"Phase summary '{phase.Name}' should reference only its own tasks in plan order");
         }
     }
 

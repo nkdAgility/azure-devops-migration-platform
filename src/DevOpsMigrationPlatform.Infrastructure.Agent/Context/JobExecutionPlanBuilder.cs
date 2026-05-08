@@ -128,11 +128,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             "Built execution plan with {TaskCount} tasks for job kind {Kind}.",
             tasks.Count, kind);
 
-        return Task.FromResult(new JobTaskList
-        {
-            Tasks = tasks.AsReadOnly(),
-            PushedAt = DateTimeOffset.UtcNow
-        });
+        return Task.FromResult(BuildTaskList(tasks, kind));
     }
 
     /// <inheritdoc />
@@ -765,11 +761,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             "Built capture plan with {TaskCount} tasks for job kind {Kind}.",
             tasks.Count, kind);
 
-        return new JobTaskList
-        {
-            Tasks = tasks.AsReadOnly(),
-            PushedAt = DateTimeOffset.UtcNow
-        };
+        return BuildTaskList(tasks, kind);
     }
 
     /// <summary>
@@ -943,12 +935,55 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 dependsOn: dependsOn.Count > 0 ? dependsOn.AsReadOnly() : null));
         }
 
+        return BuildTaskList(tasks, JobKind.Prepare);
+    }
+
+    private static JobTaskList BuildTaskList(List<JobTask> tasks, JobKind kind)
+    {
+        var orderedTasks = tasks.AsReadOnly();
         return new JobTaskList
         {
-            Tasks = tasks.AsReadOnly(),
-            PushedAt = DateTimeOffset.UtcNow
+            Tasks = orderedTasks,
+            Phases = BuildPhaseSummaries(orderedTasks),
+            PushedAt = DateTimeOffset.UtcNow,
+            ForKind = kind
         };
     }
+
+    private static IReadOnlyList<JobPhaseSummary> BuildPhaseSummaries(IReadOnlyList<JobTask> tasks)
+    {
+        var phases = tasks
+            .OrderBy(t => t.Order)
+            .GroupBy(t => ResolvePhaseName(t), StringComparer.OrdinalIgnoreCase)
+            .Select((group, index) => new JobPhaseSummary
+            {
+                Name = group.Key,
+                Order = index,
+                TaskIds = group.Select(t => t.Id).ToArray()
+            })
+            .ToArray();
+
+        return Array.AsReadOnly(phases);
+    }
+
+    private static string ResolvePhaseName(JobTask task)
+        => task.Phase switch
+        {
+            { Length: > 0 } phase => phase.Length == 1
+                ? char.ToUpperInvariant(phase[0]).ToString()
+                : char.ToUpperInvariant(phase[0]) + phase.Substring(1),
+            _ => task.TaskKind switch
+            {
+                TaskKind.Capture => "Inventory",
+                TaskKind.Analyse => "Analyse",
+                TaskKind.Export => "Export",
+                TaskKind.Prepare => "Prepare",
+                TaskKind.Import => "Import",
+                TaskKind.Validate => "Validate",
+                TaskKind.Dependencies => "Dependencies",
+                _ => "Tasks"
+            }
+        };
 
     private static JobTask MakeTask(
         string id,
