@@ -40,6 +40,7 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
     private readonly long _maxSegmentBytes;
     private long _droppedCount;
     private volatile IArtefactStore? _lastKnownStore;
+    private volatile string? _lastKnownLogFolder;
 
     // Rotation state — only accessed from the drain loop (single-threaded).
     private int _segmentIndex;
@@ -70,7 +71,9 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
     {
         get
         {
-            var logDir = _packageState.CurrentLogFolder;
+            var logDir = _packageState.CurrentStore is not null
+                ? _packageState.CurrentLogFolder
+                : _lastKnownLogFolder ?? _packageState.CurrentLogFolder;
             return _segmentIndex == 0
                 ? $"{logDir}/{LogBaseName}{LogExtension}"
                 : $"{logDir}/{LogBaseName}-{_segmentIndex:D3}{LogExtension}";
@@ -89,7 +92,10 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
         // can flush even if the job completes before the next poll interval.
         var store = _packageState.CurrentStore;
         if (store is not null)
+        {
             _lastKnownStore = store;
+            _lastKnownLogFolder = _packageState.CurrentLogFolder;
+        }
 
         _channel.Writer.TryWrite(record);
     }
@@ -126,6 +132,7 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
                     continue;
                 }
                 _lastKnownStore = currentStore;
+                _lastKnownLogFolder = _packageState.CurrentLogFolder;
 
                 batch.Clear();
 
