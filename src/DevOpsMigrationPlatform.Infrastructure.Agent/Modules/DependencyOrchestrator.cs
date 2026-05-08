@@ -11,6 +11,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
+using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
@@ -19,6 +21,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery.DependencyGraph;
 using Microsoft.Extensions.Logging;
 
@@ -31,7 +34,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// </summary>
 internal sealed class DependencyOrchestrator : IDependencyOrchestrator
 {
-    private static readonly string CursorKey = PackagePaths.CursorFile("DependencyDiscovery");
     private const string RootCsvPath = "dependencies.csv";
     private const string ModuleName = "Dependencies";
 
@@ -39,10 +41,15 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
 
     private readonly ILogger _logger;
     private readonly IPlatformMetrics? _metrics;
+    private readonly ICheckpointingServiceFactory _checkpointingFactory;
 
-    public DependencyOrchestrator(ILogger<DependencyOrchestrator> logger, IPlatformMetrics? metrics = null)
+    public DependencyOrchestrator(
+        ILogger<DependencyOrchestrator> logger,
+        ICheckpointingServiceFactory checkpointingFactory,
+        IPlatformMetrics? metrics = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _checkpointingFactory = checkpointingFactory ?? throw new ArgumentNullException(nameof(checkpointingFactory));
         _metrics = metrics;
     }
 
@@ -70,7 +77,6 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
 
         var job = context.Job;
         var store = context.ArtefactStore;
-        var state = context.StateStore;
         var sink = context.ProgressSink ?? NullProgressSink.Instance;
         IJobMetricsStore? metricsStore = null;
         IJobSnapshotStore? snapshotStore = null;
@@ -175,383 +181,14 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         int inProgressCrossProjectCount = 0;
         int inProgressCrossOrgCount = 0;
 
-        var cursorJson = await state.ReadAsync(CursorKey, ct).ConfigureAwait(false);
-
-        // Legacy fallback: capitalised filename in .migration/Checkpoints/ (pre-standardisation).
-        if (cursorJson is null)
-            cursorJson = await state.ReadAsync(PackagePaths.Checkpoints + "/Dependencies.cursor.json", ct).ConfigureAwait(false);
-
-        // Legacy fallback: pre-.migration path for old packages.
-        if (cursorJson is null)
-            cursorJson = await state.ReadAsync("Checkpoints/Dependencies.cursor.json", ct).ConfigureAwait(false);
-
-        if (cursorJson is not null)
-        {
-            _logger.LogInformation("Found existing dependencies cursor — attempting resume.");
-
-            // Parse completed project keys and per-project stats from cursor
-            try
-            {
-                using var doc = JsonDocument.Parse(cursorJson);
-                if (doc.RootElement.TryGetProperty("completedProjects", out var projArray))
-                {
-                    foreach (var item in projArray.EnumerateArray())
-                    {
-                        var key = item.GetString();
-                        if (key is not null)
-                            completedProjects.Add(key);
-                    }
-                }
-                if (doc.RootElement.TryGetProperty("recordCount", out var rc))
-                    recordCount = rc.GetInt32();
-
-                // Parse per-project stats if present (added for resume display)
-                if (doc.RootElement.TryGetProperty("projectStats", out var statsObj) &&
-                    statsObj.ValueKind == System.Text.Json.JsonValueKind.Object)
-                {
-                    foreach (var prop in statsObj.EnumerateObject())
-                    {
-                        var s = prop.Value;
-                        resumedProjectStats[prop.Name] = new PerProjectStats(
-                            WorkItemsAnalysed: s.TryGetProperty("workItemsAnalysed", out var wa) ? wa.GetInt32() : 0,
-                            ExternalLinksFound: s.TryGetProperty("externalLinksFound", out var elf) ? elf.GetInt32() : 0,
-                            CrossProjectCount: s.TryGetProperty("crossProjectCount", out var cpc) ? cpc.GetInt32() : 0,
-                            CrossOrgCount: s.TryGetProperty("crossOrgCount", out var coc) ? coc.GetInt32() : 0,
-                            TotalWorkItems: s.TryGetProperty("totalWorkItems", out var twi) ? twi.GetInt32() : 0
-                        );
-                    }
-                }
-
-                // Parse in-progress project state for batch-level resume
-                if (doc.RootElement.TryGetProperty("inProgressProject", out var ipObj) &&
-                    ipObj.ValueKind == System.Text.Json.JsonValueKind.Object)
-                {
-                    if (ipObj.TryGetProperty("key", out var ipKey))
-                        inProgressProjectKey = ipKey.GetString();
-
-                    if (inProgressProjectKey is not null && ipObj.TryGetProperty("continuationToken", out var ctObj))
-                    {
-                        try
-                        {
-                            inProgressToken = JsonSerializer.Deserialize<BatchContinuationToken>(ctObj.GetRawText());
-                        }
-                        catch (JsonException)
-                        {
-                            _logger.LogWarning("Failed to deserialize in-progress continuation token — project will restart from beginning.");
-                            inProgressToken = null;
-                        }
-                    }
-
-                    if (ipObj.TryGetProperty("processedWorkItems", out var ipWi))
-                        inProgressProcessedWorkItems = ipWi.GetInt32();
-                    if (ipObj.TryGetProperty("linksFound", out var ipLf))
-                        inProgressLinksFound = ipLf.GetInt32();
-                    if (ipObj.TryGetProperty("crossProjectCount", out var ipCp))
-                        inProgressCrossProjectCount = ipCp.GetInt32();
-                    if (ipObj.TryGetProperty("crossOrgCount", out var ipCo))
-                        inProgressCrossOrgCount = ipCo.GetInt32();
-
-                    if (inProgressProjectKey is not null)
-                        _logger.LogInformation(
-                            "Found in-progress project {ProjectKey} with {ProcessedItems} items already processed — will attempt batch-level resume.",
-                            inProgressProjectKey, inProgressProcessedWorkItems);
-                }
-            }
-            catch (JsonException ex)
-            {
-                _logger.LogWarning(ex, "Failed to parse dependencies cursor — starting fresh.");
-                completedProjects.Clear();
-                resumedProjectStats.Clear();
-                recordCount = 0;
-            }
-
-            // Reload existing CSV so we append rather than overwrite
-            if (completedProjects.Count > 0 || inProgressProjectKey is not null)
-            {
-                var existingCsv = await store.ReadAsync(RootCsvPath, ct).ConfigureAwait(false);
-                if (!string.IsNullOrEmpty(existingCsv))
-                {
-                    // If resuming an in-progress project, strip its partial CSV rows
-                    // to avoid duplicates when the project is re-processed from the
-                    // continuation token point.
-                    if (inProgressProjectKey is not null)
-                    {
-                        var sep = inProgressProjectKey.IndexOf('|');
-                        if (sep > 0)
-                        {
-                            var ipOrgUrl = inProgressProjectKey.Substring(0, sep);
-                            var ipProject = inProgressProjectKey.Substring(sep + 1);
-                            var strippedCsv = StripCsvRowsForProject(existingCsv!, ipOrgUrl, ipProject, out var strippedCount);
-                            existingCsvRows.Append(strippedCsv);
-                            recordCount -= strippedCount;
-                            if (recordCount < 0) recordCount = 0;
-                            _logger.LogInformation(
-                                "Stripped {StrippedCount} partial CSV rows for in-progress project {ProjectKey} before resume.",
-                                strippedCount, inProgressProjectKey);
-                        }
-                        else
-                        {
-                            existingCsvRows.Append(existingCsv);
-                        }
-                    }
-                    else
-                    {
-                        existingCsvRows.Append(existingCsv);
-                    }
-
-                    _logger.LogInformation(
-                        "Resuming dependency analysis — {CompletedCount} project(s) already completed, {RecordCount} records loaded.",
-                        completedProjects.Count, recordCount);
-                }
-
-                // Emit synthetic ProjectComplete events for previously-completed projects so
-                // the CLI live table immediately shows the correct counts on resume.
-                foreach (var projectKey in completedProjects)
-                {
-                    var separatorIndex = projectKey.IndexOf('|');
-                    if (separatorIndex < 0)
-                        continue;
-
-                    var orgUrl = projectKey.Substring(0, separatorIndex);
-                    var projName = projectKey.Substring(separatorIndex + 1);
-                    resumedProjectStats.TryGetValue(projectKey, out var stats);
-                    sink.Emit(new ProgressEvent
-                    {
-                        Module = ModuleName,
-                        Stage = "ProjectComplete",
-                        Message = $"{orgUrl}|{projName}",
-                        Timestamp = DateTimeOffset.UtcNow,
-                        Metrics = stats is not null ? new JobMetrics
-                        {
-                            Scope = new JobScopeCounters { WorkItemsTotal = stats.TotalWorkItems },
-                            Discovery = new DiscoveryCounters
-                            {
-                                Dependencies = new DependencyCounters
-                                {
-                                    WorkItemsAnalysed = stats.WorkItemsAnalysed,
-                                    ExternalLinksFound = stats.ExternalLinksFound,
-                                    CrossProjectLinks = stats.CrossProjectCount,
-                                    CrossOrgLinks = stats.CrossOrgCount
-                                }
-                            }
-                        } : null
-                    });
-                }
-            }
-        }
-        else
-        {
-            // ── Automatic reconciliation: rebuild cursor from existing CSV ────
-            // If the cursor file is missing but dependencies.csv exists, the
-            // checkpoint was lost (crash, manual deletion, corruption). Rather
-            // than re-analysing every project from scratch, parse the CSV to
-            // discover which projects were already completed.
-            var existingCsv = await store.ReadAsync(RootCsvPath, ct).ConfigureAwait(false);
-            if (!string.IsNullOrEmpty(existingCsv))
-            {
-                _logger.LogWarning(
-                    "No dependencies cursor found but dependencies.csv exists — reconciling checkpoint from CSV data.");
-
-                var lines = existingCsv!.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                // Map from normalized key → original-casing key for display purposes.
-                var reconciledDisplayKeys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                // Skip header row; extract SourceOrganisationUrl (col 3) and SourceProject (col 2)
-                for (int i = 1; i < lines.Length; i++)
-                {
-                    var cols = ParseCsvLine(lines[i]);
-                    if (cols.Count >= 4)
-                    {
-                        var sourceProject = cols[2];
-                        var sourceOrgUrl = cols[3];
-                        if (!string.IsNullOrWhiteSpace(sourceProject) && !string.IsNullOrWhiteSpace(sourceOrgUrl))
-                        {
-                            var normalized = NormalizeProjectKey(sourceOrgUrl, sourceProject);
-                            completedProjects.Add(normalized);
-                            if (!reconciledDisplayKeys.ContainsKey(normalized))
-                                reconciledDisplayKeys[normalized] = $"{sourceOrgUrl}|{sourceProject}";
-                        }
-                    }
-                    recordCount++;
-                }
-
-                if (completedProjects.Count > 0)
-                {
-                    existingCsvRows.Append(existingCsv);
-
-                    // Compute per-project stats from CSV so we can emit accurate synthetic events
-                    // and persist them in the cursor for future resume display.
-                    var reconciledStats = ComputePerProjectStatsFromCsv(existingCsv!, inventoryReport);
-
-                    // Persist the reconciled cursor so the next restart doesn't re-reconcile
-                    await WriteCursorAsync(state, recordCount, completedProjects, reconciledStats, ct: ct).ConfigureAwait(false);
-
-                    _logger.LogWarning(
-                        "Reconciled dependencies cursor from CSV — {CompletedCount} project(s), {RecordCount} records. " +
-                        "Projects already analysed will be skipped on this run.",
-                        completedProjects.Count, recordCount);
-
-                    sink.Emit(new ProgressEvent
-                    {
-                        Module = ModuleName,
-                        Stage = "Reconciled",
-                        Message = $"Checkpoint reconciled from existing CSV: {completedProjects.Count} projects, {recordCount} records.",
-                        Timestamp = DateTimeOffset.UtcNow
-                    });
-
-                    // Emit synthetic ProjectComplete events for reconciled projects so the
-                    // CLI live table immediately shows the correct counts.
-                    foreach (var projectKey in completedProjects)
-                    {
-                        var separatorIndex = projectKey.IndexOf('|');
-                        if (separatorIndex < 0)
-                            continue;
-
-                        var displayKey = reconciledDisplayKeys.TryGetValue(projectKey, out var dk) ? dk : projectKey;
-                        reconciledStats.TryGetValue(projectKey, out var stats);
-                        sink.Emit(new ProgressEvent
-                        {
-                            Module = ModuleName,
-                            Stage = "ProjectComplete",
-                            Message = displayKey,
-                            Timestamp = DateTimeOffset.UtcNow,
-                            Metrics = stats is not null ? new JobMetrics
-                            {
-                                Scope = new JobScopeCounters { WorkItemsTotal = stats.TotalWorkItems },
-                                Discovery = new DiscoveryCounters
-                                {
-                                    Dependencies = new DependencyCounters
-                                    {
-                                        WorkItemsAnalysed = stats.WorkItemsAnalysed,
-                                        ExternalLinksFound = stats.ExternalLinksFound,
-                                        CrossProjectLinks = stats.CrossProjectCount,
-                                        CrossOrgLinks = stats.CrossOrgCount
-                                    }
-                                }
-                            } : null
-                        });
-                    }
-                }
-            }
-        }
+        // Aggregate dependency analysis is a fan-in step, not an authoritative resume owner.
+        // The clean long-term model keeps checkpoint state at the per-project capture boundary.
 
         // Build the CSV — either from existing data or fresh header
         var csvBuilder = new StringBuilder();
-        if (existingCsvRows.Length > 0)
-        {
-            csvBuilder.Append(existingCsvRows);
-        }
-        else
-        {
-            csvBuilder.AppendLine(
-                "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
-                "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemChangedDate,SourceWorkItemStateCategory");
-        }
-
-        // ── Early completion: if all configured projects are already done, regenerate
-        // any missing per-org/per-project CSVs from root CSV and exit without re-running discovery.
-        if (completedProjects.Count > 0)
-        {
-            var allProjectKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            // Keep a mapping from normalized key → display-friendly key for event emission.
-            var displayKeys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var org in organisations)
-            {
-                foreach (var project in org.Projects)
-                {
-                    var resolvedUrl = org.Endpoint.GetResolvedUrl();
-                    var normalizedKey = NormalizeProjectKey(resolvedUrl, project);
-                    allProjectKeys.Add(normalizedKey);
-                    // Prefer the original casing for display.
-                    if (!displayKeys.ContainsKey(normalizedKey))
-                        displayKeys[normalizedKey] = $"{resolvedUrl}|{project}";
-                }
-            }
-
-            // Check if every configured project is already completed
-            if (allProjectKeys.Count > 0 && allProjectKeys.IsSubsetOf(completedProjects))
-            {
-                _logger.LogInformation(
-                    "All {ProjectCount} configured project(s) are already completed — regenerating output files from existing data.",
-                    allProjectKeys.Count);
-
-                await RegenerateOutputFilesFromRootCsvAsync(store, csvBuilder.ToString(), ct).ConfigureAwait(false);
-
-                // Generate grouped CSV, Mermaid diagrams, and per-project transitive graphs.
-                await GenerateAnalysisOutputsAsync(store, csvBuilder.ToString(), ct).ConfigureAwait(false);
-
-                // Emit per-project ProjectComplete events so the CLI/TUI can display stats.
-                var perProjectStats = ComputePerProjectStatsFromCsv(csvBuilder.ToString(), inventoryReport);
-
-                // Ensure every configured project gets an event, even if it had zero links.
-                foreach (var projectKey in allProjectKeys)
-                {
-                    var displayKey = displayKeys.TryGetValue(projectKey, out var dk) ? dk : projectKey;
-
-                    if (!perProjectStats.TryGetValue(projectKey, out var stats))
-                    {
-                        // Project had zero external links — still emit completion with inventory total if available.
-                        var totalWi = 0;
-                        if (inventoryReport?.Organisations != null)
-                        {
-                            var sep = projectKey.IndexOf('|');
-                            if (sep > 0)
-                            {
-                                var orgUrl = projectKey.Substring(0, sep);
-                                var projName = projectKey.Substring(sep + 1);
-                                var org = inventoryReport.Organisations
-                                    .FirstOrDefault(o => string.Equals(o.Url.TrimEnd('/'), orgUrl.TrimEnd('/'), StringComparison.OrdinalIgnoreCase));
-                                var proj = org?.Projects?.FirstOrDefault(p => string.Equals(p.Name, projName, StringComparison.OrdinalIgnoreCase));
-                                if (proj != null)
-                                    totalWi = (int)Math.Min(proj.WorkItems, int.MaxValue);
-                            }
-                        }
-                        stats = new PerProjectStats(totalWi, 0, 0, 0, totalWi);
-                    }
-
-                    sink.Emit(new ProgressEvent
-                    {
-                        Module = ModuleName,
-                        Stage = "ProjectComplete",
-                        Message = displayKey,
-                        Timestamp = DateTimeOffset.UtcNow,
-                        Metrics = new JobMetrics
-                        {
-                            Scope = new JobScopeCounters { WorkItemsTotal = stats.TotalWorkItems },
-                            Discovery = new DiscoveryCounters
-                            {
-                                Dependencies = new DependencyCounters
-                                {
-                                    WorkItemsAnalysed = stats.WorkItemsAnalysed,
-                                    ExternalLinksFound = stats.ExternalLinksFound,
-                                    CrossProjectLinks = stats.CrossProjectCount,
-                                    CrossOrgLinks = stats.CrossOrgCount
-                                }
-                            }
-                        }
-                    });
-                }
-
-                // Clean up the cursor — analysis is fully complete
-                await state.DeleteAsync(CursorKey, ct).ConfigureAwait(false);
-
-                // Push aggregate metrics for the reconciled-complete path
-                PushAggregateMetrics(metricsStore, perProjectStats, inventoryReport, organisations);
-                PushSnapshot(snapshotStore, perProjectStats, inventoryReport, organisations);
-
-                sink.Emit(new ProgressEvent
-                {
-                    Module = ModuleName,
-                    Stage = "Completed",
-                    Message = $"Dependency analysis already complete (reconciled). {recordCount} external links verified.",
-                    Timestamp = DateTimeOffset.UtcNow
-                });
-
-                _logger.LogInformation(
-                    "Dependencies module completed for job {JobId} (reconciled). {RecordCount} records verified.",
-                    job.JobId, recordCount);
-                return;
-            }
-        }
+        csvBuilder.AppendLine(
+            "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
+            "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemChangedDate,SourceWorkItemStateCategory");
 
         var checkpointInterval = TimeSpan.FromSeconds(checkpointIntervalSeconds);
         var lastCheckpoint = DateTime.UtcNow;
@@ -588,15 +225,11 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         int currentInProgressCrossProject = inProgressCrossProjectCount;
         int currentInProgressCrossOrg = inProgressCrossOrgCount;
 
-        // Checkpoint writer callback invoked by IWorkItemFetchService on each batch boundary.
-        // Updates the in-memory token and persists the cursor with in-progress state.
-        async Task OnBatchCheckpoint(BatchContinuationToken token, CancellationToken checkpointCt)
+        // The aggregate fan-in step does not own continuation state.
+        Task OnBatchCheckpoint(BatchContinuationToken token, CancellationToken checkpointCt)
         {
             currentInProgressToken = token;
-            await WriteCursorAsync(state, recordCount, allCompletedProjects, allProjectStats,
-                currentInProgressKey, currentInProgressToken, currentInProgressProcessed,
-                currentInProgressLinks, currentInProgressCrossProject, currentInProgressCrossOrg,
-                checkpointCt).ConfigureAwait(false);
+            return Task.CompletedTask;
         }
 
         // All data within the processing loop references org URLs, project names, and WI IDs — customer data.
@@ -851,13 +484,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
             if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
             {
                 await store.WriteAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
-                await WriteCursorAsync(state, recordCount, allCompletedProjects, allProjectStats,
-                    currentInProgressKey, currentInProgressToken, currentInProgressProcessed,
-                    currentInProgressLinks, currentInProgressCrossProject, currentInProgressCrossOrg, ct).ConfigureAwait(false);
                 lastCheckpoint = DateTime.UtcNow;
-                metrics?.RecordCheckpointSaved(new MetricsTagList { { "job.id", job.JobId }, { "module", ModuleName } });
-                _logger.LogDebug("Dependencies checkpoint saved at {RecordCount} records, {CompletedProjects} projects completed.",
-                    recordCount, allCompletedProjects.Count);
 
                 // Push aggregate metrics to Channel 2 snapshot store
                 PushAggregateMetrics(metricsStore, allProjectStats, inventoryReport, organisations);
@@ -943,8 +570,6 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
             }
         }
 
-        await state.DeleteAsync(CursorKey, ct).ConfigureAwait(false);
-
         // Final snapshot push
         PushAggregateMetrics(metricsStore, allProjectStats, inventoryReport, organisations);
         PushSnapshot(snapshotStore, allProjectStats, inventoryReport, organisations);
@@ -983,8 +608,12 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? string.Empty;
         var project = context.Project;
         var store = context.ArtefactStore;
+        var state = context.StateStore;
         var sink = context.ProgressSink ?? NullProgressSink.Instance;
         var job = context.Job;
+        var checkpointInterval = TimeSpan.FromSeconds(Math.Max(0, policies.CheckpointIntervalSeconds));
+        var checkpointing = _checkpointingFactory.Create(state);
+        var checkpointIdentity = StateCursorIdentity.Build("dependencies", "dependencies");
 
         var orgFolder = PackagePathResolver.ExtractOrgFolderName(orgUrl);
         var projectFolder = $"{orgFolder}/{PackagePathResolver.Sanitise(project)}";
@@ -1019,10 +648,59 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         int crossOrgCount = 0;
         int workItemsAnalysed = 0;
         int totalWorkItems = 0;
+        var savedCursor = await checkpointing.ReadCursorAsync(checkpointIdentity, ct).ConfigureAwait(false);
+        var continuationToken = await checkpointing.ReadContinuationTokenAsync(checkpointIdentity, ct).ConfigureAwait(false);
+        var resumedWorkItemsBaseline = savedCursor?.WorkItemsProcessed ?? 0;
+        totalWorkItems = savedCursor?.TotalWorkItems ?? 0;
+        var lastPersistedAt = DateTimeOffset.UtcNow;
+
+        var existingCsv = await store.ReadAsync(outputPath, ct).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(existingCsv))
+        {
+            LoadExistingProjectCsv(existingCsv!, csvBuilder, out linksFound, out crossProjectCount, out crossOrgCount);
+        }
+
+        async Task PersistProjectStateAsync(string stage, CancellationToken cancellationToken)
+        {
+            await store.WriteAsync(outputPath, csvBuilder.ToString(), cancellationToken).ConfigureAwait(false);
+
+            var cursor = new CursorEntry
+            {
+                LastProcessed = project,
+                Stage = stage,
+                UpdatedAt = DateTimeOffset.UtcNow,
+                WorkItemsProcessed = workItemsAnalysed,
+                TotalWorkItems = totalWorkItems,
+                LastWorkItemId = continuationToken?.WorkItemId ?? savedCursor?.LastWorkItemId ?? 0
+            };
+
+            await checkpointing.WriteCursorAsync(checkpointIdentity, cursor, cancellationToken).ConfigureAwait(false);
+
+            if (continuationToken is not null)
+            {
+                await checkpointing.WriteContinuationTokenAsync(checkpointIdentity, continuationToken, cancellationToken).ConfigureAwait(false);
+            }
+
+            lastPersistedAt = DateTimeOffset.UtcNow;
+        }
+
+        async Task PersistContinuationAsync(BatchContinuationToken token, CancellationToken cancellationToken)
+        {
+            continuationToken = token;
+
+            if (checkpointInterval == TimeSpan.Zero || DateTimeOffset.UtcNow - lastPersistedAt >= checkpointInterval)
+            {
+                await PersistProjectStateAsync(CursorStage.CreatedOrUpdated, cancellationToken).ConfigureAwait(false);
+            }
+        }
 
         using var _dataScope = DataClassificationScope.Begin(DataClassification.Customer);
 
-        await foreach (var evt in dependencyService.DiscoverDependenciesAsync(cancellationToken: ct).ConfigureAwait(false))
+        await foreach (var evt in dependencyService.DiscoverDependenciesAsync(
+            inProgressProjectKey: continuationToken is not null ? NormalizeProjectKey(orgUrl, project) : null,
+            inProgressToken: continuationToken,
+            continuationCheckpointWriter: PersistContinuationAsync,
+            cancellationToken: ct).ConfigureAwait(false))
         {
             switch (evt)
             {
@@ -1052,7 +730,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
                     break;
 
                 case DependencyHeartbeatEvent heartbeat:
-                    workItemsAnalysed = heartbeat.WorkItemsAnalysed;
+                    workItemsAnalysed = resumedWorkItemsBaseline + heartbeat.WorkItemsAnalysed;
                     totalWorkItems = heartbeat.TotalWorkItems;
 
                     sink.Emit(new ProgressEvent
@@ -1082,11 +760,27 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
                             }
                         }
                     });
+
+                    if (!heartbeat.IsComplete &&
+                        (checkpointInterval == TimeSpan.Zero || DateTimeOffset.UtcNow - lastPersistedAt >= checkpointInterval))
+                    {
+                        await PersistProjectStateAsync(CursorStage.CreatedOrUpdated, ct).ConfigureAwait(false);
+                    }
                     break;
             }
         }
 
         await store.WriteAsync(outputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+        await checkpointing.DeleteContinuationTokenAsync(checkpointIdentity, ct).ConfigureAwait(false);
+        await checkpointing.WriteCursorAsync(checkpointIdentity, new CursorEntry
+        {
+            LastProcessed = project,
+            Stage = CursorStage.Completed,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            WorkItemsProcessed = workItemsAnalysed,
+            TotalWorkItems = totalWorkItems,
+            LastWorkItemId = continuationToken?.WorkItemId ?? savedCursor?.LastWorkItemId ?? 0
+        }, ct).ConfigureAwait(false);
 
         if (linksFound == 0)
         {
@@ -1130,49 +824,38 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         };
     }
 
-    private static Task WriteCursorAsync(
-        IStateStore state,
-        int recordCount,
-        HashSet<string> completedProjects,
-        Dictionary<string, PerProjectStats> projectStats,
-        string? inProgressKey = null,
-        BatchContinuationToken? inProgressToken = null,
-        int inProgressProcessedWorkItems = 0,
-        int inProgressLinksFound = 0,
-        int inProgressCrossProjectCount = 0,
-        int inProgressCrossOrgCount = 0,
-        CancellationToken ct = default)
+    private static void LoadExistingProjectCsv(
+        string existingCsv,
+        StringBuilder csvBuilder,
+        out int linksFound,
+        out int crossProjectCount,
+        out int crossOrgCount)
     {
-        object? inProgressObj = inProgressKey is not null
-            ? new
-            {
-                key = inProgressKey,
-                continuationToken = inProgressToken,
-                processedWorkItems = inProgressProcessedWorkItems,
-                linksFound = inProgressLinksFound,
-                crossProjectCount = inProgressCrossProjectCount,
-                crossOrgCount = inProgressCrossOrgCount
-            }
-            : null;
+        linksFound = 0;
+        crossProjectCount = 0;
+        crossOrgCount = 0;
 
-        var json = JsonSerializer.Serialize(new
+        csvBuilder.Clear();
+
+        var lines = existingCsv.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
         {
-            recordCount,
-            completedProjects = completedProjects.ToArray(),
-            projectStats = projectStats.ToDictionary(
-                kvp => kvp.Key,
-                kvp => new
-                {
-                    workItemsAnalysed = kvp.Value.WorkItemsAnalysed,
-                    externalLinksFound = kvp.Value.ExternalLinksFound,
-                    crossProjectCount = kvp.Value.CrossProjectCount,
-                    crossOrgCount = kvp.Value.CrossOrgCount,
-                    totalWorkItems = kvp.Value.TotalWorkItems
-                }),
-            inProgressProject = inProgressObj,
-            savedAt = DateTime.UtcNow
-        });
-        return state.WriteAsync(CursorKey, json, ct);
+            csvBuilder.AppendLine(line);
+
+            var columns = ParseCsvLine(line);
+            if (columns.Count < 6 || string.Equals(columns[0], "SourceWorkItemId", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            linksFound++;
+
+            if (Enum.TryParse<LinkScope>(columns[5], true, out var linkScope))
+            {
+                if (linkScope == LinkScope.CrossProject)
+                    crossProjectCount++;
+                else if (linkScope == LinkScope.CrossOrganisation)
+                    crossOrgCount++;
+            }
+        }
     }
 
     /// <summary>

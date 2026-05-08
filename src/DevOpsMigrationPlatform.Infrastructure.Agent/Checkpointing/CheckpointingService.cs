@@ -45,12 +45,6 @@ public class CheckpointingService : ICheckpointingService
         _logger?.LogDebug("Reading cursor from {CursorKey}.", key);
         var json = await _stateStore.ReadAsync(key, cancellationToken).ConfigureAwait(false);
 
-        if (json is null && StateCursorIdentity.TryParse(moduleName, out _, out var legacyModule))
-        {
-            json = await _stateStore.ReadAsync(PackagePaths.CursorFile(moduleName), cancellationToken).ConfigureAwait(false);
-            json ??= await _stateStore.ReadAsync(PackagePaths.CursorFile(legacyModule), cancellationToken).ConfigureAwait(false);
-        }
-
         if (json is null)
             return null;
         return JsonSerializer.Deserialize<CursorEntry>(json);
@@ -73,12 +67,6 @@ public class CheckpointingService : ICheckpointingService
         var key = ResolveCursorKey(moduleName);
         _logger?.LogDebug("Deleting cursor at {CursorKey}.", key);
         await _stateStore.DeleteAsync(key, cancellationToken).ConfigureAwait(false);
-
-        if (StateCursorIdentity.TryParse(moduleName, out _, out var legacyModule))
-        {
-            await _stateStore.DeleteAsync(PackagePaths.CursorFile(moduleName), cancellationToken).ConfigureAwait(false);
-            await _stateStore.DeleteAsync(PackagePaths.CursorFile(legacyModule), cancellationToken).ConfigureAwait(false);
-        }
     }
 
     // ── Continuation Token (Resumable Batching) ─────────────────────────
@@ -87,12 +75,6 @@ public class CheckpointingService : ICheckpointingService
     {
         var key = ResolveContinuationKey(moduleName);
         var json = await _stateStore.ReadAsync(key, cancellationToken).ConfigureAwait(false);
-
-        if (json is null && StateCursorIdentity.TryParse(moduleName, out _, out var legacyModule))
-        {
-            json = await _stateStore.ReadAsync(PackagePaths.ContinuationFile(moduleName), cancellationToken).ConfigureAwait(false);
-            json ??= await _stateStore.ReadAsync(PackagePaths.ContinuationFile(legacyModule), cancellationToken).ConfigureAwait(false);
-        }
         if (json is null)
             return null;
         return JsonSerializer.Deserialize<BatchContinuationToken>(json);
@@ -109,12 +91,6 @@ public class CheckpointingService : ICheckpointingService
     {
         var key = ResolveContinuationKey(moduleName);
         await _stateStore.DeleteAsync(key, cancellationToken).ConfigureAwait(false);
-
-        if (StateCursorIdentity.TryParse(moduleName, out _, out var legacyModule))
-        {
-            await _stateStore.DeleteAsync(PackagePaths.ContinuationFile(moduleName), cancellationToken).ConfigureAwait(false);
-            await _stateStore.DeleteAsync(PackagePaths.ContinuationFile(legacyModule), cancellationToken).ConfigureAwait(false);
-        }
     }
 
     private string ResolveCursorKey(string moduleName)
