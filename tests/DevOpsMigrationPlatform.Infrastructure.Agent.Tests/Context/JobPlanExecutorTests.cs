@@ -58,6 +58,8 @@ public sealed class JobPlanExecutorTests
                     {
                         completeTimes.Add(DateTimeOffset.UtcNow);
                     }
+
+                    return TaskExecutionResult.Completed();
                 });
             modules[name] = module.Object;
         }
@@ -112,7 +114,7 @@ public sealed class JobPlanExecutorTests
                     executionOrder.Add("Capture");
                 }
 
-                return Task.CompletedTask;
+                return Task.FromResult(TaskExecutionResult.Completed());
             });
         workItemsModule.Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
             .Returns(() =>
@@ -122,7 +124,7 @@ public sealed class JobPlanExecutorTests
                     executionOrder.Add("Export");
                 }
 
-                return Task.CompletedTask;
+                return Task.FromResult(TaskExecutionResult.Completed());
             });
 
         var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
@@ -140,7 +142,7 @@ public sealed class JobPlanExecutorTests
                     executionOrder.Add("Analyse");
                 }
 
-                return Task.CompletedTask;
+                return Task.FromResult(TaskExecutionResult.Completed());
             });
 
         var analysers = new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase)
@@ -198,7 +200,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestMethod]
-    public async Task ExecuteExportPhaseAsync_WhenInventoryMarkerExists_SkipsPrerequisitesAndRunsExport()
+    public async Task ExecuteExportPhaseAsync_WhenInventoryMarkerExists_DoesNotSkipPrerequisitesInExecutor()
     {
         var executionOrder = new List<string>();
         var lockObj = new object();
@@ -213,7 +215,7 @@ public sealed class JobPlanExecutorTests
                     executionOrder.Add("Capture");
                 }
 
-                return Task.CompletedTask;
+                return Task.FromResult(TaskExecutionResult.Completed());
             });
         workItemsModule.Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
             .Returns(() =>
@@ -223,7 +225,7 @@ public sealed class JobPlanExecutorTests
                     executionOrder.Add("Export");
                 }
 
-                return Task.CompletedTask;
+                return Task.FromResult(TaskExecutionResult.Completed());
             });
 
         var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
@@ -241,7 +243,7 @@ public sealed class JobPlanExecutorTests
                     executionOrder.Add("Analyse");
                 }
 
-                return Task.CompletedTask;
+                return Task.FromResult(TaskExecutionResult.Completed());
             });
 
         var analysers = new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase)
@@ -318,16 +320,63 @@ public sealed class JobPlanExecutorTests
             CancellationToken.None);
 
         Assert.IsTrue(result);
-        CollectionAssert.AreEqual(new[] { "Export" }, executionOrder);
+        CollectionAssert.AreEqual(new[] { "Capture", "Analyse", "Export" }, executionOrder);
 
         var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None);
         Assert.IsNotNull(persistedPlan);
-        var skippedCapture = persistedPlan.Tasks.First(t => t.Id == "capture.workitems.testorg.testproject");
-        Assert.AreEqual(JobTaskStatus.Skipped, skippedCapture.Status);
-        Assert.AreEqual(5L, skippedCapture.KnownTotal);
-        Assert.AreEqual(5L, skippedCapture.CompletedCount);
-        Assert.AreEqual(JobTaskStatus.Skipped, persistedPlan.Tasks.First(t => t.Id == "analyse.inventory.testorg.testproject").Status);
+        var executedCapture = persistedPlan.Tasks.First(t => t.Id == "capture.workitems.testorg.testproject");
+        Assert.AreEqual(JobTaskStatus.Completed, executedCapture.Status);
+        Assert.AreEqual(JobTaskStatus.Completed, persistedPlan.Tasks.First(t => t.Id == "analyse.inventory.testorg.testproject").Status);
         Assert.AreEqual(JobTaskStatus.Completed, persistedPlan.Tasks.First(t => t.Id == "export.workitems.testorg.testproject").Status);
+    }
+
+    [TestMethod]
+    public async Task ExecuteTasksAsync_WhenCaptureHandlerReportsSkipped_PersistsReportedStatusWithoutSynthesizingCompletion()
+    {
+        var captureHandler = new Mock<ICapture>(MockBehavior.Strict);
+        captureHandler.SetupGet(c => c.Name).Returns("workitems");
+        captureHandler
+            .Setup(c => c.CaptureAsync(It.IsAny<InventoryContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TaskExecutionResult(
+                JobTaskStatus.Skipped,
+                "Inventory already completed for this package.",
+                KnownTotal: 5,
+                CompletedCount: 5));
+
+        var handlers = new Dictionary<string, ICapture>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["workitems"] = captureHandler.Object
+        };
+
+        var plan = CreatePlan(new[]
+        {
+            CreateTask("capture.workitems.testorg.testproject", "WorkItems Capture", "Capture")
+        });
+
+        var stateStore = new InMemoryStateStore();
+        var executor = CreateExecutor();
+
+        var result = await executor.ExecuteTasksAsync(
+            plan,
+            handlers,
+            new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
+            CreateMinimalInventoryContext(stateStore),
+            null,
+            null,
+            new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase),
+            stateStore,
+            CancellationToken.None);
+
+        Assert.IsTrue(result, "A handler-reported skipped/already-done state should be treated as successful execution.");
+
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None);
+        Assert.IsNotNull(persistedPlan);
+
+        var captureTask = persistedPlan.Tasks.Single(t => t.Id == "capture.workitems.testorg.testproject");
+        Assert.AreEqual(JobTaskStatus.Skipped, captureTask.Status);
+        Assert.AreEqual("Inventory already completed for this package.", captureTask.SkipReason);
+        Assert.AreEqual(5L, captureTask.KnownTotal);
+        Assert.AreEqual(5L, captureTask.CompletedCount);
     }
 
     [TestMethod]
@@ -339,7 +388,7 @@ public sealed class JobPlanExecutorTests
         workItemsModule.SetupGet(m => m.Name).Returns("WorkItems");
         workItemsModule
             .Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
 
         var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
         {
@@ -433,6 +482,8 @@ public sealed class JobPlanExecutorTests
                 {
                     executionOrder.Add("Identities");
                 }
+
+                return TaskExecutionResult.Completed();
             });
 
         var workItemsModule = new Mock<IModule>(MockBehavior.Loose);
@@ -444,7 +495,7 @@ public sealed class JobPlanExecutorTests
                 {
                     executionOrder.Add("WorkItems");
                 }
-                return Task.CompletedTask;
+                return Task.FromResult(TaskExecutionResult.Completed());
             });
 
         var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
@@ -485,7 +536,7 @@ public sealed class JobPlanExecutorTests
         var workItemsModule = new Mock<IModule>(MockBehavior.Loose);
         workItemsModule.SetupGet(m => m.Name).Returns("WorkItems");
         workItemsModule.Setup(m => m.ImportAsync(It.IsAny<ImportContext>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
 
         var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
         {
@@ -532,7 +583,7 @@ public sealed class JobPlanExecutorTests
         workItemsModule.SetupGet(m => m.Name).Returns("WorkItems");
         workItemsModule.Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
             .Callback<ExportContext, CancellationToken>((context, _) => observedContext = context)
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
 
         var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
         {
@@ -581,7 +632,7 @@ public sealed class JobPlanExecutorTests
         var nodesModule = new Mock<IModule>(MockBehavior.Loose);
         nodesModule.SetupGet(m => m.Name).Returns("Nodes");
         nodesModule.Setup(m => m.ImportAsync(It.IsAny<ImportContext>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
 
         var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
         {
@@ -619,7 +670,7 @@ public sealed class JobPlanExecutorTests
         var identitiesModule = new Mock<IModule>(MockBehavior.Loose);
         identitiesModule.SetupGet(m => m.Name).Returns("Identities");
         identitiesModule.Setup(m => m.ImportAsync(It.IsAny<ImportContext>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
 
         var nodesModule = new Mock<IModule>(MockBehavior.Loose);
         nodesModule.SetupGet(m => m.Name).Returns("Nodes");
@@ -629,7 +680,7 @@ public sealed class JobPlanExecutorTests
         var teamsModule = new Mock<IModule>(MockBehavior.Loose);
         teamsModule.SetupGet(m => m.Name).Returns("Teams");
         teamsModule.Setup(m => m.ImportAsync(It.IsAny<ImportContext>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
 
         var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
         {
@@ -803,7 +854,7 @@ public sealed class JobPlanExecutorTests
         workItemsModule.SetupGet(m => m.Name).Returns("WorkItems");
         workItemsModule.Setup(m => m.ImportAsync(It.IsAny<ImportContext>(), It.IsAny<CancellationToken>()))
             .Callback(() => invoked = true)
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
 
         var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
         {
@@ -836,7 +887,7 @@ public sealed class JobPlanExecutorTests
         captureHandler.SetupGet(c => c.Name).Returns("workitems");
         captureHandler.Setup(c => c.CaptureAsync(It.IsAny<InventoryContext>(), It.IsAny<CancellationToken>()))
             .Callback(() => invoked = true)
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
 
         var handlers = new Dictionary<string, ICapture>(StringComparer.OrdinalIgnoreCase)
         {
@@ -882,7 +933,7 @@ public sealed class JobPlanExecutorTests
         captureHandler.SetupGet(c => c.Name).Returns("workitems");
         captureHandler.Setup(c => c.CaptureAsync(It.IsAny<InventoryContext>(), It.IsAny<CancellationToken>()))
             .Callback(() => invoked = true)
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
 
         var handlers = new Dictionary<string, ICapture>(StringComparer.OrdinalIgnoreCase)
         {
@@ -928,7 +979,7 @@ public sealed class JobPlanExecutorTests
         workItemsModule.SetupGet(m => m.Name).Returns("WorkItems");
         workItemsModule.Setup(m => m.ImportAsync(It.IsAny<ImportContext>(), It.IsAny<CancellationToken>()))
             .Callback(() => invoked = true)
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
 
         var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
         {
@@ -985,7 +1036,7 @@ public sealed class JobPlanExecutorTests
             .Returns(() =>
             {
                 lock (lockObj) { exportCalled.Add("WorkItems"); }
-                return Task.CompletedTask;
+                return Task.FromResult(TaskExecutionResult.Completed());
             });
         modules["WorkItems"] = workItemsModule.Object;
 
@@ -1032,7 +1083,7 @@ public sealed class JobPlanExecutorTests
         captureHandler.SetupGet(c => c.Name).Returns("workitems");
         captureHandler.Setup(c => c.CaptureAsync(It.IsAny<InventoryContext>(), It.IsAny<CancellationToken>()))
             .Callback(() => invoked = true)
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
 
         var handlers = new Dictionary<string, ICapture>(StringComparer.OrdinalIgnoreCase)
         {
@@ -1069,7 +1120,7 @@ public sealed class JobPlanExecutorTests
         captureHandler.SetupGet(c => c.Name).Returns("dependencies");
         captureHandler.Setup(c => c.CaptureAsync(It.IsAny<InventoryContext>(), It.IsAny<CancellationToken>()))
             .Callback(() => invoked = true)
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
 
         var handlers = new Dictionary<string, ICapture>(StringComparer.OrdinalIgnoreCase)
         {
@@ -1120,7 +1171,7 @@ public sealed class JobPlanExecutorTests
                 Assert.AreEqual(AuthenticationType.Pat, activeSourceEndpoint.ToOrganisationEndpoint().Authentication.Type);
                 Assert.AreEqual("secret-token", activeSourceEndpoint.ToOrganisationEndpoint().Authentication.ResolvedAccessToken);
             })
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
 
         var handlers = new Dictionary<string, ICapture>(StringComparer.OrdinalIgnoreCase)
         {
@@ -1221,7 +1272,7 @@ public sealed class JobPlanExecutorTests
         captureHandler.SetupGet(c => c.Name).Returns("dependencies");
         captureHandler.Setup(c => c.CaptureAsync(It.IsAny<InventoryContext>(), It.IsAny<CancellationToken>()))
             .Callback(() => invoked = true)
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
 
         var handlers = new Dictionary<string, ICapture>(StringComparer.OrdinalIgnoreCase)
         {

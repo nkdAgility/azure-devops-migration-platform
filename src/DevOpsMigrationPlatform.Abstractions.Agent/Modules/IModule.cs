@@ -65,14 +65,14 @@ public interface IModule : ICapture
     bool SupportsValidate { get; }
 
     /// <summary>Export data from the source system into the package via IArtefactStore.</summary>
-    Task ExportAsync(ExportContext context, CancellationToken ct);
+    Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct);
 
     /// <summary>Prepare package data against target preconditions and write prepare-report.json artefacts.</summary>
-    Task PrepareAsync(PrepareContext context, CancellationToken ct);
+    Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct);
 
     /// <summary>Import data from the package into the target system via IArtefactStore.</summary>
-    Task ImportAsync(ImportContext context, CancellationToken ct);
+    Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct);
 
     /// <summary>Validate the package or target without side effects.</summary>
-    Task ValidateAsync(ValidationContext context, CancellationToken ct);
+    Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct);
 }

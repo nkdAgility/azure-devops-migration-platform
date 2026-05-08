@@ -28,21 +28,24 @@ public abstract class ModuleBase(ILogger logger) : IModule
     public virtual bool SupportsImport => false;
     public virtual bool SupportsValidate => false;
 
-    public virtual Task CaptureAsync(InventoryContext context, CancellationToken ct)
+    public virtual Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
     {
         _logger.LogWarning("Capture phase is not supported by module {Module}.", Name);
-        return Task.CompletedTask;
+        return Task.FromResult(TaskExecutionResult.Skipped($"Capture phase is not supported by module {Name}."));
     }
 
-    public virtual Task ExportAsync(ExportContext context, CancellationToken ct) => Task.CompletedTask;
+    public virtual Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct)
+        => Task.FromResult(TaskExecutionResult.Completed());
 
-    public virtual Task PrepareAsync(PrepareContext context, CancellationToken ct)
+    public virtual Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct)
     {
         _logger.LogWarning("Prepare phase is not supported by module {Module}.", Name);
-        return Task.CompletedTask;
+        return Task.FromResult(TaskExecutionResult.Skipped($"Prepare phase is not supported by module {Name}."));
     }
 
-    public virtual Task ImportAsync(ImportContext context, CancellationToken ct) => Task.CompletedTask;
+    public virtual Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct)
+        => Task.FromResult(TaskExecutionResult.Completed());
 
-    public virtual Task ValidateAsync(ValidationContext context, CancellationToken ct) => Task.CompletedTask;
+    public virtual Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct)
+        => Task.FromResult(TaskExecutionResult.Completed());
 }

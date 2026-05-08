@@ -47,28 +47,28 @@ public sealed class TestModule : IModule
     public bool ExportCalled { get; set; }
     public bool ImportCalled { get; set; }
 
-    public Task ExportAsync(ExportContext context, CancellationToken ct)
+    public Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct)
     {
         ExportCalled = true;
         if (ShouldThrow)
             throw new InvalidOperationException($"{Name} export failed (simulated)");
-        return Task.CompletedTask;
+        return Task.FromResult(TaskExecutionResult.Completed());
     }
 
-    public Task ImportAsync(ImportContext context, CancellationToken ct)
+    public Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct)
     {
         ImportCalled = true;
         if (ShouldThrow)
             throw new InvalidOperationException($"{Name} import failed (simulated)");
-        return Task.CompletedTask;
+        return Task.FromResult(TaskExecutionResult.Completed());
     }
 
-    public Task CaptureAsync(InventoryContext context, CancellationToken ct) => Task.CompletedTask;
-    public Task PrepareAsync(PrepareContext context, CancellationToken ct) => Task.CompletedTask;
+    public Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+    public Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
 
-    public Task ValidateAsync(ValidationContext context, CancellationToken ct)
+    public Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct)
     {
-        return Task.CompletedTask;
+        return Task.FromResult(TaskExecutionResult.Completed());
     }
 }
 
@@ -82,11 +82,11 @@ public sealed class TestIdentitiesModule : IModule
     public bool SupportsPrepare => false;
     public bool SupportsImport => true;
     public bool SupportsValidate => false;
-    public Task CaptureAsync(InventoryContext context, CancellationToken ct) => Task.CompletedTask;
-    public Task ExportAsync(ExportContext context, CancellationToken ct) => Task.CompletedTask;
-    public Task PrepareAsync(PrepareContext context, CancellationToken ct) => Task.CompletedTask;
-    public Task ImportAsync(ImportContext context, CancellationToken ct) => Task.CompletedTask;
-    public Task ValidateAsync(ValidationContext context, CancellationToken ct) => Task.CompletedTask;
+    public Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+    public Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+    public Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+    public Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+    public Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
 }
 
 public sealed class TestNodesModule : IModule
@@ -98,11 +98,11 @@ public sealed class TestNodesModule : IModule
     public bool SupportsPrepare => false;
     public bool SupportsImport => true;
     public bool SupportsValidate => false;
-    public Task CaptureAsync(InventoryContext context, CancellationToken ct) => Task.CompletedTask;
-    public Task ExportAsync(ExportContext context, CancellationToken ct) => Task.CompletedTask;
-    public Task PrepareAsync(PrepareContext context, CancellationToken ct) => Task.CompletedTask;
-    public Task ImportAsync(ImportContext context, CancellationToken ct) => Task.CompletedTask;
-    public Task ValidateAsync(ValidationContext context, CancellationToken ct) => Task.CompletedTask;
+    public Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+    public Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+    public Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+    public Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+    public Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
 }
 
 public sealed class TestWorkItemsModule : IModule
@@ -114,11 +114,11 @@ public sealed class TestWorkItemsModule : IModule
     public bool SupportsPrepare => false;
     public bool SupportsImport => true;
     public bool SupportsValidate => false;
-    public Task CaptureAsync(InventoryContext context, CancellationToken ct) => Task.CompletedTask;
-    public Task ExportAsync(ExportContext context, CancellationToken ct) => Task.CompletedTask;
-    public Task PrepareAsync(PrepareContext context, CancellationToken ct) => Task.CompletedTask;
-    public Task ImportAsync(ImportContext context, CancellationToken ct) => Task.CompletedTask;
-    public Task ValidateAsync(ValidationContext context, CancellationToken ct) => Task.CompletedTask;
+    public Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+    public Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+    public Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+    public Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+    public Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
 }
 
 /// <summary>

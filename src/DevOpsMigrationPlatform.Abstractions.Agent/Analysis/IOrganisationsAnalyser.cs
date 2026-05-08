@@ -3,11 +3,12 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 
 public interface IOrganisationsAnalyser : IAnalyser
 {
-    Task AnalyseAsync(OrganisationsAnalyseContext context, CancellationToken ct);
+    Task<TaskExecutionResult> AnalyseAsync(OrganisationsAnalyseContext context, CancellationToken ct);
 }
 

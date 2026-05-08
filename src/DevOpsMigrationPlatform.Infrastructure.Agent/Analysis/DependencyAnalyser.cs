@@ -49,7 +49,7 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
         new ModuleDependency(typeof(InventoryAnalyser), DependencyPhase.Analyse)
     });
 
-    public Task AnalyseAsync(AnalyseContext context, CancellationToken ct)
+    public Task<TaskExecutionResult> AnalyseAsync(AnalyseContext context, CancellationToken ct)
     {
         // If the caller already created an OrganisationsAnalyseContext (e.g. JobAgentWorker),
         // preserve the organisations it populated rather than discarding them.
@@ -67,7 +67,7 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
         }, ct);
     }
 
-    public async Task AnalyseAsync(OrganisationsAnalyseContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> AnalyseAsync(OrganisationsAnalyseContext context, CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
         using var activity = ActivitySource.StartActivity("analyse.dependencies");
@@ -192,6 +192,8 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
                 }
             }
         });
+
+        return TaskExecutionResult.Completed();
     }
 
     private static int CountRows(string? csv)

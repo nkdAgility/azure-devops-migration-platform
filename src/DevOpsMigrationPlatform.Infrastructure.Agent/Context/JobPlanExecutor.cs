@@ -282,58 +282,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 && t.Status != JobTaskStatus.Failed)
             .ToList();
 
-        if (await HasInventoryCompletionMarkerAsync(stateStore, ct).ConfigureAwait(false))
-        {
-            var inventoryReport = await TryReadInventoryReportAsync(exportContext.ArtefactStore, ct).ConfigureAwait(false);
-            var prerequisiteTaskIds = tasks
-                .Where(t => t.TaskKind is TaskKind.Capture or TaskKind.Analyse)
-                .Select(t => t.Id)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            if (prerequisiteTaskIds.Count > 0)
-            {
-                var taskList = plan.Tasks.ToList();
-                foreach (var taskId in prerequisiteTaskIds)
-                {
-                    var idx = taskList.FindIndex(t => t.Id == taskId);
-                    if (idx < 0)
-                        continue;
-
-                    var (knownTotal, completedCount) = TryResolveTaskProgressSnapshot(taskList[idx], inventoryReport);
-
-                    taskList[idx] = taskList[idx] with
-                    {
-                        Status = JobTaskStatus.Skipped,
-                        SkipReason = "Inventory already completed for this package.",
-                        KnownTotal = knownTotal ?? taskList[idx].KnownTotal,
-                        CompletedCount = completedCount ?? taskList[idx].CompletedCount
-                    };
-                }
-
-                plan = plan with { Tasks = taskList.AsReadOnly() };
-                await PersistPlanAsync(plan, stateStore, ct).ConfigureAwait(false);
-
-                foreach (var skippedTask in taskList.Where(t => prerequisiteTaskIds.Contains(t.Id)))
-                {
-                    _progressSink?.Emit(new ProgressEvent
-                    {
-                        Module = GetModuleName(skippedTask.Id, modulesByName.Keys),
-                        Stage = "Export.Skipped",
-                        Message = skippedTask.SkipReason,
-                        Timestamp = DateTimeOffset.UtcNow,
-                        TaskId = skippedTask.Id,
-                        TaskStatus = JobTaskStatus.Skipped,
-                        KnownTotal = skippedTask.KnownTotal,
-                        CompletedCount = skippedTask.CompletedCount
-                    });
-                }
-
-                tasks = tasks
-                    .Where(t => !prerequisiteTaskIds.Contains(t.Id))
-                    .ToList();
-            }
-        }
-
         if (tasks.Count == 0)
         {
             _logger.LogInformation(
@@ -442,20 +390,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         }
 
         return true;
-    }
-
-    private static async Task<bool> HasInventoryCompletionMarkerAsync(
-        IStateStore stateStore,
-        CancellationToken ct)
-    {
-        try
-        {
-            return await stateStore.ExistsAsync(PackagePaths.InventoryCompleteFile, ct).ConfigureAwait(false);
-        }
-        catch (Exception)
-        {
-            return false;
-        }
     }
 
     private static async Task<InventoryReport?> TryReadInventoryReportAsync(
@@ -807,6 +741,8 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 _logger.LogInformation("Running {Handler}.{Kind}Async for task {TaskId}",
                     handlerName, task.TaskKind, task.Id);
 
+                TaskExecutionResult executionResult;
+
                 if (analyserForTask is not null)
                 {
                     // Analyse task: build context from whichever base context is available.
@@ -839,7 +775,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                                 ProgressSink = progressSink
                             };
 
-                    await analyserForTask.AnalyseAsync(analyseContext, ct).ConfigureAwait(false);
+                    executionResult = await analyserForTask.AnalyseAsync(analyseContext, ct).ConfigureAwait(false);
                 }
                 else if (captureHandler is not null)
                 {
@@ -885,7 +821,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                                 BuildCaptureSourceEndpointInfo(endpoint, scopedCtx.Project));
                             try
                             {
-                                await captureHandler.CaptureAsync(scopedCtx, ct).ConfigureAwait(false);
+                                executionResult = await captureHandler.CaptureAsync(scopedCtx, ct).ConfigureAwait(false);
                             }
                             finally
                             {
@@ -906,7 +842,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                     }
                     else
                     {
-                        await captureHandler.CaptureAsync(scopedCtx, ct).ConfigureAwait(false);
+                        executionResult = await captureHandler.CaptureAsync(scopedCtx, ct).ConfigureAwait(false);
                     }
                 }
                 else
@@ -932,7 +868,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                                     TaskId = task.Id
                                 };
 
-                                await module!.ExportAsync(scopedCtx, ct).ConfigureAwait(false);
+                                executionResult = await module!.ExportAsync(scopedCtx, ct).ConfigureAwait(false);
                                 break;
                             }
                         case TaskKind.Import:
@@ -940,13 +876,14 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                                 if (importContext is null)
                                     throw new InvalidOperationException($"Import task {task.Id} requires an ImportContext.");
 
-                                await module!.ImportAsync(importContext, ct).ConfigureAwait(false);
+                                executionResult = await module!.ImportAsync(importContext, ct).ConfigureAwait(false);
                                 break;
                             }
                         default:
                             _logger.LogWarning(
                                 "Task {TaskId} has unsupported TaskKind '{Kind}' — skipping execution.",
                                 task.Id, task.TaskKind);
+                            executionResult = TaskExecutionResult.Skipped($"Unsupported task kind '{task.TaskKind}'.");
                             break;
                     }
                 }
@@ -954,18 +891,24 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 var artefactStoreForTask = baseInventoryContext?.ArtefactStore
                     ?? exportContext?.ArtefactStore
                     ?? importContext?.ArtefactStore;
-                var (knownTotal, completedCount) = await TryResolveTaskProgressSnapshotAsync(
+                var (resolvedKnownTotal, resolvedCompletedCount) = await TryResolveTaskProgressSnapshotAsync(
                     task,
                     artefactStoreForTask,
                     ct).ConfigureAwait(false);
 
-                // Transition to Completed.
+                var knownTotal = executionResult.KnownTotal ?? resolvedKnownTotal;
+                var completedCount = executionResult.CompletedCount ?? resolvedCompletedCount;
+
+                // Transition to the terminal state reported by the executee.
                 updated = updated with
                 {
-                    Status = JobTaskStatus.Completed,
+                    Status = executionResult.Status,
                     CompletedAt = DateTimeOffset.UtcNow,
                     KnownTotal = knownTotal ?? updated.KnownTotal,
-                    CompletedCount = completedCount ?? updated.CompletedCount
+                    CompletedCount = completedCount ?? updated.CompletedCount,
+                    SkipReason = executionResult.Status == JobTaskStatus.Skipped
+                        ? executionResult.StatusMessage
+                        : null
                 };
 
                 lock (planLock)
@@ -998,11 +941,13 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 _progressSink?.Emit(new ProgressEvent
                 {
                     Module = handlerName,
-                    Stage = $"{task.TaskKind}.Complete",
-                    Message = $"{handlerName} {task.TaskKind} completed.",
+                    Stage = $"{task.TaskKind}.{updated.Status}",
+                    Message = updated.Status == JobTaskStatus.Skipped
+                        ? (updated.SkipReason ?? $"{handlerName} {task.TaskKind} skipped.")
+                        : $"{handlerName} {task.TaskKind} completed.",
                     Timestamp = updated.CompletedAt!.Value,
                     TaskId = task.Id,
-                    TaskStatus = JobTaskStatus.Completed,
+                    TaskStatus = updated.Status,
                     KnownTotal = updated.KnownTotal,
                     CompletedCount = updated.CompletedCount
                 });

@@ -156,21 +156,21 @@ public sealed class WorkItemsModule : IModule
         _repoDiscoveryService = repoDiscoveryService;
     }
 
-    public async Task CaptureAsync(InventoryContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
         var project = context.Project;
         if (string.IsNullOrWhiteSpace(project))
         {
             _logger.LogError("[WorkItems] CaptureAsync called with empty Project — executor contract violated. Skipping.");
-            return;
+            return TaskExecutionResult.Skipped("CaptureAsync called with empty project.");
         }
 
         var endpoint = context.SourceEndpoint;
         if (endpoint is null)
         {
             _logger.LogError("[WorkItems] CaptureAsync called with null SourceEndpoint — executor contract violated. Skipping.");
-            return;
+            return TaskExecutionResult.Skipped("CaptureAsync called with null source endpoint.");
         }
 
         using var activity = s_discoveryActivitySource.StartActivity("inventory.workitems");
@@ -332,9 +332,11 @@ public sealed class WorkItemsModule : IModule
                 }
             }
         });
+
+        return TaskExecutionResult.Completed();
     }
 
-    public async Task PrepareAsync(PrepareContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct)
     {
         using var activity = s_activitySource.StartActivity("prepare.workitems");
         activity?.SetTag("job.id", context.Job.JobId);
@@ -369,10 +371,12 @@ public sealed class WorkItemsModule : IModule
             Message = $"{Name} prepare complete",
             Timestamp = DateTimeOffset.UtcNow
         });
+
+        return TaskExecutionResult.Completed();
     }
 
     /// <inheritdoc/>
-    public async Task ExportAsync(ExportContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct)
     {
         using var activity = s_activitySource.StartActivity("workitems.export");
 
@@ -467,14 +471,16 @@ public sealed class WorkItemsModule : IModule
         await orchestrator.ExportAsync(source, ct).ConfigureAwait(false);
 
         _logger.LogInformation("[WorkItems] Export complete.");
+        return TaskExecutionResult.Completed();
     }
 
-    public async Task ImportAsync(ImportContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct)
     {
 #if NET481
         // TFS is a source-only connector — import is not supported.
         _logger.LogDebug("[WorkItems] Import not supported on net481 (TFS agent) — skipping.");
         await Task.CompletedTask.ConfigureAwait(false);
+        return TaskExecutionResult.Skipped("WorkItems import is not supported on net481.");
 #else
 
         var job = context.Job;
@@ -545,17 +551,18 @@ public sealed class WorkItemsModule : IModule
         await orchestrator.ImportAsync(ext, resumeMode, ct).ConfigureAwait(false);
 
         _logger.LogInformation("[WorkItems] Import complete.");
+        return TaskExecutionResult.Completed();
 #endif
     }
 
 
-    public async Task ValidateAsync(ValidationContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct)
     {
         var job = context.Job;
 
         // Only perform package-side validation for Import
         if (job.Kind != JobKind.Import)
-            return;
+            return TaskExecutionResult.Skipped("WorkItems package validation applies only to import jobs.");
 
         // Tier 2: Verify the WorkItems/ prefix has at least one revision folder
         var found = false;
@@ -574,6 +581,8 @@ public sealed class WorkItemsModule : IModule
                           "Ensure an export has been run before attempting import."
             });
         }
+
+        return TaskExecutionResult.Completed();
     }
 
 }

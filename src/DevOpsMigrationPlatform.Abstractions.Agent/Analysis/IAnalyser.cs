@@ -12,6 +12,6 @@ public interface IAnalyser
 {
     string Name { get; }
     IReadOnlyList<ModuleDependency> DependsOn { get; }
-    Task AnalyseAsync(AnalyseContext context, CancellationToken ct);
+    Task<TaskExecutionResult> AnalyseAsync(AnalyseContext context, CancellationToken ct);
 }
 

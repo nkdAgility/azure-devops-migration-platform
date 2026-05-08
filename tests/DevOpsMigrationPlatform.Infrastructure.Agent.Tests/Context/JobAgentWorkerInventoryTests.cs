@@ -146,12 +146,12 @@ public sealed class JobAgentWorkerInventoryTests
         public bool SupportsImport => false;
         public bool SupportsValidate => false;
 
-        public Task ExportAsync(ExportContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task PrepareAsync(PrepareContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task ImportAsync(ImportContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task ValidateAsync(ValidationContext context, CancellationToken ct) => Task.CompletedTask;
+        public Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
 
-        public Task CaptureAsync(InventoryContext context, CancellationToken ct)
+        public Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
         {
             PlatformMetrics.RecordInventoryWorkItems(
                 1,
@@ -161,7 +161,7 @@ public sealed class JobAgentWorkerInventoryTests
                     { "module", Name },
                 });
 
-            return Task.CompletedTask;
+            return Task.FromResult(TaskExecutionResult.Completed());
         }
     }
 
@@ -177,17 +177,17 @@ public sealed class JobAgentWorkerInventoryTests
         public bool SupportsImport => false;
         public bool SupportsValidate => false;
 
-        public Task ExportAsync(ExportContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task ImportAsync(ImportContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task ValidateAsync(ValidationContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task PrepareAsync(PrepareContext context, CancellationToken ct) => Task.CompletedTask;
+        public Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
 
-        public Task CaptureAsync(InventoryContext context, CancellationToken ct)
+        public Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
         {
             Calls++;
             if (Calls == throwOnCall)
                 throw new System.InvalidOperationException("endpoint unreachable");
-            return Task.CompletedTask;
+            return Task.FromResult(TaskExecutionResult.Completed());
         }
     }
 

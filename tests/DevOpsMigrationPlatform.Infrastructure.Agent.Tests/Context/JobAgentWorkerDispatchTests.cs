@@ -751,18 +751,18 @@ public sealed class JobAgentWorkerDispatchTests
         public bool SupportsImport => true;
         public bool SupportsValidate => false;
 
-        public Task CaptureAsync(InventoryContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task ExportAsync(ExportContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task PrepareAsync(PrepareContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task ImportAsync(ImportContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task ValidateAsync(Abstractions.Agent.Validation.ValidationContext context, CancellationToken ct) => Task.CompletedTask;
+        public Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> ValidateAsync(Abstractions.Agent.Validation.ValidationContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
     }
 
     private sealed class FakeAnalyser(string name) : IAnalyser
     {
         public string Name => name;
         public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
-        public Task AnalyseAsync(AnalyseContext context, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<TaskExecutionResult> AnalyseAsync(AnalyseContext context, CancellationToken cancellationToken) => Task.FromResult(TaskExecutionResult.Completed());
     }
 
     private sealed class FakeTargetEndpointInfo : ITargetEndpointInfo

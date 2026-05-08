@@ -79,7 +79,7 @@ public sealed class IdentitiesModule : IModule
 #endif
     }
 
-    public async Task CaptureAsync(InventoryContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
     {
         using var activity = DiscoveryActivity.StartActivity("inventory.identities");
         activity?.SetTag("job.id", context.Job.JobId);
@@ -91,7 +91,7 @@ public sealed class IdentitiesModule : IModule
         if (string.IsNullOrWhiteSpace(context.Project))
         {
             _logger.LogError("[Identities] CaptureAsync called with empty Project — executor contract violated. Skipping.");
-            return;
+            return TaskExecutionResult.Skipped("CaptureAsync called with empty project.");
         }
 
         context.ProgressSink?.Emit(new ProgressEvent
@@ -152,9 +152,11 @@ public sealed class IdentitiesModule : IModule
                 }
             }
         });
+
+        return TaskExecutionResult.Completed();
     }
 
-    public async Task PrepareAsync(PrepareContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct)
     {
         using var activity = MigrationActivity.StartActivity("prepare.identities");
         activity?.SetTag("job.id", context.Job.JobId);
@@ -200,52 +202,61 @@ public sealed class IdentitiesModule : IModule
             Message = $"{Name} prepare complete",
             Timestamp = DateTimeOffset.UtcNow
         });
+
+        return TaskExecutionResult.Completed();
     }
 
     /// <inheritdoc/>
-    public async Task ExportAsync(ExportContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct)
     {
         if (!_options.Enabled)
         {
             _logger.LogDebug("[Identities] Module disabled — skipping export.");
-            return;
+            return TaskExecutionResult.Skipped("Identities module disabled for export.");
         }
 
         if (_identitySource is null)
         {
             _logger.LogWarning("[Identities] No IIdentitySource registered — identity export skipped.");
-            return;
+            return TaskExecutionResult.Skipped("No identity source registered.");
         }
 
         await _orchestrator.ExportAsync(
             _identitySource, context, _sourceEndpointInfo.Project,
             _checkpointingFactory, ct).ConfigureAwait(false);
+
+        return TaskExecutionResult.Completed();
     }
 
     /// <inheritdoc/>
-    public async Task ImportAsync(ImportContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct)
     {
 #if NET481
         // TFS is a source-only connector — import is not supported.
         _logger.LogDebug("[Identities] Import not supported on net481 (TFS agent) — skipping.");
         await Task.CompletedTask.ConfigureAwait(false);
+        return TaskExecutionResult.Skipped("Identities import is not supported on net481.");
 #else
         if (!_options.Enabled)
         {
             _logger.LogDebug("[Identities] Module disabled — skipping import.");
-            return;
+            return TaskExecutionResult.Skipped("Identities module disabled for import.");
         }
 
         await _orchestrator.ImportAsync(
             _identityLookupTool, context, _checkpointingFactory, ct).ConfigureAwait(false);
+
+        return TaskExecutionResult.Completed();
 #endif
     }
 
     /// <inheritdoc/>
-    public async Task ValidateAsync(ValidationContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct)
     {
         await _orchestrator.ValidateAsync(
             context.ArtefactStore, context,
             ct).ConfigureAwait(false);
+
+        return TaskExecutionResult.Completed();
     }
 }

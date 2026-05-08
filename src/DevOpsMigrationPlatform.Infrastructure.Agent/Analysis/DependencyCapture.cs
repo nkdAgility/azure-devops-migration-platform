@@ -67,7 +67,7 @@ public sealed class DependencyCapture : ICapture
     }
 
     /// <inheritdoc />
-    public async Task CaptureAsync(InventoryContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
     {
         var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? string.Empty;
         var project = context.Project;
@@ -207,6 +207,8 @@ public sealed class DependencyCapture : ICapture
                     }
                 }
             });
+
+            return TaskExecutionResult.Completed();
         }
         catch (OperationCanceledException)
         {
