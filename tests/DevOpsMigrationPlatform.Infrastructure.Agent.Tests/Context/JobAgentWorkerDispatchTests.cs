@@ -153,6 +153,14 @@ public sealed class JobAgentWorkerDispatchTests
             .Setup(factory => factory.Create(It.IsAny<IStateStore>()))
             .Returns(_checkpointer.Object);
 
+        _checkpointer
+            .Setup(checkpointer => checkpointer.DeleteCursorAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _checkpointer
+            .Setup(checkpointer => checkpointer.DeleteContinuationTokenAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         _phaseTrackingFactory
             .Setup(factory => factory.Create(It.IsAny<IStateStore>()))
             .Returns(_phaseTracker.Object);
@@ -390,6 +398,42 @@ public sealed class JobAgentWorkerDispatchTests
         Assert.IsTrue(
             progressEvents.Any(evt => evt.Module == "Job" && evt.Stage == "Job.Ready"),
             "Dependencies jobs must emit Job.Ready after the plan is pushed so the CLI can fetch bootstrap.");
+    }
+
+    [TestMethod]
+    public async Task OnJobAsync_Dependencies_ForceFresh_DeletesScopedCheckpointStateViaCheckpointer()
+    {
+        var worker = CreateWorker([new FakeModule("Dependencies", supportsPrepare: false)]);
+        var job = new Job
+        {
+            JobId = "job-Dependencies",
+            Kind = JobKind.Dependencies,
+            Package = new JobPackage { PackageUri = "." },
+            Resume = new JobResume
+            {
+                Mode = ResumeMode.ForceFresh
+            }
+        };
+
+        await JobAgentWorkerTestHelper.InvokeJobAsync(
+            worker,
+            job,
+            CreateControlPlaneClient(),
+            "lease-deps-forcefresh",
+            CancellationToken.None);
+
+        _checkpointer.Verify(
+            checkpointer => checkpointer.DeleteCursorAsync("Dependencies", It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        _checkpointer.Verify(
+            checkpointer => checkpointer.DeleteContinuationTokenAsync("Dependencies", It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        _stateStore.Verify(
+            store => store.DeleteAsync(PackagePaths.CursorFile("Dependencies"), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "Discovery ForceFresh must not delete legacy root cursor paths directly.");
     }
 
     [TestMethod]
@@ -657,10 +701,10 @@ public sealed class JobAgentWorkerDispatchTests
             Times.Once);
     }
 
-    private JobAgentWorker CreateWorker()
+    private JobAgentWorker CreateWorker(IReadOnlyList<IModule>? migrationModules = null)
     {
         return new JobAgentWorker(
-            migrationModules: Array.Empty<IModule>(),
+            migrationModules: migrationModules ?? Array.Empty<IModule>(),
             packageStoreFactory: _packageStoreFactory.Object,
             packagePreparer: _packagePreparer.Object,
             progressSink: _progressSink.Object,

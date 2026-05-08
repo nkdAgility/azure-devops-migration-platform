@@ -107,7 +107,8 @@ public class CheckpointingService : ICheckpointingService
             return PackagePaths.CursorFile(configAction, moduleName, configEndpointUrl, configProjectName);
         }
 
-        return PackagePaths.CursorFile(moduleName);
+        throw new InvalidOperationException(
+            $"Checkpoint scope could not be resolved for cursor '{moduleName}'. Project-scoped checkpoint operations require both action and endpoint context.");
     }
 
     private string ResolveContinuationKey(string moduleName)
@@ -124,7 +125,8 @@ public class CheckpointingService : ICheckpointingService
             return PackagePaths.ContinuationFile(configAction, moduleName, configEndpointUrl, configProjectName);
         }
 
-        return PackagePaths.ContinuationFile(moduleName);
+        throw new InvalidOperationException(
+            $"Checkpoint scope could not be resolved for continuation token '{moduleName}'. Project-scoped checkpoint operations require both action and endpoint context.");
     }
 
     private bool TryResolveEndpoint(out string endpointUrl, out string projectName)

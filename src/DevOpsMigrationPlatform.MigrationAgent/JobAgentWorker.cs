@@ -784,12 +784,17 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     {
         if (job.Resume?.Mode == ResumeMode.ForceFresh)
         {
+            var freshCheckpointer = CheckpointingFactory.Create(stateStore);
+
             _logger.LogInformation(
                 "ForceFresh requested for discovery job {JobId} — deleting module cursors, completion markers, and plan file.", job.JobId);
             foreach (var module in MigrationModules)
             {
-                var cursorPath = PackagePaths.CursorFile(module.Name);
-                try { await stateStore.DeleteAsync(cursorPath, ct).ConfigureAwait(false); }
+                try
+                {
+                    await freshCheckpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
+                    await freshCheckpointer.DeleteContinuationTokenAsync(module.Name, ct).ConfigureAwait(false);
+                }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Could not delete cursor for discovery module {Module}.", module.Name);
