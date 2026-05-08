@@ -77,7 +77,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             var console = GetRequiredService<IAnsiConsole>();
             var diagnosticsPath = ResolveDiagnosticsPath();
             if (!string.IsNullOrWhiteSpace(diagnosticsPath))
-                ShowInfo(console, $"DiagnosticsPath: {diagnosticsPath}");
+                ShowInfo(console, $"DiagnosticsPath: {FormatLocalPathMarkup(diagnosticsPath)}");
         }
 
         var configPath = GetConfigurationPath(settings);
@@ -116,7 +116,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 logger.LogWarning(
                     "Schema file not found at {ExpectedSchemaPath}. Validation skipped.",
                     expectedSchemaPath);
-                console.MarkupLine($"[yellow]⚠[/] Schema file not found at {Markup.Escape(expectedSchemaPath)}. Validation skipped.");
+                console.MarkupLine($"[yellow]⚠[/] Schema file not found at {FormatLocalPathMarkup(expectedSchemaPath)}. Validation skipped.");
             }
         }
 

@@ -204,7 +204,7 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
 
             if (configPath != null)
             {
-                ShowInfo(console, $"Loading configuration from: {configPath}");
+                ShowInfo(console, $"Loading configuration from: {FormatLocalPathMarkup(configPath)}");
             }
             else
             {
@@ -285,6 +285,15 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
 
     protected static void ShowInfo(IAnsiConsole console, string message) =>
         console.MarkupLine($"[blue]ℹ[/] {message}");
+
+    protected static string FormatLocalPathMarkup(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var fullPath = Path.GetFullPath(path);
+        var fileUri = new Uri(fullPath).AbsoluteUri;
+        return $"[link={Markup.Escape(fileUri)}]{Markup.Escape(fullPath)}[/]";
+    }
 
     protected bool Confirm(string message, bool defaultValue = false)
     {

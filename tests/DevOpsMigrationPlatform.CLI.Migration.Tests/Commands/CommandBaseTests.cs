@@ -101,6 +101,19 @@ public class CommandBaseTests
         Assert.IsTrue(command.WasExecuted, "Command should have executed");
     }
 
+    [TestMethod]
+    public void FormatLocalPathMarkup_UsesNativePathAsLabel_AndFileUriAsTarget()
+    {
+        var path = Path.Combine("TestResults", "diagnostics");
+        var expectedFullPath = Path.GetFullPath(path);
+        var expectedUri = new Uri(expectedFullPath).AbsoluteUri;
+
+        var markup = TestCommand.InvokeFormatLocalPathMarkup(path);
+
+        Assert.IsTrue(markup.Contains($"[link={expectedUri}]"), $"Expected file URI link target. Got: {markup}");
+        Assert.IsTrue(markup.Contains(expectedFullPath), $"Expected native path label. Got: {markup}");
+    }
+
     // Test implementations
     public class TestCommand : CommandBase<TestSettings>
     {
@@ -139,6 +152,9 @@ public class CommandBaseTests
         // Public wrapper for protected ExecuteAsync to enable testing
         public Task<int> ExecuteAsyncPublic(CommandContext context, TestSettings settings, CancellationToken cancellationToken = default)
             => base.ExecuteAsync(context, settings, cancellationToken);
+
+        public static string InvokeFormatLocalPathMarkup(string path)
+            => FormatLocalPathMarkup(path);
     }
 
     public class TestSettings : CommandSettings
