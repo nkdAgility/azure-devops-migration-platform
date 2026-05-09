@@ -23,6 +23,8 @@ public static class PackageConfigServiceCollectionExtensions
         services.AddSingleton<IPackageStoreFactory, FileSystemPackageStoreFactory>();
         services.AddSingleton<IPackagePreparer, ZipPackagePreparer>();
         services.AddSingleton<IPackageConfigStore, PackageConfigStore>();
+        services.AddSingleton<PackagePathRouter>();
+        services.AddSingleton<IPackage, PackageBoundary>();
         return services;
     }
 
