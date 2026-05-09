@@ -70,7 +70,7 @@
 ### Implementation for User Story 1
 
 - [X] T020 [US1] Migrate package config operations to `IPackage` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackageConfigStore.cs`
-- [ ] T021 [US1] Migrate progress sink append path handling to `IPackage.AppendLogAsync` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/PackageProgressSink.cs`
+- [X] T021 [US1] Migrate progress sink append path handling to `IPackage.AppendLogAsync` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/PackageProgressSink.cs`
 - [ ] T022 [US1] Migrate diagnostics logger append path handling to `IPackage.AppendLogAsync` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/PackageLoggerProvider.cs`
 - [ ] T023 [US1] Ensure `ActivePackageState` and package-boundary run context integration in `src/DevOpsMigrationPlatform.Abstractions.Agent/Lease/ActivePackageState.cs`
 - [X] T024 [US1] Add/adjust DI and constructor wiring for updated services in `src/DevOpsMigrationPlatform.Infrastructure.Agent/DiagnosticsServiceExtensions.cs`
