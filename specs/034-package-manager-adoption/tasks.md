@@ -43,7 +43,7 @@
 - [X] T010 [P] Add log payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogPayload.cs`
 - [X] T011 [P] Add package metadata kind enum in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaKind.cs`
 - [X] T012 [P] Add package log stream enum in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogStream.cs`
-- [ ] T059 Add guard test to enforce package-boundary contract/type placement in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryAbstractionsPlacementTests.cs` (contracts allowed in `src/DevOpsMigrationPlatform.Abstractions.Agent/` and disallowed in `src/DevOpsMigrationPlatform.Abstractions/`)
+- [X] T059 Add guard test to enforce package-boundary contract/type placement in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryAbstractionsPlacementTests.cs` (contracts allowed in `src/DevOpsMigrationPlatform.Abstractions.Agent/` and disallowed in `src/DevOpsMigrationPlatform.Abstractions/`)
 - [X] T013 Implement package routing resolver in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackagePathRouter.cs`
 - [X] T014 Implement package boundary over stores in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackageBoundary.cs`
 - [X] T015 Register package boundary and router in `src/DevOpsMigrationPlatform.Infrastructure.Agent/CoreAgentServiceExtensions.cs`
@@ -62,10 +62,10 @@
 
 - [X] T016 [P] [US1] Add package routing tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackagePathRouterTests.cs`
 - [X] T017 [P] [US1] Add package boundary persist/request tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryTests.cs`
-- [ ] T018 [P] [US1] Add metadata mirroring tests (`RelatedToRun`) in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageMetaRoutingTests.cs`
-- [ ] T019 [P] [US1] Add run-log append stream tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageLogAppendTests.cs`
-- [ ] T048 [P] [US1] Add streaming behavior tests proving no global buffering/sorting in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageStreamingBehaviorTests.cs`
-- [ ] T049 [P] [US1] Add fail-fast error contract tests with stable codes in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryErrorContractTests.cs`
+- [X] T018 [P] [US1] Add metadata mirroring tests (`RelatedToRun`) in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageMetaRoutingTests.cs`
+- [X] T019 [P] [US1] Add run-log append stream tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageLogAppendTests.cs`
+- [X] T048 [P] [US1] Add streaming behavior tests proving no global buffering/sorting in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageStreamingBehaviorTests.cs`
+- [X] T049 [P] [US1] Add fail-fast error contract tests with stable codes in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryErrorContractTests.cs`
 
 ### Implementation for User Story 1
 

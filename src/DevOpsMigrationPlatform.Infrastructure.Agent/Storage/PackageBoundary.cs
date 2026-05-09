@@ -100,7 +100,9 @@ internal sealed class PackageBoundary : IPackage
 
     private IArtefactStore RequireStore()
         => _activePackageState.CurrentStore
-            ?? throw new InvalidOperationException("No active package store is available.");
+            ?? throw new PackageOperationException(
+                "PKG_STORE_UNAVAILABLE",
+                "No active package store is available.");
 
     private static async Task<string> ReadUtf8Async(Stream stream, CancellationToken cancellationToken)
     {

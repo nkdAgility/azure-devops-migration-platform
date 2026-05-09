@@ -18,12 +18,16 @@ internal sealed class PackagePathRouter
             throw new ArgumentNullException(nameof(context));
 
         if (string.IsNullOrWhiteSpace(context.ContentKind))
-            throw new ArgumentException("Content kind must be provided.", nameof(context));
+            throw new PackageValidationException(
+                "PKG_CONTENT_KIND_REQUIRED",
+                "Content kind must be provided.");
 
         if (context.ContentKind.IndexOf('/') >= 0)
             return context.ContentKind;
 
-        throw new InvalidOperationException($"Unsupported content kind '{context.ContentKind}'.");
+        throw new PackageValidationException(
+            "PKG_CONTENT_KIND_UNSUPPORTED",
+            $"Unsupported content kind '{context.ContentKind}'.");
     }
 
     public string ResolveMetaPath(PackageMetaContext context, string? runId = null, bool runAudit = false)
@@ -45,11 +49,15 @@ internal sealed class PackagePathRouter
             PackageMetaKind.JobDescriptor => !string.IsNullOrWhiteSpace(runId)
                 ? PackagePaths.RunJobFile(runId!)
                 : JobDescriptorPath,
-            PackageMetaKind.CheckpointCursor => throw new InvalidOperationException(
+            PackageMetaKind.CheckpointCursor => throw new PackageOperationException(
+                "PKG_META_KIND_CONTEXT_REQUIRED",
                 "Checkpoint cursor routing requires action/module context and is not supported by the base router."),
-            PackageMetaKind.ContinuationToken => throw new InvalidOperationException(
+            PackageMetaKind.ContinuationToken => throw new PackageOperationException(
+                "PKG_META_KIND_CONTEXT_REQUIRED",
                 "Continuation token routing requires action/module context and is not supported by the base router."),
-            _ => throw new InvalidOperationException($"Unsupported metadata kind '{context.Kind}'.")
+            _ => throw new PackageOperationException(
+                "PKG_META_KIND_UNSUPPORTED",
+                $"Unsupported metadata kind '{context.Kind}'.")
         };
     }
 
@@ -58,13 +66,17 @@ internal sealed class PackagePathRouter
         if (context is null)
             throw new ArgumentNullException(nameof(context));
         if (string.IsNullOrWhiteSpace(context.RunId))
-            throw new ArgumentException("Run ID must be provided.", nameof(context));
+            throw new PackageValidationException(
+                "PKG_RUN_ID_REQUIRED",
+                "Run ID must be provided.");
 
         var fileName = context.Stream switch
         {
             PackageLogStream.Progress => "progress.ndjson",
             PackageLogStream.Diagnostics => "diagnostics.ndjson",
-            _ => throw new InvalidOperationException($"Unsupported log stream '{context.Stream}'.")
+            _ => throw new PackageOperationException(
+                "PKG_LOG_STREAM_UNSUPPORTED",
+                $"Unsupported log stream '{context.Stream}'.")
         };
 
         return $"{PackagePaths.RunLogsFolder(context.RunId)}/{fileName}";
