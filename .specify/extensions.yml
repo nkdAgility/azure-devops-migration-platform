@@ -67,7 +67,7 @@ hooks:
   - extension: superb
     command: speckit.superb.review
     enabled: true
-    optional: true
+    optional: false
     prompt: Review tasks.md for coverage and TDD-readiness before implementation?
     description: 'Catches missing or under-specified tasks at planning time. Produces
       a requirement coverage and TDD-readiness report. Bridge-native logic.

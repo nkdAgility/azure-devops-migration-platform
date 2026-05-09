@@ -16,7 +16,7 @@ Introduce a typed package boundary (`IPackage`) above `IArtefactStore`/`IStateSt
 **Target Platform**: .NET 10 agents/services cross-platform; TFS connector path remains Windows/net481 agent-only  
 **Project Type**: Multi-project migration platform (CLI + control plane + agents + shared abstractions)  
 **Performance Goals**: No degradation to streaming behavior; maintain one-item-at-a-time import processing and bounded in-memory log batching  
-**Constraints**: Preserve deterministic package paths and lexicographic enumeration; no direct filesystem access in modules; no control-plane package writes; full connector coverage  
+**Constraints**: Preserve deterministic package paths and lexicographic enumeration; no direct filesystem access in modules; no control-plane package writes; full connector coverage; package-boundary contracts/types are introduced in `src/DevOpsMigrationPlatform.Abstractions.Agent/` only (not `src/DevOpsMigrationPlatform.Abstractions/`)  
 **Scale/Scope**: Migrate package access in abstractions + infrastructure runtime surfaces (plan, checkpoint, package config, diagnostics/progress logs, module/orchestrator path composition seams)
 
 ## Constitution Check

@@ -76,6 +76,7 @@ As a maintainer, I need package-manager behavior to be consistent across Simulat
 - **FR-010**: Package-boundary operations MUST emit trace, metrics, and structured log telemetry aligned with repository observability requirements, including operation identity, outcome, duration, and correlation identifiers.
 - **FR-011**: The feature MUST include behavioral test coverage proving package-manager routing, resume safety, and connector parity.
 - **FR-012**: The feature MUST update architecture and context documentation so future contributors can implement package access through the package boundary by default.
+- **FR-013**: All new package-boundary contracts and package-intent types MUST be added under `src/DevOpsMigrationPlatform.Abstractions.Agent/` and MUST NOT be added to higher/shared abstraction layers (including `src/DevOpsMigrationPlatform.Abstractions/`).
 
 ### Key Entities *(include if feature involves data)*
 

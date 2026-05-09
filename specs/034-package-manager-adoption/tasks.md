@@ -22,8 +22,9 @@
 - [ ] T003 [P] Add package-boundary sample payload helpers in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackagePayloadBuilder.cs`
 - [ ] T046 Add failing acceptance scenario coverage for package-boundary adoption in `features/platform/package-manager-adoption/package-boundary-adoption.feature`
 - [ ] T047 Add failing acceptance step bindings for package-boundary adoption scenarios in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Platform/PackageBoundaryAdoptionSteps.cs`
+- [ ] T053 Add foundational RED tests for `IPackage` contract and boundary routing behavior in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryContractRedTests.cs`
 
-**Gate**: Execute T046-T047 as a failing baseline before beginning T004-T015 implementation tasks.
+**Gate**: Execute T046-T047 and T053 as a failing baseline before beginning T004-T015 implementation tasks.
 
 ---
 
@@ -42,6 +43,7 @@
 - [ ] T010 [P] Add log payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogPayload.cs`
 - [ ] T011 [P] Add package metadata kind enum in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaKind.cs`
 - [ ] T012 [P] Add package log stream enum in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogStream.cs`
+- [ ] T059 Add guard test to enforce package-boundary contract/type placement in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryAbstractionsPlacementTests.cs` (contracts allowed in `src/DevOpsMigrationPlatform.Abstractions.Agent/` and disallowed in `src/DevOpsMigrationPlatform.Abstractions/`)
 - [ ] T013 Implement package routing resolver in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackagePathRouter.cs`
 - [ ] T014 Implement package boundary over stores in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackageBoundary.cs`
 - [ ] T015 Register package boundary and router in `src/DevOpsMigrationPlatform.Infrastructure.Agent/CoreAgentServiceExtensions.cs`
@@ -89,6 +91,7 @@
 - [ ] T026 [P] [US2] Add plan persistence authority tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobExecutionPlanBuilderTests.cs`
 - [ ] T027 [P] [US2] Add plan executor persistence tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobPlanExecutorTests.cs`
 - [ ] T028 [P] [US2] Add phase tracking no-regression tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Checkpointing/PhaseTrackingServiceTests.cs`
+- [ ] T054 [P] [US2] Add legacy package-state path resume compatibility tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Checkpointing/LegacyStateResumeCompatibilityTests.cs`
 
 ### Implementation for User Story 2
 
@@ -113,6 +116,7 @@
 - [ ] T050 [P] [US3] Add Azure DevOps Services package-boundary behavior tests in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/AdoPackageBoundaryIntegrationTests.cs`
 - [ ] T034 [P] [US3] Add TFS worker package-boundary behavior tests in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/TfsPackageBoundaryIntegrationTests.cs`
 - [ ] T035 [P] [US3] Add simulated-system coverage for package-boundary routing in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/SimulatedMigrationCommandTests.cs`
+- [ ] T055 [P] [US3] Add explicit unsupported-capability guardrail error tests per connector in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryConnectorLimitationsTests.cs`
 
 ### Implementation for User Story 3
 
@@ -137,6 +141,9 @@
 - [ ] T045 Run full build/test validation from quickstart in `specs/034-package-manager-adoption/quickstart.md`
 - [ ] T051 Add measurable observability assertions (span, metric, structured log fields) in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryObservabilityTests.cs`
 - [ ] T052 Document and justify permitted direct low-level persistence internals (FR-008 scope exceptions) in `.agents/context/package-manager.md`
+- [ ] T056 Add active-run log rotation continuity tests for diagnostics/progress streams in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageLogRotationContinuityTests.cs`
+- [ ] T057 Add runtime package-access audit test enforcing boundary-only writes with explicit allowlist in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryAdoptionAuditTests.cs`
+- [ ] T058 Add failure-path observability tests for structured error logs with correlation fields in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryErrorObservabilityTests.cs`
 
 ---
 
@@ -145,7 +152,7 @@
 ### Phase Dependencies
 
 - **Phase 1 (Setup)**: No dependencies
-- **Phase 2 (Foundational)**: Depends on Phase 1 and the failing acceptance baseline gate (T046-T047); blocks all user stories
+- **Phase 2 (Foundational)**: Depends on Phase 1 and the failing acceptance baseline gate (T046-T047, T053); blocks all user stories
 - **Phase 3 (US1)**: Depends on Phase 2
 - **Phase 4 (US2)**: Depends on Phase 2
 - **Phase 5 (US3)**: Depends on Phase 2 and should start after US1 and US2 stabilize shared boundary behavior
@@ -165,11 +172,16 @@
 ### Parallel Opportunities
 
 - Foundational contract files (`T005`-`T012`) can run in parallel.
+- Contract placement guard (`T059`) can run in parallel with foundational contract files.
 - US1 tests (`T016`-`T019`) can run in parallel.
 - US1 additional behavior tests (`T048`-`T049`) can run in parallel with other US1 test tasks.
 - US2 tests (`T025`-`T028`) can run in parallel.
+- US2 additional compatibility tests (`T054`) can run in parallel with other US2 test tasks.
 - US3 tests (`T033`-`T035`, `T050`) can run in parallel.
+- US3 connector limitation tests (`T055`) can run in parallel with other US3 test tasks.
 - Documentation updates (`T040`-`T043`) can run in parallel.
+- Observability/log continuity tests (`T051`, `T056`) can run in parallel.
+- Boundary-adoption and error-observability audit tests (`T057`, `T058`) can run in parallel with other polish tests.
 
 ---
 
@@ -191,6 +203,7 @@ Task: "T025 [US2] Add checkpoint cursor routing/resolution tests in tests/DevOps
 Task: "T026 [US2] Add plan persistence authority tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobExecutionPlanBuilderTests.cs"
 Task: "T027 [US2] Add plan executor persistence tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobPlanExecutorTests.cs"
 Task: "T028 [US2] Add phase tracking no-regression tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Checkpointing/PhaseTrackingServiceTests.cs"
+Task: "T054 [US2] Add legacy package-state path resume compatibility tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Checkpointing/LegacyStateResumeCompatibilityTests.cs"
 ```
 
 ## Parallel Example: User Story 3
@@ -200,6 +213,7 @@ Task: "T033 [US3] Add connector parity tests in tests/DevOpsMigrationPlatform.In
 Task: "T050 [US3] Add Azure DevOps Services behavior tests in tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/AdoPackageBoundaryIntegrationTests.cs"
 Task: "T034 [US3] Add TFS worker behavior tests in tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/TfsPackageBoundaryIntegrationTests.cs"
 Task: "T035 [US3] Add simulated-system coverage in tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/SimulatedMigrationCommandTests.cs"
+Task: "T055 [US3] Add unsupported-capability guardrail error tests per connector in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryConnectorLimitationsTests.cs"
 ```
 
 ---
