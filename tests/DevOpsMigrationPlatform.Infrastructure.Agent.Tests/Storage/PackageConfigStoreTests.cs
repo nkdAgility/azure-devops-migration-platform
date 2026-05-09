@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Logging;
@@ -52,6 +53,18 @@ public class PackageConfigStoreTests
         factory.Setup(f => f.Create(It.IsAny<string>()))
             .Returns((artefactStore.Object, new Mock<IStateStore>().Object));
         return new PackageConfigStore(factory.Object, logger, metrics ?? _metrics.Object);
+    }
+
+    private static PackageConfigStore CreateSut(
+        Mock<IArtefactStore> artefactStore,
+        Mock<IPackage> package,
+        ILogger<PackageConfigStore>? logger = null,
+        IPlatformMetrics? metrics = null)
+    {
+        var factory = new Mock<IPackageStoreFactory>(MockBehavior.Loose);
+        factory.Setup(f => f.Create(It.IsAny<string>()))
+            .Returns((artefactStore.Object, new Mock<IStateStore>().Object));
+        return new PackageConfigStore(factory.Object, logger ?? _logger, metrics ?? _metrics.Object, package: package.Object);
     }
 
     private static string CreateTempConfigFile()
@@ -165,6 +178,37 @@ public class PackageConfigStoreTests
         metricsMock.Verify(m => m.RecordConfigWriteError(It.IsAny<MetricsTagList>()), Times.Once);
     }
 
+    [TestMethod]
+    public async Task WriteAsync_WhenPackageBoundaryAvailable_PersistsViaPackageBoundary()
+    {
+        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
+        store.Setup(s => s.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+
+        var package = new Mock<IPackage>(MockBehavior.Strict);
+        package.Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.MigrationConfig),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PackageMetaPayload?)null);
+        package.Setup(p => p.PersistMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.MigrationConfig),
+                It.IsAny<PackageMetaPayload>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(ValueTask.CompletedTask);
+
+        var sut = CreateSut(store, package);
+        var configFile = CreateTempConfigFile();
+        try
+        {
+            await sut.WriteAsync(TestPackageUri, configFile, false, CancellationToken.None);
+        }
+        finally { File.Delete(configFile); }
+
+        package.Verify(p => p.PersistMetaAsync(
+            It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.MigrationConfig),
+            It.IsAny<PackageMetaPayload>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     // ── ReadAsync ─────────────────────────────────────────────────────────────
 
     [TestMethod]
@@ -184,6 +228,23 @@ public class PackageConfigStoreTests
 
         // Assert — message prompts re-submission
         StringAssert.Contains(ex.Message, "Re-submit");
+    }
+
+    [TestMethod]
+    public async Task ReadAsync_WhenPackageBoundaryAvailable_ReadsViaPackageBoundary()
+    {
+        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var package = new Mock<IPackage>(MockBehavior.Strict);
+        package.Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.MigrationConfig),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("""{"MigrationPlatform":{"Mode":"Export"}}"""))));
+
+        var sut = CreateSut(store, package);
+
+        var config = await sut.ReadAsync(store.Object, CancellationToken.None);
+
+        Assert.AreEqual("Export", config["MigrationPlatform:Mode"]);
     }
 
     [TestMethod]

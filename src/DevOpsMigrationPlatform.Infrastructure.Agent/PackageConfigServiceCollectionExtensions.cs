@@ -36,6 +36,8 @@ public static class PackageConfigServiceCollectionExtensions
     public static IServiceCollection AddPackageConfigStore(this IServiceCollection services)
     {
         services.TryAddSingleton<IPackageStoreFactory, FileSystemPackageStoreFactory>();
+        services.TryAddSingleton<PackagePathRouter>();
+        services.TryAddSingleton<IPackage, PackageBoundary>();
         services.AddSingleton<IPackageConfigStore, PackageConfigStore>();
         return services;
     }
