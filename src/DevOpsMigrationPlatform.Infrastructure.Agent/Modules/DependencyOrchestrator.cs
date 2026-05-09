@@ -617,7 +617,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
 
         var orgFolder = PackagePathResolver.ExtractOrgFolderName(orgUrl);
         var projectFolder = $"{orgFolder}/{PackagePathResolver.Sanitise(project)}";
-        var outputPath = $"discovery/{projectFolder}/dependencies.csv";
+        var outputPath = $"{projectFolder}/dependencies.csv";
 
         using var activity = ActivitySource.StartActivity("capture.dependencies.project", ActivityKind.Internal);
         activity?.SetTag("job.id", job.JobId);
