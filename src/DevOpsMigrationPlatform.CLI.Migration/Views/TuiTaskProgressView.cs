@@ -108,12 +108,8 @@ public sealed class TuiTaskProgressView : FrameView
         }
 
         var tasks = taskList.Tasks.OrderBy(t => t.Order).ToList();
-        var currentPhase = DetermineCurrentPhase(tasks, lastEvent, summary.Mode);
-        var orderedPhases = tasks
-            .Select(GetTaskPhase)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(GetPhaseSortKey)
-            .ToList();
+        var currentPhase = DetermineCurrentPhase(taskList, lastEvent, summary.Mode);
+        var orderedPhases = GetOrderedPhases(taskList);
 
         builder.AppendLine(BuildStageStrip(orderedPhases, currentPhase));
 
@@ -136,7 +132,7 @@ public sealed class TuiTaskProgressView : FrameView
             builder.AppendLine();
             builder.AppendLine($"{(phase.Equals(currentPhase, StringComparison.OrdinalIgnoreCase) ? '>' : ' ')} {DisplayPhase(phase)}");
 
-            foreach (var task in tasks.Where(t => GetTaskPhase(t).Equals(phase, StringComparison.OrdinalIgnoreCase)))
+            foreach (var task in tasks.Where(t => TaskBelongsToPhase(taskList, t, phase)))
             {
                 var prefix = activeTask?.Id == task.Id ? ">" : " ";
                 var icon = GetStatusIcon(task.Status);
@@ -293,15 +289,16 @@ public sealed class TuiTaskProgressView : FrameView
                 : DisplayPhase(phase)));
     }
 
-    private static string DetermineCurrentPhase(IReadOnlyList<JobTask> tasks, ProgressEvent? lastEvent, string mode)
+    private static string DetermineCurrentPhase(JobTaskList taskList, ProgressEvent? lastEvent, string mode)
     {
+        var tasks = taskList.Tasks.OrderBy(t => t.Order).ToList();
         var running = tasks.FirstOrDefault(t => t.Status == JobTaskStatus.Running);
         if (running is not null)
-            return GetTaskPhase(running);
+            return ResolveTaskPhase(taskList, running);
 
         var pending = tasks.FirstOrDefault(t => t.Status == JobTaskStatus.Pending);
         if (pending is not null)
-            return GetTaskPhase(pending);
+            return ResolveTaskPhase(taskList, pending);
 
         if (!string.IsNullOrWhiteSpace(lastEvent?.Stage))
         {
@@ -316,6 +313,52 @@ public sealed class TuiTaskProgressView : FrameView
         return mode.Equals("Migrate", StringComparison.OrdinalIgnoreCase)
             ? "inventory"
             : mode.ToLowerInvariant();
+    }
+
+    private static IReadOnlyList<string> GetOrderedPhases(JobTaskList taskList)
+    {
+        if (taskList.Phases.Count > 0)
+        {
+            return taskList.Phases
+                .OrderBy(phase => phase.Order)
+                .Select(phase => phase.Name)
+                .ToList();
+        }
+
+        return taskList.Tasks
+            .OrderBy(t => t.Order)
+            .Select(GetTaskPhase)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(GetPhaseSortKey)
+            .ToList();
+    }
+
+    private static bool TaskBelongsToPhase(JobTaskList taskList, JobTask task, string phase)
+    {
+        if (taskList.Phases.Count > 0)
+        {
+            var phaseSummary = taskList.Phases
+                .FirstOrDefault(summary => string.Equals(summary.Name, phase, StringComparison.OrdinalIgnoreCase));
+            if (phaseSummary is not null)
+                return phaseSummary.TaskIds.Contains(task.Id, StringComparer.OrdinalIgnoreCase);
+        }
+
+        return GetTaskPhase(task).Equals(phase, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ResolveTaskPhase(JobTaskList taskList, JobTask task)
+    {
+        if (taskList.Phases.Count > 0)
+        {
+            var phaseName = taskList.Phases
+                .OrderBy(summary => summary.Order)
+                .FirstOrDefault(summary => summary.TaskIds.Contains(task.Id, StringComparer.OrdinalIgnoreCase))
+                ?.Name;
+            if (!string.IsNullOrWhiteSpace(phaseName))
+                return phaseName!;
+        }
+
+        return GetTaskPhase(task);
     }
 
     private static string GetTaskPhase(JobTask task)

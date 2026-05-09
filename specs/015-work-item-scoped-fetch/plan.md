@@ -23,7 +23,7 @@ Introduce `IWorkItemFetchService` — a new abstraction in `DevOpsMigrationPlatf
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **Mandatory context loading:** Confirmed — ALL files in `/.agents/guardrails/` (architecture-boundaries.md, coding-standards.md, testing-rules.md, workitems-rules.md, migration-rules.md, module-rules.md, control-plane-rules.md, atdd-workflow.md, acceptance-test-format.md), ALL files in `/.agents/context/` (migration-package-concept.md), and relevant `/docs/` files (architecture.md, modules.md, work-item-iteration-pattern.md, source-types.md) have been read.
+> **Mandatory context loading:** Confirmed — ALL files in `/.agents/guardrails/` (architecture-boundaries.md, coding-standards.md, testing-rules.md, workitems-rules.md, migration-rules.md, module-rules.md, control-plane-rules.md, test-first-workflow.md, acceptance-test-format.md), ALL files in `/.agents/context/` (migration-package-concept.md), and relevant `/docs/` files (architecture.md, modules.md, work-item-iteration-pattern.md, source-types.md) have been read.
 
 - [x] **Package-First (I):** `IWorkItemFetchService` is a read-only fetch abstraction — it does not write to the package or perform source-to-target migration. Export/import paths are explicitly excluded (FR-012).
 - [x] **Streaming (II):** `FetchAsync` returns `IAsyncEnumerable<FetchedWorkItem>` — one item at a time, no buffering of full result sets (FR-003).

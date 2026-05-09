@@ -99,7 +99,7 @@
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
                 "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}",
-                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/inventory-ado-single-project"
+                "DEVOPS_MIGRATION_TEST_STORAGE": ".build/teststore/inventory-ado-single-project"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -210,7 +210,7 @@
         },
         // ── Migration CLI: queue ──────────────────────────────────────────────
         // Behaviour is determined by the 'mode' field in the config (Inventory, Dependencies, Export, Prepare, Import, or Migrate).
-        // Options: [-c|--config] [--follow] [--level] [--force-fresh] [-v|--verbose] [--disable-telemetry]
+        // Options: [-c|--config] [--follow] [--level] [--force-fresh] [--diagnostics] [-v|--verbose] [--disable-telemetry]
         {
             "name": "📤 Migration CLI: Queue Export ADO WorkItems (Single Project)",
             "type": "coreclr",
@@ -261,6 +261,7 @@
                 "queue",
                 "--config",
                 "scenarios/queue-export-ado-workitems-single-project.json",
+                "--diagnostics",
                 "--follow",
                 "--level",
                 "Warning"

@@ -56,5 +56,12 @@ public class ExportContext
     /// Modules should prefer this over <c>ISourceEndpointInfo.Project</c>.
     /// </summary>
     public string Project { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The current export task identifier from the execution plan.
+    /// Modules may include this on progress events when they need the Control Plane
+    /// to merge mid-task <c>CompletedCount</c> updates into the task model.
+    /// </summary>
+    public string? TaskId { get; init; }
 }
 

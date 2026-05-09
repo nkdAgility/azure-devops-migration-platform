@@ -10,34 +10,34 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 public interface ICheckpointingService
 {
     /// <summary>
-    /// Returns the current cursor for the named module, or null if no cursor exists.
+    /// Returns the current cursor for the named checkpoint identity, or null if no cursor exists.
     /// </summary>
-    Task<CursorEntry?> ReadCursorAsync(string moduleName, CancellationToken cancellationToken);
+    Task<CursorEntry?> ReadCursorAsync(string checkpointIdentity, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Persists the cursor for the named module after a unit of work completes successfully.
+    /// Persists the cursor for the named checkpoint identity after a unit of work completes successfully.
     /// </summary>
-    Task WriteCursorAsync(string moduleName, CursorEntry cursor, CancellationToken cancellationToken);
+    Task WriteCursorAsync(string checkpointIdentity, CursorEntry cursor, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Deletes the cursor file for the named module. No-op if the cursor does not exist.
+    /// Deletes the cursor file for the named checkpoint identity. No-op if the cursor does not exist.
     /// </summary>
-    Task DeleteCursorAsync(string moduleName, CancellationToken cancellationToken);
+    Task DeleteCursorAsync(string checkpointIdentity, CancellationToken cancellationToken);
 
     // ── Continuation Token (Resumable Batching) ─────────────────────────
 
     /// <summary>
-    /// Reads the continuation token for the named module, or null if none exists.
+    /// Reads the continuation token for the named checkpoint identity, or null if none exists.
     /// </summary>
-    Task<BatchContinuationToken?> ReadContinuationTokenAsync(string moduleName, CancellationToken cancellationToken);
+    Task<BatchContinuationToken?> ReadContinuationTokenAsync(string checkpointIdentity, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Persists the continuation token for the named module.
+    /// Persists the continuation token for the named checkpoint identity.
     /// </summary>
-    Task WriteContinuationTokenAsync(string moduleName, BatchContinuationToken token, CancellationToken cancellationToken);
+    Task WriteContinuationTokenAsync(string checkpointIdentity, BatchContinuationToken token, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Deletes the continuation token for the named module. No-op if none exists.
+    /// Deletes the continuation token for the named checkpoint identity. No-op if none exists.
     /// </summary>
-    Task DeleteContinuationTokenAsync(string moduleName, CancellationToken cancellationToken);
+    Task DeleteContinuationTokenAsync(string checkpointIdentity, CancellationToken cancellationToken);
 }

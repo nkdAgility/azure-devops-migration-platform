@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -21,6 +22,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -39,6 +41,14 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 {
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
+    private static readonly HashSet<string> KnownPackageRootFolders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Identities",
+        "Nodes",
+        "Teams",
+        "WorkItems"
+    };
+
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -84,7 +94,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             string.Join(", ", _analysers.Select(a => a.Name)));
     }
 
-    public Task<JobTaskList> BuildPlanAsync(
+    public async Task<JobTaskList> BuildPlanAsync(
         IConfiguration packageConfig,
         JobKind kind,
         IArtefactStore artefactStore,
@@ -96,12 +106,12 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
         if (kind is JobKind.Inventory or JobKind.Dependencies)
         {
-            return BuildCapturePlanAsync(packageConfig, kind, ct);
+            return await BuildCapturePlanAsync(packageConfig, kind, ct).ConfigureAwait(false);
         }
 
         if (kind == JobKind.Prepare)
         {
-            return Task.FromResult(BuildPreparePlan(packageConfig));
+            return BuildPreparePlan(packageConfig);
         }
 
         var includeExport = kind is JobKind.Export or JobKind.Migrate
@@ -115,7 +125,9 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
         if (includeImport)
         {
-            tasks.AddRange(BuildImportTasks(packageConfig, ref order));
+            var importTasks = await BuildImportTasksAsync(packageConfig, artefactStore, order, ct).ConfigureAwait(false);
+            tasks.AddRange(importTasks);
+            order += importTasks.Count;
         }
 
         // Validate no circular dependencies in Import phase before returning.
@@ -128,11 +140,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             "Built execution plan with {TaskCount} tasks for job kind {Kind}.",
             tasks.Count, kind);
 
-        return Task.FromResult(new JobTaskList
-        {
-            Tasks = tasks.AsReadOnly(),
-            PushedAt = DateTimeOffset.UtcNow
-        });
+        return BuildTaskList(tasks, kind);
     }
 
     /// <inheritdoc />
@@ -246,76 +254,83 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
         // Resolve org/project for task IDs from the Source config section.
         var sourceUrl = config["MigrationPlatform:Source:Url"] ?? string.Empty;
-        var sourceProject = config["MigrationPlatform:Source:Project"] ?? string.Empty;
-        var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(sourceUrl);
-        var projectSlug = PackagePathResolver.Sanitise(sourceProject);
-
-        // Pre-compute the set of export task IDs so we can resolve inter-module DependsOn.
-        var exportTaskIds = new HashSet<string>(
-            exportModules
-                .Where(m => needed.Contains(m.Name))
-                .Select(m => $"export.{m.Name.ToLowerInvariant()}.{orgSlug}.{projectSlug}"),
-            StringComparer.OrdinalIgnoreCase);
+        var sourceType = config["MigrationPlatform:Source:Type"] ?? "Unknown";
+        var orgSlug = string.IsNullOrWhiteSpace(sourceUrl)
+            ? PackagePathResolver.Sanitise(sourceType.ToLowerInvariant())
+            : PackagePathResolver.DeriveInventoryOrgSlug(sourceUrl);
+        var sourceProjects = GetConfiguredSourceProjects(config);
 
         var tasks = new List<JobTask>();
-        var preExportAnalysisTaskIdsByModule = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-
-        tasks.AddRange(BuildExportPrerequisiteTasks(
-            config,
-            needed,
-            sourceUrl,
-            sourceProject,
-            orgSlug,
-            projectSlug,
-            preExportAnalysisTaskIdsByModule,
-            ref order));
-
-        foreach (var module in exportModules)
+        foreach (var sourceProject in sourceProjects)
         {
-            // Module must be needed: either explicitly enabled in config,
-            // or transitively required by a module that is.
-            if (!needed.Contains(module.Name))
-            {
-                _logger.LogDebug("Skipping module {ModuleName}: not needed (not in config and no enabled module depends on it)", module.Name);
-                continue;
-            }
+            var projectSlug = PackagePathResolver.Sanitise(sourceProject);
 
-            _logger.LogDebug(
-                "Module {ModuleName}: Needed={Needed}, SupportsExport={SupportsExport}",
-                module.Name, needed.Contains(module.Name), module.SupportsExport);
+            // Pre-compute the set of export task IDs so we can resolve inter-module DependsOn.
+            var exportTaskIds = new HashSet<string>(
+                exportModules
+                    .Where(m => needed.Contains(m.Name))
+                    .Select(m => $"export.{m.Name.ToLowerInvariant()}.{orgSlug}.{projectSlug}"),
+                StringComparer.OrdinalIgnoreCase);
 
-            var taskId = $"export.{module.Name.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
-            // Export tasks honor module.DependsOn entries where phase is Export or Both.
-            var exportDeps = new List<string>();
-            foreach (var dep in module.DependsOn.Where(d => d.AppliesToExport))
-            {
-                var depTaskId = $"export.{dep.ModuleName.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
-                if (exportTaskIds.Contains(depTaskId) && !exportDeps.Contains(depTaskId, StringComparer.OrdinalIgnoreCase))
-                    exportDeps.Add(depTaskId);
-            }
+            var preExportAnalysisTaskIdsByModule = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
-            if (preExportAnalysisTaskIdsByModule.TryGetValue(module.Name, out var analysisDeps))
+            tasks.AddRange(BuildExportPrerequisiteTasks(
+                config,
+                needed,
+                sourceUrl,
+                sourceProject,
+                orgSlug,
+                projectSlug,
+                preExportAnalysisTaskIdsByModule,
+                ref order));
+
+            foreach (var module in exportModules)
             {
-                foreach (var analysisDep in analysisDeps)
+                // Module must be needed: either explicitly enabled in config,
+                // or transitively required by a module that is.
+                if (!needed.Contains(module.Name))
                 {
-                    if (!exportDeps.Contains(analysisDep, StringComparer.OrdinalIgnoreCase))
-                        exportDeps.Add(analysisDep);
+                    _logger.LogDebug("Skipping module {ModuleName}: not needed (not in config and no enabled module depends on it)", module.Name);
+                    continue;
                 }
+
+                _logger.LogDebug(
+                    "Module {ModuleName}: Needed={Needed}, SupportsExport={SupportsExport}",
+                    module.Name, needed.Contains(module.Name), module.SupportsExport);
+
+                var taskId = $"export.{module.Name.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
+                // Export tasks honor module.DependsOn entries where phase is Export or Both.
+                var exportDeps = new List<string>();
+                foreach (var dep in module.DependsOn.Where(d => d.AppliesToExport))
+                {
+                    var depTaskId = $"export.{dep.ModuleName.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
+                    if (exportTaskIds.Contains(depTaskId) && !exportDeps.Contains(depTaskId, StringComparer.OrdinalIgnoreCase))
+                        exportDeps.Add(depTaskId);
+                }
+
+                if (preExportAnalysisTaskIdsByModule.TryGetValue(module.Name, out var analysisDeps))
+                {
+                    foreach (var analysisDep in analysisDeps)
+                    {
+                        if (!exportDeps.Contains(analysisDep, StringComparer.OrdinalIgnoreCase))
+                            exportDeps.Add(analysisDep);
+                    }
+                }
+
+                var dependsOn = exportDeps.Count > 0 ? exportDeps.AsReadOnly() : null;
+
+                tasks.Add(MakeTask(
+                    taskId,
+                    $"{module.Name} Export",
+                    "Export",
+                    TaskKind.Export,
+                    organisationUrl: sourceUrl,
+                    projectName: sourceProject,
+                    enabled: true,
+                    phaseAlreadyDone: false,
+                    0, // placeholder — reassigned after topological sort
+                    dependsOn: dependsOn));
             }
-
-            var dependsOn = exportDeps.Count > 0 ? exportDeps.AsReadOnly() : null;
-
-            tasks.Add(MakeTask(
-                taskId,
-                $"{module.Name} Export",
-                "Export",
-                TaskKind.Export,
-                organisationUrl: sourceUrl,
-                projectName: sourceProject,
-                enabled: true,
-                phaseAlreadyDone: false,
-                0, // placeholder — reassigned after topological sort
-                dependsOn: dependsOn));
         }
 
         // Topologically sort so Order reflects dependency order in the CLI display
@@ -325,6 +340,25 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             tasks[i] = tasks[i] with { Order = order++ };
 
         return tasks;
+    }
+
+    private static List<string> GetConfiguredSourceProjects(IConfiguration config)
+    {
+        var sourceProject = config["MigrationPlatform:Source:Project"];
+        if (!string.IsNullOrWhiteSpace(sourceProject))
+        {
+            return [sourceProject!];
+        }
+
+        var generatorProjects = config
+            .GetSection("MigrationPlatform:Source:Generator:Projects")
+            .GetChildren()
+            .Select(project => project["Name"])
+            .Where(project => !string.IsNullOrWhiteSpace(project))
+            .Select(project => project!)
+            .ToList();
+
+        return generatorProjects.Count > 0 ? generatorProjects : [string.Empty];
     }
 
     private List<JobTask> BuildExportPrerequisiteTasks(
@@ -463,64 +497,126 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
     // ── Import phase ─────────────────────────────────────────────────────────
 
-    private List<JobTask> BuildImportTasks(
+    private async Task<List<JobTask>> BuildImportTasksAsync(
         IConfiguration config,
-        ref int order)
+        IArtefactStore artefactStore,
+        int order,
+        CancellationToken ct)
     {
         bool importAlreadyDone = false;
 
         // Resolve org/project for task IDs (import jobs target Target, not Source).
         var targetUrl = config["MigrationPlatform:Target:Url"] ?? string.Empty;
-        var targetProject = config["MigrationPlatform:Target:Project"] ?? string.Empty;
-        var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(targetUrl);
-        var projectSlug = PackagePathResolver.Sanitise(targetProject);
+        var targetType = config["MigrationPlatform:Target:Type"] ?? "Unknown";
+        var orgSlug = string.IsNullOrWhiteSpace(targetUrl)
+            ? PackagePathResolver.Sanitise(targetType.ToLowerInvariant())
+            : PackagePathResolver.DeriveInventoryOrgSlug(targetUrl);
+        var targetProjects = await GetConfiguredTargetProjectsAsync(config, artefactStore, ct).ConfigureAwait(false);
 
         var tasks = new List<JobTask>();
 
-        // Build task for each module that supports import AND is enabled.
-        foreach (var module in _modules.Where(m => m.SupportsImport))
+        foreach (var targetProject in targetProjects)
         {
-            var enabled = IsEnabled(config, module.Name);
+            var projectSlug = PackagePathResolver.Sanitise(targetProject);
 
-            // Skip disabled modules - no task should be created.
-            if (!enabled)
-                continue;
-
-            var taskId = $"import.{module.Name.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
-
-            // Map module dependencies that apply to import phase to task IDs; skip dependencies that are not enabled or registered.
-            var dependsOn = module.DependsOn
-                .Where(dep => dep.AppliesToImport)
-                .Where(dep => _modulesByName.ContainsKey(dep.ModuleName) && IsEnabled(config, dep.ModuleName))
-                .Select(dep => $"import.{dep.ModuleName.ToLowerInvariant()}.{orgSlug}.{projectSlug}")
-                .ToList();
-
-            var importDeps = module.DependsOn.Where(d => d.AppliesToImport).ToList();
-            if (importDeps.Count > dependsOn.Count)
+            foreach (var module in _modules.Where(m => m.SupportsImport))
             {
-                var missing = importDeps.Where(d => !_modulesByName.ContainsKey(d.ModuleName) || !IsEnabled(config, d.ModuleName));
-                foreach (var dep in missing)
-                {
-                    _logger.LogWarning(
-                        "Module {Module} depends on {Dependency} for import, but that module is not enabled or not registered. Dependency omitted from task.",
-                        module.Name, dep.ModuleName);
-                }
-            }
+                var enabled = IsEnabled(config, module.Name);
+                if (!enabled)
+                    continue;
 
-            tasks.Add(MakeTask(
-                taskId,
-                $"{module.Name} Import",
-                "Import",
-                TaskKind.Import,
-                organisationUrl: targetUrl,
-                projectName: targetProject,
-                enabled: true,  // Always true here since we skipped disabled modules above
-                importAlreadyDone,
-                order++,
-                dependsOn: dependsOn.Count > 0 ? dependsOn.AsReadOnly() : null));
+                var taskId = $"import.{module.Name.ToLowerInvariant()}.{orgSlug}.{projectSlug}";
+
+                var dependsOn = module.DependsOn
+                    .Where(dep => dep.AppliesToImport)
+                    .Where(dep => _modulesByName.ContainsKey(dep.ModuleName) && IsEnabled(config, dep.ModuleName))
+                    .Select(dep => $"import.{dep.ModuleName.ToLowerInvariant()}.{orgSlug}.{projectSlug}")
+                    .ToList();
+
+                var importDeps = module.DependsOn.Where(d => d.AppliesToImport).ToList();
+                if (importDeps.Count > dependsOn.Count)
+                {
+                    var missing = importDeps.Where(d => !_modulesByName.ContainsKey(d.ModuleName) || !IsEnabled(config, d.ModuleName));
+                    foreach (var dep in missing)
+                    {
+                        _logger.LogWarning(
+                            "Module {Module} depends on {Dependency} for import, but that module is not enabled or not registered. Dependency omitted from task.",
+                            module.Name, dep.ModuleName);
+                    }
+                }
+
+                tasks.Add(MakeTask(
+                    taskId,
+                    $"{module.Name} Import",
+                    "Import",
+                    TaskKind.Import,
+                    organisationUrl: targetUrl,
+                    projectName: targetProject,
+                    enabled: true,
+                    importAlreadyDone,
+                    order++,
+                    dependsOn: dependsOn.Count > 0 ? dependsOn.AsReadOnly() : null));
+            }
         }
 
         return tasks;
+    }
+
+    private static async Task<List<string>> GetConfiguredTargetProjectsAsync(
+        IConfiguration config,
+        IArtefactStore artefactStore,
+        CancellationToken ct)
+    {
+        var targetProject = config["MigrationPlatform:Target:Project"];
+        if (!string.IsNullOrWhiteSpace(targetProject))
+        {
+            return [targetProject!];
+        }
+
+        var sourceProjects = GetConfiguredSourceProjects(config);
+        if (sourceProjects.Any(project => !string.IsNullOrWhiteSpace(project)))
+        {
+            return sourceProjects.Where(project => !string.IsNullOrWhiteSpace(project)).ToList();
+        }
+
+        var packagedProjects = await DiscoverPackagedProjectNamesAsync(artefactStore, ct).ConfigureAwait(false);
+        return packagedProjects.Count > 0 ? packagedProjects : [string.Empty];
+    }
+
+    private static async Task<List<string>> DiscoverPackagedProjectNamesAsync(
+        IArtefactStore artefactStore,
+        CancellationToken ct)
+    {
+        var packagedProjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var paths = artefactStore.EnumerateAsync(string.Empty, ct);
+
+        if (paths is not null)
+        {
+            await foreach (var path in paths.ConfigureAwait(false))
+            {
+                var segments = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+                if (segments.Length < 3
+                    || segments[0].StartsWith(".", StringComparison.Ordinal)
+                    || KnownPackageRootFolders.Contains(segments[0])
+                    || !KnownPackageRootFolders.Contains(segments[2]))
+                {
+                    continue;
+                }
+
+                packagedProjects.Add(segments[1]);
+            }
+        }
+
+        if (packagedProjects.Count == 0 && artefactStore is FileSystemArtefactStore fileSystemArtefactStore)
+        {
+            var rootName = new DirectoryInfo(fileSystemArtefactStore.RootPath).Name;
+            if (!string.IsNullOrWhiteSpace(rootName))
+            {
+                packagedProjects.Add(rootName);
+            }
+        }
+
+        return packagedProjects.OrderBy(project => project, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -765,11 +861,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             "Built capture plan with {TaskCount} tasks for job kind {Kind}.",
             tasks.Count, kind);
 
-        return new JobTaskList
-        {
-            Tasks = tasks.AsReadOnly(),
-            PushedAt = DateTimeOffset.UtcNow
-        };
+        return BuildTaskList(tasks, kind);
     }
 
     /// <summary>
@@ -835,15 +927,30 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             // Single-org fallback from Source section.
             var sourceUrl = config["MigrationPlatform:Source:Url"] ?? string.Empty;
             var sourceProject = config["MigrationPlatform:Source:Project"] ?? string.Empty;
-            if (!string.IsNullOrWhiteSpace(sourceUrl) && !string.IsNullOrWhiteSpace(sourceProject))
+            var generatorProjects = config
+                .GetSection("MigrationPlatform:Source:Generator:Projects")
+                .GetChildren()
+                .Select(project => project["Name"])
+                .Where(project => !string.IsNullOrWhiteSpace(project))
+                .Select(project => project!)
+                .ToList();
+
+            var projects = !string.IsNullOrWhiteSpace(sourceProject)
+                ? new List<string> { sourceProject }
+                : generatorProjects;
+
+            if (projects.Count > 0)
             {
+                var sourceType = config["MigrationPlatform:Source:Type"] ?? "Unknown";
                 var endpoint = new OrganisationEndpoint
                 {
-                    Type = config["MigrationPlatform:Source:Type"] ?? "Unknown",
+                    Type = sourceType,
                     ResolvedUrl = sourceUrl
                 };
-                var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(sourceUrl);
-                result.Add((endpoint, orgSlug, new List<string> { sourceProject }));
+                var orgSlug = string.IsNullOrWhiteSpace(sourceUrl)
+                    ? PackagePathResolver.Sanitise(sourceType.ToLowerInvariant())
+                    : PackagePathResolver.DeriveInventoryOrgSlug(sourceUrl);
+                result.Add((endpoint, orgSlug, projects));
             }
             return result;
         }
@@ -943,12 +1050,55 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 dependsOn: dependsOn.Count > 0 ? dependsOn.AsReadOnly() : null));
         }
 
+        return BuildTaskList(tasks, JobKind.Prepare);
+    }
+
+    private static JobTaskList BuildTaskList(List<JobTask> tasks, JobKind kind)
+    {
+        var orderedTasks = tasks.AsReadOnly();
         return new JobTaskList
         {
-            Tasks = tasks.AsReadOnly(),
-            PushedAt = DateTimeOffset.UtcNow
+            Tasks = orderedTasks,
+            Phases = BuildPhaseSummaries(orderedTasks),
+            PushedAt = DateTimeOffset.UtcNow,
+            ForKind = kind
         };
     }
+
+    private static IReadOnlyList<JobPhaseSummary> BuildPhaseSummaries(IReadOnlyList<JobTask> tasks)
+    {
+        var phases = tasks
+            .OrderBy(t => t.Order)
+            .GroupBy(t => ResolvePhaseName(t), StringComparer.OrdinalIgnoreCase)
+            .Select((group, index) => new JobPhaseSummary
+            {
+                Name = group.Key,
+                Order = index,
+                TaskIds = group.Select(t => t.Id).ToArray()
+            })
+            .ToArray();
+
+        return Array.AsReadOnly(phases);
+    }
+
+    private static string ResolvePhaseName(JobTask task)
+        => task.Phase switch
+        {
+            { Length: > 0 } phase => phase.Length == 1
+                ? char.ToUpperInvariant(phase[0]).ToString()
+                : char.ToUpperInvariant(phase[0]) + phase.Substring(1),
+            _ => task.TaskKind switch
+            {
+                TaskKind.Capture => "Inventory",
+                TaskKind.Analyse => "Analyse",
+                TaskKind.Export => "Export",
+                TaskKind.Prepare => "Prepare",
+                TaskKind.Import => "Import",
+                TaskKind.Validate => "Validate",
+                TaskKind.Dependencies => "Dependencies",
+                _ => "Tasks"
+            }
+        };
 
     private static JobTask MakeTask(
         string id,
@@ -1129,7 +1279,6 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         if (importTasks.Count == 0)
             return;
 
-        // Build adjacency list and in-degree count.
         var graph = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         var inDegree = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
@@ -1150,12 +1299,10 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                         graph[dep].Add(task.Id);
                         inDegree[task.Id]++;
                     }
-                    // If dep is not in the graph (disabled/not registered), it's already filtered out upstream.
                 }
             }
         }
 
-        // Kahn's algorithm: process tasks with no dependencies.
         var queue = new Queue<string>(inDegree.Where(kvp => kvp.Value == 0).Select(kvp => kvp.Key));
         var processed = 0;
 
@@ -1174,10 +1321,9 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
         if (processed < importTasks.Count)
         {
-            // Cycle detected — find one cycle for the error message.
             var cycle = FindCycle(graph, inDegree);
             throw new InvalidOperationException(
-                $"Circular dependency detected in Import-phase modules: {string.Join(" → ", cycle)}");
+                $"Circular dependency detected in Import-phase modules: {string.Join(" -> ", cycle)}");
         }
     }
 

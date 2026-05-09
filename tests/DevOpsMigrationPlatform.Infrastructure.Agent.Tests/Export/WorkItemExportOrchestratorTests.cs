@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -1005,6 +1006,62 @@ public class WorkItemExportOrchestratorTests
 
         var revisionWrites = written.Where(p => p.EndsWith("revision.json")).ToList();
         Assert.AreEqual(2, revisionWrites.Count, "Only revisions 2 and 3 should be written (0 and 1 are already stored).");
+    }
+
+    [TestMethod]
+    public async Task FastForward_EmitsTaskCompletedCount_OnResumingSkipEvent()
+    {
+        var progressEvents = new List<ProgressEvent>();
+        var progressSink = new Mock<IProgressSink>();
+        progressSink.Setup(p => p.Emit(It.IsAny<ProgressEvent>()))
+            .Callback<ProgressEvent>(evt => progressEvents.Add(evt));
+
+        var mockProgressStore = new Mock<IExportProgressStore>(MockBehavior.Loose);
+        mockProgressStore
+            .Setup(s => s.InitializeAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        mockProgressStore
+            .Setup(s => s.CountAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        mockProgressStore
+            .Setup(s => s.GetProgressAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemExportProgress(1, Rev: 0));
+        mockProgressStore
+            .Setup(s => s.DisposeAsync())
+            .Returns(ValueTask.CompletedTask);
+
+        var mockFactory = new Mock<IExportProgressStoreFactory>(MockBehavior.Strict);
+        mockFactory
+            .Setup(f => f.CreateFromPackageUri(It.IsAny<string>()))
+            .Returns(mockProgressStore.Object);
+
+        var cursor = new CursorEntry { LastProcessed = "WorkItems/prior", Stage = CursorStage.Completed, UpdatedAt = DateTimeOffset.UtcNow, TotalWorkItems = 1 };
+
+        var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var mockCps = new Mock<ICheckpointingService>(MockBehavior.Loose);
+        mockCps.Setup(s => s.ReadCursorAsync("export.workitems", It.IsAny<CancellationToken>()))
+               .ReturnsAsync(cursor);
+
+        var sut = new WorkItemExportOrchestrator(
+            mockStore.Object,
+            mockCps.Object,
+            progressSink: progressSink.Object,
+            exportProgressStoreFactory: mockFactory.Object,
+            packageUri: "file:///C:/test",
+            taskId: "export.workitems.org.project");
+
+        var revisions = MakeRevisions(1, 1);
+        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
+        mockSource.Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+                  .Returns((CancellationToken ct) => revisions.ToAsyncEnumerable(ct));
+
+        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
+
+        var resumingEvent = progressEvents.Single(evt => evt.Stage == "Resuming" && evt.Message!.Contains("Fast-forward"));
+        Assert.AreEqual("export.workitems.org.project", resumingEvent.TaskId);
+        Assert.AreEqual(JobTaskStatus.Running, resumingEvent.TaskStatus);
+        Assert.AreEqual(1L, resumingEvent.CompletedCount);
+        Assert.AreEqual(1L, resumingEvent.KnownTotal);
     }
 
     [TestMethod]

@@ -40,6 +40,7 @@ Provide a coherent Copilot-operable workflow for assessing a subsystem's current
 | nkda-tddsn-test-architect | `.github/agents/nkda-tddsn-test-architect.md` | Target suite and architecture |
 | nkda-tddsn-implementation | `.github/agents/nkda-tddsn-implementation.md` | Test and code implementation |
 | nkda-tddsn-verification | `.github/agents/nkda-tddsn-verification.md` | Verification |
+| nkda-tddsn-autonomous | `.github/agents/nkda-tddsn-autonomous.md` | End-to-end autonomous workflow |
 
 ## Workflow Order
 

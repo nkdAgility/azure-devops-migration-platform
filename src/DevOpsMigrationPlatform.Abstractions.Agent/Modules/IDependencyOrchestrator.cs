@@ -30,7 +30,7 @@ public interface IDependencyOrchestrator
 
     /// <summary>
     /// Captures dependency data for a single org+project pair.
-    /// Writes results to <c>discovery/{orgSlug}/{projectSlug}/dependencies.csv</c>.
+    /// Writes results to <c>{orgSlug}/{projectSlug}/dependencies.csv</c>.
     /// Called once per <c>capture.dependencies.{org}.{project}</c> plan task.
     /// </summary>
     Task<DependencyCounters> CaptureProjectAsync(

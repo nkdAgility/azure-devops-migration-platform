@@ -393,7 +393,7 @@ Key properties:
 | 10. Orchestration | [docs/migration-process-guide.md](migration-process-guide.md) |
 | 11. Zip packaging | [docs/package-format-reference.md](package-format-reference.md) |
 | 12. Validation (pre-flight & post-flight) | [docs/validation.md](validation.md) |
-| 13. Artefact store abstraction | [.agents/context/artefact-store.md](../.agents/context/artefact-store.md) |
+| 13. Package manager and persistence | [.agents/context/package-manager.md](../.agents/context/package-manager.md) |
 | 14. Job contract | [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md) |
 | 15. Control plane | [docs/control-plane.md](control-plane.md) |
 | 16. Migration Agent (worker) | [docs/agent-hosting.md](agent-hosting.md) |

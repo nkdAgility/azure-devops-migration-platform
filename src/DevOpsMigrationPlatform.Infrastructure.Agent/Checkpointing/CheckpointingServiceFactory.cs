@@ -11,12 +11,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 /// </summary>
 public sealed class CheckpointingServiceFactory : ICheckpointingServiceFactory
 {
-    private readonly ICurrentJobEndpointAccessor? _currentJobEndpointAccessor;
-    private readonly ICurrentPackageConfigAccessor? _currentPackageConfigAccessor;
+    private readonly ICurrentJobEndpointAccessor _currentJobEndpointAccessor;
+    private readonly ICurrentPackageConfigAccessor _currentPackageConfigAccessor;
 
     public CheckpointingServiceFactory(
-        ICurrentJobEndpointAccessor? currentJobEndpointAccessor = null,
-        ICurrentPackageConfigAccessor? currentPackageConfigAccessor = null)
+        ICurrentJobEndpointAccessor currentJobEndpointAccessor,
+        ICurrentPackageConfigAccessor currentPackageConfigAccessor)
     {
         _currentJobEndpointAccessor = currentJobEndpointAccessor;
         _currentPackageConfigAccessor = currentPackageConfigAccessor;

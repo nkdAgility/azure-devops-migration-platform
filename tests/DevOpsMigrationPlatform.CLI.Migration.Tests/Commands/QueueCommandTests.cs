@@ -14,6 +14,8 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Spectre.Console.Rendering;
+using Spectre.Console.Testing;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 
@@ -53,6 +55,20 @@ public class QueueCommandTests
 
         var result = settings.Validate();
         Assert.IsFalse(result.Successful, "Validation should fail for invalid log level.");
+    }
+
+    [TestMethod]
+    public void QueueCommandSettings_WithDiagnosticsFlag_PassesValidation()
+    {
+        var settings = new DevOpsMigrationPlatform.CLI.Migration.Settings.QueueCommandSettings
+        {
+            ConfigFile = "test.json",
+            Diagnostics = true,
+            Level = "Information"
+        };
+
+        var result = settings.Validate();
+        Assert.IsTrue(result.Successful, "Validation should pass when diagnostics flag is enabled.");
     }
 
     [TestMethod]
@@ -101,6 +117,79 @@ public class QueueCommandTests
         var phase = determineCurrentTaskPhase!.Invoke(null, [state!, (IReadOnlyList<string>)new List<string> { "Export", "Import" }]) as string;
 
         Assert.AreEqual("Import", phase, "Completed multi-stage jobs should remain on their last terminal phase.");
+    }
+
+    [TestMethod]
+    public void BuildProgressDisplay_WhenTaskListHasExplicitPhaseSummaries_UsesSummaryPhases()
+    {
+        var stateType = typeof(QueueCommand).GetNestedType("JobProgressState", BindingFlags.NonPublic);
+        Assert.IsNotNull(stateType, "JobProgressState nested type was not found.");
+
+        var initialMethod = stateType!.GetMethod("Initial", BindingFlags.Public | BindingFlags.Static);
+        Assert.IsNotNull(initialMethod, "JobProgressState.Initial factory was not found.");
+
+        var state = initialMethod!.Invoke(null, [0]);
+        Assert.IsNotNull(state, "JobProgressState.Initial returned null.");
+
+        stateType.GetProperty("Stage")!.SetValue(state, "Analyse.Starting");
+        stateType.GetProperty("Tasks")!.SetValue(
+            state,
+            new JobTaskList
+            {
+                Tasks = new List<JobTask>
+                {
+                    new()
+                    {
+                        Id = "analyse.inventory.org.project",
+                        Name = "Inventory Analyse",
+                        TaskKind = TaskKind.Analyse,
+                        Order = 0,
+                        Status = JobTaskStatus.Pending,
+                    },
+                    new()
+                    {
+                        Id = "prepare.workitems",
+                        Name = "WorkItems Prepare",
+                        TaskKind = TaskKind.Prepare,
+                        Phase = "Prepare",
+                        Order = 1,
+                        Status = JobTaskStatus.Pending,
+                    },
+                }.AsReadOnly(),
+                Phases = new List<JobPhaseSummary>
+                {
+                    new() { Name = "Analyse", Order = 0, TaskIds = new[] { "analyse.inventory.org.project" } },
+                    new() { Name = "Prepare", Order = 1, TaskIds = new[] { "prepare.workitems" } },
+                }.AsReadOnly()
+            });
+
+        var buildProgressDisplay = typeof(QueueCommand).GetMethod("BuildProgressDisplay", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(buildProgressDisplay, "BuildProgressDisplay method was not found.");
+
+        var renderable = (IRenderable)buildProgressDisplay!.Invoke(null, [state!])!;
+        var console = new TestConsole();
+        console.Profile.Width = 160;
+        console.Write(renderable);
+        var output = console.Output;
+
+        StringAssert.Contains(output, "Analyse", "The explicit Analyse phase summary should be rendered.");
+        StringAssert.Contains(output, "Prepare", "The explicit Prepare phase summary should be rendered.");
+        Assert.IsTrue(CountOccurrences(output, "Analyse") >= 2,
+            "Queue progress should render the explicit Analyse stage in addition to the task name when summary phases are present.");
+    }
+
+    private static int CountOccurrences(string text, string value)
+    {
+        var count = 0;
+        var index = 0;
+
+        while ((index = text.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+
+        return count;
     }
 
     // ── System tests ───────────────────────────────────────────────────────

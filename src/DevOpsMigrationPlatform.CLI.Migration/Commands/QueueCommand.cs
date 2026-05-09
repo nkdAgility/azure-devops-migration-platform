@@ -24,6 +24,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Diagnostics;
+using Microsoft.Extensions.Configuration;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Rendering;
@@ -48,6 +50,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         QueueCommandSettings settings,
         CancellationToken cancellationToken = default)
     {
+        ConfigureDetailedDiagnostics(settings);
+
         await CreateHost(Environment.GetCommandLineArgs(), (services, config) =>
         {
             services.AddHttpClient<ControlPlaneClient>((sp, client) =>
@@ -67,6 +71,14 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 }));
             services.AddSingleton<IConfigSchemaValidator, JsonSchemaConfigValidator>();
         });
+
+        if (settings.Diagnostics)
+        {
+            var console = GetRequiredService<IAnsiConsole>();
+            var diagnosticsPath = ResolveDiagnosticsPath();
+            if (!string.IsNullOrWhiteSpace(diagnosticsPath))
+                ShowInfo(console, $"DiagnosticsPath: {FormatLocalPathMarkup(diagnosticsPath)}");
+        }
 
         var configPath = GetConfigurationPath(settings);
         var rawJson = configPath != null
@@ -104,7 +116,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 logger.LogWarning(
                     "Schema file not found at {ExpectedSchemaPath}. Validation skipped.",
                     expectedSchemaPath);
-                console.MarkupLine($"[yellow]⚠[/] Schema file not found at {Markup.Escape(expectedSchemaPath)}. Validation skipped.");
+                console.MarkupLine($"[yellow]⚠[/] Schema file not found at {FormatLocalPathMarkup(expectedSchemaPath)}. Validation skipped.");
             }
         }
 
@@ -125,6 +137,27 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             "Dependencies" => await ExecuteDiscoveryJobAsync(JobKind.Dependencies, rawJson, settings, cancellationToken),
             _ => ExecuteInvalidMode(mode ?? "(none)")
         };
+    }
+
+    private static void ConfigureDetailedDiagnostics(QueueCommandSettings settings)
+    {
+        if (!settings.Diagnostics)
+            return;
+
+        Environment.SetEnvironmentVariable("Telemetry__DetailedDiagnostics", "true");
+
+        var diagnosticsPath = Environment.GetEnvironmentVariable("Telemetry__DiagnosticsPath");
+        if (string.IsNullOrWhiteSpace(diagnosticsPath))
+        {
+            diagnosticsPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), ".otel-diagnostics"));
+            Environment.SetEnvironmentVariable("Telemetry__DiagnosticsPath", diagnosticsPath);
+        }
+    }
+
+    private string? ResolveDiagnosticsPath()
+    {
+        var configuration = GetRequiredService<IConfiguration>();
+        return FileDiagnosticsExtensions.GetDiagnosticsPath(configuration);
     }
 
 
@@ -1331,7 +1364,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         // task row IS its module progress bar. No separate checklist + divider.
         if (s.Tasks is { Tasks.Count: > 0 })
         {
-            var phases = GetOrderedTaskPhases(s.Tasks.Tasks);
+            var phases = GetOrderedTaskPhases(s.Tasks);
             if (phases.Count > 1)
                 return BuildMultiStageTaskDisplay(s, phases);
 
@@ -1392,15 +1425,16 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             : 0;
 
         var tasksToRender = s.Tasks!.Tasks
-            .Where(t => ShouldRenderTaskInPhase(t, phaseFilter))
+            .Where(t => ShouldRenderTaskInPhase(s.Tasks!, t, phaseFilter))
             .OrderBy(t => t.Order)
             .ToList();
 
         foreach (var task in tasksToRender)
         {
-            if (showPhaseHeaders && task.Phase != currentPhase)
+            var taskPhase = ResolveTaskPhase(s.Tasks!, task);
+            if (showPhaseHeaders && !string.Equals(taskPhase, currentPhase, StringComparison.OrdinalIgnoreCase))
             {
-                currentPhase = task.Phase;
+                currentPhase = taskPhase;
                 if (!string.IsNullOrEmpty(currentPhase))
                     rows.Add(new Markup($"[bold grey]{Markup.Escape(currentPhase)}[/]"));
             }
@@ -1648,25 +1682,38 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         return rows.Count > 0 ? new Rows(rows) : new Markup("[grey]⠋ Running…[/]");
     }
 
-    private static IReadOnlyList<string> GetOrderedTaskPhases(IReadOnlyList<JobTask> tasks) => tasks
-        .Select(t => t.Phase)
-        .Where(phase => !string.IsNullOrWhiteSpace(phase))
-        .Select(phase => phase!)
-        .Distinct(StringComparer.OrdinalIgnoreCase)
-        .ToList();
+    private static IReadOnlyList<string> GetOrderedTaskPhases(JobTaskList taskList)
+    {
+        if (taskList.Phases.Count > 0)
+        {
+            return taskList.Phases
+                .OrderBy(phase => phase.Order)
+                .Select(phase => phase.Name)
+                .ToList();
+        }
+
+        return taskList.Tasks
+            .Select(t => t.Phase)
+            .Where(phase => !string.IsNullOrWhiteSpace(phase))
+            .Select(phase => phase!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
 
     private static string DetermineCurrentTaskPhase(JobProgressState s, IReadOnlyList<string> phases)
     {
         var runningPhase = s.Tasks!.Tasks
-            .Where(t => t.Status == JobTaskStatus.Running && !string.IsNullOrWhiteSpace(t.Phase))
-            .Select(t => t.Phase!)
+            .Where(t => t.Status == JobTaskStatus.Running)
+            .Select(t => ResolveTaskPhase(s.Tasks!, t))
+            .Where(phase => !string.IsNullOrWhiteSpace(phase))
             .FirstOrDefault();
         if (!string.IsNullOrWhiteSpace(runningPhase))
             return runningPhase;
 
         var pendingPhase = s.Tasks.Tasks
-            .Where(t => t.Status == JobTaskStatus.Pending && !string.IsNullOrWhiteSpace(t.Phase))
-            .Select(t => t.Phase!)
+            .Where(t => t.Status == JobTaskStatus.Pending)
+            .Select(t => ResolveTaskPhase(s.Tasks!, t))
+            .Where(phase => !string.IsNullOrWhiteSpace(phase))
             .FirstOrDefault();
         if (!string.IsNullOrWhiteSpace(pendingPhase))
             return pendingPhase;
@@ -1679,25 +1726,48 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
 
         var terminalPhase = s.Tasks.Tasks
-            .Where(t => IsTerminal(t.Status) && !string.IsNullOrWhiteSpace(t.Phase))
+            .Where(t => IsTerminal(t.Status))
             .OrderBy(t => t.Order)
-            .Select(t => t.Phase!)
+            .Select(t => ResolveTaskPhase(s.Tasks!, t))
+            .Where(phase => !string.IsNullOrWhiteSpace(phase))
             .LastOrDefault();
         if (!string.IsNullOrWhiteSpace(terminalPhase))
             return terminalPhase;
 
-        return phases[^1];
+        return phases[phases.Count - 1];
     }
 
-    private static bool ShouldRenderTaskInPhase(JobTask task, string? phaseFilter)
+    private static bool ShouldRenderTaskInPhase(JobTaskList taskList, JobTask task, string? phaseFilter)
     {
         if (string.IsNullOrWhiteSpace(phaseFilter))
             return true;
 
-        if (string.IsNullOrWhiteSpace(task.Phase))
-            return true;
+        if (taskList.Phases.Count > 0)
+        {
+            var phaseSummary = taskList.Phases
+                .FirstOrDefault(phase => string.Equals(phase.Name, phaseFilter, StringComparison.OrdinalIgnoreCase));
+            if (phaseSummary is not null)
+            {
+                return phaseSummary.TaskIds.Contains(task.Id, StringComparer.OrdinalIgnoreCase);
+            }
+        }
 
-        return string.Equals(task.Phase, phaseFilter, StringComparison.OrdinalIgnoreCase);
+        return string.Equals(ResolveTaskPhase(taskList, task), phaseFilter, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ResolveTaskPhase(JobTaskList taskList, JobTask task)
+    {
+        if (taskList.Phases.Count > 0)
+        {
+            var phaseName = taskList.Phases
+                .OrderBy(phase => phase.Order)
+                .FirstOrDefault(phase => phase.TaskIds.Contains(task.Id, StringComparer.OrdinalIgnoreCase))
+                ?.Name;
+            if (!string.IsNullOrWhiteSpace(phaseName))
+                return phaseName!;
+        }
+
+        return task.Phase ?? task.TaskKind.ToString();
     }
 
     private static string BuildTaskStageStrip(IReadOnlyList<string> phases, string currentPhase)
@@ -2464,6 +2534,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     {
         var spinnerFrame = s_spinnerFrames[(int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 80 % s_spinnerFrames.Length)];
         var rows = new List<IRenderable>();
+        var hasDependencyProjectState = s.Projects.Any(project =>
+            project.IsCounting ||
+            project.WorkItemsAnalysed > 0 ||
+            project.ExternalLinks > 0 ||
+            project.CrossProjectLinks > 0 ||
+            project.CrossOrgLinks > 0 ||
+            project.StageText is "Analysis" or "Counting" or "ProjectComplete");
 
         if (s.Tasks is null && s.Projects.Count == 0)
         {
@@ -2479,7 +2556,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 .OrderBy(t => t.Order)
                 .ToList();
 
-            if (captureTasks.Count > 0)
+            if (captureTasks.Count > 0 && !hasDependencyProjectState)
             {
                 // Determine which module columns are active in this job.
                 var moduleOrder = new[] { "identities", "nodes", "teams", "workitems", "repos" };

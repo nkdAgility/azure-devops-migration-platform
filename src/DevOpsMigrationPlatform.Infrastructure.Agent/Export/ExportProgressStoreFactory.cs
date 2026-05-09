@@ -26,6 +26,8 @@ public sealed class ExportProgressStoreFactory : IExportProgressStoreFactory
         else
             localRoot = packageUri;
 
+        localRoot = Path.GetFullPath(localRoot);
+
         var newPath = PackagePaths.ExportProgressDbNative(localRoot);
 
         return new SqliteExportProgressStore(newPath);

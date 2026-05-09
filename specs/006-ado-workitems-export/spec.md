@@ -18,7 +18,7 @@ The following documents were read before drafting this spec:
 | `.agents/guardrails/workitems-rules.md` | Confirmed — canonical folder layout, cursor-based checkpointing, attachments beside `revision.json` |
 | `.agents/context/workitems-format-summary.md` | Confirmed — `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/revision.json` is canonical |
 | `.agents/context/checkpointing-summary.md` | Confirmed — cursor file at `Checkpoints/workitems.cursor.json` |
-| `.agents/context/artefact-store.md` | Confirmed — `IArtefactStore` is the only permitted file abstraction |
+| `.agents/context/package-manager.md` | Confirmed — package persistence still uses `IArtefactStore` as a primitive |
 | `.agents/context/job-lifecycle.md` | Confirmed — `MigrationJob.source.type = AzureDevOpsServices` with WIQL module scope |
 | `docs/configuration-reference.md` | Confirmed — module scope config via `MigrationJobModule.scopes` |
 

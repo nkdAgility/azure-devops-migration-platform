@@ -84,7 +84,7 @@ public sealed class NodesModule : IModule
         _checkpointingFactory = checkpointingFactory;
     }
 
-    public async Task CaptureAsync(InventoryContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
     {
         using var activity = DiscoveryActivity.StartActivity("inventory.nodes");
         activity?.SetTag("job.id", context.Job.JobId);
@@ -95,7 +95,7 @@ public sealed class NodesModule : IModule
         if (string.IsNullOrWhiteSpace(context.Project))
         {
             _logger.LogError("[Nodes] CaptureAsync called with empty Project — executor contract violated. Skipping.");
-            return;
+            return TaskExecutionResult.Skipped("CaptureAsync called with empty project.");
         }
 
         _logger.LogInformation("Inventorying {Module}", Name);
@@ -152,9 +152,11 @@ public sealed class NodesModule : IModule
                 }
             }
         });
+
+        return TaskExecutionResult.Completed();
     }
 
-    public async Task PrepareAsync(PrepareContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct)
     {
         using var activity = MigrationActivity.StartActivity("prepare.nodes");
         activity?.SetTag("job.id", context.Job.JobId);
@@ -183,51 +185,60 @@ public sealed class NodesModule : IModule
 
         _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", Name, report.ResolvedCount, report.UnresolvedCount, stopwatch.ElapsedMilliseconds);
         context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Prepared", Message = $"{Name} prepare complete", Timestamp = DateTimeOffset.UtcNow });
+
+        return TaskExecutionResult.Completed();
     }
 
     /// <inheritdoc/>
-    public async Task ExportAsync(ExportContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct)
     {
         if (!_options.Enabled)
         {
             _logger.LogDebug("[Nodes] Module disabled — skipping export.");
-            return;
+            return TaskExecutionResult.Skipped("Nodes module disabled for export.");
         }
 
         if (_capture is null)
         {
             _logger.LogWarning("[Nodes] No IClassificationTreeCapture registered — node export skipped.");
-            return;
+            return TaskExecutionResult.Skipped("No classification tree capture registered.");
         }
 
         await _orchestrator.ExportAsync(
             _capture, context, _sourceEndpointInfo, _checkpointingFactory,
             ct).ConfigureAwait(false);
+
+        return TaskExecutionResult.Completed();
     }
 
     /// <inheritdoc/>
-    public async Task ImportAsync(ImportContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct)
     {
 #if NET481
         // TFS is a source-only connector — import is not supported.
         _logger.LogDebug("[Nodes] Import not supported on net481 (TFS agent) — skipping.");
         await Task.CompletedTask.ConfigureAwait(false);
+        return TaskExecutionResult.Skipped("Nodes import is not supported on net481.");
 #else
         if (!_options.Enabled)
         {
             _logger.LogDebug("[Nodes] Module disabled — skipping import.");
-            return;
+            return TaskExecutionResult.Skipped("Nodes module disabled for import.");
         }
 
         await _orchestrator.ImportAsync(
             context, _sourceEndpointInfo, _targetEndpointInfo,
             _checkpointingFactory, _options.ReplicateSourceTree, ct).ConfigureAwait(false);
+
+        return TaskExecutionResult.Completed();
 #endif
     }
 
     /// <inheritdoc/>
-    public async Task ValidateAsync(ValidationContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct)
     {
         await _orchestrator.ValidateAsync(context.ArtefactStore, context, ct).ConfigureAwait(false);
+
+        return TaskExecutionResult.Completed();
     }
 }

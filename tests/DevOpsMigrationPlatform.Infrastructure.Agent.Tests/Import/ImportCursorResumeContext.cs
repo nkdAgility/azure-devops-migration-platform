@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
@@ -18,12 +19,17 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 /// </summary>
 public class ImportCursorResumeContext
 {
+    public const string EndpointUrl = "https://dev.azure.com/contoso";
+    public const string ProjectName = "Shop";
+    public const string CursorIdentity = "import.workitems";
+
     public Mock<IArtefactStore> MockArtefactStore { get; } = new(MockBehavior.Strict);
     public Mock<IStateStore> MockStateStore { get; } = new(MockBehavior.Strict);
     public Mock<IProgressSink> MockProgressSink { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
+    public Mock<ICurrentJobEndpointAccessor> MockEndpointAccessor { get; } = new(MockBehavior.Strict);
 
     public CheckpointingService CheckpointingService { get; }
     public WorkItemsModuleExtensions Extensions { get; set; } = new WorkItemsModuleExtensions();
@@ -42,12 +48,20 @@ public class ImportCursorResumeContext
 
     public ImportCursorResumeContext()
     {
-        CheckpointingService = new CheckpointingService(MockStateStore.Object);
+        var target = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
+        target.SetupGet(t => t.Url).Returns(EndpointUrl);
+        target.SetupGet(t => t.Project).Returns(ProjectName);
+        target.SetupGet(t => t.ConnectorType).Returns("AzureDevOpsServices");
+
+        MockEndpointAccessor.SetupGet(a => a.Source).Returns((ISourceEndpointInfo?)null);
+        MockEndpointAccessor.SetupGet(a => a.Target).Returns(target.Object);
+
+        CheckpointingService = new CheckpointingService(MockStateStore.Object, MockEndpointAccessor.Object);
         MockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("workitems"), It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("import", "workitems", EndpointUrl, ProjectName), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
         MockStateStore
-            .Setup(s => s.DeleteAsync(PackagePaths.CursorFile("workitems"), It.IsAny<CancellationToken>()))
+            .Setup(s => s.DeleteAsync(PackagePaths.CursorFile("import", "workitems", EndpointUrl, ProjectName), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
     }
 

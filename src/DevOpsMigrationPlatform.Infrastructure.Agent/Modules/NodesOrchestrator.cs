@@ -103,7 +103,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         if (checkpointingFactory is not null)
         {
             var checkpointing = checkpointingFactory.Create(context.StateStore);
-            var cursor = await checkpointing.ReadCursorAsync(ModuleName, ct).ConfigureAwait(false);
+            var cursor = await checkpointing.ReadCursorAsync("export.nodes", ct).ConfigureAwait(false);
             if (cursor?.Stage == CursorStage.Completed
                 && await context.ArtefactStore.ExistsAsync(SourceTreePath, ct).ConfigureAwait(false))
             {
@@ -140,7 +140,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         if (checkpointingFactory is not null)
         {
             var checkpointing = checkpointingFactory.Create(context.StateStore);
-            await checkpointing.WriteCursorAsync(ModuleName, new CursorEntry
+            await checkpointing.WriteCursorAsync("export.nodes", new CursorEntry
             {
                 LastProcessed = SourceTreePath,
                 Stage = CursorStage.Completed,
@@ -199,7 +199,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         if (checkpointingFactory is not null)
         {
             var checkpointing = checkpointingFactory.Create(context.StateStore);
-            await checkpointing.WriteCursorAsync(ModuleName, new CursorEntry
+            await checkpointing.WriteCursorAsync("import.nodes", new CursorEntry
             {
                 LastProcessed = "Nodes/import",
                 Stage = CursorStage.Completed,

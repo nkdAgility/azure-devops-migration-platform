@@ -29,7 +29,7 @@ Two secondary gaps: (1) no forced fresh-start flag on `MigrationJob` or the CLI;
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-**Mandatory context loaded**: `.agents/guardrails/architecture-boundaries.md`, `.agents/guardrails/coding-standards.md`, `.agents/guardrails/testing-rules.md`, `.agents/guardrails/module-rules.md`, `.agents/context/checkpointing-summary.md`, `.agents/context/import-streaming.md`, `.agents/context/job-lifecycle.md`, `.agents/context/artefact-store.md`, `docs/architecture.md`, `docs/module-development-guide.md` — all read in current session.
+**Mandatory context loaded**: `.agents/guardrails/architecture-boundaries.md`, `.agents/guardrails/coding-standards.md`, `.agents/guardrails/testing-rules.md`, `.agents/guardrails/module-rules.md`, `.agents/context/checkpointing-summary.md`, `.agents/context/import-streaming.md`, `.agents/context/job-lifecycle.md`, `.agents/context/package-manager.md`, `docs/architecture.md`, `docs/module-development-guide.md` — all read in current session.
 
 - [x] **Package-First (I):** `WorkItemImportOrchestrator` reads only from `IArtefactStore`; no source API calls during import. Export writes to `IArtefactStore` only. No direct source→target path exists or is introduced.
 - [x] **Streaming (II):** `WorkItemImportOrchestrator` uses `IArtefactStore.EnumerateAsync` lazily with `await foreach` — one folder at a time. No `ToList()` or array materialisation of revision folders.

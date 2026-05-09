@@ -52,7 +52,7 @@ See:
 | Checkpointing | `.agents/context/checkpointing-summary.md` |
 | Module contract | `docs/module-development-guide.md` |
 | Configuration | `docs/configuration-reference.md` |
-| Artefact store | `.agents/context/artefact-store.md` |
+| Package manager | `.agents/context/package-manager.md` |
 | Job lifecycle | `.agents/context/job-lifecycle.md` |
 | Telemetry | `.agents/context/telemetry-model.md` |
 | Control plane | `docs/control-plane.md` |
@@ -98,7 +98,7 @@ See:
    - [configuration-rules.md](.agents/guardrails/configuration-rules.md) — Configuration rules
    - [documentation-rules.md](.agents/guardrails/documentation-rules.md) — Doc structure, naming, and rename rules
    - [definition-of-done.md](.agents/guardrails/definition-of-done.md) — Mandatory completion criteria
-   - [atdd-workflow.md](.agents/guardrails/atdd-workflow.md) — ATDD session lifecycle rules
+   - [test-first-workflow.md](.agents/guardrails/test-first-workflow.md) — tests-first session lifecycle rules
    - [acceptance-test-format.md](.agents/guardrails/acceptance-test-format.md) — Gherkin format rules
 
 2. **Read relevant context files** in `/.agents/context/`:
@@ -106,7 +106,7 @@ See:
    - [workitems-format-summary.md](.agents/context/workitems-format-summary.md) — WorkItems folder structure
    - [import-streaming.md](.agents/context/import-streaming.md) — Streaming import requirements
    - [checkpointing-summary.md](.agents/context/checkpointing-summary.md) — Cursor-based checkpointing
-   - [artefact-store.md](.agents/context/artefact-store.md) — IArtefactStore abstraction
+   - [package-manager.md](.agents/context/package-manager.md) — Package manager concept above artefact/state persistence
    - [job-lifecycle.md](.agents/context/job-lifecycle.md) — Job contract specification
    - [telemetry-model.md](.agents/context/telemetry-model.md) — Telemetry layer model and metric addition guide
    - [ui-mode-summary.md](.agents/context/ui-mode-summary.md) — CLI/TUI mode-to-view contract summary
@@ -162,6 +162,8 @@ This file is the entry point, not the rule source. The non-negotiable constraint
 - `/.agents/guardrails/definition-of-done.md`
 
 All Gherkin `.feature` files live under `/features/` (organised by `cli/`, `export/`, `import/`, `inventory/`, `platform/`, `services/`). Code that conflicts with feature files must be rejected.
+
+The repository workflow is tests-first. TDD is the primary method for design and implementation, while ATDD is used to capture intent in scenario and acceptance assets. The enforceable rule lives in `/.agents/guardrails/test-first-workflow.md`; `agents.md` only points you to it.
 
 ---
 

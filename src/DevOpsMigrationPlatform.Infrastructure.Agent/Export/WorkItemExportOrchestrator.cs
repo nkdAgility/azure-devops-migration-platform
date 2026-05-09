@@ -60,6 +60,7 @@ public sealed class WorkItemExportOrchestrator
     private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
     private readonly IPlatformMetrics? _metrics;
     private readonly string? _jobId;
+    private readonly string? _taskId;
     private readonly ILogger? _logger;
     private readonly IWorkItemDiscoveryService? _discoveryService;
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
@@ -80,6 +81,7 @@ public sealed class WorkItemExportOrchestrator
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
         IPlatformMetrics? metrics = null,
         string? jobId = null,
+        string? taskId = null,
         ILogger? logger = null,
         string? wiqlQuery = null,
         IWorkItemDiscoveryService? discoveryService = null,
@@ -102,6 +104,7 @@ public sealed class WorkItemExportOrchestrator
         _filterOptions = filterOptions;
         _metrics = metrics;
         _jobId = jobId;
+        _taskId = taskId;
         _logger = logger;
         _discoveryService = discoveryService;
         _exportProgressStoreFactory = exportProgressStoreFactory;
@@ -193,6 +196,9 @@ public sealed class WorkItemExportOrchestrator
                         Module = "WorkItems",
                         Stage = "Resuming",
                         Message = $"[WorkItems] {workItemsSkippedInitial:N0} work items already exported (from export_progress.db)",
+                        TaskId = _taskId,
+                        TaskStatus = _taskId is null ? null : JobTaskStatus.Running,
+                        CompletedCount = _taskId is null ? null : workItemsSkippedInitial,
                         Metrics = new JobMetrics
                         {
                             Scope = new JobScopeCounters { WorkItemsTotal = 0 }, // filled later at ScopeResolved
@@ -360,6 +366,10 @@ public sealed class WorkItemExportOrchestrator
                                 Module = "WorkItems",
                                 Stage = "Resuming",
                                 Message = $"[WorkItems] Fast-forward — skipping WI {revision.WorkItemId} (stored rev {currentWiStoredRev.Value})",
+                                TaskId = _taskId,
+                                TaskStatus = _taskId is null ? null : JobTaskStatus.Running,
+                                CompletedCount = _taskId is null ? null : workItemsProcessed + workItemsSkipped,
+                                KnownTotal = totalWorkItems > 0 ? totalWorkItems : null,
                                 Metrics = new JobMetrics
                                 {
                                     Scope = new JobScopeCounters { WorkItemsTotal = totalWorkItems },
@@ -408,6 +418,10 @@ public sealed class WorkItemExportOrchestrator
                             Module = "WorkItems",
                             Stage = "Resuming",
                             Message = $"[WorkItems] Resuming — skipping WI {revision.WorkItemId} (already exported)",
+                            TaskId = _taskId,
+                            TaskStatus = _taskId is null ? null : JobTaskStatus.Running,
+                            CompletedCount = _taskId is null ? null : workItemsProcessed + workItemsSkipped,
+                            KnownTotal = totalWorkItems > 0 ? totalWorkItems : null,
                             Metrics = new JobMetrics
                             {
                                 Scope = new JobScopeCounters { WorkItemsTotal = totalWorkItems },

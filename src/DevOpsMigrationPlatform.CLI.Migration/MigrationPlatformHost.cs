@@ -3,6 +3,7 @@
 
 using Azure.Monitor.OpenTelemetry.Exporter;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
 using DevOpsMigrationPlatform.Diagnostics;
@@ -61,8 +62,22 @@ public static class MigrationPlatformHost
                 // ── Shared infrastructure (every command gets these)
                 services.AddLogging(logging =>
                 {
-                    logging.AddConsole();
-                    logging.SetMinimumLevel(LogLevel.Warning);
+                    var detailedDiagnostics = configuration.GetValue<bool>("Telemetry:DetailedDiagnostics");
+                    if (detailedDiagnostics)
+                    {
+                        // Lower the global minimum so OTel/file exporters receive Information,
+                        // but keep the console provider filtered to Warning so diagnostics
+                        // detail does not pollute the terminal.
+                        logging.SetMinimumLevel(LogLevel.Information);
+                        logging.AddConsole(o => { })
+                               .AddFilter<Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider>(
+                                   null, LogLevel.Warning);
+                    }
+                    else
+                    {
+                        logging.AddConsole();
+                        logging.SetMinimumLevel(LogLevel.Warning);
+                    }
                 });
 
                 // ── Environment options — bound centrally so every command resolves
@@ -99,6 +114,7 @@ public static class MigrationPlatformHost
         configuration.GetSection(TelemetryOptions.SectionName).Bind(telOpts);
 
         var diagnosticsPath = FileDiagnosticsExtensions.GetDiagnosticsPath(configuration);
+        var detailedDiagnostics = configuration.GetValue<bool>("Telemetry:DetailedDiagnostics");
 
         // Read deployment context so Application Insights can distinguish
         // Standalone vs Hosted runs and correlate with a specific control plane.
@@ -108,7 +124,14 @@ public static class MigrationPlatformHost
 
         if (diagnosticsPath is not null)
         {
-            services.AddLogging(logging => logging.AddFileDiagnostics(diagnosticsPath, WellKnownServiceNames.Cli));
+            services.AddLogging(logging =>
+            {
+                logging.AddFileDiagnostics(diagnosticsPath, WellKnownServiceNames.Cli);
+                logging.AddCliFileDiagnostics(diagnosticsPath, WellKnownServiceNames.Cli);
+            });
+
+            if (detailedDiagnostics)
+                services.AddSingleton(new ControlPlaneCommunicationRecorder(diagnosticsPath));
         }
 
         services.AddOpenTelemetry()

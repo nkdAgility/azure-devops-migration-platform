@@ -31,7 +31,7 @@ Key design decisions:
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **Mandatory context loading:** All guardrail files (`architecture-boundaries.md`, `coding-standards.md`, `testing-rules.md`, `workitems-rules.md`, `migration-rules.md`, `module-rules.md`, `control-plane-rules.md`, `atdd-workflow.md`, `acceptance-test-format.md`), all context files (`migration-package-concept.md`, `artefact-store.md`, `job-lifecycle.md`), and relevant docs (`architecture.md`, `cli.md`, `tui.md`, `control-plane.md`, `migration-agent.md`) have been read. Confirmed.
+> **Mandatory context loading:** All guardrail files (`architecture-boundaries.md`, `coding-standards.md`, `testing-rules.md`, `workitems-rules.md`, `migration-rules.md`, `module-rules.md`, `control-plane-rules.md`, `test-first-workflow.md`, `acceptance-test-format.md`), all context files (`migration-package-concept.md`, `package-manager.md`, `job-lifecycle.md`), and relevant docs (`architecture.md`, `cli.md`, `tui.md`, `control-plane.md`, `migration-agent.md`) have been read. Confirmed.
 
 - [x] **Package-First (I):** All log persistence goes through `IArtefactStore.AppendAsync`. No direct filesystem access in sinks. The package is the durable record; ring buffers are volatile caches.
 - [x] **Streaming (II):** Not directly applicable — this feature writes logs, not revision data. Log sinks use bounded channels with streaming writes. No in-memory sort.

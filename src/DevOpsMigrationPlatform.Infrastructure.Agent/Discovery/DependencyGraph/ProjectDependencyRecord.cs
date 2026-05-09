@@ -49,6 +49,12 @@ public record ProjectDependencyRecord
     public DateTimeOffset? MostRecentLinkDate { get; set; }
 
     /// <summary>
+    /// Gets the most recent <c>System.ChangedDate</c> observed on source work items
+    /// participating in this source-target pair.
+    /// </summary>
+    public DateTimeOffset? MostRecentSourceWorkItemChangedDate { get; set; }
+
+    /// <summary>
     /// Gets the number of links broken down by the source work item type (e.g. "User Story", "Bug", "Task").
     /// Keys are normalised to the values returned by the source system; the sum equals <see cref="LinkCount"/>.
     /// </summary>

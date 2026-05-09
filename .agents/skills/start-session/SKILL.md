@@ -1,11 +1,13 @@
 ---
 name: start-session
-description: Assembles the context needed to begin a single-scenario ATDD session and invokes the Specification Agent.
+description: Assembles the context needed to begin a single-scenario tests-first session and invokes the Specification Agent.
 ---
 
 # Skill: Start Session
 
-Use this skill at the beginning of every ATDD session. One session = one scenario.
+Use this skill at the beginning of every tests-first session. One session = one scenario.
+
+In this workflow, ATDD is the intent-capture layer and TDD is the design and implementation mechanism.
 
 ## Steps
 
@@ -15,8 +17,8 @@ Use this skill at the beginning of every ATDD session. One session = one scenari
 2. **Assemble session context** by loading:
    - The project context: [.github/copilot-instructions.md](../../copilot-instructions.md)
    - The architectural guardrails: [agents/architecture-boundaries.md](../../.agents/guardrails/architecture-boundaries.md)
-   - The ATDD workflow: [agents/atdd-workflow.md](../../.agents/guardrails/atdd-workflow.md)
-   - Relevant existing feature files in [features/](../../features/) for naming reference.
+   - The tests-first workflow: [agents/test-first-workflow.md](../../.agents/guardrails/test-first-workflow.md)
+   - Relevant existing feature files in [features/](../../features/) for ATDD intent naming reference.
 
 3. **Generate a session ID** in the format `<feature-slug>-<scenario-slug>-<YYYYMMDD-HHmmss>`.
 
@@ -38,5 +40,5 @@ Use this skill at the beginning of every ATDD session. One session = one scenari
 ## Early Exit Conditions
 
 - Requirement covers more than one scenario → stop, ask to split.
-- A passing test already exists for this scenario → stop, this scenario is already done.
+- A passing acceptance scenario and the corresponding TDD coverage already exist for this scenario → stop, this scenario is already done.
 - An active session log already exists for this scenario → stop, resume with `/fix` instead.
