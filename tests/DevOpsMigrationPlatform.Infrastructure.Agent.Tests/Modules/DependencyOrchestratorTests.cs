@@ -154,6 +154,11 @@ public sealed class DependencyOrchestratorTests
         Assert.IsTrue(stateStore.WrittenKeys.Contains(expectedCursorKey), "Dependencies capture must checkpoint to the project-local cursor path.");
         Assert.IsTrue(stateStore.WrittenKeys.Contains(expectedContinuationKey), "Dependencies capture must persist the continuation token for project-local resume.");
         Assert.IsFalse(stateStore.WrittenKeys.Contains(PackagePaths.CursorFile("DependencyDiscovery")), "Dependencies capture must not write the legacy root dependency cursor.");
+
+        var canonicalProjectCsv = await store.ReadAsync("org/ProjectA/dependencies.csv", CancellationToken.None);
+        var invalidDiscoveryCsv = await store.ReadAsync("discovery/org/ProjectA/dependencies.csv", CancellationToken.None);
+        Assert.IsNotNull(canonicalProjectCsv, "Dependencies capture must write to the canonical org/project path.");
+        Assert.IsNull(invalidDiscoveryCsv, "Dependencies capture must not write to the invalid discovery/ subtree.");
     }
 
     [TestMethod]

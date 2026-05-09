@@ -19,7 +19,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 /// <summary>
 /// Pure <see cref="ICapture"/> implementation for per-project dependency discovery.
 /// Captures cross-project work item links via <see cref="IDependencyOrchestrator.CaptureProjectAsync"/>,
-/// writing a per-project <c>discovery/{org}/{project}/dependencies.csv</c> artefact that the
+/// writing a per-project <c>{org}/{project}/dependencies.csv</c> artefact that the
 /// <c>analyse.dependencies.*</c> fan-in task later consolidates.
 /// <para>
 /// This is NOT an <see cref="IModule"/>. It is registered directly as <c>ICapture</c> in DI
@@ -137,7 +137,7 @@ public sealed class DependencyCapture : ICapture
 
             // O-1: child span — write_csv (confirm output path)
             var orgFolder = PackagePathResolver.ExtractOrgFolderName(orgUrl);
-            var outputPath = $"discovery/{orgFolder}/{PackagePathResolver.Sanitise(project)}/dependencies.csv";
+            var outputPath = $"{orgFolder}/{PackagePathResolver.Sanitise(project)}/dependencies.csv";
 
             // O-3: debug log if file already exists (overwrite path)
             if (context.ArtefactStore != null &&

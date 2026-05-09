@@ -159,8 +159,8 @@ public sealed class DependencyAnalyserTests
     {
         // Arrange: a store that enumerates paths but ReadAsync returns null for them (simulates
         // a capture task that ran but did not write the CSV file).
-        var store = new MissingCsvArtefactStore("discovery/https_org/ProjectA/dependencies.csv",
-                                                 "discovery/https_org/ProjectB/dependencies.csv");
+        var store = new MissingCsvArtefactStore("org/ProjectA/dependencies.csv",
+                             "org/ProjectB/dependencies.csv");
 
         var logger = new Mock<ILogger<DependencyAnalyser>>(MockBehavior.Loose);
 
