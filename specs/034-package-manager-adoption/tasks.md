@@ -17,12 +17,12 @@
 
 **Purpose**: Prepare test and implementation scaffolding for package-boundary work.
 
-- [ ] T001 Create package-boundary test folder structure under `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/`
-- [ ] T002 [P] Add package-boundary fixture utilities in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryTestFixture.cs`
-- [ ] T003 [P] Add package-boundary sample payload helpers in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackagePayloadBuilder.cs`
-- [ ] T046 Add failing acceptance scenario coverage for package-boundary adoption in `features/platform/package-manager-adoption/package-boundary-adoption.feature`
-- [ ] T047 Add failing acceptance step bindings for package-boundary adoption scenarios in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Platform/PackageBoundaryAdoptionSteps.cs`
-- [ ] T053 Add foundational RED tests for `IPackage` contract and boundary routing behavior in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryContractRedTests.cs`
+- [X] T001 Create package-boundary test folder structure under `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/`
+- [X] T002 [P] Add package-boundary fixture utilities in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryTestFixture.cs`
+- [X] T003 [P] Add package-boundary sample payload helpers in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackagePayloadBuilder.cs`
+- [X] T046 Add failing acceptance scenario coverage for package-boundary adoption in `features/platform/package-manager-adoption/package-boundary-adoption.feature`
+- [X] T047 Add failing acceptance step bindings for package-boundary adoption scenarios in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Platform/PackageBoundaryAdoptionSteps.cs`
+- [X] T053 Add foundational RED tests for `IPackage` contract and boundary routing behavior in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryContractRedTests.cs`
 
 **Gate**: Execute T046-T047 and T053 as a failing baseline before beginning T004-T015 implementation tasks.
 
@@ -34,15 +34,15 @@
 
 **⚠️ CRITICAL**: No user story work begins until this phase is complete.
 
-- [ ] T004 Add `IPackage` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/IPackage.cs`
-- [ ] T005 [P] Add package context contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageContext.cs`
-- [ ] T006 [P] Add metadata context contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaContext.cs`
-- [ ] T007 [P] Add log context contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogContext.cs`
-- [ ] T008 [P] Add package payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackagePayload.cs`
-- [ ] T009 [P] Add metadata payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaPayload.cs`
-- [ ] T010 [P] Add log payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogPayload.cs`
-- [ ] T011 [P] Add package metadata kind enum in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaKind.cs`
-- [ ] T012 [P] Add package log stream enum in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogStream.cs`
+- [X] T004 Add `IPackage` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/IPackage.cs`
+- [X] T005 [P] Add package context contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageContext.cs`
+- [X] T006 [P] Add metadata context contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaContext.cs`
+- [X] T007 [P] Add log context contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogContext.cs`
+- [X] T008 [P] Add package payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackagePayload.cs`
+- [X] T009 [P] Add metadata payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaPayload.cs`
+- [X] T010 [P] Add log payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogPayload.cs`
+- [X] T011 [P] Add package metadata kind enum in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaKind.cs`
+- [X] T012 [P] Add package log stream enum in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogStream.cs`
 - [ ] T059 Add guard test to enforce package-boundary contract/type placement in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryAbstractionsPlacementTests.cs` (contracts allowed in `src/DevOpsMigrationPlatform.Abstractions.Agent/` and disallowed in `src/DevOpsMigrationPlatform.Abstractions/`)
 - [ ] T013 Implement package routing resolver in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackagePathRouter.cs`
 - [ ] T014 Implement package boundary over stores in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackageBoundary.cs`
