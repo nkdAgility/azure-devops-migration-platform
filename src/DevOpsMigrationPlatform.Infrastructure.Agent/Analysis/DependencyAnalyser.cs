@@ -149,11 +149,11 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
 
         if (!string.IsNullOrWhiteSpace(csv))
         {
-            await context.ArtefactStore.WriteAsync("analysis/dependencies.csv", csv!, ct).ConfigureAwait(false);
+            await context.ArtefactStore.WriteAsync("dependencies-analysis.csv", csv!, ct).ConfigureAwait(false);
         }
 
         var mermaid = BuildMermaid(csv);
-        await context.ArtefactStore.WriteAsync("analysis/dependencies.mmd", mermaid, ct).ConfigureAwait(false);
+        await context.ArtefactStore.WriteAsync("dependencies-analysis.mmd", mermaid, ct).ConfigureAwait(false);
 
         var tags = new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } };
         _metrics?.RecordDependenciesAnalyseDuration(sw.Elapsed.TotalMilliseconds, tags);

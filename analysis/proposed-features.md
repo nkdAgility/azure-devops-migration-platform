@@ -201,6 +201,7 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 | Maximum attachment size | `extensions[Attachments].maxSizeBytes` | unlimited | Skip attachment download if file exceeds this size |
 | Link count filter | `extensions[Links].filterIfCountMatches` | — | Skip import of links if the work item already has a matching link count |
 | Outbound link checking | `extensions[Links].checkOutboundLinks` | `false` | Validate that outbound link targets exist before import |
+| Inspect update history for link-added date | `extensions[Links].inspectUpdateHistoryForLinkAddedDate` | `false` | For dependency analysis, make an opt-in second pass over work item update history to populate `LinkChangedDate` from the first matching link-add event when the current relation payload does not expose a link timestamp. Slower than the default relations-only pass and should remain disabled by default. |
 
 ---
 
