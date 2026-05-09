@@ -18,9 +18,9 @@ The boundary exists to stop callers from deciding package layout. Callers provid
 ## Core Classes
 
 - `IPackage`
-- `PackageDataContext`
+- `PackageContext`
 - `PackageMetaContext`
-- `PackageDataPayload`
+- `PackagePayload`
 - `PackageMetaPayload`
 - `PackageMetaKind`
 - `RunLogIntegration`
@@ -30,10 +30,12 @@ The boundary exists to stop callers from deciding package layout. Callers provid
 
 The package boundary exposes four verbs:
 
-- `RequestData(PackageDataContext, ...)`
-- `RequestMeta(PackageMetaContext, ...)`
-- `WriteData(PackageDataContext, ...)`
-- `WriteMeta(PackageMetaContext, ...)`
+- `RequestAsync(PackageContext, ...)`
+- `RequestMetaAsync(PackageMetaContext, ...)`
+- `PersistAsync(PackageContext, ...)`
+- `PersistMetaAsync(PackageMetaContext, ...)`
+
+It intentionally does not expose delete. Removal semantics are exceptional maintenance behavior, not the default caller-facing package contract.
 
 ## Contract Inventory
 
@@ -42,26 +44,26 @@ The intended boundary contracts are shown here as a concrete C# sketch so the de
 ```csharp
 public interface IPackage
 {
-  ValueTask<PackageDataPayload?> RequestDataAsync(
-    PackageDataContext context,
+  ValueTask<PackagePayload?> RequestAsync(
+    PackageContext context,
     CancellationToken cancellationToken = default);
 
   ValueTask<PackageMetaPayload?> RequestMetaAsync(
     PackageMetaContext context,
     CancellationToken cancellationToken = default);
 
-  ValueTask WriteDataAsync(
-    PackageDataContext context,
-    PackageDataPayload payload,
+  ValueTask PersistAsync(
+    PackageContext context,
+    PackagePayload payload,
     CancellationToken cancellationToken = default);
 
-  ValueTask WriteMetaAsync(
+  ValueTask PersistMetaAsync(
     PackageMetaContext context,
     PackageMetaPayload payload,
     CancellationToken cancellationToken = default);
 }
 
-public sealed record PackageDataContext(
+public sealed record PackageContext(
   string ContentKind,
   string? Organisation = null,
   string? Project = null,
@@ -79,7 +81,7 @@ public sealed record PackageMetaContext(
   RunLogIntegration RunLogIntegration = RunLogIntegration.None,
   bool Append = false);
 
-public sealed record PackageDataPayload(
+public sealed record PackagePayload(
   Stream Content,
   string? ContentType = null,
   string? ETag = null);
@@ -113,12 +115,14 @@ public enum RunLogIntegration
 
 Caller-facing package boundary with exactly four verbs:
 
-- `RequestData(PackageDataContext, ...)`
-- `RequestMeta(PackageMetaContext, ...)`
-- `WriteData(PackageDataContext, ...)`
-- `WriteMeta(PackageMetaContext, ...)`
+- `RequestAsync(PackageContext, ...)`
+- `RequestMetaAsync(PackageMetaContext, ...)`
+- `PersistAsync(PackageContext, ...)`
+- `PersistMetaAsync(PackageMetaContext, ...)`
 
-### `PackageDataContext`
+`IPackage` does not include delete. Cleanup and force-fresh style removal should remain separate maintenance behavior rather than being folded into the routine caller-facing package boundary.
+
+### `PackageContext`
 
 Typed routing context for package data. This contract should carry the package intent needed to resolve the canonical location for exported or prepared data without exposing raw paths. Expected concerns include:
 
@@ -137,7 +141,7 @@ Typed routing context for package metadata. This is the contract that decides wh
 - `RunLogIntegration` to control whether the write also emits to a run-log stream
 - append or replace intent when the metadata kind supports append-style behavior
 
-### `PackageDataPayload`
+### `PackagePayload`
 
 Payload contract for package data reads and writes. This represents the content associated with a data request independently of path selection.
 
@@ -187,6 +191,7 @@ The boundary must own both `IArtefactStore` and `IStateStore`. A wrapper over `I
 ## Rules
 
 - Callers must never construct or pass package paths.
+- The caller-facing verb is `PersistAsync`, while `WriteAsync` remains the lower-level store primitive. The boundary owns package semantics rather than raw file writes.
 - Authoritative package state must remain under root `.migration/` and project `/{org}/{project}/.migration/`.
 - Run-scoped copies under `.migration/runs/<runId>/` are audit evidence only and must never become the authoritative source for resume or phase-gate decisions.
 - `RelatedToRun` on `PackageMetaContext` means: write authoritative metadata, then mirror a run-scoped copy when appropriate.
