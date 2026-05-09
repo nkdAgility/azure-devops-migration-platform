@@ -168,7 +168,7 @@ public class CheckpointingService : ICheckpointingService
                     .ToArray();
             }
 
-                    return Array.Empty<string>();
+            return Array.Empty<string>();
         }
     }
 
