@@ -117,31 +117,31 @@ public sealed class JobExecutionPlanBuilderContextResolutionTests
     {
         public string Name => "Base";
         public IReadOnlyList<ModuleDependency> DependsOn => [];
-        public Task AnalyseAsync(AnalyseContext context, CancellationToken ct) => Task.CompletedTask;
+        public Task<TaskExecutionResult> AnalyseAsync(AnalyseContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
     }
 
     private sealed class EndpointPairAnalyserStub : IEndpointPairAnalyser
     {
         public string Name => "EndpointPair";
         public IReadOnlyList<ModuleDependency> DependsOn => [];
-        public Task AnalyseAsync(EndpointPairAnalyseContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task AnalyseAsync(AnalyseContext context, CancellationToken ct) => Task.CompletedTask;
+        public Task<TaskExecutionResult> AnalyseAsync(EndpointPairAnalyseContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> AnalyseAsync(AnalyseContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
     }
 
     private sealed class OrganisationsAnalyserStub : IOrganisationsAnalyser
     {
         public string Name => "Organisations";
         public IReadOnlyList<ModuleDependency> DependsOn => [];
-        public Task AnalyseAsync(OrganisationsAnalyseContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task AnalyseAsync(AnalyseContext context, CancellationToken ct) => Task.CompletedTask;
+        public Task<TaskExecutionResult> AnalyseAsync(OrganisationsAnalyseContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> AnalyseAsync(AnalyseContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
     }
 
     private sealed class DualAnalyserStub : IEndpointPairAnalyser, IOrganisationsAnalyser
     {
         public string Name => "Dual";
         public IReadOnlyList<ModuleDependency> DependsOn => [];
-        public Task AnalyseAsync(EndpointPairAnalyseContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task AnalyseAsync(OrganisationsAnalyseContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task AnalyseAsync(AnalyseContext context, CancellationToken ct) => Task.CompletedTask;
+        public Task<TaskExecutionResult> AnalyseAsync(EndpointPairAnalyseContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> AnalyseAsync(OrganisationsAnalyseContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> AnalyseAsync(AnalyseContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
     }
 }

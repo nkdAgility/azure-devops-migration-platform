@@ -45,7 +45,7 @@ public sealed class InventoryAnalyser : IAnalyser
 #endif
     };
 
-    public async Task AnalyseAsync(AnalyseContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> AnalyseAsync(AnalyseContext context, CancellationToken ct)
     {
         using var activity = ActivitySource.StartActivity("analyse.inventory");
         activity?.SetTag("job.id", context.Job.JobId);
@@ -178,5 +178,7 @@ public sealed class InventoryAnalyser : IAnalyser
             _metrics?.RecordInventoryConsolidatedErrors(new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
             throw;
         }
+
+        return TaskExecutionResult.Completed();
     }
 }

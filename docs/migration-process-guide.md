@@ -22,7 +22,7 @@ Authoritative runtime state comes only from root `.migration/` and project-local
 
 ### Task Plan Structure
 
-The agent emits a `JobTaskList` — an ordered list of `JobTask` records — at job start. The plan contains **one task per module per phase**:
+The agent emits a `JobTaskList` at job start. The plan keeps an ordered flat list of `JobTask` records for execution compatibility and also carries ordered phase summaries for presentation and inspection. The task list contains **one task per module per phase**:
 
 | Phase | Task ID pattern | Module method | Example |
 |---|---|---|---|
@@ -67,6 +67,8 @@ flowchart LR
 ```
 
 Tasks within a phase are topologically sorted by `DependsOn`.Tasks across phases execute sequentially (all Inventory tasks complete before Export begins, etc.). Phase gates (Inventory before Export, Prepare before Import) are enforced by the plan builder — prerequisite phase tasks are injected automatically when the completion marker is absent.
+
+Phase summaries group the same flat task list into canonical execution slices. They do not change dispatch semantics: the executor still dispatches by `TaskKind` and `DependsOn`, while CLI and TUI can consume the explicit phase metadata instead of reconstructing stages from task rows.
 
 ### Mode Behaviour
 

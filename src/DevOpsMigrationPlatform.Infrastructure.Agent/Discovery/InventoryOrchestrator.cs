@@ -10,8 +10,9 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
@@ -33,12 +34,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 /// </summary>
 internal sealed class InventoryOrchestrator : IInventoryOrchestrator
 {
-    /// <summary>
-    /// Derives a module-scoped cursor key so that InventoryModule and InventoryDiscoveryModule
-    /// can checkpoint independently when running in the same job.
-    /// </summary>
-    private static string CursorKeyFor(string moduleName) => PackagePaths.CursorFile(StateCursorIdentity.Build("inventory", moduleName));
-
     private static string OrgCsvOutputPathFor(string orgSlug)
         => $"{orgSlug}/inventory.csv";
 
@@ -53,13 +48,16 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     private readonly ILogger _logger;
     private readonly IPlatformMetrics? _metrics;
     private readonly ProcessingCadencePolicy _cadencePolicy;
+    private readonly ICheckpointingServiceFactory _checkpointingFactory;
 
     public InventoryOrchestrator(
         ILogger<InventoryOrchestrator> logger,
+        ICheckpointingServiceFactory checkpointingFactory,
         IPlatformMetrics? metrics = null,
         ProcessingCadencePolicy? cadencePolicy = null)
     {
         _logger = logger;
+        _checkpointingFactory = checkpointingFactory ?? throw new ArgumentNullException(nameof(checkpointingFactory));
         _metrics = metrics;
         _cadencePolicy = cadencePolicy ?? new ProcessingCadencePolicy();
     }
@@ -81,6 +79,8 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         var sink = context.ProgressSink ?? NullProgressSink.Instance;
         var metricsStore = context.MetricsStore;
         var snapshotStore = context.SnapshotStore;
+        var checkpointing = _checkpointingFactory.Create(state);
+        var cursorIdentity = StateCursorIdentity.Build("inventory", moduleName);
 
         var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(context.SourceEndpoint?.ResolvedUrl ?? "unknown");
         var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? "unknown";
@@ -91,7 +91,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         _logger.LogInformation("Inventory orchestrator starting for job {JobId}, module {Module}.", job.JobId, moduleName);
 
         // Read checkpoint — presence means a previous run was interrupted.
-        var lastCompleted = await ReadCursorAsync(state, moduleName, ct).ConfigureAwait(false);
+        var lastCompleted = (await checkpointing.ReadCursorAsync(cursorIdentity, ct).ConfigureAwait(false))?.LastProcessed;
         var isResuming = lastCompleted is not null;
 
         if (isResuming)
@@ -173,6 +173,8 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         var checkpointInterval = TimeSpan.FromSeconds(checkpointIntervalSeconds);
         var lastCheckpoint = DateTime.UtcNow;
         var lastCompletedProjectKey = lastCompleted;
+        string? lastCompletedProjectUrl = context.SourceEndpoint?.ResolvedUrl;
+        string? lastCompletedProjectName = context.Project;
 
         var metrics = _metrics;
         string? currentOrg = null;
@@ -327,6 +329,8 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             await store.WriteAsync(csvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
             await WriteInventoryJsonAsync(store, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
             lastCompletedProjectKey = projectKey;
+            lastCompletedProjectUrl = evt.Url;
+            lastCompletedProjectName = evt.ProjectName;
 
             var snapshots = BuildScopedOrganisations(orgProjectData, context.SourceEndpoint?.ResolvedUrl);
             PushAggregateMetrics(metricsStore, orgProjectData, snapshots);
@@ -340,7 +344,12 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
                 minimumBatchSize: 1,
                 maxInterval: checkpointInterval))
             {
-                await WriteCursorAsync(state, moduleName, projectKey, ct).ConfigureAwait(false);
+                await checkpointing.WriteCursorAsync(cursorIdentity, new CursorEntry
+                {
+                    LastProcessed = evt.ProjectName,
+                    Stage = CursorStage.Completed,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                }, ct).ConfigureAwait(false);
                 lastCheckpoint = DateTime.UtcNow;
                 metrics?.RecordCheckpointSaved(new MetricsTagList { { "job.id", job.JobId }, { "module", moduleName } });
                 using (DataClassificationScope.Begin(DataClassification.Customer))
@@ -368,9 +377,16 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         await WriteInventoryJsonAsync(store, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
         await MergeAndWriteAggregateAsync(store, aggregateJsonPath, orgProjectData, ct).ConfigureAwait(false);
 
-        if (!string.IsNullOrWhiteSpace(lastCompletedProjectKey))
+        if (!string.IsNullOrWhiteSpace(lastCompletedProjectKey) &&
+            !string.IsNullOrWhiteSpace(lastCompletedProjectUrl) &&
+            !string.IsNullOrWhiteSpace(lastCompletedProjectName))
         {
-            await WriteCursorAsync(state, moduleName, lastCompletedProjectKey!, ct).ConfigureAwait(false);
+            await checkpointing.WriteCursorAsync(cursorIdentity, new CursorEntry
+            {
+                LastProcessed = lastCompletedProjectName!,
+                Stage = CursorStage.Completed,
+                UpdatedAt = DateTimeOffset.UtcNow
+            }, ct).ConfigureAwait(false);
         }
 
         // Final snapshot push.
@@ -406,78 +422,30 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         string moduleName,
         CancellationToken ct)
     {
-        var lastCompleted = await ReadCursorAsync(state, moduleName, ct).ConfigureAwait(false);
-        if (lastCompleted is null)
+        _ = state;
+        _ = moduleName;
+
+        var existingCsv = await store.ReadAsync(CsvOutputPath, ct).ConfigureAwait(false);
+        if (existingCsv is null)
             return null;
 
         var completedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var existingCsv = await store.ReadAsync(CsvOutputPath, ct).ConfigureAwait(false);
-        if (existingCsv is not null)
+        var lines = existingCsv.Split('\n');
+        for (int i = 1; i < lines.Length; i++)
         {
-            var lines = existingCsv.Split('\n');
-            for (int i = 1; i < lines.Length; i++)
+            var trimmed = lines[i].TrimEnd('\r');
+            if (string.IsNullOrWhiteSpace(trimmed)) continue;
+            var parts = trimmed.Split(',');
+            if (parts.Length >= 2)
             {
-                var trimmed = lines[i].TrimEnd('\r');
-                if (string.IsNullOrWhiteSpace(trimmed)) continue;
-                var parts = trimmed.Split(',');
-                if (parts.Length >= 2)
-                {
-                    var csvUrl = UnescapeCsv(parts[0]);
-                    var csvProject = UnescapeCsv(parts[1]);
-                    completedKeys.Add($"{csvUrl}|{csvProject}");
-                }
+                var csvUrl = UnescapeCsv(parts[0]);
+                var csvProject = UnescapeCsv(parts[1]);
+                completedKeys.Add($"{csvUrl}|{csvProject}");
             }
         }
 
         return completedKeys.Count > 0 ? completedKeys : null;
     }
-
-    /// <summary>
-    /// Reads the existing aggregate inventory JSON (if any), removes the entry for the current
-    /// org (to support retries), merges the current run's data, and writes the result.
-    /// This ensures that a multi-org run accumulates all organisations in one file even though
-    /// the orchestrator is called once per org.
-    /// </summary>
-    private static async Task MergeAndWriteAggregateAsync(
-        IArtefactStore store,
-        string aggregatePath,
-        Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> currentOrgData,
-        CancellationToken ct)
-    {
-        var mergedData = new Dictionary<string, List<(string, long, long, int, bool, string?)>>(StringComparer.OrdinalIgnoreCase);
-
-        // Load previously-written orgs so they are preserved in the aggregate.
-        var existingJson = await store.ReadAsync(aggregatePath, ct).ConfigureAwait(false);
-        if (existingJson is not null)
-        {
-            try
-            {
-                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var existing = JsonSerializer.Deserialize<InventoryReport>(existingJson, opts);
-                if (existing is not null)
-                {
-                    foreach (var org in existing.Organisations)
-                    {
-                        if (currentOrgData.ContainsKey(org.Url))
-                            continue; // will be replaced by the current run's fresh data
-                        mergedData[org.Url] = org.Projects.Select(p =>
-                            (p.Name, p.WorkItems, p.Revisions, p.Repos, p.IsComplete, p.Error)).ToList();
-                    }
-                }
-            }
-            catch
-            {
-                // Corrupted aggregate — start fresh with just the current org.
-            }
-        }
-
-        foreach (var kvp in currentOrgData)
-            mergedData[kvp.Key] = kvp.Value;
-
-        await WriteInventoryJsonAsync(store, aggregatePath, mergedData, ct).ConfigureAwait(false);
-    }
-
-    // ── Artefact writing helpers ──────────────────────────────────────────────
 
     private static async Task WriteInventoryJsonAsync(
         IArtefactStore store,
@@ -530,6 +498,98 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
         await store.WriteAsync(jsonOutputPath, json, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Reads the existing aggregate inventory JSON (if any), removes the entry for the current
+    /// org (to support retries), merges the current run's data, and writes the result.
+    /// This ensures that a multi-org run accumulates all organisations in one file even though
+    /// the orchestrator is called once per org.
+    /// </summary>
+    private static async Task MergeAndWriteAggregateAsync(
+        IArtefactStore store,
+        string aggregatePath,
+        Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> currentOrgData,
+        CancellationToken ct)
+    {
+        var mergedData = new Dictionary<string, List<(string, long, long, int, bool, string?)>>(StringComparer.OrdinalIgnoreCase);
+
+        // Load previously-written orgs so they are preserved in the aggregate.
+        var existingJson = await store.ReadAsync(aggregatePath, ct).ConfigureAwait(false);
+        if (existingJson is not null)
+        {
+            try
+            {
+                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var existing = JsonSerializer.Deserialize<InventoryReport>(existingJson, opts);
+                if (existing is not null)
+                {
+                    foreach (var org in existing.Organisations)
+                    {
+                        if (currentOrgData.ContainsKey(org.Url))
+                            continue; // will be replaced by the current run's fresh data
+                        mergedData[org.Url] = org.Projects.Select(p =>
+                            (p.Name, p.WorkItems, p.Revisions, p.Repos, p.IsComplete, p.Error)).ToList();
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // Ignore malformed aggregate JSON and rebuild it from current data.
+            }
+        }
+
+        foreach (var kvp in currentOrgData)
+        {
+            mergedData[kvp.Key] = kvp.Value.Select(p =>
+                (p.Project, p.WorkItems, p.Revisions, p.Repos, p.IsComplete, p.Error)).ToList();
+        }
+
+        var organisations = mergedData.Select(kvp =>
+        {
+            var projects = kvp.Value.Select(p => new ProjectInventory
+            {
+                Name = p.Item1,
+                WorkItems = p.Item2,
+                Revisions = p.Item3,
+                Repos = p.Item4,
+                IsComplete = p.Item5,
+                Error = p.Item6
+            }).ToList();
+
+            return new OrganisationInventory
+            {
+                Url = kvp.Key,
+                Totals = new InventoryTotals
+                {
+                    WorkItems = projects.Sum(p => p.WorkItems),
+                    Revisions = projects.Sum(p => p.Revisions),
+                    Repos = projects.Sum(p => p.Repos),
+                    Projects = projects.Count
+                },
+                Projects = projects
+            };
+        }).ToList();
+
+        var report = new InventoryReport
+        {
+            GeneratedAt = DateTimeOffset.UtcNow,
+            Totals = new InventoryTotals
+            {
+                WorkItems = organisations.Sum(o => o.Totals.WorkItems),
+                Revisions = organisations.Sum(o => o.Totals.Revisions),
+                Repos = organisations.Sum(o => o.Totals.Repos),
+                Projects = organisations.Sum(o => o.Totals.Projects)
+            },
+            Organisations = organisations
+        };
+
+        var json = JsonSerializer.Serialize(report, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+        await store.WriteAsync(aggregatePath, json, ct).ConfigureAwait(false);
     }
 
     private static IReadOnlyList<ScopedOrganisationEndpoint> BuildScopedOrganisations(
@@ -684,32 +744,6 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             Timestamp = DateTimeOffset.UtcNow,
             Organisations = orgSnapshots
         });
-    }
-
-    // ── Checkpoint helpers ────────────────────────────────────────────────────
-
-    private static async Task<string?> ReadCursorAsync(IStateStore state, string moduleName, CancellationToken ct)
-    {
-        var raw = await state.ReadAsync(CursorKeyFor(moduleName), ct).ConfigureAwait(false);
-
-        if (raw is null)
-            raw = await state.ReadAsync(PackagePaths.CursorFile(moduleName), ct).ConfigureAwait(false);
-
-        if (raw is null)
-            raw = await state.ReadAsync(PackagePaths.Checkpoints + "/Inventory.cursor.json", ct).ConfigureAwait(false);
-
-        if (raw is null)
-            raw = await state.ReadAsync("Checkpoints/Inventory.cursor.json", ct).ConfigureAwait(false);
-
-        if (raw is null) return null;
-        var doc = JsonDocument.Parse(raw);
-        return doc.RootElement.TryGetProperty("lastCompleted", out var el) ? el.GetString() : null;
-    }
-
-    private static Task WriteCursorAsync(IStateStore state, string moduleName, string lastCompleted, CancellationToken ct)
-    {
-        var json = JsonSerializer.Serialize(new { lastCompleted });
-        return state.WriteAsync(CursorKeyFor(moduleName), json, ct);
     }
 
     // ── CSV helpers ──────────────────────────────────────────────────────────

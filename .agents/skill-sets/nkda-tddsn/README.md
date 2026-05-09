@@ -36,3 +36,14 @@ Implementation must not begin until the target test suite exists.
 ## Relationship to Existing Skill
 
 The repository already contains `.agents/skills/nkd-tdd-assessment`. This skill set treats that existing skill as the useful precursor and preserves it unchanged. The canonical skill inside this workflow is `nkda-tddsn-assessment`, which carries forward the preserved assessment logic, scoring model, hard gates, drift-risk analysis, and rebuild-oriented recommendations under the `nkda-tddsn-*` naming convention.
+
+
+## Examples
+
+/nkda-tddsn-autonomous agent_task_execution
+/nkda-tddsn-autonomous agent_package_persistence
+/nkda-tddsn-autonomous agent_observability
+/nkda-tddsn-autonomous agent_lease_coordination
+/nkda-tddsn-autonomous agent_runtime_context
+/nkda-tddsn-autonomous agent_checkpoint_phase_tracking
+/nkda-tddsn-autonomous agent_validation_safety

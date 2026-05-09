@@ -7,7 +7,7 @@ This file is the canonical backlog of unimplemented spec tasks. It MUST be updat
 - **When a new spec is created**: add a section for any tasks not yet started.
 - **Automatically reviewed** by the end-session skill as part of the Phase 5 Documentation Sync gate.
 
-A stale `pending-actions.md` is a guardrail violation (see `.agents/guardrails/atdd-workflow.md` Phase 5 and `.specify/memory/constitution.md` Spec-Completion Gate).
+A stale `pending-actions.md` is a guardrail violation (see `.agents/guardrails/test-first-workflow.md` Phase 5 and `.specify/memory/constitution.md` Spec-Completion Gate).
 
 ---
 

@@ -496,13 +496,13 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         module.SetupGet(m => m.SupportsInventory).Returns(supportsInventory);
         module.SetupGet(m => m.SupportsPrepare).Returns(supportsPrepare);
         module.Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
         module.Setup(m => m.ImportAsync(It.IsAny<ImportContext>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
         module.Setup(m => m.PrepareAsync(It.IsAny<PrepareContext>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
         module.Setup(m => m.ValidateAsync(It.IsAny<ValidationContext>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
         return module.Object;
     }
 
@@ -532,7 +532,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         analyser.SetupGet(a => a.Name).Returns(name);
         analyser.SetupGet(a => a.DependsOn).Returns((IReadOnlyList<ModuleDependency>)dependsOn);
         analyser.Setup(a => a.AnalyseAsync(It.IsAny<AnalyseContext>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(TaskExecutionResult.Completed());
         return analyser.Object;
     }
 

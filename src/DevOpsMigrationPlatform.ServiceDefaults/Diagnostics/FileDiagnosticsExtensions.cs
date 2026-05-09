@@ -56,6 +56,20 @@ public static class FileDiagnosticsExtensions
         return builder;
     }
 
+    /// <summary>
+    /// Adds a file-based log provider that writes only <c>DevOpsMigrationPlatform.*</c>
+    /// log entries to <c>{diagnosticsPath}/{serviceName}-cli.log</c>.
+    /// Infrastructure noise from <c>System.Net.Http</c>, <c>Microsoft.Hosting</c>, etc.
+    /// is suppressed at the provider level.
+    /// </summary>
+    public static ILoggingBuilder AddCliFileDiagnostics(
+        this ILoggingBuilder builder, string diagnosticsPath, string serviceName)
+    {
+        var filePath = Path.Combine(diagnosticsPath, $"{serviceName}-cli.log");
+        builder.AddProvider(new CliFileLoggerProvider(filePath));
+        return builder;
+    }
+
     private const string SessionIdEnvVar = "Telemetry__DiagnosticsSessionId";
 
     /// <summary>

@@ -16,7 +16,7 @@ Applicable guardrails for this feature:
 - Cursor/checkpoint state in `.migration/Checkpoints/` with no hidden state (`.agents/guardrails/workitems-rules.md`, `.agents/context/checkpointing-summary.md`)
 - Reuse existing work item iteration abstractions before introducing new patterns (`.agents/guardrails/architecture-boundaries.md` rule 21, `docs/work-item-iteration-guide.md`)
 - Async/cancellation propagation, immutable models, and DI boundaries (`.agents/guardrails/coding-standards.md`)
-- Tests-first ATDD workflow (`.agents/guardrails/testing-rules.md`, `.agents/guardrails/atdd-workflow.md`, `.agents/guardrails/acceptance-test-format.md`)
+- Tests-first workflow (`.agents/guardrails/testing-rules.md`, `.agents/guardrails/test-first-workflow.md`, `.agents/guardrails/acceptance-test-format.md`)
 
 Explicitly rejected approaches:
 - Any resume implementation that skips query fingerprint compatibility checks.

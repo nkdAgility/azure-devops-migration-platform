@@ -17,6 +17,12 @@ public sealed record JobTaskList
     /// <summary>Ordered list of tasks in execution sequence.</summary>
     public IReadOnlyList<JobTask> Tasks { get; init; } = Array.Empty<JobTask>();
 
+    /// <summary>
+    /// Ordered phase summaries for presentation and plan inspection.
+    /// This metadata groups the flat <see cref="Tasks"/> list without changing execution semantics.
+    /// </summary>
+    public IReadOnlyList<JobPhaseSummary> Phases { get; init; } = Array.Empty<JobPhaseSummary>();
+
     /// <summary>UTC timestamp when the agent pushed this plan.</summary>
     public DateTimeOffset PushedAt { get; init; } = DateTimeOffset.UtcNow;
 

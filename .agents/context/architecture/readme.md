@@ -10,19 +10,19 @@ Do NOT load all subsystem files. Each file is self-contained. Reading files for 
 ## Components
 
 | Component | Responsibility |
-|---|---|
+| --- | --- |
 | CLI (`devopsmigration`) | Submits jobs, displays progress, manages job lifecycle |
 | TUI | Terminal dashboard for monitoring jobs |
 | Control Plane | Coordinates jobs: admission, leasing, telemetry, progress streams |
 | Migration Agent | Executes phases (Inventory, Export, Prepare, Import, Validate) for .NET 10 sources |
 | TFS Export Agent | Executes Export for TFS sources (net481, Windows only) |
 | Package | Filesystem directory holding all migration data (`Package.WorkingDirectory`) |
-| Artefact Store | `IArtefactStore` — the only permitted package access abstraction |
+| Package Manager | Primary package boundary and persistence stack for package data, metadata, and logs |
 | State Store | `IStateStore` — transient module state, backed by SQLite in the package |
 
 ## Data Flow
 
-```
+```text
 CLI/TUI → Control Plane → Agent → Source → Package → Agent → Target
                   ↑          ↓
              Progress/telemetry
@@ -41,7 +41,7 @@ CLI/TUI → Control Plane → Agent → Source → Package → Agent → Target
 ## Telemetry Channels
 
 | Channel | API | Consumer |
-|---|---|---|
+| --- | --- | --- |
 | 1 — SSE progress | `GET /jobs/{id}/progress?follow=true` | CLI, TUI |
 | 2 — JobMetrics polling | `GET /jobs/{id}/telemetry` | CLI progress display, TUI Metrics panel |
 | 3 — Diagnostics | `GET /jobs/{id}/diagnostics?follow=true` | TUI Logs panel |
@@ -49,10 +49,11 @@ CLI/TUI → Control Plane → Agent → Source → Package → Agent → Target
 ## Migration Agent Subsystems
 
 | Tag | File | Responsibility |
-|-----|------|---------------|
+| --- | --- | --- |
 | `agent_task_builder` | [agent-task-builder.md](agent-task-builder.md) | Build ordered `JobTaskList` plans from job kind, enabled modules, and dependency graph |
 | `agent_task_execution` | [agent-task-execution.md](agent-task-execution.md) | Execute plan tiers, enforce `DependsOn`, transition task states, and emit progress |
-| `agent_package_persistence` | [agent-package-persistence.md](agent-package-persistence.md) | Persist artefacts and state via `IArtefactStore`/`IStateStore` abstractions only |
+| `agent_package_persistence` | [agent-package-persistence.md](agent-package-persistence.md) | Persistence subsystem for the package manager via `IArtefactStore`/`IStateStore` |
+| `agent_package_boundary` | [agent-package-boundary.md](agent-package-boundary.md) | Own typed package access, authoritative metadata, run-audit mirroring, and run-log routing above raw stores |
 | `agent_observability` | [agent-observability.md](agent-observability.md) | Emit and transport progress, diagnostics, traces, and metric snapshots (cross-cutting) |
 | `agent_lease_coordination` | [agent-lease-coordination.md](agent-lease-coordination.md) | Poll control plane, acquire lease, dispatch jobs, and signal terminal states |
 | `agent_runtime_context` | [agent-runtime-context.md](agent-runtime-context.md) | Materialize `Job.ConfigPayload` into package config and expose context accessors |
@@ -65,6 +66,6 @@ CLI/TUI → Control Plane → Agent → Source → Package → Agent → Target
 - Control Plane never writes package data.
 - CLI/TUI never write package data.
 - Modules never call connectors from other modules.
-- All package access goes through `IArtefactStore` or `IStateStore`.
+- All package access goes through the package manager boundary or its `IArtefactStore`/`IStateStore` persistence abstractions.
 - Tools and Analysers are distinct extension points alongside Modules; all three must satisfy full observability requirements (O-1 through O-4).
 - Analysers run only after their declared module dependencies complete. They must not connect to source or target systems.

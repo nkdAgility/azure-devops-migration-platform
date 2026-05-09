@@ -43,7 +43,7 @@ public class RerunDeltaImportSteps
         };
         var cursorJson = JsonSerializer.Serialize(cursor);
         _ctx.MockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("import.workitems"), It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("import", "workitems", RerunDeltaImportContext.EndpointUrl, RerunDeltaImportContext.ProjectName), It.IsAny<CancellationToken>()))
             .ReturnsAsync(cursorJson);
         _ctx.CursorReadConfigured = true;
     }
@@ -163,12 +163,12 @@ public class RerunDeltaImportSteps
         });
 
         _ctx.MockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("import.workitems"), It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("import", "workitems", RerunDeltaImportContext.EndpointUrl, RerunDeltaImportContext.ProjectName), It.IsAny<CancellationToken>()))
             .Returns((string _, CancellationToken _) =>
                 Task.FromResult<string?>(_ctx.CursorWasDeleted ? null : cursorJson));
         _ctx.CursorReadConfigured = true;
         _ctx.MockStateStore
-            .Setup(s => s.DeleteAsync(PackagePaths.CursorFile("import.workitems"), It.IsAny<CancellationToken>()))
+            .Setup(s => s.DeleteAsync(PackagePaths.CursorFile("import", "workitems", RerunDeltaImportContext.EndpointUrl, RerunDeltaImportContext.ProjectName), It.IsAny<CancellationToken>()))
             .Callback(() => _ctx.CursorWasDeleted = true)
             .Returns(Task.CompletedTask);
 
@@ -211,14 +211,14 @@ public class RerunDeltaImportSteps
     {
         // StateStore: cursor writes
         _ctx.MockStateStore
-            .Setup(s => s.WriteAsync(PackagePaths.CursorFile("import.workitems"), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteAsync(PackagePaths.CursorFile("import", "workitems", RerunDeltaImportContext.EndpointUrl, RerunDeltaImportContext.ProjectName), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // StateStore: if ReadAsync not already set up, default to no cursor
         if (!_ctx.CursorReadConfigured)
         {
             _ctx.MockStateStore
-                .Setup(s => s.ReadAsync(PackagePaths.CursorFile("import.workitems"), It.IsAny<CancellationToken>()))
+                .Setup(s => s.ReadAsync(PackagePaths.CursorFile("import", "workitems", RerunDeltaImportContext.EndpointUrl, RerunDeltaImportContext.ProjectName), It.IsAny<CancellationToken>()))
                 .ReturnsAsync((string?)null);
         }
 

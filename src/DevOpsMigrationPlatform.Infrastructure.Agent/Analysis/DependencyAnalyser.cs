@@ -49,7 +49,7 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
         new ModuleDependency(typeof(InventoryAnalyser), DependencyPhase.Analyse)
     });
 
-    public Task AnalyseAsync(AnalyseContext context, CancellationToken ct)
+    public Task<TaskExecutionResult> AnalyseAsync(AnalyseContext context, CancellationToken ct)
     {
         // If the caller already created an OrganisationsAnalyseContext (e.g. JobAgentWorker),
         // preserve the organisations it populated rather than discarding them.
@@ -67,7 +67,7 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
         }, ct);
     }
 
-    public async Task AnalyseAsync(OrganisationsAnalyseContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> AnalyseAsync(OrganisationsAnalyseContext context, CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
         using var activity = ActivitySource.StartActivity("analyse.dependencies");
@@ -77,11 +77,11 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
 
         context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Analysing", Message = "Running dependency analysis", Timestamp = DateTimeOffset.UtcNow });
 
-        // Fan-in: consolidate per-project discovery/{org}/{project}/dependencies.csv files.
+        // Fan-in: consolidate canonical per-project {org}/{project}/dependencies.csv files.
         var perProjectPaths = new System.Collections.Generic.List<string>();
-        await foreach (var path in context.ArtefactStore.EnumerateAsync("discovery/", ct).ConfigureAwait(false))
+        await foreach (var path in context.ArtefactStore.EnumerateAsync(string.Empty, ct).ConfigureAwait(false))
         {
-            if (path.EndsWith("/dependencies.csv", System.StringComparison.OrdinalIgnoreCase))
+            if (IsPerProjectDependencyPath(path))
                 perProjectPaths.Add(path);
         }
 
@@ -192,6 +192,8 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
                 }
             }
         });
+
+        return TaskExecutionResult.Completed();
     }
 
     private static int CountRows(string? csv)
@@ -202,6 +204,18 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
 
         var lines = csvContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
         return Math.Max(0, lines.Length - 1);
+    }
+
+    private static bool IsPerProjectDependencyPath(string path)
+    {
+        if (!path.EndsWith("/dependencies.csv", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var segments = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+        return segments.Length == 3
+            && !segments[0].Equals("analysis", StringComparison.OrdinalIgnoreCase)
+            && !segments[0].Equals(".migration", StringComparison.OrdinalIgnoreCase)
+            && !segments[1].Equals(".migration", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string BuildMermaid(string? csv)

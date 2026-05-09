@@ -32,10 +32,24 @@ public sealed class RuntimeStateTracingTests
         _ = PackagePaths.CursorFile("export", "workitems", "https://dev.azure.com/contoso", "Shop");
 
         var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
-        var sut = new CheckpointingService(stateStore.Object);
+        var endpoints = CreateEndpointAccessor();
+        var sut = new CheckpointingService(stateStore.Object, endpoints.Object);
         await sut.WriteCursorAsync("export.workitems", new CursorEntry { LastProcessed = "X", Stage = CursorStage.Completed }, CancellationToken.None);
 
         CollectionAssert.Contains(spans, "state.paths.resolve");
         CollectionAssert.Contains(spans, "state.cursor.update");
+    }
+
+    private static Mock<ICurrentJobEndpointAccessor> CreateEndpointAccessor()
+    {
+        var source = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
+        source.SetupGet(s => s.Url).Returns("https://dev.azure.com/contoso");
+        source.SetupGet(s => s.Project).Returns("Shop");
+        source.SetupGet(s => s.ConnectorType).Returns("AzureDevOpsServices");
+
+        var endpoints = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
+        endpoints.SetupGet(x => x.Source).Returns(source.Object);
+        endpoints.SetupGet(x => x.Target).Returns((ITargetEndpointInfo?)null);
+        return endpoints;
     }
 }

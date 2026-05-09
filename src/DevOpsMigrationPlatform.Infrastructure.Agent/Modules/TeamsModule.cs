@@ -90,7 +90,7 @@ public sealed class TeamsModule : IModule
         _checkpointingFactory = checkpointingFactory;
     }
 
-    public async Task CaptureAsync(InventoryContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
     {
         using var activity = DiscoveryActivity.StartActivity("inventory.teams");
         activity?.SetTag("job.id", context.Job.JobId);
@@ -101,7 +101,7 @@ public sealed class TeamsModule : IModule
         if (string.IsNullOrWhiteSpace(context.Project))
         {
             _logger.LogError("[Teams] CaptureAsync called with empty Project — executor contract violated. Skipping.");
-            return;
+            return TaskExecutionResult.Skipped("CaptureAsync called with empty project.");
         }
 
         _logger.LogInformation("Inventorying {Module}", Name);
@@ -151,9 +151,11 @@ public sealed class TeamsModule : IModule
                 }
             }
         });
+
+        return TaskExecutionResult.Completed();
     }
 
-    public async Task PrepareAsync(PrepareContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct)
     {
         using var activity = MigrationActivity.StartActivity("prepare.teams");
         activity?.SetTag("job.id", context.Job.JobId);
@@ -167,52 +169,60 @@ public sealed class TeamsModule : IModule
         await context.ArtefactStore.WriteAsync("Teams/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
         _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", Name, report.ResolvedCount, report.UnresolvedCount, 0);
         context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Prepared", Message = $"{Name} prepare complete", Timestamp = DateTimeOffset.UtcNow });
+
+        return TaskExecutionResult.Completed();
     }
 
     /// <inheritdoc/>
-    public async Task ExportAsync(ExportContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct)
     {
         if (!_options.Enabled)
         {
             _logger.LogDebug("[Teams] Module disabled — skipping export.");
-            return;
+            return TaskExecutionResult.Skipped("Teams module disabled for export.");
         }
 
         if (_teamSource is null)
         {
             _logger.LogWarning("[Teams] No ITeamSource registered — team export skipped.");
-            return;
+            return TaskExecutionResult.Skipped("No team source registered.");
         }
 
         await _orchestrator.ExportAsync(
             _teamSource, context, _sourceEndpointInfo, _checkpointingFactory,
             _options, ct).ConfigureAwait(false);
+
+        return TaskExecutionResult.Completed();
     }
 
     /// <inheritdoc/>
-    public async Task ImportAsync(ImportContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct)
     {
         if (!_options.Enabled)
         {
             _logger.LogDebug("[Teams] Module disabled — skipping import.");
-            return;
+            return TaskExecutionResult.Skipped("Teams module disabled for import.");
         }
 
         if (_teamTarget is null)
         {
             _logger.LogWarning("[Teams] No ITeamTarget registered — team import skipped.");
-            return;
+            return TaskExecutionResult.Skipped("No team target registered.");
         }
 
         await _orchestrator.ImportAsync(
             context, _sourceEndpointInfo, _targetEndpointInfo,
             _checkpointingFactory, _options, ct).ConfigureAwait(false);
+
+        return TaskExecutionResult.Completed();
     }
 
     /// <inheritdoc/>
-    public async Task ValidateAsync(ValidationContext context, CancellationToken ct)
+    public async Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct)
     {
         await _orchestrator.ValidateAsync(context.ArtefactStore, context, ct).ConfigureAwait(false);
+
+        return TaskExecutionResult.Completed();
     }
 }
 #endif

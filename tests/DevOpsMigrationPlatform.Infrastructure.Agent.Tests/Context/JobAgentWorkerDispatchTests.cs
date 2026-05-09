@@ -153,6 +153,14 @@ public sealed class JobAgentWorkerDispatchTests
             .Setup(factory => factory.Create(It.IsAny<IStateStore>()))
             .Returns(_checkpointer.Object);
 
+        _checkpointer
+            .Setup(checkpointer => checkpointer.DeleteCursorAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _checkpointer
+            .Setup(checkpointer => checkpointer.DeleteContinuationTokenAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         _phaseTrackingFactory
             .Setup(factory => factory.Create(It.IsAny<IStateStore>()))
             .Returns(_phaseTracker.Object);
@@ -362,6 +370,70 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<ExportContext>(),
             It.IsAny<IStateStore>(),
             It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [TestMethod]
+    public async Task OnJobAsync_Dependencies_EmitsJobReadyAfterPushingTaskList()
+    {
+        var progressEvents = new List<ProgressEvent>();
+        _progressSink
+            .Setup(sink => sink.Emit(It.IsAny<ProgressEvent>()))
+            .Callback<ProgressEvent>(evt => progressEvents.Add(evt));
+
+        var worker = CreateWorker();
+        var job = CreateJob(JobKind.Dependencies);
+
+        await JobAgentWorkerTestHelper.InvokeJobAsync(
+            worker,
+            job,
+            CreateControlPlaneClient(),
+            "lease-deps",
+            CancellationToken.None);
+
+        _telemetryClient.Verify(client => client.PushTaskListAsync(
+            "lease-deps",
+            It.IsAny<JobTaskList>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        Assert.IsTrue(
+            progressEvents.Any(evt => evt.Module == "Job" && evt.Stage == "Job.Ready"),
+            "Dependencies jobs must emit Job.Ready after the plan is pushed so the CLI can fetch bootstrap.");
+    }
+
+    [TestMethod]
+    public async Task OnJobAsync_Dependencies_ForceFresh_DeletesScopedCheckpointStateViaCheckpointer()
+    {
+        var worker = CreateWorker([new FakeModule("Dependencies", supportsPrepare: false)]);
+        var job = new Job
+        {
+            JobId = "job-Dependencies",
+            Kind = JobKind.Dependencies,
+            Package = new JobPackage { PackageUri = "." },
+            Resume = new JobResume
+            {
+                Mode = ResumeMode.ForceFresh
+            }
+        };
+
+        await JobAgentWorkerTestHelper.InvokeJobAsync(
+            worker,
+            job,
+            CreateControlPlaneClient(),
+            "lease-deps-forcefresh",
+            CancellationToken.None);
+
+        _checkpointer.Verify(
+            checkpointer => checkpointer.DeleteCursorAsync("Dependencies", It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        _checkpointer.Verify(
+            checkpointer => checkpointer.DeleteContinuationTokenAsync("Dependencies", It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        _stateStore.Verify(
+            store => store.DeleteAsync(PackagePaths.CursorFile("Dependencies"), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "Discovery ForceFresh must not delete legacy root cursor paths directly.");
     }
 
     [TestMethod]
@@ -629,10 +701,10 @@ public sealed class JobAgentWorkerDispatchTests
             Times.Once);
     }
 
-    private JobAgentWorker CreateWorker()
+    private JobAgentWorker CreateWorker(IReadOnlyList<IModule>? migrationModules = null)
     {
         return new JobAgentWorker(
-            migrationModules: Array.Empty<IModule>(),
+            migrationModules: migrationModules ?? Array.Empty<IModule>(),
             packageStoreFactory: _packageStoreFactory.Object,
             packagePreparer: _packagePreparer.Object,
             progressSink: _progressSink.Object,
@@ -679,18 +751,18 @@ public sealed class JobAgentWorkerDispatchTests
         public bool SupportsImport => true;
         public bool SupportsValidate => false;
 
-        public Task CaptureAsync(InventoryContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task ExportAsync(ExportContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task PrepareAsync(PrepareContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task ImportAsync(ImportContext context, CancellationToken ct) => Task.CompletedTask;
-        public Task ValidateAsync(Abstractions.Agent.Validation.ValidationContext context, CancellationToken ct) => Task.CompletedTask;
+        public Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
+        public Task<TaskExecutionResult> ValidateAsync(Abstractions.Agent.Validation.ValidationContext context, CancellationToken ct) => Task.FromResult(TaskExecutionResult.Completed());
     }
 
     private sealed class FakeAnalyser(string name) : IAnalyser
     {
         public string Name => name;
         public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
-        public Task AnalyseAsync(AnalyseContext context, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<TaskExecutionResult> AnalyseAsync(AnalyseContext context, CancellationToken cancellationToken) => Task.FromResult(TaskExecutionResult.Completed());
     }
 
     private sealed class FakeTargetEndpointInfo : ITargetEndpointInfo

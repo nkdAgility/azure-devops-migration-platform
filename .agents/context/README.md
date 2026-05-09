@@ -9,18 +9,19 @@ Context does not override guardrails. If context conflicts with guardrails, the 
 ## Files
 
 | File | Purpose |
-|---|---|
+| --- | --- |
 | `product-vision.md` | What the platform is, what it is not, supported sources and targets |
 | `domain-model.md` | Core domain concepts: Package, Job, Phase, Module, Connector, etc. |
 | `terminology.md` | Canonical terms and terms to avoid |
 | `architecture/readme.md` | Compressed component map, data flow, telemetry channels, and Migration Agent subsystem index |
+| `architecture/agent-package-boundary.md` | Typed package boundary above raw persistence: authoritative metadata, run-audit mirroring, and run-log routing |
 | `pipeline-phases.md` | Five phases and Migrate mode — what each does, outputs, rules |
 | `migration-package-concept.md` | Package layout specification — what the package is, structure, paths |
 | `package-format-summary.md` | Short package format reference for agents |
 | `workitems-format-summary.md` | WorkItems folder layout — chronological revision structure |
 | `import-streaming.md` | Streaming import requirements — memory-safe enumeration |
 | `checkpointing-summary.md` | Cursor-based checkpointing — resumability, idempotency |
-| `artefact-store.md` | IArtefactStore abstraction — the only permitted persistence interface |
+| `package-manager.md` | Package manager concept — package boundary above artefact/state persistence primitives |
 | `job-lifecycle.md` | Job contract specification — what a Job is, fields, lifecycle |
 | `telemetry-model.md` | Telemetry layer model — spans, metrics, logs, progress events |
 | `identity-and-mapping.md` | Identity mapping service — how source identities map to target |

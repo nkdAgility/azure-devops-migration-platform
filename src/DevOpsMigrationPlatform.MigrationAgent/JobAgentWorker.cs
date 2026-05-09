@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
@@ -197,6 +198,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             _currentJobContextAccessor.Clear();
             return;
         }
+
+        packagePath = Path.GetFullPath(packagePath);
 
         try
         {
@@ -781,12 +784,17 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     {
         if (job.Resume?.Mode == ResumeMode.ForceFresh)
         {
+            var freshCheckpointer = CheckpointingFactory.Create(stateStore);
+
             _logger.LogInformation(
                 "ForceFresh requested for discovery job {JobId} — deleting module cursors, completion markers, and plan file.", job.JobId);
             foreach (var module in MigrationModules)
             {
-                var cursorPath = PackagePaths.CursorFile(module.Name);
-                try { await stateStore.DeleteAsync(cursorPath, ct).ConfigureAwait(false); }
+                try
+                {
+                    await freshCheckpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
+                    await freshCheckpointer.DeleteContinuationTokenAsync(module.Name, ct).ConfigureAwait(false);
+                }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Could not delete cursor for discovery module {Module}.", module.Name);
@@ -867,11 +875,27 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         JobTaskList? discoveryPlan = null;
         try
         {
+            ProgressSink.Emit(new ProgressEvent
+            {
+                Module = "Job",
+                Stage = "Job.Planning",
+                Message = "Building execution plan from package configuration.",
+                Timestamp = DateTimeOffset.UtcNow
+            });
+
             var planConfig = packageConfig ?? new ConfigurationBuilder().Build();
             discoveryPlan = await _planBuilder
                 .BuildAndSaveAsync(planConfig, job.Kind, artefactStore, stateStore, ct)
                 .ConfigureAwait(false);
             await _telemetryClient.PushTaskListAsync(leaseId, discoveryPlan, ct).ConfigureAwait(false);
+
+            ProgressSink.Emit(new ProgressEvent
+            {
+                Module = "Job",
+                Stage = "Job.Ready",
+                Message = $"Execution plan ready. {discoveryPlan.Tasks.Count} task(s) queued.",
+                Timestamp = DateTimeOffset.UtcNow
+            });
         }
         catch (Exception ex)
         {

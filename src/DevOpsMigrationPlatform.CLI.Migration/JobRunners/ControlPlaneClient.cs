@@ -25,6 +25,7 @@ namespace DevOpsMigrationPlatform.CLI.JobRunners;
 public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, IControlPlaneClient
 {
     private readonly JsonSerializerOptions _jsonOptions;
+    private readonly ControlPlaneCommunicationRecorder? _diagnosticsRecorder;
 
     private readonly HttpClient _http;
     private readonly ILogger<ControlPlaneClient> _logger;
@@ -36,10 +37,12 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
     public ControlPlaneClient(
         HttpClient http,
         ILogger<ControlPlaneClient> logger,
-        PolymorphicEndpointOptionsConverter? endpointConverter = null)
+        PolymorphicEndpointOptionsConverter? endpointConverter = null,
+        ControlPlaneCommunicationRecorder? diagnosticsRecorder = null)
     {
         _http = http ?? throw new ArgumentNullException(nameof(http));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _diagnosticsRecorder = diagnosticsRecorder;
         _jsonOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
@@ -104,11 +107,16 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
     /// </summary>
     public async Task<IReadOnlyList<JobSummary>> GetAllJobsAsync(CancellationToken ct)
     {
+        _logger.LogInformation("ControlPlaneClient calling GET /jobs");
         var response = await _http.GetAsync("/jobs", ct).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
         var summaries = await response.Content
             .ReadFromJsonAsync<List<JobSummary>>(_jsonOptions, ct)
             .ConfigureAwait(false);
+        _logger.LogInformation(
+            "Control plane response GET /jobs => {StatusCode}, jobs={Count}",
+            (int)response.StatusCode,
+            summaries?.Count ?? 0);
         return summaries ?? [];
     }
 
@@ -118,17 +126,30 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
     /// </summary>
     public async Task<JobMetrics?> GetTelemetryAsync(Guid jobId, CancellationToken ct)
     {
+        _logger.LogInformation("ControlPlaneClient calling GET /jobs/{JobId}/telemetry", jobId);
         var response = await _http
             .GetAsync($"/jobs/{jobId}/telemetry", ct)
             .ConfigureAwait(false);
 
         if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+        {
+            _logger.LogInformation(
+                "Control plane response GET /jobs/{JobId}/telemetry => {StatusCode} (no metrics yet)",
+                jobId,
+                (int)response.StatusCode);
             return null;
+        }
 
         response.EnsureSuccessStatusCode();
-        return await response.Content
-            .ReadFromJsonAsync<JobMetrics>(_jsonOptions, ct)
-            .ConfigureAwait(false);
+        var metricsJson = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        await RecordJsonAsync("telemetry", metricsJson, ct).ConfigureAwait(false);
+        var metrics = JsonSerializer.Deserialize<JobMetrics>(metricsJson, _jsonOptions);
+        _logger.LogInformation(
+            "Control plane response GET /jobs/{JobId}/telemetry => {StatusCode}, hasMetrics={HasMetrics}",
+            jobId,
+            (int)response.StatusCode,
+            metrics is not null);
+        return metrics;
     }
 
     /// <summary>    /// Returns a snapshot of stored ProgressEvents for <paramref name="jobId"/>.
@@ -136,6 +157,7 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
     /// </summary>
     public async Task<IReadOnlyList<ProgressEvent>> GetProgressAsync(Guid jobId, CancellationToken ct)
     {
+        _logger.LogInformation("ControlPlaneClient calling GET /jobs/{JobId}/progress", jobId);
         var response = await _http
             .GetAsync($"/jobs/{jobId}/progress", ct)
             .ConfigureAwait(false);
@@ -145,6 +167,12 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
         var events = await response.Content
             .ReadFromJsonAsync<List<ProgressEvent>>(_jsonOptions, ct)
             .ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "Control plane response GET /jobs/{JobId}/progress => {StatusCode}, events={Count}",
+            jobId,
+            (int)response.StatusCode,
+            events?.Count ?? 0);
 
         return events ?? [];
     }
@@ -158,6 +186,11 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
         [EnumeratorCancellation] CancellationToken ct,
         long? lastEventSequence = null)
     {
+        _logger.LogInformation(
+            "ControlPlaneClient opening SSE stream GET /jobs/{JobId}/progress?follow=true (lastEventId={LastEventId})",
+            jobId,
+            lastEventSequence);
+
         var request = new HttpRequestMessage(HttpMethod.Get,
             $"/jobs/{jobId}/progress?follow=true");
         if (lastEventSequence.HasValue)
@@ -169,6 +202,10 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
             .ConfigureAwait(false);
 
         response.EnsureSuccessStatusCode();
+        _logger.LogInformation(
+            "Control plane response GET /jobs/{JobId}/progress?follow=true => {StatusCode}",
+            jobId,
+            (int)response.StatusCode);
 
         using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         using var reader = new System.IO.StreamReader(stream, System.Text.Encoding.UTF8,
@@ -180,10 +217,16 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
             if (line is null) break;
 
             if (line.StartsWith("event:") && line.Contains("job-failed"))
+            {
+                _logger.LogWarning("Control plane SSE stream reported job-failed for {JobId}", jobId);
                 throw new InvalidOperationException("Job failed on the agent. Check agent logs for details.");
+            }
 
             if (line.StartsWith("event:") && line.Contains("job-ended"))
+            {
+                _logger.LogInformation("Control plane SSE stream reported job-ended for {JobId}", jobId);
                 yield break;
+            }
 
             if (!line.StartsWith("data:"))
                 continue;
@@ -193,8 +236,11 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
                 continue;
 
             var evt = JsonSerializer.Deserialize<ProgressEvent>(json, _jsonOptions);
-            if (evt is not null)
-                yield return evt;
+            if (evt is null)
+                continue;
+
+            await RecordProgressAsync(evt, json, ct).ConfigureAwait(false);
+            yield return evt;
         }
     }
 
@@ -208,6 +254,11 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
         string? level,
         [EnumeratorCancellation] CancellationToken ct)
     {
+        _logger.LogInformation(
+            "ControlPlaneClient opening SSE stream GET /jobs/{JobId}/diagnostics?follow=true&level={Level}",
+            jobId,
+            level ?? "(default)");
+
         var url = $"/jobs/{jobId}/diagnostics?follow=true";
         if (!string.IsNullOrEmpty(level))
             url += $"&level={Uri.EscapeDataString(level)}";
@@ -217,6 +268,10 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
             .ConfigureAwait(false);
 
         response.EnsureSuccessStatusCode();
+        _logger.LogInformation(
+            "Control plane response GET /jobs/{JobId}/diagnostics?follow=true => {StatusCode}",
+            jobId,
+            (int)response.StatusCode);
 
         using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         using var reader = new System.IO.StreamReader(stream, System.Text.Encoding.UTF8,
@@ -229,7 +284,10 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
 
             if (line.StartsWith("event:") &&
                 (line.Contains("job-ended") || line.Contains("job-failed")))
+            {
+                _logger.LogInformation("Control plane diagnostics SSE stream ended for {JobId}: {EventLine}", jobId, line);
                 yield break;
+            }
 
             if (!line.StartsWith("data:"))
                 continue;
@@ -239,8 +297,11 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
                 continue;
 
             var record = JsonSerializer.Deserialize<DiagnosticLogRecord>(json, _jsonOptions);
-            if (record is not null)
-                yield return record;
+            if (record is null)
+                continue;
+
+            await RecordDiagnosticAsync(record, json, ct).ConfigureAwait(false);
+            yield return record;
         }
     }
 
@@ -264,17 +325,30 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
     /// </summary>
     public async Task<JobBootstrap?> GetBootstrapAsync(Guid jobId, CancellationToken ct)
     {
+        _logger.LogInformation("ControlPlaneClient calling GET /jobs/{JobId}/bootstrap", jobId);
         var response = await _http
             .GetAsync($"/jobs/{jobId}/bootstrap", ct)
             .ConfigureAwait(false);
 
         if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+        {
+            _logger.LogInformation(
+                "Control plane response GET /jobs/{JobId}/bootstrap => {StatusCode} (no bootstrap yet)",
+                jobId,
+                (int)response.StatusCode);
             return null;
+        }
 
         response.EnsureSuccessStatusCode();
-        return await response.Content
-            .ReadFromJsonAsync<JobBootstrap>(_jsonOptions, ct)
-            .ConfigureAwait(false);
+        var bootstrapJson = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        await RecordJsonAsync("bootstrap", bootstrapJson, ct).ConfigureAwait(false);
+        var bootstrap = JsonSerializer.Deserialize<JobBootstrap>(bootstrapJson, _jsonOptions);
+        _logger.LogInformation(
+            "Control plane response GET /jobs/{JobId}/bootstrap => {StatusCode} {Bootstrap}",
+            jobId,
+            (int)response.StatusCode,
+            System.Text.Json.JsonSerializer.Serialize(bootstrap, _jsonOptions));
+        return bootstrap;
     }
 
     /// <summary>
@@ -284,16 +358,44 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
     /// </summary>
     public async Task<JobTaskList?> GetTasksAsync(Guid jobId, CancellationToken ct)
     {
+        _logger.LogInformation("ControlPlaneClient calling GET /jobs/{JobId}/tasks", jobId);
         var response = await _http
             .GetAsync($"/jobs/{jobId}/tasks", ct)
             .ConfigureAwait(false);
 
         if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+        {
+            _logger.LogInformation(
+                "Control plane response GET /jobs/{JobId}/tasks => {StatusCode} (tasks unavailable yet)",
+                jobId,
+                (int)response.StatusCode);
             return null;
+        }
 
         response.EnsureSuccessStatusCode();
-        return await response.Content
+        var taskList = await response.Content
             .ReadFromJsonAsync<JobTaskList>(_jsonOptions, ct)
             .ConfigureAwait(false);
+        _logger.LogInformation(
+            "Control plane response GET /jobs/{JobId}/tasks => {StatusCode}, taskCount={TaskCount}",
+            jobId,
+            (int)response.StatusCode,
+            taskList?.Tasks?.Count ?? 0);
+        return taskList;
     }
+
+    private Task RecordJsonAsync(string kind, string json, CancellationToken ct)
+        => _diagnosticsRecorder is null
+            ? Task.CompletedTask
+            : _diagnosticsRecorder.RecordJsonAsync(kind, json, ct);
+
+    private Task RecordProgressAsync(ProgressEvent progressEvent, string json, CancellationToken ct)
+        => _diagnosticsRecorder is null
+            ? Task.CompletedTask
+            : _diagnosticsRecorder.RecordProgressAsync(progressEvent, json, ct);
+
+    private Task RecordDiagnosticAsync(DiagnosticLogRecord diagnostic, string json, CancellationToken ct)
+        => _diagnosticsRecorder is null
+            ? Task.CompletedTask
+            : _diagnosticsRecorder.RecordDiagnosticAsync(diagnostic, json, ct);
 }

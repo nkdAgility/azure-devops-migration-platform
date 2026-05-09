@@ -16,7 +16,7 @@ The package contract, modules, and cursors are unchanged across all deployment t
 |---|---|
 | Poll for work | Call the control plane lease endpoint to receive a job. |
 | Acquire lease | Hold a time-bounded lease on the assigned job. |
-| Mount artefact store | Connect to the package URI from the job definition (filesystem or blob). See [.agents/context/artefact-store.md](../.agents/context/artefact-store.md). |
+| Mount package store | Connect to the package URI from the job definition (filesystem or blob). See [.agents/context/package-manager.md](../.agents/context/package-manager.md). |
 | Materialise config | Write `Job.ConfigPayload` → `.migration/migration-config.json` in the package. Build per-job `IConfiguration`, publish explicit current package/job/endpoint accessors, and create the per-job `IOptions<T>` DI scope. Fail fast with `PackageConfigNotFoundException` if no payload and no existing file. |
 | Write run audit copies | Write run-scoped audit copies of `job.json`, `plan.json`, and `config.json` under `.migration/runs/<runId>/`. |
 | Run orchestrator | Execute `ExportAsync`, `ImportAsync`, or both in sequence, exactly as in local mode. |
@@ -146,7 +146,7 @@ This means a crashed Agent loses no more than one stage of work.
 
 ## Artefact Store Access
 
-Migration Agents access the migration package exclusively through `IArtefactStore`. They never use raw filesystem calls or raw blob SDK calls inside module code. See [.agents/context/artefact-store.md](../.agents/context/artefact-store.md) for the abstraction and implementations.
+Migration Agents access the migration package exclusively through the package manager boundary and its `IArtefactStore`/`IStateStore` persistence primitives. They never use raw filesystem calls or raw blob SDK calls inside module code. See [.agents/context/package-manager.md](../.agents/context/package-manager.md) for the package boundary direction and persistence implementations.
 
 ### Exclusive Write Access (Data Residency)
 

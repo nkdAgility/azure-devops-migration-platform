@@ -350,7 +350,7 @@ public class TfsJobAgentWorkerTests
         moduleA.Setup(m => m.Name).Returns("WorkItems");
         moduleA.Setup(m => m.DependsOn).Returns(System.Array.Empty<DevOpsMigrationPlatform.Abstractions.Agent.Modules.ModuleDependency>());
         moduleA.Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
-               .Returns(Task.CompletedTask);
+             .ReturnsAsync(DevOpsMigrationPlatform.Abstractions.Agent.Modules.TaskExecutionResult.Completed());
 
         var worker = CreateWorker(new[] { moduleA.Object });
 

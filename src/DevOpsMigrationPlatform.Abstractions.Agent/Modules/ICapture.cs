@@ -36,5 +36,5 @@ public interface ICapture
     /// </summary>
     /// <param name="context">Per-task scoped inventory context.</param>
     /// <param name="ct">Cancellation token; propagate to all async operations.</param>
-    Task CaptureAsync(InventoryContext context, CancellationToken ct);
+    Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct);
 }
