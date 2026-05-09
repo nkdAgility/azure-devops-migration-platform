@@ -186,7 +186,7 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
             {
                 using var stream = new System.IO.MemoryStream(Encoding.UTF8.GetBytes(payload), writable: false);
                 await _package.AppendLogAsync(
-                    new PackageLogContext(runId, PackageLogStream.Progress),
+                    new PackageLogContext(runId!, PackageLogStream.Progress),
                     new PackageLogPayload(stream),
                     cancellationToken).ConfigureAwait(false);
                 return;
