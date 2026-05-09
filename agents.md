@@ -52,7 +52,7 @@ See:
 | Checkpointing | `.agents/context/checkpointing-summary.md` |
 | Module contract | `docs/module-development-guide.md` |
 | Configuration | `docs/configuration-reference.md` |
-| Artefact store | `.agents/context/artefact-store.md` |
+| Package manager | `.agents/context/package-manager.md` |
 | Job lifecycle | `.agents/context/job-lifecycle.md` |
 | Telemetry | `.agents/context/telemetry-model.md` |
 | Control plane | `docs/control-plane.md` |
@@ -106,7 +106,7 @@ See:
    - [workitems-format-summary.md](.agents/context/workitems-format-summary.md) — WorkItems folder structure
    - [import-streaming.md](.agents/context/import-streaming.md) — Streaming import requirements
    - [checkpointing-summary.md](.agents/context/checkpointing-summary.md) — Cursor-based checkpointing
-   - [artefact-store.md](.agents/context/artefact-store.md) — IArtefactStore abstraction
+   - [package-manager.md](.agents/context/package-manager.md) — Package manager concept above artefact/state persistence
    - [job-lifecycle.md](.agents/context/job-lifecycle.md) — Job contract specification
    - [telemetry-model.md](.agents/context/telemetry-model.md) — Telemetry layer model and metric addition guide
    - [ui-mode-summary.md](.agents/context/ui-mode-summary.md) — CLI/TUI mode-to-view contract summary

@@ -38,7 +38,7 @@
 - `.agents/context/workitems-format-summary.md` - Confirmed as applicable for canonical ordering behavior.
 - `.agents/context/import-streaming.md` - Confirmed as applicable for streaming and idempotent stage processing.
 - `.agents/context/checkpointing-summary.md` - Discrepancy logged (does not yet define resumable batching continuation token semantics).
-- `.agents/context/artefact-store.md` - Confirmed as applicable for state and artifact boundary rules.
+- `.agents/context/package-manager.md` - Confirmed as applicable for state and artifact boundary rules.
 - `.agents/context/identity-and-mapping.md` - Confirmed as applicable for idempotency and duplicate-safe import behavior.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -189,7 +189,7 @@ As a module owner, I need deterministic ordering and explicit duplicate-tolerant
   - `.agents/context/workitems-format-summary.md`
   - `.agents/context/import-streaming.md`
   - `.agents/context/checkpointing-summary.md`
-  - `.agents/context/artefact-store.md`
+  - `.agents/context/package-manager.md`
   - `.agents/context/identity-and-mapping.md`
 - Gaps identified and captured in discrepancies:
   - No explicit documented contract yet for resumable batching continuation token behavior.

@@ -57,7 +57,7 @@ Use this table to decide which docs to open and potentially update based on what
 | WorkItems folder structure | `.agents/context/workitems-format-summary.md` |
 | Streaming import behaviour | `.agents/context/import-streaming.md` |
 | Checkpointing or cursor state | `.agents/context/checkpointing-summary.md` |
-| `IArtefactStore` or `IStateStore` | `.agents/context/artefact-store.md` |
+| `IArtefactStore` or `IStateStore` | `.agents/context/package-manager.md` |
 | Telemetry, metrics, or OTel spans | `.agents/context/telemetry-model.md` |
 | Identity mapping service | `.agents/context/identity-and-mapping.md` |
 | Aspire integration | `docs/development-setup.md` |

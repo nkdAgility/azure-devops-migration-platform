@@ -1,15 +1,46 @@
-# Artefact Store
+# Package Manager
 
 ## Purpose
 
-`IArtefactStore` is the abstraction through which all modules read and write the migration package. It is the only permitted mechanism for file operations inside modules; direct filesystem or blob SDK calls in module code are forbidden.
+The Package Manager is the primary package-facing concept. It owns package layout, authoritative versus run-scoped writes, and the routing of package data, package metadata, and package log streams.
 
-`IArtefactStore` is defined in `DevOpsMigrationPlatform.Abstractions`, which targets both `net481` and `net10.0`. Both the .NET 10 `MigrationAgent` and the .NET 4.8 `TfsMigrationAgent` use it directly. The `IAsyncEnumerable<T>` dependency is satisfied on net481 via the `Microsoft.Bcl.AsyncInterfaces` NuGet package.
+Callers should express intent in package terms and must not own path selection. The package manager therefore sits above the raw persistence primitives:
 
-Three implementations exist:
+- `IArtefactStore` for artefact file persistence
+- `IStateStore` for resumability and orchestration state
+
+The current codebase exposes the persistence layer directly more often than the intended design. The architecture direction is captured in [.agents/context/architecture/agent-package-boundary.md](architecture/agent-package-boundary.md): a typed package boundary that composes `IArtefactStore` and `IStateStore` rather than forcing modules and orchestrators to assemble package paths themselves.
+
+## Primary Contracts
+
+The package-manager design discussed so far centers on these contracts:
+
+- `IPackage` as the caller-facing package boundary
+- `PackageDataContext` for typed package data requests and writes
+- `PackageMetaContext` for typed package metadata requests and writes
+- `PackageDataPayload` for data content returned from or supplied to the package boundary
+- `PackageMetaPayload` for metadata content returned from or supplied to the package boundary
+- `PackageMetaKind` for authoritative metadata categories with concrete package behavior
+- `RunLogIntegration` for deciding whether a metadata write should also flow into run-log streams
+- package router or path resolver implementation for translating typed intent into authoritative, run-audit, and run-log destinations
+
+The contract surface is intentionally small at the top level:
+
+- `RequestData(PackageDataContext, ...)`
+- `RequestMeta(PackageMetaContext, ...)`
+- `WriteData(PackageDataContext, ...)`
+- `WriteMeta(PackageMetaContext, ...)`
+
+`IArtefactStore` and `IStateStore` remain subordinate persistence contracts inside the package manager. They are not the primary caller-facing API.
+
+## Persistence Primitives
+
+`IArtefactStore` remains the low-level abstraction through which modules read and write package artefacts. It is defined in `DevOpsMigrationPlatform.Abstractions`, which targets both `net481` and `net10.0`. Both the .NET 10 `MigrationAgent` and the .NET 4.8 `TfsMigrationAgent` use it directly today. The `IAsyncEnumerable<T>` dependency is satisfied on net481 via the `Microsoft.Bcl.AsyncInterfaces` NuGet package.
+
+Two artefact-store implementations exist:
 
 | Implementation | Target frameworks | Use case |
-|---|---|---|
+| --- | --- | --- |
 | `FileSystemArtefactStore` | `net481;net10.0` | Local / Dedicated Server topology (CLI drives Aspire, package at `file:///`) and `TfsMigrationAgent` subprocess |
 | `AzureBlobArtefactStore` | `net10.0` only | Cloud Self-Hosted and Cloud Managed topologies — `MigrationAgent` with Azure Blob Storage |
 
@@ -17,7 +48,7 @@ Both implementations preserve the canonical package layout. The path conventions
 
 ---
 
-## Interface
+## Artefact Store Interface
 
 ```csharp
 interface IArtefactStore
@@ -39,7 +70,7 @@ interface IArtefactStore
 }
 ```
 
-### Contract Invariants
+### Persistence Invariants
 
 - `relativePath` is always relative to `PackageRoot/`. Callers never construct absolute paths.
 - `EnumerateAsync` MUST return results in lexicographic (ascending) order. This is the guarantee that enables streaming import without a global index.
@@ -48,7 +79,7 @@ interface IArtefactStore
 
 ---
 
-## FileSystemArtefactStore
+## FileSystem Artefact Store
 
 Used for local execution.
 
@@ -60,7 +91,7 @@ Used for local execution.
 
 ---
 
-## AzureBlobArtefactStore
+## Azure Blob Artefact Store
 
 Used for cloud (Migration Agent) execution.
 
@@ -89,7 +120,7 @@ Both implementations support streaming import because `EnumerateAsync` is an `IA
 The job contract's `packageUri` field determines which implementation is used:
 
 | URI pattern | Implementation | Example |
-|---|---|---|
+| --- | --- | --- |
 | `file:///` | `FileSystemArtefactStore` | `file:///D:/exports/run-001` |
 | `https://*.blob.core.windows.net/...` | `AzureBlobArtefactStore` | `https://myaccount.blob.core.windows.net/migrations/myorg/myproject` |
 
@@ -99,11 +130,13 @@ The orchestrator resolves the implementation at startup: URLs whose host contain
 
 ---
 
-## StateStore and Checkpoints
+## State Store and Checkpoints
 
 `IStateStore` manages cursor files and the `idmap.db` (or `idmap.json`). The package now has two scopes of durable state: root `.migration/` for package-level orchestration files, and project-local `/{org}/{project}/.migration/` for cursor files. `IStateStore` resolves the correct target path for the state being written.
 
 The Migration Agent may optionally mirror the latest cursor value to the control plane via the progress reporting API for display purposes, but the package remains the authoritative resume state: root `.migration/` for phase markers and `/{org}/{project}/.migration/` for project cursors. See [.agents/context/checkpointing-summary.md](checkpointing-summary.md).
+
+Together, `IArtefactStore` and `IStateStore` form the persistence subsystem of the package manager. They are not the package manager itself.
 
 ---
 
@@ -112,7 +145,7 @@ The Migration Agent may optionally mirror the latest cursor value to the control
 - The relative path conventions for all package files.
 - The WorkItems lexicographic layout.
 - The cursor schema and resume logic.
-- Module code — modules call `IArtefactStore`; they do not know or care whether the backing store is a filesystem or blob.
+- Module code must not use raw filesystem or blob SDK calls. Where the typed package boundary is not yet in place, modules still use `IArtefactStore` and `IStateStore` only.
 
 Switching from local to cloud mode requires only a different `packageUri` in the job definition. No module code changes.
 
@@ -120,7 +153,7 @@ Switching from local to cloud mode requires only a different `packageUri` in the
 
 ## Write Access Boundary (Data Residency)
 
-`IArtefactStore` write operations (`WriteAsync`, `DeleteAsync`) are callable **only** from the Migration Agent (or TFS Export Agent for TFS sources). No other component — CLI, TUI, Control Plane, or ControlPlaneHost — may invoke write operations on the artefact store. This is a **data residency** constraint: customer data must remain under the exclusive control of the execution boundary (the Agent).
+Package-manager persistence writes are callable **only** from the Migration Agent (or TFS Export Agent for TFS sources). No other component — CLI, TUI, Control Plane, or ControlPlaneHost — may invoke `IArtefactStore` or `IStateStore` write operations. This is a **data residency** constraint: customer data must remain under the exclusive control of the execution boundary (the Agent).
 
 The CLI may use read operations (`ReadAsync`, `ExistsAsync`, `EnumerateAsync`) on a completed package for post-job display (e.g. reading summary CSVs). Read-only access does not violate data residency.
 

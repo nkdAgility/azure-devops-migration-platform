@@ -19,7 +19,7 @@
 | `.agents/guardrails/architecture-boundaries.md` | Rules 7 (IStateStore only), 12 (stateless agent/durable state in package), 17 (all state in checkpoints), 21 (mandatory reuse of existing architecture) apply |
 | `.agents/guardrails/coding-standards.md` | Rule 8 (no `.Result`/`.Wait()`), rule 14 (resilience) apply |
 | `.agents/context/job-lifecycle.md` | Confirmed — `Job.Resume.Mode == ForceFresh` must trigger plan deletion + rebuild |
-| `.agents/context/artefact-store.md` | Confirmed — plan persistence uses `IStateStore`, not `IArtefactStore` |
+| `.agents/context/package-manager.md` | Confirmed — plan persistence uses `IStateStore`, not `IArtefactStore` |
 
 ---
 
