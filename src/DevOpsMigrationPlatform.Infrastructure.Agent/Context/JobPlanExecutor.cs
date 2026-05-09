@@ -49,6 +49,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     // The current source endpoint accessor is shared across the whole job scope,
     // so capture-time source endpoint swaps must be serialised globally.
     private readonly SemaphoreSlim _sourceEndpointLock = new(1, 1);
+    private readonly SemaphoreSlim _targetEndpointLock = new(1, 1);
 
     public JobPlanExecutor(
         IProgressSink? progressSink,
@@ -143,9 +144,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
                             var taskList = plan.Tasks.ToList();
                             var idx = taskList.FindIndex(t => t.Id == task.Id);
-                            if (idx >= 0)
-                            {
-                                taskList[idx] = skipped;
+                            taskList[idx] = skipped;
                                 plan = plan with { Tasks = taskList.AsReadOnly() };
                                 await PersistPlanAsync(plan, stateStore, ct).ConfigureAwait(false);
 
@@ -165,7 +164,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                             }
                         }
                     }
-                }
             }
 
             _logger.LogInformation(
@@ -914,7 +912,45 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                                 if (importContext is null)
                                     throw new InvalidOperationException($"Import task {task.Id} requires an ImportContext.");
 
-                                executionResult = await module!.ImportAsync(importContext, ct).ConfigureAwait(false);
+                                if (_currentJobEndpointAccessor is not null)
+                                {
+                                    await _targetEndpointLock.WaitAsync(ct).ConfigureAwait(false);
+                                    try
+                                    {
+                                        var previousTarget = _currentJobEndpointAccessor.Target;
+                                        if (TryBuildTaskTargetEndpointInfo(task, previousTarget, out var scopedTarget))
+                                        {
+                                            _currentJobEndpointAccessor.SetTarget(scopedTarget);
+                                        }
+
+                                        try
+                                        {
+                                            executionResult = await module!.ImportAsync(importContext, ct).ConfigureAwait(false);
+                                        }
+                                        finally
+                                        {
+                                            if (TryBuildTaskTargetEndpointInfo(task, previousTarget, out _))
+                                            {
+                                                if (previousTarget is not null)
+                                                {
+                                                    _currentJobEndpointAccessor.SetTarget(previousTarget);
+                                                }
+                                                else
+                                                {
+                                                    _currentJobEndpointAccessor.ClearTarget();
+                                                }
+                                            }
+                                        }
+                                    }
+                                    finally
+                                    {
+                                        _targetEndpointLock.Release();
+                                    }
+                                }
+                                else
+                                {
+                                    executionResult = await module!.ImportAsync(importContext, ct).ConfigureAwait(false);
+                                }
                                 break;
                             }
                         default:
@@ -1106,6 +1142,27 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         };
     }
 
+    private sealed record TaskTargetEndpointInfo(
+        string Url,
+        string Project,
+        string ConnectorType,
+        string? ApiVersion,
+        AuthenticationType AuthenticationType,
+        string? AccessToken) : ITargetEndpointInfo
+    {
+        public OrganisationEndpoint ToOrganisationEndpoint() => new()
+        {
+            ResolvedUrl = Url,
+            Type = ConnectorType,
+            ApiVersion = ApiVersion,
+            Authentication = new OrganisationEndpointAuthentication
+            {
+                Type = AuthenticationType,
+                ResolvedAccessToken = AccessToken
+            }
+        };
+    }
+
     private static bool TryBuildTaskSourceEndpointInfo(
         JobTask task,
         IReadOnlyDictionary<string, OrganisationEndpoint>? endpointsByUrl,
@@ -1143,6 +1200,30 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
         endpointInfo = null!;
         return false;
+    }
+
+    private static bool TryBuildTaskTargetEndpointInfo(
+        JobTask task,
+        ITargetEndpointInfo? fallbackTarget,
+        out ITargetEndpointInfo endpointInfo)
+    {
+        var project = task.ProjectName;
+        if (string.IsNullOrWhiteSpace(project) || fallbackTarget is null)
+        {
+            endpointInfo = null!;
+            return false;
+        }
+
+        var projectName = project!;
+
+        endpointInfo = new TaskTargetEndpointInfo(
+            fallbackTarget.Url ?? string.Empty,
+            projectName,
+            fallbackTarget.ConnectorType,
+            fallbackTarget.ToOrganisationEndpoint().ApiVersion,
+            fallbackTarget.ToOrganisationEndpoint().Authentication.Type,
+            fallbackTarget.ToOrganisationEndpoint().Authentication.ResolvedAccessToken);
+        return true;
     }
 
     /// <summary>

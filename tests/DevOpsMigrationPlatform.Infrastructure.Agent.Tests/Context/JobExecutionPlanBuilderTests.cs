@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
@@ -188,6 +189,75 @@ public sealed class JobExecutionPlanBuilderTests
     }
 
     [TestMethod]
+    public async Task BuildPlanAsync_MigrateKind_UsesGeneratorProjectNamesWhenSourceProjectIsNotExplicitlyConfigured()
+    {
+        var builder = CreateBuilder();
+        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Source:Type"] = "Simulated",
+                ["MigrationPlatform:Source:Generator:Projects:0:Name"] = "RoundtripProject",
+                ["MigrationPlatform:Modules:Identities:Enabled"] = "true",
+                ["MigrationPlatform:Modules:Nodes:Enabled"] = "true",
+                ["MigrationPlatform:Modules:Teams:Enabled"] = "true",
+                ["MigrationPlatform:Modules:WorkItems:Enabled"] = "true"
+            })
+            .Build();
+
+        var plan = await builder.BuildPlanAsync(
+            config, JobKind.Migrate, store.Object, stateStore.Object, CancellationToken.None);
+
+        var migrateTasks = plan.Tasks
+            .Where(t => string.Equals(t.Phase, "Export", StringComparison.Ordinal) || string.Equals(t.Phase, "Import", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.IsTrue(migrateTasks.Count > 0, "Migrate plan should contain export/import tasks.");
+        Assert.IsTrue(migrateTasks.All(t => string.Equals(t.ProjectName, "RoundtripProject", StringComparison.Ordinal)),
+            "Migrate export/import tasks should inherit generator project names when explicit source/target projects are absent.");
+    }
+
+    [TestMethod]
+    public async Task BuildPlanAsync_ImportKind_UsesPackagedProjectNamesWhenTargetProjectIsNotExplicitlyConfigured()
+    {
+        var builder = CreateBuilder();
+        var store = new Mock<IArtefactStore>(MockBehavior.Strict);
+        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Mode"] = "Import",
+                ["MigrationPlatform:Target:Type"] = "Simulated",
+                ["MigrationPlatform:Modules:Identities:Enabled"] = "true",
+                ["MigrationPlatform:Modules:Nodes:Enabled"] = "true",
+                ["MigrationPlatform:Modules:Teams:Enabled"] = "true",
+                ["MigrationPlatform:Modules:WorkItems:Enabled"] = "true"
+            })
+            .Build();
+
+        store
+            .Setup(s => s.EnumerateAsync(string.Empty, It.IsAny<CancellationToken>()))
+            .Returns(EnumeratePathsAsync([
+                "migration-config.json",
+                ".migration/plan.json",
+                "simulated/PackagedProject/Nodes/source-tree.json",
+                "simulated/PackagedProject/WorkItems/00000000000001-1-0/revision.json"
+            ]));
+
+        var plan = await builder.BuildPlanAsync(
+            config, JobKind.Import, store.Object, stateStore.Object, CancellationToken.None);
+
+        var importTasks = plan.Tasks
+            .Where(t => string.Equals(t.Phase, "Import", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.IsTrue(importTasks.Count > 0, "Import plan should contain import tasks.");
+        Assert.IsTrue(importTasks.All(t => string.Equals(t.ProjectName, "PackagedProject", StringComparison.Ordinal)),
+            "Import tasks should inherit packaged project names when target/source projects are absent from config.");
+    }
+
+    [TestMethod]
     public async Task BuildPlanAsync_DisabledModule_DoesNotCreateTask()
     {
         var builder = CreateBuilder();
@@ -227,6 +297,18 @@ public sealed class JobExecutionPlanBuilderTests
 
         for (int i = 0; i < plan.Tasks.Count; i++)
             Assert.AreEqual(i, plan.Tasks[i].Order);
+    }
+
+    private static async IAsyncEnumerable<string> EnumeratePathsAsync(
+        IEnumerable<string> paths,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        foreach (var path in paths)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            yield return path;
+            await Task.Yield();
+        }
     }
 
     // ── BuildAndSaveAsync resume / completed-plan regression tests ───────────

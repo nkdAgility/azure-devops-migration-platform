@@ -1297,6 +1297,70 @@ public sealed class JobPlanExecutorTests
         Assert.AreEqual("Simulated", activeSourceEndpoint.ConnectorType);
     }
 
+    [TestMethod]
+    public async Task ExecuteTasksAsync_ImportTask_ExposesTaskProjectThroughTargetAccessor_WhenFallbackTargetHasNoUrl()
+    {
+        var endpointAccessor = new CurrentJobEndpointAccessor();
+        endpointAccessor.SetTarget(new TestTargetEndpointInfo(
+            string.Empty,
+            string.Empty,
+            "Simulated",
+            new OrganisationEndpoint
+            {
+                ResolvedUrl = string.Empty,
+                Type = "Simulated"
+            }));
+
+        var activeTargetEndpoint = new ActiveJobTargetEndpointInfo(endpointAccessor);
+        var module = new Mock<IModule>(MockBehavior.Strict);
+        module.SetupGet(m => m.Name).Returns("Nodes");
+        module.Setup(m => m.ImportAsync(It.IsAny<ImportContext>(), It.IsAny<CancellationToken>()))
+            .Callback(() =>
+            {
+                Assert.AreEqual(string.Empty, activeTargetEndpoint.Url);
+                Assert.AreEqual("RoundtripProject", activeTargetEndpoint.Project);
+                Assert.AreEqual("Simulated", activeTargetEndpoint.ConnectorType);
+            })
+            .ReturnsAsync(TaskExecutionResult.Completed());
+
+        var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Nodes"] = module.Object
+        };
+
+        var plan = CreatePlan(new[]
+        {
+            new JobTask
+            {
+                Id = "import.nodes.unknown.roundtripproject",
+                Name = "Nodes Import",
+                Phase = "Import",
+                TaskKind = TaskKind.Import,
+                Status = JobTaskStatus.Pending,
+                ProjectName = "RoundtripProject"
+            }
+        });
+
+        var executor = CreateExecutor(endpointAccessor);
+        var stateStore = new InMemoryStateStore();
+        var importContext = new ImportContext
+        {
+            Job = new Job { JobId = "test-job" },
+            ArtefactStore = new Mock<IArtefactStore>(MockBehavior.Loose).Object,
+            StateStore = stateStore
+        };
+
+        var result = await executor.ExecuteImportPhaseAsync(
+            plan,
+            modules,
+            importContext,
+            stateStore,
+            CancellationToken.None);
+
+        Assert.IsTrue(result, "Import execution should succeed when fallback target context has no URL.");
+        Assert.AreEqual(string.Empty, activeTargetEndpoint.Url);
+    }
+
     /// <summary>
     /// When no capture handler matches the task's module name, the executor must log
     /// an Error with {TaskId} and {HandlerName} structured parameters and fail the task/job.
@@ -1493,6 +1557,11 @@ public sealed class JobPlanExecutorTests
     }
 
     private sealed record TestSourceEndpointInfo(string Url, string Project, string ConnectorType, OrganisationEndpoint Endpoint) : ISourceEndpointInfo
+    {
+        public OrganisationEndpoint ToOrganisationEndpoint() => Endpoint;
+    }
+
+    private sealed record TestTargetEndpointInfo(string Url, string Project, string ConnectorType, OrganisationEndpoint Endpoint) : ITargetEndpointInfo
     {
         public OrganisationEndpoint ToOrganisationEndpoint() => Endpoint;
     }

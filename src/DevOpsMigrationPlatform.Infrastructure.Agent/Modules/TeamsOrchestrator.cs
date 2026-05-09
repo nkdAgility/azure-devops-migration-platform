@@ -194,7 +194,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
 
         if (checkpointing is not null)
         {
-            await checkpointing.WriteCursorAsync(ModuleName, new CursorEntry
+            await checkpointing.WriteCursorAsync("export.teams", new CursorEntry
             {
                 LastProcessed = $"Teams/{count}",
                 Stage = CursorStage.Completed,
@@ -315,7 +315,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         if (checkpointingFactory is not null)
         {
             var checkpointing = checkpointingFactory.Create(context.StateStore);
-            await checkpointing.WriteCursorAsync(ModuleName, new CursorEntry
+            await checkpointing.WriteCursorAsync("import.teams", new CursorEntry
             {
                 LastProcessed = $"Teams/{count}",
                 Stage = CursorStage.Completed,

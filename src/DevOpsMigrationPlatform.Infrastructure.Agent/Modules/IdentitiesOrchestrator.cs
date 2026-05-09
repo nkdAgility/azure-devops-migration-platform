@@ -76,7 +76,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         if (checkpointingFactory is not null)
         {
             var checkpointing = checkpointingFactory.Create(stateStore);
-            var cursor = await checkpointing.ReadCursorAsync(ModuleName, ct).ConfigureAwait(false);
+            var cursor = await checkpointing.ReadCursorAsync("export.identities", ct).ConfigureAwait(false);
             if (cursor?.Stage == CursorStage.Completed
                 && await artefactStore.ExistsAsync(DescriptorsPath, ct).ConfigureAwait(false))
             {
@@ -151,7 +151,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         if (checkpointingFactory is not null)
         {
             var checkpointing = checkpointingFactory.Create(stateStore);
-            await checkpointing.WriteCursorAsync(ModuleName, new CursorEntry
+            await checkpointing.WriteCursorAsync("export.identities", new CursorEntry
             {
                 LastProcessed = DescriptorsPath,
                 Stage = CursorStage.Completed,
