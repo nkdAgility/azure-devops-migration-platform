@@ -97,7 +97,7 @@ internal sealed class PackageConfigStore : IPackageConfigStore
 
             if (_package is not null)
             {
-                await using var configStream = new MemoryStream(Encoding.UTF8.GetBytes(rawJson), writable: false);
+                using var configStream = new MemoryStream(Encoding.UTF8.GetBytes(rawJson), writable: false);
                 await _package.PersistMetaAsync(
                     context,
                     new PackageMetaPayload(configStream, "application/json"),
