@@ -18,10 +18,12 @@ The package-manager design discussed so far centers on these contracts:
 - `IPackage` as the caller-facing package boundary
 - `PackageContext` for typed package requests and writes
 - `PackageMetaContext` for typed package metadata requests and writes
+- `PackageLogContext` for typed run-log append operations
 - `PackagePayload` for package content returned from or supplied to the package boundary
 - `PackageMetaPayload` for metadata content returned from or supplied to the package boundary
+- `PackageLogPayload` for append-only log batches supplied to the package boundary
 - `PackageMetaKind` for authoritative metadata categories with concrete package behavior
-- `RunLogIntegration` for deciding whether a metadata write should also flow into run-log streams
+- `PackageLogStream` for selecting the run-log stream to append to
 - package router or path resolver implementation for translating typed intent into authoritative, run-audit, and run-log destinations
 
 The contract surface is intentionally small at the top level:
@@ -30,6 +32,7 @@ The contract surface is intentionally small at the top level:
 - `RequestMetaAsync(PackageMetaContext, ...)`
 - `PersistAsync(PackageContext, ...)`
 - `PersistMetaAsync(PackageMetaContext, ...)`
+- `AppendLogAsync(PackageLogContext, ...)`
 
 `IArtefactStore` and `IStateStore` remain subordinate persistence contracts inside the package manager. They are not the primary caller-facing API.
 
@@ -59,6 +62,11 @@ public interface IPackage
         PackageMetaContext context,
         PackageMetaPayload payload,
         CancellationToken cancellationToken = default);
+
+    ValueTask AppendLogAsync(
+        PackageLogContext context,
+        PackageLogPayload payload,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record PackageContext(
@@ -74,10 +82,12 @@ public sealed record PackageMetaContext(
     PackageMetaKind Kind,
     string? Organisation = null,
     string? Project = null,
-    string? RunId = null,
-    bool RelatedToRun = false,
-    RunLogIntegration RunLogIntegration = RunLogIntegration.None,
-    bool Append = false);
+    bool RelatedToRun = false);
+
+public sealed record PackageLogContext(
+    string RunId,
+    PackageLogStream Stream,
+    bool AllowRotation = true);
 
 public sealed record PackagePayload(
     Stream Content,
@@ -88,6 +98,10 @@ public sealed record PackageMetaPayload(
     Stream Content,
     string? ContentType = null,
     string? ETag = null);
+
+public sealed record PackageLogPayload(
+    Stream Content,
+    string ContentType = "application/x-ndjson");
 
 public enum PackageMetaKind
 {
@@ -101,9 +115,8 @@ public enum PackageMetaKind
     PrepareReport
 }
 
-public enum RunLogIntegration
+public enum PackageLogStream
 {
-    None,
     Progress,
     Diagnostics
 }
@@ -112,10 +125,9 @@ public enum RunLogIntegration
 ### Contract Notes
 
 - `ContentKind` is the logical package data noun, not a path segment. The package manager resolves canonical layout from this typed intent.
-- `PersistAsync` is the package-boundary verb because the boundary may route one caller intent into authoritative state persistence, run-audit mirroring, or run-log emission. `WriteAsync` remains the lower-level store primitive.
-- `RelatedToRun` means authoritative write first, then run-scoped audit copy when that metadata kind supports it.
-- `RunLogIntegration` is separate from `RelatedToRun` because logs are routing behavior, not normal metadata ownership.
-- `Append` is primarily for run-log-style writes and other append-safe metadata writes.
+- `PersistAsync` and `PersistMetaAsync` are package-state verbs. `AppendLogAsync` is the run-log verb. `WriteAsync` remains the lower-level store primitive.
+- `RelatedToRun` means authoritative metadata write first, then a run-scoped audit copy when that metadata kind supports it.
+- `AppendLogAsync` exists because logs are append-only run streams, not metadata.
 - `PackagePayload` and `PackageMetaPayload` intentionally use `Stream` so the boundary can preserve large-payload and append scenarios without collapsing into string-only contracts.
 - `IPackage` intentionally omits delete. If package cleanup needs a first-class abstraction later, it should be split into a separate maintenance contract rather than weakening the core caller-facing boundary.
 

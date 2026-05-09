@@ -20,10 +20,12 @@ The boundary exists to stop callers from deciding package layout. Callers provid
 - `IPackage`
 - `PackageContext`
 - `PackageMetaContext`
+- `PackageLogContext`
 - `PackagePayload`
 - `PackageMetaPayload`
+- `PackageLogPayload`
 - `PackageMetaKind`
-- `RunLogIntegration`
+- `PackageLogStream`
 - package path resolver/router implementation (name TBD)
 
 ## Contract Shape
@@ -34,6 +36,7 @@ The package boundary exposes four verbs:
 - `RequestMetaAsync(PackageMetaContext, ...)`
 - `PersistAsync(PackageContext, ...)`
 - `PersistMetaAsync(PackageMetaContext, ...)`
+- `AppendLogAsync(PackageLogContext, ...)`
 
 It intentionally does not expose delete. Removal semantics are exceptional maintenance behavior, not the default caller-facing package contract.
 
@@ -61,6 +64,11 @@ public interface IPackage
     PackageMetaContext context,
     PackageMetaPayload payload,
     CancellationToken cancellationToken = default);
+
+  ValueTask AppendLogAsync(
+    PackageLogContext context,
+    PackageLogPayload payload,
+    CancellationToken cancellationToken = default);
 }
 
 public sealed record PackageContext(
@@ -76,10 +84,12 @@ public sealed record PackageMetaContext(
   PackageMetaKind Kind,
   string? Organisation = null,
   string? Project = null,
-  string? RunId = null,
-  bool RelatedToRun = false,
-  RunLogIntegration RunLogIntegration = RunLogIntegration.None,
-  bool Append = false);
+  bool RelatedToRun = false);
+
+public sealed record PackageLogContext(
+  string RunId,
+  PackageLogStream Stream,
+  bool AllowRotation = true);
 
 public sealed record PackagePayload(
   Stream Content,
@@ -90,6 +100,10 @@ public sealed record PackageMetaPayload(
   Stream Content,
   string? ContentType = null,
   string? ETag = null);
+
+public sealed record PackageLogPayload(
+  Stream Content,
+  string ContentType = "application/x-ndjson");
 
 public enum PackageMetaKind
 {
@@ -103,9 +117,8 @@ public enum PackageMetaKind
   PrepareReport
 }
 
-public enum RunLogIntegration
+public enum PackageLogStream
 {
-  None,
   Progress,
   Diagnostics
 }
@@ -119,6 +132,7 @@ Caller-facing package boundary with exactly four verbs:
 - `RequestMetaAsync(PackageMetaContext, ...)`
 - `PersistAsync(PackageContext, ...)`
 - `PersistMetaAsync(PackageMetaContext, ...)`
+- `AppendLogAsync(PackageLogContext, ...)`
 
 `IPackage` does not include delete. Cleanup and force-fresh style removal should remain separate maintenance behavior rather than being folded into the routine caller-facing package boundary.
 
@@ -133,13 +147,19 @@ Typed routing context for package data. This contract should carry the package i
 
 ### `PackageMetaContext`
 
-Typed routing context for package metadata. This is the contract that decides whether a metadata write is authoritative only, authoritative plus run audit, or authoritative plus run-log integration. It should include:
+Typed routing context for package metadata. This is the contract that decides whether a metadata write is authoritative only or authoritative plus run audit. It should include:
 
 - `PackageMetaKind`
 - package scope such as root or project-local metadata ownership
 - `RelatedToRun` to request authoritative write plus run-scoped audit mirroring where appropriate
-- `RunLogIntegration` to control whether the write also emits to a run-log stream
-- append or replace intent when the metadata kind supports append-style behavior
+
+### `PackageLogContext`
+
+Typed routing context for append-only run logs. It should include:
+
+- the `RunId` identifying the active run
+- `PackageLogStream` to select the concrete log stream
+- rotation intent when the stream supports segmented files
 
 ### `PackagePayload`
 
@@ -148,6 +168,10 @@ Payload contract for package data reads and writes. This represents the content 
 ### `PackageMetaPayload`
 
 Payload contract for package metadata reads and writes. This represents the content associated with a metadata request independently of path selection.
+
+### `PackageLogPayload`
+
+Payload contract for append-only run logs. In the current agent this maps naturally to NDJSON batches emitted by `PackageLoggerProvider` and `PackageProgressSink`.
 
 ### `PackageMetaKind`
 
@@ -164,15 +188,14 @@ First-class authoritative metadata categories discussed so far are:
 
 These are included because they each map to concrete authoritative package behavior already present in code or clearly implied by current package semantics. They are not just convenient labels.
 
-### `RunLogIntegration`
+### `PackageLogStream`
 
-Contract controlling whether a metadata write also participates in job log streaming. This exists because logs are routing behavior, not a first-class metadata noun. Expected modes include:
+Contract selecting the append-only run-log stream. Current code-backed examples are:
 
-- no run-log emission
 - progress-log emission
 - diagnostics-log emission
 
-The exact enum values remain implementation detail, but the contract itself is part of the discussed design.
+This is separate from `PackageMetaKind` because logs are not metadata.
 
 ### Package Router or Resolver
 
@@ -192,10 +215,11 @@ The boundary must own both `IArtefactStore` and `IStateStore`. A wrapper over `I
 
 - Callers must never construct or pass package paths.
 - The caller-facing verb is `PersistAsync`, while `WriteAsync` remains the lower-level store primitive. The boundary owns package semantics rather than raw file writes.
+- The caller-facing run-log verb is `AppendLogAsync`; logs are not squeezed through metadata persistence.
 - Authoritative package state must remain under root `.migration/` and project `/{org}/{project}/.migration/`.
 - Run-scoped copies under `.migration/runs/<runId>/` are audit evidence only and must never become the authoritative source for resume or phase-gate decisions.
 - `RelatedToRun` on `PackageMetaContext` means: write authoritative metadata, then mirror a run-scoped copy when appropriate.
-- Job log streaming is not modeled as ordinary package metadata. It is a run-log routing concern on the meta write path.
+- Job log streaming is not modeled as ordinary package metadata. It uses `AppendLogAsync` with `PackageLogContext`.
 - The boundary must preserve lexicographic streaming semantics. Requesting collections must not reintroduce in-memory sorting or buffering that breaks import streaming.
 
 ## Metadata Categories
@@ -217,8 +241,32 @@ Progress logs and diagnostic logs are not normal metadata nouns. They are append
 
 - `PackageConfigStore` becomes a focused implementation detail or collaborator of the package boundary.
 - `JobExecutionPlanBuilder` and phase tracking continue to own plan and phase semantics, but path selection moves behind the package boundary.
-- `PackageLoggerProvider` and `PackageProgressSink` should route append operations through the package boundary rather than choosing log paths directly.
+- `PackageLoggerProvider` and `PackageProgressSink` should call `AppendLogAsync` rather than choosing log paths directly.
 - Module/orchestrator code should express package intent such as “write prepare report”, “write dependency capture”, or “read project inventory” without embedding folder layout knowledge.
+
+## Logging Integration
+
+The current runtime already has the right batching and flush behavior. `PackageLoggerProvider` batches `DiagnosticLogRecord` lines and appends them to the run log, while `PackageProgressSink` batches `ProgressEvent` lines and appends them to `progress.jsonl`. With the package boundary in place, those services should keep their channels and flush lifecycle but replace the final `IArtefactStore.AppendAsync(...)` call with `IPackage.AppendLogAsync(...)`.
+
+Conceptually, the current diagnostics append becomes:
+
+```csharp
+await package.AppendLogAsync(
+  new PackageLogContext(runId, PackageLogStream.Diagnostics),
+  new PackageLogPayload(payloadStream),
+  cancellationToken);
+```
+
+And progress becomes:
+
+```csharp
+await package.AppendLogAsync(
+  new PackageLogContext(runId, PackageLogStream.Progress),
+  new PackageLogPayload(payloadStream),
+  cancellationToken);
+```
+
+The package boundary then owns the mapping from `PackageLogStream.Diagnostics` to `.migration/runs/<runId>/logs/agent.jsonl` and from `PackageLogStream.Progress` to `.migration/runs/<runId>/logs/progress.jsonl`, including segmentation or rotation policy.
 
 ## Sequence Diagram
 
@@ -230,13 +278,13 @@ sequenceDiagram
   participant AS as IArtefactStore
   participant SS as IStateStore
 
-  M->>P: WriteMeta(ExecutionPlan, RelatedToRun=true)
+  M->>P: PersistMetaAsync(ExecutionPlan, RelatedToRun=true)
   P->>R: Resolve authoritative + run audit destinations
   R-->>P: state path + run path
   P->>SS: Write authoritative plan
   P->>SS: Write run-scoped plan snapshot
 
-  M->>P: WriteMeta(DiagnosticLog, RunLogIntegration=DiagnosticsOnly, Append=true)
+  M->>P: AppendLogAsync(Diagnostics)
   P->>R: Resolve run log destination
   R-->>P: .migration/runs/<runId>/logs/agent.jsonl
   P->>AS: Append diagnostics payload
