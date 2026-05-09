@@ -20,6 +20,8 @@ public class FileSystemArtefactStore : IArtefactStore
 {
     private readonly string _rootPath;
 
+    internal string RootPath => _rootPath;
+
     public FileSystemArtefactStore(string rootPath)
     {
         _rootPath = rootPath;

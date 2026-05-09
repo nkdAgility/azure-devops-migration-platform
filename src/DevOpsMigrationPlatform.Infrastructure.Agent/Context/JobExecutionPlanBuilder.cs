@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -21,6 +22,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -39,6 +41,14 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 {
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
+    private static readonly HashSet<string> KnownPackageRootFolders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Identities",
+        "Nodes",
+        "Teams",
+        "WorkItems"
+    };
+
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -578,16 +588,32 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         CancellationToken ct)
     {
         var packagedProjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var paths = artefactStore.EnumerateAsync(string.Empty, ct);
 
-        await foreach (var path in artefactStore.EnumerateAsync(string.Empty, ct).ConfigureAwait(false))
+        if (paths is not null)
         {
-            var segments = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
-            if (segments.Length < 3 || segments[0].StartsWith(".", StringComparison.Ordinal))
+            await foreach (var path in paths.ConfigureAwait(false))
             {
-                continue;
-            }
+                var segments = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+                if (segments.Length < 3
+                    || segments[0].StartsWith(".", StringComparison.Ordinal)
+                    || KnownPackageRootFolders.Contains(segments[0])
+                    || !KnownPackageRootFolders.Contains(segments[2]))
+                {
+                    continue;
+                }
 
-            packagedProjects.Add(segments[1]);
+                packagedProjects.Add(segments[1]);
+            }
+        }
+
+        if (packagedProjects.Count == 0 && artefactStore is FileSystemArtefactStore fileSystemArtefactStore)
+        {
+            var rootName = new DirectoryInfo(fileSystemArtefactStore.RootPath).Name;
+            if (!string.IsNullOrWhiteSpace(rootName))
+            {
+                packagedProjects.Add(rootName);
+            }
         }
 
         return packagedProjects.OrderBy(project => project, StringComparer.OrdinalIgnoreCase).ToList();

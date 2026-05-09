@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Text.Json;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -12,6 +13,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -255,6 +257,53 @@ public sealed class JobExecutionPlanBuilderTests
         Assert.IsTrue(importTasks.Count > 0, "Import plan should contain import tasks.");
         Assert.IsTrue(importTasks.All(t => string.Equals(t.ProjectName, "PackagedProject", StringComparison.Ordinal)),
             "Import tasks should inherit packaged project names when target/source projects are absent from config.");
+    }
+
+    [TestMethod]
+    public async Task BuildPlanAsync_ImportKind_UsesPackageRootNameWhenFixtureIsAlreadyProjectScoped()
+    {
+        var builder = CreateBuilder();
+        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Mode"] = "Import",
+                ["MigrationPlatform:Target:Type"] = "Simulated",
+                ["MigrationPlatform:Modules:Identities:Enabled"] = "true",
+                ["MigrationPlatform:Modules:Nodes:Enabled"] = "true",
+                ["MigrationPlatform:Modules:Teams:Enabled"] = "true",
+                ["MigrationPlatform:Modules:WorkItems:Enabled"] = "true"
+            })
+            .Build();
+
+        var packageRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "SimulatedProject");
+        Directory.CreateDirectory(Path.Combine(packageRoot, "Nodes"));
+        Directory.CreateDirectory(Path.Combine(packageRoot, "WorkItems", "2024-01-15", "00000000000001-1-0"));
+        await File.WriteAllTextAsync(Path.Combine(packageRoot, "Nodes", "source-tree.json"), "{}", CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(packageRoot, "WorkItems", "2024-01-15", "00000000000001-1-0", "revision.json"), "{}", CancellationToken.None);
+
+        try
+        {
+            var artefactStore = new FileSystemArtefactStore(packageRoot);
+
+            var plan = await builder.BuildPlanAsync(
+                config, JobKind.Import, artefactStore, stateStore.Object, CancellationToken.None);
+
+            var importTasks = plan.Tasks
+                .Where(t => string.Equals(t.Phase, "Import", StringComparison.Ordinal))
+                .ToList();
+
+            Assert.IsTrue(importTasks.Count > 0, "Import plan should contain import tasks.");
+            Assert.IsTrue(importTasks.All(t => string.Equals(t.ProjectName, "SimulatedProject", StringComparison.Ordinal)),
+                "Import tasks should inherit the package root name when the fixture is already project-scoped.");
+        }
+        finally
+        {
+            if (Directory.Exists(Path.GetDirectoryName(packageRoot)!))
+            {
+                Directory.Delete(Path.GetDirectoryName(packageRoot)!, recursive: true);
+            }
+        }
     }
 
     [TestMethod]
