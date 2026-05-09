@@ -107,8 +107,11 @@ internal sealed class PackageBoundary : IPackage
         if (stream.CanSeek)
             stream.Position = 0;
 
-        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
-        return await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+        using var reader = new StreamReader(stream, Encoding.UTF8, true, 1024, true);
+        cancellationToken.ThrowIfCancellationRequested();
+        var content = await reader.ReadToEndAsync().ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return content;
     }
 }
 

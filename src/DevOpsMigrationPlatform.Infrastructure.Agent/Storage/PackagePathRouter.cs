@@ -20,7 +20,7 @@ internal sealed class PackagePathRouter
         if (string.IsNullOrWhiteSpace(context.ContentKind))
             throw new ArgumentException("Content kind must be provided.", nameof(context));
 
-        if (context.ContentKind.Contains('/', StringComparison.Ordinal))
+        if (context.ContentKind.IndexOf('/') >= 0)
             return context.ContentKind;
 
         throw new InvalidOperationException($"Unsupported content kind '{context.ContentKind}'.");
@@ -34,16 +34,16 @@ internal sealed class PackagePathRouter
         return context.Kind switch
         {
             PackageMetaKind.MigrationConfig => runAudit && !string.IsNullOrWhiteSpace(runId)
-                ? PackagePaths.RunAuditConfigFile(runId)
+                ? PackagePaths.RunAuditConfigFile(runId!)
                 : PackagePaths.MigrationConfigFileName,
             PackageMetaKind.ExecutionPlan => runAudit && !string.IsNullOrWhiteSpace(runId)
-                ? PackagePaths.RunAuditPlanFile(runId)
+                ? PackagePaths.RunAuditPlanFile(runId!)
                 : PackagePaths.PlanFile,
             PackageMetaKind.PhaseRecord => PackagePaths.PhaseFile,
             PackageMetaKind.InventoryCompletionMarker => PackagePaths.InventoryCompleteFile,
             PackageMetaKind.PrepareReport => PrepareReportPath,
             PackageMetaKind.JobDescriptor => !string.IsNullOrWhiteSpace(runId)
-                ? PackagePaths.RunJobFile(runId)
+                ? PackagePaths.RunJobFile(runId!)
                 : JobDescriptorPath,
             PackageMetaKind.CheckpointCursor => throw new InvalidOperationException(
                 "Checkpoint cursor routing requires action/module context and is not supported by the base router."),
