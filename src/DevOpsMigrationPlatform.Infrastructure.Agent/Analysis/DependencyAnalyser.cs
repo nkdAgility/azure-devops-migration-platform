@@ -23,6 +23,9 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 
 public sealed class DependencyAnalyser : IOrganisationsAnalyser
 {
+    private const string AnalysisCsvPath = "dependencies.csv";
+    private const string AnalysisMermaidPath = "dependencies.mmd";
+
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Discovery);
     private readonly IDependencyDiscoveryServiceFactory _dependencyFactory;
     private readonly IDependencyOrchestrator _orchestrator;
@@ -148,12 +151,10 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
         }
 
         if (!string.IsNullOrWhiteSpace(csv))
-        {
-            await context.ArtefactStore.WriteAsync("dependencies-analysis.csv", csv!, ct).ConfigureAwait(false);
-        }
+            await context.ArtefactStore.WriteAsync(AnalysisCsvPath, csv!, ct).ConfigureAwait(false);
 
         var mermaid = BuildMermaid(csv);
-        await context.ArtefactStore.WriteAsync("dependencies-analysis.mmd", mermaid, ct).ConfigureAwait(false);
+        await context.ArtefactStore.WriteAsync(AnalysisMermaidPath, mermaid, ct).ConfigureAwait(false);
 
         var tags = new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } };
         _metrics?.RecordDependenciesAnalyseDuration(sw.Elapsed.TotalMilliseconds, tags);
