@@ -36,6 +36,7 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
     private readonly ILogger<PackageProgressSink> _logger;
     private long _droppedCount;
     private volatile IArtefactStore? _lastKnownStore;
+    private volatile string? _lastKnownLogFolder;
 
     public PackageProgressSink(
         ActivePackageState packageState,
@@ -51,7 +52,10 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
         // can flush even if the job completes before the next poll interval.
         var store = _packageState.CurrentStore;
         if (store is not null)
+        {
             _lastKnownStore = store;
+            _lastKnownLogFolder = _packageState.CurrentLogFolder;
+        }
 
         _channel.Writer.TryWrite(evt);
     }
@@ -88,6 +92,7 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
                     continue;
                 }
                 _lastKnownStore = currentStore;
+                _lastKnownLogFolder = _packageState.CurrentLogFolder;
 
                 batch.Clear();
 
@@ -161,7 +166,10 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
             {
                 sb.AppendLine(JsonSerializer.Serialize(evt));
             }
-            var logPath = $"{_packageState.CurrentLogFolder}/{LogFileName}";
+            var logFolder = _packageState.CurrentStore is not null
+                ? _packageState.CurrentLogFolder
+                : _lastKnownLogFolder ?? _packageState.CurrentLogFolder;
+            var logPath = $"{logFolder}/{LogFileName}";
             await store.AppendAsync(logPath, sb.ToString(), cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
