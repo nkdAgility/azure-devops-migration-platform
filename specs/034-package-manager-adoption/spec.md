@@ -47,8 +47,10 @@ As a maintainer, I need package-manager behavior to be consistent across Simulat
 
 **Acceptance Scenarios**:
 
-1. **Given** equivalent migration intents across connector types, **When** runs complete, **Then** package data, metadata, and log routing behavior follows the same contract semantics.
-2. **Given** connector-specific limitations, **When** a capability cannot be performed, **Then** behavior remains explicit, non-silent, and compliant with connector guardrails.
+1. **Given** equivalent migration intents across connector types, **When** Simulated runs complete, **Then** package data, metadata, and log routing behavior follows the same contract semantics as the other supported connectors.
+2. **Given** equivalent migration intents across connector types, **When** Azure DevOps Services runs complete, **Then** package data, metadata, and log routing behavior follows the same contract semantics as the other supported connectors.
+3. **Given** equivalent migration intents across connector types, **When** Team Foundation Server runs complete, **Then** package data, metadata, and log routing behavior follows the same contract semantics as the other supported connectors.
+4. **Given** connector-specific limitations, **When** a capability cannot be performed, **Then** behavior remains explicit, non-silent, and compliant with connector guardrails.
 
 ### Edge Cases
 
@@ -71,7 +73,7 @@ As a maintainer, I need package-manager behavior to be consistent across Simulat
 - **FR-007**: The feature MUST support all existing connector execution paths (Simulated, Azure DevOps Services, Team Foundation Server where supported).
 - **FR-008**: Any remaining direct low-level persistence usage outside the package boundary MUST be limited to dedicated persistence internals and documented with rationale.
 - **FR-009**: The package boundary MUST support run-log routing for both progress and diagnostics streams without changing operator-facing log availability.
-- **FR-010**: Package-boundary operations MUST emit trace, metrics, and structured log telemetry aligned with repository observability requirements.
+- **FR-010**: Package-boundary operations MUST emit trace, metrics, and structured log telemetry aligned with repository observability requirements, including operation identity, outcome, duration, and correlation identifiers.
 - **FR-011**: The feature MUST include behavioral test coverage proving package-manager routing, resume safety, and connector parity.
 - **FR-012**: The feature MUST update architecture and context documentation so future contributors can implement package access through the package boundary by default.
 
@@ -89,8 +91,14 @@ As a maintainer, I need package-manager behavior to be consistent across Simulat
 
 - **SC-001**: 100% of package writes in migration runtime flows execute through the package boundary contract, excluding explicitly documented low-level persistence internals.
 - **SC-002**: All existing resume and phase-gate behavior tests continue to pass with no regressions.
-- **SC-003**: Equivalent migration runs produce unchanged canonical package structure and semantic outputs across supported connectors.
-- **SC-004**: All package-boundary operations surface complete observability signals required by guardrails (traces, metrics, and structured logs).
+- **SC-003**: Equivalent migration runs for Simulated, Azure DevOps Services, and Team Foundation Server produce unchanged canonical package structure and semantic outputs.
+- **SC-004**: For each package-boundary operation type (content, metadata, log append), tests prove emission of at least one span, one metric record, and one structured log carrying `job.id`, operation name, outcome, and duration.
+
+### Error Contract
+
+- Missing required operation context MUST produce a deterministic validation error (`PackageValidationException`) with a stable error code.
+- Unsupported operation/context combinations MUST produce a deterministic operation error (`PackageOperationException`) with a stable error code.
+- Error events MUST be emitted as structured logs with operation identity and correlation fields.
 
 ## Assumptions
 

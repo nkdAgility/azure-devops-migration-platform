@@ -79,7 +79,8 @@ src/
 │   ├── Checkpointing/
 │   ├── Telemetry/
 │   └── Storage/
-└── DevOpsMigrationPlatform.MigrationAgent/
+├── DevOpsMigrationPlatform.MigrationAgent/
+└── DevOpsMigrationPlatform.TfsMigrationAgent/
 
 tests/
 ├── DevOpsMigrationPlatform.Infrastructure.Agent.Tests/
