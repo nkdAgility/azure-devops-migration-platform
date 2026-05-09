@@ -10,7 +10,7 @@ Do NOT load all subsystem files. Each file is self-contained. Reading files for 
 ## Components
 
 | Component | Responsibility |
-|---|---|
+| --- | --- |
 | CLI (`devopsmigration`) | Submits jobs, displays progress, manages job lifecycle |
 | TUI | Terminal dashboard for monitoring jobs |
 | Control Plane | Coordinates jobs: admission, leasing, telemetry, progress streams |
@@ -22,7 +22,7 @@ Do NOT load all subsystem files. Each file is self-contained. Reading files for 
 
 ## Data Flow
 
-```
+```text
 CLI/TUI → Control Plane → Agent → Source → Package → Agent → Target
                   ↑          ↓
              Progress/telemetry
@@ -41,7 +41,7 @@ CLI/TUI → Control Plane → Agent → Source → Package → Agent → Target
 ## Telemetry Channels
 
 | Channel | API | Consumer |
-|---|---|---|
+| --- | --- | --- |
 | 1 — SSE progress | `GET /jobs/{id}/progress?follow=true` | CLI, TUI |
 | 2 — JobMetrics polling | `GET /jobs/{id}/telemetry` | CLI progress display, TUI Metrics panel |
 | 3 — Diagnostics | `GET /jobs/{id}/diagnostics?follow=true` | TUI Logs panel |
@@ -49,10 +49,11 @@ CLI/TUI → Control Plane → Agent → Source → Package → Agent → Target
 ## Migration Agent Subsystems
 
 | Tag | File | Responsibility |
-|-----|------|---------------|
+| --- | --- | --- |
 | `agent_task_builder` | [agent-task-builder.md](agent-task-builder.md) | Build ordered `JobTaskList` plans from job kind, enabled modules, and dependency graph |
 | `agent_task_execution` | [agent-task-execution.md](agent-task-execution.md) | Execute plan tiers, enforce `DependsOn`, transition task states, and emit progress |
 | `agent_package_persistence` | [agent-package-persistence.md](agent-package-persistence.md) | Persist artefacts and state via `IArtefactStore`/`IStateStore` abstractions only |
+| `agent_package_boundary` | [agent-package-boundary.md](agent-package-boundary.md) | Own typed package access, authoritative metadata, run-audit mirroring, and run-log routing above raw stores |
 | `agent_observability` | [agent-observability.md](agent-observability.md) | Emit and transport progress, diagnostics, traces, and metric snapshots (cross-cutting) |
 | `agent_lease_coordination` | [agent-lease-coordination.md](agent-lease-coordination.md) | Poll control plane, acquire lease, dispatch jobs, and signal terminal states |
 | `agent_runtime_context` | [agent-runtime-context.md](agent-runtime-context.md) | Materialize `Job.ConfigPayload` into package config and expose context accessors |
