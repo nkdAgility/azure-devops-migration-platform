@@ -7,7 +7,7 @@ MSTest conventions, test naming, and organisation. See also: [coding-standards.m
 ## Test Priority Hierarchy
 
 | Priority | Category | Marker | Speed | Use |
-|----------|----------|--------|-------|-----|
+| --- | --- | --- | --- | --- |
 | 1 (highest) | Unit Tests | `[TestClass]`/`[TestMethod]` | < 50 ms | All logic, branching, transforms. No I/O, no DI. |
 | 2 | Feature Tests (Reqnroll) | `[Binding]` + `.feature` | < 500 ms | Behaviour scenarios with in-memory fakes/mocks. |
 | 3 | Simulated System Tests | `[TestCategory("SystemTest_Simulated")]` | < 10 s | End-to-end with `Simulated` connector. No network. |
@@ -26,7 +26,8 @@ MSTest conventions, test naming, and organisation. See also: [coding-standards.m
 - Async steps: `async Task` return type (not `async void`).
 
 ### Layer structure
-```
+
+```text
 features/<operation>[/<connector>/<module>]/<feature>.feature  ← Gherkin
 tests/<Project>.Tests/<Area>/<Feature>Steps.cs                ← Reqnroll [Binding]
 tests/<Project>.Tests/<Area>/<Feature>Context.cs              ← shared context/mocks
@@ -64,7 +65,7 @@ tests/<Project>.Tests/<Area>/<ClassName>Tests.cs              ← plain MSTest u
 ## Required Coverage Per Module
 
 | Behaviour | Required |
-|-----------|----------|
+| --- | --- |
 | `ValidateAsync` — valid artefact passes | Yes |
 | `ValidateAsync` — missing field fails | Yes |
 | `ExportAsync` — writes artefacts via `IArtefactStore` | Yes |
@@ -89,44 +90,52 @@ tests/<Project>.Tests/<Area>/<ClassName>Tests.cs              ← plain MSTest u
 
 ## Diagnosing System Test Failures
 
-When a `SystemTest_Simulated` or `SystemTest` test fails, every CLI and agent process spawned by that test writes full OTel file diagnostics (structured NDJSON logs) to:
+When a `SystemTest_Simulated`, `SystemTest`, or `SystemTest_Live` test fails, every CLI and agent process spawned by that test writes full OTel file diagnostics to:
 
-```
-storage/{TestName}/.otel-diagnostics/
+```text
+.output/workingtests/{TestName}/.otel-diagnostics/
 ```
 
 where `{TestName}` is the **exact MSTest method name** (e.g. `QueueCommand_WithExportMode_ExitsZero_AndWritesRevisionFiles`), and the path is relative to the **repository root**.
 
 **Absolute path pattern:**
-```
-<repo-root>\storage\<TestMethodName>\.otel-diagnostics\
+
+```text
+<repo-root>\.output\workingtests\<TestMethodName>\.otel-diagnostics\
 ```
 
 **How it works:**
-- Each test sets `DEVOPS_MIGRATION_TEST_STORAGE=storage/{TestName}` in the spawned process environment.
+
+- `CliRunner.TestWorkingFolder` is `.output\workingtests`.
+- Each test sets `DEVOPS_MIGRATION_TEST_STORAGE=.output\workingtests\{TestName}` in the spawned process environment.
 - `CliRunner` reads this env var and overrides `Telemetry__DiagnosticsPath` to `{repoRoot}/{testStorageRel}/.otel-diagnostics`.
 - All processes (CLI, ControlPlaneHost, MigrationAgent) log to this path for the duration of that test invocation.
 
 **Debugging workflow:**
-1. Identify the failing test method name exactly.
-2. Navigate to `storage/{TestMethodName}/.otel-diagnostics/` in the repo root.
-3. Open the NDJSON log files — each line is a structured log event with `{Level}`, `{Message}`, `{Exception}`, and span context.
-4. Look for `Error` or `Critical` entries; the `{Exception}` field contains the full stack trace.
 
-> **Note**: `storage/` is `.gitignore`d. These files exist only after a local test run. They are not available in CI — use the test output/stderr captured in the test result for CI failures.
+1. Identify the failing test method name exactly.
+2. Navigate to `.output/workingtests/{TestMethodName}/.otel-diagnostics/` in the repo root.
+3. Open the `*-logs.log`, `*-traces.log`, and `*-metrics.log` files for the participating processes.
+4. Look for `Error` or `Critical` entries in the log file and correlate them with the trace and metric files.
+5. Include the relevant OTel evidence in the debugging analysis.
+
+When reproducing the same simulated/live run with `--diagnostics`, also inspect `.output/workingtests/{TestMethodName}/.otel-diagnostics/inbox/`. The CLI writes timestamped raw control-plane JSON payloads there exactly as received: `bootstrap`, `telemetry`, `progress-{module}-{stage}`, and platform `diagnostics` records.
+
+> **Note**: `.output/workingtests/` is `.gitignore`d. These files exist only after a local test run. They are not available in CI unless explicitly collected, so use the test output/stderr captured in the test result for CI failures.
 
 ---
 
 ## CLI Feature → System Test Requirement
 
 Every CLI command MUST have `[TestCategory("SystemTest")]` test that:
+
 1. Guards on env vars (marks `Inconclusive` if absent).
 2. Exercises the feature against real/simulated system.
 3. Asserts observable output (files, zip, records).
 4. Co-located in `.Tests` project under `Commands/`.
 
 | CLI command | Test class | Assertion |
-|---|---|---|
+| --- | --- | --- |
 | `queue` (`Mode: Export`, ADO source) | `AzureDevOpsExportCommandTests` | `WorkItems/` directory + zip |
 | `queue` (`Mode: Inventory`) | `InventoryCommandTests` | Records against live ADO |
 | `migrate` (Simulated) | `SimulatedMigrationCommandTests` | `WorkItems/`, `Checkpoints/`, `Logs/progress.jsonl` |

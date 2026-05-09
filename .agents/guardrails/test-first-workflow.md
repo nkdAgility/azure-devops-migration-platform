@@ -24,8 +24,10 @@ Blocking findings from those runs must be resolved in the specification before c
 Implementation is mandatory RED → GREEN → REFACTOR:
 
 - RED: add or update the smallest failing behavioural test first.
-- GREEN: make the minimal production change required to turn that test green.
+- GREEN: make the minimal production change required to turn that test green, then progressively broaden verification through the next wider relevant test layers before the final full-suite run so the repository is restored to an all-green state.
 - REFACTOR: improve the design only after the relevant tests are green, while keeping them green.
+
+GREEN is not satisfied by a slice-only pass. The local failing test proves the intended behaviour; progressively wider layers reduce feedback latency while rebuilding confidence; the fresh full-suite pass is the final no-regression gate before REFACTOR or any completion claim.
 
 No addition, bug fix, or behaviour change may skip the failing-test-first step. If work starts from existing code without a failing test, the session is out of compliance and must return to RED before continuing.
 
@@ -38,11 +40,11 @@ Implementation execution must also run `.agents/commands/nkda-tddsn-autonomous.m
 ## Session Phases
 
 | Phase | Owner | Output | Gate |
-|-------|-------|--------|------|
+| --- | --- | --- | --- |
 | 1. Specification | speckit.specify | `spec.md` | Human approval of spec |
 | 2. Spec Hardening | `.agents/skills/nkda-archimprove-red-team-review` + `.agents/skills/nkda-observability-contract` + `.agents/skills/nkda-archcheck-architecture-review` | Reviewed and corrected `spec.md` plus review outputs | All blocking architecture, observability, and red-team findings resolved or explicitly approved by the human before continuing |
 | 3. Test Generation | parse-criteria + test-templates | `.feature` + `*Steps.cs` | Tests compile and fail for the intended missing behaviour (RED) |
-| 4. Implementation | `.agents/commands/nkda-tddsn-autonomous.md` | Production code plus six NKDA TDD Safety Net artefacts | Minimal code turns the relevant tests green, refactor stays green, and the command produces all required outputs |
+| 4. Implementation | `.agents/commands/nkda-tddsn-autonomous.md` | Production code plus six NKDA TDD Safety Net artefacts | Minimal code turns the relevant tests green, a fresh full-suite run is green, refactor stays green, and the command produces all required outputs |
 | 5. Review | review skill | Verdict in session log | Pass verdict (no blockers) |
 | 6. Doc Sync | Manual/agent | Updated docs | Docs match implementation |
 
@@ -53,6 +55,7 @@ Implementation execution must also run `.agents/commands/nkda-tddsn-autonomous.m
 - Phase N output is Phase N+1 input. No skipping phases.
 - Phase 2 is mandatory for every approved spec; do not proceed from specification directly to tests or implementation.
 - Phase 3 must preserve the RED → GREEN → REFACTOR order; writing production code before the intended failing test exists is a workflow violation.
+- Phase 3 and Phase 4 must treat GREEN as a widening chain of proofs: the targeted red test now passes, the next wider relevant layers pass, and a fresh full-suite run passes with zero regressions.
 - Phase 4 must run `.agents/commands/nkda-tddsn-autonomous.md`; bypassing the command or omitting any of its six artefacts is a workflow violation.
 - If Phase 3 or Phase 4 reveals spec gaps → return to Phase 1, then re-run Phase 2 before continuing.
 - If Review finds issues → return to Phase 4 (fix, re-review).

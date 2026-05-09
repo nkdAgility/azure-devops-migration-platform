@@ -84,6 +84,7 @@ Apply the resolved installed TDD skill to every task in `tasks.md`:
 
 - Follow the RED → GREEN → REFACTOR → COMMIT cycle exactly as the skill defines.
 - Paste evidence of each RED failure and each GREEN pass inline.
+- For every GREEN claim, include both: the targeted test run that was red and is now passing, and the fresh full test suite run that confirms the repository is back to all green.
 - If any task starts with production code before a failing test, delete the code
   and restart from RED. **No exceptions without explicit user permission.**
 
@@ -124,6 +125,7 @@ Before starting:
 After completing:
 - [ ] Saw the test FAIL before writing production code
 - [ ] Wrote the MINIMUM code to pass
+- [ ] Targeted RED test now passes
 - [ ] Full test suite passes (no regressions)
 - [ ] Committed the green state
 

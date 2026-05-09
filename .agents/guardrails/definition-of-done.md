@@ -13,19 +13,21 @@ Every unit of work must satisfy **all** criteria below. Zero exceptions.
 ## 2. Tests
 
 - All tests run and pass. Zero failures, zero errors.
-- Every addition, bug fix, and behaviour change has evidence of RED → GREEN → REFACTOR: a failing behavioural test first, the minimal passing implementation second, and only then refactoring.
+- Every addition, bug fix, and behaviour change has evidence of RED → GREEN → REFACTOR: a failing behavioural test first, the minimal passing implementation second, then a fresh full-suite run returning the repository to an all-green state, and only then refactoring.
 - No production-first additions. If the change did not begin from an intended failing test, it is not done.
 - No `Assert.Inconclusive()` — treated as build-breaking. Implement the assertion or delete the test.
 - No `@ignore` (Gherkin) or `[Ignore]` (MSTest) in committed code. Session-only temporary use permitted.
 - No `throw new NotImplementedException()` in any reachable code path.
 - No hanging tests (infinite loops, unbounded waits, clock-racing).
 
+Declaring GREEN from a targeted subset alone is a workflow failure. The final validation for the green state is always the full test suite.
+
 ## 3. Observability ⛔ MANDATORY
 
 Every module/tool must pass all four checks:
 
 | Req | Check | Verification |
-|-----|-------|--------------|
+| --- | --- | --- |
 | O-1 | `using var activity = ActivitySource.StartActivity(...)` with meaningful tags | Grep for `StartActivity` in every I/O/iteration method |
 | O-2 | `IMigrationMetrics` called for attempt, completion, error, duration, in-flight | 5 call sites per operation boundary |
 | O-3 | `Information` start/end; `Warning` skips; `Debug` per-item; structured params only (no `$"` in log calls) | Grep for `Log*` calls |
@@ -34,6 +36,7 @@ Every module/tool must pass all four checks:
 | O-5 | Every `IWorkItemDiscoveryService` and `WorkItemFetchScope` call site passes a non-null `IProgress<int>` wired to `IProgressSink.Emit`; `null` only where the method signature documents a permitted exception | Grep for `DiscoverWorkItemsAsync`/`CountWorkItemsAsync`/`FetchAsync` callers |
 
 **Pipeline wiring:** Verify both paths are intact:
+
 - Metrics path: Module → `IMigrationMetrics` → OTel → `SnapshotMetricExporter` → `JobMetrics` → `POST /telemetry` → CLI polls `GET /jobs/{id}/telemetry` → `BuildProgressRenderable`
 - Progress path: Module → `IProgressSink.Emit` → `ControlPlaneProgressSink` → `POST /progress` → SSE → CLI subscribes `GET /jobs/{id}/progress?follow=true`
 
@@ -63,6 +66,7 @@ Compiling + not crashing ≠ working. Every module must produce correct side eff
 **Connectors:** `Simulated*Source` yields ≥ 2 items. `Simulated*Target` records state in inspectable collection. `AzureDevOps*` calls at least one SDK client method per operation.
 
 **Forbidden assertion patterns:**
+
 - `Assert.IsTrue(true)` or `Assert.IsNotNull(result)` as sole assertion
 - `Assert.IsTrue(count >= 0)` — always true, asserts nothing
 - Test body with no `Assert` at all
@@ -95,7 +99,7 @@ Re-read every relevant doc. Check each change line by line. Fix any non-complian
 
 ## Summary Checklist
 
-```
+```text
 [ ] Build passes (0 errors)
 [ ] All tests pass (0 failures, no Inconclusive/Ignore/NotImplementedException)
 [ ] RED → GREEN → REFACTOR evidence exists for every addition, bug fix, and behaviour change

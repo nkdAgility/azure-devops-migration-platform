@@ -169,18 +169,34 @@ Don't add features, refactor other code, or "improve" beyond the test.
 
 **MANDATORY.**
 
+Run this as a progressive widening sequence:
+
+1. Re-run the narrowest test that was red.
+2. Broaden to the next wider relevant layer.
+3. Keep broadening through the relevant layers until confidence is restored.
+4. Before declaring GREEN or making further edits, run the full test suite.
+
 ```bash
 npm test path/to/test.test.ts
+npm test path/to/unit-or-feature-slice
+npm test path/to/simulated-or-integration-slice
+npm test
 ```
 
 Confirm:
-- Test passes
-- Other tests still pass
+- The targeted test passes
+- Wider relevant slices pass as you broaden outward
+- The full test suite passes
+- No regressions were introduced
 - Output pristine (no errors, warnings)
+
+Preferred order is fastest-to-slowest relevant evidence: slice → unit/feature → simulated/integration → live/system. Do not jump wider than needed at first, but do not stop at the first passing slice either.
+
+GREEN is not "my slice passes". GREEN means the intended failing test is now passing, the relevant wider layers are green, and the codebase is back to an all-green state.
 
 **Test fails?** Fix code, not test.
 
-**Other tests fail?** Fix now.
+**Any wider layer or the full suite fails?** You are not green yet. Fix the regression and re-run the progressive widening sequence until the stack is green again.
 
 ### REFACTOR - Clean Up
 
@@ -278,6 +294,7 @@ Tests-first force edge case discovery before implementing. Tests-after verify yo
 - Tests added "later"
 - Rationalizing "just this once"
 - "I already manually tested it"
+- Declaring GREEN from a subset run without a fresh full-suite pass
 - "Tests after achieve the same purpose"
 - "It's about spirit not ritual"
 - "Keep as reference" or "adapt existing code"
