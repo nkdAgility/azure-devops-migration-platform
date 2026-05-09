@@ -31,6 +31,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.CLI.Migration\DevOpsMigrationPlatform.CLI.Migration.csproj" />
+    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.ControlPlaneHost\DevOpsMigrationPlatform.ControlPlaneHost.csproj"
+                      ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.MigrationAgent\DevOpsMigrationPlatform.MigrationAgent.csproj"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>

@@ -117,6 +117,123 @@ public class CheckpointingServiceTests
     }
 
     [TestMethod]
+    public async Task DeleteCursorAsync_WhenOnlyPackageConfigProvidesSimulatedProjectScope_DeletesConfiguredProjectScopedKey()
+    {
+        const string expectedKey = "simulated/SimulatedProject/.migration/inventory.workitems.cursor.json";
+
+        var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
+        endpointAccessor.SetupGet(a => a.Source).Returns((ISourceEndpointInfo?)null);
+        endpointAccessor.SetupGet(a => a.Target).Returns((ITargetEndpointInfo?)null);
+
+        var packageConfigAccessor = new Mock<ICurrentPackageConfigAccessor>(MockBehavior.Strict);
+        var currentConfig = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Mode"] = "inventory",
+                ["MigrationPlatform:Organisations:0:Type"] = "Simulated",
+                ["MigrationPlatform:Organisations:0:Projects:0"] = "SimulatedProject"
+            })
+            .Build();
+        packageConfigAccessor.SetupGet(a => a.Current).Returns(currentConfig);
+
+        _mockStateStore
+            .Setup(s => s.DeleteAsync(expectedKey, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object, packageConfigAccessor.Object);
+        await sut.DeleteCursorAsync("WorkItems", CancellationToken.None);
+
+        _mockStateStore.Verify(s => s.DeleteAsync(expectedKey, It.IsAny<CancellationToken>()), Times.Once);
+        _mockStateStore.VerifyNoOtherCalls();
+    }
+
+    [TestMethod]
+    public async Task DeleteCursorAsync_WhenOnlyTargetConfigProvidesSimulatedProjectScope_DeletesConfiguredProjectScopedKey()
+    {
+        const string expectedKey = "simulated/SimulatedProject/.migration/import.identities.cursor.json";
+
+        var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
+        endpointAccessor.SetupGet(a => a.Source).Returns((ISourceEndpointInfo?)null);
+        endpointAccessor.SetupGet(a => a.Target).Returns((ITargetEndpointInfo?)null);
+
+        var packageConfigAccessor = new Mock<ICurrentPackageConfigAccessor>(MockBehavior.Strict);
+        var currentConfig = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Mode"] = "import",
+                ["MigrationPlatform:Target:Type"] = "Simulated",
+                ["MigrationPlatform:Target:Project"] = "SimulatedProject"
+            })
+            .Build();
+        packageConfigAccessor.SetupGet(a => a.Current).Returns(currentConfig);
+
+        _mockStateStore
+            .Setup(s => s.DeleteAsync(expectedKey, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object, packageConfigAccessor.Object);
+        await sut.DeleteCursorAsync("Identities", CancellationToken.None);
+
+        _mockStateStore.Verify(s => s.DeleteAsync(expectedKey, It.IsAny<CancellationToken>()), Times.Once);
+        _mockStateStore.VerifyNoOtherCalls();
+    }
+
+    [TestMethod]
+    public async Task DeleteContinuationTokenAsync_WhenOnlyPackageConfigProvidesSimulatedProjectScope_DeletesConfiguredProjectScopedKey()
+    {
+        const string expectedKey = "simulated/SimulatedProject/.migration/inventory.workitems.continuation.json";
+
+        var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
+        endpointAccessor.SetupGet(a => a.Source).Returns((ISourceEndpointInfo?)null);
+        endpointAccessor.SetupGet(a => a.Target).Returns((ITargetEndpointInfo?)null);
+
+        var packageConfigAccessor = new Mock<ICurrentPackageConfigAccessor>(MockBehavior.Strict);
+        var currentConfig = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Mode"] = "inventory",
+                ["MigrationPlatform:Organisations:0:Type"] = "Simulated",
+                ["MigrationPlatform:Organisations:0:Projects:0"] = "SimulatedProject"
+            })
+            .Build();
+        packageConfigAccessor.SetupGet(a => a.Current).Returns(currentConfig);
+
+        _mockStateStore
+            .Setup(s => s.DeleteAsync(expectedKey, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object, packageConfigAccessor.Object);
+        await sut.DeleteContinuationTokenAsync("WorkItems", CancellationToken.None);
+
+        _mockStateStore.Verify(s => s.DeleteAsync(expectedKey, It.IsAny<CancellationToken>()), Times.Once);
+        _mockStateStore.VerifyNoOtherCalls();
+    }
+
+    [TestMethod]
+    public async Task DeleteCursorAsync_WhenProjectScopeCannotYetBeResolved_DoesNothing()
+    {
+        var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
+        endpointAccessor.SetupGet(a => a.Source).Returns((ISourceEndpointInfo?)null);
+        endpointAccessor.SetupGet(a => a.Target).Returns((ITargetEndpointInfo?)null);
+
+        var packageConfigAccessor = new Mock<ICurrentPackageConfigAccessor>(MockBehavior.Strict);
+        var currentConfig = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Mode"] = "Migrate",
+                ["MigrationPlatform:Source:Type"] = "Simulated",
+                ["MigrationPlatform:Source:Generator:Projects:0:Name"] = "RoundtripProject"
+            })
+            .Build();
+        packageConfigAccessor.SetupGet(a => a.Current).Returns(currentConfig);
+
+        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object, packageConfigAccessor.Object);
+        await sut.DeleteCursorAsync("Identities", CancellationToken.None);
+
+        _mockStateStore.VerifyNoOtherCalls();
+    }
+
+    [TestMethod]
     public async Task ReadCursorAsync_WhenActionQualified_UsesProjectScopedKey()
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
@@ -144,6 +261,78 @@ public class CheckpointingServiceTests
             .ReturnsAsync(json);
 
         var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object);
+        var result = await sut.ReadCursorAsync("export.workitems", CancellationToken.None);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual(entry.LastProcessed, result.LastProcessed);
+        Assert.AreEqual(entry.Stage, result.Stage);
+    }
+
+    [TestMethod]
+    public async Task ReadCursorAsync_WhenLiveSourceHasProjectButNoUrl_UsesConnectorScopedKey()
+    {
+        const string projectName = "SimulatedProject";
+        const string expectedKey = "simulated/SimulatedProject/.migration/export.workitems.cursor.json";
+
+        var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
+        var sourceInfo = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
+        sourceInfo.SetupGet(s => s.Url).Returns(string.Empty);
+        sourceInfo.SetupGet(s => s.Project).Returns(projectName);
+        sourceInfo.SetupGet(s => s.ConnectorType).Returns("Simulated");
+        endpointAccessor.SetupGet(a => a.Source).Returns(sourceInfo.Object);
+        endpointAccessor.SetupGet(a => a.Target).Returns((ITargetEndpointInfo?)null);
+
+        var entry = new CursorEntry
+        {
+            LastProcessed = "WorkItems/2024-01-01/00000000000001-1-1/",
+            Stage = CursorStage.Completed,
+            UpdatedAt = System.DateTimeOffset.UtcNow
+        };
+
+        _mockStateStore
+            .Setup(s => s.ReadAsync(expectedKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(JsonSerializer.Serialize(entry));
+
+        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object);
+        var result = await sut.ReadCursorAsync("export.workitems", CancellationToken.None);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual(entry.LastProcessed, result.LastProcessed);
+        Assert.AreEqual(entry.Stage, result.Stage);
+    }
+
+    [TestMethod]
+    public async Task ReadCursorAsync_WhenOnlySourceConfigProvidesSimulatedProjectScope_UsesConfiguredProjectScopedKey()
+    {
+        const string expectedKey = "simulated/SimulatedProject/.migration/export.workitems.cursor.json";
+
+        var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
+        endpointAccessor.SetupGet(a => a.Source).Returns((ISourceEndpointInfo?)null);
+        endpointAccessor.SetupGet(a => a.Target).Returns((ITargetEndpointInfo?)null);
+
+        var packageConfigAccessor = new Mock<ICurrentPackageConfigAccessor>(MockBehavior.Strict);
+        var currentConfig = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MigrationPlatform:Mode"] = "export",
+                ["MigrationPlatform:Source:Type"] = "Simulated",
+                ["MigrationPlatform:Source:Project"] = "SimulatedProject"
+            })
+            .Build();
+        packageConfigAccessor.SetupGet(a => a.Current).Returns(currentConfig);
+
+        var entry = new CursorEntry
+        {
+            LastProcessed = "WorkItems/2024-01-01/00000000000001-1-1/",
+            Stage = CursorStage.Completed,
+            UpdatedAt = System.DateTimeOffset.UtcNow
+        };
+
+        _mockStateStore
+            .Setup(s => s.ReadAsync(expectedKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(JsonSerializer.Serialize(entry));
+
+        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object, packageConfigAccessor.Object);
         var result = await sut.ReadCursorAsync("export.workitems", CancellationToken.None);
 
         Assert.IsNotNull(result);

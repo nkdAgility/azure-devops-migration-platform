@@ -111,7 +111,11 @@ public sealed class InventoryOrchestratorTests
         sourceInfo.SetupGet(s => s.ConnectorType).Returns("Simulated");
         endpointAccessor.SetupGet(a => a.Source).Returns(sourceInfo.Object);
         endpointAccessor.SetupGet(a => a.Target).Returns((ITargetEndpointInfo?)null);
-        return new CheckpointingServiceFactory(endpointAccessor.Object);
+
+        var packageConfigAccessor = new Mock<ICurrentPackageConfigAccessor>(MockBehavior.Strict);
+        packageConfigAccessor.SetupGet(a => a.Current).Returns((Microsoft.Extensions.Configuration.IConfiguration?)null);
+
+        return new CheckpointingServiceFactory(endpointAccessor.Object, packageConfigAccessor.Object);
     }
 
     private sealed class RecordingStateStore : IStateStore

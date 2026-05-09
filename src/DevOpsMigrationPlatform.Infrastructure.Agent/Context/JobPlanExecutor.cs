@@ -868,7 +868,45 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                                     TaskId = task.Id
                                 };
 
-                                executionResult = await module!.ExportAsync(scopedCtx, ct).ConfigureAwait(false);
+                                if (_currentJobEndpointAccessor is not null)
+                                {
+                                    await _sourceEndpointLock.WaitAsync(ct).ConfigureAwait(false);
+                                    try
+                                    {
+                                        var previousSource = _currentJobEndpointAccessor.Source;
+                                        if (TryBuildTaskSourceEndpointInfo(task, endpointsByUrl, previousSource, out var scopedSource))
+                                        {
+                                            _currentJobEndpointAccessor.SetSource(scopedSource);
+                                        }
+
+                                        try
+                                        {
+                                            executionResult = await module!.ExportAsync(scopedCtx, ct).ConfigureAwait(false);
+                                        }
+                                        finally
+                                        {
+                                            if (TryBuildTaskSourceEndpointInfo(task, endpointsByUrl, previousSource, out _))
+                                            {
+                                                if (previousSource is not null)
+                                                {
+                                                    _currentJobEndpointAccessor.SetSource(previousSource);
+                                                }
+                                                else
+                                                {
+                                                    _currentJobEndpointAccessor.ClearSource();
+                                                }
+                                            }
+                                        }
+                                    }
+                                    finally
+                                    {
+                                        _sourceEndpointLock.Release();
+                                    }
+                                }
+                                else
+                                {
+                                    executionResult = await module!.ExportAsync(scopedCtx, ct).ConfigureAwait(false);
+                                }
                                 break;
                             }
                         case TaskKind.Import:
@@ -1066,6 +1104,45 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 ResolvedAccessToken = AccessToken
             }
         };
+    }
+
+    private static bool TryBuildTaskSourceEndpointInfo(
+        JobTask task,
+        IReadOnlyDictionary<string, OrganisationEndpoint>? endpointsByUrl,
+        ISourceEndpointInfo? fallbackSource,
+        out ISourceEndpointInfo endpointInfo)
+    {
+        var project = task.ProjectName;
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            endpointInfo = null!;
+            return false;
+        }
+
+        var projectName = project!;
+
+        if (task.OrganisationUrl is { Length: > 0 } orgUrl &&
+            endpointsByUrl?.TryGetValue(orgUrl, out var resolvedEndpoint) == true &&
+            resolvedEndpoint is not null)
+        {
+            endpointInfo = BuildCaptureSourceEndpointInfo(resolvedEndpoint, projectName);
+            return true;
+        }
+
+        if (fallbackSource is not null)
+        {
+            endpointInfo = new CaptureSourceEndpointInfo(
+            fallbackSource.Url ?? string.Empty,
+                projectName,
+                fallbackSource.ConnectorType,
+                fallbackSource.ToOrganisationEndpoint().ApiVersion,
+                fallbackSource.ToOrganisationEndpoint().Authentication.Type,
+                fallbackSource.ToOrganisationEndpoint().Authentication.ResolvedAccessToken);
+            return true;
+        }
+
+        endpointInfo = null!;
+        return false;
     }
 
     /// <summary>

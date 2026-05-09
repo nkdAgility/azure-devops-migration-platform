@@ -1228,6 +1228,75 @@ public sealed class JobPlanExecutorTests
         Assert.AreEqual("OriginalConnector", activeSourceEndpoint.ConnectorType);
     }
 
+    [TestMethod]
+    public async Task ExecuteExportPhaseAsync_ExportTask_ExposesTaskProjectThroughAccessor_WhenFallbackSourceHasNoUrl()
+    {
+        var endpointAccessor = new CurrentJobEndpointAccessor();
+        endpointAccessor.SetSource(new TestSourceEndpointInfo(
+            string.Empty,
+            string.Empty,
+            "Simulated",
+            new OrganisationEndpoint
+            {
+                ResolvedUrl = string.Empty,
+                Type = "Simulated"
+            }));
+
+        var activeSourceEndpoint = new ActiveJobSourceEndpointInfo(endpointAccessor);
+        var module = new Mock<IModule>(MockBehavior.Strict);
+        module.SetupGet(m => m.Name).Returns("Identities");
+        module.Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
+            .Callback(() =>
+            {
+                Assert.AreEqual(string.Empty, activeSourceEndpoint.Url);
+                Assert.AreEqual("RoundtripProject", activeSourceEndpoint.Project);
+                Assert.AreEqual("Simulated", activeSourceEndpoint.ConnectorType);
+            })
+            .ReturnsAsync(TaskExecutionResult.Completed());
+
+        var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Identities"] = module.Object
+        };
+
+        var plan = CreatePlan(new[]
+        {
+            new JobTask
+            {
+                Id = "export.identities.unknown.roundtripproject",
+                Name = "Identities Export",
+                Phase = "Export",
+                TaskKind = TaskKind.Export,
+                Status = JobTaskStatus.Pending,
+                ProjectName = "RoundtripProject"
+            }
+        });
+
+        var executor = CreateExecutor(endpointAccessor);
+        var stateStore = new InMemoryStateStore();
+        var exportContext = new ExportContext
+        {
+            Job = new Job { JobId = "test-job" },
+            ArtefactStore = new Mock<IArtefactStore>(MockBehavior.Loose).Object,
+            StateStore = stateStore
+        };
+
+        var result = await executor.ExecuteExportPhaseAsync(
+            plan,
+            modules,
+            new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
+            baseInventoryContext: null,
+            endpointsByUrl: null,
+            exportContext,
+            stateStore,
+            CancellationToken.None);
+
+        Assert.IsTrue(result, "Export phase should succeed when fallback source context has no URL.");
+        Assert.AreEqual(string.Empty, activeSourceEndpoint.Url);
+        Assert.AreEqual(string.Empty, activeSourceEndpoint.Project);
+        Assert.AreEqual("Simulated", activeSourceEndpoint.ConnectorType);
+    }
+
     /// <summary>
     /// When no capture handler matches the task's module name, the executor must log
     /// an Error with {TaskId} and {HandlerName} structured parameters and fail the task/job.
