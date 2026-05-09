@@ -104,24 +104,11 @@ where `{TestName}` is the **exact MSTest method name** (e.g. `QueueCommand_WithE
 <repo-root>\.output\workingtests\<TestMethodName>\.otel-diagnostics\
 ```
 
-**How it works:**
+`CliRunner.TestWorkingFolder` is `.output\workingtests`. Each spawned process writes logs, traces, and metrics for that test run into the `.otel-diagnostics` folder above.
 
-- `CliRunner.TestWorkingFolder` is `.output\workingtests`.
-- Each test sets `DEVOPS_MIGRATION_TEST_STORAGE=.output\workingtests\{TestName}` in the spawned process environment.
-- `CliRunner` reads this env var and overrides `Telemetry__DiagnosticsPath` to `{repoRoot}/{testStorageRel}/.otel-diagnostics`.
-- All processes (CLI, ControlPlaneHost, MigrationAgent) log to this path for the duration of that test invocation.
+When reproducing the same simulated or live run with `--diagnostics`, also inspect `.output/workingtests/{TestMethodName}/.otel-diagnostics/inbox/` for raw `bootstrap`, `telemetry`, `progress-{module}-{stage}`, and diagnostics payloads.
 
-**Debugging workflow:**
-
-1. Identify the failing test method name exactly.
-2. Navigate to `.output/workingtests/{TestMethodName}/.otel-diagnostics/` in the repo root.
-3. Open the `*-logs.log`, `*-traces.log`, and `*-metrics.log` files for the participating processes.
-4. Look for `Error` or `Critical` entries in the log file and correlate them with the trace and metric files.
-5. Include the relevant OTel evidence in the debugging analysis.
-
-When reproducing the same simulated/live run with `--diagnostics`, also inspect `.output/workingtests/{TestMethodName}/.otel-diagnostics/inbox/`. The CLI writes timestamped raw control-plane JSON payloads there exactly as received: `bootstrap`, `telemetry`, `progress-{module}-{stage}`, and platform `diagnostics` records.
-
-> **Note**: `.output/workingtests/` is `.gitignore`d. These files exist only after a local test run. They are not available in CI unless explicitly collected, so use the test output/stderr captured in the test result for CI failures.
+The contributor-facing debugging workflow lives in [docs/testing-guide.md](../../docs/testing-guide.md). This guardrail only establishes the required location of the evidence and the expectation that debugging analysis uses it.
 
 ---
 
