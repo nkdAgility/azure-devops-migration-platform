@@ -582,7 +582,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         await foreach (var path in artefactStore.EnumerateAsync(string.Empty, ct).ConfigureAwait(false))
         {
             var segments = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
-            if (segments.Length < 3 || segments[0].StartsWith('.', StringComparison.Ordinal))
+            if (segments.Length < 3 || segments[0].StartsWith(".", StringComparison.Ordinal))
             {
                 continue;
             }
