@@ -33,6 +33,88 @@ The contract surface is intentionally small at the top level:
 
 `IArtefactStore` and `IStateStore` remain subordinate persistence contracts inside the package manager. They are not the primary caller-facing API.
 
+## Proposed Contract Sketch
+
+The current intended contract shape is:
+
+```csharp
+public interface IPackage
+{
+    ValueTask<PackageDataPayload?> RequestDataAsync(
+        PackageDataContext context,
+        CancellationToken cancellationToken = default);
+
+    ValueTask<PackageMetaPayload?> RequestMetaAsync(
+        PackageMetaContext context,
+        CancellationToken cancellationToken = default);
+
+    ValueTask WriteDataAsync(
+        PackageDataContext context,
+        PackageDataPayload payload,
+        CancellationToken cancellationToken = default);
+
+    ValueTask WriteMetaAsync(
+        PackageMetaContext context,
+        PackageMetaPayload payload,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed record PackageDataContext(
+    string ContentKind,
+    string? Organisation = null,
+    string? Project = null,
+    string? Module = null,
+    string? Scope = null,
+    string? ItemKey = null,
+    bool IsCollectionRequest = false);
+
+public sealed record PackageMetaContext(
+    PackageMetaKind Kind,
+    string? Organisation = null,
+    string? Project = null,
+    string? RunId = null,
+    bool RelatedToRun = false,
+    RunLogIntegration RunLogIntegration = RunLogIntegration.None,
+    bool Append = false);
+
+public sealed record PackageDataPayload(
+    Stream Content,
+    string? ContentType = null,
+    string? ETag = null);
+
+public sealed record PackageMetaPayload(
+    Stream Content,
+    string? ContentType = null,
+    string? ETag = null);
+
+public enum PackageMetaKind
+{
+    MigrationConfig,
+    JobDescriptor,
+    ExecutionPlan,
+    PhaseRecord,
+    CheckpointCursor,
+    ContinuationToken,
+    InventoryCompletionMarker,
+    PrepareReport
+}
+
+public enum RunLogIntegration
+{
+    None,
+    Progress,
+    Diagnostics
+}
+```
+
+### Contract Notes
+
+- `ContentKind` is the logical package data noun, not a path segment. The package manager resolves canonical layout from this typed intent.
+- `RelatedToRun` means authoritative write first, then run-scoped audit copy when that metadata kind supports it.
+- `RunLogIntegration` is separate from `RelatedToRun` because logs are routing behavior, not normal metadata ownership.
+- `Append` is primarily for run-log-style writes and other append-safe metadata writes.
+- `PackageDataPayload` and `PackageMetaPayload` intentionally use `Stream` so the boundary can preserve large-payload and append scenarios without collapsing into string-only contracts.
+
 ## Persistence Primitives
 
 `IArtefactStore` remains the low-level abstraction through which modules read and write package artefacts. It is defined in `DevOpsMigrationPlatform.Abstractions`, which targets both `net481` and `net10.0`. Both the .NET 10 `MigrationAgent` and the .NET 4.8 `TfsMigrationAgent` use it directly today. The `IAsyncEnumerable<T>` dependency is satisfied on net481 via the `Microsoft.Bcl.AsyncInterfaces` NuGet package.

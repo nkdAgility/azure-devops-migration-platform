@@ -22,6 +22,8 @@ The boundary exists to stop callers from deciding package layout. Callers provid
 - `PackageMetaContext`
 - `PackageDataPayload`
 - `PackageMetaPayload`
+- `PackageMetaKind`
+- `RunLogIntegration`
 - package path resolver/router implementation (name TBD)
 
 ## Contract Shape
@@ -32,6 +34,150 @@ The package boundary exposes four verbs:
 - `RequestMeta(PackageMetaContext, ...)`
 - `WriteData(PackageDataContext, ...)`
 - `WriteMeta(PackageMetaContext, ...)`
+
+## Contract Inventory
+
+The intended boundary contracts are shown here as a concrete C# sketch so the design is explicit rather than name-only:
+
+```csharp
+public interface IPackage
+{
+  ValueTask<PackageDataPayload?> RequestDataAsync(
+    PackageDataContext context,
+    CancellationToken cancellationToken = default);
+
+  ValueTask<PackageMetaPayload?> RequestMetaAsync(
+    PackageMetaContext context,
+    CancellationToken cancellationToken = default);
+
+  ValueTask WriteDataAsync(
+    PackageDataContext context,
+    PackageDataPayload payload,
+    CancellationToken cancellationToken = default);
+
+  ValueTask WriteMetaAsync(
+    PackageMetaContext context,
+    PackageMetaPayload payload,
+    CancellationToken cancellationToken = default);
+}
+
+public sealed record PackageDataContext(
+  string ContentKind,
+  string? Organisation = null,
+  string? Project = null,
+  string? Module = null,
+  string? Scope = null,
+  string? ItemKey = null,
+  bool IsCollectionRequest = false);
+
+public sealed record PackageMetaContext(
+  PackageMetaKind Kind,
+  string? Organisation = null,
+  string? Project = null,
+  string? RunId = null,
+  bool RelatedToRun = false,
+  RunLogIntegration RunLogIntegration = RunLogIntegration.None,
+  bool Append = false);
+
+public sealed record PackageDataPayload(
+  Stream Content,
+  string? ContentType = null,
+  string? ETag = null);
+
+public sealed record PackageMetaPayload(
+  Stream Content,
+  string? ContentType = null,
+  string? ETag = null);
+
+public enum PackageMetaKind
+{
+  MigrationConfig,
+  JobDescriptor,
+  ExecutionPlan,
+  PhaseRecord,
+  CheckpointCursor,
+  ContinuationToken,
+  InventoryCompletionMarker,
+  PrepareReport
+}
+
+public enum RunLogIntegration
+{
+  None,
+  Progress,
+  Diagnostics
+}
+```
+
+### `IPackage`
+
+Caller-facing package boundary with exactly four verbs:
+
+- `RequestData(PackageDataContext, ...)`
+- `RequestMeta(PackageMetaContext, ...)`
+- `WriteData(PackageDataContext, ...)`
+- `WriteMeta(PackageMetaContext, ...)`
+
+### `PackageDataContext`
+
+Typed routing context for package data. This contract should carry the package intent needed to resolve the canonical location for exported or prepared data without exposing raw paths. Expected concerns include:
+
+- data subject or logical content kind
+- scope such as org, project, module, or analysis area
+- read versus write intent parameters needed for collection or single-item resolution
+- enough identity to preserve lexicographic streaming rules where collection reads apply
+
+### `PackageMetaContext`
+
+Typed routing context for package metadata. This is the contract that decides whether a metadata write is authoritative only, authoritative plus run audit, or authoritative plus run-log integration. It should include:
+
+- `PackageMetaKind`
+- package scope such as root or project-local metadata ownership
+- `RelatedToRun` to request authoritative write plus run-scoped audit mirroring where appropriate
+- `RunLogIntegration` to control whether the write also emits to a run-log stream
+- append or replace intent when the metadata kind supports append-style behavior
+
+### `PackageDataPayload`
+
+Payload contract for package data reads and writes. This represents the content associated with a data request independently of path selection.
+
+### `PackageMetaPayload`
+
+Payload contract for package metadata reads and writes. This represents the content associated with a metadata request independently of path selection.
+
+### `PackageMetaKind`
+
+First-class authoritative metadata categories discussed so far are:
+
+- `MigrationConfig`: authoritative package configuration at package root
+- `JobDescriptor`: job identity and submitted job contract materialization
+- `ExecutionPlan`: authoritative task and phase planning state
+- `PhaseRecord`: current phase state used by resume and phase gating
+- `CheckpointCursor`: project or scope resume cursor state
+- `ContinuationToken`: continuation state when a connector requires resumable pagination tokens
+- `InventoryCompletionMarker`: authoritative gate proving inventory completed
+- `PrepareReport`: prepare-phase report or validation outcome that is part of package state
+
+These are included because they each map to concrete authoritative package behavior already present in code or clearly implied by current package semantics. They are not just convenient labels.
+
+### `RunLogIntegration`
+
+Contract controlling whether a metadata write also participates in job log streaming. This exists because logs are routing behavior, not a first-class metadata noun. Expected modes include:
+
+- no run-log emission
+- progress-log emission
+- diagnostics-log emission
+
+The exact enum values remain implementation detail, but the contract itself is part of the discussed design.
+
+### Package Router or Resolver
+
+Internal contract or collaborator that translates typed package intent into:
+
+- authoritative state-store destinations
+- authoritative artefact-store destinations
+- run-scoped audit copy destinations
+- run-log append destinations
 
 The boundary must own both `IArtefactStore` and `IStateStore`. A wrapper over `IArtefactStore` alone is insufficient because authoritative package metadata spans both stores:
 
@@ -51,14 +197,14 @@ The boundary must own both `IArtefactStore` and `IStateStore`. A wrapper over `I
 
 Only package concepts with concrete authoritative behavior should be first-class `PackageMetaKind` values. Current code-backed examples are:
 
-- `MigrationConfig`
-- `JobDescriptor`
-- `ExecutionPlan`
-- `PhaseRecord`
-- `CheckpointCursor`
-- `ContinuationToken`
-- `InventoryCompletionMarker`
-- `PrepareReport`
+- `MigrationConfig` because package configuration is authoritative root metadata
+- `JobDescriptor` because job submission materialization is package-owned metadata
+- `ExecutionPlan` because task and phase planning is authoritative orchestration state
+- `PhaseRecord` because current phase is authoritative resume and gating state
+- `CheckpointCursor` because resumability depends on persisted cursor ownership
+- `ContinuationToken` because resumable connector paging is package-owned state when present
+- `InventoryCompletionMarker` because export and later phases gate on this authoritative marker
+- `PrepareReport` because prepare output is package-owned validation metadata
 
 Progress logs and diagnostic logs are not normal metadata nouns. They are append-only run-log streams written to `.migration/runs/<runId>/logs/`.
 
