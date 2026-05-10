@@ -66,7 +66,7 @@ internal sealed class ActivePackageAccess : IPackageAccess
                 return new PackagePayload(
                     new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false),
                     "application/json");
-             }).ConfigureAwait(false);
+            }).ConfigureAwait(false);
     }
 
     public async ValueTask<bool> ContentExistsAsync(
@@ -145,7 +145,7 @@ internal sealed class ActivePackageAccess : IPackageAccess
                 var content = await ReadUtf8Async(payload.Content, cancellationToken).ConfigureAwait(false);
                 await store.WriteAsync(path, content, cancellationToken).ConfigureAwait(false);
                 return true;
-             }).ConfigureAwait(false);
+            }).ConfigureAwait(false);
     }
 
     public async ValueTask PersistContentStreamAsync(

@@ -19,9 +19,9 @@ using Microsoft.Extensions.Logging;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 
 /// <summary>
-/// File-based implementation of <see cref="IPackageConfigStore"/>.
-/// Reads and writes <c>migration-config.json</c> at the package root using
-/// <see cref="IArtefactStore"/>. Compatible with both .NET 10 and net481.
+/// Package-boundary implementation of <see cref="IPackageConfigStore"/>.
+/// Reads and writes <c>migration-config.json</c> at the package root through
+/// <see cref="IPackageAccess"/>. Compatible with both .NET 10 and net481.
 /// </summary>
 internal sealed class PackageConfigStore : IPackageConfigStore
 {
@@ -30,24 +30,21 @@ internal sealed class PackageConfigStore : IPackageConfigStore
 
     private const string ModuleName = "PackageConfigStore";
 
-    private readonly IPackageStoreFactory _packageStoreFactory;
     private readonly ILogger<PackageConfigStore> _logger;
     private readonly IPlatformMetrics? _metrics;
     private readonly IActiveJobState? _activeJobState;
-    private readonly IPackage? _package;
+    private readonly IPackageAccess _package;
 
     public PackageConfigStore(
-        IPackageStoreFactory packageStoreFactory,
         ILogger<PackageConfigStore> logger,
+        IPackageAccess package,
         IPlatformMetrics? metrics = null,
-        IActiveJobState? activeJobState = null,
-        IPackage? package = null)
+        IActiveJobState? activeJobState = null)
     {
-        _packageStoreFactory = packageStoreFactory ?? throw new ArgumentNullException(nameof(packageStoreFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _package = package ?? throw new ArgumentNullException(nameof(package));
         _metrics = metrics;
         _activeJobState = activeJobState;
-        _package = package;
     }
 
     private MetricsTagList Tags(string operation) =>
@@ -66,8 +63,6 @@ internal sealed class PackageConfigStore : IPackageConfigStore
         if (string.IsNullOrWhiteSpace(sourceFilePath)) throw new ArgumentNullException(nameof(sourceFilePath));
         if (!File.Exists(sourceFilePath)) throw new FileNotFoundException("Scenario config file not found.", sourceFilePath);
 
-        var (artefactStore, _) = _packageStoreFactory.Create(packageUri);
-
         using var activity = ActivitySource.StartActivity("config.write");
         activity?.SetTag("operation", "write");
         activity?.SetTag("force", force);
@@ -78,9 +73,7 @@ internal sealed class PackageConfigStore : IPackageConfigStore
         try
         {
             var context = new PackageMetaContext(PackageMetaKind.MigrationConfig);
-            var exists = _package is not null
-                ? await _package.RequestMetaAsync(context, cancellationToken).ConfigureAwait(false) is not null
-                : await artefactStore.ExistsAsync(PackagePaths.MigrationConfigFileName, cancellationToken).ConfigureAwait(false);
+            var exists = await _package.RequestMetaAsync(context, cancellationToken).ConfigureAwait(false) is not null;
             if (exists && !force)
             {
                 throw new InvalidOperationException(
@@ -95,19 +88,11 @@ internal sealed class PackageConfigStore : IPackageConfigStore
                 .ConfigureAwait(false);
 #endif
 
-            if (_package is not null)
-            {
-                using var configStream = new MemoryStream(Encoding.UTF8.GetBytes(rawJson), writable: false);
-                await _package.PersistMetaAsync(
-                    context,
-                    new PackageMetaPayload(configStream, "application/json"),
-                    cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                await artefactStore.WriteAsync(PackagePaths.MigrationConfigFileName, rawJson, cancellationToken)
-                    .ConfigureAwait(false);
-            }
+            using var configStream = new MemoryStream(Encoding.UTF8.GetBytes(rawJson), writable: false);
+            await _package.PersistMetaAsync(
+                context,
+                new PackageMetaPayload(configStream, "application/json"),
+                cancellationToken).ConfigureAwait(false);
 
             sw.Stop();
             _metrics?.RecordConfigWriteCompleted(Tags("config.write"));
@@ -147,18 +132,10 @@ internal sealed class PackageConfigStore : IPackageConfigStore
         int[] backoffMs = { 100, 300, 900 };
         for (var attempt = 0; attempt <= backoffMs.Length; attempt++)
         {
-            if (_package is not null)
-            {
-                packagePayload = await _package.RequestMetaAsync(
-                    new PackageMetaContext(PackageMetaKind.MigrationConfig),
-                    cancellationToken).ConfigureAwait(false);
-                exists = packagePayload is not null;
-            }
-            else
-            {
-                exists = await artefactStore.ExistsAsync(PackagePaths.MigrationConfigFileName, cancellationToken)
-                    .ConfigureAwait(false);
-            }
+            packagePayload = await _package.RequestMetaAsync(
+                new PackageMetaContext(PackageMetaKind.MigrationConfig),
+                cancellationToken).ConfigureAwait(false);
+            exists = packagePayload is not null;
             if (exists) break;
             if (attempt < backoffMs.Length)
             {
@@ -181,22 +158,13 @@ internal sealed class PackageConfigStore : IPackageConfigStore
 
         try
         {
-            string? json;
-            if (_package is not null)
-            {
-                packagePayload ??= await _package.RequestMetaAsync(
-                    new PackageMetaContext(PackageMetaKind.MigrationConfig),
-                    cancellationToken).ConfigureAwait(false);
-                if (packagePayload is null)
-                    throw new PackageConfigNotFoundException(artefactStore.GetType().Name);
+            packagePayload ??= await _package.RequestMetaAsync(
+                new PackageMetaContext(PackageMetaKind.MigrationConfig),
+                cancellationToken).ConfigureAwait(false);
+            if (packagePayload is null)
+                throw new PackageConfigNotFoundException(artefactStore.GetType().Name);
 
-                json = await ReadUtf8Async(packagePayload.Content, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                json = await artefactStore.ReadAsync(PackagePaths.MigrationConfigFileName, cancellationToken)
-                    .ConfigureAwait(false);
-            }
+            var json = await ReadUtf8Async(packagePayload.Content, cancellationToken).ConfigureAwait(false);
 
             if (string.IsNullOrWhiteSpace(json))
             {
