@@ -192,7 +192,7 @@ public sealed class CliRunner
                                                      "..", "..", "..", "..", ".."));
         var stagedLayout = StageExecutableLayout(repoRoot, exePath);
         var cwd = workingDirectory ?? repoRoot;
-        var effectiveTimeout = timeout ?? TimeSpan.FromMinutes(10);
+        var effectiveTimeout = timeout ?? TimeSpan.FromMinutes(1);
 
         var psi = new ProcessStartInfo
         {
