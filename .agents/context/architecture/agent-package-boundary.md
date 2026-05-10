@@ -308,14 +308,14 @@ Progress logs and diagnostic logs are not normal metadata nouns. They are append
 
 ## Integration Points
 
-- `PackageConfigStore` becomes a focused implementation detail or collaborator of the package boundary.
+- `PackageMigrationConfigLoader` becomes a focused implementation detail or collaborator of the package boundary.
 - `JobExecutionPlanBuilder` and phase tracking continue to own plan and phase semantics, but path selection moves behind the package boundary.
 - `PackageLoggerProvider` and `PackageProgressSink` should call `AppendLogAsync` rather than choosing log paths directly.
 - Module/orchestrator code should express package intent such as “write prepare report”, “write dependency capture”, or “read project inventory” without embedding folder layout knowledge.
 
 ## Logging Integration
 
-The current runtime already has the right batching and flush behavior. `PackageLoggerProvider` batches `DiagnosticLogRecord` lines and appends them to the run log, while `PackageProgressSink` batches `ProgressEvent` lines and appends them to `progress.jsonl`. With the package boundary in place, those services should keep their channels and flush lifecycle but replace the final `IArtefactStore.AppendAsync(...)` call with `IPackage.AppendLogAsync(...)`.
+The current runtime already has the right batching and flush behavior. `PackageLoggerProvider` batches `DiagnosticLogRecord` lines and appends them to the run log, while `PackageProgressSink` batches `ProgressEvent` lines and appends them to `progress.jsonl`. With the package boundary in place, those services should keep their channels and flush lifecycle but replace the final `IArtefactStore.AppendAsync(...)` call with `IPackageAccess.AppendLogAsync(...)`.
 
 Conceptually, the current diagnostics append becomes:
 
