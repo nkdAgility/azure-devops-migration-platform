@@ -27,11 +27,9 @@ public static class LegacyPackagePathShim
         error: false)]
     public static async Task<string?> ReadTextAsync(
         IPackageAccess? package,
-        IArtefactStore artefactStore,
         string path,
         CancellationToken ct)
     {
-        _ = artefactStore;
         var resolvedPackage = Resolve(package);
         var payload = await resolvedPackage.RequestContentAsync(
             CreateContext(PackageContentKind.Artefact, path),
@@ -50,11 +48,9 @@ public static class LegacyPackagePathShim
         error: false)]
     public static Task<bool> ExistsAsync(
         IPackageAccess? package,
-        IArtefactStore artefactStore,
         string path,
         CancellationToken ct)
     {
-        _ = artefactStore;
         return Resolve(package).ContentExistsAsync(
             CreateContext(PackageContentKind.Artefact, path),
             ct).AsTask();
@@ -65,12 +61,10 @@ public static class LegacyPackagePathShim
         error: false)]
     public static async Task WriteTextAsync(
         IPackageAccess? package,
-        IArtefactStore artefactStore,
         string path,
         string content,
         CancellationToken ct)
     {
-        _ = artefactStore;
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
         await Resolve(package).PersistContentAsync(
             CreateContext(PackageContentKind.Artefact, path),
@@ -83,12 +77,10 @@ public static class LegacyPackagePathShim
         error: false)]
     public static async Task AppendTextAsync(
         IPackageAccess? package,
-        IArtefactStore artefactStore,
         string path,
         string content,
         CancellationToken ct)
     {
-        _ = artefactStore;
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
         await Resolve(package).AppendContentAsync(
             CreateContext(PackageContentKind.Artefact, path),
@@ -101,12 +93,10 @@ public static class LegacyPackagePathShim
         error: false)]
     public static async Task WriteBinaryAsync(
         IPackageAccess? package,
-        IArtefactStore artefactStore,
         string path,
         byte[] content,
         CancellationToken ct)
     {
-        _ = artefactStore;
         using var stream = new MemoryStream(content, writable: false);
         await Resolve(package).PersistContentStreamAsync(
             CreateContext(PackageContentKind.Artefact, path),
@@ -120,11 +110,9 @@ public static class LegacyPackagePathShim
         error: false)]
     public static async Task<Stream?> ReadBinaryAsync(
         IPackageAccess? package,
-        IArtefactStore artefactStore,
         string path,
         CancellationToken ct)
     {
-        _ = artefactStore;
         return await Resolve(package).RequestContentBinaryAsync(
             CreateContext(PackageContentKind.Artefact, path),
             ct).ConfigureAwait(false);
@@ -135,11 +123,9 @@ public static class LegacyPackagePathShim
         error: false)]
     public static async IAsyncEnumerable<string> EnumerateAsync(
         IPackageAccess? package,
-        IArtefactStore artefactStore,
         string prefix,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
-        _ = artefactStore;
         var contentKind = string.IsNullOrWhiteSpace(prefix) ? string.Empty : prefix;
         await foreach (var item in Resolve(package).EnumerateContentAsync(
             CreateContext(PackageContentKind.Collection, contentKind),

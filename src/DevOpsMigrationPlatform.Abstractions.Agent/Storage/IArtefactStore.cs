@@ -8,8 +8,8 @@ using System.Threading.Tasks;
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
 /// <summary>
-/// The single permitted file abstraction. All modules read and write through this interface only.
-/// Both FileSystemArtefactStore and AzureBlobArtefactStore implement this contract.
+/// Internal package persistence abstraction used beneath <see cref="IPackageAccess"/>.
+/// Concrete implementations include FileSystemArtefactStore and AzureBlobArtefactStore.
 ///
 /// <b>Concurrent Write Protection Protocol</b>:
 /// A migration package is protected from concurrent writes by a lease-based mechanism:

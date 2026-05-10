@@ -100,11 +100,11 @@ internal sealed class PackagePathRouter
         if (string.IsNullOrWhiteSpace(value))
             return string.Empty;
 
-        var normalized = value.Replace('\\', '/').Trim();
+        var normalized = value!.Replace('\\', '/').Trim();
         while (normalized.StartsWith("/", StringComparison.Ordinal))
-            normalized = normalized[1..];
+            normalized = normalized.Substring(1);
 
-        if (normalized.Contains(":", StringComparison.Ordinal)
+        if (normalized.IndexOf(":", StringComparison.Ordinal) >= 0
             || normalized.Split('/').Any(segment => segment == ".."))
         {
             throw new PackageValidationException(
