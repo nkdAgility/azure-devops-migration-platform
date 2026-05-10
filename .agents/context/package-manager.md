@@ -15,7 +15,7 @@ The current codebase exposes the persistence layer directly more often than the 
 
 The typed package boundary is now implemented and in active runtime use for core package/state surfaces:
 
-- package config persistence (`PackageConfigStore`)
+- package config persistence (`PackageMigrationConfigLoader`)
 - execution-plan persistence (`JobExecutionPlanBuilder`, `JobPlanExecutor`, `TfsJobAgentWorker`)
 - phase tracking metadata (`PhaseTrackingService`)
 - checkpoint cursor and continuation token read/write routing (`CheckpointingService`)
@@ -61,14 +61,14 @@ The contract surface is intentionally small at the top level:
 
 `IArtefactStore` and `IStateStore` remain subordinate persistence contracts inside the package manager. They are not the primary caller-facing API.
 
-`IPackage` does not include delete. Delete is not part of the normal caller-facing package boundary because module and orchestration code should express reads and writes against authoritative package state, not ad hoc removal semantics. Cleanup, force-fresh, and package maintenance remain lower-level or administrative concerns and should use dedicated maintenance operations rather than broadening the core package contract.
+`IPackageAccess` does not include delete. Delete is not part of the normal caller-facing package boundary because module and orchestration code should express reads and writes against authoritative package state, not ad hoc removal semantics. Cleanup, force-fresh, and package maintenance remain lower-level or administrative concerns and should use dedicated maintenance operations rather than broadening the core package contract.
 
 ## Proposed Contract Sketch
 
 The current intended contract shape is:
 
 ```csharp
-public interface IPackage
+public interface IPackageAccess
 {
     ValueTask<PackagePayload?> RequestContentAsync(
         PackageContentContext context,
@@ -108,8 +108,7 @@ public interface IPackage
 
     ValueTask AppendContentAsync(
         PackageContentContext context,
-        Stream content,
-        string contentType = "application/x-ndjson",
+        PackagePayload payload,
         CancellationToken cancellationToken = default);
 
     ValueTask AppendLogAsync(
@@ -323,15 +322,16 @@ The Migration Agent may optionally mirror the latest cursor value to the control
 
 Together, `IArtefactStore` and `IStateStore` form the persistence subsystem of the package manager. They are not the package manager itself.
 
-## FR-008: Permitted Direct Low-Level Persistence Internals
+## Maintenance And Compatibility Boundaries
 
-The following direct low-level persistence operations remain permitted by design and are not architecture bypasses:
+The runtime no-bypass rule applies to package-facing reads, writes, metadata persistence, checkpoint state, and log appends. Those operations must go through `IPackageAccess`.
 
-- `DeleteAsync` operations required by ForceFresh and maintenance flows, because `IPackage` intentionally omits delete.
-- module-owned artefact streaming loops that append item data incrementally (for example JSONL revision/identity export loops) where replacing append semantics with whole-file `PersistAsync` would break streaming behavior or inflate memory.
-- compatibility read fallbacks for legacy package layouts during resume (new authoritative location first, then documented legacy locations).
+The remaining low-level persistence concerns are intentionally outside the core caller-facing boundary:
 
-These exceptions are deliberately narrow. New runtime package path ownership must still prefer `IPackage` for caller-facing authoritative/read/write intents.
+- `DeleteAsync` remains a maintenance concern for ForceFresh and package cleanup because `IPackageAccess` intentionally omits delete.
+- Compatibility fallback reads for legacy package layouts may remain inside the package boundary implementation while migrating old package shapes forward.
+
+These are boundary-internal maintenance or compatibility concerns, not caller-facing exceptions that allow runtime orchestration or module code to bypass `IPackageAccess`.
 
 ---
 
