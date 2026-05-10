@@ -1445,6 +1445,70 @@ public sealed class JobPlanExecutorTests
         Assert.IsFalse(invoked, "Capture handler must not be invoked when the task organisation URL cannot be resolved.");
     }
 
+    [TestMethod]
+    public async Task ExecuteTasksAsync_WithPackageBoundary_PersistsPlanViaPackageMeta()
+    {
+        var captureHandler = new Mock<ICapture>(MockBehavior.Strict);
+        captureHandler.SetupGet(c => c.Name).Returns("dependencies");
+        captureHandler.Setup(c => c.CaptureAsync(It.IsAny<InventoryContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TaskExecutionResult.Completed());
+
+        var package = new Mock<IPackage>(MockBehavior.Strict);
+        package.Setup(p => p.PersistMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
+                It.IsAny<PackageMetaPayload>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(ValueTask.CompletedTask);
+
+        var handlers = new Dictionary<string, ICapture>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["dependencies"] = captureHandler.Object
+        };
+
+        var plan = CreatePlan(new[]
+        {
+            new JobTask
+            {
+                Id = "capture.dependencies.testorg.testproject",
+                Name = "Dependencies Capture",
+                Phase = "Capture",
+                TaskKind = TaskKind.Capture,
+                Status = JobTaskStatus.Pending,
+                OrganisationUrl = "https://dev.azure.com/testorg",
+                ProjectName = "TestProject"
+            }
+        });
+
+        var executor = CreateExecutor(package: package.Object);
+        var stateStore = new InMemoryStateStore();
+        var ctx = CreateMinimalInventoryContext(stateStore);
+        var endpoints = new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["https://dev.azure.com/testorg"] = new OrganisationEndpoint
+            {
+                ResolvedUrl = "https://dev.azure.com/testorg",
+                Type = "Simulated"
+            }
+        };
+
+        var result = await executor.ExecuteTasksAsync(
+            plan,
+            handlers,
+            new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
+            ctx,
+            null,
+            null,
+            endpoints,
+            stateStore,
+            CancellationToken.None);
+
+        Assert.IsTrue(result, "Capture task should complete successfully.");
+        package.Verify(p => p.PersistMetaAsync(
+            It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
+            It.IsAny<PackageMetaPayload>(),
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
     private static bool LogStateHasTaskIdAndHandlerName(object v)
     {
         var state = v as IReadOnlyList<KeyValuePair<string, object?>>;
@@ -1457,10 +1521,11 @@ public sealed class JobPlanExecutorTests
 
     private static JobPlanExecutor CreateExecutor(
         ICurrentJobEndpointAccessor? endpointAccessor = null,
-        IProgressSink? progressSink = null)
+        IProgressSink? progressSink = null,
+        IPackage? package = null)
     {
         progressSink ??= new Mock<IProgressSink>(MockBehavior.Loose).Object;
-        return new JobPlanExecutor(progressSink, NullLogger<JobPlanExecutor>.Instance, endpointAccessor);
+        return new JobPlanExecutor(progressSink, NullLogger<JobPlanExecutor>.Instance, endpointAccessor, package);
     }
 
     private static JobPlanExecutor CreateExecutorWithLogger(ILogger<JobPlanExecutor> logger)

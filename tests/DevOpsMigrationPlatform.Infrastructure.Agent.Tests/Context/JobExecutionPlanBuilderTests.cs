@@ -37,7 +37,9 @@ public sealed class JobExecutionPlanBuilderTests
         return m.Object;
     }
 
-    private static JobExecutionPlanBuilder CreateBuilder(IEnumerable<IModule>? modules = null)
+    private static JobExecutionPlanBuilder CreateBuilder(
+        IEnumerable<IModule>? modules = null,
+        IPackage? package = null)
     {
         var phaseFactory = new Mock<IPhaseTrackingServiceFactory>(MockBehavior.Loose);
         var phaseService = new Mock<IPhaseTrackingService>(MockBehavior.Loose);
@@ -49,7 +51,12 @@ public sealed class JobExecutionPlanBuilderTests
             .Returns(phaseService.Object);
         var moduleList = modules?.ToList()
             ?? StandardModuleNames.Select(n => MockModule(n)).ToList();
-        return new JobExecutionPlanBuilder(moduleList, [], phaseFactory.Object, NullLogger<JobExecutionPlanBuilder>.Instance);
+        return new JobExecutionPlanBuilder(
+            moduleList,
+            [],
+            phaseFactory.Object,
+            NullLogger<JobExecutionPlanBuilder>.Instance,
+            package: package);
     }
 
     private static IConfiguration AllEnabledConfig()
@@ -539,6 +546,44 @@ public sealed class JobExecutionPlanBuilderTests
             "Fresh plan must not contain stale export task IDs");
         Assert.IsFalse(result.Tasks.Any(t => t.Id.StartsWith("export.", StringComparison.OrdinalIgnoreCase)),
             "Export task IDs from stale plan must be removed");
+    }
+
+    [TestMethod]
+    public async Task BuildAndSaveAsync_WithPackageBoundary_PersistsExecutionPlanViaPackageMeta()
+    {
+        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
+        stateStore
+            .Setup(s => s.ReadAsync(PackagePaths.PlanFile, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+
+        var package = new Mock<IPackage>(MockBehavior.Strict);
+        package
+            .Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PackageMetaPayload?)null);
+        package
+            .Setup(p => p.PersistMetaAsync(
+                It.Is<PackageMetaContext>(c =>
+                    c.Kind == PackageMetaKind.ExecutionPlan &&
+                    c.RelatedToRun),
+                It.IsAny<PackageMetaPayload>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(ValueTask.CompletedTask);
+
+        var builder = CreateBuilder(package: package.Object);
+
+        var result = await builder.BuildAndSaveAsync(
+            AllEnabledConfig(), JobKind.Export, store.Object, stateStore.Object, CancellationToken.None);
+
+        Assert.IsTrue(result.Tasks.Count > 0, "A fresh execution plan should be created.");
+        package.Verify(p => p.PersistMetaAsync(
+            It.Is<PackageMetaContext>(c =>
+                c.Kind == PackageMetaKind.ExecutionPlan &&
+                c.RelatedToRun),
+            It.IsAny<PackageMetaPayload>(),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

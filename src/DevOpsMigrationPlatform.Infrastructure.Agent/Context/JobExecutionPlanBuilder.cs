@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -62,6 +63,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     private readonly IProjectDiscoveryService? _projectDiscovery;
     private readonly IOptions<MigrationPlatformOptions>? _migrationOptions;
     private readonly ActivePackageState? _packageState;
+    private readonly IPackage? _package;
     private readonly ILogger<JobExecutionPlanBuilder> _logger;
 
     public JobExecutionPlanBuilder(
@@ -71,7 +73,8 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         ILogger<JobExecutionPlanBuilder> logger,
         IProjectDiscoveryService? projectDiscovery = null,
         IOptions<MigrationPlatformOptions>? migrationOptions = null,
-        ActivePackageState? packageState = null)
+        ActivePackageState? packageState = null,
+        IPackage? package = null)
     {
         _modules = modules;
         _modulesByName = modules.ToDictionary(m => m.Name, StringComparer.OrdinalIgnoreCase);
@@ -81,6 +84,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         _projectDiscovery = projectDiscovery;
         _migrationOptions = migrationOptions;
         _packageState = packageState;
+        _package = package;
         _logger = logger;
 
         // Diagnostic: log all discovered modules at startup
@@ -157,7 +161,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         RunScopeAuthorityGuard.EnsureAuthoritativePath(PackagePaths.PlanFile, "execution-plan");
 
         // Resume: load persisted plan if present.
-        var loadedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, ct).ConfigureAwait(false);
+        var loadedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, ct, _package).ConfigureAwait(false);
         if (loadedPlan is not null)
         {
             bool isComplete = loadedPlan.Tasks.Count > 0 &&
@@ -184,7 +188,10 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 _logger.LogInformation(
                     "Job kind changed from {OldKind} to {NewKind}. Deleting incompatible active plan and building fresh.",
                     loadedPlan.ForKind!.Value, kind);
-                await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
+                if (_package is null)
+                {
+                    await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
+                }
                 loadedPlan = null;
             }
         }
@@ -212,17 +219,29 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         try
         {
             var json = JsonSerializer.Serialize(freshPlan, _jsonOptions);
-            await stateStore.WriteAsync(PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
-            _logger.LogDebug("Persisted execution plan to {Path}.", PackagePaths.PlanFile);
-
-            var runId = _packageState?.CurrentRunId;
-            if (!string.IsNullOrEmpty(runId))
+            if (_package is not null)
             {
-                var runPlanPath = PackagePaths.RunPlanFile(runId!);
-                if (RunScopeAuthorityGuard.IsRunScopedPath(runPlanPath))
-                    _logger.LogDebug("Writing run-scope plan snapshot for audit only: {RunPlanPath}", runPlanPath);
-                await stateStore.WriteAsync(runPlanPath, json, ct).ConfigureAwait(false);
-                _logger.LogDebug("Persisted run plan snapshot to {Path}.", runPlanPath);
+                using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
+                await _package.PersistMetaAsync(
+                    new PackageMetaContext(PackageMetaKind.ExecutionPlan, RelatedToRun: true),
+                    new PackageMetaPayload(stream),
+                    ct).ConfigureAwait(false);
+                _logger.LogDebug("Persisted execution plan through package boundary.");
+            }
+            else
+            {
+                await stateStore.WriteAsync(PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
+                _logger.LogDebug("Persisted execution plan to {Path}.", PackagePaths.PlanFile);
+
+                var runId = _packageState?.CurrentRunId;
+                if (!string.IsNullOrEmpty(runId))
+                {
+                    var runPlanPath = PackagePaths.RunPlanFile(runId!);
+                    if (RunScopeAuthorityGuard.IsRunScopedPath(runPlanPath))
+                        _logger.LogDebug("Writing run-scope plan snapshot for audit only: {RunPlanPath}", runPlanPath);
+                    await stateStore.WriteAsync(runPlanPath, json, ct).ConfigureAwait(false);
+                    _logger.LogDebug("Persisted run plan snapshot to {Path}.", runPlanPath);
+                }
             }
         }
         catch (Exception ex)

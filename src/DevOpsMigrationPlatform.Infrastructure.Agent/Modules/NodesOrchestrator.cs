@@ -3,6 +3,7 @@
 
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -52,6 +53,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
 #endif
 
     private readonly ILogger _logger;
+    private readonly IPackage? _package;
 #if !NET481
     private readonly IPlatformMetrics? _PlatformMetrics;
     private readonly INodeTranslationTool _nodeTranslationTool;
@@ -65,11 +67,15 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         , INodeTranslationTool nodeTranslationTool,
         INodeCreator nodeCreator,
         IOptionsMonitor<NodeTranslationOptions> nodeTranslationOptions,
-        IPlatformMetrics? PlatformMetrics = null
+        IPlatformMetrics? PlatformMetrics = null,
+        IPackage? package = null
+#else
+        , IPackage? package = null
 #endif
     )
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _package = package;
 #if !NET481
         _nodeTranslationTool = nodeTranslationTool ?? throw new ArgumentNullException(nameof(nodeTranslationTool));
         _nodeCreator = nodeCreator ?? throw new ArgumentNullException(nameof(nodeCreator));
@@ -227,7 +233,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
             return;
         }
 
-        var json = await artefactStore.ReadAsync(ReferencedPathsPath, ct).ConfigureAwait(false);
+        var json = await ReadPackageContentAsync(artefactStore, ReferencedPathsPath, ct).ConfigureAwait(false);
         if (json is null)
         {
             _logger.LogDebug("[NodeTranslation] {Path} not found — skipping pre-collection.", ReferencedPathsPath);
@@ -306,7 +312,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         IPlatformMetrics? metrics = null,
         string? jobId = null)
     {
-        var json = await artefactStore.ReadAsync(SourceTreePath, ct).ConfigureAwait(false);
+        var json = await ReadPackageContentAsync(artefactStore, SourceTreePath, ct).ConfigureAwait(false);
         if (json is null)
         {
             _logger.LogWarning("[NodeTranslation] {Path} not found in package — skipping ReplicateSourceTree.", SourceTreePath);
@@ -442,24 +448,13 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
     /// </summary>
     public async Task ValidateAsync(IArtefactStore artefactStore, ValidationContext context, CancellationToken ct)
     {
-        var exists = await artefactStore.ExistsAsync(SourceTreePath, ct).ConfigureAwait(false);
-        if (!exists)
-        {
-            context.Errors.Add(new ValidationError
-            {
-                Path = SourceTreePath,
-                Message = $"[Nodes] Required file '{SourceTreePath}' is missing from the package."
-            });
-            return;
-        }
-
-        var content = await artefactStore.ReadAsync(SourceTreePath, ct).ConfigureAwait(false);
+        var content = await ReadPackageContentAsync(artefactStore, SourceTreePath, ct).ConfigureAwait(false);
         if (content is null)
         {
             context.Errors.Add(new ValidationError
             {
                 Path = SourceTreePath,
-                Message = $"[Nodes] File '{SourceTreePath}' exists but could not be read."
+                Message = $"[Nodes] Required file '{SourceTreePath}' is missing from the package."
             });
             return;
         }
@@ -476,5 +471,23 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
                 Message = $"[Nodes] File '{SourceTreePath}' contains malformed JSON: {ex.Message}"
             });
         }
+    }
+
+    private async Task<string?> ReadPackageContentAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
+    {
+        if (_package is not null)
+        {
+            var payload = await _package.RequestAsync(new PackageContext(relativePath), ct).ConfigureAwait(false);
+            if (payload is not null)
+            {
+                if (payload.Content.CanSeek)
+                    payload.Content.Position = 0;
+
+                using var reader = new StreamReader(payload.Content);
+                return await reader.ReadToEndAsync().ConfigureAwait(false);
+            }
+        }
+
+        return await artefactStore.ReadAsync(relativePath, ct).ConfigureAwait(false);
     }
 }

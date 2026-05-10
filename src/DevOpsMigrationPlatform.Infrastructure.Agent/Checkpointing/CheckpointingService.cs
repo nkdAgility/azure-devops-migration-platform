@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -11,6 +12,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using Microsoft.Extensions.Configuration;
@@ -25,17 +27,20 @@ public class CheckpointingService : ICheckpointingService
     private readonly ICurrentJobEndpointAccessor? _currentJobEndpointAccessor;
     private readonly ICurrentPackageConfigAccessor? _currentPackageConfigAccessor;
     private readonly ILogger<CheckpointingService>? _logger;
+    private readonly IPackage? _package;
 
     public CheckpointingService(
         IStateStore stateStore,
         ICurrentJobEndpointAccessor? currentJobEndpointAccessor = null,
         ICurrentPackageConfigAccessor? currentPackageConfigAccessor = null,
-        ILogger<CheckpointingService>? logger = null)
+        ILogger<CheckpointingService>? logger = null,
+        IPackage? package = null)
     {
         _stateStore = stateStore;
         _currentJobEndpointAccessor = currentJobEndpointAccessor;
         _currentPackageConfigAccessor = currentPackageConfigAccessor;
         _logger = logger;
+        _package = package;
     }
 
     // ── Cursor ──────────────────────────────────────────────────────────
@@ -48,6 +53,16 @@ public class CheckpointingService : ICheckpointingService
         var key = ResolveCursorKey(checkpointIdentity);
         activity?.SetTag("cursor.key", key);
         _logger?.LogDebug("Reading cursor from {CursorKey}.", key);
+        if (_package is not null)
+        {
+            var payload = await _package.RequestAsync(new PackageContext(key), cancellationToken).ConfigureAwait(false);
+            if (payload is not null)
+            {
+                var jsonFromPackage = await ReadUtf8Async(payload.Content, cancellationToken).ConfigureAwait(false);
+                return JsonSerializer.Deserialize<CursorEntry>(jsonFromPackage);
+            }
+        }
+
         var json = await _stateStore.ReadAsync(key, cancellationToken).ConfigureAwait(false);
 
         if (json is null)
@@ -64,6 +79,16 @@ public class CheckpointingService : ICheckpointingService
         activity?.SetTag("cursor.key", key);
         _logger?.LogDebug("Writing cursor to {CursorKey}.", key);
         var json = JsonSerializer.Serialize(cursor);
+        if (_package is not null)
+        {
+            using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(cursor));
+            await _package.PersistAsync(
+                new PackageContext(key),
+                new PackagePayload(stream, "application/json"),
+                cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         await _stateStore.WriteAsync(key, json, cancellationToken).ConfigureAwait(false);
     }
 
@@ -81,6 +106,16 @@ public class CheckpointingService : ICheckpointingService
     public async Task<BatchContinuationToken?> ReadContinuationTokenAsync(string checkpointIdentity, CancellationToken cancellationToken)
     {
         var key = ResolveContinuationKey(checkpointIdentity);
+        if (_package is not null)
+        {
+            var payload = await _package.RequestAsync(new PackageContext(key), cancellationToken).ConfigureAwait(false);
+            if (payload is not null)
+            {
+                var jsonFromPackage = await ReadUtf8Async(payload.Content, cancellationToken).ConfigureAwait(false);
+                return JsonSerializer.Deserialize<BatchContinuationToken>(jsonFromPackage);
+            }
+        }
+
         var json = await _stateStore.ReadAsync(key, cancellationToken).ConfigureAwait(false);
         if (json is null)
             return null;
@@ -90,6 +125,16 @@ public class CheckpointingService : ICheckpointingService
     public async Task WriteContinuationTokenAsync(string checkpointIdentity, BatchContinuationToken token, CancellationToken cancellationToken)
     {
         var key = ResolveContinuationKey(checkpointIdentity);
+        if (_package is not null)
+        {
+            using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(token));
+            await _package.PersistAsync(
+                new PackageContext(key),
+                new PackagePayload(stream, "application/json"),
+                cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         var json = JsonSerializer.Serialize(token);
         await _stateStore.WriteAsync(key, json, cancellationToken).ConfigureAwait(false);
     }
@@ -496,4 +541,16 @@ public class CheckpointingService : ICheckpointingService
     }
 
     private sealed record ConfiguredProjectScope(string EndpointUrl, string OrgFolder, string ProjectName);
+
+    private static async Task<string> ReadUtf8Async(Stream stream, CancellationToken cancellationToken)
+    {
+        if (stream.CanSeek)
+            stream.Position = 0;
+
+        using var reader = new StreamReader(stream);
+        cancellationToken.ThrowIfCancellationRequested();
+        var content = await reader.ReadToEndAsync().ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return content;
+    }
 }

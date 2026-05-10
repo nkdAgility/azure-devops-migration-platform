@@ -11,6 +11,18 @@ Callers should express intent in package terms and must not own path selection. 
 
 The current codebase exposes the persistence layer directly more often than the intended design. The architecture direction is captured in [.agents/context/architecture/agent-package-boundary.md](architecture/agent-package-boundary.md): a typed package boundary that composes `IArtefactStore` and `IStateStore` rather than forcing modules and orchestrators to assemble package paths themselves.
 
+## Current Adoption Status (Spec 034)
+
+The typed package boundary is now implemented and in active runtime use for core package/state surfaces:
+
+- package config persistence (`PackageConfigStore`)
+- execution-plan persistence (`JobExecutionPlanBuilder`, `JobPlanExecutor`, `TfsJobAgentWorker`)
+- phase tracking metadata (`PhaseTrackingService`)
+- checkpoint cursor and continuation token read/write routing (`CheckpointingService`)
+- run log streams for progress and diagnostics (`PackageProgressSink`, `PackageLoggerProvider`)
+
+Routing remains centralized through `IPackage` + `PackagePathRouter` in `Infrastructure.Agent`, with contract types in `Abstractions.Agent`.
+
 ## Primary Contracts
 
 The package-manager design discussed so far centers on these contracts:
@@ -235,6 +247,16 @@ The orchestrator resolves the implementation at startup: URLs whose host contain
 The Migration Agent may optionally mirror the latest cursor value to the control plane via the progress reporting API for display purposes, but the package remains the authoritative resume state: root `.migration/` for phase markers and `/{org}/{project}/.migration/` for project cursors. See [.agents/context/checkpointing-summary.md](checkpointing-summary.md).
 
 Together, `IArtefactStore` and `IStateStore` form the persistence subsystem of the package manager. They are not the package manager itself.
+
+## FR-008: Permitted Direct Low-Level Persistence Internals
+
+The following direct low-level persistence operations remain permitted by design and are not architecture bypasses:
+
+- `DeleteAsync` operations required by ForceFresh and maintenance flows, because `IPackage` intentionally omits delete.
+- module-owned artefact streaming loops that append item data incrementally (for example JSONL revision/identity export loops) where replacing append semantics with whole-file `PersistAsync` would break streaming behavior or inflate memory.
+- compatibility read fallbacks for legacy package layouts during resume (new authoritative location first, then documented legacy locations).
+
+These exceptions are deliberately narrow. New runtime package path ownership must still prefer `IPackage` for caller-facing authoritative/read/write intents.
 
 ---
 

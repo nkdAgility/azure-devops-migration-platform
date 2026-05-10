@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
@@ -48,6 +49,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     private readonly ITfsJobServiceFactory _tfsServiceFactory;
     private readonly ActiveTfsJobServices _activeTfsJobServices;
     private readonly ILogger<TfsJobAgentWorker> _logger;
+    private readonly IPackage? _package;
 
     // Per-job TFS connection — set in OnBeforeModulesAsync, cleared in OnAfterModulesAsync.
     private TfsJobServices? _currentTfsServices;
@@ -71,15 +73,17 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         IEnumerable<IFlushable> flushables,
         ITfsJobServiceFactory tfsServiceFactory,
         ActiveTfsJobServices activeTfsJobServices,
-        ILogger<TfsJobAgentWorker> logger)
+        ILogger<TfsJobAgentWorker> logger,
+        IPackage? package = null)
         : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
              phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageConfigStore,
-               moduleScopeFactory, httpClientFactory, logger, activeJobState)
+                moduleScopeFactory, httpClientFactory, logger, activeJobState)
     {
         _flushables = flushables;
         _tfsServiceFactory = tfsServiceFactory;
         _activeTfsJobServices = activeTfsJobServices;
         _logger = logger;
+        _package = package;
     }
 
     protected override ConnectorType[] Capabilities => new[] { ConnectorType.TeamFoundationServer };
@@ -150,9 +154,9 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         _currentPackageUri = job.Package.PackageUri ?? ".";
 
         // Update plan file to mark TFS export task as Running (best-effort).
-        var (_, stateStore) = PackageStoreFactory.Create(_currentPackageUri);
-        await UpdatePlanTaskStatusAsync(stateStore, "export.workitems", JobTaskStatus.Running, ct)
-            .ConfigureAwait(false);
+            var (_, stateStore) = PackageStoreFactory.Create(_currentPackageUri);
+            await UpdatePlanTaskStatusAsync(stateStore, "export.workitems", JobTaskStatus.Running, ct)
+                .ConfigureAwait(false);
     }
 
     private static TeamFoundationServerEndpointOptions BindTfsSource(IConfiguration section)
@@ -201,7 +205,20 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     {
         try
         {
-            var json = await stateStore.ReadAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
+            string? json = null;
+            if (_package is not null)
+            {
+                var payload = await _package.RequestMetaAsync(
+                    new PackageMetaContext(PackageMetaKind.ExecutionPlan),
+                    ct).ConfigureAwait(false);
+                if (payload is not null)
+                {
+                    using var reader = new StreamReader(payload.Content);
+                    json = await reader.ReadToEndAsync().ConfigureAwait(false);
+                }
+            }
+
+            json ??= await stateStore.ReadAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
             if (json == null)
             {
                 _logger.LogDebug("No plan file found at {Path} — skipping TFS task status update.", PackagePaths.PlanFile);
@@ -237,7 +254,18 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
             plan = plan with { Tasks = taskList.AsReadOnly() };
 
             var updatedJson = JsonSerializer.Serialize(plan);
-            await stateStore.WriteAsync(PackagePaths.PlanFile, updatedJson, ct).ConfigureAwait(false);
+            if (_package is not null)
+            {
+                using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(plan));
+                await _package.PersistMetaAsync(
+                    new PackageMetaContext(PackageMetaKind.ExecutionPlan),
+                    new PackageMetaPayload(stream, "application/json"),
+                    ct).ConfigureAwait(false);
+            }
+            else
+            {
+                await stateStore.WriteAsync(PackagePaths.PlanFile, updatedJson, ct).ConfigureAwait(false);
+            }
 
             _logger.LogDebug("Updated TFS task {TaskId} to {Status} in plan file.", taskId, newStatus);
         }

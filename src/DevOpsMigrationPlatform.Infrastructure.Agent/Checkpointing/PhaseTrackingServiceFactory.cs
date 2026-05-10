@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 
@@ -10,7 +11,14 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 /// </summary>
 public sealed class PhaseTrackingServiceFactory : IPhaseTrackingServiceFactory
 {
+    private readonly IPackage? _package;
+
+    public PhaseTrackingServiceFactory(IPackage? package = null)
+    {
+        _package = package;
+    }
+
     /// <inheritdoc/>
     public IPhaseTrackingService Create(IStateStore stateStore)
-        => new PhaseTrackingService(stateStore);
+        => new PhaseTrackingService(stateStore, _package);
 }

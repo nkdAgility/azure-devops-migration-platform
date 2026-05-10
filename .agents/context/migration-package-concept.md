@@ -42,8 +42,8 @@ PackageRoot/
         plan.json
         config.json
         logs/
-          progress.jsonl
-          agent.jsonl
+          progress.ndjson
+          diagnostics.ndjson
   {org}/{project}/
     manifest.json
     WorkItems/
@@ -113,9 +113,9 @@ The `.migration/runs/<runId>/logs/` folder contains structured observability rec
 
 ```text
 logs/
-    progress.jsonl
-    agent.jsonl
-    agent-001.jsonl   ← rotated segment (when max size exceeded)
+    progress.ndjson
+    diagnostics.ndjson
+    diagnostics-001.ndjson   ← rotated segment (when max size exceeded)
 ```
 
 The run folder name uses second-level UTC timestamp format `<yyyyMMdd-HHmmss>` (for example `20260506-143822`) so folders sort chronologically.
@@ -124,13 +124,13 @@ Each run folder also contains `job.json`, `plan.json`, and `config.json` as audi
 
 | File | Format | Description |
 | --- | --- | --- |
-| `progress.jsonl` | NDJSON | One `ProgressEvent` record per line. Tracks module cursor state, stage transitions, and item counts. Written by `PackageProgressSink`. |
-| `agent.jsonl` | NDJSON | Structured diagnostic log records (ILogger output). Each line is a JSON object with `timestamp`, `level`, `category`, `message`, and optional `exception` fields. Written by `PackageDiagnosticSink`. |
+| `progress.ndjson` | NDJSON | One `ProgressEvent` record per line. Tracks module cursor state, stage transitions, and item counts. Written through `IPackage.AppendLogAsync` by `PackageProgressSink`. |
+| `diagnostics.ndjson` | NDJSON | Structured diagnostic log records (ILogger output). Each line is a JSON object with `timestamp`, `level`, `category`, `message`, and optional `exception` fields. Written through `IPackage.AppendLogAsync` by `PackageLoggerProvider`. |
 | `agent-NNN.jsonl` | NDJSON | Rotated log segments when the primary segment exceeds the configured max size. |
 
 Both files are append-only and survive resume. They are the durable audit record of that job execution — the control plane's in-memory ring buffer is ephemeral.
 
-**Backward compatibility:** Packages created before run-scoped logging may have log files directly under `.migration/Logs/` (e.g. `.migration/Logs/agent.jsonl`). The `LogDownloadController` falls back to this flat layout when no run-scoped folder is found.
+**Backward compatibility:** Packages created before run-scoped logging may have log files directly under `.migration/Logs/` (for example `.migration/Logs/agent.jsonl`). The `LogDownloadController` falls back to this flat layout when no run-scoped folder is found.
 
 ### Naming Conventions
 

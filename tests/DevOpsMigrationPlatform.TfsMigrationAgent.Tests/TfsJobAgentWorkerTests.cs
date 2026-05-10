@@ -3,8 +3,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -146,7 +149,8 @@ public class TfsJobAgentWorkerTests
     }
 
     private TfsJobAgentWorker CreateWorker(
-        IEnumerable<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IModule>? modules = null)
+        IEnumerable<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IModule>? modules = null,
+        IPackage? package = null)
     {
         // Build a minimal ServiceProvider that returns the caller-supplied modules
         // from any IServiceScope so per-job scope resolution works in tests.
@@ -171,7 +175,8 @@ public class TfsJobAgentWorkerTests
             _flushables,
             _tfsServiceFactory.Object,
             new DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.ActiveTfsJobServices(),
-            _logger);
+            _logger,
+            package);
     }
 
     private HttpClient CreateControlPlaneClient() =>
@@ -299,6 +304,150 @@ public class TfsJobAgentWorkerTests
         Assert.IsTrue(_httpHandler.RequestLog.Exists(r =>
             r.Method == HttpMethod.Post &&
             r.RequestUri!.PathAndQuery.Contains("/complete")));
+    }
+
+    [TestMethod]
+    public async Task OnMigrationJob_ExportMode_UsesPackageBoundaryForPlanStatusUpdates()
+    {
+        var job = new Job
+        {
+            JobId = "test-job-pkg-plan",
+            Kind = JobKind.Export,
+            Package = new JobPackage { PackageUri = "." }
+        };
+
+        var mockRevisionSource = new Mock<IWorkItemRevisionSource>();
+        mockRevisionSource
+            .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+            .Returns(EmptyAsyncEnumerable<WorkItemRevision>());
+
+        var mockAttachmentSource = new Mock<IAttachmentBinarySource>();
+        var mockTreeReader = new Mock<IClassificationTreeReader>();
+        mockTreeReader
+            .Setup(r => r.EnumerateAreaNodesAsync(It.IsAny<CancellationToken>()))
+            .Returns(EmptyAsyncEnumerable<string>());
+        mockTreeReader
+            .Setup(r => r.EnumerateIterationNodesAsync(It.IsAny<CancellationToken>()))
+            .Returns(EmptyAsyncEnumerable<IterationNodeEntry>());
+
+        var mockDiscovery = new Mock<IWorkItemDiscoveryService>();
+        mockDiscovery
+            .Setup(d => d.CountWorkItemsAsync(
+                It.IsAny<OrganisationEndpoint>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<IProgress<int>?>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(EmptyAsyncEnumerable<ProjectDiscoverySummary>());
+
+        var tfsServices = TestTfsJobServicesFactory.Create(
+            mockRevisionSource.Object,
+            mockAttachmentSource.Object,
+            mockTreeReader.Object,
+            mockDiscovery.Object);
+        _tfsServiceFactory
+            .Setup(f => f.CreateForEndpoint(It.IsAny<MigrationEndpointOptions>()))
+            .Returns(tfsServices);
+
+        var planJson = "{\"Tasks\":[{\"Id\":\"export.workitems\",\"Name\":\"Work Items Export\",\"TaskKind\":1,\"Order\":0,\"Status\":0}],\"Phases\":[],\"ForKind\":2}";
+        var package = new Mock<IPackage>(MockBehavior.Strict);
+        package
+            .Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes(planJson)), "application/json"));
+        package
+            .Setup(p => p.PersistMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
+                It.IsAny<PackageMetaPayload>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask());
+
+        var worker = CreateWorker(package: package.Object);
+        await TfsJobAgentWorkerTestHelper.InvokeMigrationJobAsync(
+            worker, job, CreateControlPlaneClient(), "test-lease", CancellationToken.None);
+
+        package.Verify(p => p.RequestMetaAsync(
+            It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        package.Verify(p => p.PersistMetaAsync(
+            It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
+            It.IsAny<PackageMetaPayload>(),
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        _stateStore.Verify(s => s.ReadAsync(PackagePaths.PlanFile, It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [TestMethod]
+    public async Task OnMigrationJob_ExportMode_FallsBackToStateStoreWhenPackagePlanMissing()
+    {
+        var job = new Job
+        {
+            JobId = "test-job-state-plan",
+            Kind = JobKind.Export,
+            Package = new JobPackage { PackageUri = "." }
+        };
+
+        var mockRevisionSource = new Mock<IWorkItemRevisionSource>();
+        mockRevisionSource
+            .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
+            .Returns(EmptyAsyncEnumerable<WorkItemRevision>());
+
+        var mockAttachmentSource = new Mock<IAttachmentBinarySource>();
+        var mockTreeReader = new Mock<IClassificationTreeReader>();
+        mockTreeReader
+            .Setup(r => r.EnumerateAreaNodesAsync(It.IsAny<CancellationToken>()))
+            .Returns(EmptyAsyncEnumerable<string>());
+        mockTreeReader
+            .Setup(r => r.EnumerateIterationNodesAsync(It.IsAny<CancellationToken>()))
+            .Returns(EmptyAsyncEnumerable<IterationNodeEntry>());
+
+        var mockDiscovery = new Mock<IWorkItemDiscoveryService>();
+        mockDiscovery
+            .Setup(d => d.CountWorkItemsAsync(
+                It.IsAny<OrganisationEndpoint>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<IProgress<int>?>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(EmptyAsyncEnumerable<ProjectDiscoverySummary>());
+
+        var tfsServices = TestTfsJobServicesFactory.Create(
+            mockRevisionSource.Object,
+            mockAttachmentSource.Object,
+            mockTreeReader.Object,
+            mockDiscovery.Object);
+        _tfsServiceFactory
+            .Setup(f => f.CreateForEndpoint(It.IsAny<MigrationEndpointOptions>()))
+            .Returns(tfsServices);
+
+        var planJson = "{\"Tasks\":[{\"Id\":\"export.workitems\",\"Name\":\"Work Items Export\",\"TaskKind\":1,\"Order\":0,\"Status\":0}],\"Phases\":[],\"ForKind\":2}";
+        var package = new Mock<IPackage>(MockBehavior.Strict);
+        package
+            .Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PackageMetaPayload?)null);
+
+        _stateStore
+            .Setup(s => s.ReadAsync(PackagePaths.PlanFile, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(planJson);
+        _stateStore
+            .Setup(s => s.WriteAsync(PackagePaths.PlanFile, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var worker = CreateWorker(package: package.Object);
+        await TfsJobAgentWorkerTestHelper.InvokeMigrationJobAsync(
+            worker, job, CreateControlPlaneClient(), "test-lease", CancellationToken.None);
+
+        package.Verify(p => p.RequestMetaAsync(
+            It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        package.Verify(p => p.PersistMetaAsync(
+            It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
+            It.IsAny<PackageMetaPayload>(),
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        _stateStore.Verify(s => s.ReadAsync(PackagePaths.PlanFile, It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        _stateStore.Verify(s => s.WriteAsync(PackagePaths.PlanFile, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [TestMethod]

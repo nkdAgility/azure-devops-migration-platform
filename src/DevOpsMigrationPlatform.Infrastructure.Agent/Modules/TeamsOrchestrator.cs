@@ -4,6 +4,7 @@
 #if !NET481
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -52,19 +53,22 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
     private readonly TeamExportOrchestrator? _exportOrchestrator;
     private readonly TeamImportOrchestrator? _importOrchestrator;
     private readonly TeamSlugGenerator? _slugGenerator;
+    private readonly IPackage? _package;
 
     public TeamsOrchestrator(
         ILogger<TeamsOrchestrator> logger,
         IPlatformMetrics? PlatformMetrics = null,
         TeamExportOrchestrator? exportOrchestrator = null,
         TeamImportOrchestrator? importOrchestrator = null,
-        TeamSlugGenerator? slugGenerator = null)
+        TeamSlugGenerator? slugGenerator = null,
+        IPackage? package = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _PlatformMetrics = PlatformMetrics;
         _exportOrchestrator = exportOrchestrator;
         _importOrchestrator = importOrchestrator;
         _slugGenerator = slugGenerator;
+        _package = package;
     }
 
     /// <summary>
@@ -130,7 +134,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             var artifactPath = $"Teams/{slug}/team.json";
 
             if (!options.AlwaysExport
-                && await artefactStore.ExistsAsync(artifactPath, ct).ConfigureAwait(false))
+                && await TeamDefinitionExistsAsync(artefactStore, artifactPath, ct).ConfigureAwait(false))
             {
                 _logger.LogWarning("[Teams] Skipping already-exported team '{Name}' ({Path}) — use AlwaysExport: true to force re-export.",
                     team.Name, artifactPath);
@@ -245,7 +249,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             if (!teamPath.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            var json = await artefactStore.ReadAsync(teamPath, ct).ConfigureAwait(false);
+            var json = await ReadPackageContentAsync(artefactStore, teamPath, ct).ConfigureAwait(false);
             if (json is null)
             {
                 _logger.LogWarning("[Teams] Could not read team file '{Path}' — skipping.", teamPath);
@@ -348,7 +352,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
 
             teamCount++;
 
-            var json = await artefactStore.ReadAsync(teamPath, ct).ConfigureAwait(false);
+            var json = await ReadPackageContentAsync(artefactStore, teamPath, ct).ConfigureAwait(false);
             if (json is null)
             {
                 context.Errors.Add(new ValidationError
@@ -397,6 +401,35 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
                 Message = "[Teams] No team files found in package under 'Teams/'."
             });
         }
+    }
+
+    private async Task<string?> ReadPackageContentAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
+    {
+        if (_package is not null)
+        {
+            var payload = await _package.RequestAsync(new PackageContext(relativePath), ct).ConfigureAwait(false);
+            if (payload is not null)
+            {
+                if (payload.Content.CanSeek)
+                    payload.Content.Position = 0;
+
+                using var reader = new StreamReader(payload.Content);
+                return await reader.ReadToEndAsync().ConfigureAwait(false);
+            }
+        }
+
+        return await artefactStore.ReadAsync(relativePath, ct).ConfigureAwait(false);
+    }
+
+    private async Task<bool> TeamDefinitionExistsAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
+    {
+        if (_package is not null)
+        {
+            var payload = await _package.RequestAsync(new PackageContext(relativePath), ct).ConfigureAwait(false);
+            return payload is not null;
+        }
+
+        return await artefactStore.ExistsAsync(relativePath, ct).ConfigureAwait(false);
     }
 }
 #endif

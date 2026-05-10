@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -49,13 +50,16 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 
     private readonly ILogger _logger;
     private readonly IPlatformMetrics? _PlatformMetrics;
+    private readonly IPackage? _package;
 
     public IdentitiesOrchestrator(
         ILogger<IdentitiesOrchestrator> logger,
-        IPlatformMetrics? PlatformMetrics = null)
+        IPlatformMetrics? PlatformMetrics = null,
+        IPackage? package = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _PlatformMetrics = PlatformMetrics;
+        _package = package;
     }
 
     /// <summary>
@@ -184,7 +188,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             Message = "Starting identity import.",
         });
 
-        var descriptorsJson = await artefactStore.ReadAsync(DescriptorsPath, ct).ConfigureAwait(false);
+        var descriptorsJson = await ReadPackageContentAsync(artefactStore, DescriptorsPath, ct).ConfigureAwait(false);
         if (descriptorsJson is null)
         {
             _logger.LogWarning("[Identities] {Path} not found in package — identity mapping will not be available.", DescriptorsPath);
@@ -215,7 +219,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         importSw.Stop();
         _PlatformMetrics?.RecordIdentityImportDuration(importSw.Elapsed.TotalMilliseconds, importTags);
 
-        var hasMapping = await artefactStore.ExistsAsync(MappingPath, ct).ConfigureAwait(false);
+        var hasMapping = await ExistsInPackageAsync(artefactStore, MappingPath, ct).ConfigureAwait(false);
         _logger.LogInformation("[Identities] Identity import complete: {Resolved} resolved, mapping overrides: {HasMapping}.", resolvedCount, hasMapping);
         importSink?.Emit(new ProgressEvent
         {
@@ -244,25 +248,13 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             new("operation", "identities.validate")
         };
 
-        var exists = await artefactStore.ExistsAsync(DescriptorsPath, ct).ConfigureAwait(false);
-        if (!exists)
-        {
-            context.Errors.Add(new ValidationError
-            {
-                Path = DescriptorsPath,
-                Message = $"[Identities] Required file '{DescriptorsPath}' is missing from the package."
-            });
-            _PlatformMetrics?.RecordIdentityValidateError(validateTags);
-            return;
-        }
-
-        var content = await artefactStore.ReadAsync(DescriptorsPath, ct).ConfigureAwait(false);
+        var content = await ReadPackageContentAsync(artefactStore, DescriptorsPath, ct).ConfigureAwait(false);
         if (content is null)
         {
             context.Errors.Add(new ValidationError
             {
                 Path = DescriptorsPath,
-                Message = $"[Identities] File '{DescriptorsPath}' exists but could not be read."
+                Message = $"[Identities] Required file '{DescriptorsPath}' is missing from the package."
             });
             _PlatformMetrics?.RecordIdentityValidateError(validateTags);
             return;
@@ -312,6 +304,35 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
                 count++;
         }
         return count;
+    }
+
+    private async Task<string?> ReadPackageContentAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
+    {
+        if (_package is not null)
+        {
+            var payload = await _package.RequestAsync(new PackageContext(relativePath), ct).ConfigureAwait(false);
+            if (payload is not null)
+            {
+                if (payload.Content.CanSeek)
+                    payload.Content.Position = 0;
+
+                using var reader = new StreamReader(payload.Content);
+                return await reader.ReadToEndAsync().ConfigureAwait(false);
+            }
+        }
+
+        return await artefactStore.ReadAsync(relativePath, ct).ConfigureAwait(false);
+    }
+
+    private async Task<bool> ExistsInPackageAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
+    {
+        if (_package is not null)
+        {
+            var payload = await _package.RequestAsync(new PackageContext(relativePath), ct).ConfigureAwait(false);
+            return payload is not null;
+        }
+
+        return await artefactStore.ExistsAsync(relativePath, ct).ConfigureAwait(false);
     }
 }
 

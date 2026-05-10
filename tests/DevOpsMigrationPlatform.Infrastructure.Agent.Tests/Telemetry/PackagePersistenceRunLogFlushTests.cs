@@ -105,5 +105,36 @@ public class PackagePersistenceRunLogFlushTests
             appendedPaths,
             "Buffered diagnostic logs must stay in the run-scoped log folder captured while the job was active.");
     }
+
+    [TestMethod]
+    public async Task PackageLoggerProvider_WithActiveStore_AppendsThroughPackageBoundary()
+    {
+        var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var mockPackage = new Mock<IPackage>(MockBehavior.Strict);
+        mockPackage.Setup(p => p.AppendLogAsync(
+                It.Is<PackageLogContext>(c => c.Stream == PackageLogStream.Diagnostics),
+                It.IsAny<PackageLogPayload>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(ValueTask.CompletedTask);
+
+        var state = new ActivePackageState
+        {
+            CurrentStore = mockStore.Object,
+            CurrentJob = new Job { JobId = "job-logger", Kind = JobKind.Import }
+        };
+        using var provider = new PackageLoggerProvider(
+            state,
+            Options.Create(new DiagnosticLogOptions { MaxLogFileSizeMB = 50 }),
+            mockPackage.Object);
+        var logger = provider.CreateLogger("Test");
+
+        logger.LogInformation("imported");
+        await provider.FlushAsync();
+
+        mockPackage.Verify(p => p.AppendLogAsync(
+            It.Is<PackageLogContext>(c => c.Stream == PackageLogStream.Diagnostics),
+            It.IsAny<PackageLogPayload>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
 }
 #endif

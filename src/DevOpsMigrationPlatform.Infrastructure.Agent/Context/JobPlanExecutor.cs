@@ -5,7 +5,9 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -45,6 +47,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     private readonly IProgressSink? _progressSink;
     private readonly ILogger<JobPlanExecutor> _logger;
     private readonly ICurrentJobEndpointAccessor? _currentJobEndpointAccessor;
+    private readonly IPackage? _package;
 
     // The current source endpoint accessor is shared across the whole job scope,
     // so capture-time source endpoint swaps must be serialised globally.
@@ -54,11 +57,13 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     public JobPlanExecutor(
         IProgressSink? progressSink,
         ILogger<JobPlanExecutor> logger,
-        ICurrentJobEndpointAccessor? currentJobEndpointAccessor = null)
+        ICurrentJobEndpointAccessor? currentJobEndpointAccessor = null,
+        IPackage? package = null)
     {
         _progressSink = progressSink;
         _logger = logger;
         _currentJobEndpointAccessor = currentJobEndpointAccessor;
+        _package = package;
     }
 
     public async Task<bool> ExecuteTasksAsync(
@@ -1102,7 +1107,18 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         try
         {
             var json = JsonSerializer.Serialize(plan, _jsonOptions);
-            await stateStore.WriteAsync(PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
+            if (_package is not null)
+            {
+                using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
+                await _package.PersistMetaAsync(
+                    new PackageMetaContext(PackageMetaKind.ExecutionPlan),
+                    new PackageMetaPayload(stream),
+                    ct).ConfigureAwait(false);
+            }
+            else
+            {
+                await stateStore.WriteAsync(PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
+            }
         }
         catch (Exception ex)
         {
@@ -1233,11 +1249,29 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     /// </summary>
     public static async Task<JobTaskList?> LoadOrResetAsync(
         IStateStore stateStore,
-        CancellationToken ct)
+        CancellationToken ct,
+        IPackage? package = null)
     {
         try
         {
-            var json = await stateStore.ReadAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
+            string? json;
+            if (package is not null)
+            {
+                var payload = await package.RequestMetaAsync(
+                    new PackageMetaContext(PackageMetaKind.ExecutionPlan),
+                    ct).ConfigureAwait(false);
+                if (payload is null)
+                {
+                    return null;
+                }
+
+                using var reader = new StreamReader(payload.Content, Encoding.UTF8, true, 1024, leaveOpen: true);
+                json = await reader.ReadToEndAsync().ConfigureAwait(false);
+            }
+            else
+            {
+                json = await stateStore.ReadAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
+            }
 
             if (json is null)
                 return null;

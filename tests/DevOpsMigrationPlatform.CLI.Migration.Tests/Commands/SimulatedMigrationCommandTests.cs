@@ -3,6 +3,7 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -68,6 +69,18 @@ public class SimulatedMigrationCommandTests
         var configJson = File.ReadAllText(configFiles[0]);
         Assert.IsTrue(configJson.Contains("MigrationPlatform"),
             $"migration-config.json must contain 'MigrationPlatform' wrapper key. Got: {configJson.Substring(0, Math.Min(200, configJson.Length))}");
+
+        // T035: verify package-boundary-authored state surfaces are present in simulated runs.
+        var authoritativePlan = Directory.GetFiles(outputDir, "plan.json", SearchOption.AllDirectories)
+            .FirstOrDefault(path =>
+                path.Contains($"{Path.DirectorySeparatorChar}.migration{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase) &&
+                !path.Contains($"{Path.DirectorySeparatorChar}runs{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
+        Assert.IsNotNull(authoritativePlan,
+            $"Expected authoritative .migration/plan.json somewhere under {outputDir}.");
+
+        var cursorFiles = Directory.GetFiles(outputDir, "export.workitems.cursor.json", SearchOption.AllDirectories);
+        Assert.IsTrue(cursorFiles.Length > 0,
+            $"Expected project-scoped export.workitems.cursor.json under <org>/<project>/.migration somewhere in {outputDir}.");
     }
 
     /// <summary>

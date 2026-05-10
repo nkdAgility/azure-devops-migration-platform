@@ -73,6 +73,7 @@ flowchart LR
 - `ImportAsync` must read only via `IArtefactStore` and write state only via `IStateStore`.
 - `ValidateAsync` must be side-effect free.
 - Modules must never call source or target APIs directly — only through injected services.
+- Package path ownership belongs to the package boundary (`IPackage`). When a module/orchestrator needs to read or write authoritative package/state artefacts, use package intents first and only fall back to low-level store operations for documented FR-008 exceptions (delete/maintenance, streaming append loops, legacy-read compatibility).
 
 ### Module → Orchestrator → Service Pattern
 
@@ -171,7 +172,7 @@ Orchestrator *implementations* are `internal sealed` classes in `Infrastructure.
 
 ### Storage Rule
 
-> Modules only use `IArtefactStore` and `IStateStore`. Direct filesystem access outside of these interfaces is forbidden.
+> Modules/orchestrators use `IPackage` for caller-facing authoritative package intents and may use `IArtefactStore`/`IStateStore` for documented low-level internals. Direct filesystem access outside these interfaces is forbidden.
 
 ### Module Dependencies — Job Context and Endpoint Info
 

@@ -2,10 +2,15 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Diagnostics;
+#if !NET481
+using System.Diagnostics.Metrics;
+#endif
 using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using Microsoft.Extensions.Logging;
@@ -14,6 +19,14 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 
 internal sealed class PackageBoundary : IPackage
 {
+    private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
+#if !NET481
+    private static readonly Meter s_meter = new(WellKnownMeterNames.Agent, "4.0");
+    private static readonly Counter<long> s_operationCounter = s_meter.CreateCounter<long>(WellKnownAgentMetricNames.PackageBoundaryOperations, unit: "{operation}");
+    private static readonly Counter<long> s_errorCounter = s_meter.CreateCounter<long>(WellKnownAgentMetricNames.PackageBoundaryErrors, unit: "{error}");
+    private static readonly Histogram<double> s_durationHistogram = s_meter.CreateHistogram<double>(WellKnownAgentMetricNames.PackageBoundaryDurationMs, unit: "ms");
+#endif
+
     private readonly ActivePackageState _activePackageState;
     private readonly PackagePathRouter _router;
     private readonly ILogger<PackageBoundary> _logger;
@@ -34,13 +47,19 @@ internal sealed class PackageBoundary : IPackage
     {
         var store = RequireStore();
         var path = _router.ResolveContentPath(context);
-        var content = await store.ReadAsync(path, cancellationToken).ConfigureAwait(false);
-        if (content is null)
-            return null;
+        return await ObserveAsync(
+            "request",
+            path,
+            async () =>
+            {
+                var content = await store.ReadAsync(path, cancellationToken).ConfigureAwait(false);
+                if (content is null)
+                    return null;
 
-        return new PackagePayload(
-            new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false),
-            "application/json");
+                return new PackagePayload(
+                    new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false),
+                    "application/json");
+            }).ConfigureAwait(false);
     }
 
     public async ValueTask<PackageMetaPayload?> RequestMetaAsync(
@@ -49,13 +68,20 @@ internal sealed class PackageBoundary : IPackage
     {
         var store = RequireStore();
         var path = _router.ResolveMetaPath(context);
-        var content = await store.ReadAsync(path, cancellationToken).ConfigureAwait(false);
-        if (content is null)
-            return null;
+        return await ObserveAsync(
+            "request-meta",
+            path,
+            async () =>
+            {
+                var content = await store.ReadAsync(path, cancellationToken).ConfigureAwait(false);
+                if (content is null)
+                    return null;
 
-        return new PackageMetaPayload(
-            new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false),
-            "application/json");
+                return new PackageMetaPayload(
+                    new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false),
+                    "application/json");
+            },
+            context.Kind.ToString()).ConfigureAwait(false);
     }
 
     public async ValueTask PersistAsync(
@@ -65,9 +91,15 @@ internal sealed class PackageBoundary : IPackage
     {
         var store = RequireStore();
         var path = _router.ResolveContentPath(context);
-        var content = await ReadUtf8Async(payload.Content, cancellationToken).ConfigureAwait(false);
-        await store.WriteAsync(path, content, cancellationToken).ConfigureAwait(false);
-        _logger.LogDebug("Persisted package content to {Path}", path);
+        await ObserveAsync(
+            "persist",
+            path,
+            async () =>
+            {
+                var content = await ReadUtf8Async(payload.Content, cancellationToken).ConfigureAwait(false);
+                await store.WriteAsync(path, content, cancellationToken).ConfigureAwait(false);
+                return true;
+            }).ConfigureAwait(false);
     }
 
     public async ValueTask PersistMetaAsync(
@@ -76,15 +108,24 @@ internal sealed class PackageBoundary : IPackage
         CancellationToken cancellationToken = default)
     {
         var store = RequireStore();
-        var content = await ReadUtf8Async(payload.Content, cancellationToken).ConfigureAwait(false);
         var authoritativePath = _router.ResolveMetaPath(context);
-        await store.WriteAsync(authoritativePath, content, cancellationToken).ConfigureAwait(false);
+        await ObserveAsync(
+            "persist-meta",
+            authoritativePath,
+            async () =>
+            {
+                var content = await ReadUtf8Async(payload.Content, cancellationToken).ConfigureAwait(false);
+                await store.WriteAsync(authoritativePath, content, cancellationToken).ConfigureAwait(false);
 
-        if (context.RelatedToRun && !string.IsNullOrWhiteSpace(_activePackageState.CurrentRunId))
-        {
-            var runAuditPath = _router.ResolveMetaPath(context, _activePackageState.CurrentRunId, runAudit: true);
-            await store.WriteAsync(runAuditPath, content, cancellationToken).ConfigureAwait(false);
-        }
+                if (context.RelatedToRun && !string.IsNullOrWhiteSpace(_activePackageState.CurrentRunId))
+                {
+                    var runAuditPath = _router.ResolveMetaPath(context, _activePackageState.CurrentRunId, runAudit: true);
+                    await store.WriteAsync(runAuditPath, content, cancellationToken).ConfigureAwait(false);
+                }
+
+                return true;
+            },
+            context.Kind.ToString()).ConfigureAwait(false);
     }
 
     public async ValueTask AppendLogAsync(
@@ -94,8 +135,16 @@ internal sealed class PackageBoundary : IPackage
     {
         var store = RequireStore();
         var path = _router.ResolveLogPath(context);
-        var content = await ReadUtf8Async(payload.Content, cancellationToken).ConfigureAwait(false);
-        await store.AppendAsync(path, content, cancellationToken).ConfigureAwait(false);
+        await ObserveAsync(
+            "append-log",
+            path,
+            async () =>
+            {
+                var content = await ReadUtf8Async(payload.Content, cancellationToken).ConfigureAwait(false);
+                await store.AppendAsync(path, content, cancellationToken).ConfigureAwait(false);
+                return true;
+            },
+            stream: context.Stream.ToString()).ConfigureAwait(false);
     }
 
     private IArtefactStore RequireStore()
@@ -115,5 +164,95 @@ internal sealed class PackageBoundary : IPackage
         cancellationToken.ThrowIfCancellationRequested();
         return content;
     }
+
+    private async ValueTask<T> ObserveAsync<T>(
+        string operation,
+        string path,
+        Func<ValueTask<T>> action,
+        string? kind = null,
+        string? stream = null)
+    {
+        using var activity = s_activitySource.StartActivity($"package.boundary.{operation}");
+        activity?.SetTag("package.operation", operation);
+        activity?.SetTag("package.path", path);
+        activity?.SetTag("package.kind", kind);
+        activity?.SetTag("package.stream", stream);
+        activity?.SetTag("job.id", _activePackageState.CurrentJob?.JobId);
+        activity?.SetTag("run.id", _activePackageState.CurrentRunId);
+
+        var startedAt = Stopwatch.StartNew();
+        try
+        {
+            var result = await action().ConfigureAwait(false);
+            activity?.SetTag("package.result", "success");
+            _logger.LogDebug(
+                "Package boundary {Operation} succeeded for {Path} (kind: {Kind}, stream: {Stream}, run: {RunId}, job: {JobId})",
+                operation,
+                path,
+                kind,
+                stream,
+                _activePackageState.CurrentRunId,
+                _activePackageState.CurrentJob?.JobId);
+#if !NET481
+            s_operationCounter.Add(1, BuildTags(operation, path, kind, stream, "success", null));
+#endif
+            return result;
+        }
+        catch (Exception ex)
+        {
+            activity?.SetTag("package.result", "error");
+            activity?.SetTag("error.type", ex.GetType().Name);
+            _logger.LogError(
+                ex,
+                "Package boundary {Operation} failed for {Path} (kind: {Kind}, stream: {Stream}, run: {RunId}, job: {JobId}, errorType: {ErrorType})",
+                operation,
+                path,
+                kind,
+                stream,
+                _activePackageState.CurrentRunId,
+                _activePackageState.CurrentJob?.JobId,
+                ex.GetType().Name);
+#if !NET481
+            s_errorCounter.Add(1, BuildTags(operation, path, kind, stream, "error", ex.GetType().Name));
+#endif
+            throw;
+        }
+        finally
+        {
+            startedAt.Stop();
+            activity?.SetTag("package.duration.ms", startedAt.Elapsed.TotalMilliseconds);
+#if !NET481
+            s_durationHistogram.Record(startedAt.Elapsed.TotalMilliseconds, BuildTags(operation, path, kind, stream, null, null));
+#endif
+        }
+    }
+
+#if !NET481
+    private TagList BuildTags(
+        string operation,
+        string path,
+        string? kind,
+        string? stream,
+        string? result,
+        string? errorType)
+    {
+        TagList tags = new()
+        {
+            { "operation", operation },
+            { "path", path },
+            { "kind", kind },
+            { "stream", stream },
+            { "run.id", _activePackageState.CurrentRunId },
+            { "job.id", _activePackageState.CurrentJob?.JobId }
+        };
+
+        if (!string.IsNullOrWhiteSpace(result))
+            tags.Add("result", result);
+        if (!string.IsNullOrWhiteSpace(errorType))
+            tags.Add("error.type", errorType);
+
+        return tags;
+    }
+#endif
 }
 
