@@ -45,7 +45,7 @@ public sealed class WorkItemImportOrchestrator
     private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
     private readonly IPlatformMetrics? _metrics;
     private readonly string? _jobId;
-    private readonly IPackage? _package;
+    private readonly IPackageAccess? _package;
 
     public WorkItemImportOrchestrator(
         IArtefactStore artefactStore,
@@ -59,7 +59,7 @@ public sealed class WorkItemImportOrchestrator
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
         IPlatformMetrics? metrics = null,
         string? jobId = null,
-        IPackage? package = null)
+        IPackageAccess? package = null)
     {
         _artefactStore = artefactStore ?? throw new ArgumentNullException(nameof(artefactStore));
         _checkpointing = checkpointing ?? throw new ArgumentNullException(nameof(checkpointing));
@@ -430,12 +430,12 @@ public sealed class WorkItemImportOrchestrator
     private async IAsyncEnumerable<string> EnumerateWorkItemFoldersAsync(
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
-        await foreach (var path in PackageAccess.EnumerateAsync(_package, _artefactStore, "WorkItems/", ct).ConfigureAwait(false))
+        await foreach (var path in LegacyPackagePathShim.EnumerateAsync(_package, "WorkItems/", ct).ConfigureAwait(false))
             yield return path;
     }
 
     private async Task<string?> ReadPackageTextAsync(string path, CancellationToken ct)
-        => await PackageAccess.ReadTextAsync(_package, _artefactStore, path, ct).ConfigureAwait(false);
+        => await LegacyPackagePathShim.ReadTextAsync(_package, path, ct).ConfigureAwait(false);
 
     private static string GetFolderName(string folderPath)
     {

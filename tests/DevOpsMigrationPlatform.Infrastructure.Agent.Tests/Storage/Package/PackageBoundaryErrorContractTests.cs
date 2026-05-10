@@ -17,38 +17,40 @@ public sealed class PackageBoundaryErrorContractTests
     [TestMethod]
     public async Task RequestAsync_NoActiveStore_ThrowsPackageOperationExceptionWithStableCode()
     {
-        var sut = new PackageBoundary(
+        var sut = new ActivePackageAccess(
             new ActivePackageState(),
             new PackagePathRouter(),
-            NullLogger<PackageBoundary>.Instance);
+            NullLogger<ActivePackageAccess>.Instance);
 
         var ex = await Assert.ThrowsExactlyAsync<PackageOperationException>(
-            () => sut.RequestAsync(new PackageContext("analysis/dependencies.csv"), CancellationToken.None).AsTask());
+            () => sut.RequestContentAsync(
+                new PackageContentContext(PackageContentKind.Artefact, RouteSegments: ["analysis", "dependencies.csv"]),
+                CancellationToken.None).AsTask());
 
         Assert.AreEqual("PKG_STORE_UNAVAILABLE", ex.Code);
     }
 
     [TestMethod]
-    public async Task RequestAsync_UnsupportedContentKind_ThrowsPackageValidationExceptionWithStableCode()
+    public async Task RequestAsync_MissingRoute_ThrowsPackageValidationExceptionWithStableCode()
     {
-        var sut = new PackageBoundary(
+        var sut = new ActivePackageAccess(
             new ActivePackageState { CurrentStore = new InMemoryArtefactStore() },
             new PackagePathRouter(),
-            NullLogger<PackageBoundary>.Instance);
+            NullLogger<ActivePackageAccess>.Instance);
 
         var ex = await Assert.ThrowsExactlyAsync<PackageValidationException>(
-            () => sut.RequestAsync(new PackageContext("dependencies"), CancellationToken.None).AsTask());
+            () => sut.RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact), CancellationToken.None).AsTask());
 
-        Assert.AreEqual("PKG_CONTENT_KIND_UNSUPPORTED", ex.Code);
+        Assert.AreEqual("PKG_ROUTE_REQUIRED", ex.Code);
     }
 
     [TestMethod]
     public async Task AppendLogAsync_MissingRunId_ThrowsPackageValidationExceptionWithStableCode()
     {
-        var sut = new PackageBoundary(
+        var sut = new ActivePackageAccess(
             new ActivePackageState { CurrentStore = new InMemoryArtefactStore() },
             new PackagePathRouter(),
-            NullLogger<PackageBoundary>.Instance);
+            NullLogger<ActivePackageAccess>.Instance);
 
         var ex = await Assert.ThrowsExactlyAsync<PackageValidationException>(
             () => sut.AppendLogAsync(

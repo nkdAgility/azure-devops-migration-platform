@@ -34,7 +34,7 @@ public class SkipUnresolvableContext
     public Mock<ICheckpointingService> CheckpointingMock { get; } = new(MockBehavior.Loose);
     public Mock<IIdentityLookupTool> IdentityMappingMock { get; } = new(MockBehavior.Loose);
     public Mock<IArtefactStore> ArtefactStoreMock { get; } = new(MockBehavior.Loose);
-    public Mock<IPackage> PackageMock { get; } = new(MockBehavior.Loose);
+    public Mock<IPackageAccess> PackageMock { get; } = new(MockBehavior.Loose);
     public Mock<IWorkItemResolutionStrategy> ResolutionStrategyMock { get; } = new(MockBehavior.Loose);
 
     public bool UpdateFieldsWasCalled { get; private set; }
@@ -92,16 +92,16 @@ public class SkipUnresolvableContext
             .ReturnsAsync(json);
         ArtefactStoreMock.Setup(s => s.ReadAsync($"{FolderPath}/comment.json", It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
-        PackageMock.Setup(p => p.RequestAsync(
-                It.Is<PackageContext>(c => c.ContentKind == $"{FolderPath}/revision.json"),
+        PackageMock.Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath == $"{FolderPath}/revision.json"),
                 It.IsAny<CancellationToken>()))
             .Returns(() =>
             {
                 var bytes = System.Text.Encoding.UTF8.GetBytes(json);
                 return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(bytes), "application/json"));
             });
-        PackageMock.Setup(p => p.RequestAsync(
-                It.Is<PackageContext>(c => c.ContentKind == $"{FolderPath}/comment.json"),
+        PackageMock.Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath == $"{FolderPath}/comment.json"),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult<PackagePayload?>(null));
     }

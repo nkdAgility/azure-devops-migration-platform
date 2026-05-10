@@ -27,12 +27,14 @@ public sealed class PackageStreamingBehaviorTests
         store.Setup(s => s.EnumerateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Throws(new AssertFailedException("EnumerateAsync should not be used by package content request routing."));
 
-        var sut = new PackageBoundary(
+        var sut = new ActivePackageAccess(
             new ActivePackageState { CurrentStore = store.Object },
             new PackagePathRouter(),
-            NullLogger<PackageBoundary>.Instance);
+            NullLogger<ActivePackageAccess>.Instance);
 
-        var payload = await sut.RequestAsync(new PackageContext("analysis/dependencies.csv"), CancellationToken.None);
+        var payload = await sut.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, RouteSegments: ["analysis", "dependencies.csv"]),
+            CancellationToken.None);
 
         Assert.IsNotNull(payload);
     }
@@ -46,13 +48,13 @@ public sealed class PackageStreamingBehaviorTests
         store.Setup(s => s.EnumerateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Throws(new AssertFailedException("EnumerateAsync should not be used by package content persist routing."));
 
-        var sut = new PackageBoundary(
+        var sut = new ActivePackageAccess(
             new ActivePackageState { CurrentStore = store.Object },
             new PackagePathRouter(),
-            NullLogger<PackageBoundary>.Instance);
+            NullLogger<ActivePackageAccess>.Instance);
 
-        await sut.PersistAsync(
-            new PackageContext("analysis/dependencies.csv"),
+        await sut.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, RouteSegments: ["analysis", "dependencies.csv"]),
             new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("id,name")), "text/csv"),
             CancellationToken.None);
 

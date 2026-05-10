@@ -59,7 +59,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     protected ILogger Logger { get; }
 
     /// <summary>Reads <c>migration-config.json</c> from the package at job start.</summary>
-    protected IPackageConfigStore PackageConfigStore { get; }
+    protected IPackageMigrationConfigLoader PackageMigrationConfigLoader { get; }
 
     /// <summary>Explicit holder for the current job's raw package configuration.</summary>
     protected ICurrentPackageConfigAccessor CurrentPackageConfig { get; }
@@ -87,7 +87,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
         ICurrentPackageConfigAccessor currentPackageConfigAccessor,
-        IPackageConfigStore packageConfigStore,
+        IPackageMigrationConfigLoader packageMigrationConfigLoader,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
         ILogger logger,
@@ -109,7 +109,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         CheckpointingFactory = checkpointingFactory ?? throw new ArgumentNullException(nameof(checkpointingFactory));
         PhaseTrackingFactory = phaseTrackingFactory ?? throw new ArgumentNullException(nameof(phaseTrackingFactory));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        PackageConfigStore = packageConfigStore ?? throw new ArgumentNullException(nameof(packageConfigStore));
+        PackageMigrationConfigLoader = packageMigrationConfigLoader ?? throw new ArgumentNullException(nameof(packageMigrationConfigLoader));
         CurrentPackageConfig = currentPackageConfigAccessor ?? throw new ArgumentNullException(nameof(currentPackageConfigAccessor));
         _activeJobState = activeJobState;
         _moduleScopeFactory = moduleScopeFactory ?? throw new ArgumentNullException(nameof(moduleScopeFactory));
@@ -181,7 +181,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         IConfiguration packageConfig;
         try
         {
-            packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
+            packageConfig = await PackageMigrationConfigLoader.LoadAsync(ct).ConfigureAwait(false);
         }
         catch (PackageConfigNotFoundException ex)
         {

@@ -36,7 +36,7 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
 
     private readonly Channel<DiagnosticLogRecord> _channel;
     private readonly ActivePackageState _packageState;
-    private readonly IPackage _package;
+    private readonly IPackageAccess _package;
     private readonly LogLevel _minimumLevel;
     private readonly int _flushBatchSize;
     private readonly TimeSpan _flushInterval;
@@ -53,7 +53,7 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
     public PackageLoggerProvider(
         ActivePackageState packageState,
         IOptions<DiagnosticLogOptions> options,
-        IPackage package)
+        IPackageAccess package)
     {
         _packageState = packageState;
         _package = package ?? throw new ArgumentNullException(nameof(package));

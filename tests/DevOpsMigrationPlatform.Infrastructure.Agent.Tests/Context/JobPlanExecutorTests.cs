@@ -432,8 +432,8 @@ public sealed class JobPlanExecutorTests
             .Callback<ProgressEvent>(evt => progressEvents.Add(evt));
 
         var package = PackageTestFactory.CreateLooseMock().Object;
-        await package.PersistAsync(
-            new PackageContext("inventory.json"),
+        await package.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, RouteSegments: ["inventory.json"]),
             new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(inventoryJson), writable: false)),
             CancellationToken.None);
         var executor = CreateExecutor(progressSink: progressSink.Object, package: package);
@@ -1477,7 +1477,7 @@ public sealed class JobPlanExecutorTests
         captureHandler.Setup(c => c.CaptureAsync(It.IsAny<InventoryContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TaskExecutionResult.Completed());
 
-        var package = new Mock<IPackage>(MockBehavior.Strict);
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package.Setup(p => p.PersistMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
                 It.IsAny<PackageMetaPayload>(),
@@ -1546,7 +1546,7 @@ public sealed class JobPlanExecutorTests
     private static JobPlanExecutor CreateExecutor(
         ICurrentJobEndpointAccessor? endpointAccessor = null,
         IProgressSink? progressSink = null,
-        IPackage? package = null)
+        IPackageAccess? package = null)
     {
         progressSink ??= new Mock<IProgressSink>(MockBehavior.Loose).Object;
         package ??= PackageTestFactory.CreateLooseMock().Object;

@@ -26,7 +26,7 @@ public sealed class PackageMetaRoutingTests
             CurrentStore = store,
             CurrentJob = new Job { JobId = "job-1", Kind = JobKind.Export }
         };
-        var sut = new PackageBoundary(active, new PackagePathRouter(), NullLogger<PackageBoundary>.Instance);
+        var sut = new ActivePackageAccess(active, new PackagePathRouter(), NullLogger<ActivePackageAccess>.Instance);
         var payload = new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("{\"mode\":\"Export\"}")));
 
         await sut.PersistMetaAsync(
@@ -47,7 +47,7 @@ public sealed class PackageMetaRoutingTests
             CurrentStore = store,
             CurrentJob = new Job { JobId = "job-2", Kind = JobKind.Export }
         };
-        var sut = new PackageBoundary(active, new PackagePathRouter(), NullLogger<PackageBoundary>.Instance);
+        var sut = new ActivePackageAccess(active, new PackagePathRouter(), NullLogger<ActivePackageAccess>.Instance);
         var payload = new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("{\"mode\":\"Export\"}")));
 
         await sut.PersistMetaAsync(

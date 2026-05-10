@@ -19,7 +19,7 @@ using Moq;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage;
 
 /// <summary>Captures all log calls for assertions without Moq proxy limitations.</summary>
-internal sealed class CapturingStoreLogger<T> : ILogger<T>
+internal sealed class CapturingLogger<T> : ILogger<T>
 {
     public List<(LogLevel Level, string Message)> Entries { get; } = new();
     public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
@@ -29,7 +29,7 @@ internal sealed class CapturingStoreLogger<T> : ILogger<T>
 }
 
 [TestClass]
-public class PackageConfigStoreTests
+public class PackageMigrationConfigLoaderTests
 {
     private static readonly Mock<IPlatformMetrics> _metrics = new(MockBehavior.Loose);
     private static readonly ILogger<PackageMigrationConfigLoader> _logger =
@@ -116,7 +116,7 @@ public class PackageConfigStoreTests
             .ReturnsAsync((PackageMetaPayload?)null)
             .ReturnsAsync((PackageMetaPayload?)null);
 
-        var capturingLogger = new CapturingStoreLogger<PackageMigrationConfigLoader>();
+        var capturingLogger = new CapturingLogger<PackageMigrationConfigLoader>();
         var sut = CreateSut(package, capturingLogger);
 
         // Act
@@ -140,7 +140,7 @@ public class PackageConfigStoreTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("""{"MigrationPlatform":{"Mode":"Export"}}"""))));
 
-        var capturingLogger = new CapturingStoreLogger<PackageMigrationConfigLoader>();
+        var capturingLogger = new CapturingLogger<PackageMigrationConfigLoader>();
         var sut = CreateSut(package, capturingLogger);
 
         // Act

@@ -532,10 +532,10 @@ public class CheckpointingServiceTests
             UpdatedAt = System.DateTimeOffset.UtcNow
         };
 
-        var package = new Mock<IPackage>(MockBehavior.Strict);
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.RequestAsync(
-                It.Is<PackageContext>(c => c.ContentKind == expectedKey),
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath == expectedKey),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PackagePayload(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(entry)), "application/json"));
 
@@ -564,10 +564,10 @@ public class CheckpointingServiceTests
         endpointAccessor.SetupGet(a => a.Source).Returns((ISourceEndpointInfo?)null);
         endpointAccessor.SetupGet(a => a.Target).Returns(targetInfo.Object);
 
-        var package = new Mock<IPackage>(MockBehavior.Strict);
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.PersistAsync(
-                It.Is<PackageContext>(c => c.ContentKind == expectedKey),
+            .Setup(p => p.PersistContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath == expectedKey),
                 It.IsAny<PackagePayload>(),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
@@ -607,10 +607,10 @@ public class CheckpointingServiceTests
             GeneratedAtUtc = System.DateTime.UtcNow
         };
 
-        var package = new Mock<IPackage>(MockBehavior.Strict);
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.RequestAsync(
-                It.Is<PackageContext>(c => c.ContentKind == expectedKey),
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath == expectedKey),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PackagePayload(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(token)), "application/json"));
 
@@ -639,10 +639,10 @@ public class CheckpointingServiceTests
         endpointAccessor.SetupGet(a => a.Source).Returns((ISourceEndpointInfo?)null);
         endpointAccessor.SetupGet(a => a.Target).Returns(targetInfo.Object);
 
-        var package = new Mock<IPackage>(MockBehavior.Strict);
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.PersistAsync(
-                It.Is<PackageContext>(c => c.ContentKind == expectedKey),
+            .Setup(p => p.PersistContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath == expectedKey),
                 It.IsAny<PackagePayload>(),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);

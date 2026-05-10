@@ -29,7 +29,7 @@ public class RevisionFolderProcessorTests
     private Mock<IIdMapStore> _mockIdMapStore = null!;
     private Mock<IIdentityLookupTool> _mockIdentityMapping = null!;
     private Mock<IWorkItemResolutionStrategy> _mockResolutionStrategy = null!;
-    private Mock<IPackage> _mockPackage = null!;
+    private Mock<IPackageAccess> _mockPackage = null!;
 
     [TestInitialize]
     public void Setup()

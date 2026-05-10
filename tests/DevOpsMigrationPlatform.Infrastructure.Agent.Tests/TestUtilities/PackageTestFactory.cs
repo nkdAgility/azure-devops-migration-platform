@@ -15,26 +15,26 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 
 internal static class PackageTestFactory
 {
-    public static Mock<IPackage> CreateLooseMock()
+    public static Mock<IPackageAccess> CreateLooseMock()
     {
         var contentStore = new Dictionary<string, byte[]>(System.StringComparer.OrdinalIgnoreCase);
         var metaStore = new Dictionary<PackageMetaKind, byte[]>();
-        var package = new Mock<IPackage>(MockBehavior.Loose);
+        var package = new Mock<IPackageAccess>(MockBehavior.Loose);
         package
-            .Setup(p => p.RequestAsync(It.IsAny<PackageContext>(), It.IsAny<CancellationToken>()))
-            .Returns((PackageContext context, CancellationToken _) =>
+            .Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext context, CancellationToken _) =>
             {
-                if (!contentStore.TryGetValue(context.ContentKind, out var bytes))
+                if (!contentStore.TryGetValue(context.Address!.RelativePath, out var bytes))
                     return ValueTask.FromResult<PackagePayload?>(null);
                 return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(bytes, writable: false)));
             });
         package
-            .Setup(p => p.RequestBinaryAsync(It.IsAny<PackageContext>(), It.IsAny<CancellationToken>()))
-            .Returns((PackageContext context, CancellationToken _) =>
+            .Setup(p => p.RequestContentBinaryAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext context, CancellationToken _) =>
             {
-                if (!contentStore.TryGetValue(context.ContentKind, out var bytes))
-                    return ValueTask.FromResult<PackagePayload?>(null);
-                return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(bytes, writable: false)));
+                if (!contentStore.TryGetValue(context.Address!.RelativePath, out var bytes))
+                    return ValueTask.FromResult<System.IO.Stream?>(null);
+                return ValueTask.FromResult<System.IO.Stream?>(new System.IO.MemoryStream(bytes, writable: false));
             });
         package
             .Setup(p => p.RequestMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
@@ -45,23 +45,23 @@ internal static class PackageTestFactory
                 return ValueTask.FromResult<PackageMetaPayload?>(new PackageMetaPayload(new System.IO.MemoryStream(bytes, writable: false)));
             });
         package
-            .Setup(p => p.ExistsAsync(It.IsAny<PackageContext>(), It.IsAny<CancellationToken>()))
-            .Returns((PackageContext context, CancellationToken _) => ValueTask.FromResult(contentStore.ContainsKey(context.ContentKind)));
+            .Setup(p => p.ContentExistsAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext context, CancellationToken _) => ValueTask.FromResult(contentStore.ContainsKey(context.Address!.RelativePath)));
         package
-            .Setup(p => p.EnumerateAsync(It.IsAny<PackageContext>(), It.IsAny<CancellationToken>()))
-            .Returns((PackageContext context, CancellationToken _) => EnumerateByPrefixAsync(contentStore.Keys, context.ContentKind));
+            .Setup(p => p.EnumerateContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext context, CancellationToken _) => EnumerateByPrefixAsync(contentStore.Keys, context.Address!.RelativePath));
         package
-            .Setup(p => p.PersistAsync(It.IsAny<PackageContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
-            .Returns((PackageContext context, PackagePayload payload, CancellationToken _) =>
+            .Setup(p => p.PersistContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext context, PackagePayload payload, CancellationToken _) =>
             {
-                contentStore[context.ContentKind] = ReadAllBytes(payload.Content);
+                contentStore[context.Address!.RelativePath] = ReadAllBytes(payload.Content);
                 return ValueTask.CompletedTask;
             });
         package
-            .Setup(p => p.PersistStreamAsync(It.IsAny<PackageContext>(), It.IsAny<System.IO.Stream>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
-            .Returns((PackageContext context, System.IO.Stream payload, string? _, CancellationToken _) =>
+            .Setup(p => p.PersistContentStreamAsync(It.IsAny<PackageContentContext>(), It.IsAny<System.IO.Stream>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext context, System.IO.Stream payload, string? _, CancellationToken _) =>
             {
-                contentStore[context.ContentKind] = ReadAllBytes(payload);
+                contentStore[context.Address!.RelativePath] = ReadAllBytes(payload);
                 return ValueTask.CompletedTask;
             });
         package
@@ -72,14 +72,14 @@ internal static class PackageTestFactory
                 return ValueTask.CompletedTask;
             });
         package
-            .Setup(p => p.AppendAsync(It.IsAny<PackageContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
-            .Returns((PackageContext context, PackagePayload payload, CancellationToken _) =>
+            .Setup(p => p.AppendContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext context, PackagePayload payload, CancellationToken _) =>
             {
                 var incoming = ReadAllBytes(payload.Content);
-                if (contentStore.TryGetValue(context.ContentKind, out var existing))
-                    contentStore[context.ContentKind] = existing.Concat(incoming).ToArray();
+                if (contentStore.TryGetValue(context.Address!.RelativePath, out var existing))
+                    contentStore[context.Address!.RelativePath] = existing.Concat(incoming).ToArray();
                 else
-                    contentStore[context.ContentKind] = incoming;
+                    contentStore[context.Address!.RelativePath] = incoming;
                 return ValueTask.CompletedTask;
             });
         package
@@ -88,70 +88,70 @@ internal static class PackageTestFactory
         return package;
     }
 
-    public static Mock<IPackage> CreateDelegatingMock(IArtefactStore artefactStore, IStateStore? stateStore = null)
+    public static Mock<IPackageAccess> CreateDelegatingMock(IArtefactStore artefactStore, IStateStore? stateStore = null)
     {
-        var package = new Mock<IPackage>(MockBehavior.Strict);
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.RequestAsync(It.IsAny<PackageContext>(), It.IsAny<CancellationToken>()))
-            .Returns(async (PackageContext context, CancellationToken ct) =>
+            .Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns(async (PackageContentContext context, CancellationToken ct) =>
             {
-                var content = IsStatePath(context.ContentKind) && stateStore is not null
-                    ? await stateStore.ReadAsync(context.ContentKind, ct).ConfigureAwait(false)
-                    : await artefactStore.ReadAsync(context.ContentKind, ct).ConfigureAwait(false);
+                var content = IsStatePath(context.Address!.RelativePath) && stateStore is not null
+                    ? await stateStore.ReadAsync(context.Address!.RelativePath, ct).ConfigureAwait(false)
+                    : await artefactStore.ReadAsync(context.Address!.RelativePath, ct).ConfigureAwait(false);
                 if (content is null)
                     return null;
                 return new PackagePayload(new System.IO.MemoryStream(Encoding.UTF8.GetBytes(content), writable: false), "application/json");
             });
         package
-            .Setup(p => p.ExistsAsync(It.IsAny<PackageContext>(), It.IsAny<CancellationToken>()))
-            .Returns((PackageContext context, CancellationToken ct)
-                => IsStatePath(context.ContentKind) && stateStore is not null
-                    ? new ValueTask<bool>(stateStore.ExistsAsync(context.ContentKind, ct))
-                    : new ValueTask<bool>(artefactStore.ExistsAsync(context.ContentKind, ct)));
+            .Setup(p => p.ContentExistsAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext context, CancellationToken ct)
+                => IsStatePath(context.Address!.RelativePath) && stateStore is not null
+                    ? new ValueTask<bool>(stateStore.ExistsAsync(context.Address!.RelativePath, ct))
+                    : new ValueTask<bool>(artefactStore.ExistsAsync(context.Address!.RelativePath, ct)));
         package
-            .Setup(p => p.EnumerateAsync(It.IsAny<PackageContext>(), It.IsAny<CancellationToken>()))
-            .Returns((PackageContext context, CancellationToken ct) => artefactStore.EnumerateAsync(context.ContentKind, ct));
+            .Setup(p => p.EnumerateContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext context, CancellationToken ct) => artefactStore.EnumerateAsync(context.Address!.RelativePath, ct));
         package
-            .Setup(p => p.RequestBinaryAsync(It.IsAny<PackageContext>(), It.IsAny<CancellationToken>()))
-            .Returns(async (PackageContext context, CancellationToken ct) =>
+            .Setup(p => p.RequestContentBinaryAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns(async (PackageContentContext context, CancellationToken ct) =>
             {
-                var stream = await artefactStore.ReadBinaryAsync(context.ContentKind, ct).ConfigureAwait(false);
+                var stream = await artefactStore.ReadBinaryAsync(context.Address!.RelativePath, ct).ConfigureAwait(false);
                 if (stream is null)
                     return null;
                 if (stream.CanSeek)
                     stream.Position = 0;
-                return new PackagePayload(stream, "application/octet-stream");
+                return stream;
             });
         package
-            .Setup(p => p.PersistAsync(It.IsAny<PackageContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
-            .Returns(async (PackageContext context, PackagePayload payload, CancellationToken ct) =>
+            .Setup(p => p.PersistContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
+            .Returns(async (PackageContentContext context, PackagePayload payload, CancellationToken ct) =>
             {
                 var text = Encoding.UTF8.GetString(ReadAllBytes(payload.Content));
-                if (IsStatePath(context.ContentKind) && stateStore is not null)
-                    await stateStore.WriteAsync(context.ContentKind, text, ct).ConfigureAwait(false);
+                if (IsStatePath(context.Address!.RelativePath) && stateStore is not null)
+                    await stateStore.WriteAsync(context.Address!.RelativePath, text, ct).ConfigureAwait(false);
                 else
-                    await artefactStore.WriteAsync(context.ContentKind, text, ct).ConfigureAwait(false);
+                    await artefactStore.WriteAsync(context.Address!.RelativePath, text, ct).ConfigureAwait(false);
             });
         package
-            .Setup(p => p.PersistStreamAsync(It.IsAny<PackageContext>(), It.IsAny<System.IO.Stream>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
-            .Returns(async (PackageContext context, System.IO.Stream payload, string? _, CancellationToken ct) =>
+            .Setup(p => p.PersistContentStreamAsync(It.IsAny<PackageContentContext>(), It.IsAny<System.IO.Stream>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Returns(async (PackageContentContext context, System.IO.Stream payload, string? _, CancellationToken ct) =>
             {
                 var bytes = ReadAllBytes(payload);
-                await artefactStore.WriteBinaryAsync(context.ContentKind, bytes, ct).ConfigureAwait(false);
+                await artefactStore.WriteBinaryAsync(context.Address!.RelativePath, bytes, ct).ConfigureAwait(false);
             });
         package
-            .Setup(p => p.AppendAsync(It.IsAny<PackageContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
-            .Returns(async (PackageContext context, PackagePayload payload, CancellationToken ct) =>
+            .Setup(p => p.AppendContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
+            .Returns(async (PackageContentContext context, PackagePayload payload, CancellationToken ct) =>
             {
                 var text = Encoding.UTF8.GetString(ReadAllBytes(payload.Content));
-                if (IsStatePath(context.ContentKind) && stateStore is not null)
+                if (IsStatePath(context.Address!.RelativePath) && stateStore is not null)
                 {
-                    var existing = await stateStore.ReadAsync(context.ContentKind, ct).ConfigureAwait(false) ?? string.Empty;
-                    await stateStore.WriteAsync(context.ContentKind, existing + text, ct).ConfigureAwait(false);
+                    var existing = await stateStore.ReadAsync(context.Address!.RelativePath, ct).ConfigureAwait(false) ?? string.Empty;
+                    await stateStore.WriteAsync(context.Address!.RelativePath, existing + text, ct).ConfigureAwait(false);
                 }
                 else
                 {
-                    await artefactStore.AppendAsync(context.ContentKind, text, ct).ConfigureAwait(false);
+                    await artefactStore.AppendAsync(context.Address!.RelativePath, text, ct).ConfigureAwait(false);
                 }
             });
         package
@@ -197,28 +197,28 @@ internal static class PackageTestFactory
         return package;
     }
 
-    public static Mock<IPackage> CreateStateDelegatingMock(IStateStore stateStore)
+    public static Mock<IPackageAccess> CreateStateDelegatingMock(IStateStore stateStore)
     {
-        var package = new Mock<IPackage>(MockBehavior.Strict);
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.RequestAsync(It.IsAny<PackageContext>(), It.IsAny<CancellationToken>()))
-            .Returns(async (PackageContext context, CancellationToken ct) =>
+            .Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns(async (PackageContentContext context, CancellationToken ct) =>
             {
-                var content = await stateStore.ReadAsync(context.ContentKind, ct).ConfigureAwait(false);
+                var content = await stateStore.ReadAsync(context.Address!.RelativePath, ct).ConfigureAwait(false);
                 if (content is null)
                     return null;
                 return new PackagePayload(new System.IO.MemoryStream(Encoding.UTF8.GetBytes(content), writable: false), "application/json");
             });
         package
-            .Setup(p => p.PersistAsync(It.IsAny<PackageContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
-            .Returns(async (PackageContext context, PackagePayload payload, CancellationToken ct) =>
+            .Setup(p => p.PersistContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
+            .Returns(async (PackageContentContext context, PackagePayload payload, CancellationToken ct) =>
             {
                 var text = Encoding.UTF8.GetString(ReadAllBytes(payload.Content));
-                await stateStore.WriteAsync(context.ContentKind, text, ct).ConfigureAwait(false);
+                await stateStore.WriteAsync(context.Address!.RelativePath, text, ct).ConfigureAwait(false);
             });
         package
-            .Setup(p => p.ExistsAsync(It.IsAny<PackageContext>(), It.IsAny<CancellationToken>()))
-            .Returns((PackageContext context, CancellationToken ct) => new ValueTask<bool>(stateStore.ExistsAsync(context.ContentKind, ct)));
+            .Setup(p => p.ContentExistsAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext context, CancellationToken ct) => new ValueTask<bool>(stateStore.ExistsAsync(context.Address!.RelativePath, ct)));
         package
             .Setup(p => p.RequestMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
             .Returns(async (PackageMetaContext context, CancellationToken ct) =>
@@ -252,21 +252,21 @@ internal static class PackageTestFactory
                 await stateStore.WriteAsync(key, text, ct).ConfigureAwait(false);
             });
         package
-            .Setup(p => p.EnumerateAsync(It.IsAny<PackageContext>(), It.IsAny<CancellationToken>()))
+            .Setup(p => p.EnumerateContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns(EmptyAsync());
         package
-            .Setup(p => p.RequestBinaryAsync(It.IsAny<PackageContext>(), It.IsAny<CancellationToken>()))
-            .Returns(ValueTask.FromResult<PackagePayload?>(null));
+            .Setup(p => p.RequestContentBinaryAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns(ValueTask.FromResult<System.IO.Stream?>(null));
         package
-            .Setup(p => p.PersistStreamAsync(It.IsAny<PackageContext>(), It.IsAny<System.IO.Stream>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(p => p.PersistContentStreamAsync(It.IsAny<PackageContentContext>(), It.IsAny<System.IO.Stream>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
         package
-            .Setup(p => p.AppendAsync(It.IsAny<PackageContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
-            .Returns(async (PackageContext context, PackagePayload payload, CancellationToken ct) =>
+            .Setup(p => p.AppendContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
+            .Returns(async (PackageContentContext context, PackagePayload payload, CancellationToken ct) =>
             {
-                var existing = await stateStore.ReadAsync(context.ContentKind, ct).ConfigureAwait(false) ?? string.Empty;
+                var existing = await stateStore.ReadAsync(context.Address!.RelativePath, ct).ConfigureAwait(false) ?? string.Empty;
                 var incoming = Encoding.UTF8.GetString(ReadAllBytes(payload.Content));
-                await stateStore.WriteAsync(context.ContentKind, existing + incoming, ct).ConfigureAwait(false);
+                await stateStore.WriteAsync(context.Address!.RelativePath, existing + incoming, ct).ConfigureAwait(false);
             });
         package
             .Setup(p => p.AppendLogAsync(It.IsAny<PackageLogContext>(), It.IsAny<PackageLogPayload>(), It.IsAny<CancellationToken>()))

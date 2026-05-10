@@ -81,7 +81,7 @@ public class PackageBoundaryConnectorParityTests
         return endpointAccessor;
     }
 
-    private static Mock<IPackage> BuildPackageReturningCursor(string expectedKey)
+    private static Mock<IPackageAccess> BuildPackageReturningCursor(string expectedKey)
     {
         var entry = new CursorEntry
         {
@@ -90,10 +90,10 @@ public class PackageBoundaryConnectorParityTests
             UpdatedAt = System.DateTimeOffset.UtcNow
         };
 
-        var package = new Mock<IPackage>(MockBehavior.Strict);
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.RequestAsync(
-                It.Is<PackageContext>(c => c.ContentKind == expectedKey),
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath == expectedKey),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(entry))), "application/json"));
         return package;

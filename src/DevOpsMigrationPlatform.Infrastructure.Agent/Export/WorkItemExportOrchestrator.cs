@@ -65,7 +65,7 @@ public sealed class WorkItemExportOrchestrator
     private readonly IWorkItemDiscoveryService? _discoveryService;
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
     private readonly string? _packageUri;
-    private readonly IPackage? _package;
+    private readonly IPackageAccess? _package;
 #if !NET481
     private readonly IReferencedPathTracker? _referencedPathTracker;
 #endif
@@ -88,7 +88,7 @@ public sealed class WorkItemExportOrchestrator
         IWorkItemDiscoveryService? discoveryService = null,
         IExportProgressStoreFactory? exportProgressStoreFactory = null,
         string? packageUri = null,
-        IPackage? package = null
+        IPackageAccess? package = null
 #if !NET481
         , IReferencedPathTracker? referencedPathTracker = null
 #endif
@@ -1023,16 +1023,16 @@ public sealed class WorkItemExportOrchestrator
     }
 
     private async Task<bool> PackageExistsAsync(string path, CancellationToken ct)
-        => await DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageAccess
-            .ExistsAsync(_package, _artefactStore, path, ct).ConfigureAwait(false);
+        => await DevOpsMigrationPlatform.Infrastructure.Agent.Storage.LegacyPackagePathShim
+            .ExistsAsync(_package, path, ct).ConfigureAwait(false);
 
     private async Task WritePackageTextAsync(string path, string content, CancellationToken ct)
-        => await DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageAccess
-            .WriteTextAsync(_package, _artefactStore, path, content, ct).ConfigureAwait(false);
+        => await DevOpsMigrationPlatform.Infrastructure.Agent.Storage.LegacyPackagePathShim
+            .WriteTextAsync(_package, path, content, ct).ConfigureAwait(false);
 
     private async Task WritePackageBinaryAsync(string path, byte[] content, CancellationToken ct)
-        => await DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageAccess
-            .WriteBinaryAsync(_package, _artefactStore, path, content, ct).ConfigureAwait(false);
+        => await DevOpsMigrationPlatform.Infrastructure.Agent.Storage.LegacyPackagePathShim
+            .WriteBinaryAsync(_package, path, content, ct).ConfigureAwait(false);
 
     private static string FormatBytes(long bytes) =>
         bytes switch

@@ -26,7 +26,7 @@ public class WorkItemImportOrchestratorFilterTests
     private Mock<IWorkItemResolutionStrategy> _mockStrategy = null!;
     private Mock<IIdMapStore> _mockIdMap = null!;
     private Mock<IWorkItemImportTarget> _mockTarget = null!;
-    private Mock<IPackage> _mockPackage = null!;
+    private Mock<IPackageAccess> _mockPackage = null!;
     private List<string> _folders = null!;
 
     [TestInitialize]

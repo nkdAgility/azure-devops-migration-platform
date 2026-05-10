@@ -18,7 +18,7 @@ public sealed class PhaseTrackingServiceTests
     public async Task WritePhaseRecordAsync_WithPackageBoundary_PersistsViaMetaRouting()
     {
         var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
-        var package = new Mock<IPackage>(MockBehavior.Strict);
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package.Setup(p => p.PersistMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.PhaseRecord),
                 It.IsAny<PackageMetaPayload>(),
@@ -39,7 +39,7 @@ public sealed class PhaseTrackingServiceTests
     public async Task ReadPhaseRecordAsync_WithPackageBoundary_ReadsViaMetaRouting()
     {
         var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
-        var package = new Mock<IPackage>(MockBehavior.Strict);
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         var payload = "{\"ExportCompleted\":true,\"PrepareCompleted\":false,\"ImportCompleted\":false}";
         package.Setup(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.PhaseRecord),

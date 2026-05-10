@@ -9,7 +9,10 @@ using DevOpsMigrationPlatform.Abstractions;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 
-public class FileSystemStateStore : IStateStore
+/// <summary>
+/// Internal filesystem-backed implementation of <see cref="IStateStore"/>.
+/// </summary>
+internal class FileSystemStateStore : IStateStore
 {
     private readonly string _rootPath;
 

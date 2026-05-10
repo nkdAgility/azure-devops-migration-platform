@@ -20,10 +20,10 @@ public sealed class PackageLogAppendTests
     public async Task AppendLogAsync_ProgressStream_AppendsToProgressRunLog()
     {
         var store = new InMemoryArtefactStore();
-        var sut = new PackageBoundary(
+        var sut = new ActivePackageAccess(
             new ActivePackageState { CurrentStore = store },
             new PackagePathRouter(),
-            NullLogger<PackageBoundary>.Instance);
+            NullLogger<ActivePackageAccess>.Instance);
 
         await sut.AppendLogAsync(
             new PackageLogContext("20260509-120500", PackageLogStream.Progress),
@@ -39,10 +39,10 @@ public sealed class PackageLogAppendTests
     public async Task AppendLogAsync_DiagnosticsStream_AppendsToDiagnosticsRunLog()
     {
         var store = new InMemoryArtefactStore();
-        var sut = new PackageBoundary(
+        var sut = new ActivePackageAccess(
             new ActivePackageState { CurrentStore = store },
             new PackagePathRouter(),
-            NullLogger<PackageBoundary>.Instance);
+            NullLogger<ActivePackageAccess>.Instance);
 
         await sut.AppendLogAsync(
             new PackageLogContext("20260509-120500", PackageLogStream.Diagnostics),

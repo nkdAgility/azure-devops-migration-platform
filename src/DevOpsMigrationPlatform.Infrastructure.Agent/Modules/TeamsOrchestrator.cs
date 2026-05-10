@@ -54,7 +54,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
     private readonly TeamExportOrchestrator? _exportOrchestrator;
     private readonly TeamImportOrchestrator? _importOrchestrator;
     private readonly TeamSlugGenerator? _slugGenerator;
-    private readonly IPackage? _package;
+    private readonly IPackageAccess? _package;
 
     public TeamsOrchestrator(
         ILogger<TeamsOrchestrator> logger,
@@ -62,7 +62,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         TeamExportOrchestrator? exportOrchestrator = null,
         TeamImportOrchestrator? importOrchestrator = null,
         TeamSlugGenerator? slugGenerator = null,
-        IPackage? package = null)
+        IPackageAccess? package = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _PlatformMetrics = PlatformMetrics;
@@ -245,7 +245,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         });
 
         var count = 0;
-        await foreach (var teamPath in PackageAccess.EnumerateAsync(_package, artefactStore, "Teams/", ct).ConfigureAwait(false))
+        await foreach (var teamPath in LegacyPackagePathShim.EnumerateAsync(_package, "Teams/", ct).ConfigureAwait(false))
         {
             if (!teamPath.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase))
                 continue;
@@ -346,7 +346,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             { "operation", "teams.validate" }
         };
 
-        await foreach (var teamPath in PackageAccess.EnumerateAsync(_package, artefactStore, "Teams/", ct).ConfigureAwait(false))
+        await foreach (var teamPath in LegacyPackagePathShim.EnumerateAsync(_package, "Teams/", ct).ConfigureAwait(false))
         {
             if (!teamPath.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase))
                 continue;
@@ -406,12 +406,12 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
 
     private async Task<string?> ReadPackageContentAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
     {
-        return await PackageAccess.ReadTextAsync(_package, artefactStore, relativePath, ct).ConfigureAwait(false);
+        return await LegacyPackagePathShim.ReadTextAsync(_package, relativePath, ct).ConfigureAwait(false);
     }
 
     private async Task<bool> TeamDefinitionExistsAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
     {
-        return await PackageAccess.ExistsAsync(_package, artefactStore, relativePath, ct).ConfigureAwait(false);
+        return await LegacyPackagePathShim.ExistsAsync(_package, relativePath, ct).ConfigureAwait(false);
     }
 }
 #endif

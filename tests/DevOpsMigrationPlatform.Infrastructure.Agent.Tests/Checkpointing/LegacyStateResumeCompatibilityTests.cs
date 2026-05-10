@@ -30,10 +30,10 @@ public class LegacyStateResumeCompatibilityTests
         endpointAccessor.SetupGet(a => a.Source).Returns(sourceInfo.Object);
         endpointAccessor.SetupGet(a => a.Target).Returns((ITargetEndpointInfo?)null);
 
-        var package = new Mock<IPackage>(MockBehavior.Strict);
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.RequestAsync(
-                It.Is<PackageContext>(c => c.ContentKind == expectedKey),
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath == expectedKey),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((PackagePayload?)null);
 
@@ -62,10 +62,10 @@ public class LegacyStateResumeCompatibilityTests
         endpointAccessor.SetupGet(a => a.Source).Returns(sourceInfo.Object);
         endpointAccessor.SetupGet(a => a.Target).Returns((ITargetEndpointInfo?)null);
 
-        var package = new Mock<IPackage>(MockBehavior.Strict);
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.RequestAsync(
-                It.Is<PackageContext>(c => c.ContentKind == expectedKey),
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath == expectedKey),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((PackagePayload?)null);
 

@@ -79,7 +79,7 @@ public class ExportWorkItemLinksSteps
             CurrentStore = _ctx.RealArtefactStore,
             CurrentJob = new Job { JobId = "export-links", Kind = JobKind.Export }
         };
-        var package = new PackageBoundary(packageState, new PackagePathRouter(), NullLogger<PackageBoundary>.Instance);
+        var package = new ActivePackageAccess(packageState, new PackagePathRouter(), NullLogger<ActivePackageAccess>.Instance);
         _ctx.Sut = new WorkItemExportOrchestrator(_ctx.RealArtefactStore, _ctx.MockCheckpointingService.Object, package: package);
     }
 

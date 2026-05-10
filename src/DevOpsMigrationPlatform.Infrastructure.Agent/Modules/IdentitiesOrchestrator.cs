@@ -51,12 +51,12 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 
     private readonly ILogger _logger;
     private readonly IPlatformMetrics? _PlatformMetrics;
-    private readonly IPackage? _package;
+    private readonly IPackageAccess? _package;
 
     public IdentitiesOrchestrator(
         ILogger<IdentitiesOrchestrator> logger,
         IPlatformMetrics? PlatformMetrics = null,
-        IPackage? package = null)
+        IPackageAccess? package = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _PlatformMetrics = PlatformMetrics;
@@ -83,7 +83,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             var checkpointing = checkpointingFactory.Create(stateStore);
             var cursor = await checkpointing.ReadCursorAsync("export.identities", ct).ConfigureAwait(false);
             if (cursor?.Stage == CursorStage.Completed
-                && await PackageAccess.ExistsAsync(_package, artefactStore, DescriptorsPath, ct).ConfigureAwait(false))
+                && await LegacyPackagePathShim.ExistsAsync(_package, DescriptorsPath, ct).ConfigureAwait(false))
             {
                 _logger.LogInformation("[Identities] Already exported (cursor found) — skipping re-export.");
                 return;
@@ -119,7 +119,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             await foreach (var descriptor in identitySource.EnumerateIdentitiesAsync(project, ct).ConfigureAwait(false))
             {
                 var line = JsonSerializer.Serialize(descriptor, s_jsonOptions);
-                await PackageAccess.AppendTextAsync(_package, artefactStore, DescriptorsPath, line + "\n", ct).ConfigureAwait(false);
+                await LegacyPackagePathShim.AppendTextAsync(_package, DescriptorsPath, line + "\n", ct).ConfigureAwait(false);
                 count++;
                 _PlatformMetrics?.RecordIdentityExportCount(exportTags);
             }
@@ -309,12 +309,12 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 
     private async Task<string?> ReadPackageContentAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
     {
-        return await PackageAccess.ReadTextAsync(_package, artefactStore, relativePath, ct).ConfigureAwait(false);
+        return await LegacyPackagePathShim.ReadTextAsync(_package, relativePath, ct).ConfigureAwait(false);
     }
 
     private async Task<bool> ExistsInPackageAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
     {
-        return await PackageAccess.ExistsAsync(_package, artefactStore, relativePath, ct).ConfigureAwait(false);
+        return await LegacyPackagePathShim.ExistsAsync(_package, relativePath, ct).ConfigureAwait(false);
     }
 }
 

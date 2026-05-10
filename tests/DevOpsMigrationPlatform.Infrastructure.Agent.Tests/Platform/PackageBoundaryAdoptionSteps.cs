@@ -16,7 +16,7 @@ public sealed class PackageBoundaryAdoptionSteps
     public void GivenThePackageBoundaryContractSurfaceIsRequired()
     {
         // Intentional RED baseline: contract type does not exist before implementation.
-        _packageContractType = Type.GetType("DevOpsMigrationPlatform.Abstractions.Agent.Storage.IPackage, DevOpsMigrationPlatform.Abstractions.Agent");
+        _packageContractType = Type.GetType("DevOpsMigrationPlatform.Abstractions.Agent.Storage.IPackageAccess, DevOpsMigrationPlatform.Abstractions.Agent");
     }
 
     [When("I validate the package boundary contract availability")]

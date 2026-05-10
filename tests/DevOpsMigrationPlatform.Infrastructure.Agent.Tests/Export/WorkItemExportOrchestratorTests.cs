@@ -34,7 +34,7 @@ public class WorkItemExportOrchestratorTests
     private Mock<IArtefactStore> _mockStore = null!;
     private Mock<ICheckpointingService> _mockCps = null!;
     private Mock<IWorkItemRevisionSource> _mockSource = null!;
-    private Mock<IPackage> _mockPackage = null!;
+    private Mock<IPackageAccess> _mockPackage = null!;
     private WorkItemExportOrchestrator _sut = null!;
 
     [TestInitialize]

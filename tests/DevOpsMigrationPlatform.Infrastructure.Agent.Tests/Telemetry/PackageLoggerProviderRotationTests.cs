@@ -27,7 +27,7 @@ public class PackageLoggerProviderRotationTests
         // Arrange — 50 MB limit (default), small messages won't rotate.
         var appendedContexts = new List<PackageLogContext>();
         var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var mockPackage = new Mock<IPackage>(MockBehavior.Strict);
+        var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
         mockPackage.Setup(p => p.AppendLogAsync(
                 It.IsAny<PackageLogContext>(),
                 It.IsAny<PackageLogPayload>(),
@@ -71,7 +71,7 @@ public class PackageLoggerProviderRotationTests
         var appendedContexts = new List<PackageLogContext>();
         long totalBytesAppended = 0;
         var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var mockPackage = new Mock<IPackage>(MockBehavior.Strict);
+        var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
         mockPackage.Setup(p => p.AppendLogAsync(
                 It.IsAny<PackageLogContext>(),
                 It.IsAny<PackageLogPayload>(),
@@ -130,7 +130,7 @@ public class PackageLoggerProviderRotationTests
         // Arrange — MaxLogFileSizeMB = 0 disables rotation.
         var appendedContexts = new List<PackageLogContext>();
         var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var mockPackage = new Mock<IPackage>(MockBehavior.Strict);
+        var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
         mockPackage.Setup(p => p.AppendLogAsync(
                 It.IsAny<PackageLogContext>(),
                 It.IsAny<PackageLogPayload>(),
@@ -180,7 +180,7 @@ public class PackageLoggerProviderRotationTests
     {
         var state = new ActivePackageState();
         var opts = Options.Create(new DiagnosticLogOptions());
-        var mockPackage = new Mock<IPackage>(MockBehavior.Loose);
+        var mockPackage = new Mock<IPackageAccess>(MockBehavior.Loose);
         using var provider = new PackageLoggerProvider(state, opts, mockPackage.Object);
 
         Assert.AreEqual($"{PackagePaths.Logs}/agent.jsonl", provider.CurrentLogPath);

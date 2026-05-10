@@ -24,7 +24,7 @@ public class PreventDuplicateWorkItemsContext
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
-    public Mock<IPackage> MockPackage { get; }
+    public Mock<IPackageAccess> MockPackage { get; }
 
     /// <summary>The folder path for the revision being processed.</summary>
     public string? FolderPath { get; set; }

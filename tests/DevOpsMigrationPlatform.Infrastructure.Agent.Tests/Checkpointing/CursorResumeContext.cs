@@ -23,7 +23,7 @@ public class CursorResumeContext
     public Mock<IStateStore> MockStateStore { get; } = new Mock<IStateStore>(MockBehavior.Strict);
 
     public Mock<ICurrentJobEndpointAccessor> MockEndpointAccessor { get; } = new(MockBehavior.Strict);
-    public Mock<IPackage> MockPackage { get; }
+    public Mock<IPackageAccess> MockPackage { get; }
 
     /// <summary>Strict mock used for scenarios that verify module-level delegation of cursor writes.</summary>
     public Mock<ICheckpointingService> MockCheckpointingService { get; } = new Mock<ICheckpointingService>(MockBehavior.Strict);

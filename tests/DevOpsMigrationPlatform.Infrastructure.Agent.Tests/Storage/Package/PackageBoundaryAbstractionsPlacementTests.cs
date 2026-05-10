@@ -13,8 +13,8 @@ public sealed class PackageBoundaryAbstractionsPlacementTests
     public void PackageBoundaryContracts_AreDefinedOnlyInAbstractionsAgent()
     {
         var contractsAssembly = PackageBoundaryTestFixture.ContractsAssemblyName;
-        Assert.IsNotNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Agent.Storage.IPackage, {contractsAssembly}"));
-        Assert.IsNotNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Agent.Storage.PackageContext, {contractsAssembly}"));
+        Assert.IsNotNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Agent.Storage.IPackageAccess, {contractsAssembly}"));
+        Assert.IsNotNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Agent.Storage.PackageContentContext, {contractsAssembly}"));
         Assert.IsNotNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Agent.Storage.PackageMetaContext, {contractsAssembly}"));
         Assert.IsNotNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Agent.Storage.PackageLogContext, {contractsAssembly}"));
     }
@@ -23,8 +23,8 @@ public sealed class PackageBoundaryAbstractionsPlacementTests
     public void PackageBoundaryContracts_AreNotDefinedInHigherAbstractionsAssembly()
     {
         const string higherAssembly = "DevOpsMigrationPlatform.Abstractions";
-        Assert.IsNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Storage.IPackage, {higherAssembly}"));
-        Assert.IsNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Storage.PackageContext, {higherAssembly}"));
+        Assert.IsNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Storage.IPackageAccess, {higherAssembly}"));
+        Assert.IsNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Storage.PackageContentContext, {higherAssembly}"));
         Assert.IsNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Storage.PackageMetaContext, {higherAssembly}"));
         Assert.IsNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Storage.PackageLogContext, {higherAssembly}"));
     }

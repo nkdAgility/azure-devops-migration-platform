@@ -45,7 +45,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     private readonly INodeTranslationTool? _nodeStructureTool;
     private readonly ProjectMapping? _nodeTranslationContext;
     private readonly NodeTranslationOptions? _nodeStructureOptions;
-    private readonly IPackage? _package;
+    private readonly IPackageAccess? _package;
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
 
@@ -67,7 +67,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         INodeTranslationTool? nodeStructureTool = null,
         ProjectMapping? nodeStructureContext = null,
         NodeTranslationOptions? nodeStructureOptions = null,
-        IPackage? package = null)
+        IPackageAccess? package = null)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));
@@ -461,10 +461,10 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     }
 
     private async Task<string?> ReadPackageTextAsync(string path, CancellationToken ct)
-        => await PackageAccess.ReadTextAsync(_package, _artefactStore, path, ct).ConfigureAwait(false);
+        => await LegacyPackagePathShim.ReadTextAsync(_package, path, ct).ConfigureAwait(false);
 
     private async Task<Stream?> ReadPackageBinaryAsync(string path, CancellationToken ct)
-        => await PackageAccess.ReadBinaryAsync(_package, _artefactStore, path, ct).ConfigureAwait(false);
+        => await LegacyPackagePathShim.ReadBinaryAsync(_package, path, ct).ConfigureAwait(false);
 
     private Task WriteCursorAsync(string folderPath, string stage, CancellationToken ct)
         => _checkpointing.WriteCursorAsync("import.workitems", new CursorEntry

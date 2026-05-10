@@ -89,7 +89,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IReferencedPathTracker? _referencedPathTracker;
     private readonly INodesOrchestrator? _nodesOrchestrator;
 #endif
-    private readonly IPackage? _package;
+    private readonly IPackageAccess? _package;
     private readonly IOptions<WorkItemsModuleOptions> _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
     private readonly IRepoDiscoveryService? _repoDiscoveryService;
@@ -127,7 +127,7 @@ public sealed class WorkItemsModule : IModule
 #endif
         IIdentityLookupTool? identityLookupTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
-        IPackage? package = null)
+        IPackageAccess? package = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));

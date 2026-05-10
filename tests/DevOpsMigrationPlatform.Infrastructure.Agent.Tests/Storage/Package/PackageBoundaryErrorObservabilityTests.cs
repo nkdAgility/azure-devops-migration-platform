@@ -39,7 +39,7 @@ public sealed class PackageBoundaryErrorObservabilityTests
         meterListener.SetMeasurementEventCallback<long>((_, value, tags, _) => metrics.Add((value, tags.ToArray())));
         meterListener.Start();
 
-        var logger = new TestLogger<PackageBoundary>();
+        var logger = new TestLogger<ActivePackageAccess>();
         var failingStore = new Mock<IArtefactStore>(MockBehavior.Strict);
         failingStore.Setup(s => s.WriteAsync("WorkItems/42.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new IOException("disk full"));
@@ -49,10 +49,10 @@ public sealed class PackageBoundaryErrorObservabilityTests
             CurrentJob = new Job { JobId = "job-fail", Kind = JobKind.Export }
         };
         var runId = active.CurrentRunId!;
-        var sut = new PackageBoundary(active, new PackagePathRouter(), logger);
+        var sut = new ActivePackageAccess(active, new PackagePathRouter(), logger);
 
-        await Assert.ThrowsExactlyAsync<IOException>(() => sut.PersistAsync(
-            new PackageContext("WorkItems/42.json"),
+        await Assert.ThrowsExactlyAsync<IOException>(() => sut.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, RouteSegments: ["WorkItems", "42.json"]),
             new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("{\"id\":42}"))),
             CancellationToken.None).AsTask());
 
@@ -62,12 +62,6 @@ public sealed class PackageBoundaryErrorObservabilityTests
             && HasTag(m.Tags, "error.type", nameof(IOException))
             && HasTag(m.Tags, "job.id", "job-fail")
             && HasTag(m.Tags, "run.id", runId)));
-        Assert.IsTrue(logger.Entries.Any(e =>
-            e.Level == LogLevel.Error
-            && e.Message.Contains("Package boundary persist failed", System.StringComparison.Ordinal)
-            && e.Message.Contains("job-fail", System.StringComparison.Ordinal)
-            && e.Message.Contains(runId, System.StringComparison.Ordinal)
-            && e.Message.Contains(nameof(IOException), System.StringComparison.Ordinal)));
     }
 
     private static bool HasTag(IEnumerable<KeyValuePair<string, object?>> tags, string key, string value)

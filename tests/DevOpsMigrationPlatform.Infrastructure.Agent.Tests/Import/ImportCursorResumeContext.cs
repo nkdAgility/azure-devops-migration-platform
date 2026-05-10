@@ -31,7 +31,7 @@ public class ImportCursorResumeContext
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
     public Mock<ICurrentJobEndpointAccessor> MockEndpointAccessor { get; } = new(MockBehavior.Strict);
-    public Mock<IPackage> MockPackage { get; }
+    public Mock<IPackageAccess> MockPackage { get; }
 
     public CheckpointingService CheckpointingService { get; }
     public WorkItemsModuleExtensions Extensions { get; set; } = new WorkItemsModuleExtensions();

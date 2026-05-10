@@ -33,7 +33,7 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
         new BoundedChannelOptions(ChannelCapacity) { FullMode = BoundedChannelFullMode.DropOldest });
 
     private readonly ActivePackageState _packageState;
-    private readonly IPackage _package;
+    private readonly IPackageAccess _package;
     private readonly ILogger<PackageProgressSink> _logger;
     private long _droppedCount;
     private volatile IArtefactStore? _lastKnownStore;
@@ -42,7 +42,7 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
     public PackageProgressSink(
         ActivePackageState packageState,
         ILogger<PackageProgressSink> logger,
-        IPackage package)
+        IPackageAccess package)
     {
         _packageState = packageState;
         _logger = logger;

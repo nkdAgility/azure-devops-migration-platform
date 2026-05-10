@@ -25,7 +25,7 @@ public class PackagePersistenceRunLogFlushTests
     {
         var contexts = new List<PackageLogContext>();
         var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var mockPackage = new Mock<IPackage>(MockBehavior.Strict);
+        var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
         mockPackage.Setup(p => p.AppendLogAsync(
                 It.IsAny<PackageLogContext>(),
                 It.IsAny<PackageLogPayload>(),
@@ -55,7 +55,7 @@ public class PackagePersistenceRunLogFlushTests
     public async Task PackageProgressSink_WithActiveStore_AppendsThroughPackageBoundary()
     {
         var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var mockPackage = new Mock<IPackage>(MockBehavior.Strict);
+        var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
         mockPackage.Setup(p => p.AppendLogAsync(
                 It.Is<PackageLogContext>(c => c.Stream == PackageLogStream.Progress),
                 It.IsAny<PackageLogPayload>(),
@@ -83,7 +83,7 @@ public class PackagePersistenceRunLogFlushTests
     {
         var contexts = new List<PackageLogContext>();
         var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var mockPackage = new Mock<IPackage>(MockBehavior.Strict);
+        var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
         mockPackage.Setup(p => p.AppendLogAsync(
                 It.IsAny<PackageLogContext>(),
                 It.IsAny<PackageLogPayload>(),
@@ -117,7 +117,7 @@ public class PackagePersistenceRunLogFlushTests
     public async Task PackageLoggerProvider_WithActiveStore_AppendsThroughPackageBoundary()
     {
         var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var mockPackage = new Mock<IPackage>(MockBehavior.Strict);
+        var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
         mockPackage.Setup(p => p.AppendLogAsync(
                 It.Is<PackageLogContext>(c => c.Stream == PackageLogStream.Diagnostics),
                 It.IsAny<PackageLogPayload>(),

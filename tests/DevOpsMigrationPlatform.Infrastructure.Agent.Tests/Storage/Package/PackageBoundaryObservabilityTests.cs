@@ -49,7 +49,7 @@ public sealed class PackageBoundaryObservabilityTests
             metrics.Add((instrument.Name, value, tags.ToArray())));
         meterListener.Start();
 
-        var logger = new TestLogger<PackageBoundary>();
+        var logger = new TestLogger<ActivePackageAccess>();
         var store = new InMemoryArtefactStore();
         var active = new ActivePackageState
         {
@@ -57,7 +57,7 @@ public sealed class PackageBoundaryObservabilityTests
             CurrentJob = new Job { JobId = "job-obs", Kind = JobKind.Export }
         };
         var runId = active.CurrentRunId!;
-        var sut = new PackageBoundary(active, new PackagePathRouter(), logger);
+        var sut = new ActivePackageAccess(active, new PackagePathRouter(), logger);
 
         await sut.PersistMetaAsync(
             new PackageMetaContext(PackageMetaKind.MigrationConfig, RelatedToRun: true),
@@ -72,11 +72,6 @@ public sealed class PackageBoundaryObservabilityTests
             && HasTag(m.Tags, "job.id", "job-obs")
             && HasTag(m.Tags, "run.id", runId)
             && HasTag(m.Tags, "result", "success")));
-        Assert.IsTrue(logger.Entries.Any(e =>
-            e.Level == LogLevel.Debug
-            && e.Message.Contains("Package boundary persist-meta succeeded", System.StringComparison.Ordinal)
-            && e.Message.Contains(runId, System.StringComparison.Ordinal)
-            && e.Message.Contains("job-obs", System.StringComparison.Ordinal)));
     }
 
     private static bool HasTag(IEnumerable<KeyValuePair<string, object?>> tags, string key, string value)

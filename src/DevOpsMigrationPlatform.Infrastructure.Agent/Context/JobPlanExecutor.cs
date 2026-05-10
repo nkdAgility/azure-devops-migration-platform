@@ -48,7 +48,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     private readonly IProgressSink? _progressSink;
     private readonly ILogger<JobPlanExecutor> _logger;
     private readonly ICurrentJobEndpointAccessor? _currentJobEndpointAccessor;
-    private readonly IPackage? _package;
+    private readonly IPackageAccess? _package;
 
     // The current source endpoint accessor is shared across the whole job scope,
     // so capture-time source endpoint swaps must be serialised globally.
@@ -59,7 +59,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         IProgressSink? progressSink,
         ILogger<JobPlanExecutor> logger,
         ICurrentJobEndpointAccessor? currentJobEndpointAccessor = null,
-        IPackage? package = null)
+        IPackageAccess? package = null)
     {
         _progressSink = progressSink;
         _logger = logger;
@@ -397,13 +397,13 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     }
 
     private static async Task<InventoryReport?> TryReadInventoryReportAsync(
-        IPackage? package,
+        IPackageAccess? package,
         IArtefactStore artefactStore,
         CancellationToken ct)
     {
         try
         {
-            var json = await PackageAccess.ReadTextAsync(package, artefactStore, "inventory.json", ct).ConfigureAwait(false);
+            var json = await LegacyPackagePathShim.ReadTextAsync(package, "inventory.json", ct).ConfigureAwait(false);
             if (json is null)
                 return null;
 
@@ -450,7 +450,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
     private static async Task<(long? KnownTotal, long? CompletedCount)> TryResolveTaskProgressSnapshotAsync(
         JobTask task,
-        IPackage? package,
+        IPackageAccess? package,
         IArtefactStore? artefactStore,
         CancellationToken ct)
     {
@@ -1111,7 +1111,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         try
         {
             var json = JsonSerializer.Serialize(plan, _jsonOptions);
-            await PackageAccess.WriteStateAsync(_package, stateStore, PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
+            await LegacyPackagePathShim.WriteStateAsync(_package, stateStore, PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -1243,12 +1243,12 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     public static async Task<JobTaskList?> LoadOrResetAsync(
         IStateStore stateStore,
         CancellationToken ct,
-        IPackage? package = null)
+        IPackageAccess? package = null)
     {
         try
         {
             string? json;
-            json = await PackageAccess.ReadStateAsync(package, stateStore, PackagePaths.PlanFile, ct).ConfigureAwait(false);
+            json = await LegacyPackagePathShim.ReadStateAsync(package, stateStore, PackagePaths.PlanFile, ct).ConfigureAwait(false);
 
             if (json is null)
                 return null;

@@ -33,13 +33,13 @@ public sealed class PackageBoundaryAdoptionAuditTests
         };
         var runId = active.CurrentRunId!;
         var router = new PackagePathRouter();
-        var sut = new PackageBoundary(active, router, NullLogger<PackageBoundary>.Instance);
+        var sut = new ActivePackageAccess(active, router, NullLogger<ActivePackageAccess>.Instance);
 
-        var contentContext = new PackageContext("WorkItems/1/workitem.json");
+        var contentContext = new PackageContentContext(PackageContentKind.Artefact, RouteSegments: ["WorkItems", "1", "workitem.json"]);
         var metaContext = new PackageMetaContext(PackageMetaKind.ExecutionPlan, RelatedToRun: true);
         var logContext = new PackageLogContext(runId, PackageLogStream.Progress);
 
-        await sut.PersistAsync(
+        await sut.PersistContentAsync(
             contentContext,
             new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("{\"id\":1}"))),
             CancellationToken.None);

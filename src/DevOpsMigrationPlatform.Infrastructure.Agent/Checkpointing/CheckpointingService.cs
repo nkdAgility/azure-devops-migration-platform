@@ -28,14 +28,14 @@ public class CheckpointingService : ICheckpointingService
     private readonly ICurrentJobEndpointAccessor? _currentJobEndpointAccessor;
     private readonly ICurrentPackageConfigAccessor? _currentPackageConfigAccessor;
     private readonly ILogger<CheckpointingService>? _logger;
-    private readonly IPackage? _package;
+    private readonly IPackageAccess? _package;
 
     public CheckpointingService(
         IStateStore stateStore,
         ICurrentJobEndpointAccessor? currentJobEndpointAccessor = null,
         ICurrentPackageConfigAccessor? currentPackageConfigAccessor = null,
         ILogger<CheckpointingService>? logger = null,
-        IPackage? package = null)
+        IPackageAccess? package = null)
     {
         _stateStore = stateStore;
         _currentJobEndpointAccessor = currentJobEndpointAccessor;
@@ -54,7 +54,7 @@ public class CheckpointingService : ICheckpointingService
         var key = ResolveCursorKey(checkpointIdentity);
         activity?.SetTag("cursor.key", key);
         _logger?.LogDebug("Reading cursor from {CursorKey}.", key);
-        var json = await PackageAccess.ReadStateAsync(_package, _stateStore, key, cancellationToken).ConfigureAwait(false);
+        var json = await LegacyPackagePathShim.ReadStateAsync(_package, _stateStore, key, cancellationToken).ConfigureAwait(false);
 
         if (json is null)
             return null;
@@ -70,7 +70,7 @@ public class CheckpointingService : ICheckpointingService
         activity?.SetTag("cursor.key", key);
         _logger?.LogDebug("Writing cursor to {CursorKey}.", key);
         var json = JsonSerializer.Serialize(cursor);
-        await PackageAccess.WriteStateAsync(_package, _stateStore, key, json, cancellationToken).ConfigureAwait(false);
+        await LegacyPackagePathShim.WriteStateAsync(_package, _stateStore, key, json, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task DeleteCursorAsync(string checkpointIdentity, CancellationToken cancellationToken)
@@ -87,7 +87,7 @@ public class CheckpointingService : ICheckpointingService
     public async Task<BatchContinuationToken?> ReadContinuationTokenAsync(string checkpointIdentity, CancellationToken cancellationToken)
     {
         var key = ResolveContinuationKey(checkpointIdentity);
-        var json = await PackageAccess.ReadStateAsync(_package, _stateStore, key, cancellationToken).ConfigureAwait(false);
+        var json = await LegacyPackagePathShim.ReadStateAsync(_package, _stateStore, key, cancellationToken).ConfigureAwait(false);
         if (json is null)
             return null;
         return JsonSerializer.Deserialize<BatchContinuationToken>(json);
@@ -97,7 +97,7 @@ public class CheckpointingService : ICheckpointingService
     {
         var key = ResolveContinuationKey(checkpointIdentity);
         var json = JsonSerializer.Serialize(token);
-        await PackageAccess.WriteStateAsync(_package, _stateStore, key, json, cancellationToken).ConfigureAwait(false);
+        await LegacyPackagePathShim.WriteStateAsync(_package, _stateStore, key, json, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task DeleteContinuationTokenAsync(string checkpointIdentity, CancellationToken cancellationToken)

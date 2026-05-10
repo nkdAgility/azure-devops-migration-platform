@@ -40,7 +40,7 @@ public sealed class JobExecutionPlanBuilderTests
 
     private static JobExecutionPlanBuilder CreateBuilder(
         IEnumerable<IModule>? modules = null,
-        IPackage? package = null)
+        IPackageAccess? package = null)
     {
         package ??= PackageTestFactory.CreateLooseMock().Object;
         var phaseFactory = new Mock<IPhaseTrackingServiceFactory>(MockBehavior.Loose);
@@ -233,12 +233,12 @@ public sealed class JobExecutionPlanBuilderTests
     public async Task BuildPlanAsync_ImportKind_UsesPackagedProjectNamesWhenTargetProjectIsNotExplicitlyConfigured()
     {
         var package = PackageTestFactory.CreateLooseMock().Object;
-        await package.PersistAsync(
-            new PackageContext("simulated/PackagedProject/Nodes/source-tree.json"),
+        await package.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, RouteSegments: ["simulated", "PackagedProject", "Nodes", "source-tree.json"]),
             new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes("{}"), writable: false)),
             CancellationToken.None);
-        await package.PersistAsync(
-            new PackageContext("simulated/PackagedProject/WorkItems/00000000000001-1-0/revision.json"),
+        await package.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, RouteSegments: ["simulated", "PackagedProject", "WorkItems", "00000000000001-1-0", "revision.json"]),
             new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes("{}"), writable: false)),
             CancellationToken.None);
         var builder = CreateBuilder(package: package);
@@ -571,7 +571,7 @@ public sealed class JobExecutionPlanBuilderTests
             .Setup(s => s.ReadAsync(PackagePaths.PlanFile, It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
 
-        var package = new Mock<IPackage>(MockBehavior.Strict);
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),

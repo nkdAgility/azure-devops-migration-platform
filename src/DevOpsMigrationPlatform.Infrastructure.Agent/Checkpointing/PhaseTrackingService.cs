@@ -16,9 +16,9 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 public class PhaseTrackingService : IPhaseTrackingService
 {
     private readonly IStateStore _stateStore;
-    private readonly IPackage? _package;
+    private readonly IPackageAccess? _package;
 
-    public PhaseTrackingService(IStateStore stateStore, IPackage? package = null)
+    public PhaseTrackingService(IStateStore stateStore, IPackageAccess? package = null)
     {
         _stateStore = stateStore;
         _package = package;
@@ -27,7 +27,7 @@ public class PhaseTrackingService : IPhaseTrackingService
     public async Task<JobPhaseRecord> ReadPhaseRecordAsync(CancellationToken cancellationToken)
     {
         string? json;
-        json = await PackageAccess.ReadStateAsync(_package, _stateStore, PackagePaths.PhaseFile, cancellationToken).ConfigureAwait(false);
+        json = await LegacyPackagePathShim.ReadStateAsync(_package, _stateStore, PackagePaths.PhaseFile, cancellationToken).ConfigureAwait(false);
 
         if (json is null)
             return new JobPhaseRecord();
@@ -37,7 +37,7 @@ public class PhaseTrackingService : IPhaseTrackingService
     public async Task WritePhaseRecordAsync(JobPhaseRecord record, CancellationToken cancellationToken)
     {
         var json = JsonSerializer.Serialize(record);
-        await PackageAccess.WriteStateAsync(_package, _stateStore, PackagePaths.PhaseFile, json, cancellationToken).ConfigureAwait(false);
+        await LegacyPackagePathShim.WriteStateAsync(_package, _stateStore, PackagePaths.PhaseFile, json, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task DeletePhaseRecordAsync(CancellationToken cancellationToken)

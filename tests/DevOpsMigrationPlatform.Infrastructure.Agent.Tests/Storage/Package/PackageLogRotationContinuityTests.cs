@@ -21,7 +21,7 @@ public sealed class PackageLogRotationContinuityTests
     {
         var store = new InMemoryArtefactStore();
         var active = new ActivePackageState { CurrentStore = store };
-        var sut = new PackageBoundary(active, new PackagePathRouter(), NullLogger<PackageBoundary>.Instance);
+        var sut = new ActivePackageAccess(active, new PackagePathRouter(), NullLogger<ActivePackageAccess>.Instance);
 
         await sut.AppendLogAsync(
             new PackageLogContext("run-a", PackageLogStream.Diagnostics),

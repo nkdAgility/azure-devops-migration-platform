@@ -54,7 +54,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
 #endif
 
     private readonly ILogger _logger;
-    private readonly IPackage? _package;
+    private readonly IPackageAccess? _package;
 #if !NET481
     private readonly IPlatformMetrics? _PlatformMetrics;
     private readonly INodeTranslationTool _nodeTranslationTool;
@@ -69,9 +69,9 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         INodeCreator nodeCreator,
         IOptionsMonitor<NodeTranslationOptions> nodeTranslationOptions,
         IPlatformMetrics? PlatformMetrics = null,
-        IPackage? package = null
+        IPackageAccess? package = null
 #else
-        , IPackage? package = null
+        , IPackageAccess? package = null
 #endif
     )
     {
@@ -112,7 +112,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
             var checkpointing = checkpointingFactory.Create(context.StateStore);
             var cursor = await checkpointing.ReadCursorAsync("export.nodes", ct).ConfigureAwait(false);
             if (cursor?.Stage == CursorStage.Completed
-                && await PackageAccess.ExistsAsync(_package, context.ArtefactStore, SourceTreePath, ct).ConfigureAwait(false))
+                && await LegacyPackagePathShim.ExistsAsync(_package, SourceTreePath, ct).ConfigureAwait(false))
             {
                 _logger.LogInformation("[Nodes] Already exported (cursor found) — skipping re-export.");
                 return;
@@ -432,7 +432,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
 
     private async Task<NodeReplicationProgress> LoadProgressAsync(IStateStore stateStore, CancellationToken ct)
     {
-        var json = await PackageAccess.ReadStateAsync(_package, stateStore, NodeReplicationProgress.StateKey, ct).ConfigureAwait(false);
+        var json = await LegacyPackagePathShim.ReadStateAsync(_package, stateStore, NodeReplicationProgress.StateKey, ct).ConfigureAwait(false);
         if (json is null) return new NodeReplicationProgress();
         return JsonSerializer.Deserialize<NodeReplicationProgress>(json, s_jsonOptions) ?? new NodeReplicationProgress();
     }
@@ -440,7 +440,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
     private async Task SaveProgressAsync(IStateStore stateStore, NodeReplicationProgress progress, CancellationToken ct)
     {
         var json = JsonSerializer.Serialize(progress, s_jsonOptions);
-        await PackageAccess.WriteStateAsync(_package, stateStore, NodeReplicationProgress.StateKey, json, ct).ConfigureAwait(false);
+        await LegacyPackagePathShim.WriteStateAsync(_package, stateStore, NodeReplicationProgress.StateKey, json, ct).ConfigureAwait(false);
     }
 #endif
 
@@ -476,6 +476,6 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
 
     private async Task<string?> ReadPackageContentAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
     {
-        return await PackageAccess.ReadTextAsync(_package, artefactStore, relativePath, ct).ConfigureAwait(false);
+        return await LegacyPackagePathShim.ReadTextAsync(_package, relativePath, ct).ConfigureAwait(false);
     }
 }

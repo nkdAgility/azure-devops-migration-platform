@@ -60,11 +60,11 @@ public class NodeEnsurerTests
         var optionsMonitor = new Mock<IOptionsMonitor<NodeTranslationOptions>>();
         optionsMonitor.SetupGet(o => o.CurrentValue).Returns(opts);
         var package = PackageTestFactory.CreateLooseMock();
-        package.Setup(p => p.RequestAsync(It.Is<PackageContext>(c => c.ContentKind == "Nodes/referenced-paths.json"), It.IsAny<CancellationToken>()))
+        package.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Nodes/referenced-paths.json"), It.IsAny<CancellationToken>()))
             .Returns(() => ToPayload(referencedPathsJson));
-        package.Setup(p => p.RequestAsync(It.Is<PackageContext>(c => c.ContentKind == "Nodes/source-tree.json"), It.IsAny<CancellationToken>()))
+        package.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Nodes/source-tree.json"), It.IsAny<CancellationToken>()))
             .Returns(() => ToPayload(sourceTreeJson));
-        package.Setup(p => p.RequestAsync(It.Is<PackageContext>(c => c.ContentKind == NodeReplicationProgress.StateKey), It.IsAny<CancellationToken>()))
+        package.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == NodeReplicationProgress.StateKey), It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult<PackagePayload?>(null));
 
         var orchestrator = new NodesOrchestrator(
@@ -205,11 +205,11 @@ public class NodeEnsurerTests
         var optionsMonitor = new Mock<IOptionsMonitor<NodeTranslationOptions>>();
         optionsMonitor.SetupGet(o => o.CurrentValue).Returns(opts);
         var package = PackageTestFactory.CreateLooseMock();
-        package.Setup(p => p.RequestAsync(It.Is<PackageContext>(c => c.ContentKind == "Nodes/source-tree.json"), It.IsAny<CancellationToken>()))
+        package.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Nodes/source-tree.json"), It.IsAny<CancellationToken>()))
             .Returns(() => ToPayload(treeJson));
-        package.Setup(p => p.RequestAsync(It.Is<PackageContext>(c => c.ContentKind == "Nodes/referenced-paths.json"), It.IsAny<CancellationToken>()))
+        package.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Nodes/referenced-paths.json"), It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult<PackagePayload?>(null));
-        package.Setup(p => p.RequestAsync(It.Is<PackageContext>(c => c.ContentKind == NodeReplicationProgress.StateKey), It.IsAny<CancellationToken>()))
+        package.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == NodeReplicationProgress.StateKey), It.IsAny<CancellationToken>()))
             .Returns(() => ToPayload(progressJson));
         var orchestrator = new NodesOrchestrator(NullLogger<NodesOrchestrator>.Instance, tool, creatorMock.Object, optionsMonitor.Object, package: package.Object);
 

@@ -12,9 +12,9 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 /// </summary>
 public sealed class PhaseTrackingServiceFactory : IPhaseTrackingServiceFactory
 {
-    private readonly IPackage _package;
+    private readonly IPackageAccess _package;
 
-    public PhaseTrackingServiceFactory(IPackage package)
+    public PhaseTrackingServiceFactory(IPackageAccess package)
     {
         _package = package ?? throw new ArgumentNullException(nameof(package));
     }

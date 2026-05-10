@@ -122,14 +122,14 @@ public class ReplicateSourceTreeContext
         var package = PackageTestFactory.CreateLooseMock();
         if (SourceTreeArtifactAbsent)
         {
-            package.Setup(p => p.RequestAsync(It.Is<PackageContext>(c => c.ContentKind == "Nodes/source-tree.json"), It.IsAny<CancellationToken>()))
+            package.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Nodes/source-tree.json"), It.IsAny<CancellationToken>()))
                 .Returns(ValueTask.FromResult<PackagePayload?>(null));
         }
         else
         {
             var snapshot = new ClassificationTreeSnapshot(_areaNodes, _iterationNodes);
             var json = JsonSerializer.Serialize(snapshot, s_jsonOptions);
-            package.Setup(p => p.RequestAsync(It.Is<PackageContext>(c => c.ContentKind == "Nodes/source-tree.json"), It.IsAny<CancellationToken>()))
+            package.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Nodes/source-tree.json"), It.IsAny<CancellationToken>()))
                 .Returns(() =>
                 {
                     var bytes = System.Text.Encoding.UTF8.GetBytes(json);
@@ -142,7 +142,7 @@ public class ReplicateSourceTreeContext
             var progress = new NodeReplicationProgress();
             foreach (var p in _checkpointedPaths) progress.ReplicatedPaths.Add(p);
             var progressJson = JsonSerializer.Serialize(progress, s_jsonOptions);
-            package.Setup(p => p.RequestAsync(It.Is<PackageContext>(c => c.ContentKind == NodeReplicationProgress.StateKey), It.IsAny<CancellationToken>()))
+            package.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == NodeReplicationProgress.StateKey), It.IsAny<CancellationToken>()))
                 .Returns(() =>
                 {
                     var bytes = System.Text.Encoding.UTF8.GetBytes(progressJson);

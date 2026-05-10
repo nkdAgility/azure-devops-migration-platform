@@ -50,7 +50,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     private readonly ITfsJobServiceFactory _tfsServiceFactory;
     private readonly ActiveTfsJobServices _activeTfsJobServices;
     private readonly ILogger<TfsJobAgentWorker> _logger;
-    private readonly IPackage? _package;
+    private readonly IPackageAccess? _package;
 
     // Per-job TFS connection — set in OnBeforeModulesAsync, cleared in OnAfterModulesAsync.
     private TfsJobServices? _currentTfsServices;
@@ -66,7 +66,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         ActivePackageState packageState,
         IActiveJobState activeJobState,
         ICurrentPackageConfigAccessor currentPackageConfigAccessor,
-        IPackageConfigStore packageConfigStore,
+        IPackageMigrationConfigLoader packageMigrationConfigLoader,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
         ICheckpointingServiceFactory checkpointingFactory,
@@ -75,9 +75,9 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         ITfsJobServiceFactory tfsServiceFactory,
         ActiveTfsJobServices activeTfsJobServices,
         ILogger<TfsJobAgentWorker> logger,
-        IPackage? package = null)
+        IPackageAccess? package = null)
         : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
-             phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageConfigStore,
+             phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageMigrationConfigLoader,
                 moduleScopeFactory, httpClientFactory, logger, activeJobState)
     {
         _flushables = flushables;
@@ -155,9 +155,9 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         _currentPackageUri = job.Package.PackageUri ?? ".";
 
         // Update plan file to mark TFS export task as Running (best-effort).
-            var (_, stateStore) = PackageStoreFactory.Create(_currentPackageUri);
-            await UpdatePlanTaskStatusAsync(stateStore, "export.workitems", JobTaskStatus.Running, ct)
-                .ConfigureAwait(false);
+        var (_, stateStore) = PackageStoreFactory.Create(_currentPackageUri);
+        await UpdatePlanTaskStatusAsync(stateStore, "export.workitems", JobTaskStatus.Running, ct)
+            .ConfigureAwait(false);
     }
 
     private static TeamFoundationServerEndpointOptions BindTfsSource(IConfiguration section)
@@ -219,7 +219,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
                 }
             }
 
-            json ??= await PackageAccess.ReadStateAsync(_package, stateStore, PackagePaths.PlanFile, ct).ConfigureAwait(false);
+            json ??= await LegacyPackagePathShim.ReadStateAsync(_package, stateStore, PackagePaths.PlanFile, ct).ConfigureAwait(false);
             if (json == null)
             {
                 _logger.LogDebug("No plan file found at {Path} — skipping TFS task status update.", PackagePaths.PlanFile);
@@ -265,7 +265,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
             }
             else
             {
-                await PackageAccess.WriteStateAsync(_package, stateStore, PackagePaths.PlanFile, updatedJson, ct).ConfigureAwait(false);
+                await LegacyPackagePathShim.WriteStateAsync(_package, stateStore, PackagePaths.PlanFile, updatedJson, ct).ConfigureAwait(false);
             }
 
             _logger.LogDebug("Updated TFS task {TaskId} to {Status} in plan file.", taskId, newStatus);
@@ -292,7 +292,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         IConfiguration packageConfig;
         try
         {
-            packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
+            packageConfig = await PackageMigrationConfigLoader.LoadAsync(ct).ConfigureAwait(false);
             CurrentPackageConfig.Set(packageConfig);
         }
         catch (PackageConfigNotFoundException ex)

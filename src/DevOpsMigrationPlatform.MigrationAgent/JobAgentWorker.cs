@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -45,7 +46,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly IEnumerable<IFlushable> _flushables;
     private readonly IServiceScopeFactory _moduleScopeFactory;
     private readonly IPackagePreparer _packagePreparer;
-    private readonly IPackage _package;
+    private readonly IPackageAccess _package;
     private readonly IJobExecutionPlanBuilder _planBuilder;
     private readonly IJobPlanExecutor _planExecutor;
     private readonly ICurrentPackageConfigAccessor _currentPackageConfigAccessor;
@@ -58,13 +59,13 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IEnumerable<IModule> migrationModules,
         IPackageStoreFactory packageStoreFactory,
         IPackagePreparer packagePreparer,
-        IPackage package,
+        IPackageAccess package,
         IProgressSink progressSink,
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
         IActiveJobState activeJobState,
         ICurrentPackageConfigAccessor currentPackageConfigAccessor,
-        IPackageConfigStore packageConfigStore,
+        IPackageMigrationConfigLoader packageMigrationConfigLoader,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
         ICheckpointingServiceFactory checkpointingFactory,
@@ -81,7 +82,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         PolymorphicEndpointOptionsConverter? endpointConverter = null,
         PolymorphicOrganisationEntryConverter? organisationConverter = null)
         : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
-             phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageConfigStore,
+             phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageMigrationConfigLoader,
                moduleScopeFactory, httpClientFactory, logger, activeJobState, endpointConverter, organisationConverter)
     {
         _metricsStore = metricsStore;
@@ -116,14 +117,14 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         var (artefactStore, stateStore) = await InitializeJobPackageAsync(job, ct).ConfigureAwait(false);
 
         // Write config payload from the Job into the package before any config reads.
-        await WriteConfigPayloadAsync(_package, job, artefactStore, ct).ConfigureAwait(false);
+        await WriteConfigPayloadAsync(_package, job, ct).ConfigureAwait(false);
 
         // Load migration-config.json so singleton services (ActiveJobSourceEndpointInfo,
         // IOptions<T> bound from PackageConfig, etc.) resolve per-job values.
         IConfiguration? packageConfig = null;
         try
         {
-            packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
+            packageConfig = await PackageMigrationConfigLoader.LoadAsync(ct).ConfigureAwait(false);
             _currentPackageConfigAccessor.Set(packageConfig);
             SetCurrentJobContext(packageConfig);
             SetCurrentEndpointContext(packageConfig);
@@ -286,18 +287,21 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private static bool PlanMaterializesInventorySnapshot(JobTaskList plan)
         => plan.Tasks.Any(task => task.Id.Equals("analyse.inventory", StringComparison.OrdinalIgnoreCase));
 
-    private static Task WriteInventoryCompletionMarkerAsync(IPackage package, Job job, IStateStore stateStore, CancellationToken ct)
-        => PackageAccess.WriteStateAsync(
-            package,
-            stateStore,
-            PackagePaths.InventoryCompleteFile,
-            JsonSerializer.Serialize(new
-            {
-                phase = "Inventory",
-                completedAtUtc = DateTimeOffset.UtcNow,
-                jobId = job.JobId,
-            }),
-            ct);
+    private static async Task WriteInventoryCompletionMarkerAsync(IPackageAccess package, Job job, IStateStore stateStore, CancellationToken ct)
+    {
+        _ = stateStore;
+        var payload = JsonSerializer.Serialize(new
+        {
+            phase = "Inventory",
+            completedAtUtc = DateTimeOffset.UtcNow,
+            jobId = job.JobId,
+        });
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(payload), writable: false);
+        await package.PersistMetaAsync(
+            new PackageMetaContext(PackageMetaKind.InventoryCompletionMarker),
+            new PackageMetaPayload(stream),
+            ct).ConfigureAwait(false);
+    }
 
     private sealed record ExplicitSourceEndpointInfo(
         string Url,
@@ -352,14 +356,14 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     /// Use <see cref="ResumeMode.ForceFresh"/> to restart with a completely new configuration.
     /// </summary>
     private static async Task WriteConfigPayloadAsync(
-        IPackage package, Job job, IArtefactStore artefactStore, CancellationToken ct)
+        IPackageAccess package, Job job, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(job.ConfigPayload))
             return;
 
         var forceFresh = job.Resume?.Mode == DevOpsMigrationPlatform.Abstractions.Jobs.ResumeMode.ForceFresh;
-        var exists = await PackageAccess
-            .ExistsAsync(package, artefactStore, PackagePaths.MigrationConfigFileName, ct)
+        var exists = await LegacyPackagePathShim
+            .ExistsAsync(package, PackagePaths.MigrationConfigFileName, ct)
             .ConfigureAwait(false);
 
         if (exists && !forceFresh)
@@ -367,8 +371,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             // Resume mode: verify the Source and Target endpoints are unchanged.
             // A compatible re-submission overwrites the config (picking up any non-identity
             // changes such as module settings) while preserving cursor state.
-            var existingJson = await PackageAccess
-                .ReadTextAsync(package, artefactStore, PackagePaths.MigrationConfigFileName, ct)
+            var existingJson = await LegacyPackagePathShim
+                .ReadTextAsync(package, PackagePaths.MigrationConfigFileName, ct)
                 .ConfigureAwait(false);
             var mismatch = GetSourceTargetMismatch(existingJson ?? string.Empty, job.ConfigPayload);
             if (mismatch != null)
@@ -378,8 +382,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             // Compatible — fall through and overwrite (cursor state is preserved separately).
         }
 
-        await PackageAccess
-            .WriteTextAsync(package, artefactStore, PackagePaths.MigrationConfigFileName, job.ConfigPayload, ct)
+        await LegacyPackagePathShim
+            .WriteTextAsync(package, PackagePaths.MigrationConfigFileName, job.ConfigPayload, ct)
             .ConfigureAwait(false);
     }
 
@@ -589,8 +593,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 var endpointsByUrl = new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase);
                 try
                 {
-                    var rawJson = await PackageAccess
-                        .ReadTextAsync(_package, artefactStore, PackagePaths.MigrationConfigFileName, ct)
+                    var rawJson = await LegacyPackagePathShim
+                        .ReadTextAsync(_package, PackagePaths.MigrationConfigFileName, ct)
                         .ConfigureAwait(false);
                     if (!string.IsNullOrWhiteSpace(rawJson))
                     {
@@ -733,7 +737,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                         timestamp = DateTimeOffset.UtcNow,
                         status = "ok"
                     });
-                    await PackageAccess.WriteTextAsync(_package, artefactStore, "prepare-probe.json", probeContent, ct).ConfigureAwait(false);
+                    await LegacyPackagePathShim.WriteTextAsync(_package, ".migration/prepare-probe.json", probeContent, ct).ConfigureAwait(false);
 
                     var prepareModules = jobModules.Where(m => m.SupportsPrepare).ToList();
                     var requiredAnalyserNames = prepareModules
@@ -826,8 +830,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         var policies = new JobPolicies();
         try
         {
-            var rawJson = await PackageAccess
-                .ReadTextAsync(_package, artefactStore, PackagePaths.MigrationConfigFileName, ct)
+            var rawJson = await LegacyPackagePathShim
+                .ReadTextAsync(_package, PackagePaths.MigrationConfigFileName, ct)
                 .ConfigureAwait(false);
             if (!string.IsNullOrWhiteSpace(rawJson))
             {

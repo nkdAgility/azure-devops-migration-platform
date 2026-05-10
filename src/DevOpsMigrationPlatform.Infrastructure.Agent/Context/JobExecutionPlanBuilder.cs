@@ -63,7 +63,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     private readonly IProjectDiscoveryService? _projectDiscovery;
     private readonly IOptions<MigrationPlatformOptions>? _migrationOptions;
     private readonly ActivePackageState? _packageState;
-    private readonly IPackage? _package;
+    private readonly IPackageAccess? _package;
     private readonly ILogger<JobExecutionPlanBuilder> _logger;
 
     public JobExecutionPlanBuilder(
@@ -74,7 +74,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         IProjectDiscoveryService? projectDiscovery = null,
         IOptions<MigrationPlatformOptions>? migrationOptions = null,
         ActivePackageState? packageState = null,
-        IPackage? package = null)
+        IPackageAccess? package = null)
     {
         _modules = modules;
         _modulesByName = modules.ToDictionary(m => m.Name, StringComparer.OrdinalIgnoreCase);
@@ -230,7 +230,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             }
             else
             {
-                await PackageAccess.WriteStateAsync(_package, stateStore, PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
+                await LegacyPackagePathShim.WriteStateAsync(_package, stateStore, PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
                 _logger.LogDebug("Persisted execution plan to {Path}.", PackagePaths.PlanFile);
 
                 var runId = _packageState?.CurrentRunId;
@@ -239,7 +239,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                     var runPlanPath = PackagePaths.RunPlanFile(runId!);
                     if (RunScopeAuthorityGuard.IsRunScopedPath(runPlanPath))
                         _logger.LogDebug("Writing run-scope plan snapshot for audit only: {RunPlanPath}", runPlanPath);
-                    await PackageAccess.WriteStateAsync(_package, stateStore, runPlanPath, json, ct).ConfigureAwait(false);
+                    await LegacyPackagePathShim.WriteStateAsync(_package, stateStore, runPlanPath, json, ct).ConfigureAwait(false);
                     _logger.LogDebug("Persisted run plan snapshot to {Path}.", runPlanPath);
                 }
             }
@@ -584,7 +584,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     private static async Task<List<string>> GetConfiguredTargetProjectsAsync(
         IConfiguration config,
         IArtefactStore artefactStore,
-        IPackage? package,
+        IPackageAccess? package,
         CancellationToken ct)
     {
         var targetProject = config["MigrationPlatform:Target:Project"];
@@ -605,11 +605,11 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
     private static async Task<List<string>> DiscoverPackagedProjectNamesAsync(
         IArtefactStore artefactStore,
-        IPackage? package,
+        IPackageAccess? package,
         CancellationToken ct)
     {
         var packagedProjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var paths = PackageAccess.EnumerateAsync(package, artefactStore, string.Empty, ct);
+        var paths = LegacyPackagePathShim.EnumerateAsync(package, string.Empty, ct);
 
         if (paths is not null)
         {

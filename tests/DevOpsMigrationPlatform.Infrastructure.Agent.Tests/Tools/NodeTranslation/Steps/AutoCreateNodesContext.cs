@@ -27,7 +27,7 @@ public class AutoCreateNodesContext
     public Mock<INodeCreator> NodeCreatorMock { get; } = new(MockBehavior.Loose);
     public Mock<IArtefactStore> ArtefactStoreMock { get; } = new(MockBehavior.Loose);
     public Mock<IStateStore> StateStoreMock { get; } = new(MockBehavior.Loose);
-    public Mock<IPackage> PackageMock { get; }
+    public Mock<IPackageAccess> PackageMock { get; }
     private INodesOrchestrator? _orchestrator;
 
     public AutoCreateNodesContext()

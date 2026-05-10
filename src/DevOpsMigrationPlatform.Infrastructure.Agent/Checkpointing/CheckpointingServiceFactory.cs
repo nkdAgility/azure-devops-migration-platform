@@ -15,12 +15,12 @@ public sealed class CheckpointingServiceFactory : ICheckpointingServiceFactory
 {
     private readonly ICurrentJobEndpointAccessor _currentJobEndpointAccessor;
     private readonly ICurrentPackageConfigAccessor _currentPackageConfigAccessor;
-    private readonly IPackage _package;
+    private readonly IPackageAccess _package;
 
     public CheckpointingServiceFactory(
         ICurrentJobEndpointAccessor currentJobEndpointAccessor,
         ICurrentPackageConfigAccessor currentPackageConfigAccessor,
-        IPackage package)
+        IPackageAccess package)
     {
         _currentJobEndpointAccessor = currentJobEndpointAccessor;
         _currentPackageConfigAccessor = currentPackageConfigAccessor;
