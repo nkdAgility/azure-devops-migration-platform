@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,17 +12,27 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 
-public static class PackageAccess
+[Obsolete(
+    "Legacy compatibility shim for path-based package access. New code must use IPackageAccess directly via typed PackageContentContext/PackageMetaContext. Do not add new call sites.",
+    error: false)]
+/// <summary>
+/// Legacy compatibility shim for older path-based callers.
+/// This is a transitional adapter over IPackageAccess, not the target package API.
+/// New code must use IPackageAccess with typed contexts directly.
+/// </summary>
+public static class LegacyPackagePathShim
 {
     public static async Task<string?> ReadTextAsync(
-        IPackage? package,
+        IPackageAccess? package,
         IArtefactStore artefactStore,
         string path,
         CancellationToken ct)
     {
         _ = artefactStore;
         var resolvedPackage = Resolve(package);
-        var payload = await resolvedPackage.RequestAsync(new PackageContext(path), ct).ConfigureAwait(false);
+        var payload = await resolvedPackage.RequestContentAsync(
+            CreateContext(PackageContentKind.Artefact, path),
+            ct).ConfigureAwait(false);
         if (payload is null)
             return null;
 
@@ -32,17 +43,19 @@ public static class PackageAccess
     }
 
     public static Task<bool> ExistsAsync(
-        IPackage? package,
+        IPackageAccess? package,
         IArtefactStore artefactStore,
         string path,
         CancellationToken ct)
     {
         _ = artefactStore;
-        return Resolve(package).ExistsAsync(new PackageContext(path), ct).AsTask();
+        return Resolve(package).ContentExistsAsync(
+            CreateContext(PackageContentKind.Artefact, path),
+            ct).AsTask();
     }
 
     public static async Task WriteTextAsync(
-        IPackage? package,
+        IPackageAccess? package,
         IArtefactStore artefactStore,
         string path,
         string content,
@@ -50,11 +63,14 @@ public static class PackageAccess
     {
         _ = artefactStore;
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
-        await Resolve(package).PersistAsync(new PackageContext(path), new PackagePayload(stream), ct).ConfigureAwait(false);
+        await Resolve(package).PersistContentAsync(
+            CreateContext(PackageContentKind.Artefact, path),
+            new PackagePayload(stream),
+            ct).ConfigureAwait(false);
     }
 
     public static async Task AppendTextAsync(
-        IPackage? package,
+        IPackageAccess? package,
         IArtefactStore artefactStore,
         string path,
         string content,
@@ -62,11 +78,14 @@ public static class PackageAccess
     {
         _ = artefactStore;
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
-        await Resolve(package).AppendAsync(new PackageContext(path), new PackagePayload(stream), ct).ConfigureAwait(false);
+        await Resolve(package).AppendContentAsync(
+            CreateContext(PackageContentKind.Artefact, path),
+            new PackagePayload(stream),
+            ct).ConfigureAwait(false);
     }
 
     public static async Task WriteBinaryAsync(
-        IPackage? package,
+        IPackageAccess? package,
         IArtefactStore artefactStore,
         string path,
         byte[] content,
@@ -74,33 +93,41 @@ public static class PackageAccess
     {
         _ = artefactStore;
         using var stream = new MemoryStream(content, writable: false);
-        await Resolve(package).PersistStreamAsync(new PackageContext(path), stream, "application/octet-stream", ct).ConfigureAwait(false);
+        await Resolve(package).PersistContentStreamAsync(
+            CreateContext(PackageContentKind.Artefact, path),
+            stream,
+            "application/octet-stream",
+            ct).ConfigureAwait(false);
     }
 
     public static async Task<Stream?> ReadBinaryAsync(
-        IPackage? package,
+        IPackageAccess? package,
         IArtefactStore artefactStore,
         string path,
         CancellationToken ct)
     {
         _ = artefactStore;
-        var payload = await Resolve(package).RequestBinaryAsync(new PackageContext(path), ct).ConfigureAwait(false);
-        return payload?.Content;
+        return await Resolve(package).RequestContentBinaryAsync(
+            CreateContext(PackageContentKind.Artefact, path),
+            ct).ConfigureAwait(false);
     }
 
     public static async IAsyncEnumerable<string> EnumerateAsync(
-        IPackage? package,
+        IPackageAccess? package,
         IArtefactStore artefactStore,
         string prefix,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
         _ = artefactStore;
-        await foreach (var item in Resolve(package).EnumerateAsync(new PackageContext(prefix), ct).ConfigureAwait(false))
+        var contentKind = string.IsNullOrWhiteSpace(prefix) ? string.Empty : prefix;
+        await foreach (var item in Resolve(package).EnumerateContentAsync(
+            CreateContext(PackageContentKind.Collection, contentKind),
+            ct).ConfigureAwait(false))
             yield return item;
     }
 
     public static async Task<string?> ReadStateAsync(
-        IPackage? package,
+        IPackageAccess? package,
         IStateStore stateStore,
         string key,
         CancellationToken ct)
@@ -132,7 +159,9 @@ public static class PackageAccess
             return await reader.ReadToEndAsync().ConfigureAwait(false);
         }
 
-        var payload = await resolvedPackage.RequestAsync(new PackageContext(key), ct).ConfigureAwait(false);
+        var payload = await resolvedPackage.RequestContentAsync(
+            CreateContext(PackageContentKind.Artefact, key),
+            ct).ConfigureAwait(false);
         if (payload is null)
             return null;
 
@@ -143,7 +172,7 @@ public static class PackageAccess
     }
 
     public static async Task WriteStateAsync(
-        IPackage? package,
+        IPackageAccess? package,
         IStateStore stateStore,
         string key,
         string value,
@@ -168,9 +197,27 @@ public static class PackageAccess
                 ct).ConfigureAwait(false);
             return;
         }
-        await resolvedPackage.PersistAsync(new PackageContext(key), new PackagePayload(stream), ct).ConfigureAwait(false);
+        await resolvedPackage.PersistContentAsync(
+            CreateContext(PackageContentKind.Artefact, key),
+            new PackagePayload(stream),
+            ct).ConfigureAwait(false);
     }
 
-    private static IPackage Resolve(IPackage? package)
-        => package ?? throw new InvalidOperationException("IPackage is required for runtime package access.");
+    private static PackageContentContext CreateContext(PackageContentKind kind, string value)
+    {
+        return new PackageContentContext(kind, Address: new LegacyRelativePackageAddress(value));
+    }
+
+    private static IPackageAccess Resolve(IPackageAccess? package)
+        => package ?? throw new InvalidOperationException("IPackageAccess is required for runtime package access.");
+
+    private sealed class LegacyRelativePackageAddress : IPackageAddress
+    {
+        public LegacyRelativePackageAddress(string value)
+        {
+            RelativePath = value.Replace('\\', '/').TrimStart('/');
+        }
+
+        public string RelativePath { get; }
+    }
 }

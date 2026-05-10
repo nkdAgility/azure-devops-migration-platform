@@ -14,10 +14,11 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 
-internal sealed class PackageBoundary : IPackage
+internal sealed class ActivePackageAccess : IPackageAccess
 {
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
 #if !NET481
@@ -30,7 +31,7 @@ internal sealed class PackageBoundary : IPackage
     private readonly ActivePackageState _activePackageState;
     private readonly PackagePathRouter _router;
 
-    public PackageBoundary(
+    public ActivePackageAccess(
         ActivePackageState activePackageState,
         PackagePathRouter router)
     {
@@ -38,8 +39,17 @@ internal sealed class PackageBoundary : IPackage
         _router = router ?? throw new ArgumentNullException(nameof(router));
     }
 
-    public async ValueTask<PackagePayload?> RequestAsync(
-        PackageContext context,
+    public ActivePackageAccess(
+        ActivePackageState activePackageState,
+        PackagePathRouter router,
+        ILogger<ActivePackageAccess> logger)
+        : this(activePackageState, router)
+    {
+        _ = logger;
+    }
+
+    public async ValueTask<PackagePayload?> RequestContentAsync(
+        PackageContentContext context,
         CancellationToken cancellationToken = default)
     {
         var store = RequireStore();
@@ -59,8 +69,8 @@ internal sealed class PackageBoundary : IPackage
              }).ConfigureAwait(false);
     }
 
-    public async ValueTask<bool> ExistsAsync(
-        PackageContext context,
+    public async ValueTask<bool> ContentExistsAsync(
+        PackageContentContext context,
         CancellationToken cancellationToken = default)
     {
         var store = RequireStore();
@@ -71,8 +81,8 @@ internal sealed class PackageBoundary : IPackage
             async () => await store.ExistsAsync(path, cancellationToken).ConfigureAwait(false)).ConfigureAwait(false);
     }
 
-    public async IAsyncEnumerable<string> EnumerateAsync(
-        PackageContext context,
+    public async IAsyncEnumerable<string> EnumerateContentAsync(
+        PackageContentContext context,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var store = RequireStore();
@@ -82,8 +92,8 @@ internal sealed class PackageBoundary : IPackage
             yield return item;
     }
 
-    public async ValueTask<PackagePayload?> RequestBinaryAsync(
-        PackageContext context,
+    public async ValueTask<Stream?> RequestContentBinaryAsync(
+        PackageContentContext context,
         CancellationToken cancellationToken = default)
     {
         var store = RequireStore();
@@ -94,9 +104,7 @@ internal sealed class PackageBoundary : IPackage
             async () =>
             {
                 var stream = await store.ReadBinaryAsync(path, cancellationToken).ConfigureAwait(false);
-                return stream is null
-                    ? null
-                    : new PackagePayload(stream, "application/octet-stream");
+                return stream;
             }).ConfigureAwait(false);
     }
 
@@ -122,8 +130,8 @@ internal sealed class PackageBoundary : IPackage
             context.Kind.ToString()).ConfigureAwait(false);
     }
 
-    public async ValueTask PersistAsync(
-        PackageContext context,
+    public async ValueTask PersistContentAsync(
+        PackageContentContext context,
         PackagePayload payload,
         CancellationToken cancellationToken = default)
     {
@@ -140,8 +148,8 @@ internal sealed class PackageBoundary : IPackage
              }).ConfigureAwait(false);
     }
 
-    public async ValueTask PersistStreamAsync(
-        PackageContext context,
+    public async ValueTask PersistContentStreamAsync(
+        PackageContentContext context,
         Stream payload,
         string? contentType = null,
         CancellationToken cancellationToken = default)
@@ -184,8 +192,8 @@ internal sealed class PackageBoundary : IPackage
             context.Kind.ToString()).ConfigureAwait(false);
     }
 
-    public async ValueTask AppendAsync(
-        PackageContext context,
+    public async ValueTask AppendContentAsync(
+        PackageContentContext context,
         PackagePayload payload,
         CancellationToken cancellationToken = default)
     {
