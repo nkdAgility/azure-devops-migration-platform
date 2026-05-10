@@ -3,12 +3,10 @@
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
-public sealed record PackageContext(
-    string ContentKind,
+public sealed record PackageContentContext(
+    PackageContentKind Kind,
     string? Organisation = null,
     string? Project = null,
     string? Module = null,
-    string? Scope = null,
-    string? ItemKey = null,
+    IPackageAddress? Address = null,
     bool IsCollectionRequest = false);
-
