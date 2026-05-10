@@ -244,7 +244,7 @@ public static class LegacyPackagePathShim
     private static IPackageAccess Resolve(IPackageAccess? package)
         => package ?? throw new InvalidOperationException("IPackageAccess is required for runtime package access.");
 
-    private sealed class LegacyRelativePackageAddress : IPackageAddress
+    private sealed class LegacyRelativePackageAddress : IPackageContentAddress
     {
         public LegacyRelativePackageAddress(string value)
         {
