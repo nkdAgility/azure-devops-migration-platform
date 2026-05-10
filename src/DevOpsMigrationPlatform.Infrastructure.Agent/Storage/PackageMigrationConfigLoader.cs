@@ -19,24 +19,24 @@ using Microsoft.Extensions.Logging;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 
 /// <summary>
-/// Package-boundary implementation of <see cref="IPackageConfigStore"/>.
-/// Reads and writes <c>migration-config.json</c> at the package root through
+/// Package-boundary implementation of <see cref="IPackageMigrationConfigLoader"/>.
+/// Loads <c>migration-config.json</c> from the package root through
 /// <see cref="IPackageAccess"/>. Compatible with both .NET 10 and net481.
 /// </summary>
-internal sealed class PackageConfigStore : IPackageConfigStore
+internal sealed class PackageMigrationConfigLoader : IPackageMigrationConfigLoader
 {
     private static readonly ActivitySource ActivitySource =
         new(WellKnownActivitySourceNames.Migration);
 
-    private const string ModuleName = "PackageConfigStore";
+    private const string ModuleName = "PackageMigrationConfigLoader";
 
-    private readonly ILogger<PackageConfigStore> _logger;
+    private readonly ILogger<PackageMigrationConfigLoader> _logger;
     private readonly IPlatformMetrics? _metrics;
     private readonly IActiveJobState? _activeJobState;
     private readonly IPackageAccess _package;
 
-    public PackageConfigStore(
-        ILogger<PackageConfigStore> logger,
+    public PackageMigrationConfigLoader(
+        ILogger<PackageMigrationConfigLoader> logger,
         IPackageAccess package,
         IPlatformMetrics? metrics = null,
         IActiveJobState? activeJobState = null)
@@ -53,74 +53,8 @@ internal sealed class PackageConfigStore : IPackageConfigStore
             : MetricsTagList.Empty;
 
     /// <inheritdoc />
-    public async Task WriteAsync(
-        string packageUri,
-        string sourceFilePath,
-        bool force = false,
-        CancellationToken cancellationToken = default)
+    public async Task<IConfiguration> LoadAsync(CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(packageUri)) throw new ArgumentNullException(nameof(packageUri));
-        if (string.IsNullOrWhiteSpace(sourceFilePath)) throw new ArgumentNullException(nameof(sourceFilePath));
-        if (!File.Exists(sourceFilePath)) throw new FileNotFoundException("Scenario config file not found.", sourceFilePath);
-
-        using var activity = ActivitySource.StartActivity("config.write");
-        activity?.SetTag("operation", "write");
-        activity?.SetTag("force", force);
-
-        _logger.LogInformation("Copying config file to package (force={Force})", force);
-        var sw = Stopwatch.StartNew();
-
-        try
-        {
-            var context = new PackageMetaContext(PackageMetaKind.MigrationConfig);
-            var exists = await _package.RequestMetaAsync(context, cancellationToken).ConfigureAwait(false) is not null;
-            if (exists && !force)
-            {
-                throw new InvalidOperationException(
-                    $"{PackagePaths.MigrationConfigFileName} already exists in the package. " +
-                    "Re-submit is not permitted without --force.");
-            }
-
-#if NET481
-            var rawJson = File.ReadAllText(sourceFilePath);
-#else
-            var rawJson = await File.ReadAllTextAsync(sourceFilePath, cancellationToken)
-                .ConfigureAwait(false);
-#endif
-
-            using var configStream = new MemoryStream(Encoding.UTF8.GetBytes(rawJson), writable: false);
-            await _package.PersistMetaAsync(
-                context,
-                new PackageMetaPayload(configStream, "application/json"),
-                cancellationToken).ConfigureAwait(false);
-
-            sw.Stop();
-            _metrics?.RecordConfigWriteCompleted(Tags("config.write"));
-            activity?.SetTag("outcome", "success");
-            _logger.LogInformation("Config copied to package in {DurationMs}ms", sw.ElapsedMilliseconds);
-        }
-        catch (InvalidOperationException)
-        {
-            _metrics?.RecordConfigWriteError(Tags("config.write"));
-            activity?.SetTag("outcome", "exists_error");
-            throw;
-        }
-        catch (Exception)
-        {
-            _metrics?.RecordConfigWriteError(Tags("config.write"));
-            activity?.SetTag("outcome", "error");
-            _logger.LogError("Failed to copy config to package");
-            throw;
-        }
-    }
-
-    /// <inheritdoc />
-    public async Task<IConfiguration> ReadAsync(
-        IArtefactStore artefactStore,
-        CancellationToken cancellationToken = default)
-    {
-        if (artefactStore == null) throw new ArgumentNullException(nameof(artefactStore));
-
         using var activity = ActivitySource.StartActivity("config.read");
         activity?.SetTag("operation", "read");
 
@@ -153,7 +87,7 @@ internal sealed class PackageConfigStore : IPackageConfigStore
             _logger.LogWarning(
                 "Config not found at '{Path}' after retries. Re-submit the job from the CLI to regenerate it.",
                 PackagePaths.MigrationConfigFileName);
-            throw new PackageConfigNotFoundException(artefactStore.GetType().Name);
+            throw new PackageConfigNotFoundException("active package");
         }
 
         try
@@ -162,7 +96,7 @@ internal sealed class PackageConfigStore : IPackageConfigStore
                 new PackageMetaContext(PackageMetaKind.MigrationConfig),
                 cancellationToken).ConfigureAwait(false);
             if (packagePayload is null)
-                throw new PackageConfigNotFoundException(artefactStore.GetType().Name);
+                throw new PackageConfigNotFoundException("active package");
 
             var json = await ReadUtf8Async(packagePayload.Content, cancellationToken).ConfigureAwait(false);
 

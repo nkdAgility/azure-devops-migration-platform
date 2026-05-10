@@ -22,6 +22,9 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 /// </summary>
 public static class LegacyPackagePathShim
 {
+    [Obsolete(
+        "Legacy compatibility shim for path-based package access. New code must use IPackageAccess directly via typed PackageContentContext/PackageMetaContext. Do not add new call sites.",
+        error: false)]
     public static async Task<string?> ReadTextAsync(
         IPackageAccess? package,
         IArtefactStore artefactStore,
@@ -42,6 +45,9 @@ public static class LegacyPackagePathShim
         return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
+    [Obsolete(
+        "Legacy compatibility shim for path-based package access. New code must use IPackageAccess directly via typed PackageContentContext/PackageMetaContext. Do not add new call sites.",
+        error: false)]
     public static Task<bool> ExistsAsync(
         IPackageAccess? package,
         IArtefactStore artefactStore,
@@ -54,6 +60,9 @@ public static class LegacyPackagePathShim
             ct).AsTask();
     }
 
+    [Obsolete(
+        "Legacy compatibility shim for path-based package access. New code must use IPackageAccess directly via typed PackageContentContext/PackageMetaContext. Do not add new call sites.",
+        error: false)]
     public static async Task WriteTextAsync(
         IPackageAccess? package,
         IArtefactStore artefactStore,
@@ -69,6 +78,9 @@ public static class LegacyPackagePathShim
             ct).ConfigureAwait(false);
     }
 
+    [Obsolete(
+        "Legacy compatibility shim for path-based package access. New code must use IPackageAccess directly via typed PackageContentContext/PackageMetaContext. Do not add new call sites.",
+        error: false)]
     public static async Task AppendTextAsync(
         IPackageAccess? package,
         IArtefactStore artefactStore,
@@ -84,6 +96,9 @@ public static class LegacyPackagePathShim
             ct).ConfigureAwait(false);
     }
 
+    [Obsolete(
+        "Legacy compatibility shim for path-based package access. New code must use IPackageAccess directly via typed PackageContentContext/PackageMetaContext. Do not add new call sites.",
+        error: false)]
     public static async Task WriteBinaryAsync(
         IPackageAccess? package,
         IArtefactStore artefactStore,
@@ -100,6 +115,9 @@ public static class LegacyPackagePathShim
             ct).ConfigureAwait(false);
     }
 
+    [Obsolete(
+        "Legacy compatibility shim for path-based package access. New code must use IPackageAccess directly via typed PackageContentContext/PackageMetaContext. Do not add new call sites.",
+        error: false)]
     public static async Task<Stream?> ReadBinaryAsync(
         IPackageAccess? package,
         IArtefactStore artefactStore,
@@ -112,6 +130,9 @@ public static class LegacyPackagePathShim
             ct).ConfigureAwait(false);
     }
 
+    [Obsolete(
+        "Legacy compatibility shim for path-based package access. New code must use IPackageAccess directly via typed PackageContentContext/PackageMetaContext. Do not add new call sites.",
+        error: false)]
     public static async IAsyncEnumerable<string> EnumerateAsync(
         IPackageAccess? package,
         IArtefactStore artefactStore,
@@ -126,6 +147,9 @@ public static class LegacyPackagePathShim
             yield return item;
     }
 
+    [Obsolete(
+        "Legacy compatibility shim for path-based package access. New code must use IPackageAccess directly via typed PackageContentContext/PackageMetaContext. Do not add new call sites.",
+        error: false)]
     public static async Task<string?> ReadStateAsync(
         IPackageAccess? package,
         IStateStore stateStore,
@@ -171,6 +195,9 @@ public static class LegacyPackagePathShim
         return await stateReader.ReadToEndAsync().ConfigureAwait(false);
     }
 
+    [Obsolete(
+        "Legacy compatibility shim for path-based package access. New code must use IPackageAccess directly via typed PackageContentContext/PackageMetaContext. Do not add new call sites.",
+        error: false)]
     public static async Task WriteStateAsync(
         IPackageAccess? package,
         IStateStore stateStore,
@@ -203,11 +230,17 @@ public static class LegacyPackagePathShim
             ct).ConfigureAwait(false);
     }
 
+    [Obsolete(
+        "Legacy compatibility shim for path-based package access. New code must use IPackageAccess directly via typed PackageContentContext/PackageMetaContext. Do not add new call sites.",
+        error: false)]
     private static PackageContentContext CreateContext(PackageContentKind kind, string value)
     {
         return new PackageContentContext(kind, Address: new LegacyRelativePackageAddress(value));
     }
 
+    [Obsolete(
+        "Legacy compatibility shim for path-based package access. New code must use IPackageAccess directly via typed PackageContentContext/PackageMetaContext. Do not add new call sites.",
+        error: false)]
     private static IPackageAccess Resolve(IPackageAccess? package)
         => package ?? throw new InvalidOperationException("IPackageAccess is required for runtime package access.");
 
