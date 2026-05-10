@@ -13,7 +13,7 @@ As a platform engineer, I need `IPackageAccess` to be the only permitted package
 
 **Why this priority**: This is the architectural core. Without it, package behavior remains fragmented and high-risk across orchestration, checkpointing, and telemetry flows.
 
-**Independent Test**: Run a migration job and verify that package read/write/append operations are requested through `IPackageAccess`, while preserving existing package outputs.
+**Independent Test**: Exercise package-config loading plus progress and diagnostics log routing flows, and verify those package-facing operations are requested through `IPackageAccess` while preserving existing canonical outputs for the covered surfaces.
 
 **Acceptance Scenarios**:
 

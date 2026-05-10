@@ -12,7 +12,7 @@ Standardize package access on `IPackageAccess` as the only permitted caller-faci
 **Language/Version**: C# 10+ (`net10.0`) with multi-targeted shared abstractions (`net481;net10.0`)  
 **Primary Dependencies**: `Microsoft.Extensions.*` DI/options/logging/hosting, `System.Text.Json`, OpenTelemetry via platform telemetry abstractions  
 **Storage**: Package persistence via `IArtefactStore` + `IStateStore` behind `IPackageAccess` (filesystem + Azure Blob implementations)  
-**Testing**: MSTest + Reqnroll + Moq; full repository validation with `dotnet test DevOpsMigrationPlatform.slnx --nologo`  
+**Testing**: MSTest + Reqnroll + Moq; full repository validation with `dotnet test DevOpsMigrationPlatform.slnx --nologo` plus at least one representative `.vscode/launch.json` scenario run with verified observable output  
 **Target Platform**: .NET 10 agents/services cross-platform; TFS connector path remains Windows/net481 agent-only  
 **Project Type**: Multi-project migration platform (CLI + control plane + agents + shared abstractions)  
 **Performance Goals**: No degradation to streaming behavior; maintain one-item-at-a-time import processing and bounded in-memory log batching  
@@ -48,12 +48,16 @@ Standardize package access on `IPackageAccess` as the only permitted caller-faci
 4. Transitional compatibility strategy for `LegacyPackagePathShim`
 5. Connector and observability compliance strategy
 
+## Spec Hardening Evidence
+
+- Feature-local summary: `specs/034-package-manager-adoption/hardening-evidence.md`
+- Session log: `Logs/atdd-sessions/034-package-manager-adoption-spec-hardening.md`
+
 ## Phase 1: Design & Contracts Output
 
 - `specs/034-package-manager-adoption/data-model.md`
 - `specs/034-package-manager-adoption/contracts/package-boundary-contract.md`
 - `specs/034-package-manager-adoption/quickstart.md`
-- Agent context marker update in `.github/copilot-instructions.md`
 
 ## Project Structure
 
@@ -99,7 +103,7 @@ tests/
 2. Harden `PackagePathRouter` and `ActivePackageAccess` so package-owned prefixes stay in the boundary, module-owned suffixes stay caller-supplied, and route validation rejects absolute or escaping addresses.
 3. Remove package-facing runtime bypasses by migrating checkpointing, plan persistence, package config, progress/diagnostics logging, and worker flows to `IPackageAccess`.
 4. Keep unavoidable string-path compatibility isolated in `LegacyPackagePathShim` and treat every remaining shim call site as migration debt to be audited and reduced.
-5. Add or refresh tests for route validation, explicit content API behavior, resume and phase semantics, package-config hardening, and Simulated/AzureDevOps/TFS parity.
+5. Add or refresh tests for route validation, explicit content API behavior, resume and phase semantics, package-config hardening, Simulated/AzureDevOps/TFS parity, and the required representative scenario validation gate.
 6. Update `.agents/context` and `/docs` references so the package boundary is documented as `IPackageAccess` only, with no package-facing store bypasses in runtime code.
 
 ## Complexity Tracking

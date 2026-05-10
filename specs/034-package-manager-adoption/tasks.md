@@ -57,7 +57,7 @@
 
 **Goal**: Route package content, metadata, and log operations through `IPackageAccess` instead of direct path composition or package-facing store bypasses.
 
-**Independent Test**: Run a migration flow and verify runtime package reads, writes, and appends are issued through `IPackageAccess`, with canonical package outputs unchanged.
+**Independent Test**: Exercise package-config loading plus progress and diagnostics log routing flows, and verify those package-facing operations are issued through `IPackageAccess`, with canonical outputs unchanged for the covered surfaces.
 
 ### Tests for User Story 1
 
