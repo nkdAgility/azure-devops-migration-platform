@@ -88,13 +88,31 @@ public interface IPackage
 }
 
 public sealed record PackageContext(
-    string ContentKind,
+    PackageKind Kind,
     string? Organisation = null,
     string? Project = null,
     string? Module = null,
     string? Scope = null,
     string? ItemKey = null,
     bool IsCollectionRequest = false);
+
+public enum PackageKind
+{
+    Manifest,
+    WorkItemRevision,
+    WorkItemComment,
+    WorkItemAttachment,
+    WorkItemEmbeddedImage,
+    TeamDefinition,
+    IdentityDescriptorBatch,
+    IdentityMappingOverrides,
+    IdentityUnresolved,
+    SourceTree,
+    ReferencedPaths,
+    PrepareReport,
+    ProgressLog,
+    DiagnosticsLog
+}
 
 public sealed record PackageMetaContext(
     PackageMetaKind Kind,
@@ -142,8 +160,12 @@ public enum PackageLogStream
 
 ### Contract Notes
 
-- `ContentKind` is the logical package data noun, not a path segment. The package manager resolves canonical layout from this typed intent.
+- Parameter intent is a hard contract: no text, key, token, or path may be passed to any parameter whose declared purpose does not match that value.
+- `PackageContext.Kind` is a closed enum (`PackageKind`) and must never carry a relative path or any raw path segment.
+- `PackageContext.ItemKey` must represent a typed logical key for the selected `PackageKind`; it must not contain slash-delimited package paths.
+- `PackageContext` conveys typed package intent only; canonical package paths are resolved inside the package boundary/router.
 - `PersistAsync` and `PersistMetaAsync` are package-state verbs. `AppendLogAsync` is the run-log verb. `WriteAsync` remains the lower-level store primitive.
+- Package metadata writes/reads must use `PackageMetaContext` with `PackageMetaKind`; metadata must not be routed through `PersistAsync`/`RequestAsync`.
 - `RelatedToRun` means authoritative metadata write first, then a run-scoped audit copy when that metadata kind supports it.
 - `AppendLogAsync` exists because logs are append-only run streams, not metadata.
 - `PackagePayload` and `PackageMetaPayload` intentionally use `Stream` so the boundary can preserve large-payload and append scenarios without collapsing into string-only contracts.

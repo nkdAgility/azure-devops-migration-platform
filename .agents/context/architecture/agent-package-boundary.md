@@ -72,13 +72,31 @@ public interface IPackage
 }
 
 public sealed record PackageContext(
-  string ContentKind,
+  PackageKind Kind,
   string? Organisation = null,
   string? Project = null,
   string? Module = null,
   string? Scope = null,
   string? ItemKey = null,
   bool IsCollectionRequest = false);
+
+public enum PackageKind
+{
+  Manifest,
+  WorkItemRevision,
+  WorkItemComment,
+  WorkItemAttachment,
+  WorkItemEmbeddedImage,
+  TeamDefinition,
+  IdentityDescriptorBatch,
+  IdentityMappingOverrides,
+  IdentityUnresolved,
+  SourceTree,
+  ReferencedPaths,
+  PrepareReport,
+  ProgressLog,
+  DiagnosticsLog
+}
 
 public sealed record PackageMetaContext(
   PackageMetaKind Kind,
@@ -144,6 +162,8 @@ Typed routing context for package data. This contract should carry the package i
 - scope such as org, project, module, or analysis area
 - read versus write intent parameters needed for collection or single-item resolution
 - enough identity to preserve lexicographic streaming rules where collection reads apply
+- strict parameter-intent fidelity: no caller may pass text or path values to parameters whose intent is not to carry those values
+- no slash-delimited package path fragments in `PackageContext` fields; path assembly belongs exclusively to package-boundary routing
 
 ### `PackageMetaContext`
 
