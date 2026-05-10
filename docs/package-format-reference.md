@@ -127,8 +127,7 @@ WorkItems/
     <ticks>-<workItemId>-<revisionIndex>/
       revision.json
       [comment.json]
-      attachments/
-        <filename>
+      <attachment files>
       <embedded image files>
     <ticks>-<workItemId>-c<commentId>/
       comment.json

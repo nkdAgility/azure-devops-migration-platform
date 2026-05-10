@@ -18,12 +18,14 @@ The boundary exists to stop callers from deciding package layout. Callers provid
 ## Core Classes
 
 - `IPackage`
-- `PackageContext`
+- `IPackageAddress`
+- `PackageContentContext`
 - `PackageMetaContext`
 - `PackageLogContext`
 - `PackagePayload`
 - `PackageMetaPayload`
 - `PackageLogPayload`
+- `PackageContentKind`
 - `PackageMetaKind`
 - `PackageLogStream`
 - package path resolver/router implementation (name TBD)
@@ -32,10 +34,15 @@ The boundary exists to stop callers from deciding package layout. Callers provid
 
 The package boundary exposes four verbs:
 
-- `RequestAsync(PackageContext, ...)`
+- `RequestContentAsync(PackageContentContext, ...)`
+- `ContentExistsAsync(PackageContentContext, ...)`
+- `EnumerateContentAsync(PackageContentContext, ...)`
+- `RequestContentBinaryAsync(PackageContentContext, ...)`
 - `RequestMetaAsync(PackageMetaContext, ...)`
-- `PersistAsync(PackageContext, ...)`
+- `PersistContentAsync(PackageContentContext, ...)`
+- `PersistContentStreamAsync(PackageContentContext, ...)`
 - `PersistMetaAsync(PackageMetaContext, ...)`
+- `AppendContentAsync(PackageContentContext, ...)`
 - `AppendLogAsync(PackageLogContext, ...)`
 
 It intentionally does not expose delete. Removal semantics are exceptional maintenance behavior, not the default caller-facing package contract.
@@ -47,22 +54,46 @@ The intended boundary contracts are shown here as a concrete C# sketch so the de
 ```csharp
 public interface IPackage
 {
-  ValueTask<PackagePayload?> RequestAsync(
-    PackageContext context,
+  ValueTask<PackagePayload?> RequestContentAsync(
+    PackageContentContext context,
+    CancellationToken cancellationToken = default);
+
+  ValueTask<bool> ContentExistsAsync(
+    PackageContentContext context,
+    CancellationToken cancellationToken = default);
+
+  IAsyncEnumerable<string> EnumerateContentAsync(
+    PackageContentContext context,
+    CancellationToken cancellationToken = default);
+
+  ValueTask<Stream?> RequestContentBinaryAsync(
+    PackageContentContext context,
     CancellationToken cancellationToken = default);
 
   ValueTask<PackageMetaPayload?> RequestMetaAsync(
     PackageMetaContext context,
     CancellationToken cancellationToken = default);
 
-  ValueTask PersistAsync(
-    PackageContext context,
+  ValueTask PersistContentAsync(
+    PackageContentContext context,
     PackagePayload payload,
+    CancellationToken cancellationToken = default);
+
+  ValueTask PersistContentStreamAsync(
+    PackageContentContext context,
+    Stream content,
+    string? contentType = null,
     CancellationToken cancellationToken = default);
 
   ValueTask PersistMetaAsync(
     PackageMetaContext context,
     PackageMetaPayload payload,
+    CancellationToken cancellationToken = default);
+
+  ValueTask AppendContentAsync(
+    PackageContentContext context,
+    Stream content,
+    string contentType = "application/x-ndjson",
     CancellationToken cancellationToken = default);
 
   ValueTask AppendLogAsync(
@@ -71,31 +102,24 @@ public interface IPackage
     CancellationToken cancellationToken = default);
 }
 
-public sealed record PackageContext(
-  PackageKind Kind,
+public interface IPackageAddress
+{
+  string RelativePath { get; }
+}
+
+public sealed record PackageContentContext(
+  PackageContentKind Kind,
   string? Organisation = null,
   string? Project = null,
   string? Module = null,
-  string? Scope = null,
-  string? ItemKey = null,
+  IPackageAddress? Address = null,
   bool IsCollectionRequest = false);
 
-public enum PackageKind
+public enum PackageContentKind
 {
-  Manifest,
-  WorkItemRevision,
-  WorkItemComment,
-  WorkItemAttachment,
-  WorkItemEmbeddedImage,
-  TeamDefinition,
-  IdentityDescriptorBatch,
-  IdentityMappingOverrides,
-  IdentityUnresolved,
-  SourceTree,
-  ReferencedPaths,
-  PrepareReport,
-  ProgressLog,
-  DiagnosticsLog
+  Artefact = 0,
+  Collection = 1,
+  Manifest = 2
 }
 
 public sealed record PackageMetaContext(
@@ -146,24 +170,37 @@ public enum PackageLogStream
 
 Caller-facing package boundary with exactly four verbs:
 
-- `RequestAsync(PackageContext, ...)`
+- `RequestContentAsync(PackageContentContext, ...)`
+- `ContentExistsAsync(PackageContentContext, ...)`
+- `EnumerateContentAsync(PackageContentContext, ...)`
+- `RequestContentBinaryAsync(PackageContentContext, ...)`
 - `RequestMetaAsync(PackageMetaContext, ...)`
-- `PersistAsync(PackageContext, ...)`
+- `PersistContentAsync(PackageContentContext, ...)`
+- `PersistContentStreamAsync(PackageContentContext, ...)`
 - `PersistMetaAsync(PackageMetaContext, ...)`
+- `AppendContentAsync(PackageContentContext, ...)`
 - `AppendLogAsync(PackageLogContext, ...)`
 
 `IPackage` does not include delete. Cleanup and force-fresh style removal should remain separate maintenance behavior rather than being folded into the routine caller-facing package boundary.
 
-### `PackageContext`
+### `IPackageAddress`
+
+Module-owned relative address contract for content beneath the module root. The module constructs this object and supplies it on `PackageContentContext.Address`. The package boundary reads it but does not invent it.
+
+`IPackageAddress.RelativePath` is relative to the module root. It must not be absolute and it must not escape the module root.
+
+### `PackageContentContext`
 
 Typed routing context for package data. This contract should carry the package intent needed to resolve the canonical location for exported or prepared data without exposing raw paths. Expected concerns include:
 
-- data subject or logical content kind
-- scope such as org, project, module, or analysis area
+- boundary-owned content kind
+- package-owned scope such as org, project, and module
+- optional module-owned address supplied as `IPackageAddress` when the caller needs a module-relative suffix
 - read versus write intent parameters needed for collection or single-item resolution
-- enough identity to preserve lexicographic streaming rules where collection reads apply
 - strict parameter-intent fidelity: no caller may pass text or path values to parameters whose intent is not to carry those values
-- no slash-delimited package path fragments in `PackageContext` fields; path assembly belongs exclusively to package-boundary routing
+- no slash-delimited package path fragments in `PackageContentContext` fields; path assembly belongs exclusively to package-boundary routing
+
+The package boundary owns the package prefix. For module-owned content, the module owns the suffix under that prefix through `IPackageAddress.RelativePath`.
 
 ### `PackageMetaContext`
 
@@ -184,6 +221,16 @@ Typed routing context for append-only run logs. It should include:
 ### `PackagePayload`
 
 Payload contract for package data reads and writes. This represents the content associated with a data request independently of path selection.
+
+### `PackageContentKind`
+
+The content boundary is intentionally small:
+
+- `Artefact` for single content artefacts resolved within package scope
+- `Collection` for collection enumeration within package scope
+- `Manifest` for package-owned manifest content
+
+Concrete domain artefact types such as Work Item revisions are not encoded as top-level package content kinds. They are expressed by the caller through package scope plus a module-supplied `IPackageAddress`.
 
 ### `PackageMetaPayload`
 
@@ -234,8 +281,10 @@ The boundary must own both `IArtefactStore` and `IStateStore`. A wrapper over `I
 ## Rules
 
 - Callers must never construct or pass package paths.
-- The caller-facing verb is `PersistAsync`, while `WriteAsync` remains the lower-level store primitive. The boundary owns package semantics rather than raw file writes.
+- The caller-facing content verbs are `PersistContentAsync`, `PersistContentStreamAsync`, and `AppendContentAsync`, while `WriteAsync` remains the lower-level store primitive. The boundary owns package semantics rather than raw file writes.
 - The caller-facing run-log verb is `AppendLogAsync`; logs are not squeezed through metadata persistence.
+- For module-owned content, callers must pass an `IPackageAddress`; the boundary must not infer module layout from DTO types or raw route segments.
+- Manifest content is package-owned and may be resolved without a module-supplied address.
 - Authoritative package state must remain under root `.migration/` and project `/{org}/{project}/.migration/`.
 - Run-scoped copies under `.migration/runs/<runId>/` are audit evidence only and must never become the authoritative source for resume or phase-gate decisions.
 - `RelatedToRun` on `PackageMetaContext` means: write authoritative metadata, then mirror a run-scoped copy when appropriate.
