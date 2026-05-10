@@ -121,7 +121,9 @@ internal sealed class AgentLifecycleService : BackgroundService
                     UseShellExecute = false,
                     CreateNoWindow = false,
                 };
+                psi.ArgumentList.Add($"--ControlPlane:BaseUrl={controlPlaneUrl}");
                 psi.Environment["ControlPlane__BaseUrl"] = controlPlaneUrl;
+                psi.Environment["MigrationPlatform__Environment__ControlPlane__BaseUrl"] = controlPlaneUrl;
 
                 process = Process.Start(psi);
                 if (process is null)

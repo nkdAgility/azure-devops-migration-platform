@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
@@ -11,11 +12,11 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 /// </summary>
 public sealed class PhaseTrackingServiceFactory : IPhaseTrackingServiceFactory
 {
-    private readonly IPackage? _package;
+    private readonly IPackage _package;
 
-    public PhaseTrackingServiceFactory(IPackage? package = null)
+    public PhaseTrackingServiceFactory(IPackage package)
     {
-        _package = package;
+        _package = package ?? throw new ArgumentNullException(nameof(package));
     }
 
     /// <inheritdoc/>

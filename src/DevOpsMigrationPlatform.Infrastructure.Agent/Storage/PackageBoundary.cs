@@ -14,7 +14,6 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
-using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 
@@ -30,16 +29,13 @@ internal sealed class PackageBoundary : IPackage
 
     private readonly ActivePackageState _activePackageState;
     private readonly PackagePathRouter _router;
-    private readonly ILogger<PackageBoundary> _logger;
 
     public PackageBoundary(
         ActivePackageState activePackageState,
-        PackagePathRouter router,
-        ILogger<PackageBoundary> logger)
+        PackagePathRouter router)
     {
         _activePackageState = activePackageState ?? throw new ArgumentNullException(nameof(activePackageState));
         _router = router ?? throw new ArgumentNullException(nameof(router));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async ValueTask<PackagePayload?> RequestAsync(
@@ -81,12 +77,6 @@ internal sealed class PackageBoundary : IPackage
     {
         var store = RequireStore();
         var path = _router.ResolveContentPath(context);
-
-        _logger.LogDebug(
-            "Package boundary enumerate started for {Path} (run: {RunId}, job: {JobId})",
-            path,
-            _activePackageState.CurrentRunId,
-            _activePackageState.CurrentJob?.JobId);
 
         await foreach (var item in store.EnumerateAsync(path, cancellationToken).ConfigureAwait(false))
             yield return item;
@@ -269,14 +259,6 @@ internal sealed class PackageBoundary : IPackage
         {
             var result = await action().ConfigureAwait(false);
             activity?.SetTag("package.result", "success");
-            _logger.LogDebug(
-                "Package boundary {Operation} succeeded for {Path} (kind: {Kind}, stream: {Stream}, run: {RunId}, job: {JobId})",
-                operation,
-                path,
-                kind,
-                stream,
-                _activePackageState.CurrentRunId,
-                _activePackageState.CurrentJob?.JobId);
 #if !NET481
             s_operationCounter.Add(1, BuildTags(operation, path, kind, stream, "success", null));
 #endif
@@ -286,16 +268,6 @@ internal sealed class PackageBoundary : IPackage
         {
             activity?.SetTag("package.result", "error");
             activity?.SetTag("error.type", ex.GetType().Name);
-            _logger.LogError(
-                ex,
-                "Package boundary {Operation} failed for {Path} (kind: {Kind}, stream: {Stream}, run: {RunId}, job: {JobId}, errorType: {ErrorType})",
-                operation,
-                path,
-                kind,
-                stream,
-                _activePackageState.CurrentRunId,
-                _activePackageState.CurrentJob?.JobId,
-                ex.GetType().Name);
 #if !NET481
             s_errorCounter.Add(1, BuildTags(operation, path, kind, stream, "error", ex.GetType().Name));
 #endif

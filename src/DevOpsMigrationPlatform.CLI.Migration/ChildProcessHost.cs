@@ -30,6 +30,7 @@ internal sealed class ChildProcessHost : IAsyncDisposable
     private readonly string _displayName;
     private readonly string _exePath;
     private readonly Dictionary<string, string> _environmentVariables;
+    private readonly IReadOnlyList<string> _arguments;
     private readonly ILogger? _logger;
 
     private Process? _process;
@@ -46,11 +47,13 @@ internal sealed class ChildProcessHost : IAsyncDisposable
         string displayName,
         string exePath,
         Dictionary<string, string> environmentVariables,
+        IReadOnlyList<string>? arguments = null,
         ILogger? logger = null)
     {
         _displayName = displayName ?? throw new ArgumentNullException(nameof(displayName));
         _exePath = exePath ?? throw new ArgumentNullException(nameof(exePath));
         _environmentVariables = environmentVariables ?? throw new ArgumentNullException(nameof(environmentVariables));
+        _arguments = arguments ?? Array.Empty<string>();
         _logger = logger;
     }
 
@@ -94,6 +97,8 @@ internal sealed class ChildProcessHost : IAsyncDisposable
 
         foreach (var (key, value) in _environmentVariables)
             psi.Environment[key] = value;
+        foreach (var argument in _arguments)
+            psi.ArgumentList.Add(argument);
 
         _exitTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
 

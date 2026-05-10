@@ -17,7 +17,9 @@ builder.AddServiceDefaults(DevOpsMigrationPlatform.Abstractions.WellKnownService
 builder.Logging.AddDataClassificationFilter();
 
 var controlPlaneBaseUrl = new Uri(
-    builder.Configuration["ControlPlane:BaseUrl"] ?? "http://localhost:5100");
+    builder.Configuration["ControlPlane:BaseUrl"]
+    ?? builder.Configuration["MigrationPlatform:Environment:ControlPlane:BaseUrl"]
+    ?? "http://localhost:5100");
 
 // All agent service registrations are in MigrationAgentServiceExtensions so that
 // LocalStackHost (CLI in-process mode) can use the exact same registrations.

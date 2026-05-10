@@ -79,8 +79,9 @@ public sealed class LocalStackHost : IAsyncDisposable
         var env = BuildSharedEnvironment();
         env["ASPNETCORE_URLS"] = _controlPlaneUrl.ToString().TrimEnd('/');
         env["ASPNETCORE_ENVIRONMENT"] = "Development"; // Enables the auth bypass for local-only use
+        env["AgentLifecycle__AutoSpawn"] = "false"; // CLI launches a dedicated agent process.
 
-        _controlPlaneProcess = new ChildProcessHost("ControlPlane", exePath, env, _logger);
+        _controlPlaneProcess = new ChildProcessHost("ControlPlane", exePath, env, arguments: null, _logger);
         _controlPlaneProcess.Start();
 
         // If the process exits immediately, something is wrong.
@@ -101,14 +102,20 @@ public sealed class LocalStackHost : IAsyncDisposable
     private void StartAgentProcess(string exePath)
     {
         var env = BuildSharedEnvironment();
-        env["ControlPlane__BaseUrl"] = _controlPlaneUrl.ToString().TrimEnd('/');
+        var controlPlaneBaseUrl = _controlPlaneUrl.ToString().TrimEnd('/');
+        env["ControlPlane__BaseUrl"] = controlPlaneBaseUrl;
         // Note: Do NOT set DOTNET_ENVIRONMENT=Development for the Agent.
         // Development mode enables DI scope validation which rejects the
         // scoped IModule injection into singleton IHostedService. The Agent
         // is a worker service — it does not need the auth bypass middleware
         // that the ControlPlane uses in Development mode.
 
-        _agentProcess = new ChildProcessHost("MigrationAgent", exePath, env, _logger);
+        _agentProcess = new ChildProcessHost(
+            "MigrationAgent",
+            exePath,
+            env,
+            [$"--ControlPlane:BaseUrl={controlPlaneBaseUrl}"],
+            _logger);
         _agentProcess.Start();
     }
 
