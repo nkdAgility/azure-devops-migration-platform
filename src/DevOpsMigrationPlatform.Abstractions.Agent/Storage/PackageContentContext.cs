@@ -8,5 +8,5 @@ public sealed record PackageContentContext(
     string? Organisation = null,
     string? Project = null,
     string? Module = null,
-    IPackageAddress? Address = null,
+    IPackageContentAddress? Address = null,
     bool IsCollectionRequest = false);

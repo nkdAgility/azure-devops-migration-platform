@@ -3,7 +3,7 @@
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
-public interface IPackageAddress
+public interface IPackageContentAddress
 {
     string RelativePath { get; }
 }
