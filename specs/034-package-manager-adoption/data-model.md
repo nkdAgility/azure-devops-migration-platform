@@ -1,76 +1,111 @@
 # Data Model: Package Manager Adoption
 
-## Entity: PackageContext
+## Entity: IPackageAccess
+
+The canonical caller-facing package contract for content, metadata, and run-log operations.
+
+### IPackageAccess Responsibilities
+
+- Route typed package intents to canonical package locations.
+- Preserve authoritative versus run-scoped semantics.
+- Enforce fail-fast validation for invalid routing input.
+- Keep raw persistence primitives subordinate to the boundary.
+
+## Entity: IPackageContentAddress
+
+Represents the caller-supplied module-relative suffix beneath a package-owned prefix.
+
+### IPackageContentAddress Fields
+
+- `RelativePath` (string): Relative module-owned suffix.
+
+### IPackageContentAddress Validation Rules
+
+- Must not be absolute.
+- Must not contain segments that escape the module root.
+- May be empty only where collection semantics explicitly allow it.
+
+## Entity: PackageContentContext
 
 Represents typed package content intent.
 
-### Fields
+### PackageContentContext Fields
 
-- `ContentKind` (string): Logical content category (not a path)
-- `Organisation` (string?, optional): Organisation scope
-- `Project` (string?, optional): Project scope
-- `Module` (string?, optional): Module scope
-- `Scope` (string?, optional): Additional discriminator
-- `ItemKey` (string?, optional): Item-level selector
-- `IsCollectionRequest` (bool): Collection vs single-item request
+- `Kind` (`PackageContentKind`): Closed content category.
+- `Organisation` (string?, optional): Package-owned organisation scope.
+- `Project` (string?, optional): Package-owned project scope.
+- `Module` (string?, optional): Package-owned module scope.
+- `Address` (`IPackageContentAddress`?, optional): Caller-supplied module-relative suffix.
+- `IsCollectionRequest` (bool): Collection versus single-item semantics.
 
-### Validation Rules
+### PackageContentContext Validation Rules
 
-- `ContentKind` is required.
-- Project-scoped requests require both organisation and project.
-- Invalid context combinations fail fast.
+- `Kind` is required.
+- `Manifest` requires organisation and project scope, and does not allow module scope or an address.
+- Addressed artefact requests must fail if no routable scope or address is supplied.
+- Package boundary code must not infer module-owned suffixes when `Address` is absent.
+
+## Entity: PackageContentKind
+
+The closed content-category set owned by the package boundary.
+
+### PackageContentKind Values
+
+- `Artefact`
+- `Collection`
+- `Manifest`
 
 ## Entity: PackageMetaContext
 
 Represents typed authoritative metadata intent.
 
-### Fields
+### PackageMetaContext Fields
 
-- `Kind` (enum): Metadata category
+- `Kind` (`PackageMetaKind`): Metadata category.
 - `Organisation` (string?, optional)
 - `Project` (string?, optional)
-- `RelatedToRun` (bool): Also mirror run-scoped audit copy when applicable
+- `RelatedToRun` (bool): Also mirror a run-scoped audit copy when supported.
 
-### Validation Rules
+### PackageMetaContext Validation Rules
 
 - `Kind` is required.
-- Cursor/continuation kinds require project scope.
-- Unsupported kind/scope combinations fail fast.
+- Cursor and continuation-token routing require additional action/module context handled by the specialized boundary logic.
+- Unsupported kind and scope combinations fail fast.
 
 ## Entity: PackageLogContext
 
 Represents typed run-log append intent.
 
-### Fields
+### PackageLogContext Fields
 
-- `RunId` (string): Active run identifier
-- `Stream` (enum): `Progress` or `Diagnostics`
-- `AllowRotation` (bool): Segment rotation allowed
+- `RunId` (string): Active run identifier.
+- `Stream` (`PackageLogStream`): `Progress` or `Diagnostics`.
+- `AllowRotation` (bool): Rotation allowed for the selected stream.
 
-### Validation Rules
+### PackageLogContext Validation Rules
 
-- `RunId` is required for append operations.
+- `RunId` is required.
 - `Stream` is required.
 
 ## Entity: PackagePayload
 
-Represents package content request/persist payload.
+Represents package content returned from or supplied to the package boundary.
 
-### Fields
+### PackagePayload Fields
 
-- `Content` (stream): Content stream
+- `Content` (stream): Content payload.
 - `ContentType` (string?, optional)
 - `ETag` (string?, optional)
 
-### Validation Rules
+### PackagePayload Validation Rules
 
-- `Content` required for persist operations.
+- `Content` is required for persist and append operations.
 
 ## Entity: PackageMetaPayload
 
-Represents metadata request/persist payload.
+Represents metadata returned from or supplied to the package boundary.
 
-### Fields
+### PackageMetaPayload Fields
 
 - `Content` (stream)
 - `ContentType` (string?, optional)
@@ -78,14 +113,24 @@ Represents metadata request/persist payload.
 
 ## Entity: PackageLogPayload
 
-Represents append-only log payload batch.
+Represents an append-only run-log batch.
 
-### Fields
+### PackageLogPayload Fields
 
 - `Content` (stream)
-- `ContentType` (string): defaults to `application/x-ndjson`
+- `ContentType` (string): Defaults to `application/x-ndjson`
 
-## Entity: PackageMetaKind (Enum)
+## Entity: LegacyPackagePathShim
+
+Represents the explicitly transitional adapter that keeps older string-path callers alive over `IPackageAccess`.
+
+### LegacyPackagePathShim Rules
+
+- New code must not add shim call sites.
+- Existing shim usage is migration debt to be reduced over time.
+- The shim does not define the target package contract.
+
+## Entity: PackageMetaKind
 
 Authoritative metadata categories:
 
@@ -98,16 +143,18 @@ Authoritative metadata categories:
 - `InventoryCompletionMarker`
 - `PrepareReport`
 
-## Entity: PackageLogStream (Enum)
+## Entity: PackageLogStream
 
 - `Progress`
 - `Diagnostics`
 
 ## Relationships
 
-- `IPackage` consumes `PackageContext`, `PackageMetaContext`, and `PackageLogContext`.
-- `PackageContext` and `PackageMetaContext` resolve to authoritative state paths; `PackageMetaContext.RelatedToRun=true` can produce a secondary run-scope write.
-- `PackageLogContext` resolves to append-only run log paths.
+- `IPackageAccess` consumes `PackageContentContext`, `PackageMetaContext`, and `PackageLogContext`.
+- `PackageContentContext` combines package-owned scope with an optional caller-supplied `IPackageContentAddress` suffix.
+- `PackageMetaContext.RelatedToRun = true` can produce a secondary run-scoped audit write while preserving the authoritative write.
+- `PackageLogContext` resolves to append-only run-log paths under `.migration/runs/<runId>/logs/`.
+- `LegacyPackagePathShim` adapts string-path callers onto `IPackageAccess` but is not the long-term public model.
 
 ## State Transitions
 

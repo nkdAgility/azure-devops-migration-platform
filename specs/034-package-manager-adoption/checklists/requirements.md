@@ -31,4 +31,5 @@
 
 ## Notes
 
-- Checklist reviewed against `spec.md`; no blocking quality issues found.
+- Checklist reviewed against `spec.md` after the package-boundary update.
+- Public contract names such as `IPackageAccess`, `IPackageContentAddress`, and `PackageContentContext` are retained because they define the required architecture boundary, not implementation technology choices.

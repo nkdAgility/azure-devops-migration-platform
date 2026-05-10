@@ -1,9 +1,9 @@
 # Tasks: Package Manager Adoption
 
 **Input**: Design documents from `specs/034-package-manager-adoption/`  
-**Prerequisites**: `plan.md`, `spec.md`, `research.md`, `data-model.md`, `contracts/package-boundary-contract.md`
+**Prerequisites**: `plan.md`, `spec.md`, `research.md`, `data-model.md`, `contracts/package-boundary-contract.md`, `quickstart.md`
 
-**Tests**: Included. This feature explicitly requires behavioral coverage for routing, resume/phase safety, and connector parity.
+**Tests**: Included. This feature explicitly requires behavioral coverage for routing, route validation, resume and phase safety, no-bypass enforcement, and connector parity.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and validation.
 
@@ -15,90 +15,100 @@
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Prepare test and implementation scaffolding for package-boundary work.
+**Purpose**: Prepare acceptance and package-boundary test scaffolding for the updated `IPackageAccess` architecture.
 
-- [X] T001 Create package-boundary test folder structure under `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/`
-- [X] T002 [P] Add package-boundary fixture utilities in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryTestFixture.cs`
-- [X] T003 [P] Add package-boundary sample payload helpers in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackagePayloadBuilder.cs`
-- [X] T046 Add failing acceptance scenario coverage for package-boundary adoption in `features/platform/package-manager-adoption/package-boundary-adoption.feature`
-- [X] T047 Add failing acceptance step bindings for package-boundary adoption scenarios in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Platform/PackageBoundaryAdoptionSteps.cs`
-- [X] T053 Add foundational RED tests for `IPackage` contract and boundary routing behavior in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryContractRedTests.cs`
+- [ ] T001 Add failing acceptance coverage for package-boundary adoption in `features/platform/package-manager-adoption/package-boundary-adoption.feature`
+- [ ] T002 [P] Add failing acceptance step bindings for package-boundary adoption in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Platform/PackageBoundaryAdoptionSteps.cs`
+- [ ] T003 [P] Add package-boundary fixture utilities in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryTestFixture.cs`
+- [ ] T004 [P] Add package payload and log helper builders in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackagePayloadBuilder.cs`
+- [ ] T005 Add foundational RED tests for the `IPackageAccess` contract surface in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageAccessContractRedTests.cs`
 
-**Gate**: Execute T046-T047 and T053 as a failing baseline before beginning T004-T015 implementation tasks.
+**Gate**: Execute T001-T005 as a failing baseline before beginning foundational implementation tasks.
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: Implement core typed package contracts and baseline routing implementation required by all stories.
+**Purpose**: Align the core typed package contracts and baseline routing implementation required by all user stories.
 
 **⚠️ CRITICAL**: No user story work begins until this phase is complete.
 
-- [X] T004 Add `IPackage` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/IPackage.cs`
-- [X] T005 [P] Add package context contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageContext.cs`
-- [X] T006 [P] Add metadata context contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaContext.cs`
-- [X] T007 [P] Add log context contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogContext.cs`
-- [X] T008 [P] Add package payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackagePayload.cs`
-- [X] T009 [P] Add metadata payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaPayload.cs`
-- [X] T010 [P] Add log payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogPayload.cs`
-- [X] T011 [P] Add package metadata kind enum in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaKind.cs`
-- [X] T012 [P] Add package log stream enum in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogStream.cs`
-- [X] T059 Add guard test to enforce package-boundary contract/type placement in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryAbstractionsPlacementTests.cs` (contracts allowed in `src/DevOpsMigrationPlatform.Abstractions.Agent/` and disallowed in `src/DevOpsMigrationPlatform.Abstractions/`)
-- [X] T013 Implement package routing resolver in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackagePathRouter.cs`
-- [X] T014 Implement package boundary over stores in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackageBoundary.cs`
-- [X] T015 Register package boundary and router in `src/DevOpsMigrationPlatform.Infrastructure.Agent/CoreAgentServiceExtensions.cs`
+- [ ] T006 [P] Align the `IPackageAccess` content API verb surface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/IPackageAccess.cs`
+- [ ] T007 [P] Align the `IPackageContentAddress` module-relative suffix contract in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/IPackageContentAddress.cs`
+- [ ] T008 [P] Align typed content scope and address fields in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageContentContext.cs`
+- [ ] T009 [P] Align the closed content-kind set in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageContentKind.cs`
+- [ ] T010 [P] Align metadata context semantics in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaContext.cs`
+- [ ] T011 [P] Align metadata category definitions in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaKind.cs`
+- [ ] T012 [P] Align run-log context semantics in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogContext.cs`
+- [ ] T013 [P] Align run-log stream definitions in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogStream.cs`
+- [ ] T014 [P] Align content payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackagePayload.cs`
+- [ ] T015 [P] Align metadata payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaPayload.cs`
+- [ ] T016 [P] Align log payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogPayload.cs`
+- [ ] T017 Add guard tests for abstraction placement and stale contract removal in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryAbstractionsPlacementTests.cs`
+- [ ] T018 Implement package-owned prefix routing and unsafe-address rejection in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackagePathRouter.cs`
+- [ ] T019 Implement the typed package boundary over persistence stores in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/ActivePackageAccess.cs`
+- [ ] T020 Register `IPackageAccess` and router services in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackageServiceCollectionExtensions.cs`
 
-**Checkpoint**: Typed package boundary exists and is injectable across runtime services.
+**Checkpoint**: The typed `IPackageAccess` boundary exists, rejects invalid addresses, and is injectable across runtime services.
 
 ---
 
 ## Phase 3: User Story 1 - Standardize Package Access (Priority: P1) 🎯 MVP
 
-**Goal**: Route package content/metadata/log operations through one typed boundary instead of direct path composition in runtime flow code.
+**Goal**: Route package content, metadata, and log operations through `IPackageAccess` instead of direct path composition or package-facing store bypasses.
 
-**Independent Test**: Run a migration flow and verify runtime package reads/writes/appends are issued through `IPackage`, with canonical package outputs unchanged.
+**Independent Test**: Run a migration flow and verify runtime package reads, writes, and appends are issued through `IPackageAccess`, with canonical package outputs unchanged.
 
 ### Tests for User Story 1
 
-- [X] T016 [P] [US1] Add package routing tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackagePathRouterTests.cs`
-- [X] T017 [P] [US1] Add package boundary persist/request tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryTests.cs`
-- [X] T018 [P] [US1] Add metadata mirroring tests (`RelatedToRun`) in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageMetaRoutingTests.cs`
-- [X] T019 [P] [US1] Add run-log append stream tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageLogAppendTests.cs`
-- [X] T048 [P] [US1] Add streaming behavior tests proving no global buffering/sorting in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageStreamingBehaviorTests.cs`
-- [X] T049 [P] [US1] Add fail-fast error contract tests with stable codes in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryErrorContractTests.cs`
+- [ ] T021 [P] [US1] Add package-owned prefix and caller-supplied address tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackagePathRouterTests.cs`
+- [ ] T022 [P] [US1] Add typed content request and persist API tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageAccessTests.cs`
+- [ ] T023 [P] [US1] Add metadata mirroring and authority tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageMetaRoutingTests.cs`
+- [ ] T024 [P] [US1] Add run-log append behavior tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageLogAppendTests.cs`
+- [ ] T025 [P] [US1] Add streaming behavior tests proving no global buffering or sorting in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageStreamingBehaviorTests.cs`
+- [ ] T026 [P] [US1] Add fail-fast validation and stable error-code tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryErrorContractTests.cs`
 
 ### Implementation for User Story 1
 
-- [X] T020 [US1] Migrate package config operations to `IPackage` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackageConfigStore.cs`
-- [X] T021 [US1] Migrate progress sink append path handling to `IPackage.AppendLogAsync` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/PackageProgressSink.cs`
-- [X] T022 [US1] Migrate diagnostics logger append path handling to `IPackage.AppendLogAsync` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/PackageLoggerProvider.cs`
-- [X] T023 [US1] Ensure `ActivePackageState` and package-boundary run context integration in `src/DevOpsMigrationPlatform.Abstractions.Agent/Lease/ActivePackageState.cs`
-- [X] T024 [US1] Add/adjust DI and constructor wiring for updated services in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/DiagnosticsServiceExtensions.cs`
+- [ ] T027 [US1] Harden `migration-config.json` loading on mandatory `IPackageAccess` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackageMigrationConfigLoader.cs`
+- [ ] T028 [US1] Route progress log appends through `IPackageAccess.AppendLogAsync` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/PackageProgressSink.cs`
+- [ ] T029 [US1] Route diagnostics log appends through `IPackageAccess.AppendLogAsync` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/PackageLoggerProvider.cs`
+- [ ] T030 [US1] Contain remaining string-path adaptation rules in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/LegacyPackagePathShim.cs`
+- [ ] T031 [US1] Align package-config service wiring on the canonical boundary in `src/DevOpsMigrationPlatform.Infrastructure.Agent/PackageConfigServiceCollectionExtensions.cs`
+- [ ] T032 [US1] Add O-1 `ActivitySource.StartActivity` coverage for package content, metadata, and log routing in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/ActivePackageAccess.cs`
+- [ ] T033 [US1] Add O-2 package-boundary latency and outcome metrics in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/ActivePackageAccess.cs`
+- [ ] T034 [US1] Add O-3 structured boundary logs with `job.id`, operation, outcome, duration, and correlation fields in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/ActivePackageAccess.cs`
+- [ ] T035 [US1] Add O-4 `IProgressSink.Emit` coverage for package progress and diagnostics flow in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/PackageProgressSink.cs`
 
-**Checkpoint**: Runtime config + progress + diagnostics package operations are centralized through package boundary APIs.
+**Checkpoint**: Runtime package config, progress, and diagnostics operations are centralized through `IPackageAccess` without direct package-store fallback.
 
 ---
 
 ## Phase 4: User Story 2 - Preserve Deterministic Resume and Phase Gates (Priority: P1)
 
-**Goal**: Keep resume and phase-gate semantics unchanged while migrating orchestration/checkpoint paths to typed package intents.
+**Goal**: Keep resume and phase-gate semantics unchanged while moving checkpoint and orchestration state through the package boundary.
 
-**Independent Test**: Interrupt and resume jobs; verify identical cursor/stage progression and phase-gate behavior compared to baseline.
+**Independent Test**: Interrupt and resume jobs, then verify identical cursor, plan, and phase-gate behavior compared to baseline.
 
 ### Tests for User Story 2
 
-- [X] T025 [P] [US2] Add checkpoint cursor routing/resolution tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Checkpointing/CheckpointingServiceTests.cs`
-- [X] T026 [P] [US2] Add plan persistence authority tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobExecutionPlanBuilderTests.cs`
-- [X] T027 [P] [US2] Add plan executor persistence tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobPlanExecutorTests.cs`
-- [X] T028 [P] [US2] Add phase tracking no-regression tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Checkpointing/PhaseTrackingServiceTests.cs`
-- [X] T054 [P] [US2] Add legacy package-state path resume compatibility tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Checkpointing/LegacyStateResumeCompatibilityTests.cs`
+- [ ] T036 [P] [US2] Add checkpoint cursor routing and continuation-token tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Checkpointing/CheckpointingServiceTests.cs`
+- [ ] T037 [P] [US2] Add authoritative and run-audit execution-plan persistence tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobExecutionPlanBuilderTests.cs`
+- [ ] T038 [P] [US2] Add job-plan prerequisite and persistence tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobPlanExecutorTests.cs`
+- [ ] T039 [P] [US2] Add phase tracking no-regression tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Checkpointing/PhaseTrackingServiceTests.cs`
+- [ ] T040 [P] [US2] Add legacy compatibility resume tests for shim-backed package state in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Checkpointing/LegacyStateResumeCompatibilityTests.cs`
 
 ### Implementation for User Story 2
 
-- [X] T029 [US2] Migrate checkpoint cursor and continuation token persistence to package boundary in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Checkpointing/CheckpointingService.cs`
-- [X] T030 [US2] Migrate execution-plan authoritative/run-audit writes to package boundary in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobExecutionPlanBuilder.cs`
-- [X] T031 [US2] Migrate per-task plan persistence to package boundary in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobPlanExecutor.cs`
-- [X] T032 [US2] Align phase-record persistence with package boundary metadata routing in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Checkpointing/PhaseTrackingService.cs`
+- [ ] T041 [US2] Route checkpoint cursor and continuation-token persistence through `IPackageAccess` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Checkpointing/CheckpointingService.cs`
+- [ ] T042 [US2] Route authoritative and run-audit plan persistence through `IPackageAccess` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobExecutionPlanBuilder.cs`
+- [ ] T043 [US2] Route per-task plan persistence and prerequisite reads through `IPackageAccess` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobPlanExecutor.cs`
+- [ ] T044 [US2] Route phase-record persistence through `IPackageAccess` metadata flows in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Checkpointing/PhaseTrackingService.cs`
+- [ ] T045 [US2] Align agent worker package-state reads and writes on the canonical boundary in `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`
+- [ ] T046 [US2] Add O-1 `ActivitySource.StartActivity` coverage for checkpoint and phase persistence in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Checkpointing/CheckpointingService.cs`
+- [ ] T047 [US2] Add O-2 resume and phase-gate outcome metrics in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobExecutionPlanBuilder.cs`
+- [ ] T048 [US2] Add O-3 structured resume and prerequisite logs with `job.id`, outcome, duration, and correlation fields in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobPlanExecutor.cs`
+- [ ] T049 [US2] Add O-4 `IProgressSink.Emit` coverage for resume and plan-rebuild transitions in `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`
 
 **Checkpoint**: Resume checkpoints and phase gates remain deterministic and unchanged after package-boundary adoption.
 
@@ -106,45 +116,50 @@
 
 ## Phase 5: User Story 3 - Ensure Cross-Connector Consistency (Priority: P2)
 
-**Goal**: Ensure package-boundary behavior is consistent across Simulated, Azure DevOps Services, and TFS runtime paths.
+**Goal**: Ensure package-boundary behavior is consistent across Simulated, Azure DevOps Services, and Team Foundation Server execution paths.
 
-**Independent Test**: Run connector-specific flows and verify equivalent package boundary semantics and observable outputs.
+**Independent Test**: Run connector-specific flows and verify equivalent package-boundary semantics and observable outputs.
 
 ### Tests for User Story 3
 
-- [X] T033 [P] [US3] Add cross-connector parity tests for package-boundary semantics in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryConnectorParityTests.cs`
-- [X] T050 [P] [US3] Add Azure DevOps Services package-boundary behavior tests in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/AdoPackageBoundaryIntegrationTests.cs`
-- [X] T034 [P] [US3] Add TFS worker package-boundary behavior tests in `tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsJobAgentWorkerTests.cs`
-- [X] T035 [P] [US3] Add simulated-system coverage for package-boundary routing in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/SimulatedMigrationCommandTests.cs`
-- [X] T055 [P] [US3] Add explicit unsupported-capability guardrail error tests per connector in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryConnectorLimitationsTests.cs`
+- [ ] T050 [P] [US3] Add cross-connector parity tests for package-boundary semantics in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryConnectorParityTests.cs`
+- [ ] T051 [P] [US3] Add Azure DevOps Services package-boundary integration tests in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/AdoPackageBoundaryIntegrationTests.cs`
+- [ ] T052 [P] [US3] Add TFS worker package-boundary tests in `tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsJobAgentWorkerTests.cs`
+- [ ] T053 [P] [US3] Add simulated migration package-boundary tests in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/SimulatedMigrationCommandTests.cs`
+- [ ] T054 [P] [US3] Add unsupported-capability guardrail tests per connector in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryConnectorLimitationsTests.cs`
 
 ### Implementation for User Story 3
 
-- [X] T036 [US3] Migrate TFS job worker package operations to package boundary where applicable in `src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsJobAgentWorker.cs`
-- [X] T037 [US3] Migrate Nodes orchestrator package path composition seams to package intents in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodesOrchestrator.cs`
-- [X] T038 [US3] Migrate Teams orchestrator package path composition seams to package intents in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/TeamsOrchestrator.cs`
-- [X] T039 [US3] Migrate Identities orchestrator package path composition seams to package intents in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/IdentitiesOrchestrator.cs`
+- [ ] T055 [US3] Route TFS worker package operations through `IPackageAccess` or the explicit legacy shim seam in `src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsJobAgentWorker.cs`
+- [ ] T056 [US3] Reduce path-based package access in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodesOrchestrator.cs`
+- [ ] T057 [US3] Reduce path-based package access in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/TeamsOrchestrator.cs`
+- [ ] T058 [US3] Reduce path-based package access in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/IdentitiesOrchestrator.cs`
+- [ ] T059 [US3] Reduce path-based package access in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Export/WorkItemExportOrchestrator.cs`
+- [ ] T060 [US3] Reduce path-based package access in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/DependencyOrchestrator.cs`
+- [ ] T061 [US3] Add O-1 `ActivitySource.StartActivity` coverage for connector-specific package operations in `src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsJobAgentWorker.cs`
+- [ ] T062 [US3] Add O-2 connector parity outcome metrics in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodesOrchestrator.cs`
+- [ ] T063 [US3] Add O-3 structured connector-boundary logs with `job.id`, connector, outcome, duration, and correlation fields in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/TeamsOrchestrator.cs`
+- [ ] T064 [US3] Add O-4 `IProgressSink.Emit` coverage for connector package-boundary progress in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Export/WorkItemExportOrchestrator.cs`
 
-**Checkpoint**: Package manager behavior is consistent across connector execution paths and no connector is left on legacy package access for covered surfaces.
+**Checkpoint**: Package-boundary behavior is consistent across connector execution paths and no connector is left on untracked legacy package access for covered surfaces.
 
 ---
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-**Purpose**: Finalize documentation, observability verification, and full-suite validation.
+**Purpose**: Finalize documentation, observability verification, boundary enforcement, and full-suite validation.
 
-- [X] T040 [P] Update package-boundary architecture context in `.agents/context/package-manager.md`
-- [X] T041 [P] Update package format/routing docs in `.agents/context/migration-package-concept.md`
-- [X] T042 [P] Update operator/developer docs for package-boundary usage in `docs/architecture.md`
-- [X] T043 [P] Update implementation guidance in `docs/module-development-guide.md`
-- [X] T044 Verify observability instrumentation coverage for package-boundary operations in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackageBoundary.cs`
-- [X] T045 Run full build/test validation from quickstart in `specs/034-package-manager-adoption/quickstart.md`
-- [X] T051 Add measurable observability assertions (span, metric, structured log fields) in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryObservabilityTests.cs`
-- [X] T052 Document and justify permitted direct low-level persistence internals (FR-008 scope exceptions) in `.agents/context/package-manager.md`
-- [X] T056 Add active-run log rotation continuity tests for diagnostics/progress streams in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageLogRotationContinuityTests.cs`
-- [X] T057 Add runtime package-access audit test enforcing boundary-only writes with explicit allowlist in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryAdoptionAuditTests.cs`
-- [X] T058 Add failure-path observability tests for structured error logs with correlation fields in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryErrorObservabilityTests.cs`
-- [X] T060 Enforce no-exception runtime package-boundary policy (no direct runtime store read/write/checkpoint/log append access) in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageRuntimeBoundaryEnforcementTests.cs` and listed runtime paths
+- [ ] T065 [P] Update package-boundary architecture context in `.agents/context/package-manager.md`
+- [ ] T066 [P] Update package format and routing context in `.agents/context/migration-package-concept.md`
+- [ ] T067 [P] Update architecture guidance for package-boundary usage in `docs/architecture.md`
+- [ ] T068 [P] Update module guidance for `IPackageAccess` usage in `docs/module-development-guide.md`
+- [ ] T069 [P] Update canonical package layout guidance in `docs/package-format-reference.md`
+- [ ] T070 [P] Add package-boundary observability assertions for spans, metrics, `job.id`, outcome, duration, and correlation fields in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryObservabilityTests.cs`
+- [ ] T071 [P] Add runtime no-bypass enforcement audit tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageRuntimeBoundaryEnforcementTests.cs`
+- [ ] T072 [P] Add no-new-callsite enforcement for the legacy shim in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/LegacyPackagePathShimUsageTests.cs`
+- [ ] T073 [P] Add failure-path observability tests for structured error logs with `job.id` and correlation fields in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryErrorObservabilityTests.cs`
+- [ ] T074 [P] Add active-run log rotation continuity tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageLogRotationContinuityTests.cs`
+- [ ] T075 Run full build, full test, and representative scenario validation from `specs/034-package-manager-adoption/quickstart.md`
 
 ---
 
@@ -153,7 +168,7 @@
 ### Phase Dependencies
 
 - **Phase 1 (Setup)**: No dependencies
-- **Phase 2 (Foundational)**: Depends on Phase 1 and the failing acceptance baseline gate (T046-T047, T053); blocks all user stories
+- **Phase 2 (Foundational)**: Depends on the failing baseline from Phase 1 and blocks all user stories
 - **Phase 3 (US1)**: Depends on Phase 2
 - **Phase 4 (US2)**: Depends on Phase 2
 - **Phase 5 (US3)**: Depends on Phase 2 and should start after US1 and US2 stabilize shared boundary behavior
@@ -161,9 +176,9 @@
 
 ### User Story Dependencies
 
-- **US1 (P1)**: Starts after foundational phase; baseline MVP
-- **US2 (P1)**: Starts after foundational phase; can run in parallel with US1
-- **US3 (P2)**: Depends on stable shared package boundary and should follow US1/US2 completion
+- **US1 (P1)**: Starts after foundational phase; defines the MVP boundary behavior
+- **US2 (P1)**: Starts after foundational phase; can run in parallel with US1 once the boundary contract is stable
+- **US3 (P2)**: Depends on stable shared boundary behavior from US1 and US2
 
 ### Within Each User Story
 
@@ -172,49 +187,45 @@
 
 ### Parallel Opportunities
 
-- Foundational contract files (`T005`-`T012`) can run in parallel.
-- Contract placement guard (`T059`) can run in parallel with foundational contract files.
-- US1 tests (`T016`-`T019`) can run in parallel.
-- US1 additional behavior tests (`T048`-`T049`) can run in parallel with other US1 test tasks.
-- US2 tests (`T025`-`T028`) can run in parallel.
-- US2 additional compatibility tests (`T054`) can run in parallel with other US2 test tasks.
-- US3 tests (`T033`-`T035`, `T050`) can run in parallel.
-- US3 connector limitation tests (`T055`) can run in parallel with other US3 test tasks.
-- Documentation updates (`T040`-`T043`) can run in parallel.
-- Observability/log continuity tests (`T051`, `T056`) can run in parallel.
-- Boundary-adoption and error-observability audit tests (`T057`, `T058`) can run in parallel with other polish tests.
+- Foundational contract files `T006-T016` can run in parallel.
+- The abstraction guard `T017` can run in parallel with contract alignment tasks.
+- US1 tests `T021-T026` can run in parallel.
+- US2 tests `T036-T040` can run in parallel.
+- US3 tests `T050-T054` can run in parallel.
+- Documentation updates `T065-T069` can run in parallel.
+- Observability and enforcement tests `T070-T074` can run in parallel.
 
 ---
 
 ## Parallel Example: User Story 1
 
 ```text
-Task: "T016 [US1] Add package routing tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackagePathRouterTests.cs"
-Task: "T017 [US1] Add package boundary persist/request tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryTests.cs"
-Task: "T018 [US1] Add metadata mirroring tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageMetaRoutingTests.cs"
-Task: "T019 [US1] Add run-log append stream tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageLogAppendTests.cs"
-Task: "T048 [US1] Add streaming behavior tests proving no global buffering/sorting in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageStreamingBehaviorTests.cs"
-Task: "T049 [US1] Add fail-fast error contract tests with stable codes in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryErrorContractTests.cs"
+Task: "T021 [P] [US1] Add package-owned prefix and caller-supplied address tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackagePathRouterTests.cs"
+Task: "T022 [P] [US1] Add typed content request and persist API tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageAccessTests.cs"
+Task: "T023 [P] [US1] Add metadata mirroring and authority tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageMetaRoutingTests.cs"
+Task: "T024 [P] [US1] Add run-log append behavior tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageLogAppendTests.cs"
+Task: "T025 [P] [US1] Add streaming behavior tests proving no global buffering or sorting in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageStreamingBehaviorTests.cs"
+Task: "T026 [P] [US1] Add fail-fast validation and stable error-code tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryErrorContractTests.cs"
 ```
 
 ## Parallel Example: User Story 2
 
 ```text
-Task: "T025 [US2] Add checkpoint cursor routing/resolution tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Checkpointing/CheckpointingServiceTests.cs"
-Task: "T026 [US2] Add plan persistence authority tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobExecutionPlanBuilderTests.cs"
-Task: "T027 [US2] Add plan executor persistence tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobPlanExecutorTests.cs"
-Task: "T028 [US2] Add phase tracking no-regression tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Checkpointing/PhaseTrackingServiceTests.cs"
-Task: "T054 [US2] Add legacy package-state path resume compatibility tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Checkpointing/LegacyStateResumeCompatibilityTests.cs"
+Task: "T036 [P] [US2] Add checkpoint cursor routing and continuation-token tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Checkpointing/CheckpointingServiceTests.cs"
+Task: "T037 [P] [US2] Add authoritative and run-audit execution-plan persistence tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobExecutionPlanBuilderTests.cs"
+Task: "T038 [P] [US2] Add job-plan prerequisite and persistence tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobPlanExecutorTests.cs"
+Task: "T039 [P] [US2] Add phase tracking no-regression tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Checkpointing/PhaseTrackingServiceTests.cs"
+Task: "T040 [P] [US2] Add legacy compatibility resume tests for shim-backed package state in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Checkpointing/LegacyStateResumeCompatibilityTests.cs"
 ```
 
 ## Parallel Example: User Story 3
 
 ```text
-Task: "T033 [US3] Add connector parity tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryConnectorParityTests.cs"
-Task: "T050 [US3] Add Azure DevOps Services behavior tests in tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/AdoPackageBoundaryIntegrationTests.cs"
-Task: "T034 [US3] Add TFS worker behavior tests in tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/TfsPackageBoundaryIntegrationTests.cs"
-Task: "T035 [US3] Add simulated-system coverage in tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/SimulatedMigrationCommandTests.cs"
-Task: "T055 [US3] Add unsupported-capability guardrail error tests per connector in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryConnectorLimitationsTests.cs"
+Task: "T050 [P] [US3] Add cross-connector parity tests for package-boundary semantics in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryConnectorParityTests.cs"
+Task: "T051 [P] [US3] Add Azure DevOps Services package-boundary integration tests in tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/AdoPackageBoundaryIntegrationTests.cs"
+Task: "T052 [P] [US3] Add TFS worker package-boundary tests in tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsJobAgentWorkerTests.cs"
+Task: "T053 [P] [US3] Add simulated migration package-boundary tests in tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/SimulatedMigrationCommandTests.cs"
+Task: "T054 [P] [US3] Add unsupported-capability guardrail tests per connector in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryConnectorLimitationsTests.cs"
 ```
 
 ---
@@ -225,23 +236,23 @@ Task: "T055 [US3] Add unsupported-capability guardrail error tests per connector
 
 1. Complete Phase 1 and Phase 2.
 2. Complete Phase 3 (US1).
-3. Validate package-boundary routing for config/progress/diagnostics paths.
-4. Demo and baseline before resume/connector expansions.
+3. Validate package-boundary routing for config, progress, diagnostics, and route validation.
+4. Demo and baseline before resume and connector expansions.
 
 ### Incremental Delivery
 
 1. Foundation
 2. US1 (standardized access)
-3. US2 (resume/phase safety)
+3. US2 (resume and phase safety)
 4. US3 (connector parity)
-5. Polish/documentation/validation
+5. Polish, docs, and validation
 
 ### Parallel Team Strategy
 
-1. Team completes Setup + Foundational together.
+1. Team completes Setup and Foundational phases together.
 2. Then split:
    - Engineer A: US1
    - Engineer B: US2
-   - Engineer C: prepares US3 test scaffolding
-3. Merge and finalize with Phase 6.
-
+   - Engineer C: US3 test scaffolding and connector parity work
+3. Merge and finish with Phase 6.
+Generated from `spec.md`, `plan.md`, `research.md`, `data-model.md`, `contracts/package-boundary-contract.md`, and `quickstart.md`.
