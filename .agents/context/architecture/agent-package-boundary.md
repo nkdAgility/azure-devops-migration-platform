@@ -18,7 +18,7 @@ The boundary exists to stop callers from deciding package layout. Callers provid
 ## Core Classes
 
 - `IPackage`
-- `IPackageAddress`
+- `IPackageContentAddress`
 - `PackageContentContext`
 - `PackageMetaContext`
 - `PackageLogContext`
@@ -102,7 +102,7 @@ public interface IPackage
     CancellationToken cancellationToken = default);
 }
 
-public interface IPackageAddress
+public interface IPackageContentAddress
 {
   string RelativePath { get; }
 }
@@ -112,7 +112,7 @@ public sealed record PackageContentContext(
   string? Organisation = null,
   string? Project = null,
   string? Module = null,
-  IPackageAddress? Address = null,
+  IPackageContentAddress? Address = null,
   bool IsCollectionRequest = false);
 
 public enum PackageContentKind
@@ -183,11 +183,11 @@ Caller-facing package boundary with exactly four verbs:
 
 `IPackage` does not include delete. Cleanup and force-fresh style removal should remain separate maintenance behavior rather than being folded into the routine caller-facing package boundary.
 
-### `IPackageAddress`
+### `IPackageContentAddress`
 
 Module-owned relative address contract for content beneath the module root. The module constructs this object and supplies it on `PackageContentContext.Address`. The package boundary reads it but does not invent it.
 
-`IPackageAddress.RelativePath` is relative to the module root. It must not be absolute and it must not escape the module root.
+`IPackageContentAddress.RelativePath` is relative to the module root. It must not be absolute and it must not escape the module root.
 
 ### `PackageContentContext`
 
@@ -195,12 +195,12 @@ Typed routing context for package data. This contract should carry the package i
 
 - boundary-owned content kind
 - package-owned scope such as org, project, and module
-- optional module-owned address supplied as `IPackageAddress` when the caller needs a module-relative suffix
+- optional module-owned address supplied as `IPackageContentAddress` when the caller needs a module-relative suffix
 - read versus write intent parameters needed for collection or single-item resolution
 - strict parameter-intent fidelity: no caller may pass text or path values to parameters whose intent is not to carry those values
 - no slash-delimited package path fragments in `PackageContentContext` fields; path assembly belongs exclusively to package-boundary routing
 
-The package boundary owns the package prefix. For module-owned content, the module owns the suffix under that prefix through `IPackageAddress.RelativePath`.
+The package boundary owns the package prefix. For module-owned content, the module owns the suffix under that prefix through `IPackageContentAddress.RelativePath`.
 
 ### `PackageMetaContext`
 
@@ -230,7 +230,7 @@ The content boundary is intentionally small:
 - `Collection` for collection enumeration within package scope
 - `Manifest` for package-owned manifest content
 
-Concrete domain artefact types such as Work Item revisions are not encoded as top-level package content kinds. They are expressed by the caller through package scope plus a module-supplied `IPackageAddress`.
+Concrete domain artefact types such as Work Item revisions are not encoded as top-level package content kinds. They are expressed by the caller through package scope plus a module-supplied `IPackageContentAddress`.
 
 ### `PackageMetaPayload`
 
@@ -283,7 +283,7 @@ The boundary must own both `IArtefactStore` and `IStateStore`. A wrapper over `I
 - Callers must never construct or pass package paths.
 - The caller-facing content verbs are `PersistContentAsync`, `PersistContentStreamAsync`, and `AppendContentAsync`, while `WriteAsync` remains the lower-level store primitive. The boundary owns package semantics rather than raw file writes.
 - The caller-facing run-log verb is `AppendLogAsync`; logs are not squeezed through metadata persistence.
-- For module-owned content, callers must pass an `IPackageAddress`; the boundary must not infer module layout from DTO types or raw route segments.
+- For module-owned content, callers must pass an `IPackageContentAddress`; the boundary must not infer module layout from DTO types or raw route segments.
 - Manifest content is package-owned and may be resolved without a module-supplied address.
 - Authoritative package state must remain under root `.migration/` and project `/{org}/{project}/.migration/`.
 - Run-scoped copies under `.migration/runs/<runId>/` are audit evidence only and must never become the authoritative source for resume or phase-gate decisions.

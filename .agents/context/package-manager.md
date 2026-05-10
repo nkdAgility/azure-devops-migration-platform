@@ -34,7 +34,7 @@ Where raw semantics are required (exists, enumerate, binary read/write, append),
 The package-manager design discussed so far centers on these contracts:
 
 - `IPackageAccess` as the caller-facing package boundary
-- `IPackageAddress` for module-owned relative content addressing
+- `IPackageContentAddress` for module-owned relative content addressing
 - `PackageContentContext` for typed package content requests and writes
 - `PackageMetaContext` for typed package metadata requests and writes
 - `PackageLogContext` for typed run-log append operations
@@ -117,7 +117,7 @@ public interface IPackageAccess
         CancellationToken cancellationToken = default);
 }
 
-public interface IPackageAddress
+public interface IPackageContentAddress
 {
     string RelativePath { get; }
 }
@@ -127,7 +127,7 @@ public sealed record PackageContentContext(
     string? Organisation = null,
     string? Project = null,
     string? Module = null,
-    IPackageAddress? Address = null,
+    IPackageContentAddress? Address = null,
     bool IsCollectionRequest = false);
 
 public enum PackageContentKind
@@ -186,9 +186,9 @@ public enum PackageLogStream
 - Parameter intent is a hard contract: no text, key, token, or path may be passed to any parameter whose declared purpose does not match that value.
 - `PackageContentContext.Kind` is a closed enum (`PackageContentKind`) and must never carry a relative path or any raw path segment.
 - `PackageContentContext` conveys package-owned scope only: package content kind and the package prefix (`Organisation`, `Project`, `Module`).
-- `IPackageAddress` is supplied by the caller when module-owned content needs a module-relative suffix. The package boundary must not invent module layout for module content.
-- For module-owned content, the package boundary combines the package-owned prefix from `PackageContentContext` with `IPackageAddress.RelativePath` from the module-supplied address.
-- `IPackageAddress.RelativePath` is relative to the module root. It must not be an absolute path, and it must not escape the module root.
+- `IPackageContentAddress` is supplied by the caller when module-owned content needs a module-relative suffix. The package boundary must not invent module layout for module content.
+- For module-owned content, the package boundary combines the package-owned prefix from `PackageContentContext` with `IPackageContentAddress.RelativePath` from the module-supplied address.
+- `IPackageContentAddress.RelativePath` is relative to the module root. It must not be an absolute path, and it must not escape the module root.
 - `Manifest` is package-owned content. It may be resolved without a module-supplied address because its location belongs to the package boundary itself.
 - `PersistContentAsync`, `PersistContentStreamAsync`, and `AppendContentAsync` are content verbs. `PersistMetaAsync` is the metadata verb. `AppendLogAsync` is the run-log verb. `WriteAsync` remains the lower-level store primitive.
 - Package metadata writes/reads must use `PackageMetaContext` with `PackageMetaKind`; metadata must not be routed through `PersistAsync`/`RequestAsync`.
@@ -199,12 +199,12 @@ public enum PackageLogStream
 
 ### Address Ownership Example
 
-For module-owned content, the module passes an `IPackageAddress` implementation rather than a raw path string:
+For module-owned content, the module passes an `IPackageContentAddress` implementation rather than a raw path string:
 
 ```csharp
-public sealed class WorkItemRevisionPackageAddress : IPackageAddress
+public sealed class WorkItemRevisionPackageContentAddress : IPackageContentAddress
 {
-    public WorkItemRevisionPackageAddress(WorkItemRevision revision)
+    public WorkItemRevisionPackageContentAddress(WorkItemRevision revision)
     {
         RelativePath =
             $"{revision.ChangedDate:yyyy-MM-dd}/" +
