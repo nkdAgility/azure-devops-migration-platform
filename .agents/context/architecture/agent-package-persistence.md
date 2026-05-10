@@ -31,16 +31,12 @@
 sequenceDiagram
   participant JW as JobAgentWorker
   participant PF as IPackageStoreFactory
-  participant AS as IArtefactStore
-  participant SS as IStateStore
+  participant PA as IPackageAccess
   participant PCS as PackageConfigStore
 
-  JW->>PF: Create(packageUri)
-  PF-->>JW: (IArtefactStore, IStateStore)
-  JW->>PCS: ReadAsync(IArtefactStore)
-  PCS->>AS: ExistsAsync(migration-config.json)
-  PCS->>AS: ReadAsync(migration-config.json)
+  JW->>PCS: ReadAsync(...)
+  PCS->>PA: RequestMetaAsync(MigrationConfig)
   PCS-->>JW: IConfiguration
-  JW->>SS: Write plan/cursor/phase state
+  JW->>PA: PersistMetaAsync / PersistContentAsync
   JW->>AS: Write logs and artefacts
 ```

@@ -24,14 +24,14 @@
 sequenceDiagram
   participant JW as JobAgentWorker
   participant PCS as PackageConfigStore
-  participant AS as IArtefactStore
+  participant PA as IPackageAccess
   participant PCA as ICurrentPackageConfigAccessor
   participant JCA as ICurrentAgentJobContextAccessor
   participant ECA as ICurrentJobEndpointAccessor
 
-  JW->>AS: Write ConfigPayload to migration-config.json
-  JW->>PCS: ReadAsync(artefactStore)
-  PCS->>AS: ReadAsync(migration-config.json)
+  JW->>PA: PersistMetaAsync(MigrationConfig)
+  JW->>PCS: ReadAsync(...)
+  PCS->>PA: RequestMetaAsync(MigrationConfig)
   PCS-->>JW: IConfiguration
   JW->>PCA: Set(config)
   JW->>JCA: Set(AgentJobContext)

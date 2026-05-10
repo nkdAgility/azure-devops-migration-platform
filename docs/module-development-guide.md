@@ -68,9 +68,9 @@ flowchart LR
 
 - `Name` is unique across all registered modules.
 - `DependsOn` declares ordering constraints. The orchestrator resolves the dependency graph before execution; circular dependencies are a fatal configuration error.
-- `ExportAsync` must write only via `IArtefactStore`. Reads from the source system via injected services.
-- `PrepareAsync` must read from the package via `IArtefactStore`, query the target system via injected services, and write validation/mapping artefacts into the module's own package folder (e.g. `Identities/prepare-report.json`). Prepare artefacts are overwritten on re-run. Operator-edited mapping files (e.g. `mapping.json`) must not be modified by `PrepareAsync`.
-- `ImportAsync` must read only via `IArtefactStore` and write state only via `IStateStore`.
+- `ExportAsync` must access the package only via `IPackageAccess`. Reads from the source system via injected services.
+- `PrepareAsync` must read from and write to the package via `IPackageAccess`, query the target system via injected services, and write validation/mapping artefacts into the module's own package folder (e.g. `Identities/prepare-report.json`). Prepare artefacts are overwritten on re-run. Operator-edited mapping files (e.g. `mapping.json`) must not be modified by `PrepareAsync`.
+- `ImportAsync` must access package content and metadata via `IPackageAccess`.
 - `ValidateAsync` must be side-effect free.
 - Modules must never call source or target APIs directly — only through injected services.
 - Package path ownership belongs to the package boundary (`IPackage`). When a module/orchestrator needs to read or write authoritative package/state artefacts, use package intents first and only fall back to low-level store operations for documented FR-008 exceptions (delete/maintenance, streaming append loops, legacy-read compatibility).
@@ -172,7 +172,7 @@ Orchestrator *implementations* are `internal sealed` classes in `Infrastructure.
 
 ### Storage Rule
 
-> Modules/orchestrators use `IPackage` for caller-facing authoritative package intents and may use `IArtefactStore`/`IStateStore` for documented low-level internals. Direct filesystem access outside these interfaces is forbidden.
+> Modules/orchestrators use `IPackageAccess` for caller-facing package intents. `IArtefactStore` and `IStateStore` are internal persistence details beneath that boundary and must not be used to bypass it. Direct filesystem access outside these interfaces is forbidden.
 
 ### Module Dependencies — Job Context and Endpoint Info
 

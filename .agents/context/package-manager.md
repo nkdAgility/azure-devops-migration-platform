@@ -21,19 +21,19 @@ The typed package boundary is now implemented and in active runtime use for core
 - checkpoint cursor and continuation token read/write routing (`CheckpointingService`)
 - run log streams for progress and diagnostics (`PackageProgressSink`, `PackageLoggerProvider`)
 
-Routing remains centralized through `IPackage` + `PackagePathRouter` in `Infrastructure.Agent`, with contract types in `Abstractions.Agent`.
+Routing remains centralized through `IPackageAccess` + `PackagePathRouter` in `Infrastructure.Agent`, with contract types in `Abstractions.Agent`.
 
 ## Runtime Enforcement Policy (No Exceptions)
 
-For runtime package-facing paths, package reads/writes, checkpoint state reads/writes, and log appends must go through `IPackage` only. Direct `IArtefactStore`/`IStateStore` calls in runtime orchestration/module/worker flows are disallowed for these operations.
+For runtime package-facing paths, package reads/writes, checkpoint state reads/writes, and log appends must go through `IPackageAccess` only. Direct `IArtefactStore`/`IStateStore` calls in runtime orchestration/module/worker flows are disallowed for these operations.
 
-Where raw semantics are required (exists, enumerate, binary read/write, append), extend `IPackage` and `PackageBoundary` rather than introducing direct store bypasses in runtime flow code.
+Where raw semantics are required (exists, enumerate, binary read/write, append), extend `IPackageAccess` and `ActivePackageAccess` rather than introducing direct store bypasses in runtime flow code.
 
 ## Primary Contracts
 
 The package-manager design discussed so far centers on these contracts:
 
-- `IPackage` as the caller-facing package boundary
+- `IPackageAccess` as the caller-facing package boundary
 - `IPackageAddress` for module-owned relative content addressing
 - `PackageContentContext` for typed package content requests and writes
 - `PackageMetaContext` for typed package metadata requests and writes
@@ -196,7 +196,7 @@ public enum PackageLogStream
 - `RelatedToRun` means authoritative metadata write first, then a run-scoped audit copy when that metadata kind supports it.
 - `AppendLogAsync` exists because logs are append-only run streams, not metadata.
 - `PackagePayload` and `PackageMetaPayload` intentionally use `Stream` so the boundary can preserve large-payload and append scenarios without collapsing into string-only contracts.
-- `IPackage` intentionally omits delete. If package cleanup needs a first-class abstraction later, it should be split into a separate maintenance contract rather than weakening the core caller-facing boundary.
+- `IPackageAccess` intentionally omits delete. If package cleanup needs a first-class abstraction later, it should be split into a separate maintenance contract rather than weakening the core caller-facing boundary.
 
 ### Address Ownership Example
 
@@ -220,7 +220,7 @@ The caller supplies that address on `PackageContentContext.Address`; the package
 
 ## Persistence Primitives
 
-`IArtefactStore` remains the low-level abstraction through which modules read and write package artefacts. It is defined in `DevOpsMigrationPlatform.Abstractions`, which targets both `net481` and `net10.0`. Both the .NET 10 `MigrationAgent` and the .NET 4.8 `TfsMigrationAgent` use it directly today. The `IAsyncEnumerable<T>` dependency is satisfied on net481 via the `Microsoft.Bcl.AsyncInterfaces` NuGet package.
+`IArtefactStore` remains the low-level persistence abstraction inside the package boundary. It is defined in `DevOpsMigrationPlatform.Abstractions`, which targets both `net481` and `net10.0`. The package boundary uses it internally; runtime callers must not bypass `IPackageAccess` to reach it directly for package reads or writes. The `IAsyncEnumerable<T>` dependency is satisfied on net481 via the `Microsoft.Bcl.AsyncInterfaces` NuGet package.
 
 Two artefact-store implementations exist:
 
@@ -340,7 +340,7 @@ These exceptions are deliberately narrow. New runtime package path ownership mus
 - The relative path conventions for all package files.
 - The WorkItems lexicographic layout.
 - The cursor schema and resume logic.
-- Module code must not use raw filesystem or blob SDK calls. Where the typed package boundary is not yet in place, modules still use `IArtefactStore` and `IStateStore` only.
+- Module code must not use raw filesystem or blob SDK calls. Runtime package access must go through `IPackageAccess` only; `IArtefactStore` and `IStateStore` are internal persistence contracts beneath that boundary.
 
 Switching from local to cloud mode requires only a different `packageUri` in the job definition. No module code changes.
 
@@ -348,7 +348,7 @@ Switching from local to cloud mode requires only a different `packageUri` in the
 
 ## Write Access Boundary (Data Residency)
 
-Package-manager persistence writes are callable **only** from the Migration Agent (or TFS Export Agent for TFS sources). No other component — CLI, TUI, Control Plane, or ControlPlaneHost — may invoke `IArtefactStore` or `IStateStore` write operations. This is a **data residency** constraint: customer data must remain under the exclusive control of the execution boundary (the Agent).
+Package-manager persistence writes are callable **only** through `IPackageAccess` from the Migration Agent (or TFS Export Agent for TFS sources). No other component — and no lower-level runtime caller — may bypass `IPackageAccess` by invoking `IArtefactStore` or `IStateStore` write operations directly. This is a **data residency** constraint: customer data must remain under the exclusive control of the execution boundary (the Agent).
 
 The CLI may use read operations (`ReadAsync`, `ExistsAsync`, `EnumerateAsync`) on a completed package for post-job display (e.g. reading summary CSVs). Read-only access does not violate data residency.
 

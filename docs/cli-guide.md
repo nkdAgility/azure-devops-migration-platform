@@ -60,7 +60,7 @@ Spectre.Console is the only permitted CLI library in command-layer code. Do not 
 │  - Resolves module dependency graph     │
 │  - Runs Inventory / Export / Prepare /       │
 │    Import / Validate / Migrate               │
-│  - Writes package via IArtefactStore    │
+│  - Writes package via IPackageAccess    │
 │  - Writes checkpoints via IStateStore   │
 │  - Emits progress via IProgressSink     │
 └─────────────────────────────────────────┘
