@@ -3,6 +3,7 @@
 
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,6 +19,57 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 [TestClass]
 public sealed class PackageBoundaryTests
 {
+    [TestMethod]
+    public async Task ExistsAsync_ReturnsTrue_WhenContentPathExists()
+    {
+        var store = new InMemoryArtefactStore();
+        await store.WriteAsync("WorkItems/entry.json", "{}", CancellationToken.None);
+        var sut = new PackageBoundary(
+            new ActivePackageState { CurrentStore = store },
+            new PackagePathRouter(),
+            NullLogger<PackageBoundary>.Instance);
+
+        var exists = await sut.ExistsAsync(new PackageContext("WorkItems/entry.json"), CancellationToken.None);
+
+        Assert.IsTrue(exists);
+    }
+
+    [TestMethod]
+    public async Task EnumerateAsync_YieldsLexicographicStoreEntries()
+    {
+        var store = new InMemoryArtefactStore();
+        await store.WriteAsync("WorkItems/b.json", "{}", CancellationToken.None);
+        await store.WriteAsync("WorkItems/a.json", "{}", CancellationToken.None);
+        var sut = new PackageBoundary(
+            new ActivePackageState { CurrentStore = store },
+            new PackagePathRouter(),
+            NullLogger<PackageBoundary>.Instance);
+
+        var entries = new List<string>();
+        await foreach (var item in sut.EnumerateAsync(new PackageContext("WorkItems/"), CancellationToken.None))
+            entries.Add(item);
+
+        CollectionAssert.AreEquivalent(new[] { "WorkItems/a.json", "WorkItems/b.json" }, entries.ToArray());
+    }
+
+    [TestMethod]
+    public async Task AppendAsync_AppendsContentToExistingFile()
+    {
+        var store = new InMemoryArtefactStore();
+        await store.WriteAsync("Identities/descriptors.jsonl", "one\n", CancellationToken.None);
+        var sut = new PackageBoundary(
+            new ActivePackageState { CurrentStore = store },
+            new PackagePathRouter(),
+            NullLogger<PackageBoundary>.Instance);
+
+        await sut.AppendAsync(
+            new PackageContext("Identities/descriptors.jsonl"),
+            new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("two\n"))),
+            CancellationToken.None);
+
+        Assert.AreEqual("one\ntwo\n", await store.ReadAsync("Identities/descriptors.jsonl", CancellationToken.None));
+    }
+
     [TestMethod]
     public async Task PersistMetaAsync_RelatedToRun_WritesAuthoritativeAndAuditCopies()
     {

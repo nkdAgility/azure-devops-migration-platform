@@ -10,7 +10,9 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
@@ -43,6 +45,7 @@ public sealed class WorkItemImportOrchestrator
     private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
     private readonly IPlatformMetrics? _metrics;
     private readonly string? _jobId;
+    private readonly IPackage? _package;
 
     public WorkItemImportOrchestrator(
         IArtefactStore artefactStore,
@@ -55,7 +58,8 @@ public sealed class WorkItemImportOrchestrator
         ILogger<WorkItemImportOrchestrator> logger,
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
         IPlatformMetrics? metrics = null,
-        string? jobId = null)
+        string? jobId = null,
+        IPackage? package = null)
     {
         _artefactStore = artefactStore ?? throw new ArgumentNullException(nameof(artefactStore));
         _checkpointing = checkpointing ?? throw new ArgumentNullException(nameof(checkpointing));
@@ -68,6 +72,7 @@ public sealed class WorkItemImportOrchestrator
         _filterOptions = filterOptions;
         _metrics = metrics;
         _jobId = jobId;
+        _package = package;
     }
 
     /// <summary>
@@ -142,7 +147,7 @@ public sealed class WorkItemImportOrchestrator
 
         try
         {
-            await foreach (var folderPath in _artefactStore.EnumerateAsync("WorkItems/", ct).ConfigureAwait(false))
+            await foreach (var folderPath in EnumerateWorkItemFoldersAsync(ct).ConfigureAwait(false))
             {
                 ct.ThrowIfCancellationRequested();
 
@@ -311,7 +316,7 @@ public sealed class WorkItemImportOrchestrator
         // Pass 1: collect the last folder path for each work item ID (folder names only, no reads).
         var lastFolderPerWi = new Dictionary<int, string>();
 
-        await foreach (var folderPath in _artefactStore.EnumerateAsync("WorkItems/", ct).ConfigureAwait(false))
+        await foreach (var folderPath in EnumerateWorkItemFoldersAsync(ct).ConfigureAwait(false))
         {
             ct.ThrowIfCancellationRequested();
             var folderName = GetFolderName(folderPath);
@@ -330,7 +335,7 @@ public sealed class WorkItemImportOrchestrator
         {
             ct.ThrowIfCancellationRequested();
 
-            var json = await _artefactStore.ReadAsync($"{folderPath}revision.json", ct).ConfigureAwait(false);
+            var json = await ReadPackageTextAsync($"{folderPath}revision.json", ct).ConfigureAwait(false);
             if (json is null) continue;
 
             WorkItemRevision? revision = null;
@@ -391,7 +396,7 @@ public sealed class WorkItemImportOrchestrator
             return;
         }
 
-        var commentJson = await _artefactStore.ReadAsync($"{folderPath}/comment.json", ct).ConfigureAwait(false);
+        var commentJson = await ReadPackageTextAsync($"{folderPath}/comment.json", ct).ConfigureAwait(false);
         if (commentJson is null)
         {
             _logger.LogWarning("[WorkItems] comment.json not found in {Folder} — skipping.", folderPath);
@@ -421,6 +426,16 @@ public sealed class WorkItemImportOrchestrator
     }
 
     // --- Helpers ---
+
+    private async IAsyncEnumerable<string> EnumerateWorkItemFoldersAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+    {
+        await foreach (var path in PackageAccess.EnumerateAsync(_package, _artefactStore, "WorkItems/", ct).ConfigureAwait(false))
+            yield return path;
+    }
+
+    private async Task<string?> ReadPackageTextAsync(string path, CancellationToken ct)
+        => await PackageAccess.ReadTextAsync(_package, _artefactStore, path, ct).ConfigureAwait(false);
 
     private static string GetFolderName(string folderPath)
     {

@@ -57,6 +57,7 @@ public sealed class JobAgentWorkerDispatchTests
 {
     private Mock<IPackageStoreFactory> _packageStoreFactory = null!;
     private Mock<IPackagePreparer> _packagePreparer = null!;
+    private Mock<IPackage> _package = null!;
     private Mock<IProgressSink> _progressSink = null!;
     private Mock<ICheckpointingServiceFactory> _checkpointingFactory = null!;
     private Mock<IPhaseTrackingServiceFactory> _phaseTrackingFactory = null!;
@@ -88,6 +89,7 @@ public sealed class JobAgentWorkerDispatchTests
     {
         _packageStoreFactory = new Mock<IPackageStoreFactory>();
         _packagePreparer = new Mock<IPackagePreparer>();
+        _package = new Mock<IPackage>();
         _progressSink = new Mock<IProgressSink>();
         _checkpointingFactory = new Mock<ICheckpointingServiceFactory>();
         _phaseTrackingFactory = new Mock<IPhaseTrackingServiceFactory>();
@@ -241,8 +243,8 @@ public sealed class JobAgentWorkerDispatchTests
 
         _flushables =
         [
-            new PackageProgressSink(_packageState, NullLogger<PackageProgressSink>.Instance),
-            new PackageLoggerProvider(_packageState, Options.Create(new DiagnosticLogOptions())),
+            new PackageProgressSink(_packageState, NullLogger<PackageProgressSink>.Instance, _package.Object),
+            new PackageLoggerProvider(_packageState, Options.Create(new DiagnosticLogOptions()), _package.Object),
         ];
 
         var services = new ServiceCollection();
@@ -439,6 +441,31 @@ public sealed class JobAgentWorkerDispatchTests
     [TestMethod]
     public async Task OnJobAsync_Inventory_WhenInventoryPlanSucceeds_WritesInventoryCompletionMarker()
     {
+        string? inventoryMarkerPayload = null;
+        _package
+            .Setup(package => package.PersistAsync(
+                It.IsAny<PackageContext>(),
+                It.IsAny<PackagePayload>(),
+                It.IsAny<CancellationToken>()))
+            .Callback((PackageContext context, PackagePayload payload, CancellationToken _) =>
+            {
+                if (!string.Equals(context.ContentKind, PackagePaths.InventoryCompleteFile, StringComparison.Ordinal))
+                    return;
+
+                if (payload.Content.CanSeek)
+                    payload.Content.Position = 0;
+                using var reader = new System.IO.StreamReader(
+                    payload.Content,
+                    System.Text.Encoding.UTF8,
+                    detectEncodingFromByteOrderMarks: true,
+                    bufferSize: 1024,
+                    leaveOpen: true);
+                inventoryMarkerPayload = reader.ReadToEnd();
+                if (payload.Content.CanSeek)
+                    payload.Content.Position = 0;
+            })
+            .Returns(ValueTask.CompletedTask);
+
         _plan = new JobTaskList
         {
             Tasks = new List<JobTask>
@@ -484,14 +511,16 @@ public sealed class JobAgentWorkerDispatchTests
             "lease-inventory",
             CancellationToken.None);
 
-        _stateStore.Verify(
-            store => store.WriteAsync(
-                PackagePaths.InventoryCompleteFile,
-                It.Is<string>(value =>
-                    value.Contains("\"phase\":\"Inventory\"", StringComparison.Ordinal) &&
-                    value.Contains("\"jobId\":\"job-Inventory\"", StringComparison.Ordinal)),
+        _package.Verify(
+            package => package.PersistAsync(
+                It.Is<PackageContext>(context =>
+                    string.Equals(context.ContentKind, PackagePaths.InventoryCompleteFile, StringComparison.Ordinal)),
+                It.IsAny<PackagePayload>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+        Assert.IsNotNull(inventoryMarkerPayload);
+        StringAssert.Contains(inventoryMarkerPayload, "\"phase\":\"Inventory\"");
+        StringAssert.Contains(inventoryMarkerPayload, "\"jobId\":\"job-Inventory\"");
     }
 
     [TestMethod]
@@ -555,10 +584,11 @@ public sealed class JobAgentWorkerDispatchTests
             "lease-export-fail",
             CancellationToken.None);
 
-        _stateStore.Verify(
-            store => store.WriteAsync(
-                PackagePaths.InventoryCompleteFile,
-                It.IsAny<string>(),
+        _package.Verify(
+            package => package.PersistAsync(
+                It.Is<PackageContext>(context =>
+                    string.Equals(context.ContentKind, PackagePaths.InventoryCompleteFile, StringComparison.Ordinal)),
+                It.IsAny<PackagePayload>(),
                 It.IsAny<CancellationToken>()),
             Times.Never);
     }
@@ -707,6 +737,7 @@ public sealed class JobAgentWorkerDispatchTests
             migrationModules: migrationModules ?? Array.Empty<IModule>(),
             packageStoreFactory: _packageStoreFactory.Object,
             packagePreparer: _packagePreparer.Object,
+            package: _package.Object,
             progressSink: _progressSink.Object,
             leaseState: _leaseState,
             packageState: _packageState,

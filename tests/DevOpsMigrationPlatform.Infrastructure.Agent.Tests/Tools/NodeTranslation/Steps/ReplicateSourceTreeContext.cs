@@ -9,6 +9,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -118,11 +119,43 @@ public class ReplicateSourceTreeContext
         var optionsMonitor = new Mock<IOptionsMonitor<NodeTranslationOptions>>();
         optionsMonitor.SetupGet(o => o.CurrentValue).Returns(opts);
 
+        var package = PackageTestFactory.CreateLooseMock();
+        if (SourceTreeArtifactAbsent)
+        {
+            package.Setup(p => p.RequestAsync(It.Is<PackageContext>(c => c.ContentKind == "Nodes/source-tree.json"), It.IsAny<CancellationToken>()))
+                .Returns(ValueTask.FromResult<PackagePayload?>(null));
+        }
+        else
+        {
+            var snapshot = new ClassificationTreeSnapshot(_areaNodes, _iterationNodes);
+            var json = JsonSerializer.Serialize(snapshot, s_jsonOptions);
+            package.Setup(p => p.RequestAsync(It.Is<PackageContext>(c => c.ContentKind == "Nodes/source-tree.json"), It.IsAny<CancellationToken>()))
+                .Returns(() =>
+                {
+                    var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+                    return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(bytes), "application/json"));
+                });
+        }
+
+        if (_checkpointedPaths.Count > 0)
+        {
+            var progress = new NodeReplicationProgress();
+            foreach (var p in _checkpointedPaths) progress.ReplicatedPaths.Add(p);
+            var progressJson = JsonSerializer.Serialize(progress, s_jsonOptions);
+            package.Setup(p => p.RequestAsync(It.Is<PackageContext>(c => c.ContentKind == NodeReplicationProgress.StateKey), It.IsAny<CancellationToken>()))
+                .Returns(() =>
+                {
+                    var bytes = System.Text.Encoding.UTF8.GetBytes(progressJson);
+                    return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(bytes), "application/json"));
+                });
+        }
+
         var orchestrator = new NodesOrchestrator(
             NullLogger<NodesOrchestrator>.Instance,
             tool,
             NodeCreatorMock.Object,
-            optionsMonitor.Object);
+            optionsMonitor.Object,
+            package: package.Object);
 
         var sourceEndpoint = Mock.Of<ISourceEndpointInfo>(e => e.Project == "SourceProject");
         var targetEndpoint = Mock.Of<ITargetEndpointInfo>(e => e.Project == "TargetProject");

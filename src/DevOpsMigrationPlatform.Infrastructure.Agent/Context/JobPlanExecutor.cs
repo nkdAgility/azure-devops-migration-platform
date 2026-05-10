@@ -23,6 +23,7 @@ using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Context;
@@ -396,12 +397,13 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     }
 
     private static async Task<InventoryReport?> TryReadInventoryReportAsync(
+        IPackage? package,
         IArtefactStore artefactStore,
         CancellationToken ct)
     {
         try
         {
-            var json = await artefactStore.ReadAsync("inventory.json", ct).ConfigureAwait(false);
+            var json = await PackageAccess.ReadTextAsync(package, artefactStore, "inventory.json", ct).ConfigureAwait(false);
             if (json is null)
                 return null;
 
@@ -448,6 +450,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
     private static async Task<(long? KnownTotal, long? CompletedCount)> TryResolveTaskProgressSnapshotAsync(
         JobTask task,
+        IPackage? package,
         IArtefactStore? artefactStore,
         CancellationToken ct)
     {
@@ -464,7 +467,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             projectInventory = await ProjectInventoryFile.ReadAsync(artefactStore, projectPath, ct).ConfigureAwait(false);
         }
 
-        var inventoryReport = await TryReadInventoryReportAsync(artefactStore, ct).ConfigureAwait(false);
+        var inventoryReport = await TryReadInventoryReportAsync(package, artefactStore, ct).ConfigureAwait(false);
         return TryResolveTaskProgressSnapshot(task, inventoryReport, projectInventory);
     }
 
@@ -972,6 +975,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                     ?? importContext?.ArtefactStore;
                 var (resolvedKnownTotal, resolvedCompletedCount) = await TryResolveTaskProgressSnapshotAsync(
                     task,
+                    _package,
                     artefactStoreForTask,
                     ct).ConfigureAwait(false);
 
@@ -1107,18 +1111,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         try
         {
             var json = JsonSerializer.Serialize(plan, _jsonOptions);
-            if (_package is not null)
-            {
-                using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
-                await _package.PersistMetaAsync(
-                    new PackageMetaContext(PackageMetaKind.ExecutionPlan),
-                    new PackageMetaPayload(stream),
-                    ct).ConfigureAwait(false);
-            }
-            else
-            {
-                await stateStore.WriteAsync(PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
-            }
+            await PackageAccess.WriteStateAsync(_package, stateStore, PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -1255,23 +1248,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         try
         {
             string? json;
-            if (package is not null)
-            {
-                var payload = await package.RequestMetaAsync(
-                    new PackageMetaContext(PackageMetaKind.ExecutionPlan),
-                    ct).ConfigureAwait(false);
-                if (payload is null)
-                {
-                    return null;
-                }
-
-                using var reader = new StreamReader(payload.Content, Encoding.UTF8, true, 1024, leaveOpen: true);
-                json = await reader.ReadToEndAsync().ConfigureAwait(false);
-            }
-            else
-            {
-                json = await stateStore.ReadAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
-            }
+            json = await PackageAccess.ReadStateAsync(package, stateStore, PackagePaths.PlanFile, ct).ConfigureAwait(false);
 
             if (json is null)
                 return null;

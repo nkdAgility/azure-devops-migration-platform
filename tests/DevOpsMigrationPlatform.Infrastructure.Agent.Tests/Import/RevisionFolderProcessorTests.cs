@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -28,6 +29,7 @@ public class RevisionFolderProcessorTests
     private Mock<IIdMapStore> _mockIdMapStore = null!;
     private Mock<IIdentityLookupTool> _mockIdentityMapping = null!;
     private Mock<IWorkItemResolutionStrategy> _mockResolutionStrategy = null!;
+    private Mock<IPackage> _mockPackage = null!;
 
     [TestInitialize]
     public void Setup()
@@ -38,6 +40,7 @@ public class RevisionFolderProcessorTests
         _mockIdMapStore = new Mock<IIdMapStore>(MockBehavior.Strict);
         _mockIdentityMapping = new Mock<IIdentityLookupTool>(MockBehavior.Loose);
         _mockResolutionStrategy = new Mock<IWorkItemResolutionStrategy>(MockBehavior.Strict);
+        _mockPackage = PackageTestFactory.CreateDelegatingMock(_mockArtefactStore.Object);
 
         // Default identity pass-through
         _mockIdentityMapping
@@ -55,7 +58,8 @@ public class RevisionFolderProcessorTests
             _mockCheckpointing.Object,
             _mockIdentityMapping.Object,
             _mockArtefactStore.Object,
-            NullLogger<RevisionFolderProcessor>.Instance);
+            NullLogger<RevisionFolderProcessor>.Instance,
+            package: _mockPackage.Object);
 
     // ── ProcessAsync_WhenRevisionJsonMissing_SkipsFolder ──────────────────────
 

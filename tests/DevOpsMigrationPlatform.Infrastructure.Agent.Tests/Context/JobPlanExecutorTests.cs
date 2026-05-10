@@ -22,6 +22,7 @@ using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -72,7 +73,8 @@ public sealed class JobPlanExecutorTests
             CreateTask("export.workitems", "WorkItems Export", "Export")
         });
 
-        var executor = CreateExecutor();
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var executor = CreateExecutor(package: package);
         var stateStore = new Mock<IStateStore>(MockBehavior.Loose).Object;
         var exportContext = new ExportContext();
 
@@ -165,7 +167,8 @@ public sealed class JobPlanExecutorTests
                 dependsOn: new[] { "analyse.inventory.testorg.testproject" })
         });
 
-        var executor = CreateExecutor();
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var executor = CreateExecutor(package: package);
         var stateStore = new InMemoryStateStore();
         var inventoryContext = CreateMinimalInventoryContext(stateStore) with
         {
@@ -266,7 +269,8 @@ public sealed class JobPlanExecutorTests
                 dependsOn: new[] { "analyse.inventory.testorg.testproject" })
         });
 
-        var executor = CreateExecutor();
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var executor = CreateExecutor(package: package);
         var stateStore = new InMemoryStateStore();
         await stateStore.WriteAsync(
             PackagePaths.InventoryCompleteFile,
@@ -322,7 +326,7 @@ public sealed class JobPlanExecutorTests
         Assert.IsTrue(result);
         CollectionAssert.AreEqual(new[] { "Capture", "Analyse", "Export" }, executionOrder);
 
-        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
         Assert.IsNotNull(persistedPlan);
         var executedCapture = persistedPlan.Tasks.First(t => t.Id == "capture.workitems.testorg.testproject");
         Assert.AreEqual(JobTaskStatus.Completed, executedCapture.Status);
@@ -354,7 +358,8 @@ public sealed class JobPlanExecutorTests
         });
 
         var stateStore = new InMemoryStateStore();
-        var executor = CreateExecutor();
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var executor = CreateExecutor(package: package);
 
         var result = await executor.ExecuteTasksAsync(
             plan,
@@ -369,7 +374,7 @@ public sealed class JobPlanExecutorTests
 
         Assert.IsTrue(result, "A handler-reported skipped/already-done state should be treated as successful execution.");
 
-        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
         Assert.IsNotNull(persistedPlan);
 
         var captureTask = persistedPlan.Tasks.Single(t => t.Id == "capture.workitems.testorg.testproject");
@@ -426,7 +431,12 @@ public sealed class JobPlanExecutorTests
             .Setup(sink => sink.Emit(It.IsAny<ProgressEvent>()))
             .Callback<ProgressEvent>(evt => progressEvents.Add(evt));
 
-        var executor = CreateExecutor(progressSink: progressSink.Object);
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        await package.PersistAsync(
+            new PackageContext("inventory.json"),
+            new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(inventoryJson), writable: false)),
+            CancellationToken.None);
+        var executor = CreateExecutor(progressSink: progressSink.Object, package: package);
         var stateStore = new InMemoryStateStore();
         var artefactStore = new Mock<IArtefactStore>(MockBehavior.Loose);
         artefactStore
@@ -458,7 +468,7 @@ public sealed class JobPlanExecutorTests
         Assert.AreEqual(5L, completedEvent.KnownTotal);
         Assert.AreEqual(5L, completedEvent.CompletedCount);
 
-        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
         Assert.IsNotNull(persistedPlan);
         var completedTask = persistedPlan.Tasks.Single(t => t.Id == "export.workitems.testorg.testproject");
         Assert.AreEqual(5L, completedTask.KnownTotal);
@@ -510,7 +520,8 @@ public sealed class JobPlanExecutorTests
             CreateTask("import.workitems", "WorkItems Import", "Import", dependsOn: new[] { "import.identities" })
         });
 
-        var executor = CreateExecutor();
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var executor = CreateExecutor(package: package);
         var stateStore = new Mock<IStateStore>(MockBehavior.Loose).Object;
         var importContext = new ImportContext();
 
@@ -550,7 +561,8 @@ public sealed class JobPlanExecutorTests
             CreateTask("import.workitems", "WorkItems Import", "Import", dependsOn: new[] { "import.identities" })
         });
 
-        var executor = CreateExecutor();
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var executor = CreateExecutor(package: package);
         var stateStore = new InMemoryStateStore();
         var importContext = new ImportContext();
 
@@ -561,10 +573,8 @@ public sealed class JobPlanExecutorTests
         Assert.IsFalse(result, "Import phase should fail");
 
         // Check that plan was persisted with correct statuses
-        var persistedJson = await stateStore.ReadAsync(".migration/plan.json", CancellationToken.None);
-        Assert.IsNotNull(persistedJson, "Plan should be persisted");
-
-        var persistedPlan = System.Text.Json.JsonSerializer.Deserialize<JobTaskList>(persistedJson);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
+        Assert.IsNotNull(persistedPlan, "Plan should be persisted");
         var identitiesTask = persistedPlan!.Tasks.First(t => t.Id == "import.identities");
         var workItemsTask = persistedPlan.Tasks.First(t => t.Id == "import.workitems");
 
@@ -599,7 +609,8 @@ public sealed class JobPlanExecutorTests
                 projectName: "testproject")
         });
 
-        var executor = CreateExecutor();
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var executor = CreateExecutor(package: package);
         var stateStore = new InMemoryStateStore();
         var exportContext = new ExportContext
         {
@@ -645,7 +656,8 @@ public sealed class JobPlanExecutorTests
             CreateTask("import.nodes", "Nodes Import", "Import", dependsOn: new[] { "import.identities" })
         });
 
-        var executor = CreateExecutor();
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var executor = CreateExecutor(package: package);
         var stateStore = new InMemoryStateStore();
         var importContext = new ImportContext();
 
@@ -656,8 +668,8 @@ public sealed class JobPlanExecutorTests
         // Since Identities is already Skipped at plan time, Nodes will be skipped during tier extraction
         Assert.IsTrue(result, "Import phase should succeed (no executed tasks failed)");
 
-        var persistedJson = await stateStore.ReadAsync(".migration/plan.json", CancellationToken.None);
-        var persistedPlan = System.Text.Json.JsonSerializer.Deserialize<JobTaskList>(persistedJson!);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
+        Assert.IsNotNull(persistedPlan);
         var nodesTask = persistedPlan!.Tasks.First(t => t.Id == "import.nodes");
 
         Assert.AreEqual(JobTaskStatus.Skipped, nodesTask.Status, "Nodes task should be Skipped");
@@ -696,7 +708,8 @@ public sealed class JobPlanExecutorTests
             CreateTask("import.teams", "Teams Import", "Import")
         });
 
-        var executor = CreateExecutor();
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var executor = CreateExecutor(package: package);
         var stateStore = new InMemoryStateStore();
         var importContext = new ImportContext();
 
@@ -706,8 +719,8 @@ public sealed class JobPlanExecutorTests
         // Assert
         Assert.IsFalse(result, "Import phase should fail (Nodes failed)");
 
-        var persistedJson = await stateStore.ReadAsync(".migration/plan.json", CancellationToken.None);
-        var persistedPlan = System.Text.Json.JsonSerializer.Deserialize<JobTaskList>(persistedJson!);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
+        Assert.IsNotNull(persistedPlan);
 
         var identitiesTask = persistedPlan!.Tasks.First(t => t.Id == "import.identities");
         var nodesTask = persistedPlan.Tasks.First(t => t.Id == "import.nodes");
@@ -734,7 +747,12 @@ public sealed class JobPlanExecutorTests
         await stateStore.WriteAsync(".migration/plan.json", json, CancellationToken.None);
 
         // Act
-        var loaded = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None);
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        await package.PersistMetaAsync(
+            new PackageMetaContext(PackageMetaKind.ExecutionPlan),
+            new PackageMetaPayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json), writable: false)),
+            CancellationToken.None);
+        var loaded = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
 
         // Assert
         Assert.IsNotNull(loaded, "Plan should be loaded");
@@ -905,7 +923,8 @@ public sealed class JobPlanExecutorTests
                 dependsOn: new[] { "capture.identities.org.project" })
         });
 
-        var result = await CreateExecutor().ExecuteTasksAsync(
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var result = await CreateExecutor(package: package).ExecuteTasksAsync(
             plan,
             handlers,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
@@ -919,7 +938,8 @@ public sealed class JobPlanExecutorTests
         Assert.IsFalse(result, "A resumed canonical plan containing a failed task must keep the job failed.");
         Assert.IsFalse(invoked, "Dependent capture handlers must not run when their dependency already failed.");
 
-        var persisted = await stateStore.ReadAsync(PackagePaths.PlanFile, CancellationToken.None);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
+        var persisted = persistedPlan is null ? null : System.Text.Json.JsonSerializer.Serialize(persistedPlan);
         Assert.IsNotNull(persisted, "The skipped dependent state should be persisted for resume and UI bootstrap.");
         StringAssert.Contains(persisted, "capture.workitems.org.project");
         StringAssert.Contains(persisted, "failed or was skipped");
@@ -951,7 +971,8 @@ public sealed class JobPlanExecutorTests
                 dependsOn: new[] { "capture.identities.org.project" })
         });
 
-        var result = await CreateExecutor().ExecuteTasksAsync(
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var result = await CreateExecutor(package: package).ExecuteTasksAsync(
             plan,
             handlers,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
@@ -965,7 +986,8 @@ public sealed class JobPlanExecutorTests
         Assert.IsTrue(result, "Skipping a blocked dependent task is a successful no-op when no runnable tasks fail.");
         Assert.IsFalse(invoked, "Dependent capture handlers must not run when their dependency was skipped.");
 
-        var persisted = await stateStore.ReadAsync(PackagePaths.PlanFile, CancellationToken.None);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
+        var persisted = persistedPlan is null ? null : System.Text.Json.JsonSerializer.Serialize(persistedPlan);
         Assert.IsNotNull(persisted, "The skipped dependent state should be persisted for resume and UI bootstrap.");
         StringAssert.Contains(persisted, "capture.workitems.org.project");
         StringAssert.Contains(persisted, "failed or was skipped");
@@ -993,7 +1015,8 @@ public sealed class JobPlanExecutorTests
             CreateTask("import.workitems", "WorkItems Import", "Import", dependsOn: new[] { "import.identities" })
         });
 
-        var result = await CreateExecutor().ExecuteImportPhaseAsync(
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var result = await CreateExecutor(package: package).ExecuteImportPhaseAsync(
             plan,
             modules,
             new ImportContext(),
@@ -1003,7 +1026,8 @@ public sealed class JobPlanExecutorTests
         Assert.IsFalse(result, "A resumed import plan containing a failed task must keep the phase failed.");
         Assert.IsFalse(invoked, "Dependent import modules must not run when their dependency already failed.");
 
-        var persisted = await stateStore.ReadAsync(PackagePaths.PlanFile, CancellationToken.None);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
+        var persisted = persistedPlan is null ? null : System.Text.Json.JsonSerializer.Serialize(persistedPlan);
         Assert.IsNotNull(persisted, "The skipped dependent state should be persisted for resume and UI bootstrap.");
         StringAssert.Contains(persisted, "import.workitems");
         StringAssert.Contains(persisted, "failed or was skipped");
@@ -1525,13 +1549,14 @@ public sealed class JobPlanExecutorTests
         IPackage? package = null)
     {
         progressSink ??= new Mock<IProgressSink>(MockBehavior.Loose).Object;
+        package ??= PackageTestFactory.CreateLooseMock().Object;
         return new JobPlanExecutor(progressSink, NullLogger<JobPlanExecutor>.Instance, endpointAccessor, package);
     }
 
     private static JobPlanExecutor CreateExecutorWithLogger(ILogger<JobPlanExecutor> logger)
     {
         var progressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object;
-        return new JobPlanExecutor(progressSink, logger);
+        return new JobPlanExecutor(progressSink, logger, package: PackageTestFactory.CreateLooseMock().Object);
     }
 
     private static InventoryContext CreateMinimalInventoryContext(IStateStore? stateStore = null)

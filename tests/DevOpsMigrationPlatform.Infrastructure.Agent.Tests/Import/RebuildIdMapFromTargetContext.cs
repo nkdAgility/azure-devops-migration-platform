@@ -7,6 +7,7 @@ using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -23,6 +24,7 @@ public class RebuildIdMapFromTargetContext
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
+    public Mock<IPackage> MockPackage { get; }
 
     public WorkItemsModuleExtensions Extensions { get; set; } = new();
 
@@ -32,6 +34,11 @@ public class RebuildIdMapFromTargetContext
     /// <summary>Entries that the resolution strategy will attempt to seed.</summary>
     public List<IdMapEntry> SeedEntries { get; set; } = new();
 
+    public RebuildIdMapFromTargetContext()
+    {
+        MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
+    }
+
     public WorkItemImportOrchestrator BuildOrchestrator()
     {
         var processor = new RevisionFolderProcessor(
@@ -40,7 +47,8 @@ public class RebuildIdMapFromTargetContext
             MockCheckpointing.Object,
             (IIdentityLookupTool?)null,
             MockArtefactStore.Object,
-            NullLogger<RevisionFolderProcessor>.Instance);
+            NullLogger<RevisionFolderProcessor>.Instance,
+            package: MockPackage.Object);
 
         return new WorkItemImportOrchestrator(
             MockArtefactStore.Object,
@@ -50,7 +58,8 @@ public class RebuildIdMapFromTargetContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemImportOrchestrator>.Instance);
+            NullLogger<WorkItemImportOrchestrator>.Instance,
+            package: MockPackage.Object);
     }
 
     public static async IAsyncEnumerable<T> ToAsyncEnumerable<T>(

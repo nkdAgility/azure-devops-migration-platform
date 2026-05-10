@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 #if !NET481
 using System.Diagnostics.Metrics;
@@ -59,6 +60,53 @@ internal sealed class PackageBoundary : IPackage
                 return new PackagePayload(
                     new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false),
                     "application/json");
+             }).ConfigureAwait(false);
+    }
+
+    public async ValueTask<bool> ExistsAsync(
+        PackageContext context,
+        CancellationToken cancellationToken = default)
+    {
+        var store = RequireStore();
+        var path = _router.ResolveContentPath(context);
+        return await ObserveAsync(
+            "exists",
+            path,
+            async () => await store.ExistsAsync(path, cancellationToken).ConfigureAwait(false)).ConfigureAwait(false);
+    }
+
+    public async IAsyncEnumerable<string> EnumerateAsync(
+        PackageContext context,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var store = RequireStore();
+        var path = _router.ResolveContentPath(context);
+
+        _logger.LogDebug(
+            "Package boundary enumerate started for {Path} (run: {RunId}, job: {JobId})",
+            path,
+            _activePackageState.CurrentRunId,
+            _activePackageState.CurrentJob?.JobId);
+
+        await foreach (var item in store.EnumerateAsync(path, cancellationToken).ConfigureAwait(false))
+            yield return item;
+    }
+
+    public async ValueTask<PackagePayload?> RequestBinaryAsync(
+        PackageContext context,
+        CancellationToken cancellationToken = default)
+    {
+        var store = RequireStore();
+        var path = _router.ResolveContentPath(context);
+        return await ObserveAsync(
+            "request-binary",
+            path,
+            async () =>
+            {
+                var stream = await store.ReadBinaryAsync(path, cancellationToken).ConfigureAwait(false);
+                return stream is null
+                    ? null
+                    : new PackagePayload(stream, "application/octet-stream");
             }).ConfigureAwait(false);
     }
 
@@ -99,6 +147,24 @@ internal sealed class PackageBoundary : IPackage
                 var content = await ReadUtf8Async(payload.Content, cancellationToken).ConfigureAwait(false);
                 await store.WriteAsync(path, content, cancellationToken).ConfigureAwait(false);
                 return true;
+             }).ConfigureAwait(false);
+    }
+
+    public async ValueTask PersistStreamAsync(
+        PackageContext context,
+        Stream payload,
+        string? contentType = null,
+        CancellationToken cancellationToken = default)
+    {
+        var store = RequireStore();
+        var path = _router.ResolveContentPath(context);
+        await ObserveAsync(
+            "persist-stream",
+            path,
+            async () =>
+            {
+                await store.WriteStreamAsync(path, payload, cancellationToken).ConfigureAwait(false);
+                return true;
             }).ConfigureAwait(false);
     }
 
@@ -126,6 +192,24 @@ internal sealed class PackageBoundary : IPackage
                 return true;
             },
             context.Kind.ToString()).ConfigureAwait(false);
+    }
+
+    public async ValueTask AppendAsync(
+        PackageContext context,
+        PackagePayload payload,
+        CancellationToken cancellationToken = default)
+    {
+        var store = RequireStore();
+        var path = _router.ResolveContentPath(context);
+        await ObserveAsync(
+            "append",
+            path,
+            async () =>
+            {
+                var content = await ReadUtf8Async(payload.Content, cancellationToken).ConfigureAwait(false);
+                await store.AppendAsync(path, content, cancellationToken).ConfigureAwait(false);
+                return true;
+            }).ConfigureAwait(false);
     }
 
     public async ValueTask AppendLogAsync(

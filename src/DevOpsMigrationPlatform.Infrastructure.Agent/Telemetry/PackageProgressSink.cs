@@ -28,34 +28,25 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
     private const int ChannelCapacity = 100;
     private const int FlushBatchSize = 50;
     private static readonly TimeSpan FlushInterval = TimeSpan.FromMilliseconds(500);
-    private const string LogFileName = "progress.jsonl";
 
     private readonly Channel<ProgressEvent> _channel = Channel.CreateBounded<ProgressEvent>(
         new BoundedChannelOptions(ChannelCapacity) { FullMode = BoundedChannelFullMode.DropOldest });
 
     private readonly ActivePackageState _packageState;
-    private readonly IPackage? _package;
+    private readonly IPackage _package;
     private readonly ILogger<PackageProgressSink> _logger;
     private long _droppedCount;
     private volatile IArtefactStore? _lastKnownStore;
-    private volatile string? _lastKnownLogFolder;
     private volatile string? _lastKnownRunId;
 
     public PackageProgressSink(
         ActivePackageState packageState,
-        ILogger<PackageProgressSink> logger)
-        : this(packageState, logger, package: null)
-    {
-    }
-
-    public PackageProgressSink(
-        ActivePackageState packageState,
         ILogger<PackageProgressSink> logger,
-        IPackage? package)
+        IPackage package)
     {
         _packageState = packageState;
         _logger = logger;
-        _package = package;
+        _package = package ?? throw new ArgumentNullException(nameof(package));
     }
 
     public void Emit(ProgressEvent evt)
@@ -66,7 +57,6 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
         if (store is not null)
         {
             _lastKnownStore = store;
-            _lastKnownLogFolder = _packageState.CurrentLogFolder;
             _lastKnownRunId = _packageState.CurrentRunId;
         }
 
@@ -105,8 +95,6 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
                     continue;
                 }
                 _lastKnownStore = currentStore;
-                _lastKnownLogFolder = _packageState.CurrentLogFolder;
-
                 batch.Clear();
 
                 // Wait for at least one item (with timeout), then drain all immediately
@@ -182,21 +170,17 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
 
             var payload = sb.ToString();
             var runId = _packageState.CurrentRunId ?? _lastKnownRunId;
-            if (_package is not null && _packageState.CurrentStore is not null && !string.IsNullOrWhiteSpace(runId))
+            if (string.IsNullOrWhiteSpace(runId))
             {
-                using var stream = new System.IO.MemoryStream(Encoding.UTF8.GetBytes(payload), writable: false);
-                await _package.AppendLogAsync(
-                    new PackageLogContext(runId!, PackageLogStream.Progress),
-                    new PackageLogPayload(stream),
-                    cancellationToken).ConfigureAwait(false);
+                Interlocked.Add(ref _droppedCount, batch.Count);
                 return;
             }
 
-            var logFolder = _packageState.CurrentStore is not null
-                ? _packageState.CurrentLogFolder
-                : _lastKnownLogFolder ?? _packageState.CurrentLogFolder;
-            var logPath = $"{logFolder}/{LogFileName}";
-            await store.AppendAsync(logPath, payload, cancellationToken).ConfigureAwait(false);
+            using var stream = new System.IO.MemoryStream(Encoding.UTF8.GetBytes(payload), writable: false);
+            await _package.AppendLogAsync(
+                new PackageLogContext(runId!, PackageLogStream.Progress),
+                new PackageLogPayload(stream),
+                cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

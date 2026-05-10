@@ -8,8 +8,10 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Reqnroll;
@@ -72,7 +74,13 @@ public class ExportWorkItemLinksSteps
         _ctx.PackageRoot = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(_ctx.PackageRoot);
         _ctx.RealArtefactStore = new FileSystemArtefactStore(_ctx.PackageRoot);
-        _ctx.Sut = new WorkItemExportOrchestrator(_ctx.RealArtefactStore, _ctx.MockCheckpointingService.Object);
+        var packageState = new ActivePackageState
+        {
+            CurrentStore = _ctx.RealArtefactStore,
+            CurrentJob = new Job { JobId = "export-links", Kind = JobKind.Export }
+        };
+        var package = new PackageBoundary(packageState, new PackagePathRouter(), NullLogger<PackageBoundary>.Instance);
+        _ctx.Sut = new WorkItemExportOrchestrator(_ctx.RealArtefactStore, _ctx.MockCheckpointingService.Object, package: package);
     }
 
     private string RevisionJsonPath(int workItemId, int revisionIndex, DateTimeOffset changedDate)

@@ -24,6 +24,7 @@ using DevOpsMigrationPlatform.Abstractions.Validation;
 #if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 #endif
+using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -82,7 +83,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             var checkpointing = checkpointingFactory.Create(stateStore);
             var cursor = await checkpointing.ReadCursorAsync("export.identities", ct).ConfigureAwait(false);
             if (cursor?.Stage == CursorStage.Completed
-                && await artefactStore.ExistsAsync(DescriptorsPath, ct).ConfigureAwait(false))
+                && await PackageAccess.ExistsAsync(_package, artefactStore, DescriptorsPath, ct).ConfigureAwait(false))
             {
                 _logger.LogInformation("[Identities] Already exported (cursor found) — skipping re-export.");
                 return;
@@ -118,7 +119,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             await foreach (var descriptor in identitySource.EnumerateIdentitiesAsync(project, ct).ConfigureAwait(false))
             {
                 var line = JsonSerializer.Serialize(descriptor, s_jsonOptions);
-                await artefactStore.AppendAsync(DescriptorsPath, line + "\n", ct).ConfigureAwait(false);
+                await PackageAccess.AppendTextAsync(_package, artefactStore, DescriptorsPath, line + "\n", ct).ConfigureAwait(false);
                 count++;
                 _PlatformMetrics?.RecordIdentityExportCount(exportTags);
             }
@@ -308,31 +309,12 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 
     private async Task<string?> ReadPackageContentAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
     {
-        if (_package is not null)
-        {
-            var payload = await _package.RequestAsync(new PackageContext(relativePath), ct).ConfigureAwait(false);
-            if (payload is not null)
-            {
-                if (payload.Content.CanSeek)
-                    payload.Content.Position = 0;
-
-                using var reader = new StreamReader(payload.Content);
-                return await reader.ReadToEndAsync().ConfigureAwait(false);
-            }
-        }
-
-        return await artefactStore.ReadAsync(relativePath, ct).ConfigureAwait(false);
+        return await PackageAccess.ReadTextAsync(_package, artefactStore, relativePath, ct).ConfigureAwait(false);
     }
 
     private async Task<bool> ExistsInPackageAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
     {
-        if (_package is not null)
-        {
-            var payload = await _package.RequestAsync(new PackageContext(relativePath), ct).ConfigureAwait(false);
-            return payload is not null;
-        }
-
-        return await artefactStore.ExistsAsync(relativePath, ct).ConfigureAwait(false);
+        return await PackageAccess.ExistsAsync(_package, artefactStore, relativePath, ct).ConfigureAwait(false);
     }
 }
 

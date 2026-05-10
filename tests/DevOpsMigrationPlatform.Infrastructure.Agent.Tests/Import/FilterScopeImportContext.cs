@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -24,6 +25,7 @@ public class FilterScopeImportContext
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Loose);
+    public Mock<IPackage> MockPackage { get; }
 
     public WorkItemsModuleExtensions Extensions { get; set; } = new WorkItemsModuleExtensions();
     public List<WorkItemFieldFilterOptions> FilterOptions { get; set; } = new();
@@ -34,6 +36,11 @@ public class FilterScopeImportContext
     /// <summary>Work item IDs actually imported (UpdateFieldsAsync called).</summary>
     public List<int> ImportedWorkItemIds { get; } = new();
 
+    public FilterScopeImportContext()
+    {
+        MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
+    }
+
     public WorkItemImportOrchestrator BuildOrchestrator()
     {
         var processorLogger = NullLogger<RevisionFolderProcessor>.Instance;
@@ -43,7 +50,8 @@ public class FilterScopeImportContext
             MockCheckpointing.Object,
             (IIdentityLookupTool?)null,
             MockArtefactStore.Object,
-            processorLogger);
+            processorLogger,
+            package: MockPackage.Object);
 
         return new WorkItemImportOrchestrator(
             MockArtefactStore.Object,
@@ -54,7 +62,8 @@ public class FilterScopeImportContext
             processor,
             MockTarget.Object,
             NullLogger<WorkItemImportOrchestrator>.Instance,
-            filterOptions: FilterOptions.Count > 0 ? FilterOptions : null);
+            filterOptions: FilterOptions.Count > 0 ? FilterOptions : null,
+            package: MockPackage.Object);
     }
 
     public static async IAsyncEnumerable<string> ToAsyncEnumerable(

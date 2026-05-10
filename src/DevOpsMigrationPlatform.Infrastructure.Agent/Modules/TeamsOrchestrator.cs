@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
@@ -244,7 +245,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         });
 
         var count = 0;
-        await foreach (var teamPath in artefactStore.EnumerateAsync("Teams/", ct).ConfigureAwait(false))
+        await foreach (var teamPath in PackageAccess.EnumerateAsync(_package, artefactStore, "Teams/", ct).ConfigureAwait(false))
         {
             if (!teamPath.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase))
                 continue;
@@ -345,7 +346,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             { "operation", "teams.validate" }
         };
 
-        await foreach (var teamPath in artefactStore.EnumerateAsync("Teams/", ct).ConfigureAwait(false))
+        await foreach (var teamPath in PackageAccess.EnumerateAsync(_package, artefactStore, "Teams/", ct).ConfigureAwait(false))
         {
             if (!teamPath.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase))
                 continue;
@@ -405,31 +406,12 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
 
     private async Task<string?> ReadPackageContentAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
     {
-        if (_package is not null)
-        {
-            var payload = await _package.RequestAsync(new PackageContext(relativePath), ct).ConfigureAwait(false);
-            if (payload is not null)
-            {
-                if (payload.Content.CanSeek)
-                    payload.Content.Position = 0;
-
-                using var reader = new StreamReader(payload.Content);
-                return await reader.ReadToEndAsync().ConfigureAwait(false);
-            }
-        }
-
-        return await artefactStore.ReadAsync(relativePath, ct).ConfigureAwait(false);
+        return await PackageAccess.ReadTextAsync(_package, artefactStore, relativePath, ct).ConfigureAwait(false);
     }
 
     private async Task<bool> TeamDefinitionExistsAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
     {
-        if (_package is not null)
-        {
-            var payload = await _package.RequestAsync(new PackageContext(relativePath), ct).ConfigureAwait(false);
-            return payload is not null;
-        }
-
-        return await artefactStore.ExistsAsync(relativePath, ct).ConfigureAwait(false);
+        return await PackageAccess.ExistsAsync(_package, artefactStore, relativePath, ct).ConfigureAwait(false);
     }
 }
 #endif

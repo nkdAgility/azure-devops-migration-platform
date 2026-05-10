@@ -20,11 +20,9 @@ public static class PackageConfigServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddPackageManagementServices(this IServiceCollection services)
     {
-        services.AddSingleton<IPackageStoreFactory, FileSystemPackageStoreFactory>();
-        services.AddSingleton<IPackagePreparer, ZipPackagePreparer>();
+        services.AddPackageStorageServices();
+        services.AddPackageBoundaryServices();
         services.AddSingleton<IPackageConfigStore, PackageConfigStore>();
-        services.AddSingleton<PackagePathRouter>();
-        services.AddSingleton<IPackage, PackageBoundary>();
         return services;
     }
 
@@ -35,9 +33,8 @@ public static class PackageConfigServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddPackageConfigStore(this IServiceCollection services)
     {
-        services.TryAddSingleton<IPackageStoreFactory, FileSystemPackageStoreFactory>();
-        services.TryAddSingleton<PackagePathRouter>();
-        services.TryAddSingleton<IPackage, PackageBoundary>();
+        services.AddPackageStorageServices();
+        services.AddPackageBoundaryServices();
         services.AddSingleton<IPackageConfigStore, PackageConfigStore>();
         return services;
     }

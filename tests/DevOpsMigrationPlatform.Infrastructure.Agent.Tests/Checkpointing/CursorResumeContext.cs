@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Moq;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Checkpointing;
@@ -22,6 +23,7 @@ public class CursorResumeContext
     public Mock<IStateStore> MockStateStore { get; } = new Mock<IStateStore>(MockBehavior.Strict);
 
     public Mock<ICurrentJobEndpointAccessor> MockEndpointAccessor { get; } = new(MockBehavior.Strict);
+    public Mock<IPackage> MockPackage { get; }
 
     /// <summary>Strict mock used for scenarios that verify module-level delegation of cursor writes.</summary>
     public Mock<ICheckpointingService> MockCheckpointingService { get; } = new Mock<ICheckpointingService>(MockBehavior.Strict);
@@ -57,6 +59,7 @@ public class CursorResumeContext
 
     public CursorResumeContext()
     {
+        MockPackage = PackageTestFactory.CreateStateDelegatingMock(MockStateStore.Object);
         var target = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
         target.SetupGet(t => t.Url).Returns(EndpointUrl);
         target.SetupGet(t => t.Project).Returns(ProjectName);
@@ -65,6 +68,9 @@ public class CursorResumeContext
         MockEndpointAccessor.SetupGet(a => a.Source).Returns((ISourceEndpointInfo?)null);
         MockEndpointAccessor.SetupGet(a => a.Target).Returns(target.Object);
 
-        Sut = new CheckpointingService(MockStateStore.Object, MockEndpointAccessor.Object);
+        Sut = new CheckpointingService(
+            MockStateStore.Object,
+            MockEndpointAccessor.Object,
+            package: MockPackage.Object);
     }
 }

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -28,7 +29,10 @@ public sealed class MultiRunAuthorityIsolationTests
         endpoints.SetupGet(x => x.Source).Returns(source.Object);
         endpoints.SetupGet(x => x.Target).Returns((ITargetEndpointInfo?)null);
 
-        var sut = new CheckpointingService(store, endpoints.Object);
+        var sut = new CheckpointingService(
+            store,
+            endpoints.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(store).Object);
         await sut.WriteCursorAsync("export.workitems", new CursorEntry { LastProcessed = "E", Stage = CursorStage.Completed, UpdatedAt = DateTimeOffset.UtcNow }, CancellationToken.None);
         await sut.WriteCursorAsync("import.workitems", new CursorEntry { LastProcessed = "I", Stage = CursorStage.Completed, UpdatedAt = DateTimeOffset.UtcNow }, CancellationToken.None);
 

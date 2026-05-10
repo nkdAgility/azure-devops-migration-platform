@@ -25,6 +25,7 @@ using System.Text.Json.Serialization;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using Microsoft.Extensions.Options;
 #endif
+using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -111,7 +112,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
             var checkpointing = checkpointingFactory.Create(context.StateStore);
             var cursor = await checkpointing.ReadCursorAsync("export.nodes", ct).ConfigureAwait(false);
             if (cursor?.Stage == CursorStage.Completed
-                && await context.ArtefactStore.ExistsAsync(SourceTreePath, ct).ConfigureAwait(false))
+                && await PackageAccess.ExistsAsync(_package, context.ArtefactStore, SourceTreePath, ct).ConfigureAwait(false))
             {
                 _logger.LogInformation("[Nodes] Already exported (cursor found) — skipping re-export.");
                 return;
@@ -431,7 +432,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
 
     private async Task<NodeReplicationProgress> LoadProgressAsync(IStateStore stateStore, CancellationToken ct)
     {
-        var json = await stateStore.ReadAsync(NodeReplicationProgress.StateKey, ct).ConfigureAwait(false);
+        var json = await PackageAccess.ReadStateAsync(_package, stateStore, NodeReplicationProgress.StateKey, ct).ConfigureAwait(false);
         if (json is null) return new NodeReplicationProgress();
         return JsonSerializer.Deserialize<NodeReplicationProgress>(json, s_jsonOptions) ?? new NodeReplicationProgress();
     }
@@ -439,7 +440,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
     private async Task SaveProgressAsync(IStateStore stateStore, NodeReplicationProgress progress, CancellationToken ct)
     {
         var json = JsonSerializer.Serialize(progress, s_jsonOptions);
-        await stateStore.WriteAsync(NodeReplicationProgress.StateKey, json, ct).ConfigureAwait(false);
+        await PackageAccess.WriteStateAsync(_package, stateStore, NodeReplicationProgress.StateKey, json, ct).ConfigureAwait(false);
     }
 #endif
 
@@ -475,19 +476,6 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
 
     private async Task<string?> ReadPackageContentAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
     {
-        if (_package is not null)
-        {
-            var payload = await _package.RequestAsync(new PackageContext(relativePath), ct).ConfigureAwait(false);
-            if (payload is not null)
-            {
-                if (payload.Content.CanSeek)
-                    payload.Content.Position = 0;
-
-                using var reader = new StreamReader(payload.Content);
-                return await reader.ReadToEndAsync().ConfigureAwait(false);
-            }
-        }
-
-        return await artefactStore.ReadAsync(relativePath, ct).ConfigureAwait(false);
+        return await PackageAccess.ReadTextAsync(_package, artefactStore, relativePath, ct).ConfigureAwait(false);
     }
 }

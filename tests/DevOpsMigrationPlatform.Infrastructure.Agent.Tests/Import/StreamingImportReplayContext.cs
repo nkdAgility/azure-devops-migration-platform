@@ -8,6 +8,7 @@ using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -24,6 +25,7 @@ public class StreamingImportReplayContext
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
+    public Mock<IPackage> MockPackage { get; }
 
     public WorkItemsModuleExtensions Extensions { get; set; } = new WorkItemsModuleExtensions();
 
@@ -36,6 +38,11 @@ public class StreamingImportReplayContext
     /// <summary>Fields received by UpdateFieldsAsync keyed by target work item ID.</summary>
     public List<(int TargetId, IReadOnlyList<WorkItemField> Fields)> AppliedFields { get; } = new();
 
+    public StreamingImportReplayContext()
+    {
+        MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
+    }
+
     public WorkItemImportOrchestrator BuildOrchestrator()
     {
         var processorLogger = NullLogger<RevisionFolderProcessor>.Instance;
@@ -45,7 +52,8 @@ public class StreamingImportReplayContext
             MockCheckpointing.Object,
             (IIdentityLookupTool?)null,
             MockArtefactStore.Object,
-            processorLogger);
+            processorLogger,
+            package: MockPackage.Object);
 
         return new WorkItemImportOrchestrator(
             MockArtefactStore.Object,
@@ -55,7 +63,8 @@ public class StreamingImportReplayContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemImportOrchestrator>.Instance);
+            NullLogger<WorkItemImportOrchestrator>.Instance,
+            package: MockPackage.Object);
     }
 
     /// <summary>

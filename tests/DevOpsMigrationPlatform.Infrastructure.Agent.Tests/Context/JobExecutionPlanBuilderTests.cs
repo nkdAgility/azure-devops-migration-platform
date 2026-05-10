@@ -14,6 +14,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -41,6 +42,7 @@ public sealed class JobExecutionPlanBuilderTests
         IEnumerable<IModule>? modules = null,
         IPackage? package = null)
     {
+        package ??= PackageTestFactory.CreateLooseMock().Object;
         var phaseFactory = new Mock<IPhaseTrackingServiceFactory>(MockBehavior.Loose);
         var phaseService = new Mock<IPhaseTrackingService>(MockBehavior.Loose);
         phaseService
@@ -230,7 +232,16 @@ public sealed class JobExecutionPlanBuilderTests
     [TestMethod]
     public async Task BuildPlanAsync_ImportKind_UsesPackagedProjectNamesWhenTargetProjectIsNotExplicitlyConfigured()
     {
-        var builder = CreateBuilder();
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        await package.PersistAsync(
+            new PackageContext("simulated/PackagedProject/Nodes/source-tree.json"),
+            new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes("{}"), writable: false)),
+            CancellationToken.None);
+        await package.PersistAsync(
+            new PackageContext("simulated/PackagedProject/WorkItems/00000000000001-1-0/revision.json"),
+            new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes("{}"), writable: false)),
+            CancellationToken.None);
+        var builder = CreateBuilder(package: package);
         var store = new Mock<IArtefactStore>(MockBehavior.Strict);
         var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
         var config = new ConfigurationBuilder()
@@ -269,7 +280,7 @@ public sealed class JobExecutionPlanBuilderTests
     [TestMethod]
     public async Task BuildPlanAsync_ImportKind_UsesPackageRootNameWhenFixtureIsAlreadyProjectScoped()
     {
-        var builder = CreateBuilder();
+        var builder = CreateBuilder(package: PackageTestFactory.CreateLooseMock().Object);
         var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -393,13 +404,14 @@ public sealed class JobExecutionPlanBuilderTests
         };
 
         var stateStore = new InMemoryStateStore();
-        await stateStore.WriteAsync(
-            ".migration/plan.json",
-            JsonSerializer.Serialize(completedPlan),
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        await package.PersistMetaAsync(
+            new PackageMetaContext(PackageMetaKind.ExecutionPlan),
+            new PackageMetaPayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(completedPlan)), writable: false)),
             CancellationToken.None);
 
         var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var builder = CreateBuilder();
+        var builder = CreateBuilder(package: package);
 
         // Act
         var result = await builder.BuildAndSaveAsync(
@@ -432,13 +444,14 @@ public sealed class JobExecutionPlanBuilderTests
         };
 
         var stateStore = new InMemoryStateStore();
-        await stateStore.WriteAsync(
-            ".migration/plan.json",
-            JsonSerializer.Serialize(skippedPlan),
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        await package.PersistMetaAsync(
+            new PackageMetaContext(PackageMetaKind.ExecutionPlan),
+            new PackageMetaPayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(skippedPlan)), writable: false)),
             CancellationToken.None);
 
         var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var builder = CreateBuilder();
+        var builder = CreateBuilder(package: package);
 
         var result = await builder.BuildAndSaveAsync(
             AllEnabledConfig(), JobKind.Export, store.Object, stateStore, CancellationToken.None);
@@ -485,13 +498,14 @@ public sealed class JobExecutionPlanBuilderTests
         };
 
         var stateStore = new InMemoryStateStore();
-        await stateStore.WriteAsync(
-            ".migration/plan.json",
-            JsonSerializer.Serialize(partialPlan),
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        await package.PersistMetaAsync(
+            new PackageMetaContext(PackageMetaKind.ExecutionPlan),
+            new PackageMetaPayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(partialPlan)), writable: false)),
             CancellationToken.None);
 
         var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var builder = CreateBuilder();
+        var builder = CreateBuilder(package: package);
 
         var result = await builder.BuildAndSaveAsync(
             AllEnabledConfig(), JobKind.Export, store.Object, stateStore, CancellationToken.None);

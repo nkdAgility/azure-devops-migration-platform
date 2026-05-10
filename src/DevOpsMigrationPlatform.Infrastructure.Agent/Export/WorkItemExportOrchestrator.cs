@@ -65,6 +65,7 @@ public sealed class WorkItemExportOrchestrator
     private readonly IWorkItemDiscoveryService? _discoveryService;
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
     private readonly string? _packageUri;
+    private readonly IPackage? _package;
 #if !NET481
     private readonly IReferencedPathTracker? _referencedPathTracker;
 #endif
@@ -86,7 +87,8 @@ public sealed class WorkItemExportOrchestrator
         string? wiqlQuery = null,
         IWorkItemDiscoveryService? discoveryService = null,
         IExportProgressStoreFactory? exportProgressStoreFactory = null,
-        string? packageUri = null
+        string? packageUri = null,
+        IPackage? package = null
 #if !NET481
         , IReferencedPathTracker? referencedPathTracker = null
 #endif
@@ -109,6 +111,7 @@ public sealed class WorkItemExportOrchestrator
         _discoveryService = discoveryService;
         _exportProgressStoreFactory = exportProgressStoreFactory;
         _packageUri = packageUri;
+        _package = package;
 #if !NET481
         _referencedPathTracker = referencedPathTracker;
 #endif
@@ -404,7 +407,7 @@ public sealed class WorkItemExportOrchestrator
                 if ((cursor != null
                     || exportProgressStore != null
                     ) &&
-                    await _artefactStore.ExistsAsync($"{folderPath}revision.json", cancellationToken).ConfigureAwait(false))
+                    await PackageExistsAsync($"{folderPath}revision.json", cancellationToken).ConfigureAwait(false))
                 {
                     // Emit a progress event each time we cross a new work item boundary during
                     // the skip phase so the CLI shows "Resuming…" activity rather than silence.
@@ -483,7 +486,7 @@ public sealed class WorkItemExportOrchestrator
 
                 // Write revision.json.
                 var json = JsonSerializer.Serialize(revision, JsonOptions);
-                await _artefactStore.WriteAsync($"{folderPath}revision.json", json, cancellationToken).ConfigureAwait(false);
+                await WritePackageTextAsync($"{folderPath}revision.json", json, cancellationToken).ConfigureAwait(false);
                 // Record the highest RevisionIndex written for this work item so the next resume
                 // can skip revisions ≤ this value without ExistsAsync filesystem checks.
                 if (exportProgressStore != null)
@@ -548,8 +551,10 @@ public sealed class WorkItemExportOrchestrator
                         if (matchingComments.Count > 0)
                         {
                             var commentJson = JsonSerializer.Serialize(matchingComments, JsonOptions);
-                            await _artefactStore
-                                .WriteAsync($"{folderPath}comment.json", commentJson, cancellationToken)
+                            await WritePackageTextAsync(
+                                $"{folderPath}comment.json",
+                                commentJson,
+                                cancellationToken)
                                 .ConfigureAwait(false);
                         }
                     }
@@ -781,8 +786,7 @@ public sealed class WorkItemExportOrchestrator
 
                             if (bytes != null)
                             {
-                                await _artefactStore
-                                    .WriteBinaryAsync(targetPath, bytes, cancellationToken)
+                                await WritePackageBinaryAsync(targetPath, bytes, cancellationToken)
                                     .ConfigureAwait(false);
                                 downloadedBytes = bytes.Length;
                                 downloadSucceeded = true;
@@ -1017,6 +1021,18 @@ public sealed class WorkItemExportOrchestrator
         var ticks = changedDate.Ticks.ToString("D20");
         return $"WorkItems/{date}/{ticks}-{workItemId}-{revisionIndex}/";
     }
+
+    private async Task<bool> PackageExistsAsync(string path, CancellationToken ct)
+        => await DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageAccess
+            .ExistsAsync(_package, _artefactStore, path, ct).ConfigureAwait(false);
+
+    private async Task WritePackageTextAsync(string path, string content, CancellationToken ct)
+        => await DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageAccess
+            .WriteTextAsync(_package, _artefactStore, path, content, ct).ConfigureAwait(false);
+
+    private async Task WritePackageBinaryAsync(string path, byte[] content, CancellationToken ct)
+        => await DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageAccess
+            .WriteBinaryAsync(_package, _artefactStore, path, content, ct).ConfigureAwait(false);
 
     private static string FormatBytes(long bytes) =>
         bytes switch

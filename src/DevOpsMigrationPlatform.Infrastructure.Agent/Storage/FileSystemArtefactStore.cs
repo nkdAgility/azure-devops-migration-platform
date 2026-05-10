@@ -16,7 +16,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 /// All paths are relative to <see cref="_rootPath"/> and use forward slashes.
 /// <see cref="EnumerateAsync"/> returns results in strict lexicographic order.
 /// </summary>
-public class FileSystemArtefactStore : IArtefactStore
+internal sealed class FileSystemArtefactStore : IArtefactStore
 {
     private readonly string _rootPath;
 

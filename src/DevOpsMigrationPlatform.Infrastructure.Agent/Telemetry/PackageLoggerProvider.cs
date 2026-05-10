@@ -36,7 +36,7 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
 
     private readonly Channel<DiagnosticLogRecord> _channel;
     private readonly ActivePackageState _packageState;
-    private readonly IPackage? _package;
+    private readonly IPackage _package;
     private readonly LogLevel _minimumLevel;
     private readonly int _flushBatchSize;
     private readonly TimeSpan _flushInterval;
@@ -52,18 +52,11 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
 
     public PackageLoggerProvider(
         ActivePackageState packageState,
-        IOptions<DiagnosticLogOptions> options)
-        : this(packageState, options, package: null)
-    {
-    }
-
-    public PackageLoggerProvider(
-        ActivePackageState packageState,
         IOptions<DiagnosticLogOptions> options,
-        IPackage? package)
+        IPackage package)
     {
         _packageState = packageState;
-        _package = package;
+        _package = package ?? throw new ArgumentNullException(nameof(package));
         var opts = options.Value;
         _minimumLevel = Enum.TryParse<LogLevel>(opts.MinimumLevel, ignoreCase: true, out var level) ? level : LogLevel.Information;
         _flushBatchSize = opts.FlushBatchSize;
@@ -225,19 +218,17 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
             }
 
             var runId = _packageState.CurrentRunId ?? _lastKnownRunId;
-            if (_package is not null
-                && _packageState.CurrentStore is not null
-                && !string.IsNullOrWhiteSpace(runId))
+            if (string.IsNullOrWhiteSpace(runId))
             {
-                using var stream = new MemoryStream(Encoding.UTF8.GetBytes(payload), writable: false);
-                await _package.AppendLogAsync(
-                    new PackageLogContext(runId!, PackageLogStream.Diagnostics),
-                    new PackageLogPayload(stream),
-                    cancellationToken).ConfigureAwait(false);
+                Interlocked.Add(ref _droppedCount, batch.Count);
                 return;
             }
 
-            await store.AppendAsync(CurrentLogPath, payload, cancellationToken).ConfigureAwait(false);
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(payload), writable: false);
+            await _package.AppendLogAsync(
+                new PackageLogContext(runId!, PackageLogStream.Diagnostics),
+                new PackageLogPayload(stream),
+                cancellationToken).ConfigureAwait(false);
             _currentSegmentBytes += payloadBytes;
         }
         catch (Exception)

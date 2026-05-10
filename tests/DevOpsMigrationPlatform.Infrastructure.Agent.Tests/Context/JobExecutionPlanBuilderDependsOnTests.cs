@@ -18,6 +18,7 @@ using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -479,7 +480,12 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
             .Setup(f => f.Create(It.IsAny<IStateStore>()))
             .Returns(phaseService.Object);
 
-        return new JobExecutionPlanBuilder(modules, analysers ?? [], phaseFactory.Object, logger ?? NullLogger<JobExecutionPlanBuilder>.Instance);
+        return new JobExecutionPlanBuilder(
+            modules,
+            analysers ?? [],
+            phaseFactory.Object,
+            logger ?? NullLogger<JobExecutionPlanBuilder>.Instance,
+            package: PackageTestFactory.CreateLooseMock().Object);
     }
 
     private static IModule CreateModule(

@@ -3,6 +3,7 @@
 
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
@@ -33,6 +34,7 @@ public class SkipUnresolvableContext
     public Mock<ICheckpointingService> CheckpointingMock { get; } = new(MockBehavior.Loose);
     public Mock<IIdentityLookupTool> IdentityMappingMock { get; } = new(MockBehavior.Loose);
     public Mock<IArtefactStore> ArtefactStoreMock { get; } = new(MockBehavior.Loose);
+    public Mock<IPackage> PackageMock { get; } = new(MockBehavior.Loose);
     public Mock<IWorkItemResolutionStrategy> ResolutionStrategyMock { get; } = new(MockBehavior.Loose);
 
     public bool UpdateFieldsWasCalled { get; private set; }
@@ -90,6 +92,18 @@ public class SkipUnresolvableContext
             .ReturnsAsync(json);
         ArtefactStoreMock.Setup(s => s.ReadAsync($"{FolderPath}/comment.json", It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
+        PackageMock.Setup(p => p.RequestAsync(
+                It.Is<PackageContext>(c => c.ContentKind == $"{FolderPath}/revision.json"),
+                It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+                return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(bytes), "application/json"));
+            });
+        PackageMock.Setup(p => p.RequestAsync(
+                It.Is<PackageContext>(c => c.ContentKind == $"{FolderPath}/comment.json"),
+                It.IsAny<CancellationToken>()))
+            .Returns(ValueTask.FromResult<PackagePayload?>(null));
     }
 
     public async Task RunProcessorAsync()
@@ -117,7 +131,8 @@ public class SkipUnresolvableContext
             NullLogger<RevisionFolderProcessor>.Instance,
             nodeStructureTool: tool,
             nodeStructureContext: context,
-            nodeStructureOptions: opts);
+            nodeStructureOptions: opts,
+            package: PackageMock.Object);
 
         var ext = new WorkItemsModuleExtensions
         {

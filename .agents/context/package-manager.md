@@ -23,6 +23,12 @@ The typed package boundary is now implemented and in active runtime use for core
 
 Routing remains centralized through `IPackage` + `PackagePathRouter` in `Infrastructure.Agent`, with contract types in `Abstractions.Agent`.
 
+## Runtime Enforcement Policy (No Exceptions)
+
+For runtime package-facing paths, package reads/writes, checkpoint state reads/writes, and log appends must go through `IPackage` only. Direct `IArtefactStore`/`IStateStore` calls in runtime orchestration/module/worker flows are disallowed for these operations.
+
+Where raw semantics are required (exists, enumerate, binary read/write, append), extend `IPackage` and `PackageBoundary` rather than introducing direct store bypasses in runtime flow code.
+
 ## Primary Contracts
 
 The package-manager design discussed so far centers on these contracts:

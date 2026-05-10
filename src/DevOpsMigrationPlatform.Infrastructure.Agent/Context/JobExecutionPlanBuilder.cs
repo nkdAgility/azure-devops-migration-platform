@@ -230,7 +230,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             }
             else
             {
-                await stateStore.WriteAsync(PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
+                await PackageAccess.WriteStateAsync(_package, stateStore, PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
                 _logger.LogDebug("Persisted execution plan to {Path}.", PackagePaths.PlanFile);
 
                 var runId = _packageState?.CurrentRunId;
@@ -239,7 +239,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                     var runPlanPath = PackagePaths.RunPlanFile(runId!);
                     if (RunScopeAuthorityGuard.IsRunScopedPath(runPlanPath))
                         _logger.LogDebug("Writing run-scope plan snapshot for audit only: {RunPlanPath}", runPlanPath);
-                    await stateStore.WriteAsync(runPlanPath, json, ct).ConfigureAwait(false);
+                    await PackageAccess.WriteStateAsync(_package, stateStore, runPlanPath, json, ct).ConfigureAwait(false);
                     _logger.LogDebug("Persisted run plan snapshot to {Path}.", runPlanPath);
                 }
             }
@@ -530,7 +530,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         var orgSlug = string.IsNullOrWhiteSpace(targetUrl)
             ? PackagePathResolver.Sanitise(targetType.ToLowerInvariant())
             : PackagePathResolver.DeriveInventoryOrgSlug(targetUrl);
-        var targetProjects = await GetConfiguredTargetProjectsAsync(config, artefactStore, ct).ConfigureAwait(false);
+        var targetProjects = await GetConfiguredTargetProjectsAsync(config, artefactStore, _package, ct).ConfigureAwait(false);
 
         var tasks = new List<JobTask>();
 
@@ -584,6 +584,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     private static async Task<List<string>> GetConfiguredTargetProjectsAsync(
         IConfiguration config,
         IArtefactStore artefactStore,
+        IPackage? package,
         CancellationToken ct)
     {
         var targetProject = config["MigrationPlatform:Target:Project"];
@@ -598,16 +599,17 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             return sourceProjects.Where(project => !string.IsNullOrWhiteSpace(project)).ToList();
         }
 
-        var packagedProjects = await DiscoverPackagedProjectNamesAsync(artefactStore, ct).ConfigureAwait(false);
+        var packagedProjects = await DiscoverPackagedProjectNamesAsync(artefactStore, package, ct).ConfigureAwait(false);
         return packagedProjects.Count > 0 ? packagedProjects : [string.Empty];
     }
 
     private static async Task<List<string>> DiscoverPackagedProjectNamesAsync(
         IArtefactStore artefactStore,
+        IPackage? package,
         CancellationToken ct)
     {
         var packagedProjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var paths = artefactStore.EnumerateAsync(string.Empty, ct);
+        var paths = PackageAccess.EnumerateAsync(package, artefactStore, string.Empty, ct);
 
         if (paths is not null)
         {

@@ -19,22 +19,30 @@ public class PackageLoggerProviderRotationTests
 {
     /// <summary>
     /// Verifies that when log output stays under the segment size limit,
-    /// all writes go to the initial <c>.migration/Logs/agent.jsonl</c> path.
+    /// diagnostics are appended through the package boundary.
     /// </summary>
     [TestMethod]
     public async Task FlushBatch_UnderLimit_WritesToInitialSegment()
     {
         // Arrange — 50 MB limit (default), small messages won't rotate.
-        var appendedPaths = new List<string>();
+        var appendedContexts = new List<PackageLogContext>();
         var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
-        mockStore.Setup(s => s.AppendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((path, _, _) => appendedPaths.Add(path))
-            .Returns(Task.CompletedTask);
+        var mockPackage = new Mock<IPackage>(MockBehavior.Strict);
+        mockPackage.Setup(p => p.AppendLogAsync(
+                It.IsAny<PackageLogContext>(),
+                It.IsAny<PackageLogPayload>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<PackageLogContext, PackageLogPayload, CancellationToken>((context, _, _) => appendedContexts.Add(context))
+            .Returns(ValueTask.CompletedTask);
 
-        var state = new ActivePackageState { CurrentStore = mockStore.Object };
+        var state = new ActivePackageState
+        {
+            CurrentStore = mockStore.Object,
+            CurrentJob = new Job { JobId = "job-under-limit", Kind = JobKind.Export }
+        };
         var opts = Options.Create(new DiagnosticLogOptions { MaxLogFileSizeMB = 50 });
 
-        var provider = new PackageLoggerProvider(state, opts);
+        var provider = new PackageLoggerProvider(state, opts, mockPackage.Object);
         var logger = provider.CreateLogger("Test");
 
         // Act — log 5 messages, then stop.
@@ -48,31 +56,40 @@ public class PackageLoggerProviderRotationTests
         provider.Dispose();
 
         // Assert — all appends to the initial segment.
-        Assert.IsTrue(appendedPaths.Count > 0, "Expected at least one flush.");
-        foreach (var path in appendedPaths)
-            Assert.AreEqual($"{PackagePaths.Logs}/agent.jsonl", path);
+        Assert.IsTrue(appendedContexts.Count > 0, "Expected at least one flush.");
+        Assert.IsTrue(appendedContexts.TrueForAll(c => c.Stream == PackageLogStream.Diagnostics));
+        Assert.IsTrue(appendedContexts.TrueForAll(c => c.RunId == state.CurrentRunId));
     }
 
     /// <summary>
     /// Verifies that when cumulative output exceeds the segment limit,
-    /// the provider rotates to a new segment path (agent-001.jsonl, etc.).
-    /// Uses a 1 MB limit with enough data to trigger rotation.
+    /// diagnostics continue to append through the package boundary.
     /// </summary>
     [TestMethod]
     public async Task FlushBatch_ExceedsLimit_RotatesToNewSegment()
     {
-        var appendedPaths = new List<string>();
+        var appendedContexts = new List<PackageLogContext>();
         long totalBytesAppended = 0;
         var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
-        mockStore.Setup(s => s.AppendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((path, content, _) =>
+        var mockPackage = new Mock<IPackage>(MockBehavior.Strict);
+        mockPackage.Setup(p => p.AppendLogAsync(
+                It.IsAny<PackageLogContext>(),
+                It.IsAny<PackageLogPayload>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<PackageLogContext, PackageLogPayload, CancellationToken>((context, payload, _) =>
             {
-                appendedPaths.Add(path);
+                appendedContexts.Add(context);
+                using var reader = new System.IO.StreamReader(payload.Content, System.Text.Encoding.UTF8, leaveOpen: true);
+                var content = reader.ReadToEnd();
                 totalBytesAppended += System.Text.Encoding.UTF8.GetByteCount(content);
             })
-            .Returns(Task.CompletedTask);
+            .Returns(ValueTask.CompletedTask);
 
-        var state = new ActivePackageState { CurrentStore = mockStore.Object };
+        var state = new ActivePackageState
+        {
+            CurrentStore = mockStore.Object,
+            CurrentJob = new Job { JobId = "job-over-limit", Kind = JobKind.Export }
+        };
         // 1 MB limit with a large channel and small batches so everything flushes.
         var opts = Options.Create(new DiagnosticLogOptions
         {
@@ -82,7 +99,7 @@ public class PackageLoggerProviderRotationTests
             FlushIntervalMs = 50
         });
 
-        var provider = new PackageLoggerProvider(state, opts);
+        var provider = new PackageLoggerProvider(state, opts, mockPackage.Object);
         var logger = provider.CreateLogger("Test");
 
         // Act — log enough large messages to exceed 1 MB.
@@ -100,28 +117,32 @@ public class PackageLoggerProviderRotationTests
         await provider.StopAsync(CancellationToken.None);
         provider.Dispose();
 
-        // Assert — should have at least one write to the rotated segment.
-        Assert.IsTrue(appendedPaths.Count > 0, "Expected at least one flush.");
+        Assert.IsTrue(appendedContexts.Count > 0, "Expected at least one flush.");
         Assert.IsTrue(totalBytesAppended > 1 * 1024 * 1024,
             $"Expected >1 MB of data to be appended, but got {totalBytesAppended} bytes.");
-        Assert.IsTrue(appendedPaths.Exists(p => p == $"{PackagePaths.Logs}/agent.jsonl"),
-            "Expected initial segment.");
-        Assert.IsTrue(appendedPaths.Exists(p => p == $"{PackagePaths.Logs}/agent-001.jsonl"),
-            $"Expected rotation to agent-001.jsonl after exceeding 1 MB. " +
-            $"Total bytes: {totalBytesAppended}, flushes: {appendedPaths.Count}.");
+        Assert.IsTrue(appendedContexts.TrueForAll(c => c.Stream == PackageLogStream.Diagnostics));
+        Assert.IsTrue(appendedContexts.TrueForAll(c => c.RunId == state.CurrentRunId));
     }
 
     [TestMethod]
     public async Task FlushBatch_RotationDisabled_NeverRotates()
     {
         // Arrange — MaxLogFileSizeMB = 0 disables rotation.
-        var appendedPaths = new List<string>();
+        var appendedContexts = new List<PackageLogContext>();
         var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
-        mockStore.Setup(s => s.AppendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((path, _, _) => appendedPaths.Add(path))
-            .Returns(Task.CompletedTask);
+        var mockPackage = new Mock<IPackage>(MockBehavior.Strict);
+        mockPackage.Setup(p => p.AppendLogAsync(
+                It.IsAny<PackageLogContext>(),
+                It.IsAny<PackageLogPayload>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<PackageLogContext, PackageLogPayload, CancellationToken>((context, _, _) => appendedContexts.Add(context))
+            .Returns(ValueTask.CompletedTask);
 
-        var state = new ActivePackageState { CurrentStore = mockStore.Object };
+        var state = new ActivePackageState
+        {
+            CurrentStore = mockStore.Object,
+            CurrentJob = new Job { JobId = "job-no-rotation", Kind = JobKind.Export }
+        };
         var opts = Options.Create(new DiagnosticLogOptions
         {
             MaxLogFileSizeMB = 0,
@@ -130,7 +151,7 @@ public class PackageLoggerProviderRotationTests
             FlushIntervalMs = 50
         });
 
-        var provider = new PackageLoggerProvider(state, opts);
+        var provider = new PackageLoggerProvider(state, opts, mockPackage.Object);
         var logger = provider.CreateLogger("Test");
 
         // Act — log many large messages.
@@ -149,9 +170,9 @@ public class PackageLoggerProviderRotationTests
         provider.Dispose();
 
         // Assert — all writes to initial segment only.
-        Assert.IsTrue(appendedPaths.Count > 0, "Expected at least one flush.");
-        foreach (var path in appendedPaths)
-            Assert.AreEqual($"{PackagePaths.Logs}/agent.jsonl", path);
+        Assert.IsTrue(appendedContexts.Count > 0, "Expected at least one flush.");
+        Assert.IsTrue(appendedContexts.TrueForAll(c => c.Stream == PackageLogStream.Diagnostics));
+        Assert.IsTrue(appendedContexts.TrueForAll(c => c.RunId == state.CurrentRunId));
     }
 
     [TestMethod]
@@ -159,7 +180,8 @@ public class PackageLoggerProviderRotationTests
     {
         var state = new ActivePackageState();
         var opts = Options.Create(new DiagnosticLogOptions());
-        using var provider = new PackageLoggerProvider(state, opts);
+        var mockPackage = new Mock<IPackage>(MockBehavior.Loose);
+        using var provider = new PackageLoggerProvider(state, opts, mockPackage.Object);
 
         Assert.AreEqual($"{PackagePaths.Logs}/agent.jsonl", provider.CurrentLogPath);
     }

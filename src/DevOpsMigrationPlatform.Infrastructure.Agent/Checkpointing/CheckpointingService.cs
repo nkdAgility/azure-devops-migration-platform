@@ -15,6 +15,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -53,17 +54,7 @@ public class CheckpointingService : ICheckpointingService
         var key = ResolveCursorKey(checkpointIdentity);
         activity?.SetTag("cursor.key", key);
         _logger?.LogDebug("Reading cursor from {CursorKey}.", key);
-        if (_package is not null)
-        {
-            var payload = await _package.RequestAsync(new PackageContext(key), cancellationToken).ConfigureAwait(false);
-            if (payload is not null)
-            {
-                var jsonFromPackage = await ReadUtf8Async(payload.Content, cancellationToken).ConfigureAwait(false);
-                return JsonSerializer.Deserialize<CursorEntry>(jsonFromPackage);
-            }
-        }
-
-        var json = await _stateStore.ReadAsync(key, cancellationToken).ConfigureAwait(false);
+        var json = await PackageAccess.ReadStateAsync(_package, _stateStore, key, cancellationToken).ConfigureAwait(false);
 
         if (json is null)
             return null;
@@ -79,17 +70,7 @@ public class CheckpointingService : ICheckpointingService
         activity?.SetTag("cursor.key", key);
         _logger?.LogDebug("Writing cursor to {CursorKey}.", key);
         var json = JsonSerializer.Serialize(cursor);
-        if (_package is not null)
-        {
-            using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(cursor));
-            await _package.PersistAsync(
-                new PackageContext(key),
-                new PackagePayload(stream, "application/json"),
-                cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        await _stateStore.WriteAsync(key, json, cancellationToken).ConfigureAwait(false);
+        await PackageAccess.WriteStateAsync(_package, _stateStore, key, json, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task DeleteCursorAsync(string checkpointIdentity, CancellationToken cancellationToken)
@@ -106,17 +87,7 @@ public class CheckpointingService : ICheckpointingService
     public async Task<BatchContinuationToken?> ReadContinuationTokenAsync(string checkpointIdentity, CancellationToken cancellationToken)
     {
         var key = ResolveContinuationKey(checkpointIdentity);
-        if (_package is not null)
-        {
-            var payload = await _package.RequestAsync(new PackageContext(key), cancellationToken).ConfigureAwait(false);
-            if (payload is not null)
-            {
-                var jsonFromPackage = await ReadUtf8Async(payload.Content, cancellationToken).ConfigureAwait(false);
-                return JsonSerializer.Deserialize<BatchContinuationToken>(jsonFromPackage);
-            }
-        }
-
-        var json = await _stateStore.ReadAsync(key, cancellationToken).ConfigureAwait(false);
+        var json = await PackageAccess.ReadStateAsync(_package, _stateStore, key, cancellationToken).ConfigureAwait(false);
         if (json is null)
             return null;
         return JsonSerializer.Deserialize<BatchContinuationToken>(json);
@@ -125,18 +96,8 @@ public class CheckpointingService : ICheckpointingService
     public async Task WriteContinuationTokenAsync(string checkpointIdentity, BatchContinuationToken token, CancellationToken cancellationToken)
     {
         var key = ResolveContinuationKey(checkpointIdentity);
-        if (_package is not null)
-        {
-            using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(token));
-            await _package.PersistAsync(
-                new PackageContext(key),
-                new PackagePayload(stream, "application/json"),
-                cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
         var json = JsonSerializer.Serialize(token);
-        await _stateStore.WriteAsync(key, json, cancellationToken).ConfigureAwait(false);
+        await PackageAccess.WriteStateAsync(_package, _stateStore, key, json, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task DeleteContinuationTokenAsync(string checkpointIdentity, CancellationToken cancellationToken)

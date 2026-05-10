@@ -80,6 +80,7 @@ public class TfsJobAgentWorkerTests
     private Mock<ITfsJobServiceFactory> _tfsServiceFactory = null!;
     private Mock<IArtefactStore> _artefactStore = null!;
     private Mock<IStateStore> _stateStore = null!;
+    private Mock<IPackage> _package = null!;
     private Mock<ICheckpointingService> _checkpointer = null!;
     private Mock<IPackageConfigStore> _packageConfigStore = null!;
     private Mock<IActiveJobState> _activeJobState = null!;
@@ -100,6 +101,7 @@ public class TfsJobAgentWorkerTests
         _tfsServiceFactory = new Mock<ITfsJobServiceFactory>();
         _artefactStore = new Mock<IArtefactStore>();
         _stateStore = new Mock<IStateStore>();
+        _package = new Mock<IPackage>(MockBehavior.Loose);
         _checkpointer = new Mock<ICheckpointingService>();
         _leaseState = new ActiveLeaseState();
         _packageState = new ActivePackageState();
@@ -107,8 +109,8 @@ public class TfsJobAgentWorkerTests
 
         _flushables = new IFlushable[]
         {
-            new PackageProgressSink(_packageState, NullLogger<PackageProgressSink>.Instance),
-            new PackageLoggerProvider(_packageState, Options.Create(new DiagnosticLogOptions())),
+            new PackageProgressSink(_packageState, NullLogger<PackageProgressSink>.Instance, _package.Object),
+            new PackageLoggerProvider(_packageState, Options.Create(new DiagnosticLogOptions()), _package.Object),
         };
 
         _packageStoreFactory
@@ -378,7 +380,7 @@ public class TfsJobAgentWorkerTests
     }
 
     [TestMethod]
-    public async Task OnMigrationJob_ExportMode_FallsBackToStateStoreWhenPackagePlanMissing()
+    public async Task OnMigrationJob_ExportMode_DoesNotFallbackToStateStoreWhenPackagePlanMissing()
     {
         var job = new Job
         {
@@ -431,9 +433,6 @@ public class TfsJobAgentWorkerTests
         _stateStore
             .Setup(s => s.ReadAsync(PackagePaths.PlanFile, It.IsAny<CancellationToken>()))
             .ReturnsAsync(planJson);
-        _stateStore
-            .Setup(s => s.WriteAsync(PackagePaths.PlanFile, It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
 
         var worker = CreateWorker(package: package.Object);
         await TfsJobAgentWorkerTestHelper.InvokeMigrationJobAsync(
@@ -445,8 +444,8 @@ public class TfsJobAgentWorkerTests
         package.Verify(p => p.PersistMetaAsync(
             It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
             It.IsAny<PackageMetaPayload>(),
-            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
-        _stateStore.Verify(s => s.ReadAsync(PackagePaths.PlanFile, It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+            It.IsAny<CancellationToken>()), Times.Never);
+        _stateStore.Verify(s => s.ReadAsync(PackagePaths.PlanFile, It.IsAny<CancellationToken>()), Times.Never);
         _stateStore.Verify(s => s.WriteAsync(PackagePaths.PlanFile, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 

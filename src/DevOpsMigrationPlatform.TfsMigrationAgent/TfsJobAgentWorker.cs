@@ -27,6 +27,7 @@ using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Options;
 using Microsoft.Extensions.Configuration;
@@ -218,7 +219,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
                 }
             }
 
-            json ??= await stateStore.ReadAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
+            json ??= await PackageAccess.ReadStateAsync(_package, stateStore, PackagePaths.PlanFile, ct).ConfigureAwait(false);
             if (json == null)
             {
                 _logger.LogDebug("No plan file found at {Path} — skipping TFS task status update.", PackagePaths.PlanFile);
@@ -264,7 +265,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
             }
             else
             {
-                await stateStore.WriteAsync(PackagePaths.PlanFile, updatedJson, ct).ConfigureAwait(false);
+                await PackageAccess.WriteStateAsync(_package, stateStore, PackagePaths.PlanFile, updatedJson, ct).ConfigureAwait(false);
             }
 
             _logger.LogDebug("Updated TFS task {TaskId} to {Status} in plan file.", taskId, newStatus);

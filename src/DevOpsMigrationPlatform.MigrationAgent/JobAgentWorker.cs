@@ -23,6 +23,7 @@ using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,6 +45,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly IEnumerable<IFlushable> _flushables;
     private readonly IServiceScopeFactory _moduleScopeFactory;
     private readonly IPackagePreparer _packagePreparer;
+    private readonly IPackage _package;
     private readonly IJobExecutionPlanBuilder _planBuilder;
     private readonly IJobPlanExecutor _planExecutor;
     private readonly ICurrentPackageConfigAccessor _currentPackageConfigAccessor;
@@ -56,6 +58,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IEnumerable<IModule> migrationModules,
         IPackageStoreFactory packageStoreFactory,
         IPackagePreparer packagePreparer,
+        IPackage package,
         IProgressSink progressSink,
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
@@ -86,6 +89,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         _flushables = flushables;
         _moduleScopeFactory = moduleScopeFactory;
         _packagePreparer = packagePreparer;
+        _package = package ?? throw new ArgumentNullException(nameof(package));
         _planBuilder = planBuilder;
         _planExecutor = planExecutor;
         _currentPackageConfigAccessor = currentPackageConfigAccessor;
@@ -112,7 +116,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         var (artefactStore, stateStore) = await InitializeJobPackageAsync(job, ct).ConfigureAwait(false);
 
         // Write config payload from the Job into the package before any config reads.
-        await WriteConfigPayloadAsync(job, artefactStore, ct).ConfigureAwait(false);
+        await WriteConfigPayloadAsync(_package, job, artefactStore, ct).ConfigureAwait(false);
 
         // Load migration-config.json so singleton services (ActiveJobSourceEndpointInfo,
         // IOptions<T> bound from PackageConfig, etc.) resolve per-job values.
@@ -282,8 +286,10 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private static bool PlanMaterializesInventorySnapshot(JobTaskList plan)
         => plan.Tasks.Any(task => task.Id.Equals("analyse.inventory", StringComparison.OrdinalIgnoreCase));
 
-    private static Task WriteInventoryCompletionMarkerAsync(Job job, IStateStore stateStore, CancellationToken ct)
-        => stateStore.WriteAsync(
+    private static Task WriteInventoryCompletionMarkerAsync(IPackage package, Job job, IStateStore stateStore, CancellationToken ct)
+        => PackageAccess.WriteStateAsync(
+            package,
+            stateStore,
             PackagePaths.InventoryCompleteFile,
             JsonSerializer.Serialize(new
             {
@@ -346,20 +352,24 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     /// Use <see cref="ResumeMode.ForceFresh"/> to restart with a completely new configuration.
     /// </summary>
     private static async Task WriteConfigPayloadAsync(
-        Job job, IArtefactStore artefactStore, CancellationToken ct)
+        IPackage package, Job job, IArtefactStore artefactStore, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(job.ConfigPayload))
             return;
 
         var forceFresh = job.Resume?.Mode == DevOpsMigrationPlatform.Abstractions.Jobs.ResumeMode.ForceFresh;
-        var exists = await artefactStore.ExistsAsync(PackagePaths.MigrationConfigFileName, ct).ConfigureAwait(false);
+        var exists = await PackageAccess
+            .ExistsAsync(package, artefactStore, PackagePaths.MigrationConfigFileName, ct)
+            .ConfigureAwait(false);
 
         if (exists && !forceFresh)
         {
             // Resume mode: verify the Source and Target endpoints are unchanged.
             // A compatible re-submission overwrites the config (picking up any non-identity
             // changes such as module settings) while preserving cursor state.
-            var existingJson = await artefactStore.ReadAsync(PackagePaths.MigrationConfigFileName, ct).ConfigureAwait(false);
+            var existingJson = await PackageAccess
+                .ReadTextAsync(package, artefactStore, PackagePaths.MigrationConfigFileName, ct)
+                .ConfigureAwait(false);
             var mismatch = GetSourceTargetMismatch(existingJson ?? string.Empty, job.ConfigPayload);
             if (mismatch != null)
                 throw new InvalidOperationException(
@@ -368,8 +378,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             // Compatible — fall through and overwrite (cursor state is preserved separately).
         }
 
-        await artefactStore.WriteAsync(
-            PackagePaths.MigrationConfigFileName, job.ConfigPayload, ct)
+        await PackageAccess
+            .WriteTextAsync(package, artefactStore, PackagePaths.MigrationConfigFileName, job.ConfigPayload, ct)
             .ConfigureAwait(false);
     }
 
@@ -579,7 +589,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 var endpointsByUrl = new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase);
                 try
                 {
-                    var rawJson = await artefactStore.ReadAsync(PackagePaths.MigrationConfigFileName, ct).ConfigureAwait(false);
+                    var rawJson = await PackageAccess
+                        .ReadTextAsync(_package, artefactStore, PackagePaths.MigrationConfigFileName, ct)
+                        .ConfigureAwait(false);
                     if (!string.IsNullOrWhiteSpace(rawJson))
                     {
                         var wrapper = JsonSerializer.Deserialize<DiscoveryConfigWrapper>(rawJson, AgentJsonOptions);
@@ -631,7 +643,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
                 if (inventoryOk && PlanMaterializesInventorySnapshot(executionPlan))
                 {
-                    await WriteInventoryCompletionMarkerAsync(job, stateStore, ct).ConfigureAwait(false);
+                    await WriteInventoryCompletionMarkerAsync(_package, job, stateStore, ct).ConfigureAwait(false);
                 }
 
                 failed = !inventoryOk;
@@ -682,7 +694,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
                     if (exportOk && PlanMaterializesInventorySnapshot(executionPlan))
                     {
-                        await WriteInventoryCompletionMarkerAsync(job, stateStore, ct).ConfigureAwait(false);
+                        await WriteInventoryCompletionMarkerAsync(_package, job, stateStore, ct).ConfigureAwait(false);
                     }
 
                     failed = !exportOk;
@@ -721,7 +733,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                         timestamp = DateTimeOffset.UtcNow,
                         status = "ok"
                     });
-                    await artefactStore.WriteAsync("prepare-probe.json", probeContent, ct).ConfigureAwait(false);
+                    await PackageAccess.WriteTextAsync(_package, artefactStore, "prepare-probe.json", probeContent, ct).ConfigureAwait(false);
 
                     var prepareModules = jobModules.Where(m => m.SupportsPrepare).ToList();
                     var requiredAnalyserNames = prepareModules
@@ -814,7 +826,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         var policies = new JobPolicies();
         try
         {
-            var rawJson = await artefactStore.ReadAsync(PackagePaths.MigrationConfigFileName, ct).ConfigureAwait(false);
+            var rawJson = await PackageAccess
+                .ReadTextAsync(_package, artefactStore, PackagePaths.MigrationConfigFileName, ct)
+                .ConfigureAwait(false);
             if (!string.IsNullOrWhiteSpace(rawJson))
             {
                 var wrapper = JsonSerializer.Deserialize<DiscoveryConfigWrapper>(rawJson, AgentJsonOptions);
@@ -942,7 +956,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
                     if (depsOk && PlanMaterializesInventorySnapshot(discoveryPlan))
                     {
-                        await WriteInventoryCompletionMarkerAsync(job, stateStore, ct).ConfigureAwait(false);
+                        await WriteInventoryCompletionMarkerAsync(_package, job, stateStore, ct).ConfigureAwait(false);
                     }
 
                     failed = !depsOk;

@@ -73,7 +73,7 @@
 - [X] T021 [US1] Migrate progress sink append path handling to `IPackage.AppendLogAsync` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/PackageProgressSink.cs`
 - [X] T022 [US1] Migrate diagnostics logger append path handling to `IPackage.AppendLogAsync` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/PackageLoggerProvider.cs`
 - [X] T023 [US1] Ensure `ActivePackageState` and package-boundary run context integration in `src/DevOpsMigrationPlatform.Abstractions.Agent/Lease/ActivePackageState.cs`
-- [X] T024 [US1] Add/adjust DI and constructor wiring for updated services in `src/DevOpsMigrationPlatform.Infrastructure.Agent/DiagnosticsServiceExtensions.cs`
+- [X] T024 [US1] Add/adjust DI and constructor wiring for updated services in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/DiagnosticsServiceExtensions.cs`
 
 **Checkpoint**: Runtime config + progress + diagnostics package operations are centralized through package boundary APIs.
 
@@ -144,6 +144,7 @@
 - [X] T056 Add active-run log rotation continuity tests for diagnostics/progress streams in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageLogRotationContinuityTests.cs`
 - [X] T057 Add runtime package-access audit test enforcing boundary-only writes with explicit allowlist in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryAdoptionAuditTests.cs`
 - [X] T058 Add failure-path observability tests for structured error logs with correlation fields in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryErrorObservabilityTests.cs`
+- [X] T060 Enforce no-exception runtime package-boundary policy (no direct runtime store read/write/checkpoint/log append access) in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageRuntimeBoundaryEnforcementTests.cs` and listed runtime paths
 
 ---
 

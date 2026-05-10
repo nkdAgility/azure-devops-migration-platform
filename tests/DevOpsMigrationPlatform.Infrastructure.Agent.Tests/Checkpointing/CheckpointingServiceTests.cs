@@ -10,6 +10,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -26,7 +27,9 @@ public class CheckpointingServiceTests
     public void Setup()
     {
         _mockStateStore = new Mock<IStateStore>(MockBehavior.Strict);
-        _sut = new CheckpointingService(_mockStateStore.Object);
+        _sut = new CheckpointingService(
+            _mockStateStore.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(_mockStateStore.Object).Object);
     }
 
     [TestMethod]
@@ -76,7 +79,11 @@ public class CheckpointingServiceTests
             .Setup(s => s.DeleteAsync(expectedKey, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object, packageConfigAccessor.Object);
+        var sut = new CheckpointingService(
+            _mockStateStore.Object,
+            endpointAccessor.Object,
+            packageConfigAccessor.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(_mockStateStore.Object).Object);
         await sut.DeleteCursorAsync("dependencies", CancellationToken.None);
 
         _mockStateStore.Verify(s => s.DeleteAsync(expectedKey, It.IsAny<CancellationToken>()), Times.Once);
@@ -111,7 +118,11 @@ public class CheckpointingServiceTests
             .Setup(s => s.DeleteAsync(expectedKey, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object, packageConfigAccessor.Object);
+        var sut = new CheckpointingService(
+            _mockStateStore.Object,
+            endpointAccessor.Object,
+            packageConfigAccessor.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(_mockStateStore.Object).Object);
         await sut.DeleteContinuationTokenAsync("dependencies", CancellationToken.None);
 
         _mockStateStore.Verify(s => s.DeleteAsync(expectedKey, It.IsAny<CancellationToken>()), Times.Once);
@@ -142,7 +153,11 @@ public class CheckpointingServiceTests
             .Setup(s => s.DeleteAsync(expectedKey, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object, packageConfigAccessor.Object);
+        var sut = new CheckpointingService(
+            _mockStateStore.Object,
+            endpointAccessor.Object,
+            packageConfigAccessor.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(_mockStateStore.Object).Object);
         await sut.DeleteCursorAsync("WorkItems", CancellationToken.None);
 
         _mockStateStore.Verify(s => s.DeleteAsync(expectedKey, It.IsAny<CancellationToken>()), Times.Once);
@@ -173,7 +188,11 @@ public class CheckpointingServiceTests
             .Setup(s => s.DeleteAsync(expectedKey, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object, packageConfigAccessor.Object);
+        var sut = new CheckpointingService(
+            _mockStateStore.Object,
+            endpointAccessor.Object,
+            packageConfigAccessor.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(_mockStateStore.Object).Object);
         await sut.DeleteCursorAsync("Identities", CancellationToken.None);
 
         _mockStateStore.Verify(s => s.DeleteAsync(expectedKey, It.IsAny<CancellationToken>()), Times.Once);
@@ -204,7 +223,11 @@ public class CheckpointingServiceTests
             .Setup(s => s.DeleteAsync(expectedKey, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object, packageConfigAccessor.Object);
+        var sut = new CheckpointingService(
+            _mockStateStore.Object,
+            endpointAccessor.Object,
+            packageConfigAccessor.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(_mockStateStore.Object).Object);
         await sut.DeleteContinuationTokenAsync("WorkItems", CancellationToken.None);
 
         _mockStateStore.Verify(s => s.DeleteAsync(expectedKey, It.IsAny<CancellationToken>()), Times.Once);
@@ -229,7 +252,11 @@ public class CheckpointingServiceTests
             .Build();
         packageConfigAccessor.SetupGet(a => a.Current).Returns(currentConfig);
 
-        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object, packageConfigAccessor.Object);
+        var sut = new CheckpointingService(
+            _mockStateStore.Object,
+            endpointAccessor.Object,
+            packageConfigAccessor.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(_mockStateStore.Object).Object);
         await sut.DeleteCursorAsync("Identities", CancellationToken.None);
 
         _mockStateStore.VerifyNoOtherCalls();
@@ -262,7 +289,10 @@ public class CheckpointingServiceTests
             .Setup(s => s.ReadAsync(expectedKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync(json);
 
-        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object);
+        var sut = new CheckpointingService(
+            _mockStateStore.Object,
+            endpointAccessor.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(_mockStateStore.Object).Object);
         var result = await sut.ReadCursorAsync("export.workitems", CancellationToken.None);
 
         Assert.IsNotNull(result);
@@ -295,7 +325,10 @@ public class CheckpointingServiceTests
             .Setup(s => s.ReadAsync(expectedKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync(JsonSerializer.Serialize(entry));
 
-        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object);
+        var sut = new CheckpointingService(
+            _mockStateStore.Object,
+            endpointAccessor.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(_mockStateStore.Object).Object);
         var result = await sut.ReadCursorAsync("export.workitems", CancellationToken.None);
 
         Assert.IsNotNull(result);
@@ -334,7 +367,11 @@ public class CheckpointingServiceTests
             .Setup(s => s.ReadAsync(expectedKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync(JsonSerializer.Serialize(entry));
 
-        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object, packageConfigAccessor.Object);
+        var sut = new CheckpointingService(
+            _mockStateStore.Object,
+            endpointAccessor.Object,
+            packageConfigAccessor.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(_mockStateStore.Object).Object);
         var result = await sut.ReadCursorAsync("export.workitems", CancellationToken.None);
 
         Assert.IsNotNull(result);
@@ -361,7 +398,10 @@ public class CheckpointingServiceTests
             .Setup(s => s.ReadAsync(expectedKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
 
-        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object);
+        var sut = new CheckpointingService(
+            _mockStateStore.Object,
+            endpointAccessor.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(_mockStateStore.Object).Object);
         var result = await sut.ReadCursorAsync("export.workitems", CancellationToken.None);
 
         Assert.IsNull(result);
@@ -388,7 +428,10 @@ public class CheckpointingServiceTests
             .Setup(s => s.ReadAsync(expectedKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
 
-        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object);
+        var sut = new CheckpointingService(
+            _mockStateStore.Object,
+            endpointAccessor.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(_mockStateStore.Object).Object);
         var result = await sut.ReadContinuationTokenAsync("export.workitems", CancellationToken.None);
 
         Assert.IsNull(result);
@@ -417,7 +460,10 @@ public class CheckpointingServiceTests
             .Callback<string, string, CancellationToken>((key, _, _) => capturedKey = key)
             .Returns(Task.CompletedTask);
 
-        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object);
+        var sut = new CheckpointingService(
+            _mockStateStore.Object,
+            endpointAccessor.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(_mockStateStore.Object).Object);
         await sut.WriteCursorAsync("import.workitems", new CursorEntry
         {
             LastProcessed = "WorkItems/2024-01-01/00000000000001-1-1/",
@@ -449,7 +495,10 @@ public class CheckpointingServiceTests
             .Callback<string, string, CancellationToken>((key, _, _) => capturedKey = key)
             .Returns(Task.CompletedTask);
 
-        var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object);
+        var sut = new CheckpointingService(
+            _mockStateStore.Object,
+            endpointAccessor.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(_mockStateStore.Object).Object);
         await sut.WriteContinuationTokenAsync("import.workitems", new BatchContinuationToken
         {
             ChangedDateUtc = System.DateTime.UtcNow,

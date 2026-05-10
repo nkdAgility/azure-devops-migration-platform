@@ -89,6 +89,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IReferencedPathTracker? _referencedPathTracker;
     private readonly INodesOrchestrator? _nodesOrchestrator;
 #endif
+    private readonly IPackage? _package;
     private readonly IOptions<WorkItemsModuleOptions> _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
     private readonly IRepoDiscoveryService? _repoDiscoveryService;
@@ -125,7 +126,8 @@ public sealed class WorkItemsModule : IModule
         INodesOrchestrator? nodesOrchestrator = null,
 #endif
         IIdentityLookupTool? identityLookupTool = null,
-        IRepoDiscoveryService? repoDiscoveryService = null)
+        IRepoDiscoveryService? repoDiscoveryService = null,
+        IPackage? package = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -154,6 +156,7 @@ public sealed class WorkItemsModule : IModule
 #endif
         _identityLookupTool = identityLookupTool;
         _repoDiscoveryService = repoDiscoveryService;
+        _package = package;
     }
 
     public async Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
@@ -458,13 +461,15 @@ public sealed class WorkItemsModule : IModule
             wiqlQuery: ext.Query,
             discoveryService: _discoveryService,
             exportProgressStoreFactory: _exportProgressStoreFactory,
-            packageUri: job.Package.PackageUri,
+             packageUri: job.Package.PackageUri,
+            package: _package,
             referencedPathTracker: _referencedPathTracker
 #else
             wiqlQuery: wiqlQuery,
             discoveryService: discoveryService481,
             exportProgressStoreFactory: _exportProgressStoreFactory,
-            packageUri: job.Package.PackageUri
+            packageUri: job.Package.PackageUri,
+            package: _package
 #endif
             );
 
@@ -545,7 +550,8 @@ public sealed class WorkItemsModule : IModule
             _orchestratorLogger,
             filterOptions: importFilters.Count > 0 ? importFilters : null,
             metrics: _metrics,
-            jobId: job.JobId);
+            jobId: job.JobId,
+            package: _package);
 
         var resumeMode = job.Resume?.Mode ?? ResumeMode.Auto;
         await orchestrator.ImportAsync(ext, resumeMode, ct).ConfigureAwait(false);
