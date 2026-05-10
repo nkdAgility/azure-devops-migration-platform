@@ -36,7 +36,7 @@ Audience: Operators.
 
 **Diagnosis:**
 1. Run `devopsmigration manage logs --job <id>` to retrieve structured logs.
-2. Check `.migration/Logs/progress.jsonl` in the package for per-event diagnostics.
+2. Check `.migration/runs/<runId>/logs/progress.ndjson` in the package for per-event progress and `.migration/runs/<runId>/logs/diagnostics.ndjson` for structured diagnostics.
 3. Check `.migration/Logs/` for error-level entries.
 
 **Safe to re-run:** Most failures are transient. Re-queue the same job — checkpointing ensures work already done is not repeated.
@@ -73,7 +73,8 @@ Audience: Operators.
 
 | Location | Contents |
 |---|---|
-| `.migration/Logs/progress.jsonl` | Per-event progress log (in package) |
+| `.migration/runs/<runId>/logs/progress.ndjson` | Per-event progress log (in package) |
+| `.migration/runs/<runId>/logs/diagnostics.ndjson` | Structured diagnostics log (in package) |
 | `.migration/Logs/*.log` | Module diagnostic logs (in package) |
 | Control Plane API: `GET /jobs/{id}/diagnostics` | Structured log stream from the running agent |
 | Control Plane API: `GET /jobs/{id}/progress` | SSE progress event stream |

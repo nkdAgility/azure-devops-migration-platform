@@ -30,8 +30,8 @@ The migration package is the intermediary between source and target. It is a dir
         plan.json               # audit copy of the run plan
         config.json             # audit copy of the run config
         logs/
-          progress.jsonl
-          agent.jsonl
+          progress.ndjson
+          diagnostics.ndjson
   <org>/
     <project>/
       manifest.json             # project manifest (version, timestamps, modules run)

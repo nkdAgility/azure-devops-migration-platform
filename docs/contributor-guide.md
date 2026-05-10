@@ -61,6 +61,7 @@ For narrower test filters, use the examples in [testing-guide.md](testing-guide.
 | Connector implementation rules | [connector-development-guide.md](connector-development-guide.md) |
 | Telemetry implementation | [telemetry-development-guide.md](telemetry-development-guide.md) |
 | Control plane and client contracts | [client-integration-guide.md](client-integration-guide.md) |
+| Package boundary and routing ownership | [package-boundary-reference.md](package-boundary-reference.md) |
 | Architectural rationale | [architecture.md](architecture.md), [adr/README.md](adr/README.md) |
 
 ## Architecture Guidelines

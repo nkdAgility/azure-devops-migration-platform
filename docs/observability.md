@@ -61,7 +61,7 @@ All module code emits structured logs via `ILogger<T>`:
 - `Debug` — per-item detail
 - `Error` — failures with exception
 
-Logs from the running agent are accessible via `GET /jobs/{id}/diagnostics?follow=true` and are written to `.migration/Logs/progress.jsonl` in the package.
+Logs from the running agent are accessible via `GET /jobs/{id}/diagnostics?follow=true` and are written to `.migration/runs/<runId>/logs/diagnostics.ndjson` in the package.
 
 ## Progress Events
 
@@ -75,7 +75,8 @@ Application Insights receives only `System` and `Derived` classification data (w
 
 | Location | Contents |
 |---|---|
-| `.migration/Logs/progress.jsonl` | Per-event progress log with full diagnostic detail |
+| `.migration/runs/<runId>/logs/progress.ndjson` | Per-event structured progress log for one run |
+| `.migration/runs/<runId>/logs/diagnostics.ndjson` | Structured diagnostic log for one run |
 | `.migration/Logs/*.log` | Module log files |
 
 ## Data Classification

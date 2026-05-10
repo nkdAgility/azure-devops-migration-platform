@@ -26,8 +26,8 @@ Short reference for agents. See `docs/package-format-reference.md` for the canon
         plan.json
         config.json
         logs/
-          progress.jsonl
-          agent.jsonl
+          progress.ndjson
+          diagnostics.ndjson
   <org>/
     <project>/
       manifest.json
@@ -49,7 +49,8 @@ Short reference for agents. See `docs/package-format-reference.md` for the canon
 | `.migration/migration-config.json` | Resolved config shared by the package |
 | `manifest.json` | Package metadata: version, modules run, timestamps |
 | `/{org}/{project}/.migration/<action>.<module>.cursor.json` | Resume cursor for one project, action, and module |
-| `.migration/runs/<runId>/logs/progress.jsonl` | Per-event structured progress log for one run |
+| `.migration/runs/<runId>/logs/progress.ndjson` | Per-event structured progress log for one run |
+| `.migration/runs/<runId>/logs/diagnostics.ndjson` | Structured diagnostic log for one run |
 | `.migration/runs/<runId>/job.json` | Audit copy of the leased job |
 | `Identities/mapping.json` | Operator-editable identity map |
 

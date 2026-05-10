@@ -73,7 +73,7 @@ flowchart LR
 - `ImportAsync` must access package content and metadata via `IPackageAccess`.
 - `ValidateAsync` must be side-effect free.
 - Modules must never call source or target APIs directly — only through injected services.
-- Package path ownership belongs to the package boundary (`IPackage`). When a module/orchestrator needs to read or write authoritative package/state artefacts, use package intents first and only fall back to low-level store operations for documented FR-008 exceptions (delete/maintenance, streaming append loops, legacy-read compatibility).
+- Package path ownership belongs to the package boundary (`IPackageAccess`). When a module/orchestrator needs to read or write authoritative package/state artefacts, use package intents first and only fall back to low-level store operations for documented FR-008 exceptions (delete/maintenance, streaming append loops, legacy-read compatibility).
 
 ### Module → Orchestrator → Service Pattern
 

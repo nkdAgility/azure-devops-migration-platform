@@ -608,4 +608,4 @@ If the system was previously built without Aspire:
 - [TUI](tui-guide.md) — Terminal UI progress display
 - [CLI](cli-guide.md) — Command-line interface and job submission
 - [Configuration](configuration-reference.md) — Config schema and validation
-- [Package Manager](../.agents/context/package-manager.md) — Package boundary, storage abstractions, and URI schemes
+- [Package Boundary Reference](package-boundary-reference.md) — Package boundary, storage abstractions, and URI schemes

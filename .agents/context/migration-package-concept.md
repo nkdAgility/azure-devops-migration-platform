@@ -124,8 +124,8 @@ Each run folder also contains `job.json`, `plan.json`, and `config.json` as audi
 
 | File | Format | Description |
 | --- | --- | --- |
-| `progress.ndjson` | NDJSON | One `ProgressEvent` record per line. Tracks module cursor state, stage transitions, and item counts. Written through `IPackage.AppendLogAsync` by `PackageProgressSink`. |
-| `diagnostics.ndjson` | NDJSON | Structured diagnostic log records (ILogger output). Each line is a JSON object with `timestamp`, `level`, `category`, `message`, and optional `exception` fields. Written through `IPackage.AppendLogAsync` by `PackageLoggerProvider`. |
+| `progress.ndjson` | NDJSON | One `ProgressEvent` record per line. Tracks module cursor state, stage transitions, and item counts. Written through `IPackageAccess.AppendLogAsync` by `PackageProgressSink`. |
+| `diagnostics.ndjson` | NDJSON | Structured diagnostic log records (ILogger output). Each line is a JSON object with `timestamp`, `level`, `category`, `message`, and optional `exception` fields. Written through `IPackageAccess.AppendLogAsync` by `PackageLoggerProvider`. |
 | `agent-NNN.jsonl` | NDJSON | Rotated log segments when the primary segment exceeds the configured max size. |
 
 Both files are append-only and survive resume. They are the durable audit record of that job execution — the control plane's in-memory ring buffer is ephemeral.
