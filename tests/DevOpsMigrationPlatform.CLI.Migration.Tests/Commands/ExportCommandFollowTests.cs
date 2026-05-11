@@ -90,18 +90,19 @@ public class ExportCommandFollowTests
     }
 
     /// <summary>
-    /// Verifies that <c>export --level Debug</c> produces a <c>Logs/agent.jsonl</c> file
+    /// Verifies that <c>export --level Debug</c> produces a run-scoped
+    /// <c>logs/diagnostics.ndjson</c> file
     /// inside the package directory (the agent writes structured logs at Debug+ level).
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
     [Timeout(120_000)] // 2 minutes
-    public async Task ExportCommand_WithDebugLevel_WritesAgentJsonl()
+    public async Task ExportCommand_WithDebugLevel_WritesDiagnosticsNdjson()
     {
         // ── Act — run with --level Debug ──────────────────────────────────────
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(ExportCommand_WithDebugLevel_WritesAgentJsonl),
+            testName: nameof(ExportCommand_WithDebugLevel_WritesDiagnosticsNdjson),
             args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json",
                    "--force-fresh", "--level", "Debug"],
             timeout: TimeSpan.FromMinutes(1),
@@ -127,21 +128,20 @@ public class ExportCommandFollowTests
             combinedOutput.Contains("work items", StringComparison.OrdinalIgnoreCase),
             "Expected CLI success message not found in output.");
 
-        // ── Assert: Logs/agent.jsonl written by the Migration Agent ───────────
-        // Job-scoped log folder: Logs/<ticks>-<jobId>/agent.jsonl
-        var agentFiles = Directory.GetFiles(outputDir, "agent.jsonl", SearchOption.AllDirectories);
-        if (agentFiles.Length > 0)
+        // ── Assert: run-scoped logs/diagnostics.ndjson written by the Migration Agent ──
+        var diagnosticsFiles = Directory.GetFiles(outputDir, "diagnostics.ndjson", SearchOption.AllDirectories);
+        if (diagnosticsFiles.Length > 0)
         {
-            var lines = File.ReadAllLines(agentFiles[0]);
-            Console.WriteLine($"agent.jsonl: {lines.Length} records (at {agentFiles[0]})");
-            Assert.IsTrue(lines.Length > 0, "agent.jsonl should contain at least one record.");
+            var lines = File.ReadAllLines(diagnosticsFiles[0]);
+            Console.WriteLine($"diagnostics.ndjson: {lines.Length} records (at {diagnosticsFiles[0]})");
+            Assert.IsTrue(lines.Length > 0, "diagnostics.ndjson should contain at least one record.");
         }
         else
         {
             // Log file is written by the Migration Agent; in standalone mode without a
             // separately running agent the file may not be present. Record this for visibility.
-            Console.WriteLine($"agent.jsonl not found under {outputDir} " +
-                              "(expected when running in standalone / in-process mode).");
+            Console.WriteLine($"diagnostics.ndjson not found under {outputDir} " +
+                               "(expected when running in standalone / in-process mode).");
         }
     }
 }
