@@ -6,10 +6,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 
@@ -43,6 +45,7 @@ public sealed class WorkItemImportOrchestrator
     private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
     private readonly IPlatformMetrics? _metrics;
     private readonly string? _jobId;
+    private readonly IPackageAccess? _package;
 
     public WorkItemImportOrchestrator(
         IArtefactStore artefactStore,
@@ -55,7 +58,8 @@ public sealed class WorkItemImportOrchestrator
         ILogger<WorkItemImportOrchestrator> logger,
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
         IPlatformMetrics? metrics = null,
-        string? jobId = null)
+        string? jobId = null,
+        IPackageAccess? package = null)
     {
         _artefactStore = artefactStore ?? throw new ArgumentNullException(nameof(artefactStore));
         _checkpointing = checkpointing ?? throw new ArgumentNullException(nameof(checkpointing));
@@ -68,6 +72,7 @@ public sealed class WorkItemImportOrchestrator
         _filterOptions = filterOptions;
         _metrics = metrics;
         _jobId = jobId;
+        _package = package;
     }
 
     /// <summary>
@@ -142,7 +147,7 @@ public sealed class WorkItemImportOrchestrator
 
         try
         {
-            await foreach (var folderPath in _artefactStore.EnumerateAsync("WorkItems/", ct).ConfigureAwait(false))
+            await foreach (var folderPath in EnumerateWorkItemFoldersAsync(ct).ConfigureAwait(false))
             {
                 ct.ThrowIfCancellationRequested();
 
@@ -311,7 +316,7 @@ public sealed class WorkItemImportOrchestrator
         // Pass 1: collect the last folder path for each work item ID (folder names only, no reads).
         var lastFolderPerWi = new Dictionary<int, string>();
 
-        await foreach (var folderPath in _artefactStore.EnumerateAsync("WorkItems/", ct).ConfigureAwait(false))
+        await foreach (var folderPath in EnumerateWorkItemFoldersAsync(ct).ConfigureAwait(false))
         {
             ct.ThrowIfCancellationRequested();
             var folderName = GetFolderName(folderPath);
@@ -330,7 +335,7 @@ public sealed class WorkItemImportOrchestrator
         {
             ct.ThrowIfCancellationRequested();
 
-            var json = await _artefactStore.ReadAsync($"{folderPath}revision.json", ct).ConfigureAwait(false);
+            var json = await ReadPackageTextAsync($"{folderPath}revision.json", ct).ConfigureAwait(false);
             if (json is null) continue;
 
             WorkItemRevision? revision = null;
@@ -391,7 +396,7 @@ public sealed class WorkItemImportOrchestrator
             return;
         }
 
-        var commentJson = await _artefactStore.ReadAsync($"{folderPath}/comment.json", ct).ConfigureAwait(false);
+        var commentJson = await ReadPackageTextAsync($"{folderPath}/comment.json", ct).ConfigureAwait(false);
         if (commentJson is null)
         {
             _logger.LogWarning("[WorkItems] comment.json not found in {Folder} — skipping.", folderPath);
@@ -421,6 +426,47 @@ public sealed class WorkItemImportOrchestrator
     }
 
     // --- Helpers ---
+
+    private async IAsyncEnumerable<string> EnumerateWorkItemFoldersAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        var paths = _package.EnumerateContentAsync(
+            new PackageContentContext(
+                PackageContentKind.Collection,
+                SplitRouteSegments("WorkItems/"),
+                IsCollectionRequest: true),
+            ct);
+        if (paths is null)
+            yield break;
+
+        await foreach (var path in paths.ConfigureAwait(false))
+            yield return path;
+    }
+
+    private async Task<string?> ReadPackageTextAsync(string path, CancellationToken ct)
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        var payload = await _package.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(path)),
+            ct).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new System.IO.StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
+    }
+
+    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
+        => relativePath
+            .Replace('\\', '/')
+            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
 
     private static string GetFolderName(string folderPath)
     {

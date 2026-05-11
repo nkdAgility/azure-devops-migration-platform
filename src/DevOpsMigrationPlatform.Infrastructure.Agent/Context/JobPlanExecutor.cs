@@ -5,7 +5,9 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -45,6 +47,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     private readonly IProgressSink? _progressSink;
     private readonly ILogger<JobPlanExecutor> _logger;
     private readonly ICurrentJobEndpointAccessor? _currentJobEndpointAccessor;
+    private readonly IPackageAccess? _package;
 
     // The current source endpoint accessor is shared across the whole job scope,
     // so capture-time source endpoint swaps must be serialised globally.
@@ -54,11 +57,13 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     public JobPlanExecutor(
         IProgressSink? progressSink,
         ILogger<JobPlanExecutor> logger,
-        ICurrentJobEndpointAccessor? currentJobEndpointAccessor = null)
+        ICurrentJobEndpointAccessor? currentJobEndpointAccessor = null,
+        IPackageAccess? package = null)
     {
         _progressSink = progressSink;
         _logger = logger;
         _currentJobEndpointAccessor = currentJobEndpointAccessor;
+        _package = package;
     }
 
     public async Task<bool> ExecuteTasksAsync(
@@ -391,12 +396,13 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     }
 
     private static async Task<InventoryReport?> TryReadInventoryReportAsync(
+        IPackageAccess? package,
         IArtefactStore artefactStore,
         CancellationToken ct)
     {
         try
         {
-            var json = await artefactStore.ReadAsync("inventory.json", ct).ConfigureAwait(false);
+            var json = await ReadPackageTextAsync(package, "inventory.json", ct).ConfigureAwait(false);
             if (json is null)
                 return null;
 
@@ -443,6 +449,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
     private static async Task<(long? KnownTotal, long? CompletedCount)> TryResolveTaskProgressSnapshotAsync(
         JobTask task,
+        IPackageAccess? package,
         IArtefactStore? artefactStore,
         CancellationToken ct)
     {
@@ -459,7 +466,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             projectInventory = await ProjectInventoryFile.ReadAsync(artefactStore, projectPath, ct).ConfigureAwait(false);
         }
 
-        var inventoryReport = await TryReadInventoryReportAsync(artefactStore, ct).ConfigureAwait(false);
+        var inventoryReport = await TryReadInventoryReportAsync(package, artefactStore, ct).ConfigureAwait(false);
         return TryResolveTaskProgressSnapshot(task, inventoryReport, projectInventory);
     }
 
@@ -967,6 +974,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                     ?? importContext?.ArtefactStore;
                 var (resolvedKnownTotal, resolvedCompletedCount) = await TryResolveTaskProgressSnapshotAsync(
                     task,
+                    _package,
                     artefactStoreForTask,
                     ct).ConfigureAwait(false);
 
@@ -1102,7 +1110,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         try
         {
             var json = JsonSerializer.Serialize(plan, _jsonOptions);
-            await stateStore.WriteAsync(PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
+            await WritePlanStateAsync(_package, PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -1111,6 +1119,68 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 PackagePaths.PlanFile);
         }
     }
+
+    private static async Task<string?> ReadPackageTextAsync(IPackageAccess? package, string relativePath, CancellationToken ct)
+    {
+        var resolved = ResolvePackage(package);
+        var payload = await resolved.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            ct).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
+    }
+
+    private static async Task<string?> ReadPlanStateAsync(IPackageAccess? package, string key, CancellationToken ct)
+    {
+        var resolved = ResolvePackage(package);
+        if (string.Equals(key, PackagePaths.PlanFile, StringComparison.Ordinal))
+        {
+            var planMeta = await resolved.RequestMetaAsync(
+                new PackageMetaContext(PackageMetaKind.ExecutionPlan),
+                ct).ConfigureAwait(false);
+            if (planMeta is null)
+                return null;
+
+            if (planMeta.Content.CanSeek)
+                planMeta.Content.Position = 0;
+            using var reader = new StreamReader(planMeta.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+            return await reader.ReadToEndAsync().ConfigureAwait(false);
+        }
+
+        return await ReadPackageTextAsync(resolved, key, ct).ConfigureAwait(false);
+    }
+
+    private static async Task WritePlanStateAsync(IPackageAccess? package, string key, string value, CancellationToken ct)
+    {
+        var resolved = ResolvePackage(package);
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(value), writable: false);
+        if (string.Equals(key, PackagePaths.PlanFile, StringComparison.Ordinal))
+        {
+            await resolved.PersistMetaAsync(
+                new PackageMetaContext(PackageMetaKind.ExecutionPlan),
+                new PackageMetaPayload(stream),
+                ct).ConfigureAwait(false);
+            return;
+        }
+
+        await resolved.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(key)),
+            new PackagePayload(stream),
+            ct).ConfigureAwait(false);
+    }
+
+    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
+        => relativePath
+            .Replace('\\', '/')
+            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+
+    private static IPackageAccess ResolvePackage(IPackageAccess? package)
+        => package ?? throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for plan persistence operations.");
 
     private static ISourceEndpointInfo BuildCaptureSourceEndpointInfo(OrganisationEndpoint endpoint, string project)
         => new CaptureSourceEndpointInfo(
@@ -1233,11 +1303,13 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     /// </summary>
     public static async Task<JobTaskList?> LoadOrResetAsync(
         IStateStore stateStore,
-        CancellationToken ct)
+        CancellationToken ct,
+        IPackageAccess? package = null)
     {
         try
         {
-            var json = await stateStore.ReadAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
+            string? json;
+            json = await ReadPlanStateAsync(package, PackagePaths.PlanFile, ct).ConfigureAwait(false);
 
             if (json is null)
                 return null;

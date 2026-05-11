@@ -50,12 +50,14 @@ Agent-specific mandatory constraints live in [`.agents/guardrails`](../.agents/g
 | [`connector-development-guide.md`](connector-development-guide.md) | Adding and modifying connectors |
 | [`telemetry-development-guide.md`](telemetry-development-guide.md) | Adding telemetry correctly |
 | [`client-integration-guide.md`](client-integration-guide.md) | Azure DevOps and TFS SDK integration |
+| [`package-boundary-reference.md`](package-boundary-reference.md) | Caller-facing package boundary, routing ownership, and persistence model |
 
 ## Reference
 
 | Document | Purpose |
 | --- | --- |
 | [`architecture.md`](architecture.md) | Full architectural explanation |
+| [`package-boundary-reference.md`](package-boundary-reference.md) | Contributor reference for `IPackageAccess` and package routing ownership |
 | [`package-format-reference.md`](package-format-reference.md) | Precise package format reference |
 | [`validation.md`](validation.md) | Validation model (four-tier) |
 | [`ui-mode-contract.md`](ui-mode-contract.md) | Exact CLI/TUI mode and view contract |

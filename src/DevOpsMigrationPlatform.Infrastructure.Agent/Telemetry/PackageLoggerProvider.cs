@@ -4,12 +4,14 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -19,21 +21,19 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 
 /// <summary>
 /// Custom <see cref="ILoggerProvider"/> that captures <c>ILogger</c> output and writes it
-/// as NDJSON <see cref="DiagnosticLogRecord"/> lines to <c>Logs/agent.jsonl</c> in the
-/// migration package via <see cref="IArtefactStore"/>. Uses a bounded channel and
+/// as NDJSON <see cref="DiagnosticLogRecord"/> lines to the run-scoped diagnostics stream
+/// (<c>.migration/runs/&lt;runId&gt;/logs/diagnostics.ndjson</c>) via <see cref="IPackageAccess"/>. Uses a bounded channel and
 /// <see cref="BackgroundService"/> drain loop for non-blocking writes. Respects
-/// <see cref="DiagnosticLogOptions.MinimumLevel"/>. The <see cref="IArtefactStore"/> is
+/// <see cref="DiagnosticLogOptions.MinimumLevel"/>. The backing store is
 /// resolved lazily from <see cref="ActivePackageState"/> because it is only available
 /// after a job lease is acquired.
 /// </summary>
 [ProviderAlias("PackageLogger")]
 public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, IFlushable
 {
-    private const string LogBaseName = "agent";
-    private const string LogExtension = ".jsonl";
-
     private readonly Channel<DiagnosticLogRecord> _channel;
     private readonly ActivePackageState _packageState;
+    private readonly IPackageAccess _package;
     private readonly LogLevel _minimumLevel;
     private readonly int _flushBatchSize;
     private readonly TimeSpan _flushInterval;
@@ -41,16 +41,18 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
     private long _droppedCount;
     private volatile IArtefactStore? _lastKnownStore;
     private volatile string? _lastKnownLogFolder;
+    private volatile string? _lastKnownRunId;
 
     // Rotation state — only accessed from the drain loop (single-threaded).
-    private int _segmentIndex;
     private long _currentSegmentBytes;
 
     public PackageLoggerProvider(
         ActivePackageState packageState,
-        IOptions<DiagnosticLogOptions> options)
+        IOptions<DiagnosticLogOptions> options,
+        IPackageAccess package)
     {
         _packageState = packageState;
+        _package = package ?? throw new ArgumentNullException(nameof(package));
         var opts = options.Value;
         _minimumLevel = Enum.TryParse<LogLevel>(opts.MinimumLevel, ignoreCase: true, out var level) ? level : LogLevel.Information;
         _flushBatchSize = opts.FlushBatchSize;
@@ -64,8 +66,7 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
     }
 
     /// <summary>
-    /// Returns the current log segment path (e.g. <c>Logs/638...-jobId/agent.jsonl</c>,
-    /// <c>Logs/638...-jobId/agent-001.jsonl</c>, etc.).
+    /// Returns the current run-scoped diagnostics stream path.
     /// </summary>
     internal string CurrentLogPath
     {
@@ -74,9 +75,7 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
             var logDir = _packageState.CurrentStore is not null
                 ? _packageState.CurrentLogFolder
                 : _lastKnownLogFolder ?? _packageState.CurrentLogFolder;
-            return _segmentIndex == 0
-                ? $"{logDir}/{LogBaseName}{LogExtension}"
-                : $"{logDir}/{LogBaseName}-{_segmentIndex:D3}{LogExtension}";
+            return $"{logDir}/diagnostics.ndjson";
         }
     }
 
@@ -95,6 +94,7 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
         {
             _lastKnownStore = store;
             _lastKnownLogFolder = _packageState.CurrentLogFolder;
+            _lastKnownRunId = _packageState.CurrentRunId;
         }
 
         _channel.Writer.TryWrite(record);
@@ -206,11 +206,21 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
             if (_currentSegmentBytes > 0
                 && _currentSegmentBytes + payloadBytes > _maxSegmentBytes)
             {
-                _segmentIndex++;
                 _currentSegmentBytes = 0;
             }
 
-            await store.AppendAsync(CurrentLogPath, payload, cancellationToken).ConfigureAwait(false);
+            var runId = _packageState.CurrentRunId ?? _lastKnownRunId;
+            if (string.IsNullOrWhiteSpace(runId))
+            {
+                Interlocked.Add(ref _droppedCount, batch.Count);
+                return;
+            }
+
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(payload), writable: false);
+            await _package.AppendLogAsync(
+                new PackageLogContext(runId!, PackageLogStream.Diagnostics),
+                new PackageLogPayload(stream),
+                cancellationToken).ConfigureAwait(false);
             _currentSegmentBytes += payloadBytes;
         }
         catch (Exception)

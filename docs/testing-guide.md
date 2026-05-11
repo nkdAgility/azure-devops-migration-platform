@@ -43,6 +43,7 @@ The repository uses a four-level hierarchy. Prefer the lowest level that can pro
 | --- | --- | --- | --- | --- |
 | Unit | `[TestClass]` / `[TestMethod]` | Isolated logic, branching, transforms, validation | Fastest | None |
 | Feature | `.feature` + `[Binding]` | Behaviour scenarios with in-memory seams | Fast | None |
+| Smoke system | `[TestCategory("SystemTest_Smoke")]` | Startup wiring and process boundary health before broader system coverage | Fast-medium | None |
 | Simulated system | `[TestCategory("SystemTest_Simulated")]` | End-to-end behaviour with deterministic Simulated connectors | Medium | None |
 | Live system | `[TestCategory("SystemTest")]` or `[TestCategory("SystemTest_Live")]` | Real Azure DevOps or TFS behaviour | Slowest | Real credentials and environment |
 
@@ -52,6 +53,7 @@ Choose the first layer that can falsify the behaviour without real infrastructur
 
 - Unit when the logic does not need connector or process boundaries.
 - Feature when behaviour matters but real I/O still does not.
+- Smoke system when you need a fast startup/lifecycle guard on host-to-agent wiring without running a migration workload.
 - Simulated system when you need end-to-end wiring, package output, or process boundaries.
 - Live system only when lower layers cannot prove the connector or environment-specific behaviour.
 
@@ -65,6 +67,9 @@ dotnet test
 
 # Fast local pass that excludes live system tests
 dotnet test --filter "TestCategory!=SystemTest"
+
+# Smoke system tests only
+dotnet test --filter "TestCategory=SystemTest_Smoke"
 
 # Simulated system tests only
 dotnet test --filter "TestCategory=SystemTest_Simulated"

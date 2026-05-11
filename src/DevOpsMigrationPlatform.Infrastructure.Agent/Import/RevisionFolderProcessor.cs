@@ -7,10 +7,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
@@ -43,6 +45,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     private readonly INodeTranslationTool? _nodeStructureTool;
     private readonly ProjectMapping? _nodeTranslationContext;
     private readonly NodeTranslationOptions? _nodeStructureOptions;
+    private readonly IPackageAccess? _package;
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
 
@@ -63,7 +66,8 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         IFieldTransformTool? fieldTransformTool = null,
         INodeTranslationTool? nodeStructureTool = null,
         ProjectMapping? nodeStructureContext = null,
-        NodeTranslationOptions? nodeStructureOptions = null)
+        NodeTranslationOptions? nodeStructureOptions = null,
+        IPackageAccess? package = null)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));
@@ -77,6 +81,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         _nodeStructureTool = nodeStructureTool;
         _nodeTranslationContext = nodeStructureContext;
         _nodeStructureOptions = nodeStructureOptions;
+        _package = package;
 
         if (_fieldTransformTool == null)
             _logger.LogWarning("[WorkItems] IFieldTransformTool is not registered — field transforms will be skipped for all revisions. Call AddFieldTransformToolServices() in your DI setup to enable field transforms.");
@@ -104,7 +109,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     {
         using var _dc = DataClassificationScope.Begin(DataClassification.Customer);
 
-        var revisionJson = await _artefactStore.ReadAsync($"{folderPath}/revision.json", ct).ConfigureAwait(false);
+        var revisionJson = await ReadPackageTextAsync($"{folderPath}/revision.json", ct).ConfigureAwait(false);
         if (revisionJson is null)
         {
             _logger.LogWarning("[WorkItems] revision.json not found in {Folder} — skipping.", folderPath);
@@ -252,7 +257,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
                 }
 
                 var binaryPath = $"{folderPath}/{attachment.RelativePath}";
-                await using var stream = await _artefactStore.ReadBinaryAsync(binaryPath, ct).ConfigureAwait(false);
+                await using var stream = await ReadPackageBinaryAsync(binaryPath, ct).ConfigureAwait(false);
                 if (stream is null)
                 {
                     _logger.LogWarning("[WorkItems] Attachment binary {Path} not found — skipping.", binaryPath);
@@ -409,7 +414,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         foreach (var img in images)
         {
             var imgPath = $"{folderPath}/{img.RelativePath}";
-            await using var imgStream = await _artefactStore.ReadBinaryAsync(imgPath, ct).ConfigureAwait(false);
+            await using var imgStream = await ReadPackageBinaryAsync(imgPath, ct).ConfigureAwait(false);
             if (imgStream is null)
             {
                 _logger.LogWarning("[WorkItems] Embedded image {Path} not found — skipping URL rewrite.", imgPath);
@@ -441,7 +446,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
 
     private async Task ProcessInlineCommentsAsync(int targetWorkItemId, string folderPath, CancellationToken ct)
     {
-        var commentJson = await _artefactStore.ReadAsync($"{folderPath}/comment.json", ct).ConfigureAwait(false);
+        var commentJson = await ReadPackageTextAsync($"{folderPath}/comment.json", ct).ConfigureAwait(false);
         if (commentJson is null) return;
 
         var comments = JsonSerializer.Deserialize<List<WorkItemComment>>(commentJson, _jsonOptions);
@@ -454,6 +459,38 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
             await _target.CreateCommentAsync(targetWorkItemId, text, ct).ConfigureAwait(false);
         }
     }
+
+    private async Task<string?> ReadPackageTextAsync(string path, CancellationToken ct)
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        var payload = await _package.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(path)),
+            ct).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
+    }
+
+    private async Task<Stream?> ReadPackageBinaryAsync(string path, CancellationToken ct)
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        return await _package.RequestContentBinaryAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(path)),
+            ct).ConfigureAwait(false);
+    }
+
+    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
+        => relativePath
+            .Replace('\\', '/')
+            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
 
     private Task WriteCursorAsync(string folderPath, string stage, CancellationToken ct)
         => _checkpointing.WriteCursorAsync("import.workitems", new CursorEntry

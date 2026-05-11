@@ -46,7 +46,7 @@ A `devopsmigration queue` run with `Mode: Inventory` uses the REST API directly 
 
 - The TFS Object Model (net481) cannot be called from .NET 10. Jobs with `source.type: TeamFoundationServer` are routed to `DevOpsMigrationPlatform.TfsMigrationAgent` via capability matching (`GET /agents/lease?capabilities=tfs`).
 - The TFS agent uses `IModule` dispatch — the same pattern as the .NET 10 `MigrationAgent`. `TfsWorkItemsModule.ExportAsync` drives the export via `IWorkItemRevisionSource` (TFS OM implementation) and `WorkItemExportOrchestrator`.
-- The TFS agent writes to the package via `IArtefactStore` (`FileSystemArtefactStore` only — blob store not supported on net481).
+- The TFS agent writes to the package via `IPackageAccess` (`FileSystemArtefactStore` remains the underlying store on net481 — blob store not supported there).
 - A job with `source.type: TeamFoundationServer` and a blob package URI MUST be rejected at Tier 0 validation.
 - Credentials are passed via the job contract (same as ADO Services) — never via command-line arguments.
 - The TFS agent is Windows-only and cannot run in containers. `AgentLifecycleService` spawns it on Windows and skips it elsewhere.

@@ -21,7 +21,7 @@ Context does not override guardrails. If context conflicts with guardrails, the 
 | `workitems-format-summary.md` | WorkItems folder layout — chronological revision structure |
 | `import-streaming.md` | Streaming import requirements — memory-safe enumeration |
 | `checkpointing-summary.md` | Cursor-based checkpointing — resumability, idempotency |
-| `package-manager.md` | Package manager concept — package boundary above artefact/state persistence primitives |
+| `package-manager.md` | Frozen package boundary contract mirror for agents — concrete runtime package access surface and state-scope model |
 | `job-lifecycle.md` | Job contract specification — what a Job is, fields, lifecycle |
 | `telemetry-model.md` | Telemetry layer model — spans, metrics, logs, progress events |
 | `identity-and-mapping.md` | Identity mapping service — how source identities map to target |

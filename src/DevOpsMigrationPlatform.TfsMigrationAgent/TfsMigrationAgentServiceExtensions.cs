@@ -41,7 +41,7 @@ public static class TfsMigrationAgentServiceExtensions
         services.AddCoreAgentServices(configuration, controlPlaneBaseUrl);
 
         // Package config store — reads migration-config.json from the package at job pickup.
-        services.AddPackageConfigStore();
+        services.AddPackageMigrationConfigLoader();
 
         // Per-job TFS Object Model service factory — creates TFS connections, revision sources,
         // attachment sources, tree readers, and discovery services per job based on the endpoint.

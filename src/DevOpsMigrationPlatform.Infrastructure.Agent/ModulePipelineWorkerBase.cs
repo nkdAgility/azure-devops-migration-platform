@@ -37,12 +37,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent;
 /// </summary>
 public abstract class ModulePipelineWorkerBase : AgentWorkerBase
 {
-    /// <summary>Migration modules registered for this agent (ordered).
-    /// Used only for ForceFresh cursor deletion by module name.
-    /// For execution, modules are resolved per-job from <see cref="_moduleScopeFactory"/>
-    /// after the current per-job package configuration is set.</summary>
-    protected IEnumerable<IModule> MigrationModules { get; }
-
     /// <summary>Factory for creating per-job artefact and state stores.</summary>
     protected IPackageStoreFactory PackageStoreFactory { get; }
 
@@ -59,7 +53,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     protected ILogger Logger { get; }
 
     /// <summary>Reads <c>migration-config.json</c> from the package at job start.</summary>
-    protected IPackageConfigStore PackageConfigStore { get; }
+    protected IPackageMigrationConfigLoader PackageMigrationConfigLoader { get; }
 
     /// <summary>Explicit holder for the current job's raw package configuration.</summary>
     protected ICurrentPackageConfigAccessor CurrentPackageConfig { get; }
@@ -79,7 +73,6 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     private readonly IServiceScopeFactory _moduleScopeFactory;
 
     protected ModulePipelineWorkerBase(
-        IEnumerable<IModule> migrationModules,
         IPackageStoreFactory packageStoreFactory,
         IProgressSink progressSink,
         ICheckpointingServiceFactory checkpointingFactory,
@@ -87,7 +80,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
         ICurrentPackageConfigAccessor currentPackageConfigAccessor,
-        IPackageConfigStore packageConfigStore,
+        IPackageMigrationConfigLoader packageMigrationConfigLoader,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
         ILogger logger,
@@ -103,13 +96,12 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
 #endif
                  )
     {
-        MigrationModules = migrationModules ?? throw new ArgumentNullException(nameof(migrationModules));
         PackageStoreFactory = packageStoreFactory ?? throw new ArgumentNullException(nameof(packageStoreFactory));
         ProgressSink = progressSink ?? throw new ArgumentNullException(nameof(progressSink));
         CheckpointingFactory = checkpointingFactory ?? throw new ArgumentNullException(nameof(checkpointingFactory));
         PhaseTrackingFactory = phaseTrackingFactory ?? throw new ArgumentNullException(nameof(phaseTrackingFactory));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        PackageConfigStore = packageConfigStore ?? throw new ArgumentNullException(nameof(packageConfigStore));
+        PackageMigrationConfigLoader = packageMigrationConfigLoader ?? throw new ArgumentNullException(nameof(packageMigrationConfigLoader));
         CurrentPackageConfig = currentPackageConfigAccessor ?? throw new ArgumentNullException(nameof(currentPackageConfigAccessor));
         _activeJobState = activeJobState;
         _moduleScopeFactory = moduleScopeFactory ?? throw new ArgumentNullException(nameof(moduleScopeFactory));
@@ -181,7 +173,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         IConfiguration packageConfig;
         try
         {
-            packageConfig = await PackageConfigStore.ReadAsync(artefactStore, ct).ConfigureAwait(false);
+            packageConfig = await PackageMigrationConfigLoader.LoadAsync(ct).ConfigureAwait(false);
         }
         catch (PackageConfigNotFoundException ex)
         {
@@ -207,7 +199,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         if (job.Resume?.Mode == ResumeMode.ForceFresh)
         {
             Logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors.", job.JobId);
-            foreach (var module in MigrationModules)
+            foreach (var module in jobModules)
             {
                 await checkpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
                 Logger.LogDebug("Deleted cursor for module {Module}.", module.Name);

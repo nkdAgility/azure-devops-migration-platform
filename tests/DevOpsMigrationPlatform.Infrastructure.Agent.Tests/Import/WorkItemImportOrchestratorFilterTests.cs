@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -25,6 +26,7 @@ public class WorkItemImportOrchestratorFilterTests
     private Mock<IWorkItemResolutionStrategy> _mockStrategy = null!;
     private Mock<IIdMapStore> _mockIdMap = null!;
     private Mock<IWorkItemImportTarget> _mockTarget = null!;
+    private Mock<IPackageAccess> _mockPackage = null!;
     private List<string> _folders = null!;
 
     [TestInitialize]
@@ -36,6 +38,7 @@ public class WorkItemImportOrchestratorFilterTests
         _mockStrategy = new Mock<IWorkItemResolutionStrategy>(MockBehavior.Loose);
         _mockIdMap = new Mock<IIdMapStore>(MockBehavior.Loose);
         _mockTarget = new Mock<IWorkItemImportTarget>(MockBehavior.Loose);
+        _mockPackage = PackageTestFactory.CreateDelegatingMock(_mockStore.Object);
         _folders = new List<string>();
 
         _mockCps.Setup(s => s.ReadCursorAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -165,7 +168,8 @@ public class WorkItemImportOrchestratorFilterTests
             _mockCps.Object,
             (IIdentityLookupTool?)null,
             _mockStore.Object,
-            NullLogger<RevisionFolderProcessor>.Instance);
+            NullLogger<RevisionFolderProcessor>.Instance,
+            package: _mockPackage.Object);
 
         return new WorkItemImportOrchestrator(
             _mockStore.Object,
@@ -176,7 +180,8 @@ public class WorkItemImportOrchestratorFilterTests
             processor,
             _mockTarget.Object,
             NullLogger<WorkItemImportOrchestrator>.Instance,
-            filterOptions: filterOptions);
+            filterOptions: filterOptions,
+            package: _mockPackage.Object);
     }
 
     private void AddRevisionFolder(int wiId, int revIndex, string areaPath)

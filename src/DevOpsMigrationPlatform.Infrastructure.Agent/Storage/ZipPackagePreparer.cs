@@ -22,7 +22,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 /// <see cref="FileSystemArtefactStore"/> and a future <c>AzureBlobArtefactStore</c>.
 /// </para>
 /// </summary>
-public sealed class ZipPackagePreparer : IPackagePreparer
+internal sealed class ZipPackagePreparer : IPackagePreparer
 {
     private readonly ILogger<ZipPackagePreparer> _logger;
 

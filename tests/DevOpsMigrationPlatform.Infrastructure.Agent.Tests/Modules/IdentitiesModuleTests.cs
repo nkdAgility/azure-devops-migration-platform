@@ -20,6 +20,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -39,14 +40,19 @@ public class IdentitiesModuleTests
     private static IdentitiesModule CreateModule(
         IdentitiesModuleOptions? options = null,
         IIdentitySource? identitySource = null,
-        string sourceProject = "TestProject")
+        string sourceProject = "TestProject",
+        IArtefactStore? packageStore = null)
     {
         options ??= new IdentitiesModuleOptions { Enabled = true };
         return new IdentitiesModule(
             NullLogger<IdentitiesModule>.Instance,
             Options.Create(options),
             sourceEndpointInfo: CreateSourceEndpointInfo(sourceProject),
-            orchestrator: new IdentitiesOrchestrator(NullLogger<IdentitiesOrchestrator>.Instance),
+            orchestrator: new IdentitiesOrchestrator(
+                NullLogger<IdentitiesOrchestrator>.Instance,
+                package: packageStore is null
+                    ? PackageTestFactory.CreateLooseMock().Object
+                    : PackageTestFactory.CreateDelegatingMock(packageStore).Object),
             identitySource: identitySource);
     }
 
@@ -116,7 +122,7 @@ public class IdentitiesModuleTests
             new IdentityDescriptor("desc-2", "Bob", "bob@src.com", "User", "Simulated", true),
         });
 
-        var module = CreateModule(identitySource: source);
+        var module = CreateModule(identitySource: source, packageStore: storeMock.Object);
         var context = CreateExportContext(storeMock);
 
         // Act
@@ -137,7 +143,7 @@ public class IdentitiesModuleTests
         // Arrange
         var storeMock = new Mock<IArtefactStore>(MockBehavior.Strict);
         var source = new StubIdentitySource(new[] { new IdentityDescriptor("d", "A", "a@b.com", "User", "Sim", true) });
-        var module = CreateModule(new IdentitiesModuleOptions { Enabled = false }, source);
+        var module = CreateModule(new IdentitiesModuleOptions { Enabled = false }, source, packageStore: storeMock.Object);
         var context = CreateExportContext(storeMock);
 
         // Act — should not throw or call store
@@ -151,7 +157,7 @@ public class IdentitiesModuleTests
     {
         // Arrange
         var storeMock = new Mock<IArtefactStore>(MockBehavior.Strict);
-        var module = CreateModule(); // no identity source
+        var module = CreateModule(packageStore: storeMock.Object); // no identity source
         var context = CreateExportContext(storeMock);
 
         // Act — should not throw or call store
@@ -172,7 +178,7 @@ public class IdentitiesModuleTests
             .Setup(s => s.ReadAsync("Identities/descriptors.jsonl", It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
 
-        var module = CreateModule();
+        var module = CreateModule(packageStore: storeMock.Object);
         var context = CreateImportContext(storeMock);
 
         // Act — should not throw
@@ -197,7 +203,7 @@ public class IdentitiesModuleTests
             .Setup(s => s.ReadAsync("Identities/mapping.json", It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
 
-        var module = CreateModule();
+        var module = CreateModule(packageStore: storeMock.Object);
         var context = CreateImportContext(storeMock);
 
         // Act
@@ -214,7 +220,7 @@ public class IdentitiesModuleTests
             .Setup(s => s.ExistsAsync("Identities/descriptors.jsonl", It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
-        var module = CreateModule();
+        var module = CreateModule(packageStore: storeMock.Object);
         var context = CreateValidationContext(storeMock);
 
         // Act
@@ -237,7 +243,7 @@ public class IdentitiesModuleTests
             .Setup(s => s.ReadAsync("Identities/descriptors.jsonl", It.IsAny<CancellationToken>()))
             .ReturnsAsync("{\"descriptor\":\"d1\"}\nnot-valid-json\n");
 
-        var module = CreateModule();
+        var module = CreateModule(packageStore: storeMock.Object);
         var context = CreateValidationContext(storeMock);
 
         // Act
@@ -263,7 +269,7 @@ public class IdentitiesModuleTests
             .Setup(s => s.ReadAsync("Identities/descriptors.jsonl", It.IsAny<CancellationToken>()))
             .ReturnsAsync(line + "\n");
 
-        var module = CreateModule();
+        var module = CreateModule(packageStore: storeMock.Object);
         var context = CreateValidationContext(storeMock);
 
         // Act
@@ -291,7 +297,7 @@ public class IdentitiesModuleTests
             .Setup(s => s.ReadAsync("Identities/mapping.json", It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);  // mapping absent
 
-        var module = CreateModule();
+        var module = CreateModule(packageStore: storeMock.Object);
         var context = CreateImportContext(storeMock);
 
         // Act — must not throw; missing mapping is a warning, not an error
@@ -311,7 +317,7 @@ public class IdentitiesModuleTests
             .Setup(s => s.ReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
 
-        var module = CreateModule();
+        var module = CreateModule(packageStore: storeMock.Object);
         var context = CreateImportContext(storeMock);
 
         // Act — module must tolerate empty state (e.g. first run, prepare-only scenario)
@@ -342,7 +348,7 @@ public class IdentitiesModuleTests
             .Setup(s => s.ReadAsync("Identities/mapping.json", It.IsAny<CancellationToken>()))
             .ReturnsAsync(mappingJson);
 
-        var module = CreateModule();
+        var module = CreateModule(packageStore: storeMock.Object);
         var context = CreateImportContext(storeMock);
 
         // Act — should load and apply mapping without error

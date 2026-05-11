@@ -11,6 +11,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -33,6 +34,7 @@ public class WorkItemExportOrchestratorTests
     private Mock<IArtefactStore> _mockStore = null!;
     private Mock<ICheckpointingService> _mockCps = null!;
     private Mock<IWorkItemRevisionSource> _mockSource = null!;
+    private Mock<IPackageAccess> _mockPackage = null!;
     private WorkItemExportOrchestrator _sut = null!;
 
     [TestInitialize]
@@ -41,7 +43,8 @@ public class WorkItemExportOrchestratorTests
         _mockStore = new Mock<IArtefactStore>(MockBehavior.Strict);
         _mockCps = new Mock<ICheckpointingService>(MockBehavior.Strict);
         _mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
-        _sut = new WorkItemExportOrchestrator(_mockStore.Object, _mockCps.Object);
+        _mockPackage = PackageTestFactory.CreateDelegatingMock(_mockStore.Object);
+        _sut = new WorkItemExportOrchestrator(_mockStore.Object, _mockCps.Object, package: _mockPackage.Object);
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
@@ -397,7 +400,8 @@ public class WorkItemExportOrchestratorTests
             _mockCps.Object,
             endpoint: TestEndpoint,
             project: "MyProject",
-            inlineCommentSourceFactory: mockFactory.Object);
+            inlineCommentSourceFactory: mockFactory.Object,
+            package: _mockPackage.Object);
 
         var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
         mockSource
@@ -470,7 +474,8 @@ public class WorkItemExportOrchestratorTests
             _mockCps.Object,
             endpoint: TestEndpoint,
             project: "MyProject",
-            inlineCommentSourceFactory: mockFactory.Object);
+            inlineCommentSourceFactory: mockFactory.Object,
+            package: _mockPackage.Object);
 
         var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
         mockSource
@@ -516,7 +521,8 @@ public class WorkItemExportOrchestratorTests
             _mockCps.Object,
             endpoint: TestEndpoint,
             project: "MyProject",
-            inlineCommentSourceFactory: mockFactory.Object);
+            inlineCommentSourceFactory: mockFactory.Object,
+            package: _mockPackage.Object);
 
         var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
         mockSource
@@ -550,7 +556,7 @@ public class WorkItemExportOrchestratorTests
             .ReturnsAsync(new byte[] { 0x89, 0x50 });
 
         var sut = new WorkItemExportOrchestrator(
-            _mockStore.Object, _mockCps.Object, mockBinarySource.Object);
+            _mockStore.Object, _mockCps.Object, mockBinarySource.Object, package: _mockPackage.Object);
 
         var revision = new WorkItemRevision
         {
@@ -594,7 +600,7 @@ public class WorkItemExportOrchestratorTests
             .ReturnsAsync(new byte[] { 0x01 });
 
         var sut = new WorkItemExportOrchestrator(
-            _mockStore.Object, _mockCps.Object, mockBinarySource.Object);
+            _mockStore.Object, _mockCps.Object, mockBinarySource.Object, package: _mockPackage.Object);
 
         var baseDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var attachment = new AttachmentMetadata
@@ -643,7 +649,7 @@ public class WorkItemExportOrchestratorTests
             .ReturnsAsync(new byte[] { 0x01 });
 
         var sut = new WorkItemExportOrchestrator(
-            _mockStore.Object, _mockCps.Object, mockBinarySource.Object);
+            _mockStore.Object, _mockCps.Object, mockBinarySource.Object, package: _mockPackage.Object);
 
         var baseDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var att1 = new AttachmentMetadata { OriginalName = "v1.pdf", RelativePath = "v1.pdf", DownloadUrl = "https://example.com/v1" };
@@ -688,7 +694,7 @@ public class WorkItemExportOrchestratorTests
             .Callback<ProgressEvent>(e => progressEvents.Add(e));
 
         var sut = new WorkItemExportOrchestrator(
-            _mockStore.Object, _mockCps.Object, mockBinarySource.Object, mockProgressSink.Object);
+            _mockStore.Object, _mockCps.Object, mockBinarySource.Object, mockProgressSink.Object, package: _mockPackage.Object);
 
         var baseDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var failingAttachment = new AttachmentMetadata { OriginalName = "broken.png", RelativePath = "broken.png" };
@@ -731,7 +737,7 @@ public class WorkItemExportOrchestratorTests
             .Callback<ProgressEvent>(e => progressEvents.Add(e));
 
         var sut = new WorkItemExportOrchestrator(
-            _mockStore.Object, _mockCps.Object, progressSink: mockProgressSink.Object);
+            _mockStore.Object, _mockCps.Object, progressSink: mockProgressSink.Object, package: _mockPackage.Object);
 
         var baseDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var revisions = new[]
@@ -783,7 +789,7 @@ public class WorkItemExportOrchestratorTests
             .ReturnsAsync(new byte[] { 0x01 });
 
         var sut = new WorkItemExportOrchestrator(
-            _mockStore.Object, _mockCps.Object, mockBinarySource.Object);
+            _mockStore.Object, _mockCps.Object, mockBinarySource.Object, package: _mockPackage.Object);
 
         var revision = new WorkItemRevision
         {
@@ -845,7 +851,8 @@ public class WorkItemExportOrchestratorTests
             endpoint: TestEndpoint,
             project: "MyProject",
             fetchService: mockFetchService.Object,
-            filterOptions: filterOptions);
+            filterOptions: filterOptions,
+            package: _mockPackage.Object);
 
         var baseDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var revisions = new[]
@@ -885,7 +892,8 @@ public class WorkItemExportOrchestratorTests
             endpoint: TestEndpoint,
             project: "MyProject",
             fetchService: mockFetchService.Object,
-            filterOptions: null);
+            filterOptions: null,
+            package: _mockPackage.Object);
 
         var baseDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var revisions = new[]
@@ -941,7 +949,8 @@ public class WorkItemExportOrchestratorTests
         var sut = new WorkItemExportOrchestrator(
             mockStore.Object, mockCps.Object,
             exportProgressStoreFactory: mockFactory.Object,
-            packageUri: "file:///C:/test");
+            packageUri: "file:///C:/test",
+            package: PackageTestFactory.CreateDelegatingMock(mockStore.Object).Object);
 
         var revisions = MakeRevisions(3, 1); // 3 revisions for WI 1 (index 0,1,2)
         var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
@@ -995,7 +1004,8 @@ public class WorkItemExportOrchestratorTests
         var sut = new WorkItemExportOrchestrator(
             mockStore.Object, mockCps.Object,
             exportProgressStoreFactory: mockFactory.Object,
-            packageUri: "file:///C:/test");
+            packageUri: "file:///C:/test",
+            package: PackageTestFactory.CreateDelegatingMock(mockStore.Object).Object);
 
         var revisions = MakeRevisions(4, 1); // 4 revisions for WI 1 (index 0,1,2,3)
         var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
@@ -1048,7 +1058,8 @@ public class WorkItemExportOrchestratorTests
             progressSink: progressSink.Object,
             exportProgressStoreFactory: mockFactory.Object,
             packageUri: "file:///C:/test",
-            taskId: "export.workitems.org.project");
+            taskId: "export.workitems.org.project",
+            package: PackageTestFactory.CreateDelegatingMock(mockStore.Object).Object);
 
         var revisions = MakeRevisions(1, 1);
         var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
@@ -1106,7 +1117,8 @@ public class WorkItemExportOrchestratorTests
         var sut = new WorkItemExportOrchestrator(
             mockStore.Object, mockCps.Object,
             exportProgressStoreFactory: mockFactory.Object,
-            packageUri: "file:///C:/test");
+            packageUri: "file:///C:/test",
+            package: PackageTestFactory.CreateDelegatingMock(mockStore.Object).Object);
 
         var revisions = MakeRevisions(2, 1);
         var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
@@ -1155,7 +1167,8 @@ public class WorkItemExportOrchestratorTests
         var sut = new WorkItemExportOrchestrator(
             mockStore.Object, mockCps.Object,
             exportProgressStoreFactory: mockFactory.Object,
-            packageUri: "file:///C:/test");
+            packageUri: "file:///C:/test",
+            package: PackageTestFactory.CreateDelegatingMock(mockStore.Object).Object);
 
         var revisions = MakeRevisions(3, 1); // 3 revisions for WI 1 (index 0,1,2)
         var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
@@ -1229,7 +1242,11 @@ public class WorkItemExportOrchestratorTests
         mockSource.Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
                   .Returns((CancellationToken ct) => new[] { wi1Rev0, wi2Rev0, wi3Rev0 }.ToAsyncEnumerable(ct));
 
-        var sut = new WorkItemExportOrchestrator(mockStore.Object, mockCps.Object, progressSink: progressSink.Object);
+        var sut = new WorkItemExportOrchestrator(
+            mockStore.Object,
+            mockCps.Object,
+            progressSink: progressSink.Object,
+            package: PackageTestFactory.CreateDelegatingMock(mockStore.Object).Object);
         await sut.ExportAsync(mockSource.Object, CancellationToken.None);
 
         // Verify: the cursor accumulated correctly (previous 2 + this run's 1 = 3).

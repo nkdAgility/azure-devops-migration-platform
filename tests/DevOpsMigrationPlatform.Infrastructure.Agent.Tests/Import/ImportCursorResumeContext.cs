@@ -9,6 +9,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -30,6 +31,7 @@ public class ImportCursorResumeContext
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
     public Mock<ICurrentJobEndpointAccessor> MockEndpointAccessor { get; } = new(MockBehavior.Strict);
+    public Mock<IPackageAccess> MockPackage { get; }
 
     public CheckpointingService CheckpointingService { get; }
     public WorkItemsModuleExtensions Extensions { get; set; } = new WorkItemsModuleExtensions();
@@ -48,6 +50,7 @@ public class ImportCursorResumeContext
 
     public ImportCursorResumeContext()
     {
+        MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object, MockStateStore.Object);
         var target = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
         target.SetupGet(t => t.Url).Returns(EndpointUrl);
         target.SetupGet(t => t.Project).Returns(ProjectName);
@@ -56,7 +59,10 @@ public class ImportCursorResumeContext
         MockEndpointAccessor.SetupGet(a => a.Source).Returns((ISourceEndpointInfo?)null);
         MockEndpointAccessor.SetupGet(a => a.Target).Returns(target.Object);
 
-        CheckpointingService = new CheckpointingService(MockStateStore.Object, MockEndpointAccessor.Object);
+        CheckpointingService = new CheckpointingService(
+            MockStateStore.Object,
+            MockEndpointAccessor.Object,
+            package: MockPackage.Object);
         MockStateStore
             .Setup(s => s.ReadAsync(PackagePaths.CursorFile("import", "workitems", EndpointUrl, ProjectName), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
@@ -73,7 +79,8 @@ public class ImportCursorResumeContext
             CheckpointingService,
             (IIdentityLookupTool?)null,
             MockArtefactStore.Object,
-            NullLogger<RevisionFolderProcessor>.Instance);
+            NullLogger<RevisionFolderProcessor>.Instance,
+            package: MockPackage.Object);
 
         return new WorkItemImportOrchestrator(
             MockArtefactStore.Object,
@@ -83,6 +90,7 @@ public class ImportCursorResumeContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemImportOrchestrator>.Instance);
+            NullLogger<WorkItemImportOrchestrator>.Instance,
+            package: MockPackage.Object);
     }
 }

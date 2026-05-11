@@ -51,9 +51,9 @@ PackageRoot/
         plan.json
         config.json
         logs/
-          progress.jsonl
-          agent.jsonl
-          agent-001.jsonl
+          progress.ndjson
+          diagnostics.ndjson
+          diagnostics-001.ndjson
   {org}/{project}/
     manifest.json
     WorkItems/
@@ -127,8 +127,7 @@ WorkItems/
     <ticks>-<workItemId>-<revisionIndex>/
       revision.json
       [comment.json]
-      attachments/
-        <filename>
+      <attachment files>
       <embedded image files>
     <ticks>-<workItemId>-c<commentId>/
       comment.json
@@ -183,7 +182,14 @@ Packages created before the split between root `.migration/` and project-local `
 
 Packages created before run-scoped logging may have diagnostic files directly under `.migration/Logs/`. Tooling may fall back to that flat layout when no run-scoped folder is present.
 
-## 7. Zip Packaging
+## 7. Package Boundary Reference
+
+The package layout and the package boundary are related but not identical concerns.
+
+- This file owns the exact layout, file names, and scope semantics.
+- [package-boundary-reference.md](package-boundary-reference.md) owns the contributor-facing description of `IPackageAccess`, routing ownership, and the relationship between the boundary and the underlying persistence stores.
+
+## 8. Zip Packaging
 
 Zip is a transport wrapper around the package directory layout. It does not redefine the package format.
 

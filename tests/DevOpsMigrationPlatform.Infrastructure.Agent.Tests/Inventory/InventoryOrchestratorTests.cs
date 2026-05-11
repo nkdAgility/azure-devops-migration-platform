@@ -17,6 +17,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -115,7 +116,28 @@ public sealed class InventoryOrchestratorTests
         var packageConfigAccessor = new Mock<ICurrentPackageConfigAccessor>(MockBehavior.Strict);
         packageConfigAccessor.SetupGet(a => a.Current).Returns((Microsoft.Extensions.Configuration.IConfiguration?)null);
 
-        return new CheckpointingServiceFactory(endpointAccessor.Object, packageConfigAccessor.Object);
+        return new TestCheckpointingServiceFactory(endpointAccessor.Object, packageConfigAccessor.Object);
+    }
+
+    private sealed class TestCheckpointingServiceFactory : ICheckpointingServiceFactory
+    {
+        private readonly ICurrentJobEndpointAccessor _endpointAccessor;
+        private readonly ICurrentPackageConfigAccessor _packageConfigAccessor;
+
+        public TestCheckpointingServiceFactory(
+            ICurrentJobEndpointAccessor endpointAccessor,
+            ICurrentPackageConfigAccessor packageConfigAccessor)
+        {
+            _endpointAccessor = endpointAccessor;
+            _packageConfigAccessor = packageConfigAccessor;
+        }
+
+        public ICheckpointingService Create(IStateStore stateStore)
+            => new CheckpointingService(
+                stateStore,
+                _endpointAccessor,
+                _packageConfigAccessor,
+                package: PackageTestFactory.CreateStateDelegatingMock(stateStore).Object);
     }
 
     private sealed class RecordingStateStore : IStateStore

@@ -10,7 +10,7 @@
 
 ## Core Classes
 
-- `PackageConfigStore`
+- `PackageMigrationConfigLoader`
 - `ICurrentPackageConfigAccessor`
 - `ICurrentAgentJobContextAccessor`
 - `ICurrentJobEndpointAccessor`
@@ -19,7 +19,7 @@
 
 ## Validating Tests
 
-- `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/PackageConfigStoreTests.cs`
+- `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/PackageMigrationConfigLoaderTests.cs`
 - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobAgentWorkerDispatchTests.cs`
 - `tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsJobAgentWorkerTests.cs`
 
@@ -28,16 +28,16 @@
 ```mermaid
 sequenceDiagram
   participant JW as JobAgentWorker
-  participant PCS as PackageConfigStore
-  participant AS as IArtefactStore
+  participant PCM as PackageMigrationConfigLoader
+  participant PA as IPackageAccess
   participant PCA as ICurrentPackageConfigAccessor
   participant JCA as ICurrentAgentJobContextAccessor
   participant ECA as ICurrentJobEndpointAccessor
 
-  JW->>AS: Write ConfigPayload to migration-config.json
-  JW->>PCS: ReadAsync(artefactStore)
-  PCS->>AS: ReadAsync(migration-config.json)
-  PCS-->>JW: IConfiguration
+  JW->>PA: PersistMetaAsync(MigrationConfig)
+  JW->>PCM: LoadAsync(...)
+  PCM->>PA: RequestMetaAsync(MigrationConfig)
+  PCM-->>JW: IConfiguration
   JW->>PCA: Set(config)
   JW->>JCA: Set(AgentJobContext)
   JW->>ECA: SetSource/SetTarget

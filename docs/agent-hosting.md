@@ -16,15 +16,15 @@ The package contract, modules, and cursors are unchanged across all deployment t
 |---|---|
 | Poll for work | Call the control plane lease endpoint to receive a job. |
 | Acquire lease | Hold a time-bounded lease on the assigned job. |
-| Mount package store | Connect to the package URI from the job definition (filesystem or blob). See [.agents/context/package-manager.md](../.agents/context/package-manager.md). |
-| Materialise config | Write `Job.ConfigPayload` → `.migration/migration-config.json` in the package. Build per-job `IConfiguration`, publish explicit current package/job/endpoint accessors, and create the per-job `IOptions<T>` DI scope. Fail fast with `PackageConfigNotFoundException` if no payload and no existing file. |
-| Write run audit copies | Write run-scoped audit copies of `job.json`, `plan.json`, and `config.json` under `.migration/runs/<runId>/`. |
+| Mount package store | Connect to the package URI from the job definition (filesystem or blob). See [package-boundary-reference.md](package-boundary-reference.md). |
+| Materialise config | Write `Job.ConfigPayload` → `.migration/migration-config.json` in the package through `IPackageAccess`. Build per-job `IConfiguration`, publish explicit current package/job/endpoint accessors, and create the per-job `IOptions<T>` DI scope. Fail fast with `PackageConfigNotFoundException` if no payload and no existing file. |
+| Write run audit copies | Write run-scoped audit copies of `job.json`, `plan.json`, and `config.json` under `.migration/runs/<runId>/` through `IPackageAccess`. |
 | Run orchestrator | Execute `ExportAsync`, `ImportAsync`, or both in sequence, exactly as in local mode. |
-| Write cursors | Write project-scoped cursor files into `/{org}/{project}/.migration/` after each stage, as always. |
+| Write cursors | Write project-scoped cursor files into `/{org}/{project}/.migration/` through `IPackageAccess` after each stage, as always. |
 | Heartbeat | Signal liveness to the control plane at regular intervals. |
-| Report progress | Emit `ProgressEvent` via `IProgressSink` after each stage. Three sinks run simultaneously: `ConsoleProgressSink` (terminal), `PackageProgressSink` (`.migration/runs/<runId>/logs/progress.jsonl`), and `ControlPlaneProgressSink` (POST to control plane ring buffer for live TUI streaming). |
+| Report progress | Emit `ProgressEvent` via `IProgressSink` after each stage. Three sinks run simultaneously: `ConsoleProgressSink` (terminal), `PackageProgressSink` (`.migration/runs/<runId>/logs/progress.ndjson`), and `ControlPlaneProgressSink` (POST to control plane ring buffer for live TUI streaming). |
 | Record metrics | Record OTel metrics via `IMigrationMetrics` during job execution (execution counters, payload histograms, duration). Metric aggregates are pushed to the control plane via `ControlPlaneTelemetryTimer`. |
-| Write package logs | Write structured logs to `.migration/runs/<runId>/logs/` in the package via `IArtefactStore`. |
+| Write package logs | Write structured logs to `.migration/runs/<runId>/logs/` in the package via `IPackageAccess`. |
 | Signal completion or failure | Call the control plane's complete or fail endpoint when the job finishes. |
 
 The Agent does **not** accept job submissions, manage other Agents, or store job state. All job coordination is `ControlPlaneHost`'s responsibility.
@@ -44,7 +44,7 @@ Poll /agents/lease
   └─ Receive leased job definition
        ├─ Extract credentials from job definition
        ├─ Connect to artefact store (packageUri)
-       ├─ Read .migration/migration-config.json from package → bind MigrationOptions via IPackageConfigStore
+         ├─ Read .migration/migration-config.json from package → bind MigrationOptions via IPackageMigrationConfigLoader
     │    └─ If absent → POST /agents/lease/{id}/fail  (PackageConfigNotFoundException)
     │    └─ Publish per-job configuration, job-context, and endpoint accessors
     │    └─ Build per-job IConfiguration and IOptions<T> scope for tool modules
@@ -53,7 +53,7 @@ Poll /agents/lease
        ├─ Start heartbeat loop (background)
        ├─ Register IProgressSink composite:
        │    ├─ ConsoleProgressSink     (NDJSON to terminal)
-    │    ├─ PackageProgressSink     (.migration/runs/<runId>/logs/progress.jsonl in package)
+    │    ├─ PackageProgressSink     (.migration/runs/<runId>/logs/progress.ndjson in package)
        │    └─ ControlPlaneProgressSink (POST /agents/lease/{id}/progress)
        └─ Run Job Engine
             ├─ ExportAsync (if mode = Export or Migrate)
@@ -119,7 +119,7 @@ flowchart LR
         LatestProgress["Latest reported progress\n(display-only snapshot)"]
     end
     Agent["Migration Agent\n(stateless)"]
-    Agent -->|reads/writes via IArtefactStore| Package
+    Agent -->|reads/writes via IPackageAccess| Package
     Agent -->|reports progress to| ControlPlane
     Agent2["New Agent instance"] -->|reads cursor to resume| Cursors
 ```
@@ -146,7 +146,7 @@ This means a crashed Agent loses no more than one stage of work.
 
 ## Artefact Store Access
 
-Migration Agents access the migration package exclusively through the package manager boundary and its `IArtefactStore`/`IStateStore` persistence primitives. They never use raw filesystem calls or raw blob SDK calls inside module code. See [.agents/context/package-manager.md](../.agents/context/package-manager.md) for the package boundary direction and persistence implementations.
+Migration Agents access the migration package exclusively through `IPackageAccess`. `IArtefactStore` and `IStateStore` are lower-level persistence primitives owned by the package boundary; runtime callers do not access the package through them directly. Agents never use raw filesystem calls or raw blob SDK calls inside module code. See [package-boundary-reference.md](package-boundary-reference.md) for the package boundary contract and persistence model.
 
 ### Exclusive Write Access (Data Residency)
 
@@ -171,7 +171,7 @@ The run folder also stores `job.json`, `plan.json`, and `config.json` as audit c
 
 ## TFS Migration Agent
 
-The **TFS Migration Agent** (`DevOpsMigrationPlatform.TfsMigrationAgent`) is a second agent — a structural peer of the .NET 10 `MigrationAgent` — that handles jobs where the source is Team Foundation Server. It communicates with the control plane using the same HTTP lease protocol, dispatches work through `IModule` implementations, and writes to the package via the same `IArtefactStore` and `IStateStore` abstractions.
+The **TFS Migration Agent** (`DevOpsMigrationPlatform.TfsMigrationAgent`) is a second agent — a structural peer of the .NET 10 `MigrationAgent` — that handles jobs where the source is Team Foundation Server. It communicates with the control plane using the same HTTP lease protocol, dispatches work through `IModule` implementations, and accesses the package through the same `IPackageAccess` boundary.
 
 The TFS agent exists because the TFS Object Model is a .NET Framework 3.x/4.x SOAP library that cannot run in .NET 9/10. Isolating it in a dedicated net481 process is the only way to use the TFS OM while keeping the rest of the platform on .NET 10.
 

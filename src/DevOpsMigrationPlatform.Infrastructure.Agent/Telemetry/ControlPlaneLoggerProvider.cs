@@ -77,7 +77,6 @@ public sealed class ControlPlaneLoggerProvider : BackgroundService, ILoggerProvi
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var http = _httpFactory.CreateClient(HttpClientName);
         var batch = new List<DiagnosticLogRecord>(_flushBatchSize);
 
         try
@@ -104,7 +103,7 @@ public sealed class ControlPlaneLoggerProvider : BackgroundService, ILoggerProvi
 
                 if (batch.Count > 0)
                 {
-                    await FlushBatchAsync(http, batch, stoppingToken).ConfigureAwait(false);
+                    await FlushBatchAsync(batch, stoppingToken).ConfigureAwait(false);
                 }
             }
         }
@@ -121,13 +120,11 @@ public sealed class ControlPlaneLoggerProvider : BackgroundService, ILoggerProvi
         }
         if (batch.Count > 0)
         {
-            using var http2 = _httpFactory.CreateClient(HttpClientName);
-            await FlushBatchAsync(http2, batch, CancellationToken.None).ConfigureAwait(false);
+            await FlushBatchAsync(batch, CancellationToken.None).ConfigureAwait(false);
         }
     }
 
     private async Task FlushBatchAsync(
-        HttpClient http,
         List<DiagnosticLogRecord> batch,
         CancellationToken cancellationToken)
     {
@@ -141,6 +138,7 @@ public sealed class ControlPlaneLoggerProvider : BackgroundService, ILoggerProvi
 
         try
         {
+            using var http = _httpFactory.CreateClient(HttpClientName);
             var response = await http.PostAsJsonAsync(
                 $"/agents/lease/{Uri.EscapeDataString(leaseId)}/diagnostics",
                 batch,

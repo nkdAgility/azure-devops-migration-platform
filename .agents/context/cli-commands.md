@@ -33,7 +33,7 @@ Query and control existing jobs. Registered as a Spectre.Console branch named `m
 | `manage list` | `ManageListCommandSettings` | List all jobs visible to the authenticated user with status and progress. |
 | `manage status` | `ManageStatusCommandSettings` | Display job state and per-module progress for a specific job. Requires `--job <id>`. |
 | `manage progress` | `ManageProgressCommandSettings` | Fetch a snapshot of `ProgressEvent` records from the job ring buffer as NDJSON. Requires `--job <id>`. |
-| `manage diagnostics` | `ManageDiagnosticsCommandSettings` | Download package diagnostic log files (`.migration/Logs/agent.jsonl`) for a completed job. Accepts `--level` filter. Requires `--job <id>`. |
+| `manage diagnostics` | `ManageDiagnosticsCommandSettings` | Download package diagnostic log files for a completed job. Current packages use run-scoped `.migration/runs/<runId>/logs/diagnostics.ndjson`, with legacy fallback for older flat `.migration/Logs/agent.jsonl` packages. Accepts `--level` filter. Requires `--job <id>`. |
 | `manage pause` | `ManagePauseCommandSettings` | Signal the agent to checkpoint and pause. Requires `--job <id>`. |
 | `manage resume` | `ManageResumeCommandSettings` | Re-queue a paused job for agent pickup. Requires `--job <id>`. |
 | `manage cancel` | `ManageCancelCommandSettings` | Cancel a queued or running job. Requires `--job <id>`. |

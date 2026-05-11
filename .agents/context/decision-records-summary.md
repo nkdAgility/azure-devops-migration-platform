@@ -46,7 +46,7 @@ Only Migration Agent and TFS Export Agent may write to the package. CLI, TUI, Co
 
 **Status:** Accepted
 
-OTel signals (O-1), `IProgressSink` progress events (O-2), and `ILogger` diagnostics (O-3) are three distinct channels that must not be conflated. O-2 is stored as `Logs/progress.jsonl` and streamed via SSE. O-3 is stored as `Logs/agent.jsonl` and streamed via SSE. O-1 is exported via OTLP.
+OTel signals (O-1), `IProgressSink` progress events (O-2), and `ILogger` diagnostics (O-3) are three distinct channels that must not be conflated. O-2 is stored as `.migration/runs/<runId>/logs/progress.ndjson` and streamed via SSE. O-3 is stored as `.migration/runs/<runId>/logs/diagnostics.ndjson` and streamed via SSE. O-1 is exported via OTLP.
 
 **Current implication:** Every module must emit progress, traces, metrics, and structured logs through the defined channels. CLI/TUI read metrics from `GET /jobs/{id}/telemetry` and progress from `GET /jobs/{id}/progress?follow=true` — never from an in-process sink.
 
@@ -105,3 +105,11 @@ All metric strings across Agent, ControlPlane, and CLI use `platform.<domain>.<p
 `Infrastructure.Simulated` is a production-quality connector, not a test stub. Simulated sources must yield ≥ 2 items. Simulated targets must record received data for assertion. Every module must have a `SystemTest_Simulated` test that asserts artefact content (not just absence of exceptions).
 
 **Current implication:** A zero-item simulated source is a test violation. An import test that asserts `count >= 0` is a test violation. A `SystemTest_Simulated` that only asserts `Assert.IsNotNull(result)` is a test violation.
+
+## ADR 0016 — Unified Package Access
+
+**Status:** Accepted
+
+`IPackageAccess` is the canonical caller-facing package boundary for runtime package operations. `IPackageContentAddress` supplies module-owned relative content addressing beneath that boundary.
+
+**Current implication:** Runtime modules, orchestrators, workers, checkpointing, phase tracking, and package-backed logging should use `IPackageAccess` for package-facing reads and writes instead of rebuilding path logic directly over `IArtefactStore` or `IStateStore`.

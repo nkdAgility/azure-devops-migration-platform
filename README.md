@@ -1,4 +1,4 @@
-# Azure DevOps Migration Platform
+﻿# Azure DevOps Migration Platform
 
 > ⚠️ **Pre-release — not production-ready.** Under active development. APIs, configuration schemas, and package formats may change without notice. [Open an issue](https://github.com/nkdAgility/azure-devops-migration-platform/issues) to share feedback.
 
@@ -34,35 +34,60 @@ The package is a versioned, portable snapshot on disk.Zip it, move it, review it
 
 ## What you can migrate
 
-| Connector | Export | Import |
-|-----------|:------:|:------:|
-| Azure DevOps Services | ✅ | ✅ |
-| Team Foundation Server (on-premises) | ✅ | 🔜 |
+> **Status key:**
+> ✅ Complete
+> 🚧 Soon
+> 🔜 In Progress
+> 📋 Later
+> ❌ Never
 
-**Modules** control what gets migrated:
+### Migration Modules
 
-| Module | Exports | Imports |
-|--------|---------|---------|
-| Work Items | Full revision history, attachments, links | ✅ |
-| Identities | User identity resolution and mapping | ✅ |
-| Area & Iteration Nodes | Classification tree | ✅ |
-| Teams | Team membership and settings | ✅ |
+Stages run left-to-right: **Capture** → **Export** → **Prepare** → **Import** → **Validate**
 
-**Analysers** run cross-cutting analysis after inventory and write artefacts to the package for operator review. They do not write to the source or target systems.
+| Connector | Module | Capture | Export | Prepare | Import | Validate |
+|-----------|--------|:-------:|:------:|:-------:|:------:|:--------:|
+| **Azure DevOps Services** | Work Items | ✅ | ✅ | 🔜 | 🔜 | 📋 |
+| | Identities | ✅ | ✅ | 🔜 | 🔜 | 📋 |
+| | Area & Iteration Nodes | ✅ | ✅ | 🔜 | 🔜 | 📋 |
+| | Teams | ✅ | ✅ | 🔜 | 🔜 | 📋 |
+| | Test Plans | 📋 | 📋 | 📋 | 📋 | 📋 |
+| | Shared Queries | 📋 | 📋 | 📋 | 📋 | 📋 |
+| | Git Repositories | ✅ | 🔜 | 🔜 | 🔜 | 📋 |
+| | Pipelines | 🔜 | 🔜 | 🔜 | 🔜 | 📋 |
+| | Permissions | 🔜 | 🔜 | 🔜 | 🔜 | 📋 |
+| **Team Foundation Server** | Work Items | 🚧 | 🚧 | 📋 | 📋 | 📋 |
+| | Identities | 🚧 | 🚧 | 📋 | 📋 | 📋 |
+| | Area & Iteration Nodes | 🚧 | 🚧 | 📋 | 📋 | 📋 |
+| | Teams | 🚧 | 🚧 | 📋 | 📋 | 📋 |
+| | Test Plans | 📋 | 📋 | 📋 | 📋 | 📋 |
+| | Shared Queries | 📋 | 📋 | 📋 | 📋 | 📋 |
+| | Git Repositories | 📋 | 📋 | 📋 | 📋 | 📋 |
+| | TFVC Repositories* | ❌ | ❌ | ❌ | ❌ | ❌ |
+| | Pipelines | 🔜 | 🔜 | 📋 | 📋 | 📋 |
+| | Permissions | 🔜 | 🔜 | 📋 | 📋 | 📋 |
 
-| Analyser | Purpose |
-|----------|---------|
-| Inventory | Consolidates per-module inventory counts into a unified package-level report |
-| Dependencies | Maps cross-project work item links so operators can assess scope before import |
+> \* We may integrate GitTfs for TFVC repository migration in the future.
 
-**Tools** are stateless transformation and lookup services declared once at the config root (under `Tools.*`). They apply during export and import with no I/O of their own.
+### Analisers
 
-| Tool | Purpose |
-|------|---------|
-| FieldTransform | Apply declarative field-rewrite rules to each work item revision |
-| NodeTranslation | Translate area and iteration path strings against configured mappings |
-| IdentityLookup | Resolve and remap user identities across organisations |
+**Analysers** run during Capture and write reports to the package for operator review. They never write to source or target.
 
+| Analyser | Status | Purpose |
+|----------|:------:|---------|
+| Inventory | ✅ | Consolidates per-module counts into a unified package-level report |
+| Dependencies | ✅ | Maps cross-project work item links so operators can assess scope before import |
+
+### Tools
+
+**Tools** are stateless transformation services that apply during Export and Import with no I/O of their own.
+
+| Tool | Status | Purpose |
+|------|:------:|---------|
+| FieldTransform | ✅ | Apply declarative field-rewrite rules to each work item revision |
+| NodeTranslation | ✅ | Translate area and iteration path strings against configured mappings |
+| IdentityLookup | ✅ | Resolve and remap user identities across organisations |
+| WorkItemTypeTranslation | 📋 | Remap work item type names between source and target (e.g., User Story → Product Backlog Item) |
 ---
 
 ## Install

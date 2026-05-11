@@ -30,8 +30,8 @@ The migration package is the intermediary between source and target. It is a dir
         plan.json               # audit copy of the run plan
         config.json             # audit copy of the run config
         logs/
-          progress.jsonl
-          agent.jsonl
+          progress.ndjson
+          diagnostics.ndjson
   <org>/
     <project>/
       manifest.json             # project manifest (version, timestamps, modules run)
@@ -45,12 +45,12 @@ The migration package is the intermediary between source and target. It is a dir
         <date>/
           <ticks>-<id>-<rev>/
             revision.json       # work item revision data
-            attachments/        # binary attachments for this revision
+            <attachment files>  # binary attachments stored beside revision.json
       Teams/
-        teams.json
+        <team-slug>/
+          team.json
       Nodes/
-        area-nodes.json
-        iteration-nodes.json
+        source-tree.json
 ```
 
 ## How to Inspect It
@@ -58,7 +58,7 @@ The migration package is the intermediary between source and target. It is a dir
 - `manifest.json` — check which modules ran and when.
 - `Identities/prepare-report.json` — review identity mapping issues.
 - `Identities/mapping.json` — edit to resolve unmapped identities.
-- `WorkItems/<date>/<id>/revision.json` — inspect exported work item data.
+- `WorkItems/<date>/<ticks>-<workItemId>-<revisionIndex>/revision.json` — inspect exported work item data.
 
 ## How Package Data Supports Resume
 

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -164,7 +165,9 @@ public class ResumableBatchingContractTests
                 PackagePaths.ContinuationFile("inventory"), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
 
-        var sut = new CheckpointingService(stateStore.Object);
+        var sut = new CheckpointingService(
+            stateStore.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(stateStore.Object).Object);
         var result = await sut.ReadContinuationTokenAsync("inventory", CancellationToken.None);
 
         Assert.IsNull(result);
@@ -184,7 +187,9 @@ public class ResumableBatchingContractTests
         stateStore.Setup(s => s.ReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string key, CancellationToken _) => store.GetValueOrDefault(key));
 
-        var sut = new CheckpointingService(stateStore.Object);
+        var sut = new CheckpointingService(
+            stateStore.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(stateStore.Object).Object);
         var token = new BatchContinuationToken
         {
             StrategyVersion = "1.0",
@@ -212,7 +217,9 @@ public class ResumableBatchingContractTests
                 PackagePaths.ContinuationFile("inventory"), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var sut = new CheckpointingService(stateStore.Object);
+        var sut = new CheckpointingService(
+            stateStore.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(stateStore.Object).Object);
         await sut.DeleteContinuationTokenAsync("inventory", CancellationToken.None);
 
         stateStore.VerifyAll();

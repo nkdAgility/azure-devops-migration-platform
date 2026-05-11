@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -36,24 +38,29 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
 
     private readonly IdentityLookupOptions _options;
     private readonly ILogger<IdentityLookupTool> _logger;
+    private readonly IPackageAccess _package;
 
     private Dictionary<string, string> _overrides = new(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> _allUniqueNames = new(StringComparer.OrdinalIgnoreCase);
 
     public bool IsEnabled => _options.Enabled;
 
-    public IdentityLookupTool(IOptions<IdentityLookupOptions> options, ILogger<IdentityLookupTool>? logger = null)
+    public IdentityLookupTool(
+        IOptions<IdentityLookupOptions> options,
+        ILogger<IdentityLookupTool>? logger = null,
+        IPackageAccess? package = null)
     {
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<IdentityLookupTool>.Instance;
+        _package = package ?? throw new ArgumentNullException(nameof(package));
     }
 
     /// <inheritdoc/>
-    public async Task InitializeAsync(IArtefactStore store, CancellationToken ct)
+    public async Task InitializeAsync(CancellationToken ct)
     {
         using var activity = s_activitySource.StartActivity("identities.lookup.initialize");
         // Read descriptors
-        var descriptorsContent = await store.ReadAsync("Identities/descriptors.jsonl", ct).ConfigureAwait(false);
+        var descriptorsContent = await ReadPackageTextAsync("Identities/descriptors.jsonl", ct).ConfigureAwait(false);
         var allUniqueNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (descriptorsContent is not null)
@@ -76,7 +83,7 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
         }
 
         // Read mapping overrides
-        var mappingContent = await store.ReadAsync("Identities/mapping.json", ct).ConfigureAwait(false);
+        var mappingContent = await ReadPackageTextAsync("Identities/mapping.json", ct).ConfigureAwait(false);
         var overrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         if (!string.IsNullOrWhiteSpace(mappingContent))
@@ -123,7 +130,7 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
     }
 
     /// <inheritdoc/>
-    public async Task WriteUnresolvedAsync(IArtefactStore store, CancellationToken ct)
+    public async Task WriteUnresolvedAsync(CancellationToken ct)
     {
         var unresolved = new List<string>();
         foreach (var uniqueName in _allUniqueNames)
@@ -135,11 +142,39 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
         if (unresolved.Count == 0) return;
 
         var content = JsonSerializer.Serialize(unresolved, s_jsonOptions);
-        await store.WriteAsync("Identities/unresolved.json", content, ct).ConfigureAwait(false);
+        await WritePackageTextAsync("Identities/unresolved.json", content, ct).ConfigureAwait(false);
 
         _logger.LogWarning(
             "[IdentityLookup] {Count} identit{Suffix} have no explicit mapping — written to Identities/unresolved.json.",
             unresolved.Count, unresolved.Count == 1 ? "y" : "ies");
     }
+
+    private async Task<string?> ReadPackageTextAsync(string relativePath, CancellationToken ct)
+    {
+        var payload = await _package.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            ct).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
+    }
+
+    private async Task WritePackageTextAsync(string relativePath, string content, CancellationToken ct)
+    {
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
+        await _package.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            new PackagePayload(stream, "application/json"),
+            ct).ConfigureAwait(false);
+    }
+
+    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
+        => relativePath
+            .Replace('\\', '/')
+            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
 }
 #endif

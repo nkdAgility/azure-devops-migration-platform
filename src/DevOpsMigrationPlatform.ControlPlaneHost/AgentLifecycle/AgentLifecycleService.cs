@@ -120,11 +120,38 @@ internal sealed class AgentLifecycleService : BackgroundService
                     FileName = agentPath,
                     UseShellExecute = false,
                     CreateNoWindow = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
                 };
+                psi.ArgumentList.Add($"--ControlPlane:BaseUrl={controlPlaneUrl}");
                 psi.Environment["ControlPlane__BaseUrl"] = controlPlaneUrl;
+                psi.Environment["MigrationPlatform__Environment__ControlPlane__BaseUrl"] = controlPlaneUrl;
+                // Run the worker under Production so host startup does not enable
+                // Development-only DI scope validation in standalone local stack mode.
+                psi.Environment["DOTNET_ENVIRONMENT"] = "Production";
+                psi.Environment["ASPNETCORE_ENVIRONMENT"] = "Production";
 
-                process = Process.Start(psi);
-                if (process is null)
+                process = new Process
+                {
+                    StartInfo = psi,
+                    EnableRaisingEvents = true
+                };
+                process.OutputDataReceived += (_, e) =>
+                {
+                    if (!string.IsNullOrWhiteSpace(e.Data))
+                    {
+                        _logger.LogInformation("AgentLifecycleService: [agent stdout] {Line}", e.Data);
+                    }
+                };
+                process.ErrorDataReceived += (_, e) =>
+                {
+                    if (!string.IsNullOrWhiteSpace(e.Data))
+                    {
+                        _logger.LogError("AgentLifecycleService: [agent stderr] {Line}", e.Data);
+                    }
+                };
+
+                if (!process.Start())
                 {
                     _logger.LogError("AgentLifecycleService: failed to start agent process.");
                 }
@@ -132,6 +159,8 @@ internal sealed class AgentLifecycleService : BackgroundService
                 {
                     _logger.LogInformation(
                         "AgentLifecycleService: agent started (PID {Pid}).", process.Id);
+                    process.BeginOutputReadLine();
+                    process.BeginErrorReadLine();
 
                     await process.WaitForExitAsync(stoppingToken).ConfigureAwait(false);
 

@@ -3,6 +3,7 @@
 
 #if !NET481
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using Microsoft.Extensions.Logging;
 
@@ -17,13 +18,16 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
     private readonly ILoggerFactory _loggerFactory;
     private readonly IPlatformMetrics? _metrics;
     private readonly INodeTranslationTool? _nodeStructureTool;
+    private readonly IPackageAccess _package;
 
     public RevisionFolderProcessorFactory(
         ILoggerFactory loggerFactory,
+        IPackageAccess package,
         IPlatformMetrics? metrics = null,
         INodeTranslationTool? nodeStructureTool = null)
     {
         _loggerFactory = loggerFactory ?? throw new System.ArgumentNullException(nameof(loggerFactory));
+        _package = package ?? throw new System.ArgumentNullException(nameof(package));
         _metrics = metrics;
         _nodeStructureTool = nodeStructureTool;
     }
@@ -54,6 +58,7 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
             _loggerFactory.CreateLogger<RevisionFolderProcessor>(),
             _metrics,
             nodeStructureTool: _nodeStructureTool,
-            nodeStructureContext: nodeStructureContext);
+            nodeStructureContext: nodeStructureContext,
+            package: _package);
 }
 #endif

@@ -14,7 +14,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 /// Not yet available — Azure Blob infrastructure has not been provisioned.
 /// Use <c>FileSystemArtefactStore</c> for all current migration scenarios.
 /// </summary>
-public sealed class AzureBlobArtefactStore : IArtefactStore
+internal sealed class AzureBlobArtefactStore : IArtefactStore
 {
     private const string NotAvailableMessage =
         "Azure Blob Storage artefact store is not yet available. Use FileSystemArtefactStore.";

@@ -10,18 +10,31 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using DevOpsMigrationPlatform.MigrationAgent;
 
-var builder = Host.CreateApplicationBuilder(args);
-builder.AddServiceDefaults(DevOpsMigrationPlatform.Abstractions.WellKnownServiceNames.MigrationAgent);
+try
+{
+    var builder = Host.CreateApplicationBuilder(args);
+    builder.AddServiceDefaults(DevOpsMigrationPlatform.Abstractions.WellKnownServiceNames.MigrationAgent);
 
-// Filter customer-identifiable log data from the OTel pipeline (Azure Monitor).
-builder.Logging.AddDataClassificationFilter();
+    // Filter customer-identifiable log data from the OTel pipeline (Azure Monitor).
+    builder.Logging.AddDataClassificationFilter();
 
-var controlPlaneBaseUrl = new Uri(
-    builder.Configuration["ControlPlane:BaseUrl"] ?? "http://localhost:5100");
+    var controlPlaneBaseUrl = new Uri(
+        builder.Configuration["ControlPlane:BaseUrl"]
+        ?? builder.Configuration["MigrationPlatform:Environment:ControlPlane:BaseUrl"]
+        ?? "http://localhost:5100");
+    Console.WriteLine($"[MigrationAgent] Bootstrapping with ControlPlane={controlPlaneBaseUrl}");
 
-// All agent service registrations are in MigrationAgentServiceExtensions so that
-// LocalStackHost (CLI in-process mode) can use the exact same registrations.
-builder.AddMigrationAgentServices(controlPlaneBaseUrl);
+    // All agent service registrations are in MigrationAgentServiceExtensions so that
+    // LocalStackHost (CLI in-process mode) can use the exact same registrations.
+    builder.AddMigrationAgentServices(controlPlaneBaseUrl);
 
-var host = builder.Build();
-host.Run();
+    var host = builder.Build();
+    host.Run();
+}
+catch (Exception ex)
+{
+    Console.Error.WriteLine("[MigrationAgent] Startup failed:");
+    Console.Error.WriteLine(ex);
+    Environment.ExitCode = 1;
+    throw;
+}

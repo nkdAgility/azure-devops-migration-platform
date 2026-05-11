@@ -7,6 +7,7 @@ using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -23,6 +24,7 @@ public class PreventDuplicateWorkItemsContext
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
+    public Mock<IPackageAccess> MockPackage { get; }
 
     /// <summary>The folder path for the revision being processed.</summary>
     public string? FolderPath { get; set; }
@@ -42,6 +44,11 @@ public class PreventDuplicateWorkItemsContext
     /// <summary>Cursors written during processing.</summary>
     public List<CursorEntry> WrittenCursors { get; } = new();
 
+    public PreventDuplicateWorkItemsContext()
+    {
+        MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
+    }
+
     public RevisionFolderProcessor BuildProcessor()
     {
         return new RevisionFolderProcessor(
@@ -50,7 +57,8 @@ public class PreventDuplicateWorkItemsContext
             MockCheckpointing.Object,
             (IIdentityLookupTool?)null,
             MockArtefactStore.Object,
-            NullLogger<RevisionFolderProcessor>.Instance);
+            NullLogger<RevisionFolderProcessor>.Instance,
+            package: MockPackage.Object);
     }
 
     /// <summary>

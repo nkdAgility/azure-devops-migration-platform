@@ -13,7 +13,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 /// <see cref="IPackageStoreFactory"/> implementation that resolves <c>file:///</c> URIs
 /// to <see cref="FileSystemArtefactStore"/> and <see cref="FileSystemStateStore"/> pairs.
 /// </summary>
-public sealed class FileSystemPackageStoreFactory : IPackageStoreFactory
+internal sealed class FileSystemPackageStoreFactory : IPackageStoreFactory
 {
     /// <inheritdoc/>
     public (IArtefactStore ArtefactStore, IStateStore StateStore) Create(string packageUri)
