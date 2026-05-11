@@ -100,10 +100,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T041 [US2] Route checkpoint cursor and continuation-token persistence through `IPackageAccess` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Checkpointing/CheckpointingService.cs`
+- [X] T041 [US2] Route checkpoint cursor and continuation-token persistence through `IPackageAccess` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Checkpointing/CheckpointingService.cs`
 - [X] T042 [US2] Route authoritative and run-audit plan persistence through `IPackageAccess` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobExecutionPlanBuilder.cs`
-- [ ] T043 [US2] Route per-task plan persistence and prerequisite reads through `IPackageAccess` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobPlanExecutor.cs`
-- [ ] T044 [US2] Route phase-record persistence through `IPackageAccess` metadata flows in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Checkpointing/PhaseTrackingService.cs`
+- [X] T043 [US2] Route per-task plan persistence and prerequisite reads through `IPackageAccess` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobPlanExecutor.cs`
+- [X] T044 [US2] Route phase-record persistence through `IPackageAccess` metadata flows in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Checkpointing/PhaseTrackingService.cs`
 - [X] T045 [US2] Align agent worker package-state reads and writes on the canonical boundary in `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`
 - [ ] T046 [US2] Add O-1 `ActivitySource.StartActivity` coverage for checkpoint and phase persistence in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Checkpointing/CheckpointingService.cs`
 - [ ] T047 [US2] Add O-2 resume and phase-gate outcome metrics in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobExecutionPlanBuilder.cs`
