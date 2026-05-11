@@ -716,6 +716,20 @@ public sealed class JobAgentWorkerDispatchTests
 
     private JobAgentWorker CreateWorker(IReadOnlyList<IModule>? migrationModules = null)
     {
+        var scopeFactory = _scopeFactory;
+        if (migrationModules is { Count: > 0 })
+        {
+            var services = new ServiceCollection();
+            foreach (var module in migrationModules)
+                services.AddSingleton(module);
+            services.AddSingleton<ISourceEndpointInfo>(new FakeSourceEndpointInfo());
+            services.AddSingleton<ITargetEndpointInfo>(new FakeTargetEndpointInfo());
+            services.AddSingleton<IAnalyser>(new FakeAnalyser("Dependencies"));
+            services.AddSingleton<IJobExecutionPlanBuilder>(_planBuilder.Object);
+            services.AddSingleton<IJobPlanExecutor>(_planExecutor.Object);
+            scopeFactory = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+        }
+
         return new JobAgentWorker(
             packageStoreFactory: _packageStoreFactory.Object,
             packagePreparer: _packagePreparer.Object,
@@ -726,7 +740,7 @@ public sealed class JobAgentWorkerDispatchTests
             activeJobState: _activeJobState.Object,
             currentPackageConfigAccessor: _currentPackageConfigAccessor.Object,
             packageMigrationConfigLoader: _packageMigrationConfigLoader.Object,
-            moduleScopeFactory: _scopeFactory,
+            moduleScopeFactory: scopeFactory,
             httpClientFactory: new TestHttpClientFactory(CreateControlPlaneClient()),
             checkpointingFactory: _checkpointingFactory.Object,
             phaseTrackingFactory: _phaseTrackingFactory.Object,
