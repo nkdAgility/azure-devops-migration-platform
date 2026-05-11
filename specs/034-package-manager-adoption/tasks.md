@@ -73,7 +73,7 @@
 - [ ] T027 [US1] Harden `migration-config.json` loading on mandatory `IPackageAccess` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackageMigrationConfigLoader.cs`
 - [ ] T028 [US1] Route progress log appends through `IPackageAccess.AppendLogAsync` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/PackageProgressSink.cs`
 - [ ] T029 [US1] Route diagnostics log appends through `IPackageAccess.AppendLogAsync` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/PackageLoggerProvider.cs`
-- [ ] T030 [US1] Contain remaining string-path adaptation rules in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/LegacyPackagePathShim.cs`
+- [X] T030 [US1] Contain remaining string-path adaptation rules in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/LegacyPackagePathShim.cs`
 - [ ] T031 [US1] Align package-config service wiring on the canonical boundary in `src/DevOpsMigrationPlatform.Infrastructure.Agent/PackageConfigServiceCollectionExtensions.cs`
 - [ ] T032 [US1] Add O-1 `ActivitySource.StartActivity` coverage for package content, metadata, and log routing in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/ActivePackageAccess.cs`
 - [ ] T033 [US1] Add O-2 package-boundary latency and outcome metrics in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/ActivePackageAccess.cs`
