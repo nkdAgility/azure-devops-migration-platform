@@ -98,7 +98,8 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           name: release-packages
-          path: output/MigrationTools-*.zip
+          path: '.output/MigrationTools-*.zip'
+          if-no-files-found: error
 
   # ── Preview release: auto-create on main push ──────────────────────────────
   preview-release:
