@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,7 +16,6 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
@@ -461,10 +461,36 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     }
 
     private async Task<string?> ReadPackageTextAsync(string path, CancellationToken ct)
-        => await LegacyPackagePathShim.ReadTextAsync(_package, path, ct).ConfigureAwait(false);
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        var payload = await _package.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(path)),
+            ct).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
+    }
 
     private async Task<Stream?> ReadPackageBinaryAsync(string path, CancellationToken ct)
-        => await LegacyPackagePathShim.ReadBinaryAsync(_package, path, ct).ConfigureAwait(false);
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        return await _package.RequestContentBinaryAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(path)),
+            ct).ConfigureAwait(false);
+    }
+
+    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
+        => relativePath
+            .Replace('\\', '/')
+            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
 
     private Task WriteCursorAsync(string folderPath, string stage, CancellationToken ct)
         => _checkpointing.WriteCursorAsync("import.workitems", new CursorEntry

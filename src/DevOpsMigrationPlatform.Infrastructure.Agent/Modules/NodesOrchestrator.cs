@@ -2,8 +2,10 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -25,7 +27,6 @@ using System.Text.Json.Serialization;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using Microsoft.Extensions.Options;
 #endif
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -112,7 +113,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
             var checkpointing = checkpointingFactory.Create(context.StateStore);
             var cursor = await checkpointing.ReadCursorAsync("export.nodes", ct).ConfigureAwait(false);
             if (cursor?.Stage == CursorStage.Completed
-                && await LegacyPackagePathShim.ExistsAsync(_package, SourceTreePath, ct).ConfigureAwait(false))
+                && await ContentExistsAsync(SourceTreePath, ct).ConfigureAwait(false))
             {
                 _logger.LogInformation("[Nodes] Already exported (cursor found) — skipping re-export.");
                 return;
@@ -234,7 +235,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
             return;
         }
 
-        var json = await ReadPackageContentAsync(artefactStore, ReferencedPathsPath, ct).ConfigureAwait(false);
+        var json = await ReadPackageContentAsync(ReferencedPathsPath, ct).ConfigureAwait(false);
         if (json is null)
         {
             _logger.LogDebug("[NodeTranslation] {Path} not found — skipping pre-collection.", ReferencedPathsPath);
@@ -308,12 +309,12 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
     private async Task ReplicateSourceTreeAsync(
         ProjectMapping context,
         IArtefactStore artefactStore,
-        IStateStore stateStore,
+        IStateStore progressStore,
         CancellationToken ct,
         IPlatformMetrics? metrics = null,
         string? jobId = null)
     {
-        var json = await ReadPackageContentAsync(artefactStore, SourceTreePath, ct).ConfigureAwait(false);
+        var json = await ReadPackageContentAsync(SourceTreePath, ct).ConfigureAwait(false);
         if (json is null)
         {
             _logger.LogWarning("[NodeTranslation] {Path} not found in package — skipping ReplicateSourceTree.", SourceTreePath);
@@ -327,7 +328,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
             return;
         }
 
-        var progress = await LoadProgressAsync(stateStore, ct).ConfigureAwait(false);
+        var progress = await LoadProgressAsync(progressStore, ct).ConfigureAwait(false);
 
         using var activity = s_activitySource.StartActivity("nodes.import.replicate");
         var sw = Stopwatch.StartNew();
@@ -363,7 +364,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
 
                 progress.ReplicatedPaths.Add(targetPath);
                 progress.UpdatedAt = DateTimeOffset.UtcNow;
-                await SaveProgressAsync(stateStore, progress, ct).ConfigureAwait(false);
+                await SaveProgressAsync(progressStore, progress, ct).ConfigureAwait(false);
                 count++;
                 metrics?.RecordNodeImportReplicateCount(tags);
                 metrics?.RecordNodeImportReplicateAreaCount(tags);
@@ -409,7 +410,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
 
                 progress.ReplicatedPaths.Add(targetPath);
                 progress.UpdatedAt = DateTimeOffset.UtcNow;
-                await SaveProgressAsync(stateStore, progress, ct).ConfigureAwait(false);
+                await SaveProgressAsync(progressStore, progress, ct).ConfigureAwait(false);
                 count++;
                 metrics?.RecordNodeImportReplicateCount(tags);
                 metrics?.RecordNodeImportReplicateIterationCount(tags);
@@ -430,17 +431,17 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
             count, skipped, sw.ElapsedMilliseconds);
     }
 
-    private async Task<NodeReplicationProgress> LoadProgressAsync(IStateStore stateStore, CancellationToken ct)
+    private async Task<NodeReplicationProgress> LoadProgressAsync(IStateStore progressStore, CancellationToken ct)
     {
-        var json = await LegacyPackagePathShim.ReadStateAsync(_package, stateStore, NodeReplicationProgress.StateKey, ct).ConfigureAwait(false);
+        var json = await progressStore.ReadAsync(NodeReplicationProgress.StateKey, ct).ConfigureAwait(false);
         if (json is null) return new NodeReplicationProgress();
         return JsonSerializer.Deserialize<NodeReplicationProgress>(json, s_jsonOptions) ?? new NodeReplicationProgress();
     }
 
-    private async Task SaveProgressAsync(IStateStore stateStore, NodeReplicationProgress progress, CancellationToken ct)
+    private async Task SaveProgressAsync(IStateStore progressStore, NodeReplicationProgress progress, CancellationToken ct)
     {
         var json = JsonSerializer.Serialize(progress, s_jsonOptions);
-        await LegacyPackagePathShim.WriteStateAsync(_package, stateStore, NodeReplicationProgress.StateKey, json, ct).ConfigureAwait(false);
+        await progressStore.WriteAsync(NodeReplicationProgress.StateKey, json, ct).ConfigureAwait(false);
     }
 #endif
 
@@ -449,7 +450,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
     /// </summary>
     public async Task ValidateAsync(IArtefactStore artefactStore, ValidationContext context, CancellationToken ct)
     {
-        var content = await ReadPackageContentAsync(artefactStore, SourceTreePath, ct).ConfigureAwait(false);
+        var content = await ReadPackageContentAsync(SourceTreePath, ct).ConfigureAwait(false);
         if (content is null)
         {
             context.Errors.Add(new ValidationError
@@ -474,8 +475,35 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         }
     }
 
-    private async Task<string?> ReadPackageContentAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
+    private async Task<string?> ReadPackageContentAsync(string relativePath, CancellationToken ct)
     {
-        return await LegacyPackagePathShim.ReadTextAsync(_package, relativePath, ct).ConfigureAwait(false);
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        var payload = await _package.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            ct).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
+
+    private async Task<bool> ContentExistsAsync(string relativePath, CancellationToken ct)
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        return await _package.ContentExistsAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            ct).ConfigureAwait(false);
+    }
+
+    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
+        => relativePath
+            .Replace('\\', '/')
+            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
 }

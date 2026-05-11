@@ -101,10 +101,10 @@
 ### Implementation for User Story 2
 
 - [ ] T041 [US2] Route checkpoint cursor and continuation-token persistence through `IPackageAccess` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Checkpointing/CheckpointingService.cs`
-- [ ] T042 [US2] Route authoritative and run-audit plan persistence through `IPackageAccess` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobExecutionPlanBuilder.cs`
+- [X] T042 [US2] Route authoritative and run-audit plan persistence through `IPackageAccess` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobExecutionPlanBuilder.cs`
 - [ ] T043 [US2] Route per-task plan persistence and prerequisite reads through `IPackageAccess` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobPlanExecutor.cs`
 - [ ] T044 [US2] Route phase-record persistence through `IPackageAccess` metadata flows in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Checkpointing/PhaseTrackingService.cs`
-- [ ] T045 [US2] Align agent worker package-state reads and writes on the canonical boundary in `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`
+- [X] T045 [US2] Align agent worker package-state reads and writes on the canonical boundary in `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`
 - [ ] T046 [US2] Add O-1 `ActivitySource.StartActivity` coverage for checkpoint and phase persistence in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Checkpointing/CheckpointingService.cs`
 - [ ] T047 [US2] Add O-2 resume and phase-gate outcome metrics in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobExecutionPlanBuilder.cs`
 - [ ] T048 [US2] Add O-3 structured resume and prerequisite logs with `job.id`, outcome, duration, and correlation fields in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobPlanExecutor.cs`
@@ -130,12 +130,12 @@
 
 ### Implementation for User Story 3
 
-- [ ] T055 [US3] Route TFS worker package operations through `IPackageAccess` or the explicit legacy shim seam in `src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsJobAgentWorker.cs`
-- [ ] T056 [US3] Reduce path-based package access in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodesOrchestrator.cs`
-- [ ] T057 [US3] Reduce path-based package access in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/TeamsOrchestrator.cs`
-- [ ] T058 [US3] Reduce path-based package access in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/IdentitiesOrchestrator.cs`
-- [ ] T059 [US3] Reduce path-based package access in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Export/WorkItemExportOrchestrator.cs`
-- [ ] T060 [US3] Reduce path-based package access in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/DependencyOrchestrator.cs`
+- [X] T055 [US3] Route TFS worker package operations through `IPackageAccess` or the explicit legacy shim seam in `src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsJobAgentWorker.cs`
+- [X] T056 [US3] Reduce path-based package access in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodesOrchestrator.cs`
+- [X] T057 [US3] Reduce path-based package access in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/TeamsOrchestrator.cs`
+- [X] T058 [US3] Reduce path-based package access in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/IdentitiesOrchestrator.cs`
+- [X] T059 [US3] Reduce path-based package access in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Export/WorkItemExportOrchestrator.cs`
+- [X] T060 [US3] Reduce path-based package access in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/DependencyOrchestrator.cs`
 - [ ] T061 [US3] Add O-1 `ActivitySource.StartActivity` coverage for connector-specific package operations in `src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsJobAgentWorker.cs`
 - [ ] T062 [US3] Add O-2 connector parity outcome metrics in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodesOrchestrator.cs`
 - [ ] T063 [US3] Add O-3 structured connector-boundary logs with `job.id`, connector, outcome, duration, and correlation fields in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/TeamsOrchestrator.cs`
@@ -155,7 +155,7 @@
 - [ ] T068 [P] Update module guidance for `IPackageAccess` usage in `docs/module-development-guide.md`
 - [ ] T069 [P] Update canonical package layout guidance in `docs/package-format-reference.md`
 - [ ] T070 [P] Add package-boundary observability assertions for spans, metrics, `job.id`, outcome, duration, and correlation fields in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryObservabilityTests.cs`
-- [ ] T071 [P] Add runtime no-bypass enforcement audit tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageRuntimeBoundaryEnforcementTests.cs`
+- [X] T071 [P] Add runtime no-bypass enforcement audit tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageRuntimeBoundaryEnforcementTests.cs`
 - [ ] T072 [P] Add no-new-callsite enforcement for the legacy shim in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/LegacyPackagePathShimUsageTests.cs`
 - [ ] T073 [P] Add failure-path observability tests for structured error logs with `job.id` and correlation fields in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryErrorObservabilityTests.cs`
 - [ ] T074 [P] Add active-run log rotation continuity tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageLogRotationContinuityTests.cs`

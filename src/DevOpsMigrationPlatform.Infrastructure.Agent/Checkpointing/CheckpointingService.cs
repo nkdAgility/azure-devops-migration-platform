@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,7 +16,6 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -54,7 +54,7 @@ public class CheckpointingService : ICheckpointingService
         var key = ResolveCursorKey(checkpointIdentity);
         activity?.SetTag("cursor.key", key);
         _logger?.LogDebug("Reading cursor from {CursorKey}.", key);
-        var json = await LegacyPackagePathShim.ReadStateAsync(_package, _stateStore, key, cancellationToken).ConfigureAwait(false);
+        var json = await ReadStateAsync(key, cancellationToken).ConfigureAwait(false);
 
         if (json is null)
             return null;
@@ -70,7 +70,7 @@ public class CheckpointingService : ICheckpointingService
         activity?.SetTag("cursor.key", key);
         _logger?.LogDebug("Writing cursor to {CursorKey}.", key);
         var json = JsonSerializer.Serialize(cursor);
-        await LegacyPackagePathShim.WriteStateAsync(_package, _stateStore, key, json, cancellationToken).ConfigureAwait(false);
+        await WriteStateAsync(key, json, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task DeleteCursorAsync(string checkpointIdentity, CancellationToken cancellationToken)
@@ -87,7 +87,7 @@ public class CheckpointingService : ICheckpointingService
     public async Task<BatchContinuationToken?> ReadContinuationTokenAsync(string checkpointIdentity, CancellationToken cancellationToken)
     {
         var key = ResolveContinuationKey(checkpointIdentity);
-        var json = await LegacyPackagePathShim.ReadStateAsync(_package, _stateStore, key, cancellationToken).ConfigureAwait(false);
+        var json = await ReadStateAsync(key, cancellationToken).ConfigureAwait(false);
         if (json is null)
             return null;
         return JsonSerializer.Deserialize<BatchContinuationToken>(json);
@@ -97,7 +97,7 @@ public class CheckpointingService : ICheckpointingService
     {
         var key = ResolveContinuationKey(checkpointIdentity);
         var json = JsonSerializer.Serialize(token);
-        await LegacyPackagePathShim.WriteStateAsync(_package, _stateStore, key, json, cancellationToken).ConfigureAwait(false);
+        await WriteStateAsync(key, json, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task DeleteContinuationTokenAsync(string checkpointIdentity, CancellationToken cancellationToken)
@@ -500,6 +500,68 @@ public class CheckpointingService : ICheckpointingService
             $"ConfigSource(Type='{config?["MigrationPlatform:Source:Type"] ?? "<null>"}', Url='{config?["MigrationPlatform:Source:Url"] ?? "<null>"}', Project='{config?["MigrationPlatform:Source:Project"] ?? "<null>"}'); " +
             $"ConfigTarget(Type='{config?["MigrationPlatform:Target:Type"] ?? "<null>"}', Url='{config?["MigrationPlatform:Target:Url"] ?? "<null>"}', Project='{config?["MigrationPlatform:Target:Project"] ?? "<null>"}').";
     }
+
+    private async Task<string?> ReadStateAsync(string key, CancellationToken cancellationToken)
+    {
+        var package = ResolvePackage();
+        if (string.Equals(key, PackagePaths.PlanFile, StringComparison.Ordinal))
+            return await ReadMetaAsync(package, new PackageMetaContext(PackageMetaKind.ExecutionPlan), cancellationToken).ConfigureAwait(false);
+        if (string.Equals(key, PackagePaths.PhaseFile, StringComparison.Ordinal))
+            return await ReadMetaAsync(package, new PackageMetaContext(PackageMetaKind.PhaseRecord), cancellationToken).ConfigureAwait(false);
+
+        var payload = await package.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(key)),
+            cancellationToken).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        return await ReadUtf8Async(payload.Content, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task WriteStateAsync(string key, string value, CancellationToken cancellationToken)
+    {
+        var package = ResolvePackage();
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(value), writable: false);
+        if (string.Equals(key, PackagePaths.PlanFile, StringComparison.Ordinal))
+        {
+            await package.PersistMetaAsync(
+                new PackageMetaContext(PackageMetaKind.ExecutionPlan),
+                new PackageMetaPayload(stream),
+                cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        if (string.Equals(key, PackagePaths.PhaseFile, StringComparison.Ordinal))
+        {
+            await package.PersistMetaAsync(
+                new PackageMetaContext(PackageMetaKind.PhaseRecord),
+                new PackageMetaPayload(stream),
+                cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        await package.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(key)),
+            new PackagePayload(stream),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<string?> ReadMetaAsync(IPackageAccess package, PackageMetaContext context, CancellationToken cancellationToken)
+    {
+        var payload = await package.RequestMetaAsync(context, cancellationToken).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        return await ReadUtf8Async(payload.Content, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
+        => relativePath
+            .Replace('\\', '/')
+            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+
+    private IPackageAccess ResolvePackage()
+        => _package ?? throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for checkpoint state operations.");
 
     private sealed record ConfiguredProjectScope(string EndpointUrl, string OrgFolder, string ProjectName);
 

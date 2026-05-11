@@ -5,13 +5,13 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
@@ -135,7 +135,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             var artifactPath = $"Teams/{slug}/team.json";
 
             if (!options.AlwaysExport
-                && await TeamDefinitionExistsAsync(artefactStore, artifactPath, ct).ConfigureAwait(false))
+                && await TeamDefinitionExistsAsync(artifactPath, ct).ConfigureAwait(false))
             {
                 _logger.LogWarning("[Teams] Skipping already-exported team '{Name}' ({Path}) — use AlwaysExport: true to force re-export.",
                     team.Name, artifactPath);
@@ -245,12 +245,12 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         });
 
         var count = 0;
-        await foreach (var teamPath in LegacyPackagePathShim.EnumerateAsync(_package, "Teams/", ct).ConfigureAwait(false))
+        await foreach (var teamPath in EnumeratePackageContentAsync("Teams/", ct).ConfigureAwait(false))
         {
             if (!teamPath.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            var json = await ReadPackageContentAsync(artefactStore, teamPath, ct).ConfigureAwait(false);
+            var json = await ReadPackageContentAsync(teamPath, ct).ConfigureAwait(false);
             if (json is null)
             {
                 _logger.LogWarning("[Teams] Could not read team file '{Path}' — skipping.", teamPath);
@@ -346,14 +346,14 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             { "operation", "teams.validate" }
         };
 
-        await foreach (var teamPath in LegacyPackagePathShim.EnumerateAsync(_package, "Teams/", ct).ConfigureAwait(false))
+        await foreach (var teamPath in EnumeratePackageContentAsync("Teams/", ct).ConfigureAwait(false))
         {
             if (!teamPath.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase))
                 continue;
 
             teamCount++;
 
-            var json = await ReadPackageContentAsync(artefactStore, teamPath, ct).ConfigureAwait(false);
+            var json = await ReadPackageContentAsync(teamPath, ct).ConfigureAwait(false);
             if (json is null)
             {
                 context.Errors.Add(new ValidationError
@@ -404,15 +404,60 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         }
     }
 
-    private async Task<string?> ReadPackageContentAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
+    private async IAsyncEnumerable<string> EnumeratePackageContentAsync(
+        string prefix,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
-        return await LegacyPackagePathShim.ReadTextAsync(_package, relativePath, ct).ConfigureAwait(false);
+        if (_package is not null)
+        {
+            var paths = _package.EnumerateContentAsync(
+                new PackageContentContext(
+                    PackageContentKind.Collection,
+                    SplitRouteSegments(prefix),
+                    IsCollectionRequest: true),
+                ct);
+            if (paths is not null)
+            {
+                await foreach (var path in paths.ConfigureAwait(false))
+                    yield return path;
+                yield break;
+            }
+        }
+
+        yield break;
     }
 
-    private async Task<bool> TeamDefinitionExistsAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
+    private async Task<string?> ReadPackageContentAsync(string relativePath, CancellationToken ct)
     {
-        return await LegacyPackagePathShim.ExistsAsync(_package, relativePath, ct).ConfigureAwait(false);
+        if (_package is null)
+            return null;
+
+        var payload = await _package.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            ct).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
+
+    private async Task<bool> TeamDefinitionExistsAsync(string relativePath, CancellationToken ct)
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        return await _package.ContentExistsAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            ct).ConfigureAwait(false);
+    }
+
+    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
+        => relativePath
+            .Replace('\\', '/')
+            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
 }
 #endif
 

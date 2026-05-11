@@ -219,30 +219,13 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         try
         {
             var json = JsonSerializer.Serialize(freshPlan, _jsonOptions);
-            if (_package is not null)
-            {
-                using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
-                await _package.PersistMetaAsync(
-                    new PackageMetaContext(PackageMetaKind.ExecutionPlan, RelatedToRun: true),
-                    new PackageMetaPayload(stream),
-                    ct).ConfigureAwait(false);
-                _logger.LogDebug("Persisted execution plan through package boundary.");
-            }
-            else
-            {
-                await LegacyPackagePathShim.WriteStateAsync(_package, stateStore, PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
-                _logger.LogDebug("Persisted execution plan to {Path}.", PackagePaths.PlanFile);
-
-                var runId = _packageState?.CurrentRunId;
-                if (!string.IsNullOrEmpty(runId))
-                {
-                    var runPlanPath = PackagePaths.RunPlanFile(runId!);
-                    if (RunScopeAuthorityGuard.IsRunScopedPath(runPlanPath))
-                        _logger.LogDebug("Writing run-scope plan snapshot for audit only: {RunPlanPath}", runPlanPath);
-                    await LegacyPackagePathShim.WriteStateAsync(_package, stateStore, runPlanPath, json, ct).ConfigureAwait(false);
-                    _logger.LogDebug("Persisted run plan snapshot to {Path}.", runPlanPath);
-                }
-            }
+            var package = _package ?? throw new InvalidOperationException("JobExecutionPlanBuilder requires IPackageAccess for plan persistence.");
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
+            await package.PersistMetaAsync(
+                new PackageMetaContext(PackageMetaKind.ExecutionPlan, RelatedToRun: true),
+                new PackageMetaPayload(stream),
+                ct).ConfigureAwait(false);
+            _logger.LogDebug("Persisted execution plan through package boundary.");
         }
         catch (Exception ex)
         {
@@ -609,11 +592,14 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         CancellationToken ct)
     {
         var packagedProjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var paths = LegacyPackagePathShim.EnumerateAsync(package, string.Empty, ct);
-
-        if (paths is not null)
+        if (package is not null)
         {
-            await foreach (var path in paths.ConfigureAwait(false))
+            await foreach (var path in package.EnumerateContentAsync(
+                new PackageContentContext(
+                    PackageContentKind.Collection,
+                    Array.Empty<string>(),
+                    IsCollectionRequest: true),
+                ct).ConfigureAwait(false))
             {
                 var segments = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
                 if (segments.Length < 3

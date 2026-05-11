@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -24,7 +25,6 @@ using DevOpsMigrationPlatform.Abstractions.Validation;
 #if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 #endif
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -83,7 +83,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             var checkpointing = checkpointingFactory.Create(stateStore);
             var cursor = await checkpointing.ReadCursorAsync("export.identities", ct).ConfigureAwait(false);
             if (cursor?.Stage == CursorStage.Completed
-                && await LegacyPackagePathShim.ExistsAsync(_package, DescriptorsPath, ct).ConfigureAwait(false))
+                && await ExistsInPackageAsync(DescriptorsPath, ct).ConfigureAwait(false))
             {
                 _logger.LogInformation("[Identities] Already exported (cursor found) — skipping re-export.");
                 return;
@@ -119,7 +119,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             await foreach (var descriptor in identitySource.EnumerateIdentitiesAsync(project, ct).ConfigureAwait(false))
             {
                 var line = JsonSerializer.Serialize(descriptor, s_jsonOptions);
-                await LegacyPackagePathShim.AppendTextAsync(_package, DescriptorsPath, line + "\n", ct).ConfigureAwait(false);
+                await AppendPackageTextAsync(DescriptorsPath, line + "\n", ct).ConfigureAwait(false);
                 count++;
                 _PlatformMetrics?.RecordIdentityExportCount(exportTags);
             }
@@ -189,7 +189,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             Message = "Starting identity import.",
         });
 
-        var descriptorsJson = await ReadPackageContentAsync(artefactStore, DescriptorsPath, ct).ConfigureAwait(false);
+        var descriptorsJson = await ReadPackageContentAsync(DescriptorsPath, ct).ConfigureAwait(false);
         if (descriptorsJson is null)
         {
             _logger.LogWarning("[Identities] {Path} not found in package — identity mapping will not be available.", DescriptorsPath);
@@ -220,7 +220,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         importSw.Stop();
         _PlatformMetrics?.RecordIdentityImportDuration(importSw.Elapsed.TotalMilliseconds, importTags);
 
-        var hasMapping = await ExistsInPackageAsync(artefactStore, MappingPath, ct).ConfigureAwait(false);
+        var hasMapping = await ExistsInPackageAsync(MappingPath, ct).ConfigureAwait(false);
         _logger.LogInformation("[Identities] Identity import complete: {Resolved} resolved, mapping overrides: {HasMapping}.", resolvedCount, hasMapping);
         importSink?.Emit(new ProgressEvent
         {
@@ -249,7 +249,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             new("operation", "identities.validate")
         };
 
-        var content = await ReadPackageContentAsync(artefactStore, DescriptorsPath, ct).ConfigureAwait(false);
+        var content = await ReadPackageContentAsync(DescriptorsPath, ct).ConfigureAwait(false);
         if (content is null)
         {
             context.Errors.Add(new ValidationError
@@ -307,14 +307,48 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         return count;
     }
 
-    private async Task<string?> ReadPackageContentAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
+    private async Task<string?> ReadPackageContentAsync(string relativePath, CancellationToken ct)
     {
-        return await LegacyPackagePathShim.ReadTextAsync(_package, relativePath, ct).ConfigureAwait(false);
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        var payload = await _package.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            ct).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
-    private async Task<bool> ExistsInPackageAsync(IArtefactStore artefactStore, string relativePath, CancellationToken ct)
+    private async Task<bool> ExistsInPackageAsync(string relativePath, CancellationToken ct)
     {
-        return await LegacyPackagePathShim.ExistsAsync(_package, relativePath, ct).ConfigureAwait(false);
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        return await _package.ContentExistsAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            ct).ConfigureAwait(false);
     }
+
+    private async Task AppendPackageTextAsync(string relativePath, string content, CancellationToken ct)
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
+        await _package.AppendContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            new PackagePayload(stream, "application/x-ndjson"),
+            ct).ConfigureAwait(false);
+    }
+
+    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
+        => relativePath
+            .Replace('\\', '/')
+            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
 }
 

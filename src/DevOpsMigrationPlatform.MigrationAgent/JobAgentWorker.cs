@@ -362,18 +362,16 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             return;
 
         var forceFresh = job.Resume?.Mode == DevOpsMigrationPlatform.Abstractions.Jobs.ResumeMode.ForceFresh;
-        var exists = await LegacyPackagePathShim
-            .ExistsAsync(package, PackagePaths.MigrationConfigFileName, ct)
-            .ConfigureAwait(false);
+        var exists = await package.ContentExistsAsync(
+            CreateArtefactContext(PackagePaths.MigrationConfigFileName),
+            ct).ConfigureAwait(false);
 
         if (exists && !forceFresh)
         {
             // Resume mode: verify the Source and Target endpoints are unchanged.
             // A compatible re-submission overwrites the config (picking up any non-identity
             // changes such as module settings) while preserving cursor state.
-            var existingJson = await LegacyPackagePathShim
-                .ReadTextAsync(package, PackagePaths.MigrationConfigFileName, ct)
-                .ConfigureAwait(false);
+            var existingJson = await ReadPackageTextAsync(package, PackagePaths.MigrationConfigFileName, ct).ConfigureAwait(false);
             var mismatch = GetSourceTargetMismatch(existingJson ?? string.Empty, job.ConfigPayload);
             if (mismatch != null)
                 throw new InvalidOperationException(
@@ -382,9 +380,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             // Compatible — fall through and overwrite (cursor state is preserved separately).
         }
 
-        await LegacyPackagePathShim
-            .WriteTextAsync(package, PackagePaths.MigrationConfigFileName, job.ConfigPayload, ct)
-            .ConfigureAwait(false);
+        await WritePackageTextAsync(package, PackagePaths.MigrationConfigFileName, job.ConfigPayload, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -438,6 +434,35 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             return null; // unparseable JSON — allow write (agent will catch the real error later)
         }
     }
+
+    private static async Task<string?> ReadPackageTextAsync(IPackageAccess package, string relativePath, CancellationToken ct)
+    {
+        var payload = await package.RequestContentAsync(CreateArtefactContext(relativePath), ct).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
+    }
+
+    private static async Task WritePackageTextAsync(IPackageAccess package, string relativePath, string content, CancellationToken ct)
+    {
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
+        await package.PersistContentAsync(
+            CreateArtefactContext(relativePath),
+            new PackagePayload(stream, "application/json"),
+            ct).ConfigureAwait(false);
+    }
+
+    private static PackageContentContext CreateArtefactContext(string relativePath)
+        => new(PackageContentKind.Artefact, SplitRouteSegments(relativePath));
+
+    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
+        => relativePath
+            .Replace('\\', '/')
+            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
 
     private async Task OnMigrationJobAsync(
         Job job, HttpClient controlPlane, string leaseId,
@@ -593,9 +618,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 var endpointsByUrl = new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase);
                 try
                 {
-                    var rawJson = await LegacyPackagePathShim
-                        .ReadTextAsync(_package, PackagePaths.MigrationConfigFileName, ct)
-                        .ConfigureAwait(false);
+                    var rawJson = await ReadPackageTextAsync(_package, PackagePaths.MigrationConfigFileName, ct).ConfigureAwait(false);
                     if (!string.IsNullOrWhiteSpace(rawJson))
                     {
                         var wrapper = JsonSerializer.Deserialize<DiscoveryConfigWrapper>(rawJson, AgentJsonOptions);
@@ -737,7 +760,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                         timestamp = DateTimeOffset.UtcNow,
                         status = "ok"
                     });
-                    await LegacyPackagePathShim.WriteTextAsync(_package, ".migration/prepare-probe.json", probeContent, ct).ConfigureAwait(false);
+                    await WritePackageTextAsync(_package, ".migration/prepare-probe.json", probeContent, ct).ConfigureAwait(false);
 
                     var prepareModules = jobModules.Where(m => m.SupportsPrepare).ToList();
                     var requiredAnalyserNames = prepareModules
@@ -830,9 +853,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         var policies = new JobPolicies();
         try
         {
-            var rawJson = await LegacyPackagePathShim
-                .ReadTextAsync(_package, PackagePaths.MigrationConfigFileName, ct)
-                .ConfigureAwait(false);
+            var rawJson = await ReadPackageTextAsync(_package, PackagePaths.MigrationConfigFileName, ct).ConfigureAwait(false);
             if (!string.IsNullOrWhiteSpace(rawJson))
             {
                 var wrapper = JsonSerializer.Deserialize<DiscoveryConfigWrapper>(rawJson, AgentJsonOptions);

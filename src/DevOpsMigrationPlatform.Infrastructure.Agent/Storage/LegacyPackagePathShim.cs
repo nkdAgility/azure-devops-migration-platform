@@ -91,36 +91,6 @@ public static class LegacyPackagePathShim
     [Obsolete(
         "Legacy compatibility shim for path-based package access. New code must use IPackageAccess directly via typed PackageContentContext/PackageMetaContext. Do not add new call sites.",
         error: false)]
-    public static async Task WriteBinaryAsync(
-        IPackageAccess? package,
-        string path,
-        byte[] content,
-        CancellationToken ct)
-    {
-        using var stream = new MemoryStream(content, writable: false);
-        await Resolve(package).PersistContentStreamAsync(
-            CreateContext(PackageContentKind.Artefact, path),
-            stream,
-            "application/octet-stream",
-            ct).ConfigureAwait(false);
-    }
-
-    [Obsolete(
-        "Legacy compatibility shim for path-based package access. New code must use IPackageAccess directly via typed PackageContentContext/PackageMetaContext. Do not add new call sites.",
-        error: false)]
-    public static async Task<Stream?> ReadBinaryAsync(
-        IPackageAccess? package,
-        string path,
-        CancellationToken ct)
-    {
-        return await Resolve(package).RequestContentBinaryAsync(
-            CreateContext(PackageContentKind.Artefact, path),
-            ct).ConfigureAwait(false);
-    }
-
-    [Obsolete(
-        "Legacy compatibility shim for path-based package access. New code must use IPackageAccess directly via typed PackageContentContext/PackageMetaContext. Do not add new call sites.",
-        error: false)]
     public static async IAsyncEnumerable<string> EnumerateAsync(
         IPackageAccess? package,
         string prefix,

@@ -6,13 +6,13 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
@@ -430,12 +430,43 @@ public sealed class WorkItemImportOrchestrator
     private async IAsyncEnumerable<string> EnumerateWorkItemFoldersAsync(
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
-        await foreach (var path in LegacyPackagePathShim.EnumerateAsync(_package, "WorkItems/", ct).ConfigureAwait(false))
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        var paths = _package.EnumerateContentAsync(
+            new PackageContentContext(
+                PackageContentKind.Collection,
+                SplitRouteSegments("WorkItems/"),
+                IsCollectionRequest: true),
+            ct);
+        if (paths is null)
+            yield break;
+
+        await foreach (var path in paths.ConfigureAwait(false))
             yield return path;
     }
 
     private async Task<string?> ReadPackageTextAsync(string path, CancellationToken ct)
-        => await LegacyPackagePathShim.ReadTextAsync(_package, path, ct).ConfigureAwait(false);
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        var payload = await _package.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(path)),
+            ct).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new System.IO.StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
+    }
+
+    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
+        => relativePath
+            .Replace('\\', '/')
+            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
 
     private static string GetFolderName(string folderPath)
     {

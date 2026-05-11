@@ -23,7 +23,6 @@ using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Context;
@@ -403,7 +402,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     {
         try
         {
-            var json = await LegacyPackagePathShim.ReadTextAsync(package, "inventory.json", ct).ConfigureAwait(false);
+            var json = await ReadPackageTextAsync(package, "inventory.json", ct).ConfigureAwait(false);
             if (json is null)
                 return null;
 
@@ -1111,7 +1110,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         try
         {
             var json = JsonSerializer.Serialize(plan, _jsonOptions);
-            await LegacyPackagePathShim.WriteStateAsync(_package, stateStore, PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
+            await WritePlanStateAsync(_package, PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -1120,6 +1119,68 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 PackagePaths.PlanFile);
         }
     }
+
+    private static async Task<string?> ReadPackageTextAsync(IPackageAccess? package, string relativePath, CancellationToken ct)
+    {
+        var resolved = ResolvePackage(package);
+        var payload = await resolved.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            ct).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
+    }
+
+    private static async Task<string?> ReadPlanStateAsync(IPackageAccess? package, string key, CancellationToken ct)
+    {
+        var resolved = ResolvePackage(package);
+        if (string.Equals(key, PackagePaths.PlanFile, StringComparison.Ordinal))
+        {
+            var planMeta = await resolved.RequestMetaAsync(
+                new PackageMetaContext(PackageMetaKind.ExecutionPlan),
+                ct).ConfigureAwait(false);
+            if (planMeta is null)
+                return null;
+
+            if (planMeta.Content.CanSeek)
+                planMeta.Content.Position = 0;
+            using var reader = new StreamReader(planMeta.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+            return await reader.ReadToEndAsync().ConfigureAwait(false);
+        }
+
+        return await ReadPackageTextAsync(resolved, key, ct).ConfigureAwait(false);
+    }
+
+    private static async Task WritePlanStateAsync(IPackageAccess? package, string key, string value, CancellationToken ct)
+    {
+        var resolved = ResolvePackage(package);
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(value), writable: false);
+        if (string.Equals(key, PackagePaths.PlanFile, StringComparison.Ordinal))
+        {
+            await resolved.PersistMetaAsync(
+                new PackageMetaContext(PackageMetaKind.ExecutionPlan),
+                new PackageMetaPayload(stream),
+                ct).ConfigureAwait(false);
+            return;
+        }
+
+        await resolved.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(key)),
+            new PackagePayload(stream),
+            ct).ConfigureAwait(false);
+    }
+
+    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
+        => relativePath
+            .Replace('\\', '/')
+            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+
+    private static IPackageAccess ResolvePackage(IPackageAccess? package)
+        => package ?? throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for plan persistence operations.");
 
     private static ISourceEndpointInfo BuildCaptureSourceEndpointInfo(OrganisationEndpoint endpoint, string project)
         => new CaptureSourceEndpointInfo(
@@ -1248,7 +1309,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         try
         {
             string? json;
-            json = await LegacyPackagePathShim.ReadStateAsync(package, stateStore, PackagePaths.PlanFile, ct).ConfigureAwait(false);
+            json = await ReadPlanStateAsync(package, PackagePaths.PlanFile, ct).ConfigureAwait(false);
 
             if (json is null)
                 return null;

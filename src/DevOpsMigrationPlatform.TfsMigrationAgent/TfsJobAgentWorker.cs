@@ -219,7 +219,10 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
                 }
             }
 
-            json ??= await LegacyPackagePathShim.ReadStateAsync(_package, stateStore, PackagePaths.PlanFile, ct).ConfigureAwait(false);
+            if (json is null)
+            {
+                _logger.LogDebug("No execution plan payload returned through package boundary.");
+            }
             if (json == null)
             {
                 _logger.LogDebug("No plan file found at {Path} — skipping TFS task status update.", PackagePaths.PlanFile);
@@ -254,19 +257,14 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
             taskList[idx] = updated;
             plan = plan with { Tasks = taskList.AsReadOnly() };
 
-            var updatedJson = JsonSerializer.Serialize(plan);
-            if (_package is not null)
-            {
-                using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(plan));
-                await _package.PersistMetaAsync(
-                    new PackageMetaContext(PackageMetaKind.ExecutionPlan),
-                    new PackageMetaPayload(stream, "application/json"),
-                    ct).ConfigureAwait(false);
-            }
-            else
-            {
-                await LegacyPackagePathShim.WriteStateAsync(_package, stateStore, PackagePaths.PlanFile, updatedJson, ct).ConfigureAwait(false);
-            }
+            if (_package is null)
+                throw new InvalidOperationException("IPackageAccess is required for TFS plan persistence.");
+
+            using var stream = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(plan));
+            await _package.PersistMetaAsync(
+                new PackageMetaContext(PackageMetaKind.ExecutionPlan),
+                new PackageMetaPayload(stream, "application/json"),
+                ct).ConfigureAwait(false);
 
             _logger.LogDebug("Updated TFS task {TaskId} to {Status} in plan file.", taskId, newStatus);
         }

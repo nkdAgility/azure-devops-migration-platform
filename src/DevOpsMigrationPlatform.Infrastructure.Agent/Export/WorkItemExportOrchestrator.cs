@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -1023,16 +1024,47 @@ public sealed class WorkItemExportOrchestrator
     }
 
     private async Task<bool> PackageExistsAsync(string path, CancellationToken ct)
-        => await DevOpsMigrationPlatform.Infrastructure.Agent.Storage.LegacyPackagePathShim
-            .ExistsAsync(_package, path, ct).ConfigureAwait(false);
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        return await _package.ContentExistsAsync(CreateArtefactContext(path), ct).ConfigureAwait(false);
+    }
 
     private async Task WritePackageTextAsync(string path, string content, CancellationToken ct)
-        => await DevOpsMigrationPlatform.Infrastructure.Agent.Storage.LegacyPackagePathShim
-            .WriteTextAsync(_package, path, content, ct).ConfigureAwait(false);
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
+        await _package.PersistContentAsync(
+            CreateArtefactContext(path),
+            new PackagePayload(stream, "application/json"),
+            ct).ConfigureAwait(false);
+    }
 
     private async Task WritePackageBinaryAsync(string path, byte[] content, CancellationToken ct)
-        => await DevOpsMigrationPlatform.Infrastructure.Agent.Storage.LegacyPackagePathShim
-            .WriteBinaryAsync(_package, path, content, ct).ConfigureAwait(false);
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        using var stream = new MemoryStream(content, writable: false);
+        await _package.PersistContentStreamAsync(
+            CreateArtefactContext(path),
+            stream,
+            "application/octet-stream",
+            ct).ConfigureAwait(false);
+    }
+
+    private static PackageContentContext CreateArtefactContext(string relativePath)
+        => new(
+            PackageContentKind.Artefact,
+            SplitRouteSegments(relativePath));
+
+    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
+        => relativePath
+            .Replace('\\', '/')
+            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
 
     private static string FormatBytes(long bytes) =>
         bytes switch

@@ -110,7 +110,8 @@ internal static class PackageTestFactory
                     : new ValueTask<bool>(artefactStore.ExistsAsync(context.Address!.RelativePath, ct)));
         package
             .Setup(p => p.EnumerateContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
-            .Returns((PackageContentContext context, CancellationToken ct) => artefactStore.EnumerateAsync(context.Address!.RelativePath, ct));
+            .Returns((PackageContentContext context, CancellationToken ct)
+                => artefactStore.EnumerateAsync(NormalizeCollectionPrefix(context), ct));
         package
             .Setup(p => p.RequestContentBinaryAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns(async (PackageContentContext context, CancellationToken ct) =>
@@ -294,6 +295,15 @@ internal static class PackageTestFactory
     private static async IAsyncEnumerable<string> EmptyAsync()
     {
         yield break;
+    }
+
+    private static string NormalizeCollectionPrefix(PackageContentContext context)
+    {
+        var relativePath = context.Address!.RelativePath;
+        if (!context.IsCollectionRequest)
+            return relativePath;
+
+        return relativePath.EndsWith("/", StringComparison.Ordinal) ? relativePath : $"{relativePath}/";
     }
 
     private static bool IsStatePath(string contentKind)
