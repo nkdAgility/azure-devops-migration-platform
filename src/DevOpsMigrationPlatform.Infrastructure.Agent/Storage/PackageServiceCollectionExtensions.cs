@@ -18,7 +18,10 @@ public static class PackageServiceCollectionExtensions
     public static IServiceCollection AddPackageBoundaryServices(this IServiceCollection services)
     {
         services.TryAddSingleton<PackagePathRouter>();
-        services.TryAddSingleton<IPackageAccess, ActivePackageAccess>();
+        services.TryAddSingleton<IPackageAccess>(sp =>
+            new ActivePackageAccess(
+                sp.GetRequiredService<ActivePackageState>(),
+                sp.GetRequiredService<PackagePathRouter>()));
         return services;
     }
 

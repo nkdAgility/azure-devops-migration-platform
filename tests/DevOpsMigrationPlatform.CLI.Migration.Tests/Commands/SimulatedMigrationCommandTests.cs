@@ -209,7 +209,7 @@ public class SimulatedMigrationCommandTests
     // ─────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// T010+T015+T055: Verifies both progress.jsonl and agent.jsonl are produced
+    /// T010+T015+T055: Verifies both progress.ndjson and diagnostics.ndjson are produced
     /// in a single run and each contains at least one NDJSON record.
     /// </summary>
     [TestMethod]
@@ -229,22 +229,22 @@ public class SimulatedMigrationCommandTests
         Assert.AreEqual(0, result.ExitCode,
             $"CLI exited with code {result.ExitCode}.");
 
-        // Job-scoped log folder: .migration/Logs/<ticks>-<jobId>/{progress,agent}.jsonl
+        // Job-scoped log folder: .migration/runs/<runId>/logs/{progress,diagnostics}.ndjson
         var logsDirs = Directory.GetDirectories(outputDir, "Logs", SearchOption.AllDirectories);
         Assert.IsTrue(logsDirs.Length > 0,
             $"Expected .migration/Logs/ directory somewhere under {outputDir}");
 
-        var progressFiles = Directory.GetFiles(outputDir, "progress.jsonl", SearchOption.AllDirectories);
+        var progressFiles = Directory.GetFiles(outputDir, "progress.ndjson", SearchOption.AllDirectories);
         Assert.IsTrue(progressFiles.Length > 0,
-            "progress.jsonl missing.");
+            "progress.ndjson missing.");
         Assert.IsTrue(File.ReadAllLines(progressFiles[0]).Length >= 1,
-            "progress.jsonl must contain at least one NDJSON record per module stage transition.");
+            "progress.ndjson must contain at least one NDJSON record per module stage transition.");
 
-        var agentFiles = Directory.GetFiles(outputDir, "agent.jsonl", SearchOption.AllDirectories);
-        Assert.IsTrue(agentFiles.Length > 0,
-            "agent.jsonl missing.");
-        Assert.IsTrue(File.ReadAllLines(agentFiles[0]).Length >= 1,
-            "agent.jsonl must contain at least one structured NDJSON record at Warning+ level.");
+        var diagnosticsFiles = Directory.GetFiles(outputDir, "diagnostics.ndjson", SearchOption.AllDirectories);
+        Assert.IsTrue(diagnosticsFiles.Length > 0,
+            "diagnostics.ndjson missing.");
+        Assert.IsTrue(File.ReadAllLines(diagnosticsFiles[0]).Length >= 1,
+            "diagnostics.ndjson must contain at least one structured NDJSON record at Warning+ level.");
     }
 
     /// <summary>

@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
@@ -31,6 +32,7 @@ internal sealed class ActivePackageAccess : IPackageAccess
     private readonly ActivePackageState _activePackageState;
     private readonly PackagePathRouter _router;
 
+    [ActivatorUtilitiesConstructor]
     public ActivePackageAccess(
         ActivePackageState activePackageState,
         PackagePathRouter router)
