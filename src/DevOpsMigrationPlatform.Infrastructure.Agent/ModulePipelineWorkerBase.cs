@@ -37,12 +37,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent;
 /// </summary>
 public abstract class ModulePipelineWorkerBase : AgentWorkerBase
 {
-    /// <summary>Migration modules registered for this agent (ordered).
-    /// Used only for ForceFresh cursor deletion by module name.
-    /// For execution, modules are resolved per-job from <see cref="_moduleScopeFactory"/>
-    /// after the current per-job package configuration is set.</summary>
-    protected IEnumerable<IModule> MigrationModules { get; }
-
     /// <summary>Factory for creating per-job artefact and state stores.</summary>
     protected IPackageStoreFactory PackageStoreFactory { get; }
 
@@ -79,7 +73,6 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     private readonly IServiceScopeFactory _moduleScopeFactory;
 
     protected ModulePipelineWorkerBase(
-        IEnumerable<IModule> migrationModules,
         IPackageStoreFactory packageStoreFactory,
         IProgressSink progressSink,
         ICheckpointingServiceFactory checkpointingFactory,
@@ -103,7 +96,6 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
 #endif
                  )
     {
-        MigrationModules = migrationModules ?? throw new ArgumentNullException(nameof(migrationModules));
         PackageStoreFactory = packageStoreFactory ?? throw new ArgumentNullException(nameof(packageStoreFactory));
         ProgressSink = progressSink ?? throw new ArgumentNullException(nameof(progressSink));
         CheckpointingFactory = checkpointingFactory ?? throw new ArgumentNullException(nameof(checkpointingFactory));
@@ -207,7 +199,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         if (job.Resume?.Mode == ResumeMode.ForceFresh)
         {
             Logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors.", job.JobId);
-            foreach (var module in MigrationModules)
+            foreach (var module in jobModules)
             {
                 await checkpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
                 Logger.LogDebug("Deleted cursor for module {Module}.", module.Name);

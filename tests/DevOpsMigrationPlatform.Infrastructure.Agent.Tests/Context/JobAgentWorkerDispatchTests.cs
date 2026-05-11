@@ -233,6 +233,8 @@ public sealed class JobAgentWorkerDispatchTests
         services.AddSingleton<ISourceEndpointInfo>(new FakeSourceEndpointInfo());
         services.AddSingleton<ITargetEndpointInfo>(new FakeTargetEndpointInfo());
         services.AddSingleton<IAnalyser>(new FakeAnalyser("Dependencies"));
+        services.AddSingleton<IJobExecutionPlanBuilder>(_planBuilder.Object);
+        services.AddSingleton<IJobPlanExecutor>(_planExecutor.Object);
         _scopeFactory = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
     }
 
@@ -715,7 +717,6 @@ public sealed class JobAgentWorkerDispatchTests
     private JobAgentWorker CreateWorker(IReadOnlyList<IModule>? migrationModules = null)
     {
         return new JobAgentWorker(
-            migrationModules: migrationModules ?? Array.Empty<IModule>(),
             packageStoreFactory: _packageStoreFactory.Object,
             packagePreparer: _packagePreparer.Object,
             package: _package.Object,
@@ -732,8 +733,6 @@ public sealed class JobAgentWorkerDispatchTests
             metricsStore: _metricsStore.Object,
             snapshotStore: _snapshotStore.Object,
             flushables: _flushables,
-            planBuilder: _planBuilder.Object,
-            planExecutor: _planExecutor.Object,
             currentJobContextAccessor: _currentJobContextAccessor.Object,
             currentJobEndpointAccessor: _currentJobEndpointAccessor.Object,
             telemetryClient: _telemetryClient.Object,

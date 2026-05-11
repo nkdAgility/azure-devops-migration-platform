@@ -28,9 +28,8 @@ public static class NodeTranslationToolServiceCollectionExtensions
     /// <c>TfsClassificationTreeReader</c>).
     /// </para>
     /// <para>
-    /// Tools are registered as <b>Scoped</b> so that <see cref="IOptionsSnapshot{TOptions}"/>
-    /// is recomputed from the explicit current package configuration on every per-job
-    /// DI scope.
+    /// Tools are registered as <b>Singleton</b> to satisfy singleton planning-pipeline
+    /// consumers that resolve translation services during host startup.
     /// </para>
     /// </summary>
     public static IServiceCollection AddNodeTranslationToolServices(this IServiceCollection services)
@@ -51,14 +50,13 @@ public static class NodeTranslationToolServiceCollectionExtensions
 
 #if !NET481
         services.AddSingleton<IValidateOptions<NodeTranslationOptions>, NodeTranslationOptionsValidator>();
-        // Scoped so IOptionsSnapshot<NodeTranslationOptions> is resolved per-job scope.
-        services.AddScoped<NodeTranslationTool>(sp => new NodeTranslationTool(
-            sp.GetRequiredService<IOptionsSnapshot<NodeTranslationOptions>>(),
+        services.AddSingleton<NodeTranslationTool>(sp => new NodeTranslationTool(
+            sp.GetRequiredService<IOptions<NodeTranslationOptions>>(),
             sp.GetRequiredService<ILogger<NodeTranslationTool>>(),
             sp.GetService<IPlatformMetrics>()));
-        services.AddScoped<INodeTranslationTool>(sp => sp.GetRequiredService<NodeTranslationTool>());
+        services.AddSingleton<INodeTranslationTool>(sp => sp.GetRequiredService<NodeTranslationTool>());
         services.AddScoped<INodeTranslationValidator>(sp => new NodeTranslationValidator(
-            sp.GetRequiredService<IOptionsSnapshot<NodeTranslationOptions>>(),
+            sp.GetRequiredService<IOptions<NodeTranslationOptions>>(),
             sp.GetRequiredService<INodeTranslationTool>()));
         // T012: ReferencedPathTracker is Scoped so the same path set is shared within one job
         // (scope) and isolated across jobs.

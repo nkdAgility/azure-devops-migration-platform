@@ -47,8 +47,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly IServiceScopeFactory _moduleScopeFactory;
     private readonly IPackagePreparer _packagePreparer;
     private readonly IPackageAccess _package;
-    private readonly IJobExecutionPlanBuilder _planBuilder;
-    private readonly IJobPlanExecutor _planExecutor;
     private readonly ICurrentPackageConfigAccessor _currentPackageConfigAccessor;
     private readonly ICurrentAgentJobContextAccessor _currentJobContextAccessor;
     private readonly ICurrentJobEndpointAccessor _currentJobEndpointAccessor;
@@ -56,7 +54,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly ILogger<JobAgentWorker> _logger;
 
     public JobAgentWorker(
-        IEnumerable<IModule> migrationModules,
         IPackageStoreFactory packageStoreFactory,
         IPackagePreparer packagePreparer,
         IPackageAccess package,
@@ -73,17 +70,15 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IJobMetricsStore metricsStore,
         IJobSnapshotStore snapshotStore,
         IEnumerable<IFlushable> flushables,
-        IJobExecutionPlanBuilder planBuilder,
-        IJobPlanExecutor planExecutor,
         ICurrentAgentJobContextAccessor currentJobContextAccessor,
         ICurrentJobEndpointAccessor currentJobEndpointAccessor,
         IControlPlaneTelemetryClient telemetryClient,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null,
         PolymorphicOrganisationEntryConverter? organisationConverter = null)
-        : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
+        : base(packageStoreFactory, progressSink, checkpointingFactory,
              phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageMigrationConfigLoader,
-               moduleScopeFactory, httpClientFactory, logger, activeJobState, endpointConverter, organisationConverter)
+                moduleScopeFactory, httpClientFactory, logger, activeJobState, endpointConverter, organisationConverter)
     {
         _metricsStore = metricsStore;
         _snapshotStore = snapshotStore;
@@ -91,8 +86,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         _moduleScopeFactory = moduleScopeFactory;
         _packagePreparer = packagePreparer;
         _package = package ?? throw new ArgumentNullException(nameof(package));
-        _planBuilder = planBuilder;
-        _planExecutor = planExecutor;
         _currentPackageConfigAccessor = currentPackageConfigAccessor;
         _currentJobContextAccessor = currentJobContextAccessor;
         _currentJobEndpointAccessor = currentJobEndpointAccessor;
@@ -469,6 +462,10 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IArtefactStore artefactStore, IStateStore stateStore, IConfiguration? packageConfig, CancellationToken ct)
     {
         var planConfig = packageConfig ?? new ConfigurationBuilder().Build();
+        using var jobScope = _moduleScopeFactory.CreateScope();
+        var jobModules = jobScope.ServiceProvider.GetServices<IModule>().ToList();
+        var planBuilder = jobScope.ServiceProvider.GetRequiredService<IJobExecutionPlanBuilder>();
+        var planExecutor = jobScope.ServiceProvider.GetRequiredService<IJobPlanExecutor>();
 
         // Build the execution planand push it to the Control Plane so clients can
         // see the ordered task list immediately via GET /jobs/{id}/bootstrap.
@@ -490,7 +487,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 var freshPhaseTracker = PhaseTrackingFactory.Create(stateStore);
 
                 _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors, completion markers, and plan file.", job.JobId);
-                foreach (var module in MigrationModules)
+                foreach (var module in jobModules)
                 {
                     await freshCheckpointer.DeleteCursorAsync(module.Name, ct).ConfigureAwait(false);
                     _logger.LogDebug("Deleted cursor for module {Module}.", module.Name);
@@ -519,7 +516,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             }
 
             // Load persisted plan (resume) or build and persist a fresh one.
-            executionPlan = await _planBuilder
+            executionPlan = await planBuilder
                 .BuildAndSaveAsync(planConfig, job.Kind, artefactStore, stateStore, ct)
                 .ConfigureAwait(false);
 
@@ -541,12 +538,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
             return;
         }
-
-        // Create a per-job DI scope AFTER PackageConfig is set. Singleton tools (e.g.
-        // IFieldTransformTool) are resolved fresh within this scope so their IOptions<T>.Value
-        // is read from migration-config.json, not from the empty appsettings.json at host startup.
-        using var jobScope = _moduleScopeFactory.CreateScope();
-        var jobModules = jobScope.ServiceProvider.GetServices<IModule>().ToList();
 
         var checkpointer = CheckpointingFactory.Create(stateStore);
         var phaseTracker = PhaseTrackingFactory.Create(stateStore);
@@ -663,7 +654,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 var analysersByName = jobScope.ServiceProvider.GetServices<IAnalyser>()
                     .ToDictionary(a => a.Name, StringComparer.OrdinalIgnoreCase);
 
-                var inventoryOk = await _planExecutor.ExecuteTasksAsync(
+                var inventoryOk = await planExecutor.ExecuteTasksAsync(
                     executionPlan, captureHandlersByName, analysersByName,
                     baseInventoryContext, baseExportContext: null, importContext: null,
                     endpointsByUrl, stateStore, ct).ConfigureAwait(false);
@@ -709,7 +700,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                         }
                     }
 
-                    var exportOk = await _planExecutor.ExecuteExportPhaseAsync(
+                    var exportOk = await planExecutor.ExecuteExportPhaseAsync(
                         executionPlan,
                         moduleMap,
                         analyserMap,
@@ -738,7 +729,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 {
                     // Execute import phase using the plan executor.
                     var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
-                    var importOk = await _planExecutor.ExecuteImportPhaseAsync(
+                    var importOk = await planExecutor.ExecuteImportPhaseAsync(
                         executionPlan, moduleMap, importContext, stateStore, ct).ConfigureAwait(false);
 
                     failed = !importOk;
@@ -821,13 +812,19 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         Job job, HttpClient controlPlane, string leaseId,
         IArtefactStore artefactStore, IStateStore stateStore, IConfiguration? packageConfig, CancellationToken ct)
     {
+        using var jobScope = _moduleScopeFactory.CreateScope();
+        var modulesToRun = jobScope.ServiceProvider.GetServices<IModule>().ToList();
+        var analysersToRun = jobScope.ServiceProvider.GetServices<IAnalyser>().ToList();
+        var planBuilder = jobScope.ServiceProvider.GetRequiredService<IJobExecutionPlanBuilder>();
+        var planExecutor = jobScope.ServiceProvider.GetRequiredService<IJobPlanExecutor>();
+
         if (job.Resume?.Mode == ResumeMode.ForceFresh)
         {
             var freshCheckpointer = CheckpointingFactory.Create(stateStore);
 
             _logger.LogInformation(
                 "ForceFresh requested for discovery job {JobId} — deleting module cursors, completion markers, and plan file.", job.JobId);
-            foreach (var module in MigrationModules)
+            foreach (var module in modulesToRun)
             {
                 try
                 {
@@ -906,10 +903,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             });
         }
 
-        using var jobScope = _moduleScopeFactory.CreateScope();
-        var modulesToRun = jobScope.ServiceProvider.GetServices<IModule>().ToList();
-        var analysersToRun = jobScope.ServiceProvider.GetServices<IAnalyser>().ToList();
-
         // Build, persist and push the task list so clients can see planned steps immediately.
         JobTaskList? discoveryPlan = null;
         try
@@ -923,7 +916,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             });
 
             var planConfig = packageConfig ?? new ConfigurationBuilder().Build();
-            discoveryPlan = await _planBuilder
+            discoveryPlan = await planBuilder
                 .BuildAndSaveAsync(planConfig, job.Kind, artefactStore, stateStore, ct)
                 .ConfigureAwait(false);
             await _telemetryClient.PushTaskListAsync(leaseId, discoveryPlan, ct).ConfigureAwait(false);
@@ -974,7 +967,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
                 try
                 {
-                    var depsOk = await _planExecutor.ExecuteTasksAsync(
+                    var depsOk = await planExecutor.ExecuteTasksAsync(
                         discoveryPlan, captureHandlersByName, depAnalysersByName,
                         baseInventoryContext, baseExportContext: null, importContext: null,
                         endpointsByUrl, stateStore, ct).ConfigureAwait(false);

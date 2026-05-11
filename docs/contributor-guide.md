@@ -28,7 +28,7 @@ The canonical human testing guide is [testing-guide.md](testing-guide.md).
 Use it for:
 
 - the repository tests-first workflow
-- the Unit → Feature → Simulated → Live hierarchy
+- the Unit → Feature → Smoke → Simulated → Live hierarchy
 - MSTest and Reqnroll conventions
 - simulated test expectations
 - diagnostics for failing test runs

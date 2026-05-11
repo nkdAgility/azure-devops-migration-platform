@@ -162,7 +162,6 @@ public class TfsJobAgentWorkerTests
         var sp = sc.BuildServiceProvider();
 
         return new(
-            modules ?? System.Linq.Enumerable.Empty<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IModule>(),
             _packageStoreFactory.Object,
             _progressSink.Object,
             _leaseState,

@@ -59,7 +59,6 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     private string? _currentPackageUri;
 
     public TfsJobAgentWorker(
-        IEnumerable<IModule> migrationModules,
         IPackageStoreFactory packageStoreFactory,
         IProgressSink progressSink,
         ActiveLeaseState leaseState,
@@ -76,7 +75,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         ActiveTfsJobServices activeTfsJobServices,
         ILogger<TfsJobAgentWorker> logger,
         IPackageAccess? package = null)
-        : base(migrationModules, packageStoreFactory, progressSink, checkpointingFactory,
+        : base(packageStoreFactory, progressSink, checkpointingFactory,
              phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageMigrationConfigLoader,
                 moduleScopeFactory, httpClientFactory, logger, activeJobState)
     {
