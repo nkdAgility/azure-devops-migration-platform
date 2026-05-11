@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
@@ -36,7 +37,8 @@ public static class IdentityLookupToolServiceCollectionExtensions
         // giving each job options from its own migration-config.json.
         services.AddScoped<IdentityLookupTool>(sp => new IdentityLookupTool(
             sp.GetRequiredService<IOptionsSnapshot<IdentityLookupOptions>>(),
-            sp.GetService<ILogger<IdentityLookupTool>>()));
+            sp.GetService<ILogger<IdentityLookupTool>>(),
+            sp.GetRequiredService<IPackageAccess>()));
         services.AddScoped<IIdentityLookupTool>(sp => sp.GetRequiredService<IdentityLookupTool>());
         return services;
     }

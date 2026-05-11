@@ -101,8 +101,12 @@ internal sealed class PackagePathRouter
             return string.Empty;
 
         var normalized = value!.Replace('\\', '/').Trim();
-        while (normalized.StartsWith("/", StringComparison.Ordinal))
-            normalized = normalized.Substring(1);
+        if (normalized.StartsWith("/", StringComparison.Ordinal))
+        {
+            throw new PackageValidationException(
+                "PKG_ADDRESS_INVALID",
+                "Package content addresses must be relative and must not be absolute.");
+        }
 
         if (normalized.IndexOf(":", StringComparison.Ordinal) >= 0
             || normalized.Split('/').Any(segment => segment == ".."))

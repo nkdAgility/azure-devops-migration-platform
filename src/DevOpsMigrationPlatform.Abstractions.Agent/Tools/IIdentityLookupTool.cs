@@ -19,10 +19,10 @@ public interface IIdentityLookupTool
     bool IsEnabled { get; }
 
     /// <summary>
-    /// Loads identity descriptors and mapping overrides from the package artefact store.
+    /// Loads identity descriptors and mapping overrides from the package boundary.
     /// Must be called once by <c>IdentitiesModule.ImportAsync</c> before any downstream module runs.
     /// </summary>
-    Task InitializeAsync(IArtefactStore store, CancellationToken ct);
+    Task InitializeAsync(CancellationToken ct);
 
     /// <summary>
     /// Resolves a source identity to a target identity.
@@ -34,5 +34,5 @@ public interface IIdentityLookupTool
     /// Writes <c>Identities/unresolved.json</c> listing all source identities that had no explicit mapping.
     /// Call once at the end of <c>IdentitiesModule.ImportAsync</c>.
     /// </summary>
-    Task WriteUnresolvedAsync(IArtefactStore store, CancellationToken ct);
+    Task WriteUnresolvedAsync(CancellationToken ct);
 }

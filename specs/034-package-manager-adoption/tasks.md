@@ -45,7 +45,7 @@
 - [ ] T015 [P] Align metadata payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaPayload.cs`
 - [ ] T016 [P] Align log payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogPayload.cs`
 - [ ] T017 Add guard tests for abstraction placement and stale contract removal in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryAbstractionsPlacementTests.cs`
-- [ ] T018 Implement package-owned prefix routing and unsafe-address rejection in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackagePathRouter.cs`
+- [X] T018 Implement package-owned prefix routing and unsafe-address rejection in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackagePathRouter.cs`
 - [ ] T019 Implement the typed package boundary over persistence stores in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/ActivePackageAccess.cs`
 - [ ] T020 Register `IPackageAccess` and router services in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackageServiceCollectionExtensions.cs`
 
@@ -61,7 +61,7 @@
 
 ### Tests for User Story 1
 
-- [ ] T021 [P] [US1] Add package-owned prefix and caller-supplied address tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackagePathRouterTests.cs`
+- [X] T021 [P] [US1] Add package-owned prefix and caller-supplied address tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackagePathRouterTests.cs`
 - [ ] T022 [P] [US1] Add typed content request and persist API tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageAccessTests.cs`
 - [ ] T023 [P] [US1] Add metadata mirroring and authority tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageMetaRoutingTests.cs`
 - [ ] T024 [P] [US1] Add run-log append behavior tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageLogAppendTests.cs`

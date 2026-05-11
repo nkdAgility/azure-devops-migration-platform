@@ -28,5 +28,40 @@ public sealed class PackagePathRouterTests
 
         Assert.AreEqual(".migration/runs/20260509-120000/logs/progress.ndjson", path);
     }
+
+    [TestMethod]
+    public void ResolveContentPath_AbsoluteAddress_ThrowsValidationException()
+    {
+        var sut = new PackagePathRouter();
+        var context = new PackageContentContext(
+            PackageContentKind.Artefact,
+            Organisation: "org",
+            Project: "project",
+            Module: "WorkItems",
+            Address: new TestAddress("/absolute/path.json"));
+
+        var ex = Assert.ThrowsExactly<PackageValidationException>(() => sut.ResolveContentPath(context));
+        Assert.AreEqual("PKG_ADDRESS_INVALID", ex.Code);
+    }
+
+    [TestMethod]
+    public void ResolveContentPath_EscapingAddress_ThrowsValidationException()
+    {
+        var sut = new PackagePathRouter();
+        var context = new PackageContentContext(
+            PackageContentKind.Artefact,
+            Organisation: "org",
+            Project: "project",
+            Module: "WorkItems",
+            Address: new TestAddress("../escape.json"));
+
+        var ex = Assert.ThrowsExactly<PackageValidationException>(() => sut.ResolveContentPath(context));
+        Assert.AreEqual("PKG_ADDRESS_INVALID", ex.Code);
+    }
+
+    private sealed class TestAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath { get; } = relativePath;
+    }
 }
 

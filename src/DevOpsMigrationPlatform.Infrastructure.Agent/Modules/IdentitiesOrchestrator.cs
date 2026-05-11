@@ -205,7 +205,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 
         if (identityLookupTool is not null)
         {
-            await identityLookupTool.InitializeAsync(artefactStore, ct).ConfigureAwait(false);
+            await identityLookupTool.InitializeAsync(ct).ConfigureAwait(false);
         }
 
         var resolvedCount = CountLines(descriptorsJson);
@@ -214,7 +214,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 
         if (identityLookupTool is not null)
         {
-            await identityLookupTool.WriteUnresolvedAsync(artefactStore, ct).ConfigureAwait(false);
+            await identityLookupTool.WriteUnresolvedAsync(ct).ConfigureAwait(false);
         }
 
         importSw.Stop();
