@@ -65,7 +65,6 @@ public sealed class LocalStackHost : IAsyncDisposable
 
             await StartControlPlaneProcessAsync(controlPlaneExe, cancellationToken);
             await WaitForHealthyAsync(cancellationToken);
-            await StartAgentProcessAsync(agentExe, cancellationToken);
         }
         else
         {
@@ -81,7 +80,7 @@ public sealed class LocalStackHost : IAsyncDisposable
         var env = BuildSharedEnvironment();
         env["ASPNETCORE_URLS"] = _controlPlaneUrl.ToString().TrimEnd('/');
         env["ASPNETCORE_ENVIRONMENT"] = "Development"; // Enables the auth bypass for local-only use
-        env["AgentLifecycle__AutoSpawn"] = "false"; // CLI launches a dedicated agent process.
+        env["AgentLifecycle__AutoSpawn"] = "true"; // ControlPlaneHost manages MigrationAgent lifecycle.
 
         _controlPlaneProcess = new ChildProcessHost("ControlPlane", exePath, env, arguments: null, _logger);
         _controlPlaneProcess.Start();

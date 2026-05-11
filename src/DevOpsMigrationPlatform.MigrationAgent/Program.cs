@@ -20,6 +20,7 @@ var controlPlaneBaseUrl = new Uri(
     builder.Configuration["ControlPlane:BaseUrl"]
     ?? builder.Configuration["MigrationPlatform:Environment:ControlPlane:BaseUrl"]
     ?? "http://localhost:5100");
+Console.Error.WriteLine($"[MigrationAgent] Bootstrapping with ControlPlane={controlPlaneBaseUrl}");
 
 // All agent service registrations are in MigrationAgentServiceExtensions so that
 // LocalStackHost (CLI in-process mode) can use the exact same registrations.
