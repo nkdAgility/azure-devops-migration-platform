@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using System.Diagnostics;
+using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -27,6 +28,7 @@ public sealed class LocalStackHost : IAsyncDisposable
 {
     internal static readonly TimeSpan DefaultReadyTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan ReadinessPollInterval = TimeSpan.FromMilliseconds(200);
+    private static readonly TimeSpan StartupExitCheckWindow = TimeSpan.FromSeconds(2);
 
     private readonly Uri _controlPlaneUrl;
     private readonly ILogger? _logger;
@@ -63,7 +65,7 @@ public sealed class LocalStackHost : IAsyncDisposable
 
             await StartControlPlaneProcessAsync(controlPlaneExe, cancellationToken);
             await WaitForHealthyAsync(cancellationToken);
-            StartAgentProcess(agentExe);
+            await StartAgentProcessAsync(agentExe, cancellationToken);
         }
         else
         {
@@ -83,23 +85,15 @@ public sealed class LocalStackHost : IAsyncDisposable
 
         _controlPlaneProcess = new ChildProcessHost("ControlPlane", exePath, env, arguments: null, _logger);
         _controlPlaneProcess.Start();
-
-        // If the process exits immediately, something is wrong.
-        if (_controlPlaneProcess.Exited is not null)
-        {
-            var raceTask = await Task.WhenAny(
-                _controlPlaneProcess.Exited,
-                Task.Delay(500, cancellationToken));
-            if (raceTask == _controlPlaneProcess.Exited)
-            {
-                var exitCode = await _controlPlaneProcess.Exited;
-                throw new InvalidOperationException(
-                    $"ControlPlane process exited immediately with code {exitCode}. Check logs for details.");
-            }
-        }
+        await EnsureProcessStaysAliveDuringStartupAsync(
+            processName: "ControlPlane",
+            exitedTask: _controlPlaneProcess.Exited,
+            recentOutputProvider: _controlPlaneProcess.GetRecentOutput,
+            startupWindow: TimeSpan.FromMilliseconds(500),
+            cancellationToken);
     }
 
-    private void StartAgentProcess(string exePath)
+    private async Task StartAgentProcessAsync(string exePath, CancellationToken cancellationToken)
     {
         var env = BuildSharedEnvironment();
         var controlPlaneBaseUrl = _controlPlaneUrl.ToString().TrimEnd('/');
@@ -117,6 +111,52 @@ public sealed class LocalStackHost : IAsyncDisposable
             [$"--ControlPlane:BaseUrl={controlPlaneBaseUrl}"],
             _logger);
         _agentProcess.Start();
+
+        await EnsureProcessStaysAliveDuringStartupAsync(
+            processName: "MigrationAgent",
+            exitedTask: _agentProcess.Exited,
+            recentOutputProvider: _agentProcess.GetRecentOutput,
+            startupWindow: StartupExitCheckWindow,
+            cancellationToken);
+    }
+
+    internal static async Task EnsureProcessStaysAliveDuringStartupAsync(
+        string processName,
+        Task<int>? exitedTask,
+        Func<int, string> recentOutputProvider,
+        TimeSpan startupWindow,
+        CancellationToken cancellationToken = default)
+    {
+        if (exitedTask is null)
+            return;
+
+        var raceTask = await Task.WhenAny(
+            exitedTask,
+            Task.Delay(startupWindow, cancellationToken)).ConfigureAwait(false);
+
+        if (raceTask != exitedTask)
+            return;
+
+        var exitCode = await exitedTask.ConfigureAwait(false);
+        var capturedOutput = recentOutputProvider(25);
+
+        var message = new StringBuilder()
+            .Append($"{processName} process exited during startup with code {exitCode}.")
+            .Append(" This usually means process initialization failed before the worker became healthy.");
+
+        if (!string.IsNullOrWhiteSpace(capturedOutput))
+        {
+            message
+                .Append(" Captured output:")
+                .AppendLine()
+                .Append(capturedOutput);
+        }
+        else
+        {
+            message.Append(" No stdout/stderr output was captured.");
+        }
+
+        throw new InvalidOperationException(message.ToString());
     }
 
     /// <summary>

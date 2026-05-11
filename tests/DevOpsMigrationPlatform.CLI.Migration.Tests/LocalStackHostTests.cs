@@ -64,6 +64,36 @@ public class LocalStackHostTests
         StringAssert.Contains(ex.Message, "5101");
     }
 
+    [TestMethod]
+    public async Task EnsureProcessStaysAliveDuringStartupAsync_ThrowsWithCapturedOutputWhenProcessExitsEarly()
+    {
+        var exited = Task.FromResult(42);
+
+        var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            LocalStackHost.EnsureProcessStaysAliveDuringStartupAsync(
+                processName: "MigrationAgent",
+                exitedTask: exited,
+                recentOutputProvider: _ => "stderr: fatal startup error",
+                startupWindow: TimeSpan.FromSeconds(2)));
+
+        StringAssert.Contains(ex.Message, "42");
+        StringAssert.Contains(ex.Message, "fatal startup error");
+    }
+
+    [TestMethod]
+    public async Task EnsureProcessStaysAliveDuringStartupAsync_DoesNotThrowWhenProcessSurvivesStartupWindow()
+    {
+        var exited = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await LocalStackHost.EnsureProcessStaysAliveDuringStartupAsync(
+            processName: "MigrationAgent",
+            exitedTask: exited.Task,
+            recentOutputProvider: _ => string.Empty,
+            startupWindow: TimeSpan.FromMilliseconds(100));
+
+        Assert.IsFalse(exited.Task.IsCompleted);
+    }
+
     private sealed class DelegatingHandlerStub : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _handler;

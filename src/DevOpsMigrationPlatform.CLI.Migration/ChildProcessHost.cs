@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -35,6 +36,8 @@ internal sealed class ChildProcessHost : IAsyncDisposable
 
     private Process? _process;
     private TaskCompletionSource<int>? _exitTcs;
+    private readonly ConcurrentQueue<string> _recentOutput = new();
+    private const int MaxBufferedOutputLines = 200;
 
     /// <summary>
     /// Creates a new <see cref="ChildProcessHost"/> for the given executable.
@@ -73,6 +76,23 @@ internal sealed class ChildProcessHost : IAsyncDisposable
     public Task<int>? Exited => _exitTcs?.Task;
 
     /// <summary>
+    /// Returns up to <paramref name="maxLines"/> most recent output lines captured
+    /// from stdout/stderr for startup diagnostics.
+    /// </summary>
+    public string GetRecentOutput(int maxLines = 25)
+    {
+        if (maxLines <= 0)
+            return string.Empty;
+
+        var lines = _recentOutput.ToArray();
+        if (lines.Length == 0)
+            return string.Empty;
+
+        var start = Math.Max(0, lines.Length - maxLines);
+        return string.Join(Environment.NewLine, lines[start..]);
+    }
+
+    /// <summary>
     /// Starts the child process with stdout/stderr captured (not forwarded to the CLI console).
     /// On Windows, temporarily disables Ctrl+C handling so the child inherits the
     /// "ignore" disposition and does not receive <c>CTRL_C_EVENT</c> from the console.
@@ -107,13 +127,19 @@ internal sealed class ChildProcessHost : IAsyncDisposable
         _process.OutputDataReceived += (_, e) =>
         {
             if (e.Data is not null)
+            {
+                AppendOutputLine($"stdout: {e.Data}");
                 _logger?.LogDebug("[{ProcessName}] {Line}", _displayName, e.Data);
+            }
         };
 
         _process.ErrorDataReceived += (_, e) =>
         {
             if (e.Data is not null)
+            {
+                AppendOutputLine($"stderr: {e.Data}");
                 _logger?.LogWarning("[{ProcessName}:stderr] {Line}", _displayName, e.Data);
+            }
         };
 
         _process.Exited += (_, _) =>
@@ -149,6 +175,13 @@ internal sealed class ChildProcessHost : IAsyncDisposable
         _process.BeginErrorReadLine();
 
         _logger?.LogInformation("{ProcessName} started (PID {Pid})", _displayName, _process.Id);
+    }
+
+    private void AppendOutputLine(string line)
+    {
+        _recentOutput.Enqueue(line);
+        while (_recentOutput.Count > MaxBufferedOutputLines)
+            _recentOutput.TryDequeue(out _);
     }
 
     // Win32 interop: SetConsoleCtrlHandler with a null handler pointer
