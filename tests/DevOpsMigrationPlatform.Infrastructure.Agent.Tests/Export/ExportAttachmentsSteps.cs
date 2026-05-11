@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -51,7 +52,8 @@ public class ExportAttachmentsSteps
         _ctx.Sut = new WorkItemExportOrchestrator(
             _ctx.RealArtefactStore,
             _ctx.MockCheckpointingService.Object,
-            _ctx.AttachmentSource);
+            _ctx.AttachmentSource,
+            package: PackageTestFactory.CreateDelegatingMock(_ctx.RealArtefactStore).Object);
     }
 
     private string FolderPath(WorkItemRevision rev)

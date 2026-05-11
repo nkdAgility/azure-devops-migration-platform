@@ -13,10 +13,14 @@
                     already-compiled binaries.
 
     SystemTest           — Run all system tests in order: first
-                     SystemTest_Simulated, then SystemTest_Live,
-                     then remaining SystemTest tests that are not
-                     Simulated or Live, against the already-compiled
-                     binaries.
+                     SystemTest_Smoke, then SystemTest_Simulated, then SystemTest_Live,
+                      then remaining SystemTest tests that are not
+                      Smoke, Simulated, or Live, against the already-compiled
+                      binaries.
+
+      SystemTest_Smoke     — Run only smoke startup system tests
+                             (TestCategory=SystemTest_Smoke) against the
+                             already-compiled binaries.
 
       SystemTest_Simulated — Run only simulated/offline system tests
                              (TestCategory=SystemTest_Simulated) against the
@@ -30,8 +34,8 @@
       Package     — Publish + zip only against the already-compiled binaries.
                     Produces distributable artefacts under ./output/.
 
-      Full        — Build + Test + SystemTest_Simulated + SystemTest_Live +
-                    Package in sequence.
+      Full        — Build + Test + SystemTest_Smoke + SystemTest_Simulated + SystemTest_Live +
+                     Package in sequence.
                     Use for Preview (push to main) and Production releases.
 
       Stats       — Read existing .trx files in TestResults/ and output the
@@ -51,12 +55,12 @@
                     already on PATH for any machine with the .NET SDK.
 
     Workflow matrix:
-      PR                   :  Build  →  Test  →  SystemTest_Simulated  →  SystemTest_Live   (separate steps)
-      Preview (main push)  :  Build  →  Test  →  SystemTest_Simulated  →  SystemTest_Live  →  Package
-      Production (release) :  Build  →  Test  →  SystemTest_Simulated  →  SystemTest_Live  →  Package
+      PR                   :  Build  →  Test  →  SystemTest_Smoke  →  SystemTest_Simulated  →  SystemTest_Live   (separate steps)
+      Preview (main push)  :  Build  →  Test  →  SystemTest_Smoke  →  SystemTest_Simulated  →  SystemTest_Live  →  Package
+      Production (release) :  Build  →  Test  →  SystemTest_Smoke  →  SystemTest_Simulated  →  SystemTest_Live  →  Package
       Developer local      :  Install  (or Start to also launch Aspire)
 
-    The -Fast switch skips all system tests (SystemTest, SystemTest_Simulated,
+    The -Fast switch skips all system tests (SystemTest, SystemTest_Smoke, SystemTest_Simulated,
     SystemTest_Live) in Install and Start modes for faster iteration.
 
     Prerequisites:
@@ -78,7 +82,8 @@
     RIDs produced: win-x64, win-arm64, linux-x64, osx-x64, osx-arm64
 
 .PARAMETER Mode
-    Build | Test | SystemTest | SystemTest_Simulated | SystemTest_Live | Package | Full | Stats | Start | Install   (default: Full)
+    Build | Test | SystemTest | SystemTest_Smoke | SystemTest_Simulated | SystemTest_Live | Package | Full | Stats | Start | Install | RunTest
+    If omitted, usage help is printed and the script exits.
 
 .PARAMETER Version
     Override the version string instead of resolving via GitVersion.
@@ -86,10 +91,11 @@
     set to this value and GitVersion is not invoked.
 
 .EXAMPLE
-    pwsh ./build.ps1                  # Full pipeline
+    pwsh ./build.ps1                  # Show available modes and usage
     pwsh ./build.ps1 -Mode Build
     pwsh ./build.ps1 -Mode Test
     pwsh ./build.ps1 -Mode SystemTest
+    pwsh ./build.ps1 -Mode SystemTest_Smoke
     pwsh ./build.ps1 -Mode SystemTest_Simulated
     pwsh ./build.ps1 -Mode SystemTest_Live
     pwsh ./build.ps1 -Mode Package
@@ -103,8 +109,8 @@
 #>
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('Build', 'Test', 'SystemTest', 'SystemTest_Simulated', 'SystemTest_Live', 'Package', 'Full', 'Stats', 'Start', 'Install', 'RunTest')]
-    [string]$Mode = 'Full',
+    [ValidateSet('Build', 'Test', 'SystemTest', 'SystemTest_Smoke', 'SystemTest_Simulated', 'SystemTest_Live', 'Package', 'Full', 'Stats', 'Start', 'Install', 'RunTest')]
+    [string]$Mode = '',
 
     [string]$Version,
 
@@ -119,9 +125,43 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
+if (-not $Mode) {
+    Write-Host ""
+    Write-Host "  Azure DevOps Migration Platform — build.ps1" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  Usage: pwsh ./build.ps1 <Mode> [-Version <ver>] [-Fast]" -ForegroundColor White
+    Write-Host ""
+    Write-Host "  Modes:" -ForegroundColor Yellow
+    Write-Host "    Build              Compile the solution only"
+    Write-Host "    Test               Run unit tests only (no system tests)"
+    Write-Host "    SystemTest         Run all system tests (Smoke + Simulated + Live + Remaining)"
+    Write-Host "    SystemTest_Smoke   Run smoke/startup system tests only"
+    Write-Host "    SystemTest_Simulated  Run simulated connector system tests only"
+    Write-Host "    SystemTest_Live    Run live Azure DevOps system tests only"
+    Write-Host "    Package            Build + publish + zip artefacts"
+    Write-Host "    Full               Build + all tests + publish + package (all platforms)"
+    Write-Host "    Start              Build + tests + install + launch Aspire AppHost"
+    Write-Host "    Install            Build + all tests + package + install locally"
+    Write-Host "    Stats              Print summary from last test run (.trx files)"
+    Write-Host "    RunTest <name>     Run a single test by partial name"
+    Write-Host ""
+    Write-Host "  Flags:" -ForegroundColor Yellow
+    Write-Host "    -Fast              Skip system tests (valid with Start, Install)"
+    Write-Host "    -Version <ver>     Override version (e.g. 16.9.3); skips GitVersion"
+    Write-Host ""
+    Write-Host "  Examples:" -ForegroundColor Yellow
+    Write-Host "    pwsh ./build.ps1 Build"
+    Write-Host "    pwsh ./build.ps1 Full"
+    Write-Host "    pwsh ./build.ps1 Start -Fast"
+    Write-Host "    pwsh ./build.ps1 RunTest `"MyTestName`""
+    Write-Host ""
+    exit 0
+}
+
 $RepoRoot = $PSScriptRoot
 $SolutionFile = Join-Path $RepoRoot 'DevOpsMigrationPlatform.slnx'
 $ArtifactsDir = Join-Path $RepoRoot '.output/build'
+$BuildStampFile = Join-Path $ArtifactsDir '.build-stamp'
 $TestResultsDir = Join-Path $RepoRoot 'TestResults'
 $TimingsFile = Join-Path $TestResultsDir 'build-timings.json'
 
@@ -242,6 +282,7 @@ function Write-TestSummary {
     # ── Categorised sections ─────────────────────────────────────────────────
     $categorySections = @(
         [PSCustomObject]@{ Label = 'Unit Tests';               Dir = Join-Path $TestResultsDir 'unit'      },
+        [PSCustomObject]@{ Label = 'System Tests (Smoke)';     Dir = Join-Path $TestResultsDir 'smoke'     },
         [PSCustomObject]@{ Label = 'System Tests (Simulated)'; Dir = Join-Path $TestResultsDir 'simulated' },
         [PSCustomObject]@{ Label = 'System Tests (Live)';      Dir = Join-Path $TestResultsDir 'live'      },
         [PSCustomObject]@{ Label = 'System Tests';             Dir = Join-Path $TestResultsDir 'system'    }
@@ -406,9 +447,10 @@ function Get-TrxTotalCount {
 # Maps build step descriptions to the TRX subdirectory that holds their results.
 $script:StepTrxDirMap = @{
     'Running unit tests (excluding SystemTests)'                                     = 'unit'
+    'Running smoke system tests (TestCategory=SystemTest_Smoke)'                    = 'smoke'
     'Running simulated system tests (TestCategory=SystemTest_Simulated)'             = 'simulated'
     'Running live system tests (TestCategory=SystemTest_Live)'                       = 'live'
-    'Running remaining system tests (SystemTest excluding Simulated/Live)'           = 'system'
+    'Running remaining system tests (SystemTest excluding Smoke/Simulated/Live)'     = 'system'
 }
 
 function Write-BuildTimings {
@@ -535,6 +577,24 @@ function Invoke-Build {
             --configuration Release `
             @VersionArgs
     }
+    # Write a stamp so subsequent modes in the same or a later invocation can skip rebuilding.
+    New-Item -ItemType Directory -Path $ArtifactsDir -Force | Out-Null
+    [System.IO.File]::WriteAllText($BuildStampFile, (Get-Date -Format 'o'))
+}
+
+function Invoke-EnsureBuilt {
+    param($VersionArgs)
+    if (Test-Path $BuildStampFile) {
+        $stampAge = (Get-Date) - (Get-Item $BuildStampFile).LastWriteTime
+        $sourceChanged = Get-ChildItem -Path (Join-Path $RepoRoot 'src') -Recurse -Include '*.cs', '*.csproj', '*.slnx', 'Directory.Build.*', 'Directory.Packages.*' |
+            Where-Object { $_.LastWriteTime -gt (Get-Item $BuildStampFile).LastWriteTime }
+        if (-not $sourceChanged) {
+            Write-Host "`n==> Build already up-to-date (stamp: $([System.IO.File]::ReadAllText($BuildStampFile))). Skipping build." -ForegroundColor DarkGray
+            return
+        }
+        Write-Host "`n==> Source changes detected since last build. Rebuilding..." -ForegroundColor Yellow
+    }
+    Invoke-Build -VersionArgs $VersionArgs
 }
 
 function Invoke-UnitTests {
@@ -550,7 +610,7 @@ function Invoke-UnitTests {
         dotnet test $SolutionFile `
             --no-build `
             --configuration Release `
-            --filter 'TestCategory!=SystemTest&TestCategory!=SystemTest_Simulated&TestCategory!=SystemTest_Live' `
+            --filter 'TestCategory!=SystemTest&TestCategory!=SystemTest_Smoke&TestCategory!=SystemTest_Simulated&TestCategory!=SystemTest_Live' `
             --logger 'trx' `
             --logger 'console;verbosity=normal' `
             --results-directory $unitDir
@@ -560,7 +620,25 @@ function Invoke-UnitTests {
 function Invoke-AllTests {
     # Run all four categories in order so the summary is broken out by section.
     Invoke-UnitTests
-    Invoke-SystemTests
+    Invoke-SmokeSystemTests
+    Invoke-SimulatedSystemTests
+    Invoke-LiveSystemTests
+    Invoke-RemainingSystemTests
+}
+
+function Invoke-SmokeSystemTests {
+    $smokeDir = Join-Path $TestResultsDir 'smoke'
+    New-Item -ItemType Directory -Path $smokeDir -Force | Out-Null
+    # Only tests tagged [TestCategory("SystemTest_Smoke")]
+    Invoke-Step 'Running smoke system tests (TestCategory=SystemTest_Smoke)' {
+        dotnet test $SolutionFile `
+            --no-build `
+            --configuration Release `
+            --filter 'TestCategory=SystemTest_Smoke' `
+            --logger 'trx' `
+            --logger 'console;verbosity=normal' `
+            --results-directory $smokeDir
+    }
 }
 
 function Invoke-SimulatedSystemTests {
@@ -596,24 +674,16 @@ function Invoke-LiveSystemTests {
 function Invoke-RemainingSystemTests {
     $systemDir = Join-Path $TestResultsDir 'system'
     New-Item -ItemType Directory -Path $systemDir -Force | Out-Null
-    # System tests that are tagged SystemTest but NOT in the simulated/live sub-categories.
-    Invoke-Step 'Running remaining system tests (SystemTest excluding Simulated/Live)' {
+    # System tests that are tagged SystemTest but NOT in the smoke/simulated/live sub-categories.
+    Invoke-Step 'Running remaining system tests (SystemTest excluding Smoke/Simulated/Live)' {
         dotnet test $SolutionFile `
             --no-build `
             --configuration Release `
-            --filter 'TestCategory=SystemTest&TestCategory!=SystemTest_Simulated&TestCategory!=SystemTest_Live' `
+            --filter 'TestCategory=SystemTest&TestCategory!=SystemTest_Smoke&TestCategory!=SystemTest_Simulated&TestCategory!=SystemTest_Live' `
             --logger 'trx' `
             --logger 'console;verbosity=normal' `
             --results-directory $systemDir
     }
-}
-
-function Invoke-SystemTests {
-    # Run simulated tests first; only proceed to live tests if simulated pass.
-    # This minimises time-to-failure when simulated tests catch an issue early.
-    Invoke-SimulatedSystemTests
-    Invoke-LiveSystemTests
-    Invoke-RemainingSystemTests
 }
 
 function Invoke-Publish {
@@ -897,7 +967,8 @@ switch ($Mode) {
     }
 
     'Test' {
-        # ── Unit tests only (requires prior Build) ───────────────────────────
+        # ── Unit tests only ──────────────────────────────────────────────────
+        Invoke-EnsureBuilt -VersionArgs $VersionArgs
         Invoke-UnitTests
 
         Write-Host "`n==> Unit tests complete!" -ForegroundColor Green
@@ -905,20 +976,38 @@ switch ($Mode) {
     }
 
     'SystemTest' {
-        # ── Simulated system tests then live system tests (requires prior Build) ─
+        # ── Smoke, simulated, then live system tests ─────────────────────────
         # Clear stale .trx files so the summary only reflects this run.
+        Invoke-EnsureBuilt -VersionArgs $VersionArgs
         if (Test-Path $TestResultsDir) {
             Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -Recurse -ErrorAction SilentlyContinue |
                 Remove-Item -Force -ErrorAction SilentlyContinue
         }
-        Invoke-SystemTests
+        Invoke-SmokeSystemTests
+        Invoke-SimulatedSystemTests
+        Invoke-LiveSystemTests
+        Invoke-RemainingSystemTests
 
         Write-Host "`n==> System tests complete!" -ForegroundColor Green
         Write-BuildSummary
     }
 
+    'SystemTest_Smoke' {
+        # ── Smoke startup system tests only ──────────────────────────────────
+        Invoke-EnsureBuilt -VersionArgs $VersionArgs
+        if (Test-Path $TestResultsDir) {
+            Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -Recurse -ErrorAction SilentlyContinue |
+                Remove-Item -Force -ErrorAction SilentlyContinue
+        }
+        Invoke-SmokeSystemTests
+
+        Write-Host "`n==> Smoke system tests complete!" -ForegroundColor Green
+        Write-BuildSummary
+    }
+
     'SystemTest_Simulated' {
-        # ── Simulated system tests only (requires prior Build) ────────────────
+        # ── Simulated system tests only ───────────────────────────────────────
+        Invoke-EnsureBuilt -VersionArgs $VersionArgs
         if (Test-Path $TestResultsDir) {
             Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -Recurse -ErrorAction SilentlyContinue |
                 Remove-Item -Force -ErrorAction SilentlyContinue
@@ -930,7 +1019,8 @@ switch ($Mode) {
     }
 
     'SystemTest_Live' {
-        # ── Live system tests only (requires prior Build) ─────────────────────
+        # ── Live system tests only ─────────────────────────────────────────────
+        Invoke-EnsureBuilt -VersionArgs $VersionArgs
         if (Test-Path $TestResultsDir) {
             Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -Recurse -ErrorAction SilentlyContinue |
                 Remove-Item -Force -ErrorAction SilentlyContinue
@@ -948,7 +1038,8 @@ switch ($Mode) {
     }
 
     'Package' {
-        # ── Publish + zip only (requires prior Build) ────────────────────────
+        # ── Publish + zip only ────────────────────────────────────────────────
+        Invoke-EnsureBuilt -VersionArgs $VersionArgs
         Invoke-Publish -StagingDir $StagingDir -VersionArgs $VersionArgs
         Invoke-Package -SemVer $SemVer -StagingDir $StagingDir -TargetRids $AllRids
 
@@ -962,10 +1053,13 @@ switch ($Mode) {
     }
 
     'Full' {
-        # ── Everything: Build + Test + SystemTest_Simulated + SystemTest_Live + Package ──
+        # ── Everything: Build + Test + SystemTest_Smoke + SystemTest_Simulated + SystemTest_Live + Package ──
         Invoke-Build       -VersionArgs $VersionArgs
         Invoke-UnitTests
-        Invoke-SystemTests
+        Invoke-SmokeSystemTests
+        Invoke-SimulatedSystemTests
+        Invoke-LiveSystemTests
+        Invoke-RemainingSystemTests
         Invoke-Publish     -StagingDir $StagingDir -VersionArgs $VersionArgs
         Invoke-Package     -SemVer $SemVer -StagingDir $StagingDir -TargetRids $AllRids
 
@@ -987,7 +1081,10 @@ switch ($Mode) {
         Invoke-Build   -VersionArgs $VersionArgs
         Invoke-UnitTests
         if (-not $Fast) {
-            Invoke-SystemTests
+            Invoke-SmokeSystemTests
+            Invoke-SimulatedSystemTests
+            Invoke-LiveSystemTests
+            Invoke-RemainingSystemTests
         }
         else {
             Write-Host "`n==> Skipping system tests (-Fast)" -ForegroundColor Yellow

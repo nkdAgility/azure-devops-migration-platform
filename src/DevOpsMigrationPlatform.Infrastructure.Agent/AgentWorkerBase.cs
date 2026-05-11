@@ -27,10 +27,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent;
 /// </summary>
 public abstract class AgentWorkerBase : BackgroundService
 {
+    private const int IdleLeaseLogEvery = 12; // 12 * 5s = ~60s
     private readonly ActiveLeaseState _leaseState;
     private readonly ActivePackageState _packageState;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger _logger;
+    private int _consecutiveNoLeaseResponses;
 
     private readonly JsonSerializerOptions _jsonOptions;
 
@@ -132,6 +134,15 @@ public abstract class AgentWorkerBase : BackgroundService
 
         if (leaseResponse.StatusCode == HttpStatusCode.NoContent)
         {
+            _consecutiveNoLeaseResponses++;
+            if (_consecutiveNoLeaseResponses == 1 || _consecutiveNoLeaseResponses % IdleLeaseLogEvery == 0)
+            {
+                _logger.LogInformation(
+                    "No lease available yet (attempt {Attempt}) for capabilities [{Capabilities}] against {BaseAddress}.",
+                    _consecutiveNoLeaseResponses,
+                    capabilitiesParam,
+                    controlPlane.BaseAddress);
+            }
             await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
             return;
         }
@@ -143,6 +154,7 @@ public abstract class AgentWorkerBase : BackgroundService
             .ConfigureAwait(false);
 
         if (lease is null) return;
+        _consecutiveNoLeaseResponses = 0;
 
         _logger.LogInformation(
             "Acquired lease {LeaseId} for job {JobId} ({JobKind})",

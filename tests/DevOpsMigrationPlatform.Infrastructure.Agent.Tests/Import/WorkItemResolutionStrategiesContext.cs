@@ -6,6 +6,7 @@ using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -22,6 +23,7 @@ public class WorkItemResolutionStrategiesContext
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
+    public Mock<IPackageAccess> MockPackage { get; }
 
     public WorkItemsModuleExtensions Extensions { get; set; } = new WorkItemsModuleExtensions();
 
@@ -39,6 +41,11 @@ public class WorkItemResolutionStrategiesContext
     /// <summary>Provenance entries written after creation.</summary>
     public List<(int SourceId, int TargetId)> ProvenanceEntries { get; } = new();
 
+    public WorkItemResolutionStrategiesContext()
+    {
+        MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
+    }
+
     public WorkItemImportOrchestrator BuildOrchestrator()
     {
         var processor = new RevisionFolderProcessor(
@@ -47,7 +54,8 @@ public class WorkItemResolutionStrategiesContext
             MockCheckpointing.Object,
             (IIdentityLookupTool?)null,
             MockArtefactStore.Object,
-            NullLogger<RevisionFolderProcessor>.Instance);
+            NullLogger<RevisionFolderProcessor>.Instance,
+            package: MockPackage.Object);
 
         return new WorkItemImportOrchestrator(
             MockArtefactStore.Object,
@@ -57,6 +65,7 @@ public class WorkItemResolutionStrategiesContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemImportOrchestrator>.Instance);
+            NullLogger<WorkItemImportOrchestrator>.Instance,
+            package: MockPackage.Object);
     }
 }

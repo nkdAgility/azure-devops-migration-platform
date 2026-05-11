@@ -54,7 +54,7 @@ The control plane does **not** run the Job Engine, call source or target APIs, o
 | `GET` | `/jobs/{jobId}/diagnostics` | Return buffered diagnostic log records as a JSON array (snapshot). Accepts `?level=` filter (`Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`). Requires same auth as `GET /jobs/{jobId}`. |
 | `GET` | `/jobs/{jobId}/diagnostics?follow=true` | **SSE stream**: push diagnostic log records in real time. Accepts `?level=` filter. Heartbeat comment every 15 s. Requires same auth as `GET /jobs/{jobId}`. |
 | `GET` | `/jobs/{jobId}/telemetry` | Return the latest `MetricSnapshot` for the job. `204 No Content` when no snapshot has been pushed yet by the Migration Agent. `MetricSnapshot` is a versioned DTO whose fields correspond to registered OTel instruments — see `WellKnownMetricNames` for the canonical reference. Requires same auth as `GET /jobs/{jobId}`. |
-| `GET` | `/jobs/{jobId}/logs/download` | Download the package log files (`.migration/Logs/progress.jsonl` and `.migration/Logs/agent.jsonl`) for a completed job. Requires same auth as `GET /jobs/{jobId}`. |
+| `GET` | `/jobs/{jobId}/logs/download` | Download the package log files for a completed job. Current packages use run-scoped `.migration/runs/<runId>/logs/progress.ndjson` and `.migration/runs/<runId>/logs/diagnostics.ndjson`, with legacy fallback for older flat `.migration/Logs/progress.jsonl` and `.migration/Logs/agent.jsonl` packages. Requires same auth as `GET /jobs/{jobId}`. |
 
 ### Migration Agent Protocol
 
@@ -148,7 +148,7 @@ The control plane stores each event in a bounded per-job **ring buffer** (`Bound
 - Powers `GET /jobs/{jobId}/progress` (snapshot of current buffer contents)
 - Powers `GET /jobs/{jobId}/progress?follow=true` (SSE broadcast from the buffer to all active subscribers)
 - Patches the in-memory `JobTaskList` when events carry `taskId + taskStatus`, merging `knownTotal` and `completedCount` into the matching task row
-- Is in-memory only — it is cleared when the control plane restarts, but the package's `.migration/Logs/progress.jsonl` is the durable record
+- Is in-memory only — it is cleared when the control plane restarts, but the package's `.migration/runs/<runId>/logs/progress.ndjson` is the durable record
 
 The ring buffer always reflects the most recent activity. For very long jobs, oldest events are evicted to stay within capacity. The cursor in the package remains the authoritative resume state.
 

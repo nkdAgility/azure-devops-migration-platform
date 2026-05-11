@@ -49,7 +49,6 @@ public sealed class ControlPlaneProgressSink : BackgroundService, IProgressSink
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var http = _httpFactory.CreateClient(HttpClientName);
         try
         {
             await foreach (var evt in _channel.Reader.ReadAllAsync(stoppingToken))
@@ -66,6 +65,7 @@ public sealed class ControlPlaneProgressSink : BackgroundService, IProgressSink
 
                 try
                 {
+                    using var http = _httpFactory.CreateClient(HttpClientName);
                     var response = await http
                         .PostAsJsonAsync($"/agents/lease/{Uri.EscapeDataString(leaseId)}/progress", evt, stoppingToken)
                         .ConfigureAwait(false);

@@ -6,7 +6,7 @@ using System;
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
 /// <summary>
-/// Thrown by <see cref="IPackageConfigStore.ReadAsync"/> when
+/// Thrown by <see cref="IPackageMigrationConfigLoader.LoadAsync"/> when
 /// <c>migration-config.json</c> is absent from the package root.
 /// The agent must fail the job immediately and instruct the operator to re-submit,
 /// which will write the file before dispatching a new job.

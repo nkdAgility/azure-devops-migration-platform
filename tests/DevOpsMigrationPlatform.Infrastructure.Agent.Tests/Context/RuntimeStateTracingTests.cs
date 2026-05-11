@@ -9,6 +9,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -33,7 +34,10 @@ public sealed class RuntimeStateTracingTests
 
         var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
         var endpoints = CreateEndpointAccessor();
-        var sut = new CheckpointingService(stateStore.Object, endpoints.Object);
+        var sut = new CheckpointingService(
+            stateStore.Object,
+            endpoints.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(stateStore.Object).Object);
         await sut.WriteCursorAsync("export.workitems", new CursorEntry { LastProcessed = "X", Stage = CursorStage.Completed }, CancellationToken.None);
 
         CollectionAssert.Contains(spans, "state.paths.resolve");

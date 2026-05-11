@@ -12,6 +12,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -93,7 +94,8 @@ public sealed class JobExecutionPlanBuilderContextResolutionTests
             [],
             [],
             phaseFactory.Object,
-            NullLogger<JobExecutionPlanBuilder>.Instance);
+            NullLogger<JobExecutionPlanBuilder>.Instance,
+            package: PackageTestFactory.CreateLooseMock().Object);
     }
 
     private static IConfiguration BuildConfig()

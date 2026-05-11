@@ -45,5 +45,5 @@ sequenceDiagram
   CPS->>CP: POST progress event
   CLP->>CP: POST diagnostics record
   CTT->>CP: POST telemetry snapshot
-  PPS-->>PPS: Append progress.jsonl
+  PPS-->>PPS: Append progress.ndjson
 ```

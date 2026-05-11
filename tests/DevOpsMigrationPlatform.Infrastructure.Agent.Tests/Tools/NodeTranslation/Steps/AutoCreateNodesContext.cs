@@ -7,6 +7,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -26,10 +27,12 @@ public class AutoCreateNodesContext
     public Mock<INodeCreator> NodeCreatorMock { get; } = new(MockBehavior.Loose);
     public Mock<IArtefactStore> ArtefactStoreMock { get; } = new(MockBehavior.Loose);
     public Mock<IStateStore> StateStoreMock { get; } = new(MockBehavior.Loose);
+    public Mock<IPackageAccess> PackageMock { get; }
     private INodesOrchestrator? _orchestrator;
 
     public AutoCreateNodesContext()
     {
+        PackageMock = PackageTestFactory.CreateDelegatingMock(ArtefactStoreMock.Object, StateStoreMock.Object);
         NodeCreatorMock.Setup(c => c.EnsureExistsAsync(
             It.IsAny<ClassificationNodeType>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -78,7 +81,8 @@ public class AutoCreateNodesContext
             NullLogger<NodesOrchestrator>.Instance,
             tool,
             NodeCreatorMock.Object,
-            optionsMonitor.Object);
+            optionsMonitor.Object,
+            package: PackageMock.Object);
         return _orchestrator;
     }
 

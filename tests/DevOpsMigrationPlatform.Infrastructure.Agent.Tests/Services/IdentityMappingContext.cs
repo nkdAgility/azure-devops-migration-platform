@@ -16,7 +16,7 @@ public class IdentityMappingContext
     public Dictionary<string, string> Mappings { get; } = new();
     public string FallbackIdentity { get; set; } = "migration-bot@target.example.com";
     public string? PackageRoot { get; set; }
-    public FileSystemArtefactStore? RealStore { get; set; }
+    public IArtefactStore? RealStore { get; set; }
     public FileSystemIdentityMappingService? Sut { get; set; }
     public string? SourceIdentity { get; set; }
     public string? ResolvedIdentity { get; set; }

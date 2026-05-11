@@ -6,6 +6,7 @@ using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -22,10 +23,16 @@ public class ImportCommentsContext
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
+    public Mock<IPackageAccess> MockPackage { get; }
 
     public WorkItemsModuleExtensions Extensions { get; set; } = new WorkItemsModuleExtensions();
 
     public List<string> FolderPaths { get; set; } = new();
+
+    public ImportCommentsContext()
+    {
+        MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
+    }
 
     public WorkItemImportOrchestrator BuildOrchestrator()
     {
@@ -35,7 +42,8 @@ public class ImportCommentsContext
             MockCheckpointing.Object,
             (IIdentityLookupTool?)null,
             MockArtefactStore.Object,
-            NullLogger<RevisionFolderProcessor>.Instance);
+            NullLogger<RevisionFolderProcessor>.Instance,
+            package: MockPackage.Object);
 
         return new WorkItemImportOrchestrator(
             MockArtefactStore.Object,
@@ -45,6 +53,7 @@ public class ImportCommentsContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemImportOrchestrator>.Instance);
+            NullLogger<WorkItemImportOrchestrator>.Instance,
+            package: MockPackage.Object);
     }
 }

@@ -10,6 +10,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -58,12 +59,20 @@ public class NodeEnsurerTests
 
         var optionsMonitor = new Mock<IOptionsMonitor<NodeTranslationOptions>>();
         optionsMonitor.SetupGet(o => o.CurrentValue).Returns(opts);
+        var package = PackageTestFactory.CreateLooseMock();
+        package.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Nodes/referenced-paths.json"), It.IsAny<CancellationToken>()))
+            .Returns(() => ToPayload(referencedPathsJson));
+        package.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Nodes/source-tree.json"), It.IsAny<CancellationToken>()))
+            .Returns(() => ToPayload(sourceTreeJson));
+        package.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == NodeReplicationProgress.StateKey), It.IsAny<CancellationToken>()))
+            .Returns(ValueTask.FromResult<PackagePayload?>(null));
 
         var orchestrator = new NodesOrchestrator(
             NullLogger<NodesOrchestrator>.Instance,
             tool,
             creatorMock.Object,
-            optionsMonitor.Object);
+            optionsMonitor.Object,
+            package: package.Object);
 
         return (orchestrator, creatorMock, storeMock, stateMock);
     }
@@ -195,7 +204,14 @@ public class NodeEnsurerTests
         var tool = CreatePassThroughTool(opts);
         var optionsMonitor = new Mock<IOptionsMonitor<NodeTranslationOptions>>();
         optionsMonitor.SetupGet(o => o.CurrentValue).Returns(opts);
-        var orchestrator = new NodesOrchestrator(NullLogger<NodesOrchestrator>.Instance, tool, creatorMock.Object, optionsMonitor.Object);
+        var package = PackageTestFactory.CreateLooseMock();
+        package.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Nodes/source-tree.json"), It.IsAny<CancellationToken>()))
+            .Returns(() => ToPayload(treeJson));
+        package.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Nodes/referenced-paths.json"), It.IsAny<CancellationToken>()))
+            .Returns(ValueTask.FromResult<PackagePayload?>(null));
+        package.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == NodeReplicationProgress.StateKey), It.IsAny<CancellationToken>()))
+            .Returns(() => ToPayload(progressJson));
+        var orchestrator = new NodesOrchestrator(NullLogger<NodesOrchestrator>.Instance, tool, creatorMock.Object, optionsMonitor.Object, package: package.Object);
 
         var sourceEndpoint = Mock.Of<ISourceEndpointInfo>(e => e.Project == "SourceProject");
         var targetEndpoint = Mock.Of<ITargetEndpointInfo>(e => e.Project == "TargetProject");
@@ -294,5 +310,14 @@ public class NodeEnsurerTests
 
         creatorMock.Verify(c => c.EnsureExistsAsync(
             It.IsAny<ClassificationNodeType>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private static ValueTask<PackagePayload?> ToPayload(string? json)
+    {
+        if (json is null)
+            return ValueTask.FromResult<PackagePayload?>(null);
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+        return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(bytes), "application/json"));
     }
 }

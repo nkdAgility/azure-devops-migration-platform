@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -33,7 +34,10 @@ public sealed class LegacyCheckpointPrecedenceTests
         var projectKey = PackagePaths.CursorFile("export", "workitems", "https://dev.azure.com/contoso", "Shop");
         stateStore.Setup(x => x.ReadAsync(projectKey, It.IsAny<CancellationToken>())).ReturnsAsync(authoritativeJson);
 
-        var sut = new CheckpointingService(stateStore.Object, endpoints.Object);
+        var sut = new CheckpointingService(
+            stateStore.Object,
+            endpoints.Object,
+            package: PackageTestFactory.CreateStateDelegatingMock(stateStore.Object).Object);
         var result = await sut.ReadCursorAsync("export.workitems", CancellationToken.None);
 
         Assert.IsNotNull(result);

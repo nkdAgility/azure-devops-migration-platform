@@ -62,6 +62,9 @@ jobs:
       - name: Test
         run: pwsh ./build.ps1 -Mode Test
 
+      - name: System Test (Smoke)
+        run: pwsh ./build.ps1 -Mode SystemTest_Smoke
+
       - name: System Test (Simulated)
         run: pwsh ./build.ps1 -Mode SystemTest_Simulated
 

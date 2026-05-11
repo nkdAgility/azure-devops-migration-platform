@@ -16,7 +16,7 @@ public class ExportWorkItemRevisionsContext
 {
     public Mock<ICheckpointingService> MockCheckpointingService { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemRevisionSource> MockRevisionSource { get; } = new(MockBehavior.Strict);
-    public FileSystemArtefactStore? RealArtefactStore { get; set; }
+    public IArtefactStore? RealArtefactStore { get; set; }
     public string? PackageRoot { get; set; }
     public WorkItemExportOrchestrator? Sut { get; set; }
 

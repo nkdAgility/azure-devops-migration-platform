@@ -8,7 +8,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 
 /// <summary>
-/// Singleton that carries the agent's current <see cref="IArtefactStore"/> across services.
+/// Singleton that carries active package runtime state across agent services.
 /// Set by the worker when a job lease is acquired and cleared on release.
 /// Services that persist data to the package (e.g. loggers, progress sinks) read from
 /// this holder rather than taking <see cref="IArtefactStore"/> as a constructor dependency,
@@ -38,7 +38,16 @@ public sealed class ActivePackageState
     public Job? CurrentJob
     {
         get => _currentJob;
-        set => _currentJob = value;
+        set
+        {
+            var previous = _currentJob;
+            _currentJob = value;
+
+            if (!string.Equals(previous?.JobId, value?.JobId, StringComparison.Ordinal))
+            {
+                _cachedRunId = null;
+            }
+        }
     }
 
     /// <summary>

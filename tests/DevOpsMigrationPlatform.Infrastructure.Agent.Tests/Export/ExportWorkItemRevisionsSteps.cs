@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -45,6 +46,12 @@ public class ExportWorkItemRevisionsSteps
             .Returns((CancellationToken ct) => revisions.ToAsyncEnumerable(ct));
     }
 
+    private WorkItemExportOrchestrator CreateSut()
+        => new(
+            _ctx.RealArtefactStore!,
+            _ctx.MockCheckpointingService.Object,
+            package: PackageTestFactory.CreateDelegatingMock(_ctx.RealArtefactStore!).Object);
+
     // ── Background ────────────────────────────────────────────────────────────
 
     [Given("the source project contains work items with multiple revisions")]
@@ -70,7 +77,7 @@ public class ExportWorkItemRevisionsSteps
 
         SetupCursorNoOp();
         SetupSource(_ctx.SourceRevisions);
-        _ctx.Sut = new WorkItemExportOrchestrator(_ctx.RealArtefactStore!, _ctx.MockCheckpointingService.Object);
+        _ctx.Sut = CreateSut();
     }
 
     [When("the WorkItems export module runs")]
@@ -122,7 +129,7 @@ public class ExportWorkItemRevisionsSteps
         };
         SetupCursorNoOp();
         SetupSource(_ctx.SourceRevisions);
-        _ctx.Sut = new WorkItemExportOrchestrator(_ctx.RealArtefactStore!, _ctx.MockCheckpointingService.Object);
+        _ctx.Sut = CreateSut();
     }
 
     [Then("all revision data is written inside the package root")]
@@ -156,7 +163,7 @@ public class ExportWorkItemRevisionsSteps
             .Callback<string, CursorEntry, CancellationToken>((_, c, _) => _ctx.WrittenCursors.Add(c))
             .Returns(Task.CompletedTask);
         SetupSource(_ctx.SourceRevisions);
-        _ctx.Sut = new WorkItemExportOrchestrator(_ctx.RealArtefactStore!, _ctx.MockCheckpointingService.Object);
+        _ctx.Sut = CreateSut();
     }
 
     [When("the export module successfully writes a revision folder")]
@@ -206,7 +213,7 @@ public class ExportWorkItemRevisionsSteps
             .Callback<string, CursorEntry, CancellationToken>((_, c, _) => _ctx.WrittenCursors.Add(c))
             .Returns(Task.CompletedTask);
         SetupSource(_ctx.SourceRevisions);
-        _ctx.Sut = new WorkItemExportOrchestrator(_ctx.RealArtefactStore!, _ctx.MockCheckpointingService.Object);
+        _ctx.Sut = CreateSut();
     }
 
     [When("the export module is re-run")]
@@ -240,7 +247,7 @@ public class ExportWorkItemRevisionsSteps
             .Setup(s => s.ReadCursorAsync("export.workitems", It.IsAny<CancellationToken>()))
             .ReturnsAsync((CursorEntry?)null);
         SetupSource(_ctx.SourceRevisions);
-        _ctx.Sut = new WorkItemExportOrchestrator(_ctx.RealArtefactStore!, _ctx.MockCheckpointingService.Object);
+        _ctx.Sut = CreateSut();
     }
 
     [Then("no folders are created under {string}")]
@@ -270,7 +277,7 @@ public class ExportWorkItemRevisionsSteps
             .ToList();
         SetupCursorNoOp();
         SetupSource(_ctx.SourceRevisions);
-        _ctx.Sut = new WorkItemExportOrchestrator(_ctx.RealArtefactStore!, _ctx.MockCheckpointingService.Object);
+        _ctx.Sut = CreateSut();
     }
 
     [Then("work item revisions are processed one at a time")]
@@ -307,7 +314,7 @@ public class ExportWorkItemRevisionsSteps
         };
         SetupCursorNoOp();
         SetupSource(_ctx.SourceRevisions);
-        _ctx.Sut = new WorkItemExportOrchestrator(_ctx.RealArtefactStore!, _ctx.MockCheckpointingService.Object);
+        _ctx.Sut = CreateSut();
     }
 
     [Then("{string} contains all three link types")]
@@ -348,7 +355,7 @@ public class ExportWorkItemRevisionsSteps
         };
         SetupCursorNoOp();
         SetupSource(_ctx.SourceRevisions);
-        _ctx.Sut = new WorkItemExportOrchestrator(_ctx.RealArtefactStore!, _ctx.MockCheckpointingService.Object);
+        _ctx.Sut = CreateSut();
     }
 
     [Then("{string} lists both attachments by relative path")]

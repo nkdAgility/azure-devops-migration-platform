@@ -4,6 +4,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -49,13 +51,16 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 
     private readonly ILogger _logger;
     private readonly IPlatformMetrics? _PlatformMetrics;
+    private readonly IPackageAccess? _package;
 
     public IdentitiesOrchestrator(
         ILogger<IdentitiesOrchestrator> logger,
-        IPlatformMetrics? PlatformMetrics = null)
+        IPlatformMetrics? PlatformMetrics = null,
+        IPackageAccess? package = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _PlatformMetrics = PlatformMetrics;
+        _package = package;
     }
 
     /// <summary>
@@ -78,7 +83,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             var checkpointing = checkpointingFactory.Create(stateStore);
             var cursor = await checkpointing.ReadCursorAsync("export.identities", ct).ConfigureAwait(false);
             if (cursor?.Stage == CursorStage.Completed
-                && await artefactStore.ExistsAsync(DescriptorsPath, ct).ConfigureAwait(false))
+                && await ExistsInPackageAsync(DescriptorsPath, ct).ConfigureAwait(false))
             {
                 _logger.LogInformation("[Identities] Already exported (cursor found) — skipping re-export.");
                 return;
@@ -114,7 +119,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             await foreach (var descriptor in identitySource.EnumerateIdentitiesAsync(project, ct).ConfigureAwait(false))
             {
                 var line = JsonSerializer.Serialize(descriptor, s_jsonOptions);
-                await artefactStore.AppendAsync(DescriptorsPath, line + "\n", ct).ConfigureAwait(false);
+                await AppendPackageTextAsync(DescriptorsPath, line + "\n", ct).ConfigureAwait(false);
                 count++;
                 _PlatformMetrics?.RecordIdentityExportCount(exportTags);
             }
@@ -184,7 +189,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             Message = "Starting identity import.",
         });
 
-        var descriptorsJson = await artefactStore.ReadAsync(DescriptorsPath, ct).ConfigureAwait(false);
+        var descriptorsJson = await ReadPackageContentAsync(DescriptorsPath, ct).ConfigureAwait(false);
         if (descriptorsJson is null)
         {
             _logger.LogWarning("[Identities] {Path} not found in package — identity mapping will not be available.", DescriptorsPath);
@@ -200,7 +205,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 
         if (identityLookupTool is not null)
         {
-            await identityLookupTool.InitializeAsync(artefactStore, ct).ConfigureAwait(false);
+            await identityLookupTool.InitializeAsync(ct).ConfigureAwait(false);
         }
 
         var resolvedCount = CountLines(descriptorsJson);
@@ -209,13 +214,13 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 
         if (identityLookupTool is not null)
         {
-            await identityLookupTool.WriteUnresolvedAsync(artefactStore, ct).ConfigureAwait(false);
+            await identityLookupTool.WriteUnresolvedAsync(ct).ConfigureAwait(false);
         }
 
         importSw.Stop();
         _PlatformMetrics?.RecordIdentityImportDuration(importSw.Elapsed.TotalMilliseconds, importTags);
 
-        var hasMapping = await artefactStore.ExistsAsync(MappingPath, ct).ConfigureAwait(false);
+        var hasMapping = await ExistsInPackageAsync(MappingPath, ct).ConfigureAwait(false);
         _logger.LogInformation("[Identities] Identity import complete: {Resolved} resolved, mapping overrides: {HasMapping}.", resolvedCount, hasMapping);
         importSink?.Emit(new ProgressEvent
         {
@@ -244,25 +249,13 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             new("operation", "identities.validate")
         };
 
-        var exists = await artefactStore.ExistsAsync(DescriptorsPath, ct).ConfigureAwait(false);
-        if (!exists)
-        {
-            context.Errors.Add(new ValidationError
-            {
-                Path = DescriptorsPath,
-                Message = $"[Identities] Required file '{DescriptorsPath}' is missing from the package."
-            });
-            _PlatformMetrics?.RecordIdentityValidateError(validateTags);
-            return;
-        }
-
-        var content = await artefactStore.ReadAsync(DescriptorsPath, ct).ConfigureAwait(false);
+        var content = await ReadPackageContentAsync(DescriptorsPath, ct).ConfigureAwait(false);
         if (content is null)
         {
             context.Errors.Add(new ValidationError
             {
                 Path = DescriptorsPath,
-                Message = $"[Identities] File '{DescriptorsPath}' exists but could not be read."
+                Message = $"[Identities] Required file '{DescriptorsPath}' is missing from the package."
             });
             _PlatformMetrics?.RecordIdentityValidateError(validateTags);
             return;
@@ -313,5 +306,49 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         }
         return count;
     }
+
+    private async Task<string?> ReadPackageContentAsync(string relativePath, CancellationToken ct)
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        var payload = await _package.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            ct).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
+    }
+
+    private async Task<bool> ExistsInPackageAsync(string relativePath, CancellationToken ct)
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        return await _package.ContentExistsAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            ct).ConfigureAwait(false);
+    }
+
+    private async Task AppendPackageTextAsync(string relativePath, string content, CancellationToken ct)
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
+        await _package.AppendContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            new PackagePayload(stream, "application/x-ndjson"),
+            ct).ConfigureAwait(false);
+    }
+
+    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
+        => relativePath
+            .Replace('\\', '/')
+            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
 }
 

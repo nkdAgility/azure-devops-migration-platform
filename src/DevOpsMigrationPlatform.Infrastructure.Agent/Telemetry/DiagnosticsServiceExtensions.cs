@@ -20,7 +20,7 @@ public static class DiagnosticsServiceExtensions
     /// Registers the diagnostic log pipeline:
     /// <list type="bullet">
     ///   <item><see cref="DiagnosticLogOptions"/> bound from the <c>Diagnostics</c> config section.</item>
-    ///   <item><see cref="PackageLoggerProvider"/> — writes NDJSON to <c>Logs/agent.jsonl</c> in the package.</item>
+    ///   <item><see cref="PackageLoggerProvider"/> — writes NDJSON to <c>.migration/runs/&lt;runId&gt;/logs/diagnostics.ndjson</c> in the package.</item>
     ///   <item><see cref="ControlPlaneLoggerProvider"/> — pushes batches to the control plane diagnostics endpoint.</item>
     /// </list>
     /// </summary>
@@ -30,7 +30,7 @@ public static class DiagnosticsServiceExtensions
         builder.Services.AddOptions<DiagnosticLogOptions>()
             .BindConfiguration(DiagnosticLogOptions.SectionName);
 
-        // Package logger — writes to Logs/agent.jsonl via IArtefactStore.
+        // Package logger — writes to run-scoped diagnostics.ndjson via IPackageAccess.
         builder.Services.AddSingleton<PackageLoggerProvider>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<PackageLoggerProvider>());
         builder.Logging.Services.AddSingleton<ILoggerProvider>(
@@ -64,7 +64,7 @@ public static class DiagnosticsServiceExtensions
         services.AddOptions<DiagnosticLogOptions>()
             .BindConfiguration(DiagnosticLogOptions.SectionName);
 
-        // Package logger — writes to Logs/agent.jsonl via IArtefactStore.
+        // Package logger — writes to run-scoped diagnostics.ndjson via IPackageAccess.
         services.AddSingleton<PackageLoggerProvider>();
         services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<PackageLoggerProvider>());
         services.AddSingleton<ILoggerProvider>(sp => sp.GetRequiredService<PackageLoggerProvider>());

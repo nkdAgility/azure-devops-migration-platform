@@ -12,13 +12,13 @@
 - `AzureBlobArtefactStore`
 - `FileSystemStateStore`
 - `FileSystemPackageStoreFactory`
-- `PackageConfigStore`
+- `PackageMigrationConfigLoader`
 
 ## Validating Tests
 
 - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/FileSystemArtefactStoreTests.cs`
 - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Checkpointing/FileSystemStateStoreTests.cs`
-- `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/PackageConfigStoreTests.cs`
+- `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/PackageMigrationConfigLoaderTests.cs`
 - `tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsJobAgentWorkerTests.cs`
 
 ## Notes
@@ -31,16 +31,12 @@
 sequenceDiagram
   participant JW as JobAgentWorker
   participant PF as IPackageStoreFactory
-  participant AS as IArtefactStore
-  participant SS as IStateStore
-  participant PCS as PackageConfigStore
+  participant PA as IPackageAccess
+  participant PCM as PackageMigrationConfigLoader
 
-  JW->>PF: Create(packageUri)
-  PF-->>JW: (IArtefactStore, IStateStore)
-  JW->>PCS: ReadAsync(IArtefactStore)
-  PCS->>AS: ExistsAsync(migration-config.json)
-  PCS->>AS: ReadAsync(migration-config.json)
-  PCS-->>JW: IConfiguration
-  JW->>SS: Write plan/cursor/phase state
-  JW->>AS: Write logs and artefacts
+  JW->>PCM: LoadAsync(...)
+  PCM->>PA: RequestMetaAsync(MigrationConfig)
+  PCM-->>JW: IConfiguration
+  JW->>PA: PersistMetaAsync / PersistContentAsync
+  JW->>PA: AppendLogAsync / PersistContentAsync
 ```

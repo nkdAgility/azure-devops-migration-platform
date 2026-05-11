@@ -5,6 +5,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Net;
+using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -192,7 +194,7 @@ public sealed class CliRunner
                                                      "..", "..", "..", "..", ".."));
         var stagedLayout = StageExecutableLayout(repoRoot, exePath);
         var cwd = workingDirectory ?? repoRoot;
-        var effectiveTimeout = timeout ?? TimeSpan.FromMinutes(10);
+        var effectiveTimeout = timeout ?? TimeSpan.FromMinutes(1);
 
         var psi = new ProcessStartInfo
         {
@@ -214,10 +216,11 @@ public sealed class CliRunner
         // push telemetry to Application Insights.
         psi.Environment["Telemetry__AzureMonitorConnectionString"] = "";
 
-        // Bind the in-process control plane to a dedicated test port (5101) so that
-        // system tests do not collide with a locally running dev instance on port 5100.
+        // Use an ephemeral control-plane port per CLI run to avoid collisions with
+        // stale test processes and concurrently running local instances.
+        var controlPlaneUrl = $"http://localhost:{GetAvailablePort()}";
         psi.Environment["MigrationPlatform__Environment__ControlPlane__BaseUrl"] =
-            ControlPlaneHostRunner.DefaultUrl;
+            controlPlaneUrl;
 
         foreach (var arg in args)
             psi.ArgumentList.Add(arg);
@@ -379,5 +382,12 @@ public sealed class CliRunner
         {
             // Best-effort cleanup.
         }
+    }
+
+    private static int GetAvailablePort()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        return ((IPEndPoint)listener.LocalEndpoint).Port;
     }
 }

@@ -214,4 +214,9 @@ public static class WellKnownAgentMetricNames
     public const string DependenciesCaptureDurationMs = "platform.dependencies.capture.duration_ms";
     public const string DependenciesCaptureErrors = "platform.dependencies.capture.errors";
     public const string DependenciesCaptureInFlight = "platform.dependencies.capture.in_flight";
+
+    // --- Package Boundary ---
+    public const string PackageBoundaryOperations = "platform.package.boundary.operations";
+    public const string PackageBoundaryErrors = "platform.package.boundary.errors";
+    public const string PackageBoundaryDurationMs = "platform.package.boundary.duration_ms";
 }

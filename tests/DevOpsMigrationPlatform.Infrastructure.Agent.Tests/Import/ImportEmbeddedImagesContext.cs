@@ -6,6 +6,7 @@ using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -22,12 +23,18 @@ public class ImportEmbeddedImagesContext
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
     public Mock<IIdentityLookupTool> MockIdentityMapping { get; } = new(MockBehavior.Loose);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
+    public Mock<IPackageAccess> MockPackage { get; }
 
     public WorkItemsModuleExtensions Extensions { get; set; } = new WorkItemsModuleExtensions();
 
     public string? RevisionJson { get; set; }
     public string? OriginalUrl { get; set; }
     public string? TargetUrl { get; set; }
+
+    public ImportEmbeddedImagesContext()
+    {
+        MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
+    }
 
     public RevisionFolderProcessor BuildProcessor()
     {
@@ -37,7 +44,8 @@ public class ImportEmbeddedImagesContext
             MockCheckpointing.Object,
             MockIdentityMapping.Object,
             MockArtefactStore.Object,
-            NullLogger<RevisionFolderProcessor>.Instance);
+            NullLogger<RevisionFolderProcessor>.Instance,
+            package: MockPackage.Object);
     }
 
     public void SetupMocks()

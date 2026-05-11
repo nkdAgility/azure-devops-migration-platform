@@ -9,16 +9,17 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 
 /// <summary>
-/// Writes <see cref="ProgressEvent"/> records to the migration package log file
-/// (<c>Logs/progress.jsonl</c>) via <see cref="IArtefactStore"/>.
+/// Writes <see cref="ProgressEvent"/> records to the run-scoped package stream
+/// (<c>.migration/runs/&lt;runId&gt;/logs/progress.ndjson</c>) via <see cref="IPackageAccess"/>.
 /// Uses a bounded channel and background drain loop following the same pattern
-/// as <see cref="ControlPlaneProgressSink"/>. The <see cref="IArtefactStore"/> is resolved
+/// as <see cref="ControlPlaneProgressSink"/>. The backing store is resolved
 /// lazily from <see cref="ActivePackageState"/> because it is only available after a
 /// job lease is acquired.
 /// </summary>
@@ -27,23 +28,25 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
     private const int ChannelCapacity = 100;
     private const int FlushBatchSize = 50;
     private static readonly TimeSpan FlushInterval = TimeSpan.FromMilliseconds(500);
-    private const string LogFileName = "progress.jsonl";
 
     private readonly Channel<ProgressEvent> _channel = Channel.CreateBounded<ProgressEvent>(
         new BoundedChannelOptions(ChannelCapacity) { FullMode = BoundedChannelFullMode.DropOldest });
 
     private readonly ActivePackageState _packageState;
+    private readonly IPackageAccess _package;
     private readonly ILogger<PackageProgressSink> _logger;
     private long _droppedCount;
     private volatile IArtefactStore? _lastKnownStore;
-    private volatile string? _lastKnownLogFolder;
+    private volatile string? _lastKnownRunId;
 
     public PackageProgressSink(
         ActivePackageState packageState,
-        ILogger<PackageProgressSink> logger)
+        ILogger<PackageProgressSink> logger,
+        IPackageAccess package)
     {
         _packageState = packageState;
         _logger = logger;
+        _package = package ?? throw new ArgumentNullException(nameof(package));
     }
 
     public void Emit(ProgressEvent evt)
@@ -54,7 +57,7 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
         if (store is not null)
         {
             _lastKnownStore = store;
-            _lastKnownLogFolder = _packageState.CurrentLogFolder;
+            _lastKnownRunId = _packageState.CurrentRunId;
         }
 
         _channel.Writer.TryWrite(evt);
@@ -92,8 +95,6 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
                     continue;
                 }
                 _lastKnownStore = currentStore;
-                _lastKnownLogFolder = _packageState.CurrentLogFolder;
-
                 batch.Clear();
 
                 // Wait for at least one item (with timeout), then drain all immediately
@@ -166,11 +167,20 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
             {
                 sb.AppendLine(JsonSerializer.Serialize(evt));
             }
-            var logFolder = _packageState.CurrentStore is not null
-                ? _packageState.CurrentLogFolder
-                : _lastKnownLogFolder ?? _packageState.CurrentLogFolder;
-            var logPath = $"{logFolder}/{LogFileName}";
-            await store.AppendAsync(logPath, sb.ToString(), cancellationToken).ConfigureAwait(false);
+
+            var payload = sb.ToString();
+            var runId = _packageState.CurrentRunId ?? _lastKnownRunId;
+            if (string.IsNullOrWhiteSpace(runId))
+            {
+                Interlocked.Add(ref _droppedCount, batch.Count);
+                return;
+            }
+
+            using var stream = new System.IO.MemoryStream(Encoding.UTF8.GetBytes(payload), writable: false);
+            await _package.AppendLogAsync(
+                new PackageLogContext(runId!, PackageLogStream.Progress),
+                new PackageLogPayload(stream),
+                cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

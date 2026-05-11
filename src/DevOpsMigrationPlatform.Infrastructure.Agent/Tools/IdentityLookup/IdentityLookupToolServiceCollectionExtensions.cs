@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
@@ -32,12 +33,12 @@ public static class IdentityLookupToolServiceCollectionExtensions
             {
                 state.Current?.GetSection(IdentityLookupOptions.SectionName).Bind(opts);
             });
-        // Scoped so IOptionsSnapshot<IdentityLookupOptions> is resolved per-job scope,
-        // giving each job options from its own migration-config.json.
-        services.AddScoped<IdentityLookupTool>(sp => new IdentityLookupTool(
-            sp.GetRequiredService<IOptionsSnapshot<IdentityLookupOptions>>(),
-            sp.GetService<ILogger<IdentityLookupTool>>()));
-        services.AddScoped<IIdentityLookupTool>(sp => sp.GetRequiredService<IdentityLookupTool>());
+        // Singleton to satisfy singleton consumers in the planning pipeline.
+        services.AddSingleton<IdentityLookupTool>(sp => new IdentityLookupTool(
+            sp.GetRequiredService<IOptions<IdentityLookupOptions>>(),
+            sp.GetService<ILogger<IdentityLookupTool>>(),
+            sp.GetRequiredService<IPackageAccess>()));
+        services.AddSingleton<IIdentityLookupTool>(sp => sp.GetRequiredService<IdentityLookupTool>());
         return services;
     }
 }

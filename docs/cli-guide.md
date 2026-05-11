@@ -60,7 +60,7 @@ Spectre.Console is the only permitted CLI library in command-layer code. Do not 
 │  - Resolves module dependency graph     │
 │  - Runs Inventory / Export / Prepare /       │
 │    Import / Validate / Migrate               │
-│  - Writes package via IArtefactStore    │
+│  - Writes package via IPackageAccess    │
 │  - Writes checkpoints via IStateStore   │
 │  - Emits progress via IProgressSink     │
 └─────────────────────────────────────────┘
@@ -223,7 +223,7 @@ All job management commands live under the `manage` sub-command.
 | `manage list` | List all jobs visible to the authenticated user, with current status and progress. |
 | `manage status` | Display job state and per-module progress for a specific job. |
 | `manage progress` | Fetch a snapshot of `ProgressEvent` records from the job ring buffer. Prints buffered events as NDJSON and exits. Requires `--job`. |
-| `manage diagnostics` | Download package diagnostic log files (`.migration/Logs/agent.jsonl`) for a completed job. Accepts `--level` to filter by minimum severity. Requires `--job`. |
+| `manage diagnostics` | Download package diagnostic log files for a completed job. Current run-scoped logs live under `.migration/runs/<runId>/logs/diagnostics.ndjson`, with legacy fallback support for older flat `.migration/Logs/agent.jsonl` packages. Accepts `--level` to filter by minimum severity. Requires `--job`. |
 | `manage pause` | Signal the running Migration Agent to checkpoint and pause. |
 | `manage resume` | Resume a paused job (re-queues it for Migration Agent pickup). |
 | `manage cancel` | Cancel a queued or running job. |
@@ -408,6 +408,6 @@ The CLI recomputes `configHash` from the config file and queries the control pla
 ### Notes
 
 - `manage status` is a read-only poll — it never affects the running job.
-- `manage progress` returns a snapshot of buffered events — earlier events may be in `.migration/Logs/progress.jsonl` in the package.
-- `manage diagnostics` downloads diagnostic logs from the package's `.migration/Logs/agent.jsonl`.
+- `manage progress` returns a snapshot of buffered events — earlier events may be in `.migration/runs/<runId>/logs/progress.ndjson` in the package, with legacy fallback for older flat `.migration/Logs/progress.jsonl` packages.
+- `manage diagnostics` downloads diagnostic logs from the package's run-scoped `.migration/runs/<runId>/logs/diagnostics.ndjson`, with legacy fallback for older flat `.migration/Logs/agent.jsonl` packages.
 - `manage pause`, `manage resume`, `manage cancel` are the only commands that change job state.

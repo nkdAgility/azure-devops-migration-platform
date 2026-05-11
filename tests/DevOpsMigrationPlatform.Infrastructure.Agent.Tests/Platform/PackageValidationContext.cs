@@ -13,7 +13,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Platform;
 public class PackageValidationContext
 {
     public string? PackageRoot { get; set; }
-    public FileSystemArtefactStore? RealStore { get; set; }
+    public IArtefactStore? RealStore { get; set; }
     public PackageValidator? Sut { get; set; }
     public ValidationResult? LastResult { get; set; }
 

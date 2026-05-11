@@ -29,9 +29,9 @@ public sealed class DiagnosticLogOptions
     public int FlushBatchSize { get; init; } = 50;
 
     /// <summary>
-    /// Maximum size of a single log file segment in megabytes before rotation.
-    /// When <c>Logs/agent.jsonl</c> exceeds this size, subsequent writes go to
-    /// <c>Logs/agent-001.jsonl</c>, <c>agent-002.jsonl</c>, etc.
+    /// Maximum size threshold in megabytes used by the diagnostics drain loop.
+    /// Diagnostic records are persisted to
+    /// <c>.migration/runs/&lt;runId&gt;/logs/diagnostics.ndjson</c>.
     /// Default: 50 MB. Set to 0 to disable rotation.
     /// </summary>
     public int MaxLogFileSizeMB { get; init; } = 50;

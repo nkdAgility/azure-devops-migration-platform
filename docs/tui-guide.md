@@ -85,7 +85,7 @@ interface IProgressSink
 | Sink | Description |
 |---|---|
 | `ConsoleProgressSink` | Renders a live progress log in the terminal (local CLI output). |
-| `PackageProgressSink` | Writes structured events to `.migration/Logs/progress.jsonl` in the package (always active). |
+| `PackageProgressSink` | Writes structured events to `.migration/runs/<runId>/logs/progress.ndjson` in the package (always active). |
 | `ControlPlaneProgressSink` | POSTs each event to `POST /agents/lease/{leaseId}/progress` for real-time TUI streaming. |
 
 All three sinks run simultaneously when the Migration Agent holds a lease. The Job Engine sees only `IProgressSink`; it does not know which sinks are active.

@@ -88,7 +88,7 @@ public static class MigrationAgentServiceExtensions
         builder.Services.AddFieldTransformToolServices();
 
         // Package config store — reads migration-config.json from the package at job pickup.
-        builder.Services.AddPackageConfigStore();
+        builder.Services.AddPackageMigrationConfigLoader();
 
         // Register IModule implementations.
         builder.Services.AddIdentitiesModule(builder.Configuration);
