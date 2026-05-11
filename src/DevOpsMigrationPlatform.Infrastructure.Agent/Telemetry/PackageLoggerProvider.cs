@@ -21,19 +21,16 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 
 /// <summary>
 /// Custom <see cref="ILoggerProvider"/> that captures <c>ILogger</c> output and writes it
-/// as NDJSON <see cref="DiagnosticLogRecord"/> lines to <c>Logs/agent.jsonl</c> in the
-/// migration package via <see cref="IArtefactStore"/>. Uses a bounded channel and
+/// as NDJSON <see cref="DiagnosticLogRecord"/> lines to the run-scoped diagnostics stream
+/// (<c>.migration/runs/&lt;runId&gt;/logs/diagnostics.ndjson</c>) via <see cref="IPackageAccess"/>. Uses a bounded channel and
 /// <see cref="BackgroundService"/> drain loop for non-blocking writes. Respects
-/// <see cref="DiagnosticLogOptions.MinimumLevel"/>. The <see cref="IArtefactStore"/> is
+/// <see cref="DiagnosticLogOptions.MinimumLevel"/>. The backing store is
 /// resolved lazily from <see cref="ActivePackageState"/> because it is only available
 /// after a job lease is acquired.
 /// </summary>
 [ProviderAlias("PackageLogger")]
 public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, IFlushable
 {
-    private const string LogBaseName = "agent";
-    private const string LogExtension = ".jsonl";
-
     private readonly Channel<DiagnosticLogRecord> _channel;
     private readonly ActivePackageState _packageState;
     private readonly IPackageAccess _package;
@@ -47,7 +44,6 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
     private volatile string? _lastKnownRunId;
 
     // Rotation state — only accessed from the drain loop (single-threaded).
-    private int _segmentIndex;
     private long _currentSegmentBytes;
 
     public PackageLoggerProvider(
@@ -70,8 +66,7 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
     }
 
     /// <summary>
-    /// Returns the current log segment path (e.g. <c>Logs/638...-jobId/agent.jsonl</c>,
-    /// <c>Logs/638...-jobId/agent-001.jsonl</c>, etc.).
+    /// Returns the current run-scoped diagnostics stream path.
     /// </summary>
     internal string CurrentLogPath
     {
@@ -80,9 +75,7 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
             var logDir = _packageState.CurrentStore is not null
                 ? _packageState.CurrentLogFolder
                 : _lastKnownLogFolder ?? _packageState.CurrentLogFolder;
-            return _segmentIndex == 0
-                ? $"{logDir}/{LogBaseName}{LogExtension}"
-                : $"{logDir}/{LogBaseName}-{_segmentIndex:D3}{LogExtension}";
+            return $"{logDir}/diagnostics.ndjson";
         }
     }
 
@@ -213,7 +206,6 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
             if (_currentSegmentBytes > 0
                 && _currentSegmentBytes + payloadBytes > _maxSegmentBytes)
             {
-                _segmentIndex++;
                 _currentSegmentBytes = 0;
             }
 

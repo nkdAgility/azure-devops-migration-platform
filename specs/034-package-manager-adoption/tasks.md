@@ -33,17 +33,17 @@
 
 **⚠️ CRITICAL**: No user story work begins until this phase is complete.
 
-- [ ] T006 [P] Align the `IPackageAccess` content API verb surface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/IPackageAccess.cs`
-- [ ] T007 [P] Align the `IPackageContentAddress` module-relative suffix contract in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/IPackageContentAddress.cs`
-- [ ] T008 [P] Align typed content scope and address fields in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageContentContext.cs`
-- [ ] T009 [P] Align the closed content-kind set in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageContentKind.cs`
-- [ ] T010 [P] Align metadata context semantics in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaContext.cs`
-- [ ] T011 [P] Align metadata category definitions in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaKind.cs`
-- [ ] T012 [P] Align run-log context semantics in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogContext.cs`
-- [ ] T013 [P] Align run-log stream definitions in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogStream.cs`
-- [ ] T014 [P] Align content payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackagePayload.cs`
-- [ ] T015 [P] Align metadata payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaPayload.cs`
-- [ ] T016 [P] Align log payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogPayload.cs`
+- [X] T006 [P] Align the `IPackageAccess` content API verb surface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/IPackageAccess.cs`
+- [X] T007 [P] Align the `IPackageContentAddress` module-relative suffix contract in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/IPackageContentAddress.cs`
+- [X] T008 [P] Align typed content scope and address fields in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageContentContext.cs`
+- [X] T009 [P] Align the closed content-kind set in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageContentKind.cs`
+- [X] T010 [P] Align metadata context semantics in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaContext.cs`
+- [X] T011 [P] Align metadata category definitions in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaKind.cs`
+- [X] T012 [P] Align run-log context semantics in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogContext.cs`
+- [X] T013 [P] Align run-log stream definitions in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogStream.cs`
+- [X] T014 [P] Align content payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackagePayload.cs`
+- [X] T015 [P] Align metadata payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageMetaPayload.cs`
+- [X] T016 [P] Align log payload contracts in `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageLogPayload.cs`
 - [X] T017 Add guard tests for abstraction placement and stale contract removal in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryAbstractionsPlacementTests.cs`
 - [X] T018 Implement package-owned prefix routing and unsafe-address rejection in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackagePathRouter.cs`
 - [X] T019 Implement the typed package boundary over persistence stores in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/ActivePackageAccess.cs`
@@ -156,7 +156,7 @@
 - [ ] T069 [P] Update canonical package layout guidance in `docs/package-format-reference.md`
 - [X] T070 [P] Add package-boundary observability assertions for spans, metrics, `job.id`, outcome, duration, and correlation fields in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryObservabilityTests.cs`
 - [X] T071 [P] Add runtime no-bypass enforcement audit tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageRuntimeBoundaryEnforcementTests.cs`
-- [ ] T072 [P] Add no-new-callsite enforcement for the legacy shim in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/LegacyPackagePathShimUsageTests.cs`
+- [X] T072 [P] Add no-new-callsite enforcement for the legacy shim in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/LegacyPackagePathShimUsageTests.cs`
 - [X] T073 [P] Add failure-path observability tests for structured error logs with `job.id` and correlation fields in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageBoundaryErrorObservabilityTests.cs`
 - [X] T074 [P] Add active-run log rotation continuity tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackageLogRotationContinuityTests.cs`
 - [X] T075 Run full build, full test, and representative scenario validation from `specs/034-package-manager-adoption/quickstart.md`

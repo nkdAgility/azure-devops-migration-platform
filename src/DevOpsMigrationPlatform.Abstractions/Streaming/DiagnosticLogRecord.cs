@@ -7,7 +7,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Streaming;
 
 /// <summary>
 /// Structured diagnostic log record derived from <c>ILogger</c> output.
-/// Each record is serialised as one NDJSON line in <c>Logs/agent.jsonl</c>.
+/// Each record is serialised as one NDJSON line in
+/// <c>.migration/runs/&lt;runId&gt;/logs/diagnostics.ndjson</c>.
 /// </summary>
 public record DiagnosticLogRecord
 {

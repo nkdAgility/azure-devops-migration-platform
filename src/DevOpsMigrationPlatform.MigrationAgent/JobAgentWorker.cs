@@ -797,7 +797,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         }
 
         var terminal = failed ? "fail" : "complete";
-        // Flush buffered sinks (progress.jsonl, agent.jsonl) BEFORE signalling completion.
+        // Flush buffered sinks (progress.ndjson, diagnostics.ndjson) BEFORE signalling completion.
         // The CLI kills this process as soon as it receives the terminal status from the
         // control plane. OnPostJobFlushAsync (base class) runs AFTER SignalTerminalAsync,
         // so without this pre-signal flush, async-batched sinks may never write their data.

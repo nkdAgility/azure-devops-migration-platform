@@ -16,10 +16,10 @@ using Microsoft.Extensions.Logging;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 
 /// <summary>
-/// Writes <see cref="ProgressEvent"/> records to the migration package log file
-/// (<c>Logs/progress.jsonl</c>) via <see cref="IArtefactStore"/>.
+/// Writes <see cref="ProgressEvent"/> records to the run-scoped package stream
+/// (<c>.migration/runs/&lt;runId&gt;/logs/progress.ndjson</c>) via <see cref="IPackageAccess"/>.
 /// Uses a bounded channel and background drain loop following the same pattern
-/// as <see cref="ControlPlaneProgressSink"/>. The <see cref="IArtefactStore"/> is resolved
+/// as <see cref="ControlPlaneProgressSink"/>. The backing store is resolved
 /// lazily from <see cref="ActivePackageState"/> because it is only available after a
 /// job lease is acquired.
 /// </summary>

@@ -15,7 +15,7 @@ namespace DevOpsMigrationPlatform.CLI.Commands.Manage;
 /// <summary>
 /// Reports the location of diagnostic logs for a completed job.
 /// Diagnostic logs are stored in the job's working directory under
-/// <c>.migration/Logs/&lt;ticks&gt;-&lt;jobId&gt;/agent.jsonl</c>.
+/// <c>.migration/runs/&lt;runId&gt;/logs/diagnostics.ndjson</c>.
 /// See docs/cli.md for full specification.
 /// </summary>
 public sealed class ManageDiagnosticsCommand : ControlPlaneCommandBase<ManageDiagnosticsCommand.Settings>
@@ -37,8 +37,8 @@ public sealed class ManageDiagnosticsCommand : ControlPlaneCommandBase<ManageDia
         CancellationToken cancellationToken = default)
     {
         AnsiConsole.MarkupLine("[yellow]Diagnostic logs are stored in the job's working directory:[/]");
-        AnsiConsole.MarkupLine("[grey].migration/Logs/<ticks>-<jobId>/agent.jsonl[/]");
-        AnsiConsole.MarkupLine("[grey]Use the --job option to identify the correct job folder.[/]");
+        AnsiConsole.MarkupLine("[grey].migration/runs/<runId>/logs/diagnostics.ndjson[/]");
+        AnsiConsole.MarkupLine("[grey]Use --job to resolve the run-scoped diagnostics path from the control plane.[/]");
         if (!string.IsNullOrWhiteSpace(settings.JobId))
             AnsiConsole.MarkupLine($"[grey]Job ID: {settings.JobId}[/]");
         return Task.FromResult(0);
