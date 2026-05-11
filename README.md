@@ -51,13 +51,17 @@ Stages run left-to-right: **Capture** → **Export** → **Prepare** → **Impor
 | | Identities | ✅ | ✅ | 🔜 | 🔜 | 📋 |
 | | Area & Iteration Nodes | ✅ | ✅ | 🔜 | 🔜 | 📋 |
 | | Teams | ✅ | ✅ | 🔜 | 🔜 | 📋 |
+| | Test Plans | 📋 | 📋 | 📋 | 📋 | 📋 |
+| | Shared Queries | 📋 | 📋 | 📋 | 📋 | 📋 |
 | | Git Repositories | ✅ | 🔜 | 🔜 | 🔜 | 📋 |
 | | Pipelines | 🔜 | 🔜 | 🔜 | 🔜 | 📋 |
 | | Permissions | 🔜 | 🔜 | 🔜 | 🔜 | 📋 |
 | **Team Foundation Server** | Work Items | 🚧 | 🚧 | 📋 | 📋 | 📋 |
 | | Identities | 🚧 | 🚧 | 📋 | 📋 | 📋 |
 | | Area & Iteration Nodes | 🚧 | 🚧 | 📋 | 📋 | 📋 |
-| | Teams | 🚧 | 🚧 | 📋 | 📋 | 📋 |📋
+| | Teams | 🚧 | 🚧 | 📋 | 📋 | 📋 |
+| | Test Plans | 📋 | 📋 | 📋 | 📋 | 📋 |
+| | Shared Queries | 📋 | 📋 | 📋 | 📋 | 📋 |
 | | Git Repositories | 📋 | 📋 | 📋 | 📋 | 📋 |
 | | TFVC Repositories* | ❌ | ❌ | ❌ | ❌ | ❌ |
 | | Pipelines | 🔜 | 🔜 | 📋 | 📋 | 📋 |
@@ -83,7 +87,7 @@ Stages run left-to-right: **Capture** → **Export** → **Prepare** → **Impor
 | FieldTransform | ✅ | Apply declarative field-rewrite rules to each work item revision |
 | NodeTranslation | ✅ | Translate area and iteration path strings against configured mappings |
 | IdentityLookup | ✅ | Resolve and remap user identities across organisations |
-
+| WorkItemTypeTranslation | 📋 | Remap work item type names between source and target (e.g., User Story → Product Backlog Item) |
 ---
 
 ## Install
