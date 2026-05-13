@@ -1,0 +1,346 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Import Readiness Report",
+  "description": "Schema for ImportReadinessReport written to .mission/Readiness/workitems-import-readiness.json",
+  "type": "object",
+  "required": [
+    "preparedAt",
+    "toolVersion",
+    "isReadyForImport",
+    "scope",
+    "nodeFindings",
+    "typeFindings",
+    "identityFindings",
+    "artefactFindings",
+    "fieldTransformFindings",
+    "blockingIssues",
+    "warnings",
+    "operatorNotes"
+  ],
+  "properties": {
+    "preparedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when prepare phase completed"
+    },
+    "toolVersion": {
+      "type": "string",
+      "description": "Semantic version of migration tool that produced this report"
+    },
+    "isReadyForImport": {
+      "type": "boolean",
+      "description": "True if all blocking issues resolved or explicitly skipped by operator"
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "totalWorkItems",
+        "totalRevisions",
+        "totalAttachments",
+        "totalEmbeddedImages"
+      ],
+      "properties": {
+        "totalWorkItems": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of work items in package"
+        },
+        "totalRevisions": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of revision folders in package"
+        },
+        "totalAttachments": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of attachment binaries in package"
+        },
+        "totalEmbeddedImages": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of embedded image binaries in package"
+        }
+      }
+    },
+    "nodeFindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "type",
+          "status"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Node path (area or iteration)"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "Area",
+              "Iteration"
+            ],
+            "description": "Node type"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ReferencedInPackage",
+              "ExistsOnTarget",
+              "WillBeCreated",
+              "Missing",
+              "TranslationError"
+            ],
+            "description": "Node readiness status"
+          },
+          "translatedPath": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Translated target path (if translation applied)"
+          },
+          "errorMessage": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Error details if status indicates error"
+          }
+        }
+      },
+      "description": "Node readiness findings for area and iteration paths"
+    },
+    "typeFindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "typeName",
+          "count",
+          "status"
+        ],
+        "properties": {
+          "typeName": {
+            "type": "string",
+            "description": "Work item type name"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Count of work items of this type"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SupportedOnTarget",
+              "UnsupportedOnTarget",
+              "Error"
+            ],
+            "description": "Type compatibility status"
+          },
+          "errorMessage": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Error details if status indicates error"
+          }
+        }
+      },
+      "description": "Work item type compatibility findings"
+    },
+    "identityFindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "sourceId",
+          "sourceDisplay",
+          "status"
+        ],
+        "properties": {
+          "sourceId": {
+            "type": "string",
+            "description": "Source identity ID"
+          },
+          "sourceDisplay": {
+            "type": "string",
+            "description": "Source display name or email"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Mapped",
+              "Unmapped",
+              "Error"
+            ],
+            "description": "Mapping status"
+          },
+          "targetId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Target identity ID (if mapped)"
+          },
+          "operatorDecision": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "Block",
+              "UseDefault",
+              "Skip",
+              null
+            ],
+            "description": "Operator decision for unmapped identities"
+          }
+        }
+      },
+      "description": "Identity mapping findings"
+    },
+    "artefactFindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "artefactType",
+          "path",
+          "status"
+        ],
+        "properties": {
+          "artefactType": {
+            "type": "string",
+            "enum": [
+              "RevisionFolder",
+              "Attachment",
+              "EmbeddedImage"
+            ],
+            "description": "Type of package artefact"
+          },
+          "path": {
+            "type": "string",
+            "description": "Relative path to artefact in package"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Present",
+              "Missing",
+              "Invalid"
+            ],
+            "description": "Artefact presence status"
+          },
+          "errorMessage": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Error details if artefact missing or invalid"
+          }
+        }
+      },
+      "description": "Package artefact validation findings"
+    },
+    "fieldTransformFindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "workItemType",
+          "fieldName",
+          "status"
+        ],
+        "properties": {
+          "workItemType": {
+            "type": "string",
+            "description": "Work item type this transform applies to"
+          },
+          "fieldName": {
+            "type": "string",
+            "description": "Field name referenced by transform rule"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "FieldExists",
+              "FieldMissing",
+              "TypeError"
+            ],
+            "description": "Field compatibility status"
+          },
+          "errorMessage": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Error details if field missing or type mismatch"
+          }
+        }
+      },
+      "description": "Field transformation compatibility findings"
+    },
+    "blockingIssues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "category",
+          "description",
+          "recommendation"
+        ],
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "MissingNodePath",
+              "UnsupportedWorkItemType",
+              "MissingArtefact",
+              "FieldTransformError",
+              "Other"
+            ],
+            "description": "Issue category"
+          },
+          "description": {
+            "type": "string",
+            "description": "Human-readable issue description"
+          },
+          "recommendation": {
+            "type": "string",
+            "description": "Recommended corrective action"
+          }
+        }
+      },
+      "description": "Blocking issues that prevent import"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "category",
+          "message"
+        ],
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Warning category (e.g., UnresolvedIdentity, LargeAttachment)"
+          },
+          "message": {
+            "type": "string",
+            "description": "Warning message"
+          }
+        }
+      },
+      "description": "Non-blocking warnings for operator awareness"
+    },
+    "operatorNotes": {
+      "type": "string",
+      "description": "Optional notes added by operator during prepare review (e.g., decisions on unmapped identities)"
+    }
+  }
+}

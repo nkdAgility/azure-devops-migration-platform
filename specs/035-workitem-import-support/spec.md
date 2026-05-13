@@ -10,6 +10,7 @@
 ### Session 2026-05-11
 
 - Q: What is the minimum work item import slice that must be in scope for this feature? → A: It must include revision replay, links, embedded images, and attachments at a minimum, along with the levers that enable, disable, or otherwise control those behaviours.
+- Q: What export completeness must prepare validate? → A: The prepare phase must validate that the exported package contains all necessary artefacts for each enabled import category (revision folders, attachment binaries, embedded image binaries, field values that can be transformed).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -27,6 +28,8 @@ As a migration operator, I want a prepare pass to tell me whether the exported p
 2. **Given** an exported package containing work item types that do not exist on the target, **When** the operator runs prepare, **Then** the package records those type mismatches as blocking findings and import is not allowed to start.
 3. **Given** an exported package whose identities include unresolved mappings, **When** the operator runs prepare, **Then** the package records the unresolved identities for operator review without treating them as a blocking failure by default.
 4. **Given** all required package artefacts, node paths, and work item types are valid, **When** the operator runs prepare, **Then** the package records a successful readiness result and import can proceed without rerunning source-side discovery.
+5. **Given** an exported package with attachment replay enabled but required attachment binaries missing, **When** the operator runs prepare, **Then** the package records missing attachment artefacts as a blocking finding and import is not allowed to start.
+6. **Given** an exported package with embedded image replay enabled but required embedded image binaries missing, **When** the operator runs prepare, **Then** the package records missing embedded image artefacts as a blocking finding and import is not allowed to start.
 
 ---
 
@@ -107,6 +110,10 @@ As a migration operator, I want declarative field transformation rules to run du
 - What happens when no explicit identity mapping exists for a person referenced by a revision? The prepare pass must surface the unresolved identity for review and the import behaviour must remain deterministic.
 - What happens when attachments or embedded images are disabled for a run? The revision replay must remain deterministic, skip only the disabled artefact categories, and record that those categories were intentionally not replayed.
 - What happens when a package references an attachment or embedded image binary that is missing? The run must follow the configured skip-or-halt policy for that artefact type and keep the outcome visible to the operator.
+- What happens when a revision folder referenced by a work item does not exist in the package? The prepare phase must record this as a blocking finding so the operator can verify export completeness.
+- What happens when attachment metadata references binaries that do not exist in the package? The prepare phase must record missing attachment artefacts as blocking when attachment replay is enabled.
+- What happens when embedded image metadata references binaries that do not exist in the package? The prepare phase must record missing embedded image artefacts as blocking when embedded image replay is enabled.
+- What happens when FieldTransform rules reference fields that do not exist in the exported work items? The prepare phase must record the field mismatch and import must not start until the transform rules are corrected.
 
 ## Requirements *(mandatory)*
 
@@ -117,6 +124,10 @@ As a migration operator, I want declarative field transformation rules to run du
 - **FR-003**: The prepare phase MUST treat missing required node paths as blocking when automatic node creation is disabled.
 - **FR-004**: The prepare phase MUST treat unsupported target work item types found in the package as blocking.
 - **FR-005**: The prepare phase MUST surface unresolved identities for operator review without blocking import by default.
+- **FR-005a**: The prepare phase MUST validate that exported revision folders exist in the package for each work item in scope for import.
+- **FR-005b**: The prepare phase MUST validate that required attachment binaries are present in the package when attachment replay is enabled.
+- **FR-005c**: The prepare phase MUST validate that required embedded image binaries are present in the package when embedded image replay is enabled.
+- **FR-005d**: The prepare phase MUST validate that field values referenced by FieldTransform rules exist in the exported revisions and can be transformed without type conflicts.
 - **FR-006**: Import MUST ensure mandatory area and iteration paths exist on the target before the first work item revision is applied.
 - **FR-007**: Import MUST support both referenced-path creation and full source-tree replication as node-readiness strategies, driven by NodeTranslation configuration.
 - **FR-008**: Import MUST apply NodeTranslation rules consistently to area and iteration paths used during node readiness and during work item field replay.
