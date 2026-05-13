@@ -59,6 +59,7 @@ CLI/TUI → Control Plane → Agent → Source → Package → Agent → Target
 | `agent_runtime_context` | [agent-runtime-context.md](agent-runtime-context.md) | Materialize `Job.ConfigPayload` into package config and expose context accessors |
 | `agent_checkpoint_phase_tracking` | [agent-checkpoint-phase-tracking.md](agent-checkpoint-phase-tracking.md) | Persist cursors and phase records for deterministic resume and force-fresh semantics |
 | `agent_validation_safety` | [agent-validation-safety.md](agent-validation-safety.md) | Validate package invariants and enforce fail-fast behavior |
+| `agent_failure_pattern_checks` | [agent-failure-pattern-checks.md](agent-failure-pattern-checks.md) | Define composable Prepare-time import failure checks and aggregate readiness gating semantics |
 
 ## Guardrails
 

@@ -14,6 +14,7 @@ Context does not override guardrails. If context conflicts with guardrails, the 
 | `domain-model.md` | Core domain concepts: Package, Job, Phase, Module, Connector, etc. |
 | `terminology.md` | Canonical terms and terms to avoid |
 | `architecture/readme.md` | Compressed component map, data flow, telemetry channels, and Migration Agent subsystem index |
+| `architecture/agent-failure-pattern-checks.md` | Prepare-time import failure pattern contract and aggregate readiness semantics |
 | `architecture/agent-package-boundary.md` | Typed package boundary above raw persistence: authoritative metadata, run-audit mirroring, and run-log routing |
 | `pipeline-phases.md` | Five phases and Migrate mode — what each does, outputs, rules |
 | `migration-package-concept.md` | Package layout specification — what the package is, structure, paths |

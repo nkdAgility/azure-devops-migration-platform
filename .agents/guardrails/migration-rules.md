@@ -127,6 +127,17 @@ Write cursor after each stage. Never skip/reorder. On crash, resume from next in
 - `PrepareAsync`: reads package via `IArtefactStore`, connects to target via injected services, writes `<Module>/prepare-report.json`. Idempotent. Does NOT connect to source. Does NOT modify operator-edited mapping files.
 - Blocking issue → Import aborts. `Migrate` mode aborts after Prepare.
 
+### Import Failure Pattern Checks (Prepare)
+
+- Import-capable modules that perform failure-pattern readiness checks MUST use a composable `IImportFailurePattern` list evaluated during `PrepareAsync`.
+- Each `IImportFailurePattern` checks one failure class and MAY emit multiple findings from a single assessment.
+- Findings MUST be structured with stable machine identifiers and evidence keys so reruns can be diffed without text matching.
+- Aggregate readiness MUST be computed from all findings with exactly two outcomes: `Ready` or `ChangesRequired`.
+- Any blocking finding MUST set readiness to `ChangesRequired` and MUST keep existing import gate semantics (Import aborts until corrected and Prepare is rerun).
+- Warning findings MUST remain visible in reports and telemetry but MUST NOT block import by default.
+- New failure classes MUST be added by introducing a new `IImportFailurePattern` implementation, not by changing orchestrator phase-gate flow.
+- Failure-pattern checks are package-and-target only: source-system calls in these checks are forbidden.
+
 ---
 
 ## Validation

@@ -63,6 +63,7 @@ See:
 | UI mode contract | `docs/ui-mode-contract.md` |
 | CLI commands | `.agents/context/cli-commands.md` |
 | UI mode summary | `.agents/context/ui-mode-summary.md` |
+| Failure patterns (Prepare/import) | `.agents/context/architecture/agent-failure-pattern-checks.md` |
 | Validation | `docs/validation.md` |
 | Identity/mapping | `.agents/context/identity-and-mapping.md` |
 | Package zip | `docs/package-format-reference.md` |
@@ -110,6 +111,7 @@ See:
    - [job-lifecycle.md](.agents/context/job-lifecycle.md) — Job contract specification
    - [telemetry-model.md](.agents/context/telemetry-model.md) — Telemetry layer model and metric addition guide
    - [ui-mode-summary.md](.agents/context/ui-mode-summary.md) — CLI/TUI mode-to-view contract summary
+   - [architecture/agent-failure-pattern-checks.md](.agents/context/architecture/agent-failure-pattern-checks.md) — Prepare/import failure-pattern contract for composable checks and readiness outcomes
    - [identity-and-mapping.md](.agents/context/identity-and-mapping.md) — Identity mapping service
 
 3. **State your understanding** of which guardrails apply to the current task
