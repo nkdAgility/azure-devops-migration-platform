@@ -91,6 +91,7 @@ public sealed class WorkItemsModule : IModule
 #if !NET481
     private readonly IReferencedPathTracker? _referencedPathTracker;
     private readonly INodesOrchestrator? _nodesOrchestrator;
+    private readonly NodeReadinessOrchestrator? _nodeReadinessOrchestrator;
 #endif
     private readonly IPackageAccess? _package;
     private readonly IOptions<WorkItemsModuleOptions> _options;
@@ -128,6 +129,7 @@ public sealed class WorkItemsModule : IModule
 #if !NET481
         IReferencedPathTracker? referencedPathTracker = null,
         INodesOrchestrator? nodesOrchestrator = null,
+        NodeReadinessOrchestrator? nodeReadinessOrchestrator = null,
 #endif
         IIdentityLookupTool? identityLookupTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
@@ -158,6 +160,7 @@ public sealed class WorkItemsModule : IModule
 #if !NET481
         _referencedPathTracker = referencedPathTracker;
         _nodesOrchestrator = nodesOrchestrator;
+        _nodeReadinessOrchestrator = nodeReadinessOrchestrator;
 #endif
         _identityLookupTool = identityLookupTool;
         _repoDiscoveryService = repoDiscoveryService;
@@ -678,14 +681,24 @@ public sealed class WorkItemsModule : IModule
         // Derive the SQLite idmap.db from the package URI (legacy fallback handled by factory)
         var idMapStore = _idMapStoreFactory.CreateFromPackageUri(job.Package.PackageUri);
 
-        // NodesOrchestrator: pre-create missing classification nodes before the revision import loop.
-        if (_nodesOrchestrator == null)
-            _logger.LogWarning("[WorkItems] NodesOrchestrator is not available — AutoCreateNodes will be skipped. Register INodesOrchestrator to enable import-side node creation.");
+        var sourceProjectName = _sourceEndpointInfo.Project;
+        var nodeReadinessContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectName, project);
+        if (_nodeReadinessOrchestrator is not null)
+        {
+            await _nodeReadinessOrchestrator
+                .ExecuteAsync(nodeReadinessContext, replicateSourceTree: false, ct)
+                .ConfigureAwait(false);
+        }
+        else if (_nodesOrchestrator is not null)
+        {
+            _logger.LogWarning("[WorkItems] NodeReadinessOrchestrator is not available — falling back to INodesOrchestrator.EnsureReferencedPathsAsync.");
+            await _nodesOrchestrator
+                .EnsureReferencedPathsAsync(nodeReadinessContext, context.ArtefactStore, ct, _metrics, job.JobId)
+                .ConfigureAwait(false);
+        }
         else
         {
-            var sourceProjectName = _sourceEndpointInfo.Project;
-            var ensurerContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectName, project);
-            await _nodesOrchestrator.EnsureReferencedPathsAsync(ensurerContext, context.ArtefactStore, ct, _metrics, job.JobId).ConfigureAwait(false);
+            _logger.LogWarning("[WorkItems] No node readiness orchestrator is available — node readiness dispatch will be skipped.");
         }
 
         // Build processor — use NodeTranslation-aware overload when available.

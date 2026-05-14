@@ -7,6 +7,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import.FailurePatterns;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -62,6 +63,9 @@ public static class ModuleServiceCollectionExtensions
         services.AddTransient<IImportFailurePattern, MissingAttachmentBinaryImportFailurePattern>();
         services.AddTransient<IImportFailurePattern, MissingEmbeddedImageBinaryImportFailurePattern>();
         services.AddTransient<IImportFailurePattern, FieldTransformCompatibilityImportFailurePattern>();
+#if !NET481
+        services.AddSingleton<NodeReadinessOrchestrator>();
+#endif
         services.AddTransient<IModule, WorkItemsModule>();
         return services;
     }

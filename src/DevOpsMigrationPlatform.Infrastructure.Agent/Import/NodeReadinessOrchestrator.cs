@@ -20,7 +20,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 /// Ensures required area and iteration paths exist before work item revision replay begins.
 /// Supports referenced-path creation and optional full source-tree replication.
 /// </summary>
-internal sealed class NodeReadinessOrchestrator
+public sealed class NodeReadinessOrchestrator
 {
     private const string ReferencedPathsPath = "Nodes/referenced-paths.json";
     private const string SourceTreePath = "Nodes/source-tree.json";
