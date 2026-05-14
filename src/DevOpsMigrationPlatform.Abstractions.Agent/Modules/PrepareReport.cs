@@ -27,6 +27,7 @@ public sealed record PrepareReport
     public IReadOnlyList<ArtefactFinding> ArtefactFindings { get; init; } = [];
     public IReadOnlyList<FieldTransformFinding> FieldTransformFindings { get; init; } = [];
     public WorkItemsPrepareReadinessResult? Readiness { get; init; }
+    public ImportReadinessReport? ImportReadinessReport { get; init; }
     public IReadOnlyList<ImportFailureFinding> FailureFindings { get; init; } = [];
     public DateTimeOffset GeneratedAt { get; init; } = DateTimeOffset.UtcNow;
 }

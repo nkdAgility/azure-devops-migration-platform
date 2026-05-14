@@ -66,6 +66,12 @@ public sealed class WorkItemsModulePrepareTests
         Assert.AreEqual(2, report.FailureFindings.Count);
         Assert.AreEqual(2, report.ArtefactFindings.Count);
         Assert.AreEqual(0, report.FieldTransformFindings.Count);
+        Assert.IsNotNull(report.ImportReadinessReport);
+        Assert.AreEqual(2, report.ImportReadinessReport.Findings.Count);
+        Assert.AreEqual(2, report.ImportReadinessReport.BlockingCount);
+        Assert.AreEqual(0, report.ImportReadinessReport.WarningCount);
+        Assert.AreEqual(2, report.ImportReadinessReport.ArtefactFindings.Count);
+        Assert.AreEqual(0, report.ImportReadinessReport.FieldTransformFindings.Count);
         CollectionAssert.AreEquivalent(
             new[] { ArtefactFindingType.Attachment, ArtefactFindingType.EmbeddedImage },
             report.ArtefactFindings.Select(i => i.ItemType).ToArray());
@@ -120,6 +126,12 @@ public sealed class WorkItemsModulePrepareTests
         Assert.AreEqual(0, report.FailureFindings.Count);
         Assert.AreEqual(0, report.ArtefactFindings.Count);
         Assert.AreEqual(0, report.FieldTransformFindings.Count);
+        Assert.IsNotNull(report.ImportReadinessReport);
+        Assert.AreEqual(0, report.ImportReadinessReport.Findings.Count);
+        Assert.AreEqual(0, report.ImportReadinessReport.BlockingCount);
+        Assert.AreEqual(0, report.ImportReadinessReport.WarningCount);
+        Assert.AreEqual(0, report.ImportReadinessReport.ArtefactFindings.Count);
+        Assert.AreEqual(0, report.ImportReadinessReport.FieldTransformFindings.Count);
 
         artefactStore.VerifyAll();
     }
@@ -163,6 +175,12 @@ public sealed class WorkItemsModulePrepareTests
         Assert.AreEqual(FieldTransformFindingStatus.FieldNotFound, report.FieldTransformFindings[0].Status);
         Assert.AreEqual("Custom.State", report.FieldTransformFindings[0].FieldName);
         Assert.AreEqual("MapState", report.FieldTransformFindings[0].TransformRule);
+        Assert.IsNotNull(report.ImportReadinessReport);
+        Assert.AreEqual(1, report.ImportReadinessReport.Findings.Count);
+        Assert.AreEqual(1, report.ImportReadinessReport.BlockingCount);
+        Assert.AreEqual(0, report.ImportReadinessReport.WarningCount);
+        Assert.AreEqual(0, report.ImportReadinessReport.ArtefactFindings.Count);
+        Assert.AreEqual(1, report.ImportReadinessReport.FieldTransformFindings.Count);
 
         artefactStore.VerifyAll();
     }

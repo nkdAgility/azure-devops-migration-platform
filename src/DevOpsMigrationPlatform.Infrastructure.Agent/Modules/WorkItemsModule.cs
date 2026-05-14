@@ -415,6 +415,11 @@ public sealed class WorkItemsModule : IModule
             .ToList();
         var artefactFindings = MapArtefactFindings(failureFindings);
         var fieldTransformFindings = MapFieldTransformFindings(failureFindings);
+        var importReadinessReport = ImportReadinessReport.Create(
+            readiness,
+            failureFindings,
+            artefactFindings,
+            fieldTransformFindings);
 
         var resolvedCount = await CountRevisionArtefactsAsync(context, ct).ConfigureAwait(false);
 
@@ -426,6 +431,7 @@ public sealed class WorkItemsModule : IModule
             ArtefactFindings = artefactFindings,
             FieldTransformFindings = fieldTransformFindings,
             Readiness = readiness,
+            ImportReadinessReport = importReadinessReport,
             FailureFindings = failureFindings
         };
     }
