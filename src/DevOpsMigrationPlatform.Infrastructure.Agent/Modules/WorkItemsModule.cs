@@ -414,6 +414,7 @@ public sealed class WorkItemsModule : IModule
                 f.Severity == ImportFailureSeverity.Blocking ? PrepareIssueSeverity.Blocking : PrepareIssueSeverity.Warning))
             .ToList();
         var artefactFindings = MapArtefactFindings(failureFindings);
+        var fieldTransformFindings = MapFieldTransformFindings(failureFindings);
 
         var resolvedCount = await CountRevisionArtefactsAsync(context, ct).ConfigureAwait(false);
 
@@ -423,6 +424,7 @@ public sealed class WorkItemsModule : IModule
             ResolvedCount = resolvedCount,
             UnresolvedItems = unresolvedItems,
             ArtefactFindings = artefactFindings,
+            FieldTransformFindings = fieldTransformFindings,
             Readiness = readiness,
             FailureFindings = failureFindings
         };
@@ -470,6 +472,35 @@ public sealed class WorkItemsModule : IModule
         return findings;
     }
 
+    private static IReadOnlyList<FieldTransformFinding> MapFieldTransformFindings(IReadOnlyList<ImportFailureFinding> failureFindings)
+    {
+        var findings = new List<FieldTransformFinding>();
+        foreach (var failureFinding in failureFindings.Where(f => f.PatternCode == FieldTransformCompatibilityImportFailurePattern.Code))
+        {
+            var segments = failureFinding.EvidenceKey.Split('|');
+            if (segments.Length >= 4
+                && Enum.TryParse(segments[0], ignoreCase: true, out FieldTransformFindingStatus status))
+            {
+                findings.Add(new FieldTransformFinding(
+                    segments[2],
+                    segments[3],
+                    segments[1],
+                    status,
+                    failureFinding.SuggestedAction));
+                continue;
+            }
+
+            findings.Add(new FieldTransformFinding(
+                failureFinding.EvidenceKey,
+                "Unknown",
+                failureFinding.PatternCode,
+                FieldTransformFindingStatus.Error,
+                failureFinding.SuggestedAction));
+        }
+
+        return findings;
+    }
+
     private static async Task<int> CountRevisionArtefactsAsync(PrepareContext context, CancellationToken ct)
     {
         var resolvedCount = 0;
@@ -491,7 +522,8 @@ public sealed class WorkItemsModule : IModule
             new MissingRevisionArtefactImportFailurePattern(),
             new InvalidRevisionPayloadImportFailurePattern(),
             new MissingAttachmentBinaryImportFailurePattern(),
-            new MissingEmbeddedImageBinaryImportFailurePattern()
+            new MissingEmbeddedImageBinaryImportFailurePattern(),
+            new FieldTransformCompatibilityImportFailurePattern()
         ];
     }
 

@@ -61,6 +61,7 @@ public static class ModuleServiceCollectionExtensions
         services.AddTransient<IImportFailurePattern, InvalidRevisionPayloadImportFailurePattern>();
         services.AddTransient<IImportFailurePattern, MissingAttachmentBinaryImportFailurePattern>();
         services.AddTransient<IImportFailurePattern, MissingEmbeddedImageBinaryImportFailurePattern>();
+        services.AddTransient<IImportFailurePattern, FieldTransformCompatibilityImportFailurePattern>();
         services.AddTransient<IModule, WorkItemsModule>();
         return services;
     }

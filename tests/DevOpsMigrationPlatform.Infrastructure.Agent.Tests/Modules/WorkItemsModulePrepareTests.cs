@@ -14,7 +14,6 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
-using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -66,6 +65,7 @@ public sealed class WorkItemsModulePrepareTests
         Assert.AreEqual(WorkItemsPrepareReadinessResult.ChangesRequired, report.Readiness);
         Assert.AreEqual(2, report.FailureFindings.Count);
         Assert.AreEqual(2, report.ArtefactFindings.Count);
+        Assert.AreEqual(0, report.FieldTransformFindings.Count);
         CollectionAssert.AreEquivalent(
             new[] { ArtefactFindingType.Attachment, ArtefactFindingType.EmbeddedImage },
             report.ArtefactFindings.Select(i => i.ItemType).ToArray());
@@ -119,6 +119,50 @@ public sealed class WorkItemsModulePrepareTests
         Assert.AreEqual(WorkItemsPrepareReadinessResult.Ready, report.Readiness);
         Assert.AreEqual(0, report.FailureFindings.Count);
         Assert.AreEqual(0, report.ArtefactFindings.Count);
+        Assert.AreEqual(0, report.FieldTransformFindings.Count);
+
+        artefactStore.VerifyAll();
+    }
+
+    [TestMethod]
+    public async Task PrepareAsync_WritesFieldTransformFinding_WhenConfiguredFieldIsMissingFromExportedRevisions()
+    {
+        var revisionPath = "WorkItems/2026-05-13/638827200000000000-42-0/revision.json";
+        string? writtenReport = null;
+
+        var artefactStore = new Mock<IArtefactStore>(MockBehavior.Strict);
+        artefactStore
+            .Setup(s => s.EnumerateAsync("WorkItems/", It.IsAny<CancellationToken>()))
+            .Returns(EnumerateSingleAsync(revisionPath));
+        artefactStore
+            .Setup(s => s.WriteAsync("WorkItems/prepare-report.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, CancellationToken>((_, payload, _) => writtenReport = payload)
+            .Returns(Task.CompletedTask);
+
+        var module = CreateModule(
+        [
+            new TestImportFailurePattern([
+                new ImportFailureFinding(
+                    "WORKITEMS_PREPARE_FIELD_TRANSFORM_COMPATIBILITY",
+                    ImportFailureSeverity.Blocking,
+                    "FieldNotFound|MapState|Custom.State|Unknown",
+                    "Configured transform references a missing field.",
+                    "Update the transform configuration.")
+            ])
+        ]);
+        var context = CreatePrepareContext(artefactStore.Object);
+
+        await module.PrepareAsync(context, CancellationToken.None);
+
+        Assert.IsNotNull(writtenReport);
+        var report = JsonSerializer.Deserialize<PrepareReport>(writtenReport!);
+        Assert.IsNotNull(report);
+        Assert.AreEqual(WorkItemsPrepareReadinessResult.ChangesRequired, report.Readiness);
+        Assert.AreEqual(1, report.UnresolvedCount);
+        Assert.AreEqual(1, report.FieldTransformFindings.Count);
+        Assert.AreEqual(FieldTransformFindingStatus.FieldNotFound, report.FieldTransformFindings[0].Status);
+        Assert.AreEqual("Custom.State", report.FieldTransformFindings[0].FieldName);
+        Assert.AreEqual("MapState", report.FieldTransformFindings[0].TransformRule);
 
         artefactStore.VerifyAll();
     }
@@ -139,7 +183,7 @@ public sealed class WorkItemsModulePrepareTests
             ]
         };
 
-    private static WorkItemsModule CreateModule()
+    private static WorkItemsModule CreateModule(IEnumerable<IImportFailurePattern>? importFailurePatterns = null)
     {
         var sourceEndpoint = new Mock<ISourceEndpointInfo>();
         sourceEndpoint.SetupGet(s => s.Project).Returns("ProjectA");
@@ -162,7 +206,8 @@ public sealed class WorkItemsModulePrepareTests
             Mock.Of<ICheckpointingServiceFactory>(),
             Mock.Of<IIdMapStoreFactory>(),
             Mock.Of<IRevisionFolderProcessorFactory>(),
-            targetEndpoint.Object);
+            targetEndpoint.Object,
+            importFailurePatterns: importFailurePatterns);
     }
 
     private static PrepareContext CreatePrepareContext(IArtefactStore store)
@@ -186,5 +231,15 @@ public sealed class WorkItemsModulePrepareTests
     {
         yield return path;
         await Task.CompletedTask;
+    }
+
+    private sealed class TestImportFailurePattern(IReadOnlyList<ImportFailureFinding> findings) : IImportFailurePattern
+    {
+        public string PatternCode => "WORKITEMS_PREPARE_FIELD_TRANSFORM_COMPATIBILITY";
+
+        public Task<IReadOnlyList<ImportFailureFinding>> EvaluateAsync(
+            ImportFailurePatternContext context,
+            CancellationToken cancellationToken)
+            => Task.FromResult(findings);
     }
 }

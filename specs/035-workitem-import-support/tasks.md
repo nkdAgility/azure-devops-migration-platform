@@ -125,9 +125,9 @@ This document defines the complete task decomposition for implementing the Work 
 
 ### Field Transform Validation (US1: FR-005d)
 
-- [ ] T040 [US1] [P] Implement FieldTransformValidator class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Validators/FieldTransformValidator.cs` to validate that FieldTransform rules reference fields that exist in exported revisions
-- [ ] T041 [US1] [P] Check field types for compatibility with transform operations (e.g., string fields for text transforms, numeric fields for math operations)
-- [ ] T042 [US1] Create FieldTransformFinding record type with fieldName, typeName, transformRule, status (Valid/FieldNotFound/TypeMismatch/Error), and recommendation fields
+- [X] T040 [US1] [P] Implement FieldTransformValidator class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Validators/FieldTransformValidator.cs` to validate that FieldTransform rules reference fields that exist in exported revisions
+- [X] T041 [US1] [P] Check field types for compatibility with transform operations (e.g., string fields for text transforms, numeric fields for math operations)
+- [X] T042 [US1] Create FieldTransformFinding record type with fieldName, typeName, transformRule, status (Valid/FieldNotFound/TypeMismatch/Error), and recommendation fields
 
 ### Readiness Report Generation
 
