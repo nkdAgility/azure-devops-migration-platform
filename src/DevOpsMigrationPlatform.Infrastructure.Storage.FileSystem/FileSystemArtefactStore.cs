@@ -8,11 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-
-namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
-
-/// <summary>
-/// Filesystem implementation of <see cref="IArtefactStore"/>.
+using DevOpsMigrationPlatform.Abstractions.Storage;
 /// All paths are relative to <see cref="_rootPath"/> and use forward slashes.
 /// <see cref="EnumerateAsync"/> returns results in strict lexicographic order.
 /// </summary>

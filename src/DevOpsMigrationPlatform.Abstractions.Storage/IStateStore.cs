@@ -4,7 +4,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+namespace DevOpsMigrationPlatform.Abstractions.Storage;
 
 /// <summary>
 /// Internal state persistence abstraction for cursors and checkpoints.

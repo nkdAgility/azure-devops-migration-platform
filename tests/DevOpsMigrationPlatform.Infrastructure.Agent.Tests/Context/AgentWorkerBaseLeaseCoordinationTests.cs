@@ -3,6 +3,7 @@
 
 using System.Net;
 using System.Net.Http.Json;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Infrastructure.Agent;

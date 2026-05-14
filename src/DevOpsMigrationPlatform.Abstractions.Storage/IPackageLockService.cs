@@ -5,7 +5,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+namespace DevOpsMigrationPlatform.Abstractions.Storage;
 
 /// <summary>
 /// Acquires an exclusive lock on a migration package directory.

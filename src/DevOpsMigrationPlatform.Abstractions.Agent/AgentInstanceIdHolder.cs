@@ -3,7 +3,7 @@
 
 using System;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Agent;
+namespace DevOpsMigrationPlatform.Abstractions.Agent;
 
 /// <summary>
 /// Holds the unique GUID that identifies this agent process instance.

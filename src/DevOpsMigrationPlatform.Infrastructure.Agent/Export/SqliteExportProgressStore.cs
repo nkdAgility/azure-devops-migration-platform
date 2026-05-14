@@ -7,7 +7,8 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using Microsoft.Data.Sqlite;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;

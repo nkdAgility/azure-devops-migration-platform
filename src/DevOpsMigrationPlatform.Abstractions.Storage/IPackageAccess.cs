@@ -7,7 +7,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+namespace DevOpsMigrationPlatform.Abstractions.Storage;
 
 /// <summary>
 /// Caller-facing package boundary that routes typed package intents to persistence stores.

@@ -3,7 +3,7 @@
 
 using System.IO;
 
-namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+namespace DevOpsMigrationPlatform.Abstractions.Storage;
 
 public sealed record PackageLogPayload(
     Stream Content,

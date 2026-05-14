@@ -5,7 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 
-namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+namespace DevOpsMigrationPlatform.Abstractions.Storage;
 
 /// <summary>
 /// Reads the per-job migration configuration file (<c>migration-config.json</c>)

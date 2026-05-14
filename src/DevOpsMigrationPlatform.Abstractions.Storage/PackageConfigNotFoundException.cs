@@ -3,7 +3,7 @@
 
 using System;
 
-namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+namespace DevOpsMigrationPlatform.Abstractions.Storage;
 
 /// <summary>
 /// Thrown by <see cref="IPackageMigrationConfigLoader.LoadAsync"/> when

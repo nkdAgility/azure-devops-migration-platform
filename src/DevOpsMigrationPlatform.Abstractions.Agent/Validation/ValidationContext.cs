@@ -3,7 +3,7 @@
 
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Validation;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 
 /// <summary>

@@ -11,6 +11,5 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Configuration" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
-    <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.Storage\DevOpsMigrationPlatform.Abstractions.Storage.csproj" />
   </ItemGroup>
 </Project>

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
+namespace DevOpsMigrationPlatform.Abstractions.Storage;
 
 /// <summary>
 /// Represents a single source-to-target work item ID mapping stored in <c>Checkpoints/idmap.db</c>.

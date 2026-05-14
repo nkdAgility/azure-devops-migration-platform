@@ -4,10 +4,9 @@
 using System;
 using System.IO;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+namespace DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 
 /// <summary>
 /// <see cref="IPackageStoreFactory"/> implementation that resolves <c>file:///</c> URIs

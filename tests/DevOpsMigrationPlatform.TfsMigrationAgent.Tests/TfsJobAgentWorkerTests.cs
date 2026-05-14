@@ -18,7 +18,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
@@ -651,8 +651,8 @@ public class TfsJobAgentWorkerTests
             .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("{\"MigrationPlatform\":{\"Mode\":\"Export\"}}"))))));
 
         var metrics = new Mock<IPlatformMetrics>(MockBehavior.Loose);
-        var sut = new DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageMigrationConfigLoader(
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageMigrationConfigLoader>.Instance,
+        var sut = new DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem.PackageMigrationConfigLoader(
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem.PackageMigrationConfigLoader>.Instance,
             package.Object,
             metrics.Object);
 

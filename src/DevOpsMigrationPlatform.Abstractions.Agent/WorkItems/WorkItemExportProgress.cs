@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 /// <summary>Per-work-item export progress returned by <see cref="IExportProgressStore"/>.</summary>
 /// <param name="WorkItemId">The work item identifier.</param>

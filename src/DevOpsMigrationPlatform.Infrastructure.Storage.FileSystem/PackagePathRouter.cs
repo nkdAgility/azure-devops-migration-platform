@@ -4,9 +4,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+namespace DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 
 internal sealed class PackagePathRouter
 {

@@ -3,10 +3,10 @@
 
 using System;
 using System.Globalization;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 
-namespace DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+namespace DevOpsMigrationPlatform.Abstractions.Storage;
 
 /// <summary>
 /// Singleton that carries active package runtime state across agent services.

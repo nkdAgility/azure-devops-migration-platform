@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent;
+using DevOpsMigrationPlatform.Abstractions.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+namespace DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 
 /// <summary>
 /// Registers package boundary and storage implementation services used by agent runtime paths.

@@ -6,8 +6,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+namespace DevOpsMigrationPlatform.Infrastructure.Storage.AzureBlob;
 
 /// <summary>
 /// Azure Blob Storage implementation of <see cref="IArtefactStore"/>.

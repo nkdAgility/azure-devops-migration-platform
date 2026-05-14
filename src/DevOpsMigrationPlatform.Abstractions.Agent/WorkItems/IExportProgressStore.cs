@@ -5,7 +5,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 /// <summary>
 /// Tracks per-work-item export progress so the export orchestrator can

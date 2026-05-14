@@ -3,7 +3,7 @@
 
 using System;
 
-namespace DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+namespace DevOpsMigrationPlatform.Abstractions.Storage;
 
 /// <summary>
 /// Signals deterministic validation failures at the package boundary.

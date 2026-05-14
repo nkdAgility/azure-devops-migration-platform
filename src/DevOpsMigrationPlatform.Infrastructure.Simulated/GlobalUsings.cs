@@ -14,7 +14,7 @@ global using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 global using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 global using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 global using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
-global using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+global using DevOpsMigrationPlatform.Abstractions.Storage;
 global using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 global using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 global using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;

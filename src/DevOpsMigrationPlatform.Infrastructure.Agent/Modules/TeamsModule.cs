@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 #if !NET481
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;

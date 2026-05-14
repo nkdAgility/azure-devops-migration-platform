@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using Moq;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Export;
