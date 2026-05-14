@@ -16,6 +16,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
@@ -354,19 +355,22 @@ public sealed class WorkItemsModule : IModule
             Timestamp = DateTimeOffset.UtcNow
         });
 
-        var report = new PrepareReport
-        {
-            ModuleName = Name,
-            ResolvedCount = 0
-        };
+        var stopwatch = Stopwatch.StartNew();
+        var report = await BuildPrepareReportAsync(context, ct).ConfigureAwait(false);
+        stopwatch.Stop();
 
         var tags = new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } };
         _metrics?.RecordPrepareWorkItemsResolved(report.ResolvedCount, tags);
         _metrics?.RecordPrepareWorkItemsUnresolved(report.UnresolvedCount, tags);
-        _metrics?.RecordPrepareWorkItemsDuration(0, tags);
+        _metrics?.RecordPrepareWorkItemsDuration(stopwatch.Elapsed.TotalMilliseconds, tags);
         await context.ArtefactStore.WriteAsync("WorkItems/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
 
-        _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", Name, report.ResolvedCount, report.UnresolvedCount, 0);
+        _logger.LogInformation(
+            "Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms",
+            Name,
+            report.ResolvedCount,
+            report.UnresolvedCount,
+            stopwatch.ElapsedMilliseconds);
         context.ProgressSink?.Emit(new ProgressEvent
         {
             Module = Name,
@@ -376,6 +380,125 @@ public sealed class WorkItemsModule : IModule
         });
 
         return TaskExecutionResult.Completed();
+    }
+
+    private async Task<PrepareReport> BuildPrepareReportAsync(PrepareContext context, CancellationToken ct)
+    {
+        var unresolvedItems = new List<UnresolvedItem>();
+        var resolvedCount = 0;
+        var foundRevision = false;
+        var options = _options.Value;
+
+        await foreach (var artefactPath in context.ArtefactStore.EnumerateAsync("WorkItems/", ct).ConfigureAwait(false))
+        {
+            if (!artefactPath.EndsWith("/revision.json", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            foundRevision = true;
+            resolvedCount++;
+
+            var revisionJson = await context.ArtefactStore.ReadAsync(artefactPath, ct).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(revisionJson))
+            {
+                unresolvedItems.Add(new UnresolvedItem(
+                    artefactPath,
+                    $"Revision payload is missing or empty: {artefactPath}",
+                    PrepareIssueSeverity.Blocking));
+                continue;
+            }
+
+            WorkItemRevision? revision;
+            try
+            {
+                revision = JsonSerializer.Deserialize<WorkItemRevision>(
+                    revisionJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            catch (JsonException ex)
+            {
+                unresolvedItems.Add(new UnresolvedItem(
+                    artefactPath,
+                    $"Revision payload is invalid JSON: {ex.Message}",
+                    PrepareIssueSeverity.Blocking));
+                continue;
+            }
+
+            if (revision is null)
+            {
+                unresolvedItems.Add(new UnresolvedItem(
+                    artefactPath,
+                    $"Revision payload could not be deserialized: {artefactPath}",
+                    PrepareIssueSeverity.Blocking));
+                continue;
+            }
+
+            var revisionFolder = artefactPath[..^"/revision.json".Length];
+
+            if (options.Extensions.Attachments.Enabled)
+            {
+                foreach (var attachment in revision.Attachments)
+                {
+                    if (string.IsNullOrWhiteSpace(attachment.RelativePath))
+                    {
+                        unresolvedItems.Add(new UnresolvedItem(
+                            $"{revisionFolder}/attachments",
+                            "Attachment metadata has an empty relativePath.",
+                            PrepareIssueSeverity.Blocking));
+                        continue;
+                    }
+
+                    var attachmentPath = $"{revisionFolder}/{attachment.RelativePath}";
+                    if (!await context.ArtefactStore.ExistsAsync(attachmentPath, ct).ConfigureAwait(false))
+                    {
+                        unresolvedItems.Add(new UnresolvedItem(
+                            attachmentPath,
+                            $"Attachment binary missing from package: {attachmentPath}",
+                            PrepareIssueSeverity.Blocking));
+                    }
+                }
+            }
+
+            if (options.Extensions.EmbeddedImages.Enabled)
+            {
+                foreach (var image in revision.EmbeddedImages)
+                {
+                    if (string.IsNullOrWhiteSpace(image.RelativePath))
+                    {
+                        unresolvedItems.Add(new UnresolvedItem(
+                            $"{revisionFolder}/embeddedImages",
+                            "Embedded image metadata has an empty relativePath.",
+                            PrepareIssueSeverity.Blocking));
+                        continue;
+                    }
+
+                    var imagePath = $"{revisionFolder}/{image.RelativePath}";
+                    if (!await context.ArtefactStore.ExistsAsync(imagePath, ct).ConfigureAwait(false))
+                    {
+                        unresolvedItems.Add(new UnresolvedItem(
+                            imagePath,
+                            $"Embedded image binary missing from package: {imagePath}",
+                            PrepareIssueSeverity.Blocking));
+                    }
+                }
+            }
+        }
+
+        if (!foundRevision)
+        {
+            unresolvedItems.Add(new UnresolvedItem(
+                "WorkItems/",
+                "No revision.json artefacts were found under WorkItems/.",
+                PrepareIssueSeverity.Blocking));
+        }
+
+        return new PrepareReport
+        {
+            ModuleName = Name,
+            ResolvedCount = resolvedCount,
+            UnresolvedItems = unresolvedItems
+        };
     }
 
     /// <inheritdoc/>
