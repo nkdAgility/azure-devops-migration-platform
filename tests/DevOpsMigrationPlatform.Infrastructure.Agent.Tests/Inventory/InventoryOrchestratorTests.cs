@@ -57,7 +57,7 @@ public sealed class InventoryOrchestratorTests
 
         stateStore.Verify(
             store => store.WriteAsync(
-                PackagePaths.InventoryCompleteFile,
+                PackagePathTestHelper.InventoryCompleteFile,
                 It.IsAny<string>(),
                 It.IsAny<CancellationToken>()),
             Times.Never);
@@ -91,7 +91,7 @@ public sealed class InventoryOrchestratorTests
             checkpointIntervalSeconds: 300,
             ct: CancellationToken.None);
 
-        var expectedKey = PackagePaths.CursorFile("inventory", "workitems", "https://dev.azure.com/testorg", "TestProject");
+        var expectedKey = PackagePathTestHelper.CursorFile("inventory", "workitems", "https://dev.azure.com/testorg", "TestProject");
         Assert.IsTrue(stateStore.Writes.ContainsKey(expectedKey), "Inventory must write the authoritative cursor into the project-local .migration folder.");
 
         var cursor = JsonSerializer.Deserialize<CursorEntry>(stateStore.Writes[expectedKey]);
@@ -99,7 +99,7 @@ public sealed class InventoryOrchestratorTests
         Assert.AreEqual(CursorStage.Completed, cursor.Stage);
         Assert.AreEqual("TestProject", cursor.LastProcessed);
         Assert.IsFalse(
-            stateStore.Writes.ContainsKey(PackagePaths.CursorFile("inventory.workitems")),
+            stateStore.Writes.ContainsKey(PackagePathTestHelper.CursorFile("inventory.workitems")),
             "Inventory must not write the legacy root cursor key once centralized checkpointing is authoritative.");
     }
 

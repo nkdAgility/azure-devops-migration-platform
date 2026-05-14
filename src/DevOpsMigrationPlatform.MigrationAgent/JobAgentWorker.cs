@@ -78,7 +78,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         PolymorphicOrganisationEntryConverter? organisationConverter = null)
         : base(packageStoreFactory, progressSink, checkpointingFactory,
              phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageMigrationConfigLoader,
-                moduleScopeFactory, httpClientFactory, logger, activeJobState, endpointConverter, organisationConverter)
+                 package, moduleScopeFactory, httpClientFactory, logger, activeJobState, endpointConverter, organisationConverter)
     {
         _metricsStore = metricsStore;
         _snapshotStore = snapshotStore;
@@ -356,7 +356,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
         var forceFresh = job.Resume?.Mode == DevOpsMigrationPlatform.Abstractions.Jobs.ResumeMode.ForceFresh;
         var exists = await package.ContentExistsAsync(
-            CreateArtefactContext(PackagePaths.MigrationConfigFileName),
+            CreateArtefactContext(".migration/migration-config.json"),
             ct).ConfigureAwait(false);
 
         if (exists && !forceFresh)
@@ -364,7 +364,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             // Resume mode: verify the Source and Target endpoints are unchanged.
             // A compatible re-submission overwrites the config (picking up any non-identity
             // changes such as module settings) while preserving cursor state.
-            var existingJson = await ReadPackageTextAsync(package, PackagePaths.MigrationConfigFileName, ct).ConfigureAwait(false);
+            var existingJson = await ReadPackageTextAsync(package, ".migration/migration-config.json", ct).ConfigureAwait(false);
             var mismatch = GetSourceTargetMismatch(existingJson ?? string.Empty, job.ConfigPayload);
             if (mismatch != null)
                 throw new InvalidOperationException(
@@ -373,7 +373,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             // Compatible — fall through and overwrite (cursor state is preserved separately).
         }
 
-        await WritePackageTextAsync(package, PackagePaths.MigrationConfigFileName, job.ConfigPayload, ct).ConfigureAwait(false);
+        await WritePackageTextAsync(package, ".migration/migration-config.json", job.ConfigPayload, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -495,8 +495,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 await freshPhaseTracker.DeletePhaseRecordAsync(ct).ConfigureAwait(false);
                 try
                 {
-                    await stateStore.DeleteAsync(PackagePaths.InventoryCompleteFile, ct).ConfigureAwait(false);
-                    _logger.LogDebug("Deleted inventory completion marker {Path}.", PackagePaths.InventoryCompleteFile);
+                    await _package.DeleteMetaAsync(new PackageMetaContext(PackageMetaKind.InventoryCompletionMarker), ct).ConfigureAwait(false);
+                    _logger.LogDebug("Deleted inventory completion marker {Path}.", ".migration/inventory.complete.json");
                 }
                 catch (System.IO.FileNotFoundException)
                 {
@@ -506,8 +506,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 // Delete the persisted plan file so a fresh plan is built.
                 try
                 {
-                    await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
-                    _logger.LogDebug("Deleted plan file {Path}.", PackagePaths.PlanFile);
+                    await _package.DeleteMetaAsync(new PackageMetaContext(PackageMetaKind.ExecutionPlan), ct).ConfigureAwait(false);
+                    _logger.LogDebug("Deleted plan file {Path}.", ".migration/plan.json");
                 }
                 catch (System.IO.FileNotFoundException)
                 {
@@ -541,8 +541,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
         var checkpointer = CheckpointingFactory.Create(stateStore);
         var phaseTracker = PhaseTrackingFactory.Create(stateStore);
-        RunScopeAuthorityGuard.EnsureAuthoritativePath(PackagePaths.PlanFile, "job-execution");
-        RunScopeAuthorityGuard.EnsureAuthoritativePath(PackagePaths.InventoryCompleteFile, "inventory-phase-gate");
+        RunScopeAuthorityGuard.EnsureAuthoritativePath(".migration/plan.json", "job-execution");
+        RunScopeAuthorityGuard.EnsureAuthoritativePath(".migration/inventory.complete.json", "inventory-phase-gate");
 
         ProgressSink.Emit(new ProgressEvent
         {
@@ -609,7 +609,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 var endpointsByUrl = new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase);
                 try
                 {
-                    var rawJson = await ReadPackageTextAsync(_package, PackagePaths.MigrationConfigFileName, ct).ConfigureAwait(false);
+                    var rawJson = await ReadPackageTextAsync(_package, ".migration/migration-config.json", ct).ConfigureAwait(false);
                     if (!string.IsNullOrWhiteSpace(rawJson))
                     {
                         var wrapper = JsonSerializer.Deserialize<DiscoveryConfigWrapper>(rawJson, AgentJsonOptions);
@@ -837,11 +837,11 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 }
             }
 
-            try { await stateStore.DeleteAsync(PackagePaths.InventoryCompleteFile, ct).ConfigureAwait(false); }
+            try { await _package.DeleteMetaAsync(new PackageMetaContext(PackageMetaKind.InventoryCompletionMarker), ct).ConfigureAwait(false); }
             catch (System.IO.FileNotFoundException) { /* not an error */ }
 
             // Delete persisted plan so a fresh one is built.
-            try { await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false); }
+            try { await _package.DeleteMetaAsync(new PackageMetaContext(PackageMetaKind.ExecutionPlan), ct).ConfigureAwait(false); }
             catch (System.IO.FileNotFoundException) { /* not an error */ }
         }
 
@@ -850,7 +850,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         var policies = new JobPolicies();
         try
         {
-            var rawJson = await ReadPackageTextAsync(_package, PackagePaths.MigrationConfigFileName, ct).ConfigureAwait(false);
+            var rawJson = await ReadPackageTextAsync(_package, ".migration/migration-config.json", ct).ConfigureAwait(false);
             if (!string.IsNullOrWhiteSpace(rawJson))
             {
                 var wrapper = JsonSerializer.Deserialize<DiscoveryConfigWrapper>(rawJson, AgentJsonOptions);
@@ -1078,3 +1078,4 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         public override string GetResolvedUrl() => endpoint.ResolvedUrl;
     }
 }
+

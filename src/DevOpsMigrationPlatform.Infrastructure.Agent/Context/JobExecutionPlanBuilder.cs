@@ -158,7 +158,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         using var guardActivity = ActivitySource.StartActivity("state.runscope.guard", ActivityKind.Internal);
         guardActivity?.SetTag("operation", "plan.authority");
         guardActivity?.SetTag("module.name", "JobExecutionPlanBuilder");
-        RunScopeAuthorityGuard.EnsureAuthoritativePath(PackagePaths.PlanFile, "execution-plan");
+        RunScopeAuthorityGuard.EnsureAuthoritativePath(".migration/plan.json", "execution-plan");
 
         // Resume: load persisted plan if present.
         var loadedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, ct, _package).ConfigureAwait(false);
@@ -188,10 +188,8 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 _logger.LogInformation(
                     "Job kind changed from {OldKind} to {NewKind}. Deleting incompatible active plan and building fresh.",
                     loadedPlan.ForKind!.Value, kind);
-                if (_package is null)
-                {
-                    await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
-                }
+                var package = _package ?? throw new InvalidOperationException("JobExecutionPlanBuilder requires IPackageAccess for plan persistence.");
+                await package.DeleteMetaAsync(new PackageMetaContext(PackageMetaKind.ExecutionPlan), ct).ConfigureAwait(false);
                 loadedPlan = null;
             }
         }
@@ -231,7 +229,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         {
             _logger.LogWarning(ex,
                 "Failed to persist execution plan to {Path}. Job will continue, but resume may be incomplete.",
-                PackagePaths.PlanFile);
+                ".migration/plan.json");
         }
 
         return freshPlan;

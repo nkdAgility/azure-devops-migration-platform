@@ -20,7 +20,6 @@ public class LegacyStateResumeCompatibilityTests
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
         const string projectName = "MyProject";
-        var expectedKey = PackagePaths.CursorFile("export", "workitems", endpointUrl, projectName);
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         var sourceInfo = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
@@ -32,10 +31,10 @@ public class LegacyStateResumeCompatibilityTests
 
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == expectedKey),
+            .Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "export" && c.Module == "workitems"),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((PackagePayload?)null);
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/export.workitems.cursor.json", null)));
 
         var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
 
@@ -52,7 +51,6 @@ public class LegacyStateResumeCompatibilityTests
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
         const string projectName = "MyProject";
-        var expectedKey = PackagePaths.ContinuationFile("export", "workitems", endpointUrl, projectName);
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         var sourceInfo = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
@@ -64,10 +62,10 @@ public class LegacyStateResumeCompatibilityTests
 
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == expectedKey),
+            .Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ContinuationToken && c.Action == "export" && c.Module == "workitems"),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((PackagePayload?)null);
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/export.workitems.continuation.json", null)));
 
         var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
 

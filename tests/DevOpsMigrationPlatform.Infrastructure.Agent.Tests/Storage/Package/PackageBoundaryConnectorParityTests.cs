@@ -23,7 +23,7 @@ public class PackageBoundaryConnectorParityTests
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
         const string projectName = "ParityProject";
-        var expectedKey = PackagePaths.CursorFile("export", "workitems", endpointUrl, projectName);
+        var expectedKey = PackagePathTestHelper.CursorFile("export", "workitems", endpointUrl, projectName);
 
         var endpointAccessor = BuildSourceEndpointAccessor(endpointUrl, projectName, "AzureDevOpsServices");
         var package = BuildPackageReturningCursor(expectedKey);
@@ -40,7 +40,7 @@ public class PackageBoundaryConnectorParityTests
     {
         const string endpointUrl = "https://tfs.contoso.local/tfs/DefaultCollection";
         const string projectName = "ParityProject";
-        var expectedKey = PackagePaths.CursorFile("export", "workitems", endpointUrl, projectName);
+        var expectedKey = PackagePathTestHelper.CursorFile("export", "workitems", endpointUrl, projectName);
 
         var endpointAccessor = BuildSourceEndpointAccessor(endpointUrl, projectName, "TeamFoundationServer");
         var package = BuildPackageReturningCursor(expectedKey);
@@ -57,7 +57,7 @@ public class PackageBoundaryConnectorParityTests
     {
         const string endpointUrl = "";
         const string projectName = "ParityProject";
-        const string expectedKey = "simulated/ParityProject/.migration/export.workitems.cursor.json";
+        const string expectedKey = ".migration/export.workitems.cursor.json";
 
         var endpointAccessor = BuildSourceEndpointAccessor(endpointUrl, projectName, "Simulated");
         var package = BuildPackageReturningCursor(expectedKey);
@@ -92,10 +92,10 @@ public class PackageBoundaryConnectorParityTests
 
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == expectedKey),
+            .Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && PackagePathTestHelper.CursorFile(c.Action!, c.Module!, string.Empty, string.Empty) == expectedKey),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(entry))), "application/json"));
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(expectedKey, new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(entry))), "application/json"))));
         return package;
     }
 }

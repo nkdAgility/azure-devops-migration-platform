@@ -681,8 +681,9 @@ public sealed class WorkItemsModule : IModule
             .CreateAsync(ext.ResolutionStrategy, target, null!, ct)
             .ConfigureAwait(false);
 
-        // Derive the SQLite idmap.db from the package URI (legacy fallback handled by factory)
-        var idMapStore = _idMapStoreFactory.CreateFromPackageUri(job.Package.PackageUri);
+        var package = _package ?? throw new InvalidOperationException("IPackageAccess is required for native database access.");
+        var idMapConnection = await package.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, ct).ConfigureAwait(false);
+        var idMapStore = _idMapStoreFactory.Create(idMapConnection);
 
         var sourceProjectName = _sourceEndpointInfo.Project;
         var nodeReadinessContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectName, project);

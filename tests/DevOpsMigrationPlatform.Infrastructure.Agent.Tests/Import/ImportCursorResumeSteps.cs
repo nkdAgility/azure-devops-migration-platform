@@ -61,10 +61,10 @@ public class ImportCursorResumeSteps
         var cursorJson = JsonSerializer.Serialize(cursor);
 
         _ctx.MockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePathTestHelper.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<CancellationToken>()))
             .ReturnsAsync(cursorJson);
         _ctx.MockStateStore
-            .Setup(s => s.WriteAsync(PackagePaths.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteAsync(PackagePathTestHelper.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
     }
 
@@ -121,10 +121,10 @@ public class ImportCursorResumeSteps
         var cursorJson = JsonSerializer.Serialize(cursor);
 
         _ctx.MockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePathTestHelper.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<CancellationToken>()))
             .ReturnsAsync(cursorJson);
         _ctx.MockStateStore
-            .Setup(s => s.WriteAsync(PackagePaths.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteAsync(PackagePathTestHelper.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
     }
 
@@ -160,14 +160,14 @@ public class ImportCursorResumeSteps
         });
         // Return null once cursor is deleted so ForceFresh starts fresh.
         _ctx.MockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePathTestHelper.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<CancellationToken>()))
             .Returns((string _, CancellationToken ct) =>
                 Task.FromResult<string?>(_ctx.CursorWasDeleted ? null : cursorJson));
         _ctx.MockStateStore
-            .Setup(s => s.WriteAsync(PackagePaths.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.WriteAsync(PackagePathTestHelper.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _ctx.MockStateStore
-            .Setup(s => s.DeleteAsync(PackagePaths.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<CancellationToken>()))
+            .Setup(s => s.DeleteAsync(PackagePathTestHelper.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<CancellationToken>()))
             .Callback(() => _ctx.CursorWasDeleted = true)
             .Returns(Task.CompletedTask);
     }

@@ -12,6 +12,9 @@ public enum PackageMetaKind
     CheckpointCursor,
     ContinuationToken,
     InventoryCompletionMarker,
-    PrepareReport
+    PrepareReport,
+    RunConfigSnapshot,
+    ExportProgressDb,
+    IdMapDb
 }
 

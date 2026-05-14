@@ -13,6 +13,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -130,7 +131,7 @@ public class ExportCommentsSteps
             .Returns(_context.MockCommentSource.Object);
 
         var stateStore = new FileSystemStateStore(_context.PackageRoot);
-        var checkpointingService = new CheckpointingService(stateStore);
+        var checkpointingService = new CheckpointingService(package: PackageTestFactory.CreateStateDelegatingMock(stateStore).Object);
 
         var orchestrator = new WorkItemExportOrchestrator(
             _context.ArtefactStore,
@@ -282,7 +283,7 @@ public class ExportCommentsSteps
     public void ThenCommentPaginationCursorIsProperlyManaged()
     {
         // Inline comment fetching uses the main WorkItems cursor (not a separate comments cursor).
-        var cursorPath = Path.Combine(_context.PackageRoot, PackagePaths.SystemRoot, "Checkpoints", "workitems.cursor.json");
+        var cursorPath = Path.Combine(_context.PackageRoot, PackagePathTestHelper.SystemRoot, "Checkpoints", "workitems.cursor.json");
         Assert.IsTrue(File.Exists(cursorPath), "WorkItems cursor file should exist");
 
         var json = File.ReadAllText(cursorPath);
@@ -343,7 +344,7 @@ public class ExportCommentsSteps
     public async Task WhenTheExportResumes()
     {
         var stateStore = new FileSystemStateStore(_context.PackageRoot);
-        var checkpointingService = new CheckpointingService(stateStore);
+        var checkpointingService = new CheckpointingService(package: PackageTestFactory.CreateStateDelegatingMock(stateStore).Object);
 
         // Run first work item's comment-edit revisions.
         var revisions1 = _context.Comments!.Select((c, i) => new WorkItemRevision
@@ -439,7 +440,7 @@ public class ExportCommentsSteps
     public void ThenTheCursorAdvancesToWorkItem(int expectedWorkItemId)
     {
         // The main WorkItems cursor's lastProcessed path contains the last work item ID.
-        var cursorPath = Path.Combine(_context.PackageRoot, PackagePaths.SystemRoot, "Checkpoints", "workitems.cursor.json");
+        var cursorPath = Path.Combine(_context.PackageRoot, PackagePathTestHelper.SystemRoot, "Checkpoints", "workitems.cursor.json");
         Assert.IsTrue(File.Exists(cursorPath), "WorkItems cursor file should exist");
 
         var json = File.ReadAllText(cursorPath);

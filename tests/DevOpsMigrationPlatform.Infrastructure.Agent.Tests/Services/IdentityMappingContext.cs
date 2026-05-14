@@ -7,6 +7,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Moq;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Services;
@@ -29,6 +30,6 @@ public class IdentityMappingContext
         PackageRoot = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(PackageRoot);
         RealStore = new FileSystemArtefactStore(PackageRoot);
-        Sut = new FileSystemIdentityMappingService(Mappings, FallbackIdentity, RealStore);
+        Sut = new FileSystemIdentityMappingService(Mappings, FallbackIdentity, PackageTestFactory.CreateDelegatingMock(RealStore).Object);
     }
 }

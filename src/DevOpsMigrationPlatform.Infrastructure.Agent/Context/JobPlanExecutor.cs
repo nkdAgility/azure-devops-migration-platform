@@ -30,7 +30,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 /// <summary>
 /// Default implementation of <see cref="IJobPlanExecutor"/>.
 /// Executes tasks in topological tier order, running independent tasks concurrently
-/// via Task.WhenAll, and persists the plan to <see cref="PackagePaths.PlanFile"/>
+/// via Task.WhenAll, and persists the plan to <c>.migration/plan.json</c>
 /// after every task status transition.
 /// </summary>
 public sealed class JobPlanExecutor : IJobPlanExecutor
@@ -1110,13 +1110,13 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         try
         {
             var json = JsonSerializer.Serialize(plan, _jsonOptions);
-            await WritePlanStateAsync(_package, PackagePaths.PlanFile, json, ct).ConfigureAwait(false);
+            await WritePlanStateAsync(_package, ".migration/plan.json", json, ct).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
                 "Failed to persist execution plan to {Path}. Job will continue, but resume may be incomplete.",
-                PackagePaths.PlanFile);
+                ".migration/plan.json");
         }
     }
 
@@ -1138,17 +1138,17 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     private static async Task<string?> ReadPlanStateAsync(IPackageAccess? package, string key, CancellationToken ct)
     {
         var resolved = ResolvePackage(package);
-        if (string.Equals(key, PackagePaths.PlanFile, StringComparison.Ordinal))
+        if (string.Equals(key, ".migration/plan.json", StringComparison.Ordinal))
         {
             var planMeta = await resolved.RequestMetaAsync(
                 new PackageMetaContext(PackageMetaKind.ExecutionPlan),
                 ct).ConfigureAwait(false);
-            if (planMeta is null)
+            if (planMeta.Payload is null)
                 return null;
 
-            if (planMeta.Content.CanSeek)
-                planMeta.Content.Position = 0;
-            using var reader = new StreamReader(planMeta.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+            if (planMeta.Payload.Content.CanSeek)
+                planMeta.Payload.Content.Position = 0;
+            using var reader = new StreamReader(planMeta.Payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
             return await reader.ReadToEndAsync().ConfigureAwait(false);
         }
 
@@ -1159,7 +1159,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     {
         var resolved = ResolvePackage(package);
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(value), writable: false);
-        if (string.Equals(key, PackagePaths.PlanFile, StringComparison.Ordinal))
+        if (string.Equals(key, ".migration/plan.json", StringComparison.Ordinal))
         {
             await resolved.PersistMetaAsync(
                 new PackageMetaContext(PackageMetaKind.ExecutionPlan),
@@ -1297,7 +1297,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     }
 
     /// <summary>
-    /// Loads the persisted plan from <see cref="PackagePaths.PlanFile"/> and resets
+    /// Loads the persisted plan from <c>.migration/plan.json</c> and resets
     /// any <c>Running</c> tasks to <c>Pending</c> (crash recovery).
     /// Returns <c>null</c> if the plan file does not exist or cannot be deserialised.
     /// </summary>
@@ -1309,7 +1309,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         try
         {
             string? json;
-            json = await ReadPlanStateAsync(package, PackagePaths.PlanFile, ct).ConfigureAwait(false);
+            json = await ReadPlanStateAsync(package, ".migration/plan.json", ct).ConfigureAwait(false);
 
             if (json is null)
                 return null;

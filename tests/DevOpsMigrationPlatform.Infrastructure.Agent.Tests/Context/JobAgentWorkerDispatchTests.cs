@@ -416,7 +416,7 @@ public sealed class JobAgentWorkerDispatchTests
             Times.Once);
 
         _stateStore.Verify(
-            store => store.DeleteAsync(PackagePaths.CursorFile("Dependencies"), It.IsAny<CancellationToken>()),
+            store => store.DeleteAsync(".migration/dependencies.cursor.json", It.IsAny<CancellationToken>()),
             Times.Never,
             "Discovery ForceFresh must not delete legacy root cursor paths directly.");
     }
@@ -710,8 +710,9 @@ public sealed class JobAgentWorkerDispatchTests
             CancellationToken.None);
 
         _stateStore.Verify(
-            store => store.DeleteAsync(PackagePaths.InventoryCompleteFile, It.IsAny<CancellationToken>()),
-            Times.Once);
+            store => store.DeleteAsync(".migration/inventory.complete.json", It.IsAny<CancellationToken>()),
+            Times.Never,
+            "ForceFresh inventory marker cleanup must flow through IPackageAccess rather than direct state-store deletion.");
     }
 
     private JobAgentWorker CreateWorker(IReadOnlyList<IModule>? migrationModules = null)

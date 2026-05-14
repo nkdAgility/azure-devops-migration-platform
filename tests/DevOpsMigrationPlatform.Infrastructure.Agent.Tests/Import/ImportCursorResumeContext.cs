@@ -64,10 +64,10 @@ public class ImportCursorResumeContext
             MockEndpointAccessor.Object,
             package: MockPackage.Object);
         MockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("import", "workitems", EndpointUrl, ProjectName), It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePathTestHelper.CursorFile("import", "workitems", EndpointUrl, ProjectName), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
         MockStateStore
-            .Setup(s => s.DeleteAsync(PackagePaths.CursorFile("import", "workitems", EndpointUrl, ProjectName), It.IsAny<CancellationToken>()))
+            .Setup(s => s.DeleteAsync(PackagePathTestHelper.CursorFile("import", "workitems", EndpointUrl, ProjectName), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
     }
 

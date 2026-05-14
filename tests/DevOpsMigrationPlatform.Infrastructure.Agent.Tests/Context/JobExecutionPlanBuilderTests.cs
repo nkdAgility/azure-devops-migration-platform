@@ -568,7 +568,7 @@ public sealed class JobExecutionPlanBuilderTests
         var store = new Mock<IArtefactStore>(MockBehavior.Loose);
         var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
         stateStore
-            .Setup(s => s.ReadAsync(PackagePaths.PlanFile, It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(PackagePathTestHelper.PlanFile, It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
 
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
@@ -576,7 +576,7 @@ public sealed class JobExecutionPlanBuilderTests
             .Setup(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((PackageMetaPayload?)null);
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(PackagePathTestHelper.PlanFile, null)));
         package
             .Setup(p => p.PersistMetaAsync(
                 It.Is<PackageMetaContext>(c =>

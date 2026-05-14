@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Data.Common;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -36,6 +37,12 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
                 _dbFilePath = dbFilePath;
         }
 
+        public SqliteExportProgressStore(DbConnection connection)
+        {
+                _connection = (SqliteConnection)(connection ?? throw new ArgumentNullException(nameof(connection)));
+                _dbFilePath = _connection.DataSource;
+        }
+
         /// <inheritdoc/>
         public async Task InitializeAsync(CancellationToken cancellationToken)
         {
@@ -43,8 +50,9 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
                 if (dir is not null && !Directory.Exists(dir))
                         Directory.CreateDirectory(dir); // Permitted: SQLite requires real file-system path (see class remarks)
 
-                _connection = new SqliteConnection($"Data Source={GetSqliteConnectionPath(_dbFilePath)}");
-                await _connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+                _connection ??= new SqliteConnection($"Data Source={GetSqliteConnectionPath(_dbFilePath)}");
+                if (_connection.State != System.Data.ConnectionState.Open)
+                        await _connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
                 // Use memory journal to avoid creating <filename>-journal files whose path
                 // may exceed MAX_PATH (260 chars) on Windows when LongPathsEnabled=0.

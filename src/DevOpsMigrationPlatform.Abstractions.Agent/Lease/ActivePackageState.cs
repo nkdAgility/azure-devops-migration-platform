@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Globalization;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 
@@ -17,6 +18,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 public sealed class ActivePackageState
 {
     private volatile IArtefactStore? _currentStore;
+    private volatile IStateStore? _currentStateStore;
     private volatile Job? _currentJob;
     private volatile string? _cachedRunId;
 
@@ -30,6 +32,12 @@ public sealed class ActivePackageState
     {
         get => _currentStore;
         set => _currentStore = value;
+    }
+
+    public IStateStore? CurrentStateStore
+    {
+        get => _currentStateStore;
+        set => _currentStateStore = value;
     }
 
     /// <summary>
@@ -63,7 +71,7 @@ public sealed class ActivePackageState
             if (job is null)
                 return null;
 
-            return _cachedRunId ??= PackagePaths.BuildRunId(DateTimeOffset.UtcNow, job);
+            return _cachedRunId ??= DateTimeOffset.UtcNow.ToUniversalTime().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
         }
     }
 
@@ -78,8 +86,8 @@ public sealed class ActivePackageState
         {
             var runId = CurrentRunId;
             return runId is null
-                ? PackagePaths.Logs
-                : PackagePaths.RunLogsFolder(runId);
+                ? ".migration/Logs"
+                : $".migration/runs/{runId}/logs";
         }
     }
 
@@ -89,6 +97,7 @@ public sealed class ActivePackageState
     public void Clear()
     {
         _currentStore = null;
+        _currentStateStore = null;
         _currentJob = null;
         _cachedRunId = null;
     }

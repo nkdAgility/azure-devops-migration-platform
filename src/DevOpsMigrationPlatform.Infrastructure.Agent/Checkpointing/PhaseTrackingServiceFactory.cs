@@ -21,5 +21,5 @@ public sealed class PhaseTrackingServiceFactory : IPhaseTrackingServiceFactory
 
     /// <inheritdoc/>
     public IPhaseTrackingService Create(IStateStore stateStore)
-        => new PhaseTrackingService(stateStore, _package);
+        => new PhaseTrackingService(_package);
 }

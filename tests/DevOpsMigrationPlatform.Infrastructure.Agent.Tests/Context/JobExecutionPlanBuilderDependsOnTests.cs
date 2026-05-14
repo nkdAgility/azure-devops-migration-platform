@@ -126,9 +126,9 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
 
         var store = new Mock<IArtefactStore>(MockBehavior.Loose);
         var markerAbsentStateStore = new Mock<IStateStore>(MockBehavior.Loose);
-        markerAbsentStateStore.Setup(s => s.ExistsAsync(PackagePaths.InventoryCompleteFile, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        markerAbsentStateStore.Setup(s => s.ExistsAsync(PackagePathTestHelper.InventoryCompleteFile, It.IsAny<CancellationToken>())).ReturnsAsync(false);
         var markerPresentStateStore = new Mock<IStateStore>(MockBehavior.Loose);
-        markerPresentStateStore.Setup(s => s.ExistsAsync(PackagePaths.InventoryCompleteFile, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        markerPresentStateStore.Setup(s => s.ExistsAsync(PackagePathTestHelper.InventoryCompleteFile, It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         // Act
         var markerAbsentPlan = await builder.BuildPlanAsync(config, JobKind.Export, store.Object, markerAbsentStateStore.Object, CancellationToken.None);

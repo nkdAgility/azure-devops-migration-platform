@@ -58,55 +58,51 @@ internal sealed class PackageMigrationConfigLoader : IPackageMigrationConfigLoad
         using var activity = ActivitySource.StartActivity("config.read");
         activity?.SetTag("operation", "read");
 
-        _logger.LogInformation("Reading config from package via {Path}", PackagePaths.MigrationConfigFileName);
         var sw = Stopwatch.StartNew();
 
-        var exists = false;
-        PackageMetaPayload? packagePayload = null;
+        PackageMetaResult? metaResult = null;
         int[] backoffMs = { 100, 300, 900 };
         for (var attempt = 0; attempt <= backoffMs.Length; attempt++)
         {
-            packagePayload = await _package.RequestMetaAsync(
+            metaResult = await _package.RequestMetaAsync(
                 new PackageMetaContext(PackageMetaKind.MigrationConfig),
                 cancellationToken).ConfigureAwait(false);
-            exists = packagePayload is not null;
-            if (exists) break;
+            if (attempt == 0)
+                _logger.LogInformation("Reading config from package via {Path}", metaResult.ResolvedPath);
+            if (metaResult.Payload is not null)
+                break;
             if (attempt < backoffMs.Length)
             {
                 _logger.LogDebug(
                     "Config not found at '{Path}' on attempt {Attempt}; retrying in {DelayMs}ms",
-                    PackagePaths.MigrationConfigFileName, attempt + 1, backoffMs[attempt]);
+                    metaResult.ResolvedPath, attempt + 1, backoffMs[attempt]);
                 await Task.Delay(backoffMs[attempt], cancellationToken).ConfigureAwait(false);
             }
         }
 
-        if (!exists)
+        if (metaResult?.Payload is null)
         {
             _metrics?.RecordConfigReadError(Tags("config.read"));
             activity?.SetTag("outcome", "not_found");
             _logger.LogWarning(
                 "Config not found at '{Path}' after retries. Re-submit the job from the CLI to regenerate it.",
-                PackagePaths.MigrationConfigFileName);
+                metaResult?.ResolvedPath ?? ".migration/migration-config.json");
             throw new PackageConfigNotFoundException("active package");
         }
 
         try
         {
-            packagePayload ??= await _package.RequestMetaAsync(
-                new PackageMetaContext(PackageMetaKind.MigrationConfig),
-                cancellationToken).ConfigureAwait(false);
-            if (packagePayload is null)
-                throw new PackageConfigNotFoundException("active package");
-
+            var packagePayload = metaResult.Payload;
+            var resolvedPath = metaResult.ResolvedPath;
             var json = await ReadUtf8Async(packagePayload.Content, cancellationToken).ConfigureAwait(false);
 
             if (string.IsNullOrWhiteSpace(json))
             {
                 _metrics?.RecordConfigReadError(Tags("config.read"));
                 activity?.SetTag("outcome", "empty");
-                _logger.LogError("Config at '{Path}' is empty in package", PackagePaths.MigrationConfigFileName);
+                _logger.LogError("Config at '{Path}' is empty in package", resolvedPath);
                 throw new InvalidOperationException(
-                    $"{PackagePaths.MigrationConfigFileName} is present but empty. Re-submit the job from the CLI.");
+                    $"{resolvedPath} is present but empty. Re-submit the job from the CLI.");
             }
 
             var bytes = Encoding.UTF8.GetBytes(json);
@@ -131,7 +127,7 @@ internal sealed class PackageMigrationConfigLoader : IPackageMigrationConfigLoad
         {
             _metrics?.RecordConfigReadError(Tags("config.read"));
             activity?.SetTag("outcome", "parse_error");
-            _logger.LogError("Failed to parse config at '{Path}'", PackagePaths.MigrationConfigFileName);
+            _logger.LogError("Failed to parse config at '{Path}'", metaResult?.ResolvedPath ?? ".migration/migration-config.json");
             throw;
         }
     }

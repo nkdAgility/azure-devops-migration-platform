@@ -31,7 +31,7 @@ public sealed class LegacyCheckpointPrecedenceTests
 
         var authoritative = new CursorEntry { LastProcessed = "A", Stage = CursorStage.Completed, UpdatedAt = DateTimeOffset.UtcNow };
         var authoritativeJson = JsonSerializer.Serialize(authoritative);
-        var projectKey = PackagePaths.CursorFile("export", "workitems", "https://dev.azure.com/contoso", "Shop");
+        var projectKey = PackagePathTestHelper.CursorFile("export", "workitems", "https://dev.azure.com/contoso", "Shop");
         stateStore.Setup(x => x.ReadAsync(projectKey, It.IsAny<CancellationToken>())).ReturnsAsync(authoritativeJson);
 
         var sut = new CheckpointingService(

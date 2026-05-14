@@ -935,7 +935,7 @@ public class WorkItemExportOrchestratorTests
 
         var mockFactory = new Mock<IExportProgressStoreFactory>(MockBehavior.Strict);
         mockFactory
-            .Setup(f => f.CreateFromPackageUri(It.IsAny<string>()))
+            .Setup(f => f.Create(It.IsAny<System.Data.Common.DbConnection>()))
             .Returns(mockProgressStore.Object);
 
         // Cursor must be non-null for fast-forward to activate.
@@ -999,7 +999,7 @@ public class WorkItemExportOrchestratorTests
                  .Returns(Task.CompletedTask);
 
         var mockFactory = new Mock<IExportProgressStoreFactory>(MockBehavior.Strict);
-        mockFactory.Setup(f => f.CreateFromPackageUri(It.IsAny<string>())).Returns(mockProgressStore.Object);
+        mockFactory.Setup(f => f.Create(It.IsAny<System.Data.Common.DbConnection>())).Returns(mockProgressStore.Object);
 
         var sut = new WorkItemExportOrchestrator(
             mockStore.Object, mockCps.Object,
@@ -1042,7 +1042,7 @@ public class WorkItemExportOrchestratorTests
 
         var mockFactory = new Mock<IExportProgressStoreFactory>(MockBehavior.Strict);
         mockFactory
-            .Setup(f => f.CreateFromPackageUri(It.IsAny<string>()))
+            .Setup(f => f.Create(It.IsAny<System.Data.Common.DbConnection>()))
             .Returns(mockProgressStore.Object);
 
         var cursor = new CursorEntry { LastProcessed = "WorkItems/prior", Stage = CursorStage.Completed, UpdatedAt = DateTimeOffset.UtcNow, TotalWorkItems = 1 };
@@ -1094,7 +1094,7 @@ public class WorkItemExportOrchestratorTests
 
         var mockFactory = new Mock<IExportProgressStoreFactory>(MockBehavior.Strict);
         mockFactory
-            .Setup(f => f.CreateFromPackageUri(It.IsAny<string>()))
+            .Setup(f => f.Create(It.IsAny<System.Data.Common.DbConnection>()))
             .Returns(mockProgressStore.Object);
 
         var cursor = new CursorEntry { LastProcessed = "WorkItems/prior", Stage = CursorStage.Completed, UpdatedAt = DateTimeOffset.UtcNow };
@@ -1152,7 +1152,7 @@ public class WorkItemExportOrchestratorTests
 
         var mockFactory = new Mock<IExportProgressStoreFactory>(MockBehavior.Strict);
         mockFactory
-            .Setup(f => f.CreateFromPackageUri(It.IsAny<string>()))
+            .Setup(f => f.Create(It.IsAny<System.Data.Common.DbConnection>()))
             .Returns(mockProgressStore.Object);
 
         var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);

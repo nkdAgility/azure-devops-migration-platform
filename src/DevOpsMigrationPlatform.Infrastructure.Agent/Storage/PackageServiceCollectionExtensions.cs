@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Agent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -21,7 +22,10 @@ public static class PackageServiceCollectionExtensions
         services.TryAddSingleton<IPackageAccess>(sp =>
             new ActivePackageAccess(
                 sp.GetRequiredService<ActivePackageState>(),
-                sp.GetRequiredService<PackagePathRouter>()));
+                sp.GetRequiredService<PackagePathRouter>(),
+                sp.GetService<DevOpsMigrationPlatform.Abstractions.ControlPlaneApi.IControlPlaneAgentClient>(),
+                sp.GetService<AgentInstanceIdHolder>(),
+                sp.GetService<Microsoft.Extensions.Logging.ILogger<ActivePackageAccess>>()));
         return services;
     }
 

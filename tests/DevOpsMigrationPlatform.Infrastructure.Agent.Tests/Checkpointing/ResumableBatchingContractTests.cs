@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
@@ -17,7 +18,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Checkpointing;
 /// <summary>
 /// Contract tests for the foundational types introduced by the resumable batching cursor feature.
 /// Covers: BatchContinuationToken, ResumeDecision, ResumeRejectedException,
-/// QueryFingerprintService, CheckpointingService (continuation token CRUD), PackagePaths.
+/// QueryFingerprintService, CheckpointingService (continuation token CRUD), PackagePathTestHelper.
 /// </summary>
 [TestClass]
 public class ResumableBatchingContractTests
@@ -162,13 +163,14 @@ public class ResumableBatchingContractTests
     {
         var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
         stateStore.Setup(s => s.ReadAsync(
-                PackagePaths.ContinuationFile("inventory"), It.IsAny<CancellationToken>()))
+                ".migration/inventory.inventory.continuation.json", It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
 
         var sut = new CheckpointingService(
             stateStore.Object,
+            BuildEndpointAccessor().Object,
             package: PackageTestFactory.CreateStateDelegatingMock(stateStore.Object).Object);
-        var result = await sut.ReadContinuationTokenAsync("inventory", CancellationToken.None);
+        var result = await sut.ReadContinuationTokenAsync("inventory.inventory", CancellationToken.None);
 
         Assert.IsNull(result);
         stateStore.VerifyAll();
@@ -189,6 +191,7 @@ public class ResumableBatchingContractTests
 
         var sut = new CheckpointingService(
             stateStore.Object,
+            BuildEndpointAccessor().Object,
             package: PackageTestFactory.CreateStateDelegatingMock(stateStore.Object).Object);
         var token = new BatchContinuationToken
         {
@@ -200,8 +203,8 @@ public class ResumableBatchingContractTests
             Completed = false
         };
 
-        await sut.WriteContinuationTokenAsync("inventory", token, CancellationToken.None);
-        var result = await sut.ReadContinuationTokenAsync("inventory", CancellationToken.None);
+        await sut.WriteContinuationTokenAsync("inventory.inventory", token, CancellationToken.None);
+        var result = await sut.ReadContinuationTokenAsync("inventory.inventory", CancellationToken.None);
 
         Assert.IsNotNull(result);
         Assert.AreEqual(42, result!.WorkItemId);
@@ -214,30 +217,44 @@ public class ResumableBatchingContractTests
     {
         var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
         stateStore.Setup(s => s.DeleteAsync(
-                PackagePaths.ContinuationFile("inventory"), It.IsAny<CancellationToken>()))
+                ".migration/inventory.inventory.continuation.json", It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var sut = new CheckpointingService(
             stateStore.Object,
+            BuildEndpointAccessor().Object,
             package: PackageTestFactory.CreateStateDelegatingMock(stateStore.Object).Object);
-        await sut.DeleteContinuationTokenAsync("inventory", CancellationToken.None);
+        await sut.DeleteContinuationTokenAsync("inventory.inventory", CancellationToken.None);
 
         stateStore.VerifyAll();
     }
 
-    // ── PackagePaths ────────────────────────────────────────────────────
+    // ── PackagePathTestHelper ────────────────────────────────────────────────────
 
     [TestMethod]
     public void ContinuationFile_ReturnsExpectedPath()
     {
-        var path = PackagePaths.ContinuationFile("Inventory");
+        var path = PackagePathTestHelper.ContinuationFile("Inventory");
         Assert.AreEqual(".migration/Checkpoints/inventory.continuation.json", path);
     }
 
     [TestMethod]
     public void ContinuationFile_LowercasesModuleName()
     {
-        var path = PackagePaths.ContinuationFile("workitems");
+        var path = PackagePathTestHelper.ContinuationFile("workitems");
         Assert.IsTrue(path.Contains("workitems.continuation.json"));
+    }
+
+    private static Mock<ICurrentJobEndpointAccessor> BuildEndpointAccessor()
+    {
+        var source = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
+        source.SetupGet(s => s.Url).Returns("https://dev.azure.com/contoso");
+        source.SetupGet(s => s.Project).Returns("Shop");
+        source.SetupGet(s => s.ConnectorType).Returns("AzureDevOpsServices");
+
+        var accessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
+        accessor.SetupGet(a => a.Source).Returns(source.Object);
+        accessor.SetupGet(a => a.Target).Returns((ITargetEndpointInfo?)null);
+        return accessor;
     }
 }

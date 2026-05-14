@@ -127,6 +127,57 @@ public class AzureDevOpsNodeCreatorTests
         Assert.AreEqual((TreeStructureGroup.Iterations, @"Program Increment", "Sprint 1"), created[1]);
     }
 
+    [TestMethod]
+    public async Task EnsureExistsAsync_SlashSeparatedPath_CreatesFullHierarchyWithCorrectParents()
+    {
+        var factory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var witClient = new Mock<WorkItemTrackingHttpClient>(MockBehavior.Strict, new object[] { new Uri("https://dev.azure.com/test-org"), null! });
+        var created = new List<(TreeStructureGroup Group, string? ParentPath, string? Name)>();
+
+        factory
+            .Setup(f => f.CreateWorkItemClientAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(witClient.Object);
+
+        witClient
+            .Setup(c => c.GetClassificationNodeAsync(
+                "TargetProject",
+                TreeStructureGroup.Areas,
+                It.IsAny<string>(),
+                0,
+                It.IsAny<object>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("not found"));
+
+        witClient
+            .Setup(c => c.CreateOrUpdateClassificationNodeAsync(
+                It.IsAny<WorkItemClassificationNode>(),
+                "TargetProject",
+                TreeStructureGroup.Areas,
+                It.IsAny<string?>(),
+                It.IsAny<object>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<WorkItemClassificationNode, string, TreeStructureGroup, string?, object, CancellationToken>(
+                (node, _, group, parentPath, _, _) => created.Add((group, parentPath, node.Name)))
+            .ReturnsAsync(new WorkItemClassificationNode());
+
+        var sut = new AzureDevOpsNodeCreator(
+            factory.Object,
+            NullLogger<AzureDevOpsNodeCreator>.Instance,
+            new TestTargetEndpointInfo
+            {
+                Url = "https://dev.azure.com/test-org",
+                Project = "TargetProject",
+                ConnectorType = "AzureDevOpsServices"
+            });
+
+        await sut.EnsureExistsAsync(ClassificationNodeType.Area, "TargetProject/Platform/API/Web", CancellationToken.None);
+
+        Assert.AreEqual(3, created.Count);
+        Assert.AreEqual((TreeStructureGroup.Areas, (string?)null, "Platform"), created[0]);
+        Assert.AreEqual((TreeStructureGroup.Areas, @"Platform", "API"), created[1]);
+        Assert.AreEqual((TreeStructureGroup.Areas, @"Platform\API", "Web"), created[2]);
+    }
+
     private sealed class TestTargetEndpointInfo : ITargetEndpointInfo
     {
         public required string Url { get; init; }

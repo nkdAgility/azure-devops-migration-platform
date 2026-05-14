@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -29,8 +30,16 @@ public interface IPackageAccess
         PackageContentContext context,
         CancellationToken cancellationToken = default);
 
-    ValueTask<PackageMetaPayload?> RequestMetaAsync(
+    ValueTask<PackageMetaResult> RequestMetaAsync(
         PackageMetaContext context,
+        CancellationToken cancellationToken = default);
+
+    ValueTask<System.Data.Common.DbConnection> OpenNativeDatabaseAsync(
+        PackageMetaKind kind,
+        CancellationToken cancellationToken = default);
+
+    ValueTask<IDisposable> AcquireLockAsync(
+        string jobId,
         CancellationToken cancellationToken = default);
 
     ValueTask PersistContentAsync(
@@ -47,6 +56,10 @@ public interface IPackageAccess
     ValueTask PersistMetaAsync(
         PackageMetaContext context,
         PackageMetaPayload payload,
+        CancellationToken cancellationToken = default);
+
+    ValueTask DeleteMetaAsync(
+        PackageMetaContext context,
         CancellationToken cancellationToken = default);
 
     ValueTask AppendContentAsync(

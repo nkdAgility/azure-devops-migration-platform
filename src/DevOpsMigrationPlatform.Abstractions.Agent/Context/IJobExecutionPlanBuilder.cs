@@ -37,7 +37,7 @@ public interface IJobExecutionPlanBuilder
 
     /// <summary>
     /// Loads the persisted plan from the package (resume path) or builds a fresh plan, then
-    /// persists it to <see cref="PackagePaths.PlanFile"/> via <paramref name="stateStore"/>.
+    /// persists it to <c>.migration/plan.json</c> via the package boundary.
     /// Both migration and discovery job paths must call this method so the plan is always
     /// written to the package in a consistent way.
     /// </summary>

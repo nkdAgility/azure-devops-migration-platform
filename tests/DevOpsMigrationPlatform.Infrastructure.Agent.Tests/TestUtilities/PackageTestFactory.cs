@@ -3,11 +3,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 using Moq;
 
@@ -18,7 +18,7 @@ internal static class PackageTestFactory
     public static Mock<IPackageAccess> CreateLooseMock()
     {
         var contentStore = new Dictionary<string, byte[]>(System.StringComparer.OrdinalIgnoreCase);
-        var metaStore = new Dictionary<PackageMetaKind, byte[]>();
+        var metaStore = new Dictionary<string, byte[]>(System.StringComparer.OrdinalIgnoreCase);
         var package = new Mock<IPackageAccess>(MockBehavior.Loose);
         package
             .Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
@@ -40,9 +40,10 @@ internal static class PackageTestFactory
             .Setup(p => p.RequestMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
             .Returns((PackageMetaContext context, CancellationToken _) =>
             {
-                if (!metaStore.TryGetValue(context.Kind, out var bytes))
-                    return ValueTask.FromResult<PackageMetaPayload?>(null);
-                return ValueTask.FromResult<PackageMetaPayload?>(new PackageMetaPayload(new System.IO.MemoryStream(bytes, writable: false)));
+                var key = ResolveMetaPath(context);
+                if (!metaStore.TryGetValue(key, out var bytes))
+                    return ValueTask.FromResult(new PackageMetaResult(key, null));
+                return ValueTask.FromResult(new PackageMetaResult(key, new PackageMetaPayload(new System.IO.MemoryStream(bytes, writable: false))));
             });
         package
             .Setup(p => p.ContentExistsAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
@@ -68,7 +69,14 @@ internal static class PackageTestFactory
             .Setup(p => p.PersistMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<PackageMetaPayload>(), It.IsAny<CancellationToken>()))
             .Returns((PackageMetaContext context, PackageMetaPayload payload, CancellationToken _) =>
             {
-                metaStore[context.Kind] = ReadAllBytes(payload.Content);
+                metaStore[ResolveMetaPath(context)] = ReadAllBytes(payload.Content);
+                return ValueTask.CompletedTask;
+            });
+        package
+            .Setup(p => p.DeleteMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageMetaContext context, CancellationToken _) =>
+            {
+                metaStore.Remove(ResolveMetaPath(context));
                 return ValueTask.CompletedTask;
             });
         package
@@ -85,6 +93,12 @@ internal static class PackageTestFactory
         package
             .Setup(p => p.AppendLogAsync(It.IsAny<PackageLogContext>(), It.IsAny<PackageLogPayload>(), It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
+        package
+            .Setup(p => p.OpenNativeDatabaseAsync(It.IsAny<PackageMetaKind>(), It.IsAny<CancellationToken>()))
+            .Returns(ValueTask.FromResult<DbConnection>(new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:")));
+        package
+            .Setup(p => p.AcquireLockAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(ValueTask.FromResult<IDisposable>(new NoOpLockHandle()));
         return package;
     }
 
@@ -159,21 +173,14 @@ internal static class PackageTestFactory
             .Setup(p => p.RequestMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
             .Returns(async (PackageMetaContext context, CancellationToken ct) =>
             {
+                var key = ResolveMetaPath(context);
                 if (stateStore is null)
-                    return null;
+                    return new PackageMetaResult(key, null);
 
-                var key = context.Kind switch
-                {
-                    PackageMetaKind.ExecutionPlan => PackagePaths.PlanFile,
-                    PackageMetaKind.PhaseRecord => PackagePaths.PhaseFile,
-                    _ => null
-                };
-                if (key is null)
-                    return null;
                 var content = await stateStore.ReadAsync(key, ct).ConfigureAwait(false);
                 if (content is null)
-                    return null;
-                return new PackageMetaPayload(new System.IO.MemoryStream(Encoding.UTF8.GetBytes(content), writable: false), "application/json");
+                    return new PackageMetaResult(key, null);
+                return new PackageMetaResult(key, new PackageMetaPayload(new System.IO.MemoryStream(Encoding.UTF8.GetBytes(content), writable: false), "application/json"));
             });
         package
             .Setup(p => p.PersistMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<PackageMetaPayload>(), It.IsAny<CancellationToken>()))
@@ -181,20 +188,27 @@ internal static class PackageTestFactory
             {
                 if (stateStore is null)
                     return;
-                var key = context.Kind switch
-                {
-                    PackageMetaKind.ExecutionPlan => PackagePaths.PlanFile,
-                    PackageMetaKind.PhaseRecord => PackagePaths.PhaseFile,
-                    _ => null
-                };
-                if (key is null)
-                    return;
+                var key = ResolveMetaPath(context);
                 var text = Encoding.UTF8.GetString(ReadAllBytes(payload.Content));
                 await stateStore.WriteAsync(key, text, ct).ConfigureAwait(false);
             });
         package
+            .Setup(p => p.DeleteMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
+            .Returns(async (PackageMetaContext context, CancellationToken ct) =>
+            {
+                if (stateStore is null)
+                    return;
+                await stateStore.DeleteAsync(ResolveMetaPath(context), ct).ConfigureAwait(false);
+            });
+        package
             .Setup(p => p.AppendLogAsync(It.IsAny<PackageLogContext>(), It.IsAny<PackageLogPayload>(), It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
+        package
+            .Setup(p => p.OpenNativeDatabaseAsync(It.IsAny<PackageMetaKind>(), It.IsAny<CancellationToken>()))
+            .Returns(ValueTask.FromResult<DbConnection>(new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:")));
+        package
+            .Setup(p => p.AcquireLockAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(ValueTask.FromResult<IDisposable>(new NoOpLockHandle()));
         return package;
     }
 
@@ -224,34 +238,23 @@ internal static class PackageTestFactory
             .Setup(p => p.RequestMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
             .Returns(async (PackageMetaContext context, CancellationToken ct) =>
             {
-                var key = context.Kind switch
-                {
-                    PackageMetaKind.ExecutionPlan => PackagePaths.PlanFile,
-                    PackageMetaKind.PhaseRecord => PackagePaths.PhaseFile,
-                    _ => null
-                };
-                if (key is null)
-                    return null;
+                var key = ResolveMetaPath(context);
                 var content = await stateStore.ReadAsync(key, ct).ConfigureAwait(false);
                 if (content is null)
-                    return null;
-                return new PackageMetaPayload(new System.IO.MemoryStream(Encoding.UTF8.GetBytes(content), writable: false), "application/json");
+                    return new PackageMetaResult(key, null);
+                return new PackageMetaResult(key, new PackageMetaPayload(new System.IO.MemoryStream(Encoding.UTF8.GetBytes(content), writable: false), "application/json"));
             });
         package
             .Setup(p => p.PersistMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<PackageMetaPayload>(), It.IsAny<CancellationToken>()))
             .Returns(async (PackageMetaContext context, PackageMetaPayload payload, CancellationToken ct) =>
             {
-                var key = context.Kind switch
-                {
-                    PackageMetaKind.ExecutionPlan => PackagePaths.PlanFile,
-                    PackageMetaKind.PhaseRecord => PackagePaths.PhaseFile,
-                    _ => null
-                };
-                if (key is null)
-                    return;
+                var key = ResolveMetaPath(context);
                 var text = Encoding.UTF8.GetString(ReadAllBytes(payload.Content));
                 await stateStore.WriteAsync(key, text, ct).ConfigureAwait(false);
             });
+        package
+            .Setup(p => p.DeleteMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageMetaContext context, CancellationToken ct) => new ValueTask(stateStore.DeleteAsync(ResolveMetaPath(context), ct)));
         package
             .Setup(p => p.EnumerateContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns(EmptyAsync());
@@ -272,6 +275,12 @@ internal static class PackageTestFactory
         package
             .Setup(p => p.AppendLogAsync(It.IsAny<PackageLogContext>(), It.IsAny<PackageLogPayload>(), It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
+        package
+            .Setup(p => p.OpenNativeDatabaseAsync(It.IsAny<PackageMetaKind>(), It.IsAny<CancellationToken>()))
+            .Returns(ValueTask.FromResult<DbConnection>(new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:")));
+        package
+            .Setup(p => p.AcquireLockAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(ValueTask.FromResult<IDisposable>(new NoOpLockHandle()));
         return package;
     }
 
@@ -309,4 +318,26 @@ internal static class PackageTestFactory
     private static bool IsStatePath(string contentKind)
         => contentKind.StartsWith(".migration/", StringComparison.OrdinalIgnoreCase)
            || contentKind.Contains("/.migration/", StringComparison.OrdinalIgnoreCase);
+
+    private static string ResolveMetaPath(PackageMetaContext context)
+        => context.Kind switch
+        {
+            PackageMetaKind.ExecutionPlan => ".migration/plan.json",
+            PackageMetaKind.PhaseRecord => ".migration/phase.json",
+            PackageMetaKind.MigrationConfig => ".migration/migration-config.json",
+            PackageMetaKind.CheckpointCursor => $".migration/{(context.Action ?? throw new InvalidOperationException("Action is required for checkpoint cursor metadata.")).ToLowerInvariant()}.{(context.Module ?? throw new InvalidOperationException("Module is required for checkpoint cursor metadata.")).ToLowerInvariant()}.cursor.json",
+            PackageMetaKind.ContinuationToken => $".migration/{(context.Action ?? throw new InvalidOperationException("Action is required for continuation metadata.")).ToLowerInvariant()}.{(context.Module ?? throw new InvalidOperationException("Module is required for continuation metadata.")).ToLowerInvariant()}.continuation.json",
+            PackageMetaKind.JobDescriptor => context.RelatedToRun
+                ? throw new InvalidOperationException("Run-scoped job descriptor routing is not supported by test package mocks.")
+                : ".migration/job.json",
+            PackageMetaKind.RunConfigSnapshot => throw new InvalidOperationException("Run-scoped config routing is not supported by test package mocks."),
+            PackageMetaKind.ExportProgressDb => ".migration/Checkpoints/export_progress.db",
+            PackageMetaKind.IdMapDb => ".migration/Checkpoints/idmap.db",
+            _ => throw new InvalidOperationException($"Unsupported meta kind for test package mock: {context.Kind}.")
+        };
+
+    private sealed class NoOpLockHandle : IDisposable
+    {
+        public void Dispose() { }
+    }
 }

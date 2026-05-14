@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Services;
@@ -34,7 +35,7 @@ public class IdentityMappingServiceTests
     private FileSystemIdentityMappingService MakeSut(
         Dictionary<string, string>? mappings = null,
         string fallback = "bot@target.example.com")
-        => new(mappings ?? new(), fallback, _store);
+        => new(mappings ?? new(), fallback, PackageTestFactory.CreateDelegatingMock(_store).Object);
 
     [TestMethod]
     public void Resolve_WhenMappingExists_ReturnsMappedIdentity()

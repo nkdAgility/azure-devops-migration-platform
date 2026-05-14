@@ -182,7 +182,7 @@ public class NodeReadinessOrchestratorTests
         packageMock.Setup(p => p.RequestContentBinaryAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult<System.IO.Stream?>(null));
         packageMock.Setup(p => p.RequestMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
-            .Returns(ValueTask.FromResult<PackageMetaPayload?>(null));
+            .Returns((PackageMetaContext context, CancellationToken _) => new ValueTask<PackageMetaResult>(new PackageMetaResult(context.Kind.ToString(), null)));
         packageMock.Setup(p => p.PersistContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
         packageMock.Setup(p => p.PersistContentStreamAsync(It.IsAny<PackageContentContext>(), It.IsAny<System.IO.Stream>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
@@ -254,7 +254,7 @@ public class NodeReadinessOrchestratorTests
         mock.Setup(p => p.RequestContentBinaryAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult<System.IO.Stream?>(null));
         mock.Setup(p => p.RequestMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
-            .Returns(ValueTask.FromResult<PackageMetaPayload?>(null));
+            .Returns((PackageMetaContext context, CancellationToken _) => new ValueTask<PackageMetaResult>(new PackageMetaResult(context.Kind.ToString(), null)));
         mock.Setup(p => p.PersistContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
         mock.Setup(p => p.PersistContentStreamAsync(It.IsAny<PackageContentContext>(), It.IsAny<System.IO.Stream>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))

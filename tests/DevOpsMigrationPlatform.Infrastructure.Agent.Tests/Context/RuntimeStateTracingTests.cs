@@ -30,8 +30,6 @@ public sealed class RuntimeStateTracingTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        _ = PackagePaths.CursorFile("export", "workitems", "https://dev.azure.com/contoso", "Shop");
-
         var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
         var endpoints = CreateEndpointAccessor();
         var sut = new CheckpointingService(
@@ -40,7 +38,6 @@ public sealed class RuntimeStateTracingTests
             package: PackageTestFactory.CreateStateDelegatingMock(stateStore.Object).Object);
         await sut.WriteCursorAsync("export.workitems", new CursorEntry { LastProcessed = "X", Stage = CursorStage.Completed }, CancellationToken.None);
 
-        CollectionAssert.Contains(spans, "state.paths.resolve");
         CollectionAssert.Contains(spans, "state.cursor.update");
     }
 

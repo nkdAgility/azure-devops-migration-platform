@@ -44,7 +44,7 @@ public sealed class PhaseTrackingServiceTests
         package.Setup(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.PhaseRecord),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes(payload))));
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/phase.json", new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes(payload))))));
 
         var sut = new PhaseTrackingService(stateStore.Object, package.Object);
 

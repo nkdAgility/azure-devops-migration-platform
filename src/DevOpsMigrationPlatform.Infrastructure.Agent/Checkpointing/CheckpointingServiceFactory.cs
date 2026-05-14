@@ -30,7 +30,6 @@ public sealed class CheckpointingServiceFactory : ICheckpointingServiceFactory
     /// <inheritdoc/>
     public ICheckpointingService Create(IStateStore stateStore)
         => new CheckpointingService(
-            stateStore,
             _currentJobEndpointAccessor,
             _currentPackageConfigAccessor,
             package: _package);

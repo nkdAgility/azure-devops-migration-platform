@@ -83,7 +83,7 @@ public class ReferencedPathsFromWorkItemsStrategyTests
         package.Setup(p => p.RequestContentBinaryAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult<Stream?>(null));
         package.Setup(p => p.RequestMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
-            .Returns(ValueTask.FromResult<PackageMetaPayload?>(null));
+            .Returns((PackageMetaContext context, CancellationToken _) => new ValueTask<PackageMetaResult>(new PackageMetaResult(context.Kind.ToString(), null)));
         package.Setup(p => p.PersistContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
         package.Setup(p => p.PersistContentStreamAsync(It.IsAny<PackageContentContext>(), It.IsAny<Stream>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))

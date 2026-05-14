@@ -177,7 +177,7 @@ public class TfsJobAgentWorkerTests
             _tfsServiceFactory.Object,
             new DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.ActiveTfsJobServices(),
             _logger,
-            package);
+            package ?? _package.Object);
     }
 
     private HttpClient CreateControlPlaneClient() =>
@@ -356,7 +356,7 @@ public class TfsJobAgentWorkerTests
             .Setup(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes(planJson)), "application/json"));
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/plan.json", new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes(planJson)), "application/json"))));
         package
             .Setup(p => p.PersistMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
@@ -375,7 +375,7 @@ public class TfsJobAgentWorkerTests
             It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
             It.IsAny<PackageMetaPayload>(),
             It.IsAny<CancellationToken>()), Times.AtLeastOnce);
-        _stateStore.Verify(s => s.ReadAsync(PackagePaths.PlanFile, It.IsAny<CancellationToken>()), Times.Never);
+        _stateStore.Verify(s => s.ReadAsync(".migration/plan.json", It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [TestMethod]
@@ -427,10 +427,10 @@ public class TfsJobAgentWorkerTests
             .Setup(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((PackageMetaPayload?)null);
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/plan.json", null)));
 
         _stateStore
-            .Setup(s => s.ReadAsync(PackagePaths.PlanFile, It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(".migration/plan.json", It.IsAny<CancellationToken>()))
             .ReturnsAsync(planJson);
 
         var worker = CreateWorker(package: package.Object);
@@ -444,8 +444,8 @@ public class TfsJobAgentWorkerTests
             It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
             It.IsAny<PackageMetaPayload>(),
             It.IsAny<CancellationToken>()), Times.Never);
-        _stateStore.Verify(s => s.ReadAsync(PackagePaths.PlanFile, It.IsAny<CancellationToken>()), Times.Never);
-        _stateStore.Verify(s => s.WriteAsync(PackagePaths.PlanFile, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _stateStore.Verify(s => s.ReadAsync(".migration/plan.json", It.IsAny<CancellationToken>()), Times.Never);
+        _stateStore.Verify(s => s.WriteAsync(".migration/plan.json", It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [TestMethod]
@@ -648,7 +648,7 @@ public class TfsJobAgentWorkerTests
         package.Setup(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.MigrationConfig),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("{\"MigrationPlatform\":{\"Mode\":\"Export\"}}"))));
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("{\"MigrationPlatform\":{\"Mode\":\"Export\"}}"))))));
 
         var metrics = new Mock<IPlatformMetrics>(MockBehavior.Loose);
         var sut = new DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageMigrationConfigLoader(

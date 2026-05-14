@@ -152,11 +152,11 @@ public sealed class DependencyOrchestratorTests
             new JobPolicies { CheckpointIntervalSeconds = 0 },
             CancellationToken.None);
 
-        var expectedCursorKey = PackagePaths.CursorFile("dependencies", "dependencies", "https://dev.azure.com/org", "ProjectA");
-        var expectedContinuationKey = PackagePaths.ContinuationFile("dependencies", "dependencies", "https://dev.azure.com/org", "ProjectA");
+        var expectedCursorKey = PackagePathTestHelper.CursorFile("dependencies", "dependencies", "https://dev.azure.com/org", "ProjectA");
+        var expectedContinuationKey = PackagePathTestHelper.ContinuationFile("dependencies", "dependencies", "https://dev.azure.com/org", "ProjectA");
         Assert.IsTrue(stateStore.WrittenKeys.Contains(expectedCursorKey), "Dependencies capture must checkpoint to the project-local cursor path.");
         Assert.IsTrue(stateStore.WrittenKeys.Contains(expectedContinuationKey), "Dependencies capture must persist the continuation token for project-local resume.");
-        Assert.IsFalse(stateStore.WrittenKeys.Contains(PackagePaths.CursorFile("DependencyDiscovery")), "Dependencies capture must not write the legacy root dependency cursor.");
+        Assert.IsFalse(stateStore.WrittenKeys.Contains(PackagePathTestHelper.CursorFile("DependencyDiscovery")), "Dependencies capture must not write the legacy root dependency cursor.");
 
         var canonicalProjectCsv = await store.ReadAsync("org/ProjectA/dependencies.csv", CancellationToken.None);
         var invalidDiscoveryCsv = await store.ReadAsync("discovery/org/ProjectA/dependencies.csv", CancellationToken.None);
@@ -208,7 +208,7 @@ public sealed class DependencyOrchestratorTests
             CancellationToken.None);
 
         Assert.IsFalse(
-            stateStore.WrittenKeys.Contains(PackagePaths.CursorFile("DependencyDiscovery")),
+            stateStore.WrittenKeys.Contains(PackagePathTestHelper.CursorFile("DependencyDiscovery")),
             "Aggregate dependency analysis must not persist the legacy root cursor blob in the clean long-term model.");
     }
 

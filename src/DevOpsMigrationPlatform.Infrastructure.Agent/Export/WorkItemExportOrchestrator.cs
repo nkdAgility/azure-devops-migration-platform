@@ -175,9 +175,15 @@ public sealed class WorkItemExportOrchestrator
             });
         }
 
-        var exportProgressStore = _exportProgressStoreFactory != null && _packageUri != null
-                    ? _exportProgressStoreFactory.CreateFromPackageUri(_packageUri)
-                    : null;
+        IExportProgressStore? exportProgressStore = null;
+        if (_exportProgressStoreFactory != null && _package != null)
+        {
+            var connection = await _package.OpenNativeDatabaseAsync(
+                PackageMetaKind.ExportProgressDb,
+                cancellationToken).ConfigureAwait(false);
+            exportProgressStore = _exportProgressStoreFactory.Create(connection);
+        }
+
         try
         {
             if (exportProgressStore != null)

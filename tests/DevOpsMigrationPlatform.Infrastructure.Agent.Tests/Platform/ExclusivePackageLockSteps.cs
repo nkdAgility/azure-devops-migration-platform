@@ -7,7 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Reqnroll;
@@ -20,8 +20,8 @@ public class ExclusivePackageLockSteps
 {
     private readonly ExclusivePackageLockContext _ctx;
 
-    private PackageLockFileService? _firstAgentService;
-    private PackageLockFileService? _secondAgentService;
+    private ActivePackageAccess? _firstAgentService;
+    private ActivePackageAccess? _secondAgentService;
     private string? _staleLockAgentId;
 
     public ExclusivePackageLockSteps(ExclusivePackageLockContext ctx) => _ctx = ctx;
@@ -42,7 +42,7 @@ public class ExclusivePackageLockSteps
     {
         var agentGuid = DeterministicGuid(agentId);
         _firstAgentService = _ctx.BuildService(agentGuid);
-        _ctx.LockHandle = await _firstAgentService.AcquireAsync(_ctx.TempDir, "job-first", CancellationToken.None);
+        _ctx.LockHandle = await _firstAgentService.AcquireLockAsync("job-first", CancellationToken.None);
     }
 
     [Given(@"the ControlPlane reports agent ""(.*)"" as Active")]
@@ -60,8 +60,8 @@ public class ExclusivePackageLockSteps
         _secondAgentService = _ctx.BuildService(secondGuid);
         try
         {
-            var handle = await _secondAgentService.AcquireAsync(_ctx.TempDir, "job-second", CancellationToken.None);
-            await handle.DisposeAsync();
+            var handle = await _secondAgentService.AcquireLockAsync("job-second", CancellationToken.None);
+            handle.Dispose();
             _ctx.SecondAcquireSucceeded = true;
         }
         catch (PackageLockConflictException ex)
@@ -91,7 +91,7 @@ public class ExclusivePackageLockSteps
     public void GivenStaleLockFileExistsForAgent(string agentId)
     {
         _staleLockAgentId = agentId;
-        var checkpointsDir = Path.Combine(_ctx.TempDir, PackagePaths.SystemRoot, "Checkpoints");
+        var checkpointsDir = Path.Combine(_ctx.TempDir, PackagePathTestHelper.SystemRoot, "Checkpoints");
         Directory.CreateDirectory(checkpointsDir);
 
         var lockContent = JsonSerializer.Serialize(new
@@ -119,7 +119,7 @@ public class ExclusivePackageLockSteps
         var service = _ctx.BuildService(agentGuid);
         try
         {
-            _ctx.LockHandle = await service.AcquireAsync(_ctx.TempDir, "job-new", CancellationToken.None);
+            _ctx.LockHandle = await service.AcquireLockAsync("job-new", CancellationToken.None);
             _ctx.SecondAcquireSucceeded = true;
         }
         catch (PackageLockConflictException ex)
@@ -133,7 +133,7 @@ public class ExclusivePackageLockSteps
     {
         // After acquiring the new lock, the stale content has been replaced.
         // The lock file now exists but belongs to the new agent, not the stale one.
-        var lockFilePath = Path.Combine(_ctx.TempDir, PackagePaths.SystemRoot, "Checkpoints", "agent.lock");
+        var lockFilePath = Path.Combine(_ctx.TempDir, PackagePathTestHelper.SystemRoot, "Checkpoints", "agent.lock");
         Assert.IsTrue(File.Exists(lockFilePath), "Lock file should exist (newly acquired).");
 
         var content = File.ReadAllText(lockFilePath);
@@ -164,14 +164,14 @@ public class ExclusivePackageLockSteps
     public async Task WhenJobCompletesAndLockHandleIsDisposed()
     {
         Assert.IsNotNull(_ctx.LockHandle, "Lock handle must exist to dispose.");
-        await _ctx.LockHandle.DisposeAsync();
+        _ctx.LockHandle.Dispose();
         _ctx.LockHandle = null;
     }
 
     [Then("the lock file no longer exists in the package Checkpoints directory")]
     public void ThenLockFileNoLongerExists()
     {
-        var lockFilePath = Path.Combine(_ctx.TempDir, PackagePaths.SystemRoot, "Checkpoints", "agent.lock");
+        var lockFilePath = Path.Combine(_ctx.TempDir, PackagePathTestHelper.SystemRoot, "Checkpoints", "agent.lock");
         Assert.IsFalse(File.Exists(lockFilePath), "Lock file should have been deleted on dispose.");
     }
 

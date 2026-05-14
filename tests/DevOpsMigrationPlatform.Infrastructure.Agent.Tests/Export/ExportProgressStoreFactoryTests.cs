@@ -23,7 +23,7 @@ public class ExportProgressStoreFactoryTests
         var relativePackageRoot = Path.Combine(rootName, "package-root");
         var expectedDbPath = Path.Combine(
             Path.GetFullPath(relativePackageRoot),
-            PackagePaths.SystemRoot,
+            PackagePathTestHelper.SystemRoot,
             "Checkpoints",
             "export_progress.db");
         IExportProgressStore? store = null;
@@ -68,7 +68,7 @@ public class ExportProgressStoreFactoryTests
         var relativePackageRoot = Path.Combine(rootName, "package-root");
         var expectedDbPath = Path.Combine(
             Path.GetFullPath(relativePackageRoot),
-            PackagePaths.SystemRoot,
+            PackagePathTestHelper.SystemRoot,
             "Checkpoints",
             "export_progress.db");
         IExportProgressStore? store = null;

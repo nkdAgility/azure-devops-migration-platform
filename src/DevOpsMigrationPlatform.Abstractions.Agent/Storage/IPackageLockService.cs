@@ -21,5 +21,5 @@ public interface IPackageLockService
     /// Thrown when a live lock already exists (owning agent instance is still active).
     /// The second agent's job must be failed/bounced by the caller.
     /// </exception>
-    Task<IAsyncDisposable> AcquireAsync(string packagePath, string jobId, CancellationToken ct);
+    Task<IDisposable> AcquireAsync(string packagePath, string jobId, CancellationToken ct);
 }

@@ -9,11 +9,13 @@ using System.Diagnostics.Metrics;
 #endif
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -31,23 +33,31 @@ internal sealed class ActivePackageAccess : IPackageAccess
 
     private readonly ActivePackageState _activePackageState;
     private readonly PackagePathRouter _router;
+    private readonly IControlPlaneAgentClient? _controlPlaneAgentClient;
+    private readonly Guid _agentInstanceId;
+    private readonly ILogger<ActivePackageAccess>? _logger;
 
     [ActivatorUtilitiesConstructor]
     public ActivePackageAccess(
         ActivePackageState activePackageState,
-        PackagePathRouter router)
+        PackagePathRouter router,
+        IControlPlaneAgentClient? controlPlaneAgentClient = null,
+        AgentInstanceIdHolder? agentInstanceIdHolder = null,
+        ILogger<ActivePackageAccess>? logger = null)
     {
         _activePackageState = activePackageState ?? throw new ArgumentNullException(nameof(activePackageState));
         _router = router ?? throw new ArgumentNullException(nameof(router));
+        _controlPlaneAgentClient = controlPlaneAgentClient;
+        _agentInstanceId = agentInstanceIdHolder?.AgentInstanceId ?? Guid.Empty;
+        _logger = logger;
     }
 
     public ActivePackageAccess(
         ActivePackageState activePackageState,
         PackagePathRouter router,
         ILogger<ActivePackageAccess> logger)
-        : this(activePackageState, router)
+        : this(activePackageState, router, null, null, logger)
     {
-        _ = logger;
     }
 
     public async ValueTask<PackagePayload?> RequestContentAsync(
@@ -110,7 +120,7 @@ internal sealed class ActivePackageAccess : IPackageAccess
             }).ConfigureAwait(false);
     }
 
-    public async ValueTask<PackageMetaPayload?> RequestMetaAsync(
+    public async ValueTask<PackageMetaResult> RequestMetaAsync(
         PackageMetaContext context,
         CancellationToken cancellationToken = default)
     {
@@ -122,14 +132,42 @@ internal sealed class ActivePackageAccess : IPackageAccess
             async () =>
             {
                 var content = await store.ReadAsync(path, cancellationToken).ConfigureAwait(false);
-                if (content is null)
-                    return null;
-
-                return new PackageMetaPayload(
-                    new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false),
-                    "application/json");
+                PackageMetaPayload? payload = content is null
+                    ? null
+                    : new PackageMetaPayload(
+                        new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false),
+                        "application/json");
+                return new PackageMetaResult(path, payload);
             },
             context.Kind.ToString()).ConfigureAwait(false);
+    }
+
+    public ValueTask<System.Data.Common.DbConnection> OpenNativeDatabaseAsync(
+        PackageMetaKind kind,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var localRoot = RequireLocalRoot();
+        var nativePath = _router.ResolveNativePath(kind, localRoot);
+        var dir = System.IO.Path.GetDirectoryName(nativePath)!;
+        if (!System.IO.Directory.Exists(dir))
+            System.IO.Directory.CreateDirectory(dir);
+        var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={nativePath}");
+        return new ValueTask<System.Data.Common.DbConnection>(connection);
+    }
+
+    public ValueTask<IDisposable> AcquireLockAsync(
+        string jobId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var localRoot = RequireLocalRoot();
+        var lockFilePath = _router.ResolveLockPath(localRoot);
+        var dir = System.IO.Path.GetDirectoryName(lockFilePath)!;
+        if (!System.IO.Directory.Exists(dir))
+            System.IO.Directory.CreateDirectory(dir);
+
+        return TryAcquireAsync(lockFilePath, localRoot, jobId, cancellationToken);
     }
 
     public async ValueTask PersistContentAsync(
@@ -194,6 +232,23 @@ internal sealed class ActivePackageAccess : IPackageAccess
             context.Kind.ToString()).ConfigureAwait(false);
     }
 
+    public async ValueTask DeleteMetaAsync(
+        PackageMetaContext context,
+        CancellationToken cancellationToken = default)
+    {
+        var store = RequireStateStore();
+        var path = _router.ResolveMetaPath(context);
+        await ObserveAsync(
+            "delete-meta",
+            path,
+            async () =>
+            {
+                await store.DeleteAsync(path, cancellationToken).ConfigureAwait(false);
+                return true;
+            },
+            context.Kind.ToString()).ConfigureAwait(false);
+    }
+
     public async ValueTask AppendContentAsync(
         PackageContentContext context,
         PackagePayload payload,
@@ -236,6 +291,21 @@ internal sealed class ActivePackageAccess : IPackageAccess
             ?? throw new PackageOperationException(
                 "PKG_STORE_UNAVAILABLE",
                 "No active package store is available.");
+
+    private IStateStore RequireStateStore()
+        => _activePackageState.CurrentStateStore
+            ?? throw new PackageOperationException(
+                "PKG_STATE_STORE_UNAVAILABLE",
+                "No active package state store is available.");
+
+    private string RequireLocalRoot()
+    {
+        var packageUri = _activePackageState.CurrentJob?.Package?.PackageUri
+            ?? throw new PackageOperationException("PKG_STORE_UNAVAILABLE", "No active package store is available.");
+        if (packageUri.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
+            return System.IO.Path.GetFullPath(packageUri.Substring("file:///".Length).Replace('/', System.IO.Path.DirectorySeparatorChar));
+        return System.IO.Path.GetFullPath(packageUri);
+    }
 
     private static async Task<string> ReadUtf8Async(Stream stream, CancellationToken cancellationToken)
     {
@@ -320,5 +390,165 @@ internal sealed class ActivePackageAccess : IPackageAccess
         return tags;
     }
 #endif
-}
 
+    private async ValueTask<IDisposable> TryAcquireAsync(
+        string lockFilePath,
+        string packagePath,
+        string jobId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var fs = new FileStream(
+                lockFilePath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None);
+
+            var lockContent = JsonSerializer.Serialize(new
+            {
+                jobId,
+                agentInstanceId = _agentInstanceId.ToString(),
+                acquiredAt = DateTimeOffset.UtcNow.ToString("O")
+            });
+
+            using var writer = new StreamWriter(fs);
+            await writer.WriteAsync(lockContent).ConfigureAwait(false);
+            await writer.FlushAsync().ConfigureAwait(false);
+
+            _logger?.LogInformation(
+                "[PackageLock] Lock acquired for job {JobId} by agent {AgentInstanceId} at {Path}",
+                jobId, _agentInstanceId, lockFilePath);
+
+            return new PackageLockHandle(lockFilePath, _logger);
+        }
+        catch (IOException)
+        {
+            return await HandleExistingLockAsync(lockFilePath, packagePath, jobId, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async ValueTask<IDisposable> HandleExistingLockAsync(
+        string lockFilePath,
+        string packagePath,
+        string jobId,
+        CancellationToken cancellationToken)
+    {
+        string? existingContent = null;
+        try
+        {
+            existingContent = File.ReadAllText(lockFilePath);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex,
+                "[PackageLock] Could not read existing lock file at {Path} — treating as stale.",
+                lockFilePath);
+        }
+
+        if (existingContent is not null)
+        {
+            JsonElement doc;
+            try { doc = JsonSerializer.Deserialize<JsonElement>(existingContent); }
+            catch { doc = default; }
+
+            var ownerAgentInstanceId = doc.ValueKind != JsonValueKind.Undefined
+                && doc.TryGetProperty("agentInstanceId", out var agentProp)
+                ? agentProp.GetString() : null;
+            var ownerJobId = doc.ValueKind != JsonValueKind.Undefined
+                && doc.TryGetProperty("jobId", out var jobProp)
+                ? jobProp.GetString() : null;
+            var acquiredAt = doc.ValueKind != JsonValueKind.Undefined
+                && doc.TryGetProperty("acquiredAt", out var atProp)
+                && DateTimeOffset.TryParse(atProp.GetString(), out var dt)
+                ? dt : DateTimeOffset.MinValue;
+
+            if (ownerAgentInstanceId is not null)
+            {
+                bool isActive;
+                try
+                {
+                    isActive = _controlPlaneAgentClient is not null
+                        && await _controlPlaneAgentClient.IsAgentActiveAsync(ownerAgentInstanceId, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex,
+                        "[PackageLock] ControlPlane liveness check failed for {AgentId} — treating as stale.",
+                        ownerAgentInstanceId);
+                    isActive = false;
+                }
+
+                if (isActive)
+                {
+                    throw new PackageLockConflictException(
+                        packagePath,
+                        ownerJobId ?? string.Empty,
+                        ownerAgentInstanceId,
+                        acquiredAt);
+                }
+
+                _logger?.LogInformation(
+                    "[PackageLock] Stale lock detected for agent {AgentId} (job {JobId}) — replacing.",
+                    ownerAgentInstanceId, ownerJobId);
+            }
+        }
+
+        try { File.Delete(lockFilePath); }
+        catch { }
+
+        using var fs = new FileStream(
+            lockFilePath,
+            FileMode.CreateNew,
+            FileAccess.Write,
+            FileShare.None);
+
+        var newLockContent = JsonSerializer.Serialize(new
+        {
+            jobId,
+            agentInstanceId = _agentInstanceId.ToString(),
+            acquiredAt = DateTimeOffset.UtcNow.ToString("O")
+        });
+
+        using var writer = new StreamWriter(fs);
+        await writer.WriteAsync(newLockContent).ConfigureAwait(false);
+        await writer.FlushAsync().ConfigureAwait(false);
+
+        _logger?.LogInformation(
+            "[PackageLock] Lock acquired (after stale removal) for job {JobId} by agent {AgentInstanceId} at {Path}",
+            jobId, _agentInstanceId, lockFilePath);
+
+        return new PackageLockHandle(lockFilePath, _logger);
+    }
+
+    private sealed class PackageLockHandle : IDisposable
+    {
+        private readonly string _lockFilePath;
+        private readonly ILogger<ActivePackageAccess>? _logger;
+
+        public PackageLockHandle(string lockFilePath, ILogger<ActivePackageAccess>? logger)
+        {
+            _lockFilePath = lockFilePath;
+            _logger = logger;
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                if (File.Exists(_lockFilePath))
+                    File.Delete(_lockFilePath);
+                else
+                    _logger?.LogWarning(
+                        "[PackageLock] Lock file {Path} was already missing on dispose — best-effort cleanup.",
+                        _lockFilePath);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex,
+                    "[PackageLock] Failed to delete lock file {Path} on dispose.",
+                    _lockFilePath);
+            }
+        }
+    }
+}

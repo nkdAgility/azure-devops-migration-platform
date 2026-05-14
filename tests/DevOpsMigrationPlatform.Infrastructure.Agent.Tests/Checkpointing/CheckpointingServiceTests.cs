@@ -56,7 +56,7 @@ public class CheckpointingServiceTests
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
         const string projectName = "MyProject";
-        var expectedKey = PackagePaths.CursorFile("dependencies", "dependencies", endpointUrl, projectName);
+        var expectedKey = PackagePathTestHelper.CursorFile("dependencies", "dependencies", endpointUrl, projectName);
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         var sourceInfo = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
@@ -95,7 +95,7 @@ public class CheckpointingServiceTests
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
         const string projectName = "MyProject";
-        var expectedKey = PackagePaths.ContinuationFile("dependencies", "dependencies", endpointUrl, projectName);
+        var expectedKey = PackagePathTestHelper.ContinuationFile("dependencies", "dependencies", endpointUrl, projectName);
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         var sourceInfo = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
@@ -132,7 +132,7 @@ public class CheckpointingServiceTests
     [TestMethod]
     public async Task DeleteCursorAsync_WhenOnlyPackageConfigProvidesSimulatedProjectScope_DeletesConfiguredProjectScopedKey()
     {
-        const string expectedKey = "simulated/SimulatedProject/.migration/inventory.workitems.cursor.json";
+        const string expectedKey = ".migration/inventory.workitems.cursor.json";
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         endpointAccessor.SetupGet(a => a.Source).Returns((ISourceEndpointInfo?)null);
@@ -167,7 +167,7 @@ public class CheckpointingServiceTests
     [TestMethod]
     public async Task DeleteCursorAsync_WhenOnlyTargetConfigProvidesSimulatedProjectScope_DeletesConfiguredProjectScopedKey()
     {
-        const string expectedKey = "simulated/SimulatedProject/.migration/import.identities.cursor.json";
+        const string expectedKey = ".migration/import.identities.cursor.json";
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         endpointAccessor.SetupGet(a => a.Source).Returns((ISourceEndpointInfo?)null);
@@ -202,7 +202,7 @@ public class CheckpointingServiceTests
     [TestMethod]
     public async Task DeleteContinuationTokenAsync_WhenOnlyPackageConfigProvidesSimulatedProjectScope_DeletesConfiguredProjectScopedKey()
     {
-        const string expectedKey = "simulated/SimulatedProject/.migration/inventory.workitems.continuation.json";
+        const string expectedKey = ".migration/inventory.workitems.continuation.json";
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         endpointAccessor.SetupGet(a => a.Source).Returns((ISourceEndpointInfo?)null);
@@ -267,7 +267,7 @@ public class CheckpointingServiceTests
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
         const string projectName = "MyProject";
-        var expectedKey = PackagePaths.CursorFile("export", "workitems", endpointUrl, projectName);
+        var expectedKey = PackagePathTestHelper.CursorFile("export", "workitems", endpointUrl, projectName);
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         var sourceInfo = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
@@ -304,7 +304,7 @@ public class CheckpointingServiceTests
     public async Task ReadCursorAsync_WhenLiveSourceHasProjectButNoUrl_UsesConnectorScopedKey()
     {
         const string projectName = "SimulatedProject";
-        const string expectedKey = "simulated/SimulatedProject/.migration/export.workitems.cursor.json";
+        const string expectedKey = ".migration/export.workitems.cursor.json";
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         var sourceInfo = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
@@ -339,7 +339,7 @@ public class CheckpointingServiceTests
     [TestMethod]
     public async Task ReadCursorAsync_WhenOnlySourceConfigProvidesSimulatedProjectScope_UsesConfiguredProjectScopedKey()
     {
-        const string expectedKey = "simulated/SimulatedProject/.migration/export.workitems.cursor.json";
+        const string expectedKey = ".migration/export.workitems.cursor.json";
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         endpointAccessor.SetupGet(a => a.Source).Returns((ISourceEndpointInfo?)null);
@@ -384,7 +384,7 @@ public class CheckpointingServiceTests
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
         const string projectName = "MyProject";
-        var expectedKey = PackagePaths.CursorFile("export", "workitems", endpointUrl, projectName);
+        var expectedKey = PackagePathTestHelper.CursorFile("export", "workitems", endpointUrl, projectName);
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         var sourceInfo = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
@@ -414,7 +414,7 @@ public class CheckpointingServiceTests
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
         const string projectName = "MyProject";
-        var expectedKey = PackagePaths.ContinuationFile("export", "workitems", endpointUrl, projectName);
+        var expectedKey = PackagePathTestHelper.ContinuationFile("export", "workitems", endpointUrl, projectName);
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         var sourceInfo = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
@@ -444,7 +444,7 @@ public class CheckpointingServiceTests
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
         const string projectName = "MyProject";
-        var expectedKey = PackagePaths.CursorFile("import", "workitems", endpointUrl, projectName);
+        var expectedKey = PackagePathTestHelper.CursorFile("import", "workitems", endpointUrl, projectName);
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         var targetInfo = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
@@ -479,7 +479,7 @@ public class CheckpointingServiceTests
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
         const string projectName = "MyProject";
-        var expectedKey = PackagePaths.ContinuationFile("import", "workitems", endpointUrl, projectName);
+        var expectedKey = PackagePathTestHelper.ContinuationFile("import", "workitems", endpointUrl, projectName);
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         var targetInfo = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
@@ -515,7 +515,7 @@ public class CheckpointingServiceTests
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
         const string projectName = "MyProject";
-        var expectedKey = PackagePaths.CursorFile("export", "workitems", endpointUrl, projectName);
+        var expectedKey = PackagePathTestHelper.CursorFile("export", "workitems", endpointUrl, projectName);
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         var sourceInfo = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
@@ -534,10 +534,10 @@ public class CheckpointingServiceTests
 
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == expectedKey),
+            .Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "export" && c.Module == "workitems"),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PackagePayload(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(entry)), "application/json"));
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(expectedKey, new PackageMetaPayload(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(entry)), "application/json"))));
 
         var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object, null, null, package.Object);
         var result = await sut.ReadCursorAsync("export.workitems", CancellationToken.None);
@@ -554,7 +554,7 @@ public class CheckpointingServiceTests
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
         const string projectName = "MyProject";
-        var expectedKey = PackagePaths.CursorFile("import", "workitems", endpointUrl, projectName);
+        var expectedKey = PackagePathTestHelper.CursorFile("import", "workitems", endpointUrl, projectName);
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         var targetInfo = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
@@ -566,9 +566,9 @@ public class CheckpointingServiceTests
 
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.PersistContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == expectedKey),
-                It.IsAny<PackagePayload>(),
+            .Setup(p => p.PersistMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "import" && c.Module == "workitems"),
+                It.IsAny<PackageMetaPayload>(),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
 
@@ -589,7 +589,7 @@ public class CheckpointingServiceTests
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
         const string projectName = "MyProject";
-        var expectedKey = PackagePaths.ContinuationFile("export", "workitems", endpointUrl, projectName);
+        var expectedKey = PackagePathTestHelper.ContinuationFile("export", "workitems", endpointUrl, projectName);
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         var sourceInfo = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
@@ -609,10 +609,10 @@ public class CheckpointingServiceTests
 
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == expectedKey),
+            .Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ContinuationToken && c.Action == "export" && c.Module == "workitems"),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PackagePayload(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(token)), "application/json"));
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(expectedKey, new PackageMetaPayload(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(token)), "application/json"))));
 
         var sut = new CheckpointingService(_mockStateStore.Object, endpointAccessor.Object, null, null, package.Object);
         var result = await sut.ReadContinuationTokenAsync("export.workitems", CancellationToken.None);
@@ -629,7 +629,7 @@ public class CheckpointingServiceTests
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
         const string projectName = "MyProject";
-        var expectedKey = PackagePaths.ContinuationFile("import", "workitems", endpointUrl, projectName);
+        var expectedKey = PackagePathTestHelper.ContinuationFile("import", "workitems", endpointUrl, projectName);
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         var targetInfo = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
@@ -641,9 +641,9 @@ public class CheckpointingServiceTests
 
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.PersistContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == expectedKey),
-                It.IsAny<PackagePayload>(),
+            .Setup(p => p.PersistMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ContinuationToken && c.Action == "import" && c.Module == "workitems"),
+                It.IsAny<PackageMetaPayload>(),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
 

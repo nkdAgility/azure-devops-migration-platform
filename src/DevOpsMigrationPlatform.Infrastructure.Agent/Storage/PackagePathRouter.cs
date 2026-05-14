@@ -4,15 +4,34 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 
 internal sealed class PackagePathRouter
 {
+    private const string SystemRoot = ".migration";
+    private const string Checkpoints = $"{SystemRoot}/Checkpoints";
+    private const string PlanFile = $"{SystemRoot}/plan.json";
+    private const string PhaseFile = $"{Checkpoints}/job.phase.json";
+    private const string InventoryCompleteFile = $"{SystemRoot}/inventory.complete.json";
+    private const string MigrationConfigFileName = $"{SystemRoot}/migration-config.json";
+    private const string ExportProgressDbPath = $"{Checkpoints}/export_progress.db";
+    private const string IdMapDbPath = $"{Checkpoints}/idmap.db";
+    private const string LockFilePath = $"{Checkpoints}/agent.lock";
+    private const string RunsRoot = $"{SystemRoot}/runs";
     private const string PrepareReportPath = ".migration/prepare-report.json";
     private const string JobDescriptorPath = ".migration/job.json";
+
+    private static string RunFolder(string runId) => $"{RunsRoot}/{runId}";
+    private static string RunLogsFolder(string runId) => $"{RunFolder(runId)}/logs";
+    private static string RunAuditFolder(string runId) => $"{RunFolder(runId)}/audit";
+    private static string RunAuditPlanFile(string runId) => $"{RunAuditFolder(runId)}/migration-plan.json";
+    private static string RunAuditConfigFile(string runId) => $"{RunAuditFolder(runId)}/migration-config.json";
+    private static string RunJobFile(string runId) => $"{RunFolder(runId)}/job.json";
+    private static string RunConfigFile(string runId) => $"{RunFolder(runId)}/config.json";
+    private static string CursorFile(string action, string module) => $"{SystemRoot}/{action.ToLowerInvariant()}.{module.ToLowerInvariant()}.cursor.json";
+    private static string ContinuationFile(string action, string module) => $"{SystemRoot}/{action.ToLowerInvariant()}.{module.ToLowerInvariant()}.continuation.json";
 
     public string ResolveContentPath(PackageContentContext context)
     {
@@ -138,23 +157,26 @@ internal sealed class PackagePathRouter
         return context.Kind switch
         {
             PackageMetaKind.MigrationConfig => runAudit && !string.IsNullOrWhiteSpace(runId)
-                ? PackagePaths.RunAuditConfigFile(runId!)
-                : PackagePaths.MigrationConfigFileName,
+                ? RunAuditConfigFile(runId!)
+                : MigrationConfigFileName,
             PackageMetaKind.ExecutionPlan => runAudit && !string.IsNullOrWhiteSpace(runId)
-                ? PackagePaths.RunAuditPlanFile(runId!)
-                : PackagePaths.PlanFile,
-            PackageMetaKind.PhaseRecord => PackagePaths.PhaseFile,
-            PackageMetaKind.InventoryCompletionMarker => PackagePaths.InventoryCompleteFile,
+                ? RunAuditPlanFile(runId!)
+                : PlanFile,
+            PackageMetaKind.PhaseRecord => PhaseFile,
+            PackageMetaKind.InventoryCompletionMarker => InventoryCompleteFile,
             PackageMetaKind.PrepareReport => PrepareReportPath,
             PackageMetaKind.JobDescriptor => !string.IsNullOrWhiteSpace(runId)
-                ? PackagePaths.RunJobFile(runId!)
+                ? RunJobFile(runId!)
                 : JobDescriptorPath,
-            PackageMetaKind.CheckpointCursor => throw new PackageOperationException(
-                "PKG_META_KIND_CONTEXT_REQUIRED",
-                "Checkpoint cursor routing requires action/module context and is not supported by the base router."),
-            PackageMetaKind.ContinuationToken => throw new PackageOperationException(
-                "PKG_META_KIND_CONTEXT_REQUIRED",
-                "Continuation token routing requires action/module context and is not supported by the base router."),
+            PackageMetaKind.CheckpointCursor => !string.IsNullOrWhiteSpace(context.Action) && !string.IsNullOrWhiteSpace(context.Module)
+                ? CursorFile(context.Action!, context.Module!)
+                : throw new PackageOperationException("PKG_META_KIND_CONTEXT_REQUIRED", "Checkpoint cursor routing requires action and module on the context."),
+            PackageMetaKind.ContinuationToken => !string.IsNullOrWhiteSpace(context.Action) && !string.IsNullOrWhiteSpace(context.Module)
+                ? ContinuationFile(context.Action!, context.Module!)
+                : throw new PackageOperationException("PKG_META_KIND_CONTEXT_REQUIRED", "Continuation token routing requires action and module on the context."),
+            PackageMetaKind.RunConfigSnapshot => !string.IsNullOrWhiteSpace(runId)
+                ? RunConfigFile(runId!)
+                : throw new PackageOperationException("PKG_RUN_ID_REQUIRED", "Run config snapshot routing requires a runId."),
             _ => throw new PackageOperationException(
                 "PKG_META_KIND_UNSUPPORTED",
                 $"Unsupported metadata kind '{context.Kind}'.")
@@ -179,7 +201,23 @@ internal sealed class PackagePathRouter
                 $"Unsupported log stream '{context.Stream}'.")
         };
 
-        return $"{PackagePaths.RunLogsFolder(context.RunId)}/{fileName}";
+        return $"{RunLogsFolder(context.RunId)}/{fileName}";
     }
+
+    public string ResolveNativePath(PackageMetaKind kind, string localRoot)
+    {
+        var relativePath = kind switch
+        {
+            PackageMetaKind.ExportProgressDb => ExportProgressDbPath,
+            PackageMetaKind.IdMapDb => IdMapDbPath,
+            _ => throw new PackageOperationException(
+                "PKG_NATIVE_KIND_UNSUPPORTED",
+                $"Native database routing is not supported for kind '{kind}'.")
+        };
+        return System.IO.Path.Combine(localRoot, relativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
+    }
+
+    public string ResolveLockPath(string localRoot)
+        => System.IO.Path.Combine(localRoot, LockFilePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
 }
 

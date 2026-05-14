@@ -273,7 +273,7 @@ public sealed class JobPlanExecutorTests
         var executor = CreateExecutor(package: package);
         var stateStore = new InMemoryStateStore();
         await stateStore.WriteAsync(
-            PackagePaths.InventoryCompleteFile,
+            PackagePathTestHelper.InventoryCompleteFile,
             "{}",
             CancellationToken.None);
 

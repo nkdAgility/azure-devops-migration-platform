@@ -7,5 +7,7 @@ public sealed record PackageMetaContext(
     PackageMetaKind Kind,
     string? Organisation = null,
     string? Project = null,
-    bool RelatedToRun = false);
+    bool RelatedToRun = false,
+    string? Action = null,
+    string? Module = null);
 

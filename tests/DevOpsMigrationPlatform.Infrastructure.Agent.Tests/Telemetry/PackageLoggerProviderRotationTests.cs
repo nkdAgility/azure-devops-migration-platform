@@ -183,7 +183,7 @@ public class PackageLoggerProviderRotationTests
         var mockPackage = new Mock<IPackageAccess>(MockBehavior.Loose);
         using var provider = new PackageLoggerProvider(state, opts, mockPackage.Object);
 
-        Assert.AreEqual($"{PackagePaths.Logs}/diagnostics.ndjson", provider.CurrentLogPath);
+        Assert.AreEqual($"{PackagePathTestHelper.Logs}/diagnostics.ndjson", provider.CurrentLogPath);
     }
 }
 #endif

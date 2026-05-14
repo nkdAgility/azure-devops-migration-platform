@@ -19,6 +19,10 @@ public sealed class IdMapStoreFactory : IIdMapStoreFactory
         => new SqliteIdMapStore(dbFilePath);
 
     /// <inheritdoc/>
+    public IIdMapStore Create(System.Data.Common.DbConnection connection)
+        => new SqliteIdMapStore(connection);
+
+    /// <inheritdoc/>
     public IIdMapStore CreateFromPackageUri(string packageUri)
     {
         string localRoot;
@@ -29,7 +33,7 @@ public sealed class IdMapStoreFactory : IIdMapStoreFactory
 
         localRoot = Path.GetFullPath(localRoot);
 
-        var newPath = PackagePaths.IdMapDbNative(localRoot);
+        var newPath = Path.Combine(localRoot, ".migration", "Checkpoints", "idmap.db");
 
         return new SqliteIdMapStore(newPath);
     }

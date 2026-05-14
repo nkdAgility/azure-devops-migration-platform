@@ -17,7 +17,7 @@ public sealed class PackagePathRouterTests
         var sut = new PackagePathRouter();
         var path = sut.ResolveMetaPath(new PackageMetaContext(PackageMetaKind.MigrationConfig));
 
-        Assert.AreEqual(PackagePaths.MigrationConfigFileName, path);
+        Assert.AreEqual(PackagePathTestHelper.MigrationConfigFileName, path);
     }
 
     [TestMethod]

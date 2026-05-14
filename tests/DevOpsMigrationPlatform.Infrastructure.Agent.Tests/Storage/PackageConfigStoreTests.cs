@@ -54,10 +54,10 @@ public class PackageConfigStoreTests
         package.SetupSequence(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.MigrationConfig),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((PackageMetaPayload?)null)
-            .ReturnsAsync((PackageMetaPayload?)null)
-            .ReturnsAsync((PackageMetaPayload?)null)
-            .ReturnsAsync((PackageMetaPayload?)null);
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", null)))
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", null)))
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", null)))
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", null)));
 
         var sut = CreateSut(package);
 
@@ -76,7 +76,7 @@ public class PackageConfigStoreTests
         package.Setup(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.MigrationConfig),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("""{"MigrationPlatform":{"Mode":"Export"}}"""))));
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("""{"MigrationPlatform":{"Mode":"Export"}}"""))))));
 
         var sut = CreateSut(package);
 
@@ -93,7 +93,7 @@ public class PackageConfigStoreTests
         package.Setup(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.MigrationConfig),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("{ NOT VALID JSON !!!!"))));
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("{ NOT VALID JSON !!!!"))))));
 
         var sut = CreateSut(package);
 
@@ -111,10 +111,10 @@ public class PackageConfigStoreTests
         package.SetupSequence(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.MigrationConfig),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((PackageMetaPayload?)null)
-            .ReturnsAsync((PackageMetaPayload?)null)
-            .ReturnsAsync((PackageMetaPayload?)null)
-            .ReturnsAsync((PackageMetaPayload?)null);
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", null)))
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", null)))
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", null)))
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", null)));
 
         var capturingLogger = new CapturingStoreLogger<PackageMigrationConfigLoader>();
         var sut = CreateSut(package, capturingLogger);
@@ -138,7 +138,7 @@ public class PackageConfigStoreTests
         package.Setup(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.MigrationConfig),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("""{"MigrationPlatform":{"Mode":"Export"}}"""))));
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("""{"MigrationPlatform":{"Mode":"Export"}}"""))))));
 
         var capturingLogger = new CapturingStoreLogger<PackageMigrationConfigLoader>();
         var sut = CreateSut(package, capturingLogger);
@@ -161,7 +161,7 @@ public class PackageConfigStoreTests
         package.Setup(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.MigrationConfig),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("""{"MigrationPlatform":{"Mode":"Export"}}"""))));
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("""{"MigrationPlatform":{"Mode":"Export"}}"""))))));
 
         var recordedActivities = new List<Activity>();
         using var listener = new ActivityListener
@@ -193,10 +193,10 @@ public class PackageConfigStoreTests
         package.SetupSequence(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.MigrationConfig),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((PackageMetaPayload?)null)
-            .ReturnsAsync((PackageMetaPayload?)null)
-            .ReturnsAsync((PackageMetaPayload?)null)
-            .ReturnsAsync((PackageMetaPayload?)null);
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", null)))
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", null)))
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", null)))
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", null)));
 
         var metricsMock = new Mock<IPlatformMetrics>(MockBehavior.Loose);
         var sut = CreateSut(package, _logger, metricsMock.Object);
@@ -210,5 +210,7 @@ public class PackageConfigStoreTests
         metricsMock.Verify(m => m.RecordConfigReadFallback(It.IsAny<MetricsTagList>()), Times.Never);
     }
 }
+
+
 
 

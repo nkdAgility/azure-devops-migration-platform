@@ -45,6 +45,9 @@ public sealed class WorkItemsModuleImportTests
                 It.Is<PackageContentContext>(c => c.Address!.RelativePath == "WorkItems" && c.IsCollectionRequest),
                 It.IsAny<CancellationToken>()))
             .Returns(EnumerateFolderAsync("WorkItems/2026-05-13/638827200000000000-42-0/"));
+        package
+            .Setup(p => p.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<System.Data.Common.DbConnection>(new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:")));
 
         var nodeTranslationTool = new Mock<INodeTranslationTool>(MockBehavior.Strict);
         nodeTranslationTool
@@ -114,7 +117,7 @@ public sealed class WorkItemsModuleImportTests
 
         var idMapStoreFactory = new Mock<IIdMapStoreFactory>(MockBehavior.Strict);
         idMapStoreFactory
-            .Setup(f => f.CreateFromPackageUri("file:///package"))
+            .Setup(f => f.Create(It.IsAny<System.Data.Common.DbConnection>()))
             .Returns(idMapStore.Object);
 
         var revisionProcessor = new Mock<IRevisionFolderProcessor>(MockBehavior.Strict);
@@ -208,6 +211,9 @@ public sealed class WorkItemsModuleImportTests
                 It.Is<PackageContentContext>(c => c.Address!.RelativePath == "WorkItems" && c.IsCollectionRequest),
                 It.IsAny<CancellationToken>()))
             .Returns(EnumerateFolderAsync("WorkItems/2026-05-13/638827200000000000-42-0/"));
+        package
+            .Setup(p => p.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<System.Data.Common.DbConnection>(new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:")));
 
         var nodeTranslationTool = new Mock<INodeTranslationTool>(MockBehavior.Strict);
         nodeTranslationTool
@@ -277,7 +283,7 @@ public sealed class WorkItemsModuleImportTests
 
         var idMapStoreFactory = new Mock<IIdMapStoreFactory>(MockBehavior.Strict);
         idMapStoreFactory
-            .Setup(f => f.CreateFromPackageUri("file:///package"))
+            .Setup(f => f.Create(It.IsAny<System.Data.Common.DbConnection>()))
             .Returns(idMapStore.Object);
 
         var revisionProcessor = new Mock<IRevisionFolderProcessor>(MockBehavior.Strict);

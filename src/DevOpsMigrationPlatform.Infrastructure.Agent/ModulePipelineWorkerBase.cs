@@ -3,7 +3,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -55,6 +57,9 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     /// <summary>Reads <c>migration-config.json</c> from the package at job start.</summary>
     protected IPackageMigrationConfigLoader PackageMigrationConfigLoader { get; }
 
+    /// <summary>Package boundary for package-scoped metadata and content writes.</summary>
+    protected IPackageAccess PackageAccess { get; }
+
     /// <summary>Explicit holder for the current job's raw package configuration.</summary>
     protected ICurrentPackageConfigAccessor CurrentPackageConfig { get; }
 
@@ -81,6 +86,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         ActivePackageState packageState,
         ICurrentPackageConfigAccessor currentPackageConfigAccessor,
         IPackageMigrationConfigLoader packageMigrationConfigLoader,
+        IPackageAccess packageAccess,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
         ILogger logger,
@@ -102,6 +108,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         PhaseTrackingFactory = phaseTrackingFactory ?? throw new ArgumentNullException(nameof(phaseTrackingFactory));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
         PackageMigrationConfigLoader = packageMigrationConfigLoader ?? throw new ArgumentNullException(nameof(packageMigrationConfigLoader));
+        PackageAccess = packageAccess ?? throw new ArgumentNullException(nameof(packageAccess));
         CurrentPackageConfig = currentPackageConfigAccessor ?? throw new ArgumentNullException(nameof(currentPackageConfigAccessor));
         _activeJobState = activeJobState;
         _moduleScopeFactory = moduleScopeFactory ?? throw new ArgumentNullException(nameof(moduleScopeFactory));
@@ -133,24 +140,31 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     {
         var (artefactStore, stateStore) = PackageStoreFactory.Create(job.Package.PackageUri ?? ".");
         PackageState.CurrentStore = artefactStore;
-        await WriteRunMetadataAsync(job, artefactStore, ct).ConfigureAwait(false);
+        PackageState.CurrentStateStore = stateStore;
+        await WriteRunMetadataAsync(job, ct).ConfigureAwait(false);
         return (artefactStore, stateStore);
     }
 
-    protected async Task WriteRunMetadataAsync(Job job, IArtefactStore artefactStore, CancellationToken ct)
+    protected async Task WriteRunMetadataAsync(Job job, CancellationToken ct)
     {
         var runId = PackageState.CurrentRunId;
         if (string.IsNullOrEmpty(runId))
             return;
 
-        var runJobPath = PackagePaths.RunJobFile(runId!);
         var jobJson = JsonSerializer.Serialize(job, AgentJsonOptions);
-        await artefactStore.WriteAsync(runJobPath, jobJson, ct).ConfigureAwait(false);
+        using var jobStream = new MemoryStream(Encoding.UTF8.GetBytes(jobJson), writable: false);
+        await PackageAccess.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, new[] { ".migration", "runs", runId!, "job.json" }),
+            new PackagePayload(jobStream, "application/json"),
+            ct).ConfigureAwait(false);
 
         if (!string.IsNullOrWhiteSpace(job.ConfigPayload))
         {
-            var runConfigPath = PackagePaths.RunConfigFile(runId!);
-            await artefactStore.WriteAsync(runConfigPath, job.ConfigPayload!, ct).ConfigureAwait(false);
+            using var cfgStream = new MemoryStream(Encoding.UTF8.GetBytes(job.ConfigPayload!), writable: false);
+            await PackageAccess.PersistContentAsync(
+                new PackageContentContext(PackageContentKind.Artefact, new[] { ".migration", "runs", runId!, "config.json" }),
+                new PackagePayload(cfgStream, "application/json"),
+                ct).ConfigureAwait(false);
         }
     }
 
