@@ -12,10 +12,12 @@ using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Attachments;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Export;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Options;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.Client;
+using Microsoft.TeamFoundation.Server;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using Microsoft.TeamFoundation.WorkItemTracking.Proxy;
 using Microsoft.VisualStudio.Services.Client;
@@ -118,6 +120,13 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
             collection,
             _loggerFactory.CreateLogger<TfsClassificationTreeReader>(),
             endpointInfo);
+        var commonStructureService = collection.GetService<ICommonStructureService4>();
+        var projectUri = commonStructureService.GetProjectFromName(project).Uri;
+        var nodeCreator = new TfsNodeCreator(
+            commonStructureService,
+            _loggerFactory.CreateLogger<TfsNodeCreator>(),
+            project,
+            projectUri);
 
         var discoveryService = new TfsObjectModelWorkItemDiscoveryService(
             workItemStore,
@@ -137,6 +146,7 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
             collection,
             revisionSource,
             attachmentSource,
+            nodeCreator,
             classificationTreeReader,
             discoveryService,
             projectDiscoveryService,
@@ -160,6 +170,7 @@ public sealed class TfsJobServices : IDisposable
 {
     public IWorkItemRevisionSource RevisionSource { get; }
     public IAttachmentBinarySource AttachmentSource { get; }
+    public INodeCreator NodeCreator { get; }
     public IClassificationTreeReader ClassificationTreeReader { get; }
     public IWorkItemDiscoveryService DiscoveryService { get; }
     public IProjectDiscoveryService ProjectDiscoveryService { get; }
@@ -176,6 +187,7 @@ public sealed class TfsJobServices : IDisposable
         TfsTeamProjectCollection collection,
         IWorkItemRevisionSource revisionSource,
         IAttachmentBinarySource attachmentSource,
+        INodeCreator nodeCreator,
         IClassificationTreeReader classificationTreeReader,
         IWorkItemDiscoveryService discoveryService,
         IProjectDiscoveryService projectDiscoveryService,
@@ -188,6 +200,7 @@ public sealed class TfsJobServices : IDisposable
         _collection = collection;
         RevisionSource = revisionSource;
         AttachmentSource = attachmentSource;
+        NodeCreator = nodeCreator;
         ClassificationTreeReader = classificationTreeReader;
         DiscoveryService = discoveryService;
         ProjectDiscoveryService = projectDiscoveryService;

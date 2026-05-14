@@ -18,6 +18,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Export;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import;
 
 namespace DevOpsMigrationPlatform.TfsMigrationAgent;
 
@@ -54,6 +55,7 @@ public static class TfsMigrationAgentServiceExtensions
         services.AddSingleton<IClassificationTreeCapture, TfsClassificationTreeCapture>();
         services.AddSingleton<IWorkItemRevisionSourceFactory, TfsActiveJobWorkItemRevisionSourceFactory>();
         services.AddSingleton<IIdentitySource, TfsActiveJobIdentitySource>();
+        services.AddSingleton<INodeCreator, TfsActiveJobNodeCreator>();
 
         // Export progress store — SQLite-backed fast-forward resume (now supported on net481).
         services.AddSingleton<IExportProgressStoreFactory, ExportProgressStoreFactory>();

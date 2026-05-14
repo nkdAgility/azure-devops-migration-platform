@@ -159,7 +159,7 @@ This document defines the complete task decomposition for implementing the Work 
 - [X] T048 [US2] [P] Implement referenced-path strategy — enumerate WorkItems folder to collect all distinct area and iteration path values referenced by exported work items
 - [X] T049 [US2] [P] **SIMULATED**: Implement Simulated connector node creation — add paths to in-memory classification structure for Area and Iteration types
 - [X] T050 [US2] [P] **AZURE DEVOPS**: Implement Azure DevOps REST API node creation — call POST /classificationnodes API to create required area and iteration paths
-- [ ] T051 [US2] [P] **TFS**: Implement TFS OM node creation via TfsMigrationAgent — call TFS classification API to create required paths
+- [X] T051 [US2] [P] **TFS**: Implement TFS OM node creation via TfsMigrationAgent — call TFS classification API to create required paths
 - [ ] T052 [US2] [P] Apply NodeTranslationTool to source paths before creating nodes — use translated target paths per specification
 
 ### Full Source Tree Replication Strategy (US2: Scenario 2, FR-007)

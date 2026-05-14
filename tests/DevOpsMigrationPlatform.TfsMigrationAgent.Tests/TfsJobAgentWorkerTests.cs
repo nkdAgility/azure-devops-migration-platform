@@ -728,6 +728,7 @@ internal static class TestTfsJobServicesFactory
             collection,
             revisionSource,
             attachmentSource,
+            new Mock<INodeCreator>().Object,
             classificationTreeReader,
             discoveryService,
             null!,
