@@ -121,7 +121,7 @@ This document defines the complete task decomposition for implementing the Work 
 - [X] T036 [US1] [P] Implement ArtefactValidator class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Validators/ArtefactValidator.cs` to enumerate WorkItems folder and validate required revision.json files exist
 - [X] T037 [US1] [P] Implement attachment binary validation — for each revision with attachment metadata, check that referenced binaries exist in package via IArtefactStore.ExistsAsync
 - [X] T038 [US1] [P] Implement embedded image binary validation — parse revision field values for image references and verify binaries exist in package
-- [ ] T039 [US1] Create ArtefactFinding record type with itemType (RevisionFolder/Attachment/EmbeddedImage), itemId, status, and missingPath fields
+- [X] T039 [US1] Create ArtefactFinding record type with itemType (RevisionFolder/Attachment/EmbeddedImage), itemId, status, and missingPath fields
 
 ### Field Transform Validation (US1: FR-005d)
 

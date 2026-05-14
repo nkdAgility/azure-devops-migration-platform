@@ -413,6 +413,7 @@ public sealed class WorkItemsModule : IModule
                 $"{f.PatternCode}: {f.Message}",
                 f.Severity == ImportFailureSeverity.Blocking ? PrepareIssueSeverity.Blocking : PrepareIssueSeverity.Warning))
             .ToList();
+        var artefactFindings = MapArtefactFindings(failureFindings);
 
         var resolvedCount = await CountRevisionArtefactsAsync(context, ct).ConfigureAwait(false);
 
@@ -421,9 +422,52 @@ public sealed class WorkItemsModule : IModule
             ModuleName = Name,
             ResolvedCount = resolvedCount,
             UnresolvedItems = unresolvedItems,
+            ArtefactFindings = artefactFindings,
             Readiness = readiness,
             FailureFindings = failureFindings
         };
+    }
+
+    private static IReadOnlyList<ArtefactFinding> MapArtefactFindings(IReadOnlyList<ImportFailureFinding> failureFindings)
+    {
+        var findings = new List<ArtefactFinding>();
+        foreach (var failureFinding in failureFindings)
+        {
+            if (failureFinding.PatternCode == MissingRevisionArtefactImportFailurePattern.Code)
+            {
+                findings.Add(new ArtefactFinding(
+                    ArtefactFindingType.RevisionFolder,
+                    "WorkItems",
+                    ArtefactFindingStatus.Missing,
+                    failureFinding.EvidenceKey));
+            }
+            else if (failureFinding.PatternCode == InvalidRevisionPayloadImportFailurePattern.Code)
+            {
+                findings.Add(new ArtefactFinding(
+                    ArtefactFindingType.RevisionFolder,
+                    failureFinding.EvidenceKey,
+                    ArtefactFindingStatus.Invalid,
+                    failureFinding.EvidenceKey));
+            }
+            else if (failureFinding.PatternCode == MissingAttachmentBinaryImportFailurePattern.Code)
+            {
+                findings.Add(new ArtefactFinding(
+                    ArtefactFindingType.Attachment,
+                    failureFinding.EvidenceKey,
+                    ArtefactFindingStatus.Missing,
+                    failureFinding.EvidenceKey));
+            }
+            else if (failureFinding.PatternCode == MissingEmbeddedImageBinaryImportFailurePattern.Code)
+            {
+                findings.Add(new ArtefactFinding(
+                    ArtefactFindingType.EmbeddedImage,
+                    failureFinding.EvidenceKey,
+                    ArtefactFindingStatus.Missing,
+                    failureFinding.EvidenceKey));
+            }
+        }
+
+        return findings;
     }
 
     private static async Task<int> CountRevisionArtefactsAsync(PrepareContext context, CancellationToken ct)

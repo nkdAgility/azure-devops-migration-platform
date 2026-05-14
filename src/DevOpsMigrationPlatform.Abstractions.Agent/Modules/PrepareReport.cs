@@ -24,6 +24,7 @@ public sealed record PrepareReport
     public int ResolvedCount { get; init; }
     public int UnresolvedCount => UnresolvedItems.Count;
     public IReadOnlyList<UnresolvedItem> UnresolvedItems { get; init; } = [];
+    public IReadOnlyList<ArtefactFinding> ArtefactFindings { get; init; } = [];
     public WorkItemsPrepareReadinessResult? Readiness { get; init; }
     public IReadOnlyList<ImportFailureFinding> FailureFindings { get; init; } = [];
     public DateTimeOffset GeneratedAt { get; init; } = DateTimeOffset.UtcNow;

@@ -65,6 +65,10 @@ public sealed class WorkItemsModulePrepareTests
         Assert.AreEqual(2, report.UnresolvedCount);
         Assert.AreEqual(WorkItemsPrepareReadinessResult.ChangesRequired, report.Readiness);
         Assert.AreEqual(2, report.FailureFindings.Count);
+        Assert.AreEqual(2, report.ArtefactFindings.Count);
+        CollectionAssert.AreEquivalent(
+            new[] { ArtefactFindingType.Attachment, ArtefactFindingType.EmbeddedImage },
+            report.ArtefactFindings.Select(i => i.ItemType).ToArray());
         CollectionAssert.AreEquivalent(
             new[]
             {
@@ -114,6 +118,7 @@ public sealed class WorkItemsModulePrepareTests
         Assert.AreEqual(0, report.UnresolvedCount);
         Assert.AreEqual(WorkItemsPrepareReadinessResult.Ready, report.Readiness);
         Assert.AreEqual(0, report.FailureFindings.Count);
+        Assert.AreEqual(0, report.ArtefactFindings.Count);
 
         artefactStore.VerifyAll();
     }
