@@ -52,6 +52,6 @@ public class PhaseTrackingService : IPhaseTrackingService
 
     public async Task DeletePhaseRecordAsync(CancellationToken cancellationToken)
     {
-        await _package.DeleteMetaAsync(new PackageMetaContext(PackageMetaKind.PhaseRecord), cancellationToken).ConfigureAwait(false);
+        await _package.ResetMetaAsync(new PackageMetaContext(PackageMetaKind.PhaseRecord), cancellationToken).ConfigureAwait(false);
     }
 }

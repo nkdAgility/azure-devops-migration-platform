@@ -58,7 +58,7 @@ public interface IPackageAccess
         PackageMetaPayload payload,
         CancellationToken cancellationToken = default);
 
-    ValueTask DeleteMetaAsync(
+    ValueTask ResetMetaAsync(
         PackageMetaContext context,
         CancellationToken cancellationToken = default);
 

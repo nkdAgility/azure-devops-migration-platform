@@ -495,7 +495,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 await freshPhaseTracker.DeletePhaseRecordAsync(ct).ConfigureAwait(false);
                 try
                 {
-                    await _package.DeleteMetaAsync(new PackageMetaContext(PackageMetaKind.InventoryCompletionMarker), ct).ConfigureAwait(false);
+                    await _package.ResetMetaAsync(new PackageMetaContext(PackageMetaKind.InventoryCompletionMarker), ct).ConfigureAwait(false);
                     _logger.LogDebug("Deleted inventory completion marker {Path}.", ".migration/inventory.complete.json");
                 }
                 catch (System.IO.FileNotFoundException)
@@ -506,7 +506,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 // Delete the persisted plan file so a fresh plan is built.
                 try
                 {
-                    await _package.DeleteMetaAsync(new PackageMetaContext(PackageMetaKind.ExecutionPlan), ct).ConfigureAwait(false);
+                    await _package.ResetMetaAsync(new PackageMetaContext(PackageMetaKind.ExecutionPlan), ct).ConfigureAwait(false);
                     _logger.LogDebug("Deleted plan file {Path}.", ".migration/plan.json");
                 }
                 catch (System.IO.FileNotFoundException)
@@ -837,11 +837,11 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 }
             }
 
-            try { await _package.DeleteMetaAsync(new PackageMetaContext(PackageMetaKind.InventoryCompletionMarker), ct).ConfigureAwait(false); }
+            try { await _package.ResetMetaAsync(new PackageMetaContext(PackageMetaKind.InventoryCompletionMarker), ct).ConfigureAwait(false); }
             catch (System.IO.FileNotFoundException) { /* not an error */ }
 
             // Delete persisted plan so a fresh one is built.
-            try { await _package.DeleteMetaAsync(new PackageMetaContext(PackageMetaKind.ExecutionPlan), ct).ConfigureAwait(false); }
+            try { await _package.ResetMetaAsync(new PackageMetaContext(PackageMetaKind.ExecutionPlan), ct).ConfigureAwait(false); }
             catch (System.IO.FileNotFoundException) { /* not an error */ }
         }
 

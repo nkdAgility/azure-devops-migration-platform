@@ -89,7 +89,7 @@ public class CheckpointingService : ICheckpointingService
         foreach (var context in ResolveCursorDeleteContexts(checkpointIdentity))
         {
             _logger?.LogDebug("Deleting cursor for {Action}.{Module}.", context.Action, context.Module);
-            await ResolvePackage().DeleteMetaAsync(context, cancellationToken).ConfigureAwait(false);
+            await ResolvePackage().ResetMetaAsync(context, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -128,7 +128,7 @@ public class CheckpointingService : ICheckpointingService
     {
         foreach (var context in ResolveContinuationDeleteContexts(checkpointIdentity))
         {
-            await ResolvePackage().DeleteMetaAsync(context, cancellationToken).ConfigureAwait(false);
+            await ResolvePackage().ResetMetaAsync(context, cancellationToken).ConfigureAwait(false);
         }
     }
 

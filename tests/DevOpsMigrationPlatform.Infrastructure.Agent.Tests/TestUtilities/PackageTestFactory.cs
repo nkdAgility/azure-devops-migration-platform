@@ -73,7 +73,7 @@ internal static class PackageTestFactory
                 return ValueTask.CompletedTask;
             });
         package
-            .Setup(p => p.DeleteMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
+            .Setup(p => p.ResetMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
             .Returns((PackageMetaContext context, CancellationToken _) =>
             {
                 metaStore.Remove(ResolveMetaPath(context));
@@ -193,7 +193,7 @@ internal static class PackageTestFactory
                 await stateStore.WriteAsync(key, text, ct).ConfigureAwait(false);
             });
         package
-            .Setup(p => p.DeleteMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
+            .Setup(p => p.ResetMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
             .Returns(async (PackageMetaContext context, CancellationToken ct) =>
             {
                 if (stateStore is null)
@@ -253,7 +253,7 @@ internal static class PackageTestFactory
                 await stateStore.WriteAsync(key, text, ct).ConfigureAwait(false);
             });
         package
-            .Setup(p => p.DeleteMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
+            .Setup(p => p.ResetMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
             .Returns((PackageMetaContext context, CancellationToken ct) => new ValueTask(stateStore.DeleteAsync(ResolveMetaPath(context), ct)));
         package
             .Setup(p => p.EnumerateContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))

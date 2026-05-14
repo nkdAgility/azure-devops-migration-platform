@@ -232,7 +232,7 @@ internal sealed class ActivePackageAccess : IPackageAccess
             context.Kind.ToString()).ConfigureAwait(false);
     }
 
-    public async ValueTask DeleteMetaAsync(
+    public async ValueTask ResetMetaAsync(
         PackageMetaContext context,
         CancellationToken cancellationToken = default)
     {
