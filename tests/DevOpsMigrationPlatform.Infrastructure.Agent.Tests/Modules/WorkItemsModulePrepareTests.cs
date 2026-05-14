@@ -33,6 +33,7 @@ public sealed class WorkItemsModulePrepareTests
         var revisionPath = "WorkItems/2026-05-13/638827200000000000-42-0/revision.json";
         var revisionJson = JsonSerializer.Serialize(CreateRevisionWithArtefacts());
         string? writtenReport = null;
+        string? writtenReadinessReport = null;
 
         var artefactStore = new Mock<IArtefactStore>(MockBehavior.Strict);
         artefactStore
@@ -50,6 +51,10 @@ public sealed class WorkItemsModulePrepareTests
         artefactStore
             .Setup(s => s.WriteAsync("WorkItems/prepare-report.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Callback<string, string, CancellationToken>((_, payload, _) => writtenReport = payload)
+            .Returns(Task.CompletedTask);
+        artefactStore
+            .Setup(s => s.WriteAsync(".mission/Readiness/workitems-import-readiness.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, CancellationToken>((_, payload, _) => writtenReadinessReport = payload)
             .Returns(Task.CompletedTask);
 
         var module = CreateModule();
@@ -73,6 +78,12 @@ public sealed class WorkItemsModulePrepareTests
         Assert.IsFalse(report.ImportReadinessReport.IsReadyForImport);
         Assert.AreEqual(2, report.ImportReadinessReport.ArtefactFindings.Count);
         Assert.AreEqual(0, report.ImportReadinessReport.FieldTransformFindings.Count);
+        Assert.IsNotNull(writtenReadinessReport);
+        var readinessReport = JsonSerializer.Deserialize<ImportReadinessReport>(writtenReadinessReport!);
+        Assert.IsNotNull(readinessReport);
+        Assert.IsFalse(readinessReport.IsReadyForImport);
+        Assert.AreEqual(2, readinessReport.BlockingCount);
+        Assert.AreEqual(0, readinessReport.WarningCount);
         CollectionAssert.AreEquivalent(
             new[] { ArtefactFindingType.Attachment, ArtefactFindingType.EmbeddedImage },
             report.ArtefactFindings.Select(i => i.ItemType).ToArray());
@@ -94,6 +105,7 @@ public sealed class WorkItemsModulePrepareTests
         var revisionPath = "WorkItems/2026-05-13/638827200000000000-42-0/revision.json";
         var revisionJson = JsonSerializer.Serialize(CreateRevisionWithArtefacts());
         string? writtenReport = null;
+        string? writtenReadinessReport = null;
 
         var artefactStore = new Mock<IArtefactStore>(MockBehavior.Strict);
         artefactStore
@@ -111,6 +123,10 @@ public sealed class WorkItemsModulePrepareTests
         artefactStore
             .Setup(s => s.WriteAsync("WorkItems/prepare-report.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Callback<string, string, CancellationToken>((_, payload, _) => writtenReport = payload)
+            .Returns(Task.CompletedTask);
+        artefactStore
+            .Setup(s => s.WriteAsync(".mission/Readiness/workitems-import-readiness.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, CancellationToken>((_, payload, _) => writtenReadinessReport = payload)
             .Returns(Task.CompletedTask);
 
         var module = CreateModule();
@@ -134,6 +150,12 @@ public sealed class WorkItemsModulePrepareTests
         Assert.IsTrue(report.ImportReadinessReport.IsReadyForImport);
         Assert.AreEqual(0, report.ImportReadinessReport.ArtefactFindings.Count);
         Assert.AreEqual(0, report.ImportReadinessReport.FieldTransformFindings.Count);
+        Assert.IsNotNull(writtenReadinessReport);
+        var readinessReport = JsonSerializer.Deserialize<ImportReadinessReport>(writtenReadinessReport!);
+        Assert.IsNotNull(readinessReport);
+        Assert.IsTrue(readinessReport.IsReadyForImport);
+        Assert.AreEqual(0, readinessReport.BlockingCount);
+        Assert.AreEqual(0, readinessReport.WarningCount);
 
         artefactStore.VerifyAll();
     }
@@ -143,6 +165,7 @@ public sealed class WorkItemsModulePrepareTests
     {
         var revisionPath = "WorkItems/2026-05-13/638827200000000000-42-0/revision.json";
         string? writtenReport = null;
+        string? writtenReadinessReport = null;
 
         var artefactStore = new Mock<IArtefactStore>(MockBehavior.Strict);
         artefactStore
@@ -151,6 +174,10 @@ public sealed class WorkItemsModulePrepareTests
         artefactStore
             .Setup(s => s.WriteAsync("WorkItems/prepare-report.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Callback<string, string, CancellationToken>((_, payload, _) => writtenReport = payload)
+            .Returns(Task.CompletedTask);
+        artefactStore
+            .Setup(s => s.WriteAsync(".mission/Readiness/workitems-import-readiness.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, CancellationToken>((_, payload, _) => writtenReadinessReport = payload)
             .Returns(Task.CompletedTask);
 
         var module = CreateModule(
@@ -184,6 +211,12 @@ public sealed class WorkItemsModulePrepareTests
         Assert.IsFalse(report.ImportReadinessReport.IsReadyForImport);
         Assert.AreEqual(0, report.ImportReadinessReport.ArtefactFindings.Count);
         Assert.AreEqual(1, report.ImportReadinessReport.FieldTransformFindings.Count);
+        Assert.IsNotNull(writtenReadinessReport);
+        var readinessReport = JsonSerializer.Deserialize<ImportReadinessReport>(writtenReadinessReport!);
+        Assert.IsNotNull(readinessReport);
+        Assert.IsFalse(readinessReport.IsReadyForImport);
+        Assert.AreEqual(1, readinessReport.BlockingCount);
+        Assert.AreEqual(0, readinessReport.WarningCount);
 
         artefactStore.VerifyAll();
     }

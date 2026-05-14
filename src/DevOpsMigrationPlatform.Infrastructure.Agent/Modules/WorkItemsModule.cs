@@ -372,6 +372,12 @@ public sealed class WorkItemsModule : IModule
         _metrics?.RecordPrepareWorkItemsUnresolved(report.UnresolvedCount, tags);
         _metrics?.RecordPrepareWorkItemsDuration(stopwatch.Elapsed.TotalMilliseconds, tags);
         await context.ArtefactStore.WriteAsync("WorkItems/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
+        if (report.ImportReadinessReport is not null)
+        {
+            await context.ArtefactStore
+                .WriteAsync(".mission/Readiness/workitems-import-readiness.json", JsonSerializer.Serialize(report.ImportReadinessReport), ct)
+                .ConfigureAwait(false);
+        }
 
         _logger.LogInformation(
             "Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms",

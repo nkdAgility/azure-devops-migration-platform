@@ -133,7 +133,7 @@ This document defines the complete task decomposition for implementing the Work 
 
 - [X] T043 [US1] Implement report assembly logic to combine all validator findings into ImportReadinessReport record
 - [X] T044 [US1] Calculate IsReadyForImport = (BlockingIssues.Length == 0)
-- [ ] T045 [US1] Write ImportReadinessReport to package at `.mission/Readiness/workitems-import-readiness.json` via IArtefactStore
+- [X] T045 [US1] Write ImportReadinessReport to package at `.mission/Readiness/workitems-import-readiness.json` via IArtefactStore
 
 **Independent Test Criteria**:
 - Prepare phase validates all required artefacts without calling source system
