@@ -70,6 +70,7 @@ public sealed class WorkItemsModulePrepareTests
         Assert.AreEqual(2, report.ImportReadinessReport.Findings.Count);
         Assert.AreEqual(2, report.ImportReadinessReport.BlockingCount);
         Assert.AreEqual(0, report.ImportReadinessReport.WarningCount);
+        Assert.IsFalse(report.ImportReadinessReport.IsReadyForImport);
         Assert.AreEqual(2, report.ImportReadinessReport.ArtefactFindings.Count);
         Assert.AreEqual(0, report.ImportReadinessReport.FieldTransformFindings.Count);
         CollectionAssert.AreEquivalent(
@@ -130,6 +131,7 @@ public sealed class WorkItemsModulePrepareTests
         Assert.AreEqual(0, report.ImportReadinessReport.Findings.Count);
         Assert.AreEqual(0, report.ImportReadinessReport.BlockingCount);
         Assert.AreEqual(0, report.ImportReadinessReport.WarningCount);
+        Assert.IsTrue(report.ImportReadinessReport.IsReadyForImport);
         Assert.AreEqual(0, report.ImportReadinessReport.ArtefactFindings.Count);
         Assert.AreEqual(0, report.ImportReadinessReport.FieldTransformFindings.Count);
 
@@ -179,6 +181,7 @@ public sealed class WorkItemsModulePrepareTests
         Assert.AreEqual(1, report.ImportReadinessReport.Findings.Count);
         Assert.AreEqual(1, report.ImportReadinessReport.BlockingCount);
         Assert.AreEqual(0, report.ImportReadinessReport.WarningCount);
+        Assert.IsFalse(report.ImportReadinessReport.IsReadyForImport);
         Assert.AreEqual(0, report.ImportReadinessReport.ArtefactFindings.Count);
         Assert.AreEqual(1, report.ImportReadinessReport.FieldTransformFindings.Count);
 

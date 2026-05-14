@@ -27,6 +27,8 @@ public sealed record ImportReadinessReport
 
     public int WarningCount => WarningFindings.Count;
 
+    public bool IsReadyForImport => BlockingCount == 0;
+
     public static ImportReadinessReport Create(
         WorkItemsPrepareReadinessResult readiness,
         IReadOnlyList<ImportFailureFinding> findings,
