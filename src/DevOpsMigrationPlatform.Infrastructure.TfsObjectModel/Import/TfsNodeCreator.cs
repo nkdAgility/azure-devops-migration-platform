@@ -156,12 +156,15 @@ public sealed class TfsNodeCreator : INodeCreator
 
         foreach (var node in structures)
         {
-            if (!StructureTypeMatches(node.StructureType, suffix))
-                continue;
-
             var normalizedPath = NormalizeStoredPath(node.Path);
             if (string.IsNullOrWhiteSpace(normalizedPath))
                 continue;
+
+            if (!normalizedPath.Equals(_projectName, StringComparison.OrdinalIgnoreCase)
+                && !StructureTypeMatches(node.StructureType, nodeType, suffix))
+            {
+                continue;
+            }
 
             result[normalizedPath] = node;
         }
@@ -191,13 +194,18 @@ public sealed class TfsNodeCreator : INodeCreator
     private static string GetStructureTypeSuffix(ClassificationNodeType nodeType)
         => nodeType == ClassificationNodeType.Area ? "Area" : "Iteration";
 
-    private static bool StructureTypeMatches(string? structureType, string suffix)
+    private static bool StructureTypeMatches(string? structureType, ClassificationNodeType nodeType, string suffix)
     {
         var value = structureType ?? string.Empty;
         if (value.Length == 0)
             return false;
 
-        return value.EndsWith(suffix, StringComparison.OrdinalIgnoreCase);
+        if (value.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return nodeType == ClassificationNodeType.Area
+            ? value.IndexOf("ProjectModelHierarchy", StringComparison.OrdinalIgnoreCase) >= 0
+            : value.IndexOf("ProjectLifecycle", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private static bool IsConflict(Exception ex)

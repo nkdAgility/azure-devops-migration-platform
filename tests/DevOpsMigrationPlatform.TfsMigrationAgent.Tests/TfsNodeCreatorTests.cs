@@ -79,6 +79,53 @@ public class TfsNodeCreatorTests
         css.Verify(s => s.CreateNode("Sprint 2", "iterations-uri", start.UtcDateTime, finish.UtcDateTime), Times.Once);
     }
 
+    [TestMethod]
+    public async Task EnsureExistsAsync_AreaPath_WithProjectModelHierarchyRoot_CreatesHierarchy()
+    {
+        var css = new Mock<ICommonStructureService4>(MockBehavior.Strict);
+        css.Setup(s => s.ListStructures(ProjectUri)).Returns(
+        [
+            CreateNodeInfo("area-root-uri", @"\TargetProject", "ProjectModelHierarchy")
+        ]);
+        css.Setup(s => s.CreateNode("Platform", "area-root-uri", null, null)).Returns("platform-uri");
+        css.Setup(s => s.CreateNode("Backend", "platform-uri", null, null)).Returns("backend-uri");
+
+        var sut = new TfsNodeCreator(css.Object, NullLogger<TfsNodeCreator>.Instance, ProjectName, ProjectUri);
+
+        await sut.EnsureExistsAsync(ClassificationNodeType.Area, @"TargetProject\Platform\Backend", CancellationToken.None);
+
+        css.Verify(s => s.CreateNode("Platform", "area-root-uri", null, null), Times.Once);
+        css.Verify(s => s.CreateNode("Backend", "platform-uri", null, null), Times.Once);
+    }
+
+    [TestMethod]
+    public async Task EnsureExistsAsync_FullTreeAcrossCalls_CreatesBranchesUnderSharedParent()
+    {
+        var css = new Mock<ICommonStructureService4>(MockBehavior.Strict);
+        css.SetupSequence(s => s.ListStructures(ProjectUri))
+            .Returns(
+            [
+                CreateNodeInfo("area-root-uri", @"\TargetProject", "ProjectModelHierarchy")
+            ])
+            .Returns(
+            [
+                CreateNodeInfo("area-root-uri", @"\TargetProject", "ProjectModelHierarchy"),
+                CreateNodeInfo("platform-uri", @"\TargetProject\Platform", "ProjectModelHierarchyArea")
+            ]);
+        css.Setup(s => s.CreateNode("Platform", "area-root-uri", null, null)).Returns("platform-uri");
+        css.Setup(s => s.CreateNode("Backend", "platform-uri", null, null)).Returns("backend-uri");
+        css.Setup(s => s.CreateNode("Frontend", "platform-uri", null, null)).Returns("frontend-uri");
+
+        var sut = new TfsNodeCreator(css.Object, NullLogger<TfsNodeCreator>.Instance, ProjectName, ProjectUri);
+
+        await sut.EnsureExistsAsync(ClassificationNodeType.Area, @"TargetProject\Platform\Backend", CancellationToken.None);
+        await sut.EnsureExistsAsync(ClassificationNodeType.Area, @"TargetProject\Platform\Frontend", CancellationToken.None);
+
+        css.Verify(s => s.CreateNode("Platform", "area-root-uri", null, null), Times.Once);
+        css.Verify(s => s.CreateNode("Backend", "platform-uri", null, null), Times.Once);
+        css.Verify(s => s.CreateNode("Frontend", "platform-uri", null, null), Times.Once);
+    }
+
     private static NodeInfo CreateNodeInfo(string uri, string path, string structureType)
         => new()
         {
