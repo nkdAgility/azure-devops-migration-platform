@@ -48,6 +48,31 @@ public sealed class SimulatedNodeCreatorTests
         Assert.IsTrue(await sut.NodeExistsAsync(ClassificationNodeType.Area, @"TargetProject\Platform\Mobile", CancellationToken.None));
     }
 
+    [TestMethod]
+    public async Task EnsureExistsAsync_ReplicatedSourceTree_CreatesFullInMemoryHierarchy()
+    {
+        var sut = CreateSut(project: "TargetProject");
+
+        await sut.EnsureExistsAsync(ClassificationNodeType.Area, @"TargetProject\Platform\Backend", CancellationToken.None);
+        await sut.EnsureExistsAsync(ClassificationNodeType.Area, @"TargetProject\Platform\Frontend", CancellationToken.None);
+        await sut.EnsureExistsAsync(ClassificationNodeType.Area, @"TargetProject\Operations\Support", CancellationToken.None);
+
+        await sut.EnsureExistsAsync(ClassificationNodeType.Iteration, @"TargetProject\Release 1\Sprint 1", CancellationToken.None);
+        await sut.EnsureExistsAsync(ClassificationNodeType.Iteration, @"TargetProject\Release 1\Sprint 2", CancellationToken.None);
+
+        Assert.IsTrue(await sut.NodeExistsAsync(ClassificationNodeType.Area, @"TargetProject", CancellationToken.None));
+        Assert.IsTrue(await sut.NodeExistsAsync(ClassificationNodeType.Area, @"TargetProject\Platform", CancellationToken.None));
+        Assert.IsTrue(await sut.NodeExistsAsync(ClassificationNodeType.Area, @"TargetProject\Platform\Backend", CancellationToken.None));
+        Assert.IsTrue(await sut.NodeExistsAsync(ClassificationNodeType.Area, @"TargetProject\Platform\Frontend", CancellationToken.None));
+        Assert.IsTrue(await sut.NodeExistsAsync(ClassificationNodeType.Area, @"TargetProject\Operations", CancellationToken.None));
+        Assert.IsTrue(await sut.NodeExistsAsync(ClassificationNodeType.Area, @"TargetProject\Operations\Support", CancellationToken.None));
+
+        Assert.IsTrue(await sut.NodeExistsAsync(ClassificationNodeType.Iteration, @"TargetProject", CancellationToken.None));
+        Assert.IsTrue(await sut.NodeExistsAsync(ClassificationNodeType.Iteration, @"TargetProject\Release 1", CancellationToken.None));
+        Assert.IsTrue(await sut.NodeExistsAsync(ClassificationNodeType.Iteration, @"TargetProject\Release 1\Sprint 1", CancellationToken.None));
+        Assert.IsTrue(await sut.NodeExistsAsync(ClassificationNodeType.Iteration, @"TargetProject\Release 1\Sprint 2", CancellationToken.None));
+    }
+
     private static SimulatedNodeCreator CreateSut(string project)
         => new(
             NullLogger<SimulatedNodeCreator>.Instance,
