@@ -92,6 +92,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IReferencedPathTracker? _referencedPathTracker;
     private readonly INodesOrchestrator? _nodesOrchestrator;
     private readonly NodeReadinessOrchestrator? _nodeReadinessOrchestrator;
+    private readonly IOptions<NodesModuleOptions>? _nodesModuleOptions;
 #endif
     private readonly IPackageAccess? _package;
     private readonly IOptions<WorkItemsModuleOptions> _options;
@@ -130,6 +131,7 @@ public sealed class WorkItemsModule : IModule
         IReferencedPathTracker? referencedPathTracker = null,
         INodesOrchestrator? nodesOrchestrator = null,
         NodeReadinessOrchestrator? nodeReadinessOrchestrator = null,
+        IOptions<NodesModuleOptions>? nodesModuleOptions = null,
 #endif
         IIdentityLookupTool? identityLookupTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
@@ -161,6 +163,7 @@ public sealed class WorkItemsModule : IModule
         _referencedPathTracker = referencedPathTracker;
         _nodesOrchestrator = nodesOrchestrator;
         _nodeReadinessOrchestrator = nodeReadinessOrchestrator;
+        _nodesModuleOptions = nodesModuleOptions;
 #endif
         _identityLookupTool = identityLookupTool;
         _repoDiscoveryService = repoDiscoveryService;
@@ -683,10 +686,11 @@ public sealed class WorkItemsModule : IModule
 
         var sourceProjectName = _sourceEndpointInfo.Project;
         var nodeReadinessContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectName, project);
+        var replicateSourceTree = _nodesModuleOptions?.Value.ReplicateSourceTree ?? false;
         if (_nodeReadinessOrchestrator is not null)
         {
             await _nodeReadinessOrchestrator
-                .ExecuteAsync(nodeReadinessContext, replicateSourceTree: false, ct)
+                .ExecuteAsync(nodeReadinessContext, replicateSourceTree, ct)
                 .ConfigureAwait(false);
         }
         else if (_nodesOrchestrator is not null)
