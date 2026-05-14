@@ -413,7 +413,7 @@ public sealed class WorkItemsModule : IModule
             try
             {
                 revision = JsonSerializer.Deserialize<WorkItemRevision>(
-                    revisionJson,
+                    revisionJson!,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             }
             catch (JsonException ex)
@@ -434,7 +434,7 @@ public sealed class WorkItemsModule : IModule
                 continue;
             }
 
-            var revisionFolder = artefactPath[..^"/revision.json".Length];
+            var revisionFolder = artefactPath.Substring(0, artefactPath.Length - "/revision.json".Length);
 
             if (options.Extensions.Attachments.Enabled)
             {
