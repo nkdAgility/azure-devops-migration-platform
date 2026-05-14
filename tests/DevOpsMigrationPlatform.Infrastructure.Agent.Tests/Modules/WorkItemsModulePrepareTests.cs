@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
+using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
@@ -62,6 +63,8 @@ public sealed class WorkItemsModulePrepareTests
         Assert.IsNotNull(report);
         Assert.AreEqual(1, report.ResolvedCount);
         Assert.AreEqual(2, report.UnresolvedCount);
+        Assert.AreEqual(WorkItemsPrepareReadinessResult.ChangesRequired, report.Readiness);
+        Assert.AreEqual(2, report.FailureFindings.Count);
         CollectionAssert.AreEquivalent(
             new[]
             {
@@ -109,6 +112,8 @@ public sealed class WorkItemsModulePrepareTests
         Assert.IsNotNull(report);
         Assert.AreEqual(1, report.ResolvedCount);
         Assert.AreEqual(0, report.UnresolvedCount);
+        Assert.AreEqual(WorkItemsPrepareReadinessResult.Ready, report.Readiness);
+        Assert.AreEqual(0, report.FailureFindings.Count);
 
         artefactStore.VerifyAll();
     }

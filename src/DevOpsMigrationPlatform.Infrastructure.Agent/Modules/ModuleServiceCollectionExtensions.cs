@@ -2,10 +2,12 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import.FailurePatterns;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 #if !NET481
@@ -55,7 +57,10 @@ public static class ModuleServiceCollectionExtensions
         // Register schema entry for migration.schema.json generation
         services.AddSchemaEntry<WorkItemsModuleOptions>("Work items export/import module configuration");
 #endif
-
+        services.AddTransient<IImportFailurePattern, MissingRevisionArtefactImportFailurePattern>();
+        services.AddTransient<IImportFailurePattern, InvalidRevisionPayloadImportFailurePattern>();
+        services.AddTransient<IImportFailurePattern, MissingAttachmentBinaryImportFailurePattern>();
+        services.AddTransient<IImportFailurePattern, MissingEmbeddedImageBinaryImportFailurePattern>();
         services.AddTransient<IModule, WorkItemsModule>();
         return services;
     }

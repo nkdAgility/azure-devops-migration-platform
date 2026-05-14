@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 
@@ -23,6 +24,8 @@ public sealed record PrepareReport
     public int ResolvedCount { get; init; }
     public int UnresolvedCount => UnresolvedItems.Count;
     public IReadOnlyList<UnresolvedItem> UnresolvedItems { get; init; } = [];
+    public WorkItemsPrepareReadinessResult? Readiness { get; init; }
+    public IReadOnlyList<ImportFailureFinding> FailureFindings { get; init; } = [];
     public DateTimeOffset GeneratedAt { get; init; } = DateTimeOffset.UtcNow;
 }
 

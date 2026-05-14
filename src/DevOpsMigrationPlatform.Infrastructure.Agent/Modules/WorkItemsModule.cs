@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
@@ -21,6 +22,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import.FailurePatterns;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 #if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
@@ -94,6 +96,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IOptions<WorkItemsModuleOptions> _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
     private readonly IRepoDiscoveryService? _repoDiscoveryService;
+    private readonly IReadOnlyList<IImportFailurePattern> _importFailurePatterns;
 #if !NET481
     private readonly ITargetEndpointInfo _targetEndpointInfo;
 #endif
@@ -128,6 +131,7 @@ public sealed class WorkItemsModule : IModule
 #endif
         IIdentityLookupTool? identityLookupTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
+        IEnumerable<IImportFailurePattern>? importFailurePatterns = null,
         IPackageAccess? package = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
@@ -157,6 +161,10 @@ public sealed class WorkItemsModule : IModule
 #endif
         _identityLookupTool = identityLookupTool;
         _repoDiscoveryService = repoDiscoveryService;
+        var resolvedFailurePatterns = importFailurePatterns?.ToArray() ?? Array.Empty<IImportFailurePattern>();
+        _importFailurePatterns = resolvedFailurePatterns.Length == 0
+            ? CreateDefaultImportFailurePatterns()
+            : resolvedFailurePatterns;
         _package = package;
     }
 
@@ -384,121 +392,63 @@ public sealed class WorkItemsModule : IModule
 
     private async Task<PrepareReport> BuildPrepareReportAsync(PrepareContext context, CancellationToken ct)
     {
-        var unresolvedItems = new List<UnresolvedItem>();
-        var resolvedCount = 0;
-        var foundRevision = false;
-        var options = _options.Value;
-
-        await foreach (var artefactPath in context.ArtefactStore.EnumerateAsync("WorkItems/", ct).ConfigureAwait(false))
+        var importFailurePatternContext = new ImportFailurePatternContext(context, _options.Value);
+        var failureFindings = new List<ImportFailureFinding>();
+        foreach (var pattern in _importFailurePatterns)
         {
-            if (!artefactPath.EndsWith("/revision.json", StringComparison.Ordinal))
+            var findings = await pattern.EvaluateAsync(importFailurePatternContext, ct).ConfigureAwait(false);
+            if (findings.Count > 0)
             {
-                continue;
-            }
-
-            foundRevision = true;
-            resolvedCount++;
-
-            var revisionJson = await context.ArtefactStore.ReadAsync(artefactPath, ct).ConfigureAwait(false);
-            if (string.IsNullOrWhiteSpace(revisionJson))
-            {
-                unresolvedItems.Add(new UnresolvedItem(
-                    artefactPath,
-                    $"Revision payload is missing or empty: {artefactPath}",
-                    PrepareIssueSeverity.Blocking));
-                continue;
-            }
-
-            WorkItemRevision? revision;
-            try
-            {
-                revision = JsonSerializer.Deserialize<WorkItemRevision>(
-                    revisionJson!,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            }
-            catch (JsonException ex)
-            {
-                unresolvedItems.Add(new UnresolvedItem(
-                    artefactPath,
-                    $"Revision payload is invalid JSON: {ex.Message}",
-                    PrepareIssueSeverity.Blocking));
-                continue;
-            }
-
-            if (revision is null)
-            {
-                unresolvedItems.Add(new UnresolvedItem(
-                    artefactPath,
-                    $"Revision payload could not be deserialized: {artefactPath}",
-                    PrepareIssueSeverity.Blocking));
-                continue;
-            }
-
-            var revisionFolder = artefactPath.Substring(0, artefactPath.Length - "/revision.json".Length);
-
-            if (options.Extensions.Attachments.Enabled)
-            {
-                foreach (var attachment in revision.Attachments)
-                {
-                    if (string.IsNullOrWhiteSpace(attachment.RelativePath))
-                    {
-                        unresolvedItems.Add(new UnresolvedItem(
-                            $"{revisionFolder}/attachments",
-                            "Attachment metadata has an empty relativePath.",
-                            PrepareIssueSeverity.Blocking));
-                        continue;
-                    }
-
-                    var attachmentPath = $"{revisionFolder}/{attachment.RelativePath}";
-                    if (!await context.ArtefactStore.ExistsAsync(attachmentPath, ct).ConfigureAwait(false))
-                    {
-                        unresolvedItems.Add(new UnresolvedItem(
-                            attachmentPath,
-                            $"Attachment binary missing from package: {attachmentPath}",
-                            PrepareIssueSeverity.Blocking));
-                    }
-                }
-            }
-
-            if (options.Extensions.EmbeddedImages.Enabled)
-            {
-                foreach (var image in revision.EmbeddedImages)
-                {
-                    if (string.IsNullOrWhiteSpace(image.RelativePath))
-                    {
-                        unresolvedItems.Add(new UnresolvedItem(
-                            $"{revisionFolder}/embeddedImages",
-                            "Embedded image metadata has an empty relativePath.",
-                            PrepareIssueSeverity.Blocking));
-                        continue;
-                    }
-
-                    var imagePath = $"{revisionFolder}/{image.RelativePath}";
-                    if (!await context.ArtefactStore.ExistsAsync(imagePath, ct).ConfigureAwait(false))
-                    {
-                        unresolvedItems.Add(new UnresolvedItem(
-                            imagePath,
-                            $"Embedded image binary missing from package: {imagePath}",
-                            PrepareIssueSeverity.Blocking));
-                    }
-                }
+                failureFindings.AddRange(findings);
             }
         }
 
-        if (!foundRevision)
-        {
-            unresolvedItems.Add(new UnresolvedItem(
-                "WorkItems/",
-                "No revision.json artefacts were found under WorkItems/.",
-                PrepareIssueSeverity.Blocking));
-        }
+        var readiness = failureFindings.Any(f => f.Severity == ImportFailureSeverity.Blocking)
+            ? WorkItemsPrepareReadinessResult.ChangesRequired
+            : WorkItemsPrepareReadinessResult.Ready;
+
+        var unresolvedItems = failureFindings
+            .Select(f => new UnresolvedItem(
+                f.EvidenceKey,
+                $"{f.PatternCode}: {f.Message}",
+                f.Severity == ImportFailureSeverity.Blocking ? PrepareIssueSeverity.Blocking : PrepareIssueSeverity.Warning))
+            .ToList();
+
+        var resolvedCount = await CountRevisionArtefactsAsync(context, ct).ConfigureAwait(false);
 
         return new PrepareReport
         {
             ModuleName = Name,
             ResolvedCount = resolvedCount,
-            UnresolvedItems = unresolvedItems
+            UnresolvedItems = unresolvedItems,
+            Readiness = readiness,
+            FailureFindings = failureFindings
         };
+    }
+
+    private static async Task<int> CountRevisionArtefactsAsync(PrepareContext context, CancellationToken ct)
+    {
+        var resolvedCount = 0;
+        await foreach (var artefactPath in context.ArtefactStore.EnumerateAsync("WorkItems/", ct).ConfigureAwait(false))
+        {
+            if (artefactPath.EndsWith("/revision.json", StringComparison.Ordinal))
+            {
+                resolvedCount++;
+            }
+        }
+
+        return resolvedCount;
+    }
+
+    private static IReadOnlyList<IImportFailurePattern> CreateDefaultImportFailurePatterns()
+    {
+        return
+        [
+            new MissingRevisionArtefactImportFailurePattern(),
+            new InvalidRevisionPayloadImportFailurePattern(),
+            new MissingAttachmentBinaryImportFailurePattern(),
+            new MissingEmbeddedImageBinaryImportFailurePattern()
+        ];
     }
 
     /// <inheritdoc/>
