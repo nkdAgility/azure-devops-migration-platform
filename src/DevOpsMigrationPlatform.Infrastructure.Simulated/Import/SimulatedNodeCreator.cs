@@ -19,7 +19,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
 /// </summary>
 public sealed class SimulatedNodeCreator : INodeCreator
 {
-    private readonly ConcurrentDictionary<string, bool> _nodes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, bool>> _areaNodesByProject = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, bool>> _iterationNodesByProject = new(StringComparer.OrdinalIgnoreCase);
     private readonly ILogger<SimulatedNodeCreator> _logger;
     private readonly ITargetEndpointInfo _endpointInfo;
 
@@ -37,8 +38,10 @@ public sealed class SimulatedNodeCreator : INodeCreator
         string path,
 CancellationToken ct)
     {
-        var key = BuildKey(nodeType, path, _endpointInfo.Project);
-        var exists = _nodes.ContainsKey(key);
+        var projectNodes = GetOrCreateNodeSet(nodeType, _endpointInfo.Project);
+        var normalizedPath = NormalizePath(path, _endpointInfo.Project);
+        var exists = projectNodes.ContainsKey(normalizedPath);
+        var key = BuildKey(nodeType, normalizedPath, _endpointInfo.Project);
         _logger.LogDebug("[NodeTranslation][Simulated] NodeExistsAsync {Key} = {Exists}.", key, exists);
         return Task.FromResult(exists);
     }
@@ -49,8 +52,14 @@ CancellationToken ct)
         string path,
 CancellationToken ct)
     {
-        var key = BuildKey(nodeType, path, _endpointInfo.Project);
-        _nodes.TryAdd(key, true);
+        var projectNodes = GetOrCreateNodeSet(nodeType, _endpointInfo.Project);
+        foreach (var pathSegment in ExpandHierarchy(path, _endpointInfo.Project))
+        {
+            projectNodes.TryAdd(pathSegment, true);
+        }
+
+        var normalizedPath = NormalizePath(path, _endpointInfo.Project);
+        var key = BuildKey(nodeType, normalizedPath, _endpointInfo.Project);
         _logger.LogDebug("[NodeTranslation][Simulated] EnsureExistsAsync {Key}.", key);
         return Task.CompletedTask;
     }
@@ -69,4 +78,38 @@ CancellationToken ct)
 
     private static string BuildKey(ClassificationNodeType nodeType, string path, string project)
         => $"{nodeType}:{project}:{path}";
+
+    private ConcurrentDictionary<string, bool> GetOrCreateNodeSet(ClassificationNodeType nodeType, string project)
+        => nodeType == ClassificationNodeType.Area
+            ? _areaNodesByProject.GetOrAdd(project, _ => new ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase))
+            : _iterationNodesByProject.GetOrAdd(project, _ => new ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase));
+
+    private static string NormalizePath(string path, string project)
+    {
+        var trimmedPath = path?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(trimmedPath))
+            return project;
+
+        var projectPrefix = $"{project}\\";
+        if (trimmedPath.Equals(project, StringComparison.OrdinalIgnoreCase) ||
+            trimmedPath.StartsWith(projectPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmedPath;
+        }
+
+        return $"{project}\\{trimmedPath}";
+    }
+
+    private static string[] ExpandHierarchy(string path, string project)
+    {
+        var normalizedPath = NormalizePath(path, project);
+        var segments = normalizedPath.Split(['\\'], StringSplitOptions.RemoveEmptyEntries);
+        var hierarchy = new string[segments.Length];
+        for (var index = 0; index < segments.Length; index++)
+        {
+            hierarchy[index] = string.Join("\\", segments, 0, index + 1);
+        }
+
+        return hierarchy;
+    }
 }
