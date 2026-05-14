@@ -159,9 +159,54 @@ public sealed class NodeReadinessOrchestrator
             .RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)), ct)
             .ConfigureAwait(false);
 
-        if (payload is null)
+        if (payload is not null)
+        {
+            return await DeserializeArtifactAsync<T>(payload, ct).ConfigureAwait(false);
+        }
+
+        var metadataPayload = await EnumerateClassificationMetadataAsync(relativePath, ct).ConfigureAwait(false);
+        if (metadataPayload is null)
             return default;
 
+        return await DeserializeArtifactAsync<T>(metadataPayload, ct).ConfigureAwait(false);
+    }
+
+    private async Task<PackagePayload?> EnumerateClassificationMetadataAsync(string relativePath, CancellationToken ct)
+    {
+        var normalizedPath = relativePath.Replace('\\', '/');
+        var separatorIndex = normalizedPath.LastIndexOf('/');
+        if (separatorIndex <= 0 || separatorIndex >= normalizedPath.Length - 1)
+            return null;
+
+        var parentPath = normalizedPath[..separatorIndex];
+        var fileName = normalizedPath[(separatorIndex + 1)..];
+
+        await foreach (var enumeratedPath in _packageAccess.EnumerateContentAsync(
+                           new PackageContentContext(
+                               PackageContentKind.Collection,
+                               SplitRouteSegments(parentPath),
+                               IsCollectionRequest: true),
+                           ct).ConfigureAwait(false))
+        {
+            var normalizedEnumeratedPath = enumeratedPath.Replace('\\', '/');
+            var candidatePath = normalizedEnumeratedPath.EndsWith($"/{fileName}", StringComparison.OrdinalIgnoreCase)
+                ? normalizedEnumeratedPath
+                : null;
+            if (candidatePath is null)
+                continue;
+
+            var payload = await _packageAccess
+                .RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(candidatePath)), ct)
+                .ConfigureAwait(false);
+            if (payload is not null)
+                return payload;
+        }
+
+        return null;
+    }
+
+    private static async Task<T?> DeserializeArtifactAsync<T>(PackagePayload payload, CancellationToken ct)
+    {
         if (payload.Content.CanSeek)
             payload.Content.Position = 0;
 
