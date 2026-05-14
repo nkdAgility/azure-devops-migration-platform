@@ -9,7 +9,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Storage;
 /// <summary>
 /// Internal state persistence abstraction for cursors and checkpoints.
 /// </summary>
-public interface IStateStore
+internal interface IStateStore
 {
     /// <summary>
     /// Writes a state entry. Key is the cursor path, e.g. ".migration/Checkpoints/workitems.cursor.json".

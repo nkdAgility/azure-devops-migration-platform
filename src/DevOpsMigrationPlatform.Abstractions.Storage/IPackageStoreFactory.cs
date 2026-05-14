@@ -7,7 +7,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Storage;
 /// Creates the <see cref="IArtefactStore"/> and <see cref="IStateStore"/> pair
 /// for a given package URI.  Abstracts storage backend selection from the agent worker.
 /// </summary>
-public interface IPackageStoreFactory
+internal interface IPackageStoreFactory
 {
     /// <summary>
     /// Resolves the package URI and returns matched store instances.

@@ -25,7 +25,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Storage;
 /// implementations MUST enforce. Callers must establish a valid lease before calling any write methods.
 /// See <see cref="ILeaseService"/> for lease acquisition and renewal.
 /// </summary>
-public interface IArtefactStore
+internal interface IArtefactStore
 {
     /// <summary>
     /// Reads the content of the file at <paramref name="path"/> within the package,

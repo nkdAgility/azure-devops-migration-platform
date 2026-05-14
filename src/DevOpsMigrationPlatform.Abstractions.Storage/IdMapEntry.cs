@@ -6,7 +6,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Storage;
 /// <summary>
 /// Represents a single source-to-target work item ID mapping stored in <c>Checkpoints/idmap.db</c>.
 /// </summary>
-public record IdMapEntry
+internal record IdMapEntry
 {
     /// <summary>Source work item ID.</summary>
     public int SourceId { get; init; }

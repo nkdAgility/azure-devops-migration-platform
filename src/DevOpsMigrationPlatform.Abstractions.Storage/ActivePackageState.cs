@@ -15,7 +15,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Storage;
 /// this holder rather than taking <see cref="IArtefactStore"/> as a constructor dependency,
 /// because the store is only available after a job is picked up and a package URI is resolved.
 /// </summary>
-public sealed class ActivePackageState
+internal sealed class ActivePackageState
 {
     private volatile IArtefactStore? _currentStore;
     private volatile IStateStore? _currentStateStore;
