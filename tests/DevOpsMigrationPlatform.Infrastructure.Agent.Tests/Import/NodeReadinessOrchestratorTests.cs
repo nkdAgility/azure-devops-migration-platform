@@ -60,6 +60,47 @@ public class NodeReadinessOrchestratorTests
     }
 
     [TestMethod]
+    public async Task ExecuteAsync_ReferencedPaths_TranslatesBeforeCreatingNodes()
+    {
+        var referenced = new ReferencedPathsArtifact(
+            AreaPaths: [@"Source\Area"],
+            IterationPaths: [@"Source\Iteration"]);
+
+        var packageMock = CreatePackageMock(referencedPaths: referenced);
+        var sequence = new MockSequence();
+        var translationTool = new Mock<INodeTranslationTool>(MockBehavior.Strict);
+        translationTool
+            .InSequence(sequence)
+            .Setup(t => t.TranslatePath("System.AreaPath", @"Source\Area", It.IsAny<ProjectMapping>()))
+            .Returns(new PathTranslation(@"Target\Area", false, true, false));
+
+        var creator = new Mock<INodeCreator>(MockBehavior.Strict);
+        creator
+            .InSequence(sequence)
+            .Setup(c => c.EnsureExistsAsync(ClassificationNodeType.Area, @"Target\Area", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        translationTool
+            .InSequence(sequence)
+            .Setup(t => t.TranslatePath("System.IterationPath", @"Source\Iteration", It.IsAny<ProjectMapping>()))
+            .Returns(new PathTranslation(@"Target\Iteration", false, true, false));
+        creator
+            .InSequence(sequence)
+            .Setup(c => c.EnsureExistsAsync(ClassificationNodeType.Iteration, @"Target\Iteration", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var sut = new NodeReadinessOrchestrator(
+            packageMock.Object,
+            translationTool.Object,
+            creator.Object,
+            NullLogger<NodeReadinessOrchestrator>.Instance);
+
+        await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
+
+        creator.Verify(c => c.EnsureExistsAsync(ClassificationNodeType.Area, @"Source\Area", It.IsAny<CancellationToken>()), Times.Never);
+        creator.Verify(c => c.EnsureExistsAsync(ClassificationNodeType.Iteration, @"Source\Iteration", It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [TestMethod]
     public async Task ExecuteAsync_ReplicateSourceTree_EnsuresSnapshotNodesAndIterationDates()
     {
         var sourceTree = new ClassificationTreeSnapshot(
