@@ -30,6 +30,7 @@ public sealed class NodeReadinessOrchestrator
     private readonly IPackageAccess _packageAccess;
     private readonly INodeTranslationTool _nodeTranslationTool;
     private readonly INodeCreator _nodeCreator;
+    private readonly ReferencedPathsFromWorkItemsStrategy _referencedPathsFromWorkItemsStrategy;
     private readonly ILogger<NodeReadinessOrchestrator> _logger;
 
     public NodeReadinessOrchestrator(
@@ -42,6 +43,7 @@ public sealed class NodeReadinessOrchestrator
         _nodeTranslationTool = nodeTranslationTool ?? throw new ArgumentNullException(nameof(nodeTranslationTool));
         _nodeCreator = nodeCreator ?? throw new ArgumentNullException(nameof(nodeCreator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _referencedPathsFromWorkItemsStrategy = new ReferencedPathsFromWorkItemsStrategy(_packageAccess, _logger);
     }
 
     public async Task ExecuteAsync(
@@ -62,6 +64,13 @@ public sealed class NodeReadinessOrchestrator
         var processed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var referenced = await ReadArtifactAsync<ReferencedPathsArtifact>(ReferencedPathsPath, ct).ConfigureAwait(false);
+        if (referenced is null)
+        {
+            referenced = await _referencedPathsFromWorkItemsStrategy
+                .CollectDistinctPathsAsync(ct)
+                .ConfigureAwait(false);
+        }
+
         if (referenced is not null)
         {
             await EnsureTranslatedPathsAsync(
