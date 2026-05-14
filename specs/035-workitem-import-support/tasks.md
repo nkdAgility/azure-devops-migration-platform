@@ -151,7 +151,7 @@ This document defines the complete task decomposition for implementing the Work 
 
 ### Node Readiness Orchestration
 
-- [ ] T046 [US2] Create NodeReadinessOrchestrator class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/NodeReadinessOrchestrator.cs` with ExecuteAsync method to prepare and create required node paths
+- [X] T046 [US2] Create NodeReadinessOrchestrator class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/NodeReadinessOrchestrator.cs` with ExecuteAsync method to prepare and create required node paths
 - [ ] T047 [US2] Implement node readiness dispatch in WorkItemImportModule.Import — call orchestrator before revision import begins
 
 ### Referenced Node Path Strategy (US2: Scenario 1, FR-006)
