@@ -172,7 +172,7 @@ This document defines the complete task decomposition for implementing the Work 
 
 ### Path Translation Consistency (US2: Scenario 3, FR-008)
 
-- [ ] T058 [US2] [P] Apply NodeTranslationTool consistently to paths during both node creation and later work item field replay
+- [X] T058 [US2] [P] Apply NodeTranslationTool consistently to paths during both node creation and later work item field replay
 - [ ] T059 [US2] [P] Cache translated paths in NodeTranslationHelper to ensure same source path → same target path throughout import
 - [ ] T060 [US2] [P] Verify that node creation and later field writes use identical translated paths (no inconsistency)
 

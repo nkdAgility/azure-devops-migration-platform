@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
@@ -245,6 +246,63 @@ public class RevisionFolderProcessorTests
         var assignedTo = capturedFields!.FirstOrDefault(f => f.ReferenceName == "System.AssignedTo");
         Assert.IsNotNull(assignedTo);
         Assert.AreEqual("target@example.com", assignedTo!.Value);
+    }
+
+    [TestMethod]
+    public async Task ProcessAsync_WhenAreaPathIsExternalAndSkipEnabled_SkipsRevisionBeforeFieldReplay()
+    {
+        var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"},{"ReferenceName":"System.AreaPath","Value":"External\\Area"}],"Attachments":[],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
+        _mockPackage
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath.EndsWith("/revision.json", StringComparison.OrdinalIgnoreCase)),
+                It.IsAny<CancellationToken>()))
+            .Returns(() => ToPayload(json));
+        _mockPackage
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath.EndsWith("/comment.json", StringComparison.OrdinalIgnoreCase)),
+                It.IsAny<CancellationToken>()))
+            .Returns(() => ToPayload(null));
+
+        _mockIdMapStore
+            .SetupSequence(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int?)null)
+            .ReturnsAsync(10);
+        _mockIdMapStore
+            .Setup(s => s.SetWorkItemMappingAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockIdMapStore
+            .Setup(s => s.RecordSkippedRevisionAsync(1, "UnresolvablePath", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        SetupCursorWrites();
+        SetupResolutionStrategyNoOp();
+        SetupTargetCreate(newTargetId: 10);
+
+        var nodeTranslationTool = new Mock<INodeTranslationTool>(MockBehavior.Strict);
+        nodeTranslationTool
+            .Setup(t => t.IsEnabled)
+            .Returns(true);
+        nodeTranslationTool
+            .Setup(t => t.TranslatePath("System.AreaPath", @"External\Area", It.IsAny<ProjectMapping>()))
+            .Returns(new PathTranslation(@"External\Area", false, false, true));
+
+        var sut = new RevisionFolderProcessor(
+            _mockTarget.Object,
+            _mockIdMapStore.Object,
+            _mockCheckpointing.Object,
+            _mockIdentityMapping.Object,
+            NullLogger<RevisionFolderProcessor>.Instance,
+            "https://dev.azure.com/contoso",
+            "Shop",
+            nodeStructureTool: nodeTranslationTool.Object,
+            nodeStructureContext: new ProjectMapping("Source", "Target"),
+            nodeStructureOptions: new NodeTranslationOptions { SkipOnUnresolvableArea = true },
+            package: _mockPackage.Object);
+
+        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        _mockTarget.Verify(t => t.CreateWorkItemAsync("Task", It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockTarget.Verify(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockIdMapStore.Verify(s => s.RecordSkippedRevisionAsync(1, "UnresolvablePath", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

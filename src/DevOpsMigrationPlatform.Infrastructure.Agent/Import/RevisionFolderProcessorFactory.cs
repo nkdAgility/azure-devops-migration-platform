@@ -5,7 +5,9 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 
@@ -19,17 +21,20 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
     private readonly IPlatformMetrics? _metrics;
     private readonly INodeTranslationTool? _nodeStructureTool;
     private readonly IPackageAccess _package;
+    private readonly NodeTranslationOptions? _nodeStructureOptions;
 
     public RevisionFolderProcessorFactory(
         ILoggerFactory loggerFactory,
         IPackageAccess package,
         IPlatformMetrics? metrics = null,
-        INodeTranslationTool? nodeStructureTool = null)
+        INodeTranslationTool? nodeStructureTool = null,
+        IOptions<NodeTranslationOptions>? nodeStructureOptions = null)
     {
         _loggerFactory = loggerFactory ?? throw new System.ArgumentNullException(nameof(loggerFactory));
         _package = package ?? throw new System.ArgumentNullException(nameof(package));
         _metrics = metrics;
         _nodeStructureTool = nodeStructureTool;
+        _nodeStructureOptions = nodeStructureOptions?.Value;
     }
 
     /// <inheritdoc/>
@@ -62,6 +67,7 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
             _metrics,
             nodeStructureTool: _nodeStructureTool,
             nodeStructureContext: nodeStructureContext,
+            nodeStructureOptions: _nodeStructureOptions,
             package: _package);
 }
 #endif

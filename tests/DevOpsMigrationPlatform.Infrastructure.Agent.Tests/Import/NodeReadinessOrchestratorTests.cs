@@ -8,7 +8,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -232,6 +234,38 @@ public class NodeReadinessOrchestratorTests
 
         translationTool.VerifyNoOtherCalls();
         creator.VerifyNoOtherCalls();
+    }
+
+    [TestMethod]
+    public async Task ExecuteAsync_ReferencedPaths_WithExternalAreaAndSkipEnabled_SkipsNodeCreation()
+    {
+        var referenced = new ReferencedPathsArtifact(
+            AreaPaths: [@"External\Area"],
+            IterationPaths: []);
+
+        var packageMock = CreatePackageMock(referencedPaths: referenced);
+        var translationTool = new Mock<INodeTranslationTool>(MockBehavior.Strict);
+        translationTool
+            .Setup(t => t.TranslatePath("System.AreaPath", @"External\Area", It.IsAny<ProjectMapping>()))
+            .Returns(new PathTranslation(@"External\Area", false, false, true));
+
+        var creator = new Mock<INodeCreator>(MockBehavior.Strict);
+
+        var sut = new NodeReadinessOrchestrator(
+            packageMock.Object,
+            translationTool.Object,
+            creator.Object,
+            NullLogger<NodeReadinessOrchestrator>.Instance,
+            Options.Create(new NodeTranslationOptions { SkipOnUnresolvableArea = true }));
+
+        await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
+
+        creator.Verify(
+            c => c.EnsureExistsAsync(
+                It.IsAny<ClassificationNodeType>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     private static Mock<IPackageAccess> CreatePackageMock(

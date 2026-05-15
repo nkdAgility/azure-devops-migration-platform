@@ -12,7 +12,9 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 
@@ -32,17 +34,20 @@ public sealed class NodeReadinessOrchestrator
     private readonly INodeCreator _nodeCreator;
     private readonly ReferencedPathsFromWorkItemsStrategy _referencedPathsFromWorkItemsStrategy;
     private readonly ILogger<NodeReadinessOrchestrator> _logger;
+    private readonly NodeTranslationOptions? _nodeTranslationOptions;
 
     public NodeReadinessOrchestrator(
         IPackageAccess packageAccess,
         INodeTranslationTool nodeTranslationTool,
         INodeCreator nodeCreator,
-        ILogger<NodeReadinessOrchestrator> logger)
+        ILogger<NodeReadinessOrchestrator> logger,
+        IOptions<NodeTranslationOptions>? nodeTranslationOptions = null)
     {
         _packageAccess = packageAccess ?? throw new ArgumentNullException(nameof(packageAccess));
         _nodeTranslationTool = nodeTranslationTool ?? throw new ArgumentNullException(nameof(nodeTranslationTool));
         _nodeCreator = nodeCreator ?? throw new ArgumentNullException(nameof(nodeCreator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _nodeTranslationOptions = nodeTranslationOptions?.Value;
         _referencedPathsFromWorkItemsStrategy = new ReferencedPathsFromWorkItemsStrategy(_packageAccess, _logger);
     }
 
@@ -108,8 +113,13 @@ public sealed class NodeReadinessOrchestrator
                     if (string.IsNullOrWhiteSpace(iteration.Path))
                         continue;
 
-                    var translated = _nodeTranslationTool.TranslatePath("System.IterationPath", iteration.Path, context);
-                    var targetPath = translated.TargetPath ?? iteration.Path;
+                    var targetPath = ResolveNodePathOrThrow(
+                        "System.IterationPath",
+                        iteration.Path,
+                        context);
+                    if (targetPath is null)
+                        continue;
+
                     var key = BuildNodeKey(ClassificationNodeType.Iteration, targetPath);
                     if (processed.Add(key))
                     {
@@ -143,14 +153,55 @@ public sealed class NodeReadinessOrchestrator
             if (string.IsNullOrWhiteSpace(sourcePath))
                 continue;
 
-            var translated = _nodeTranslationTool.TranslatePath(fieldName, sourcePath, context);
-            var targetPath = translated.TargetPath ?? sourcePath;
+            var targetPath = ResolveNodePathOrThrow(fieldName, sourcePath, context);
+            if (targetPath is null)
+                continue;
+
             var key = BuildNodeKey(nodeType, targetPath);
             if (!processed.Add(key))
                 continue;
 
             await _nodeCreator.EnsureExistsAsync(nodeType, targetPath, ct).ConfigureAwait(false);
         }
+    }
+
+    private string? ResolveNodePathOrThrow(string fieldName, string sourcePath, ProjectMapping context)
+    {
+        var translation = _nodeTranslationTool.TranslatePath(fieldName, sourcePath, context);
+        if (!translation.IsExternalPath)
+            return translation.TargetPath ?? sourcePath;
+
+        bool isArea = string.Equals(fieldName, "System.AreaPath", StringComparison.OrdinalIgnoreCase);
+        bool skipEnabled = isArea
+            ? (_nodeTranslationOptions?.SkipOnUnresolvableArea ?? false)
+            : (_nodeTranslationOptions?.SkipOnUnresolvableIteration ?? false);
+        string fieldLabel = isArea ? "area" : "iteration";
+
+        if (skipEnabled)
+        {
+            using (DataClassificationScope.Begin(DataClassification.Customer))
+            {
+                _logger.LogWarning(
+                    "[NodeTranslation] Node readiness skipped external {FieldLabel} path: {Path}",
+                    fieldLabel,
+                    sourcePath);
+            }
+
+            return null;
+        }
+
+        using (DataClassificationScope.Begin(DataClassification.Customer))
+        {
+            _logger.LogError(
+                "[NodeTranslation] Unresolvable {FieldLabel} path during node readiness: {Path} — import aborted (set SkipOnUnresolvable{CapLabel} to skip instead)",
+                fieldLabel,
+                sourcePath,
+                isArea ? "Area" : "Iteration");
+        }
+
+        throw new InvalidOperationException(
+            $"[NodeTranslation] Unresolvable {fieldLabel} path during node readiness: '{sourcePath}'. " +
+            $"Set SkipOnUnresolvable{(isArea ? "Area" : "Iteration")}: true to skip instead.");
     }
 
     private async Task<T?> ReadArtifactAsync<T>(string relativePath, CancellationToken ct)
