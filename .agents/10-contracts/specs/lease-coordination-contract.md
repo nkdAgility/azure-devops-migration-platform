@@ -1,9 +1,8 @@
-# agent_lease_coordination — Lease and Worker Coordination System
+# Lease Coordination Contract
 
-- Tag: `agent_lease_coordination`
-- Responsibility: Poll control plane, acquire lease, dispatch jobs, and signal terminal states.
+Canonical contract for lease polling, job dispatch, and terminal signaling.
 
-## Core Classes
+## Contract Surface
 
 - `AgentWorkerBase`
 - `JobAgentWorker`
@@ -12,11 +11,11 @@
 - `ActiveLeaseState`
 - `ActivePackageState`
 
-## Validating Tests
+## Required Semantics
 
-- `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobAgentWorkerDispatchTests.cs`
-- `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobAgentWorkerInventoryTests.cs`
-- `tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsJobAgentWorkerTests.cs`
+1. Worker polls control plane lease endpoint and dispatches leased jobs.
+2. Lease state is set before dispatch and cleared after completion/failure.
+3. Terminal lease status must be reported explicitly (`complete` or `fail`).
 
 ## Sequence Diagram
 
@@ -38,7 +37,4 @@ sequenceDiagram
   end
   AW->>LS: Clear current lease
 ```
-
-
-
 

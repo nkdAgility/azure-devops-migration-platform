@@ -114,7 +114,7 @@ Canonical bootstrap sequence:
    - `.agents/30-context/domains/ui-mode-summary.md`
    - `.agents/30-context/domains/cli-commands.md`
    - `.agents/30-context/domains/identity-and-mapping.md`
-   - `.agents/30-context/architecture/agent-failure-pattern-checks.md`
+   - `.agents/10-contracts/specs/import-failure-pattern-contract.md`
 
 4. **State your understanding** of which guardrails and change class apply.
 5. **Explicitly reject** approaches that violate guardrails.

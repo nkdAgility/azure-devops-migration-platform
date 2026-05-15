@@ -1,20 +1,19 @@
-# agent_validation_safety — Validation and Safety System
+# Validation and Safety Contract
 
-- Tag: `agent_validation_safety`
-- Responsibility: Validate package invariants before/after execution and enforce fail-fast behavior for invalid execution inputs.
+Canonical contract for package validation and fail-fast execution safety.
 
-## Core Classes
+## Contract Surface
 
 - `PackageValidator`
 - `ValidationResult`
 - `ValidationError`
 - `PackageConfigNotFoundException`
 
-## Validating Tests
+## Required Semantics
 
-- `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Platform/PackageValidatorTests.cs`
-- `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobAgentWorkerDispatchTests.cs`
-- `tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsJobAgentWorkerTests.cs`
+1. Validate package invariants before/after execution transitions.
+2. Validation failures are surfaced as explicit execution failure outcomes.
+3. Invalid execution inputs are fail-fast and observable.
 
 ## Sequence Diagram
 
@@ -36,7 +35,4 @@ sequenceDiagram
     JW-->>JW: Continue phase execution
   end
 ```
-
-
-
 

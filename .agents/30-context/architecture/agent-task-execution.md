@@ -3,37 +3,15 @@
 - Tag: `agent_task_execution`
 - Responsibility: Execute plan tiers, enforce `DependsOn`, transition task states, persist status transitions, and emit task progress.
 
-## Core Classes
+Canonical contract content moved to:
 
-- `JobPlanExecutor`
-- `IJobPlanExecutor`
-- `JobTaskStatus`
+- [../../10-contracts/specs/task-execution-contract.md](../../10-contracts/specs/task-execution-contract.md)
 
 ## Validating Tests
 
 - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobPlanExecutorTests.cs`
 - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Platform/PlanDrivenExecutionSteps.cs`
 
-## Sequence Diagram
-
-```mermaid
-sequenceDiagram
-  participant JW as JobAgentWorker
-  participant TE as JobPlanExecutor
-  participant MOD as IModule
-  participant ST as IStateStore
-  participant PS as IProgressSink
-
-  JW->>TE: ExecuteExportPhaseAsync / ExecuteImportPhaseAsync
-  TE->>TE: Extract tiers from JobTaskList
-  loop Each tier
-    TE->>MOD: Run task handler(s)
-    MOD-->>TE: Success/Failure
-    TE->>ST: Persist updated plan/task state
-    TE->>PS: Emit ProgressEvent(task status)
-  end
-  TE-->>JW: bool success
-```
 ## Dependency and Resume Semantics
 
 - Tasks execute only after their declared `DependsOn` task IDs are satisfied.

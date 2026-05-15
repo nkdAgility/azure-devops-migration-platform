@@ -1,9 +1,8 @@
-# agent_runtime_context — Runtime Configuration and Context Materialization System
+# Runtime Context Contract
 
-- Tag: `agent_runtime_context`
-- Responsibility: Materialize `Job.ConfigPayload` into package config and expose current job/package/source/target context accessors.
+Canonical contract for materializing `Job.ConfigPayload` and exposing active runtime context.
 
-## Core Classes
+## Contract Surface
 
 - `PackageMigrationConfigLoader`
 - `ICurrentPackageConfigAccessor`
@@ -12,11 +11,11 @@
 - `AgentJobContext`
 - `PackageConfigNotFoundException`
 
-## Validating Tests
+## Required Semantics
 
-- `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/PackageMigrationConfigLoaderTests.cs`
-- `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobAgentWorkerDispatchTests.cs`
-- `tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsJobAgentWorkerTests.cs`
+1. Job config payload is materialized to package config before module execution.
+2. Current package config, job context, and endpoint accessors are set before execution and cleared at job end.
+3. Missing package config is a fail-fast condition.
 
 ## Sequence Diagram
 
@@ -40,7 +39,4 @@ sequenceDiagram
   JW->>JCA: Clear() at job end
   JW->>ECA: Clear() at job end
 ```
-
-
-
 

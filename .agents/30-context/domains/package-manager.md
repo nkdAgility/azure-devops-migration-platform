@@ -152,7 +152,7 @@ This file is not a tutorial and not an operator doc. It is the concrete contract
 - [docs/package-format-reference.md](../../../docs/package-format-reference.md)
 - [migration-package-concept.md](migration-package-concept.md)
 - [checkpointing-summary.md](checkpointing-summary.md)
-- [architecture/agent-package-boundary.md](../architecture/agent-package-boundary.md)
+- [../../10-contracts/specs/package-boundary-contract.md](../../10-contracts/specs/package-boundary-contract.md)
 
 
 

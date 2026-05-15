@@ -71,7 +71,7 @@ Before writing, editing, or suggesting code/config/docs changes:
    - `.agents/30-context/domains/ui-mode-summary.md`
    - `.agents/30-context/domains/cli-commands.md`
    - `.agents/30-context/domains/identity-and-mapping.md`
-   - `.agents/30-context/architecture/agent-failure-pattern-checks.md`
+   - `.agents/10-contracts/specs/import-failure-pattern-contract.md`
 
 4. State applicable guardrails and change class.
 5. Reject violating approaches.

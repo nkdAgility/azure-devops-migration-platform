@@ -48,18 +48,10 @@ CLI/TUI → Control Plane → Agent → Source → Package → Agent → Target
 
 ## Migration Agent Subsystems
 
-| Tag | File | Responsibility |
+| Tag | File | Contract |
 | --- | --- | --- |
-| `agent_task_builder` | [agent-task-builder.md](agent-task-builder.md) | Build ordered `JobTaskList` plans from job kind, enabled modules, and dependency graph |
-| `agent_task_execution` | [agent-task-execution.md](agent-task-execution.md) | Execute plan tiers, enforce `DependsOn`, transition task states, and emit progress |
-| `agent_package_persistence` | [agent-package-persistence.md](agent-package-persistence.md) | Persistence subsystem for the package manager via `IArtefactStore`/`IStateStore` |
-| `agent_package_boundary` | [agent-package-boundary.md](agent-package-boundary.md) | Own typed package access, authoritative metadata, run-audit mirroring, and run-log routing above raw stores |
-| `agent_observability` | [agent-observability.md](agent-observability.md) | Emit and transport progress, diagnostics, traces, and metric snapshots (cross-cutting) |
-| `agent_lease_coordination` | [agent-lease-coordination.md](agent-lease-coordination.md) | Poll control plane, acquire lease, dispatch jobs, and signal terminal states |
-| `agent_runtime_context` | [agent-runtime-context.md](agent-runtime-context.md) | Materialize `Job.ConfigPayload` into package config and expose context accessors |
-| `agent_checkpoint_phase_tracking` | [agent-checkpoint-phase-tracking.md](agent-checkpoint-phase-tracking.md) | Persist cursors and phase records for deterministic resume and force-fresh semantics |
-| `agent_validation_safety` | [agent-validation-safety.md](agent-validation-safety.md) | Validate package invariants and enforce fail-fast behavior |
-| `agent_failure_pattern_checks` | [agent-failure-pattern-checks.md](agent-failure-pattern-checks.md) | Define composable Prepare-time import failure checks and aggregate readiness gating semantics |
+| `agent_task_execution` | [agent-task-execution.md](agent-task-execution.md) | [../../10-contracts/specs/task-execution-contract.md](../../10-contracts/specs/task-execution-contract.md) |
+| `module_anatomy` | [module-anatomy.md](module-anatomy.md) | [../../10-contracts/specs/module-anatomy-contract.md](../../10-contracts/specs/module-anatomy-contract.md) |
 
 ## Guardrails
 

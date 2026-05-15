@@ -28,8 +28,6 @@
 ## Architecture
 
 - `.agents/30-context/architecture/readme.md`
-- `.agents/30-context/architecture/agent-failure-pattern-checks.md`
-- `.agents/30-context/architecture/agent-package-boundary.md`
-- `.agents/30-context/architecture/agent-package-persistence.md`
-- `.agents/30-context/architecture/agent-runtime-context.md`
+- `.agents/30-context/architecture/agent-task-execution.md`
+- `.agents/30-context/architecture/module-anatomy.md`
 
