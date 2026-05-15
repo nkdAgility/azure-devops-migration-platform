@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -37,12 +38,12 @@ public sealed class WorkItemsModuleImportTests
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Nodes/referenced-paths.json"),
+                It.Is<PackageContentContext>(c => c.Address != null && string.Equals(c.Address.RelativePath.Replace('\\', '/'), "Nodes/referenced-paths.json", StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult<PackagePayload?>(CreatePayload(new ReferencedPathsArtifact([@"Source\Area"], []))));
         package
             .Setup(p => p.EnumerateContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == "WorkItems" && c.IsCollectionRequest),
+                It.Is<PackageContentContext>(c => c.IsCollectionRequest && string.Equals(c.Module, "WorkItems", StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()))
             .Returns(EnumerateFolderAsync("WorkItems/2026-05-13/638827200000000000-42-0/"));
         package
@@ -195,19 +196,19 @@ public sealed class WorkItemsModuleImportTests
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Nodes/referenced-paths.json"),
+                It.Is<PackageContentContext>(c => c.Address != null && string.Equals(c.Address.RelativePath.Replace('\\', '/'), "Nodes/referenced-paths.json", StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult<PackagePayload?>(CreatePayload(new ReferencedPathsArtifact([], []))));
         package
             .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Nodes/source-tree.json"),
+                It.Is<PackageContentContext>(c => c.Address != null && string.Equals(c.Address.RelativePath.Replace('\\', '/'), "Nodes/source-tree.json", StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult<PackagePayload?>(CreatePayload(new ClassificationTreeSnapshot(
                 AreaNodes: [@"Source\Area"],
                 IterationNodes: []))));
         package
             .Setup(p => p.EnumerateContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == "WorkItems" && c.IsCollectionRequest),
+                It.Is<PackageContentContext>(c => c.IsCollectionRequest && string.Equals(c.Module, "WorkItems", StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()))
             .Returns(EnumerateFolderAsync("WorkItems/2026-05-13/638827200000000000-42-0/"));
         package

@@ -90,7 +90,7 @@ public class ExportWorkItemLinksSteps
     private string RevisionJsonPath(int workItemId, int revisionIndex, DateTimeOffset changedDate)
     {
         var folder = WorkItemExportOrchestrator.BuildFolderPath(workItemId, revisionIndex, changedDate);
-        return Path.Combine(_ctx.PackageRoot!, folder.Replace('/', Path.DirectorySeparatorChar), "revision.json");
+        return Path.Combine(_ctx.PackageRoot!, "WorkItems", folder.Replace('/', Path.DirectorySeparatorChar), "revision.json");
     }
 
     // ── Background ────────────────────────────────────────────────────────────

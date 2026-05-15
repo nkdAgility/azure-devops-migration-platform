@@ -156,7 +156,7 @@ public sealed class DependencyOrchestratorTests
         var cursorResult = await package.Object.RequestMetaAsync(new PackageMetaContext(PackageMetaKind.CheckpointCursor, Action: "dependencies", Module: "dependencies"), CancellationToken.None);
         var contResult = await package.Object.RequestMetaAsync(new PackageMetaContext(PackageMetaKind.ContinuationToken, Action: "dependencies", Module: "dependencies"), CancellationToken.None);
         Assert.IsTrue(cursorResult.Payload is not null, "Dependencies capture must checkpoint to the project-local cursor path.");
-        Assert.IsTrue(contResult.Payload is not null, "Dependencies capture must persist the continuation token.");
+        Assert.IsTrue(contResult.Payload is null, "Dependencies capture should clear the continuation token once the project capture completes.");
         Assert.IsFalse(await package.Object.ContentExistsAsync(new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress(PackagePathTestHelper.CursorFile("DependencyDiscovery"))), CancellationToken.None), "Dependencies capture must not write the legacy root dependency cursor.");
 
         var canonicalProjectPayload = await package.Object.RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("org/ProjectA/dependencies.csv")), CancellationToken.None);

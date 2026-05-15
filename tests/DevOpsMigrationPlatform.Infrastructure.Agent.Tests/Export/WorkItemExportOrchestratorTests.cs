@@ -168,9 +168,9 @@ public class WorkItemExportOrchestratorTests
         _mockCps.Setup(s => s.WriteCursorAsync("export.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
-        var rev0Path = WorkItemExportOrchestrator.BuildFolderPath(42, 0, revisions[0].ChangedDate) + "revision.json";
-        var rev1Path = WorkItemExportOrchestrator.BuildFolderPath(42, 1, revisions[1].ChangedDate) + "revision.json";
-        var rev2Path = WorkItemExportOrchestrator.BuildFolderPath(42, 2, revisions[2].ChangedDate) + "revision.json";
+        var rev0Path = $"WorkItems/{WorkItemExportOrchestrator.BuildFolderPath(42, 0, revisions[0].ChangedDate)}revision.json";
+        var rev1Path = $"WorkItems/{WorkItemExportOrchestrator.BuildFolderPath(42, 1, revisions[1].ChangedDate)}revision.json";
+        var rev2Path = $"WorkItems/{WorkItemExportOrchestrator.BuildFolderPath(42, 2, revisions[2].ChangedDate)}revision.json";
         _mockStore.Setup(s => s.ExistsAsync(rev0Path, It.IsAny<CancellationToken>())).ReturnsAsync(true);
         _mockStore.Setup(s => s.ExistsAsync(rev1Path, It.IsAny<CancellationToken>())).ReturnsAsync(true);
         _mockStore.Setup(s => s.ExistsAsync(rev2Path, It.IsAny<CancellationToken>())).ReturnsAsync(false);
@@ -212,8 +212,8 @@ public class WorkItemExportOrchestratorTests
         _mockCps.Setup(s => s.WriteCursorAsync("export.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
-        var newerPath = WorkItemExportOrchestrator.BuildFolderPath(1000, 0, newerDate) + "revision.json";
-        var olderPath = WorkItemExportOrchestrator.BuildFolderPath(5, 0, olderDate) + "revision.json";
+        var newerPath = $"WorkItems/{WorkItemExportOrchestrator.BuildFolderPath(1000, 0, newerDate)}revision.json";
+        var olderPath = $"WorkItems/{WorkItemExportOrchestrator.BuildFolderPath(5, 0, olderDate)}revision.json";
 
         // Newer item already on disk; older item was never exported (arrived from a later window).
         _mockStore.Setup(s => s.ExistsAsync(newerPath, It.IsAny<CancellationToken>())).ReturnsAsync(true);
@@ -277,7 +277,7 @@ public class WorkItemExportOrchestratorTests
         var date = new DateTimeOffset(2024, 1, 15, 0, 0, 0, TimeSpan.Zero);
         var path = WorkItemExportOrchestrator.BuildFolderPath(42, 1, date);
 
-        StringAssert.StartsWith(path, "WorkItems/2024-01-15/");
+        StringAssert.StartsWith(path, "2024-01-15/");
         StringAssert.EndsWith(path, "-42-1/");
     }
 
@@ -469,8 +469,8 @@ public class WorkItemExportOrchestratorTests
 
         await sut.ExportAsync(mockSource.Object, CancellationToken.None);
 
-        var revisionPath = WorkItemExportOrchestrator.BuildFolderPath(42, 3, revisionDate) + "revision.json";
-        var commentPath = WorkItemExportOrchestrator.BuildFolderPath(42, 3, revisionDate) + "comment.json";
+        var revisionPath = $"WorkItems/{WorkItemExportOrchestrator.BuildFolderPath(42, 3, revisionDate)}revision.json";
+        var commentPath = $"WorkItems/{WorkItemExportOrchestrator.BuildFolderPath(42, 3, revisionDate)}comment.json";
 
         Assert.IsTrue(written.ContainsKey(revisionPath), "revision.json must be written");
         Assert.IsTrue(written.ContainsKey(commentPath), "comment.json must be written beside revision.json for edit/delete revisions");
@@ -1281,9 +1281,9 @@ public class WorkItemExportOrchestratorTests
                .Callback<string, CursorEntry, CancellationToken>((_, c, _) => savedCursors.Add(c))
                .Returns(Task.CompletedTask);
 
-        var wi1Path = WorkItemExportOrchestrator.BuildFolderPath(1, 0, wi1Rev0.ChangedDate) + "revision.json";
-        var wi2Path = WorkItemExportOrchestrator.BuildFolderPath(2, 0, wi2Rev0.ChangedDate) + "revision.json";
-        var wi3Path = WorkItemExportOrchestrator.BuildFolderPath(3, 0, wi3Rev0.ChangedDate) + "revision.json";
+        var wi1Path = $"WorkItems/{WorkItemExportOrchestrator.BuildFolderPath(1, 0, wi1Rev0.ChangedDate)}revision.json";
+        var wi2Path = $"WorkItems/{WorkItemExportOrchestrator.BuildFolderPath(2, 0, wi2Rev0.ChangedDate)}revision.json";
+        var wi3Path = $"WorkItems/{WorkItemExportOrchestrator.BuildFolderPath(3, 0, wi3Rev0.ChangedDate)}revision.json";
 
         var mockStore = new Mock<ITestArtefactStore>(MockBehavior.Strict);
         mockStore.Setup(s => s.ExistsAsync(wi1Path, It.IsAny<CancellationToken>())).ReturnsAsync(true);

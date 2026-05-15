@@ -39,7 +39,7 @@ public class ClassificationTreeCaptureTests
         string? writtenContent = null;
         var package = PackageTestFactory.CreateLooseMock();
         package.Setup(p => p.PersistContentAsync(
-                It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath == "Nodes/source-tree.json"),
+                It.Is<PackageContentContext>(c => string.Equals(c.Module, "Nodes", StringComparison.Ordinal) && c.Address != null && c.Address.RelativePath.EndsWith("source-tree.json", StringComparison.Ordinal)),
                 It.IsAny<PackagePayload>(),
                 It.IsAny<CancellationToken>()))
             .Callback<PackageContentContext, PackagePayload, CancellationToken>((_, payload, _) =>
@@ -55,7 +55,7 @@ public class ClassificationTreeCaptureTests
         await capture.CaptureAsync(package.Object, "org", "ProjectA", CancellationToken.None);
 
         package.Verify(p => p.PersistContentAsync(
-            It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath == "Nodes/source-tree.json"),
+            It.Is<PackageContentContext>(c => string.Equals(c.Module, "Nodes", StringComparison.Ordinal) && c.Address != null && c.Address.RelativePath.EndsWith("source-tree.json", StringComparison.Ordinal)),
             It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()), Times.Once);
 
         Assert.IsNotNull(writtenContent);
@@ -77,7 +77,7 @@ public class ClassificationTreeCaptureTests
         await capture.CaptureAsync(package.Object, "org", "ProjectA", CancellationToken.None);
 
         package.Verify(p => p.PersistContentAsync(
-            It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath == "Nodes/source-tree.json"),
+            It.Is<PackageContentContext>(c => string.Equals(c.Module, "Nodes", StringComparison.Ordinal) && c.Address != null && c.Address.RelativePath.EndsWith("source-tree.json", StringComparison.Ordinal)),
             It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 

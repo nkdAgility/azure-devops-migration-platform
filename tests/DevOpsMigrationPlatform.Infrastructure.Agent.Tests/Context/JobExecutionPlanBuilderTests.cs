@@ -227,16 +227,17 @@ public sealed class JobExecutionPlanBuilderTests
     [TestMethod]
     public async Task BuildPlanAsync_ImportKind_UsesPackagedProjectNamesWhenTargetProjectIsNotExplicitlyConfigured()
     {
-        var package = PackageTestFactory.CreateLooseMock().Object;
-        await package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("simulated/PackagedProject/Nodes/source-tree.json")),
-            new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes("{}"), writable: false)),
-            CancellationToken.None);
-        await package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("simulated/PackagedProject/WorkItems/00000000000001-1-0/revision.json")),
-            new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes("{}"), writable: false)),
-            CancellationToken.None);
-        var builder = CreateBuilder(package: package);
+        var package = PackageTestFactory.CreateLooseMock();
+        package
+            .Setup(p => p.EnumerateContentAsync(
+                It.Is<PackageContentContext>(c => c.IsCollectionRequest && c.Address!.RelativePath == string.Empty),
+                It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => EnumeratePathsAsync(
+            [
+                "simulated/PackagedProject/Nodes/source-tree.json",
+                "simulated/PackagedProject/WorkItems/00000000000001-1-0/revision.json"
+            ]));
+        var builder = CreateBuilder(package: package.Object);
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -250,7 +251,7 @@ public sealed class JobExecutionPlanBuilderTests
             .Build();
 
         var plan = await builder.BuildPlanAsync(
-            config, JobKind.Import, package, CancellationToken.None);
+            config, JobKind.Import, package.Object, CancellationToken.None);
 
         var importTasks = plan.Tasks
             .Where(t => string.Equals(t.Phase, "Import", StringComparison.Ordinal))
@@ -294,8 +295,8 @@ public sealed class JobExecutionPlanBuilderTests
                 .ToList();
 
             Assert.IsTrue(importTasks.Count > 0, "Import plan should contain import tasks.");
-            Assert.IsTrue(importTasks.All(t => string.Equals(t.ProjectName, "SimulatedProject", StringComparison.Ordinal)),
-                "Import tasks should inherit the package root name when the fixture is already project-scoped.");
+        Assert.IsTrue(importTasks.All(t => string.IsNullOrEmpty(t.ProjectName)),
+            "Import tasks should not infer project names from project-scoped package roots without explicit source/target project config.");
         }
         finally
         {

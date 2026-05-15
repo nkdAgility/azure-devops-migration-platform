@@ -61,7 +61,7 @@ public class CheckpointingServiceTests
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.ResetMetaAsync(
-                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "dependencies" && c.Module == "dependencies"),
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "dependencies" && string.Equals(c.Module, "dependencies", StringComparison.OrdinalIgnoreCase)),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
 
@@ -82,7 +82,7 @@ public class CheckpointingServiceTests
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.ResetMetaAsync(
-                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ContinuationToken && c.Action == "dependencies" && c.Module == "dependencies"),
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ContinuationToken && c.Action == "dependencies" && string.Equals(c.Module, "dependencies", StringComparison.OrdinalIgnoreCase)),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
 
@@ -105,7 +105,7 @@ public class CheckpointingServiceTests
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.ResetMetaAsync(
-                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "inventory" && c.Module == "workitems"),
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "inventory" && string.Equals(c.Module, "workitems", StringComparison.OrdinalIgnoreCase)),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
 
@@ -128,7 +128,7 @@ public class CheckpointingServiceTests
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.ResetMetaAsync(
-                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "import" && c.Module == "identities"),
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "import" && string.Equals(c.Module, "identities", StringComparison.OrdinalIgnoreCase)),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
 
@@ -151,7 +151,7 @@ public class CheckpointingServiceTests
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.ResetMetaAsync(
-                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ContinuationToken && c.Action == "inventory" && c.Module == "workitems"),
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ContinuationToken && c.Action == "inventory" && string.Equals(c.Module, "workitems", StringComparison.OrdinalIgnoreCase)),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
 
@@ -263,7 +263,7 @@ public class CheckpointingServiceTests
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.RequestMetaAsync(
-                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "export" && c.Module == "workitems"),
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "export" && string.Equals(c.Module, "workitems", StringComparison.OrdinalIgnoreCase)),
                 It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(PackagePathTestHelper.CursorFile("export", "workitems", "https://dev.azure.com/contoso", "MyProject"), null)));
 
@@ -281,7 +281,7 @@ public class CheckpointingServiceTests
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.RequestMetaAsync(
-                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ContinuationToken && c.Action == "export" && c.Module == "workitems"),
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ContinuationToken && c.Action == "export" && string.Equals(c.Module, "workitems", StringComparison.OrdinalIgnoreCase)),
                 It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(PackagePathTestHelper.ContinuationFile("export", "workitems", "https://dev.azure.com/contoso", "MyProject"), null)));
 
@@ -299,7 +299,7 @@ public class CheckpointingServiceTests
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.PersistMetaAsync(
-                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "import" && c.Module == "workitems"),
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "import" && string.Equals(c.Module, "workitems", StringComparison.OrdinalIgnoreCase)),
                 It.IsAny<PackageMetaPayload>(),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
@@ -322,7 +322,7 @@ public class CheckpointingServiceTests
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.PersistMetaAsync(
-                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ContinuationToken && c.Action == "import" && c.Module == "workitems"),
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ContinuationToken && c.Action == "import" && string.Equals(c.Module, "workitems", StringComparison.OrdinalIgnoreCase)),
                 It.IsAny<PackageMetaPayload>(),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
@@ -371,7 +371,7 @@ public class CheckpointingServiceTests
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.PersistMetaAsync(
-                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "import" && c.Module == "workitems"),
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "import" && string.Equals(c.Module, "workitems", StringComparison.OrdinalIgnoreCase)),
                 It.IsAny<PackageMetaPayload>(),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
@@ -420,7 +420,7 @@ public class CheckpointingServiceTests
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.PersistMetaAsync(
-                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ContinuationToken && c.Action == "import" && c.Module == "workitems"),
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ContinuationToken && c.Action == "import" && string.Equals(c.Module, "workitems", StringComparison.OrdinalIgnoreCase)),
                 It.IsAny<PackageMetaPayload>(),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);

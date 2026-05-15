@@ -76,7 +76,7 @@ public class ExportAttachmentsSteps
         => WorkItemExportOrchestrator.BuildFolderPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate);
 
     private string AbsoluteFolderPath(WorkItemRevision rev)
-        => Path.Combine(_ctx.PackageRoot!, FolderPath(rev).Replace('/', Path.DirectorySeparatorChar));
+        => Path.Combine(_ctx.PackageRoot!, "WorkItems", FolderPath(rev).Replace('/', Path.DirectorySeparatorChar));
 
     // ── Background ────────────────────────────────────────────────────────────
 

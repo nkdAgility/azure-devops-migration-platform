@@ -765,7 +765,7 @@ public sealed class WorkItemExportOrchestrator
                             }
                         });
 
-                        var targetPath = attachment.RelativePath ?? string.Empty;
+                        var targetPath = $"{folderPath}{attachment.RelativePath ?? string.Empty}";
 
                         using var attachmentActivity = ActivitySource.StartActivity("attachment.download", ActivityKind.Internal);
                         attachmentActivity?.SetTag("workitem.id", revision.WorkItemId);

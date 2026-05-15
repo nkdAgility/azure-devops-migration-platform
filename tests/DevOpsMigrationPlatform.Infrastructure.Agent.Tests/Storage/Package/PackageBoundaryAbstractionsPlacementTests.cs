@@ -13,10 +13,10 @@ public sealed class PackageBoundaryAbstractionsPlacementTests
     public void PackageBoundaryContracts_AreDefinedOnlyInAbstractionsAgent()
     {
         var contractsAssembly = PackageBoundaryTestFixture.ContractsAssemblyName;
-        Assert.IsNotNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Agent.Storage.IPackageAccess, {contractsAssembly}"));
-        Assert.IsNotNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Agent.Storage.PackageContentContext, {contractsAssembly}"));
-        Assert.IsNotNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Agent.Storage.PackageMetaContext, {contractsAssembly}"));
-        Assert.IsNotNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Agent.Storage.PackageLogContext, {contractsAssembly}"));
+        Assert.IsNotNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Storage.IPackageAccess, {contractsAssembly}"));
+        Assert.IsNotNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Storage.PackageContentContext, {contractsAssembly}"));
+        Assert.IsNotNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Storage.PackageMetaContext, {contractsAssembly}"));
+        Assert.IsNotNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Storage.PackageLogContext, {contractsAssembly}"));
     }
 
     [TestMethod]

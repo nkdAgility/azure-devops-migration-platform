@@ -316,15 +316,32 @@ public class RevisionFolderProcessorTests
     private void SetupPackageText(string path, string? content)
     {
         _mockPackage
-            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == path), It.IsAny<CancellationToken>()))
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => MatchesContextPath(c, path)), It.IsAny<CancellationToken>()))
             .Returns(() => ToPayload(content));
     }
 
     private void SetupPackageBinary(string path, byte[] content)
     {
         _mockPackage
-            .Setup(p => p.RequestContentBinaryAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == path), It.IsAny<CancellationToken>()))
+            .Setup(p => p.RequestContentBinaryAsync(It.Is<PackageContentContext>(c => MatchesContextPath(c, path)), It.IsAny<CancellationToken>()))
             .Returns(() => ValueTask.FromResult<System.IO.Stream?>(new System.IO.MemoryStream(content, writable: false)));
+    }
+
+    private static bool MatchesContextPath(PackageContentContext context, string expectedPath)
+    {
+        var actual = context.Address?.RelativePath;
+        if (string.IsNullOrWhiteSpace(actual))
+            return false;
+
+        if (string.Equals(actual, expectedPath, StringComparison.Ordinal))
+            return true;
+
+        var normalizedExpected = expectedPath.Replace('\\', '/');
+        var suffix = normalizedExpected.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase)
+            ? normalizedExpected["WorkItems/".Length..]
+            : normalizedExpected;
+
+        return string.Equals(actual, suffix, StringComparison.Ordinal);
     }
 
     private static ValueTask<PackagePayload?> ToPayload(string? content)

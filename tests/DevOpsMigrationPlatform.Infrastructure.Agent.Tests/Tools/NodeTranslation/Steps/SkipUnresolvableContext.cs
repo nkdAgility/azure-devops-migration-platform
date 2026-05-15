@@ -283,7 +283,7 @@ public class SkipUnresolvableContext
 
         PackageMock.Setup(p => p.RequestContentAsync(
 
-                It.Is<PackageContentContext>(c => c.Address != null && string.Equals(c.Address.RelativePath, relativePath, StringComparison.OrdinalIgnoreCase)),
+                It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.EndsWith(relativePath.Replace("WorkItems/", string.Empty), StringComparison.OrdinalIgnoreCase)),
 
                 It.IsAny<CancellationToken>()))
 

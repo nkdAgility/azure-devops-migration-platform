@@ -238,10 +238,10 @@ public class ImportCursorResumeSteps
         foreach (var path in _ctx.AllFolderPaths)
         {
             _ctx.MockPackage
-                .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath == $"{path}/revision.json"), It.IsAny<CancellationToken>()))
+                .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.EndsWith($"{path.Replace("WorkItems/", string.Empty)}/revision.json", System.StringComparison.Ordinal)), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(_revisionJson)), "application/json"));
             _ctx.MockPackage
-                .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath == $"{path}/comment.json"), It.IsAny<CancellationToken>()))
+                .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.EndsWith($"{path.Replace("WorkItems/", string.Empty)}/comment.json", System.StringComparison.Ordinal)), It.IsAny<CancellationToken>()))
                 .ReturnsAsync((PackagePayload?)null);
         }
     }

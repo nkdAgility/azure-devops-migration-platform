@@ -44,6 +44,7 @@ public sealed class WorkItemsModulePrepareTests
         string? writtenReadinessReport = null;
 
         var package = PackageTestFactory.CreateLooseMock();
+        CapturePrepareReports(package, s => writtenReport = s, s => writtenReadinessReport = s);
         package
             .Setup(p => p.EnumerateContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath.StartsWith("WorkItems/")), It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext _, CancellationToken _) => EnumerateSingleAsync(revisionPath));
@@ -100,6 +101,7 @@ public sealed class WorkItemsModulePrepareTests
         string? writtenReadinessReport = null;
 
         var package = PackageTestFactory.CreateLooseMock();
+        CapturePrepareReports(package, s => writtenReport = s, s => writtenReadinessReport = s);
         package
             .Setup(p => p.EnumerateContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath.StartsWith("WorkItems/")), It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext _, CancellationToken _) => EnumerateSingleAsync(revisionPath));
@@ -147,6 +149,7 @@ public sealed class WorkItemsModulePrepareTests
         string? writtenReadinessReport = null;
 
         var package = PackageTestFactory.CreateLooseMock();
+        CapturePrepareReports(package, s => writtenReport = s, s => writtenReadinessReport = s);
         package
             .Setup(p => p.EnumerateContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath.StartsWith("WorkItems/")), It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext _, CancellationToken _) => EnumerateSingleAsync(revisionPath));
@@ -256,6 +259,40 @@ public sealed class WorkItemsModulePrepareTests
     {
         yield return path;
         await Task.CompletedTask;
+    }
+
+    private static void CapturePrepareReports(
+        Mock<IPackageAccess> package,
+        Action<string> setPrepareReport,
+        Action<string> setReadinessReport)
+    {
+        package
+            .Setup(p => p.PersistContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath == "WorkItems/prepare-report.json"),
+                It.IsAny<PackagePayload>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<PackageContentContext, PackagePayload, CancellationToken>((_, payload, _) =>
+            {
+                payload.Content.Position = 0;
+                using var reader = new StreamReader(payload.Content, Encoding.UTF8, false, 1024, true);
+                setPrepareReport(reader.ReadToEnd());
+                payload.Content.Position = 0;
+            })
+            .Returns(ValueTask.CompletedTask);
+
+        package
+            .Setup(p => p.PersistContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath == ".mission/Readiness/workitems-import-readiness.json"),
+                It.IsAny<PackagePayload>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<PackageContentContext, PackagePayload, CancellationToken>((_, payload, _) =>
+            {
+                payload.Content.Position = 0;
+                using var reader = new StreamReader(payload.Content, Encoding.UTF8, false, 1024, true);
+                setReadinessReport(reader.ReadToEnd());
+                payload.Content.Position = 0;
+            })
+            .Returns(ValueTask.CompletedTask);
     }
 
     private sealed class TestImportFailurePattern(IReadOnlyList<ImportFailureFinding> findings) : IImportFailurePattern

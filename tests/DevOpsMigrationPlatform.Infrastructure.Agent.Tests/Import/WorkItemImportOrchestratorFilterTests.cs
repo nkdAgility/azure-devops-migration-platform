@@ -64,11 +64,15 @@ public class WorkItemImportOrchestratorFilterTests
         _mockTarget.Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
                    .ReturnsAsync(true);
 
-        _mockPackage.Setup(p => p.EnumerateContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "WorkItems"), It.IsAny<CancellationToken>()))
+        _mockPackage.Setup(p => p.EnumerateContentAsync(
+                            It.Is<PackageContentContext>(c =>
+                                c.IsCollectionRequest &&
+                                string.Equals(c.Module, "WorkItems", StringComparison.OrdinalIgnoreCase)),
+                            It.IsAny<CancellationToken>()))
                     .Returns((PackageContentContext _, CancellationToken ct) => ToAsyncEnumerable(_folders, ct));
 
-        _mockPackage.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath.EndsWith("revision.json")), It.IsAny<CancellationToken>()))
-                    .Returns((PackageContentContext context, CancellationToken _) => ToPayload(DefaultRevisionJson(context.Address!.RelativePath)));
+        _mockPackage.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.EndsWith("revision.json", StringComparison.OrdinalIgnoreCase)), It.IsAny<CancellationToken>()))
+                    .Returns((PackageContentContext context, CancellationToken _) => ToPayload(DefaultRevisionJson(context.Address?.RelativePath ?? string.Empty)));
     }
 
     // ── filter pre-pass ───────────────────────────────────────────────────────
@@ -198,7 +202,7 @@ public class WorkItemImportOrchestratorFilterTests
             new WorkItemField { ReferenceName = "System.AreaPath", Value = areaPath }
         });
         _mockPackage.Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath.Contains($"{ticks}-{wiId}-{revIndex}") && c.Address.RelativePath.EndsWith("revision.json")),
+                It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.Contains($"{ticks}-{wiId}-{revIndex}", StringComparison.Ordinal) && c.Address.RelativePath.EndsWith("revision.json", StringComparison.OrdinalIgnoreCase)),
                 It.IsAny<CancellationToken>()))
             .Returns(() => ToPayload(json));
     }
@@ -216,7 +220,7 @@ public class WorkItemImportOrchestratorFilterTests
             new WorkItemField { ReferenceName = "System.State", Value = state }
         });
         _mockPackage.Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath.Contains($"{ticks}-{wiId}-{revIndex}") && c.Address.RelativePath.EndsWith("revision.json")),
+                It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.Contains($"{ticks}-{wiId}-{revIndex}", StringComparison.Ordinal) && c.Address.RelativePath.EndsWith("revision.json", StringComparison.OrdinalIgnoreCase)),
                 It.IsAny<CancellationToken>()))
             .Returns(() => ToPayload(json));
     }

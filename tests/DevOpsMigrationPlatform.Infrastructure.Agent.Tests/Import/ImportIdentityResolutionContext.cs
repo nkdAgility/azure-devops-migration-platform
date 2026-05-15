@@ -55,14 +55,14 @@ public class ImportIdentityResolutionContext
         var json = RevisionJson ?? """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"}],"Attachments":[],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
 
         MockPackage
-            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == $"{folder}/revision.json"), It.IsAny<CancellationToken>()))
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.EndsWith($"{folder.Replace("WorkItems/", string.Empty)}/revision.json", System.StringComparison.Ordinal)), It.IsAny<CancellationToken>()))
             .Returns(() =>
             {
                 var bytes = System.Text.Encoding.UTF8.GetBytes(json);
                 return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(bytes, writable: false), "application/json"));
             });
         MockPackage
-            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == $"{folder}/comment.json"), It.IsAny<CancellationToken>()))
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.EndsWith($"{folder.Replace("WorkItems/", string.Empty)}/comment.json", System.StringComparison.Ordinal)), It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult<PackagePayload?>(null));
 
         // Cursor

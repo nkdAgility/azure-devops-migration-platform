@@ -102,7 +102,7 @@ public class ExportWorkItemRevisionsSteps
         foreach (var rev in _ctx.SourceRevisions)
         {
             var folderPath = WorkItemExportOrchestrator.BuildFolderPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate);
-            var file = Path.Combine(_ctx.PackageRoot!, folderPath.Replace('/', Path.DirectorySeparatorChar), "revision.json");
+            var file = Path.Combine(_ctx.PackageRoot!, "WorkItems", folderPath.Replace('/', Path.DirectorySeparatorChar), "revision.json");
             Assert.IsTrue(File.Exists(file), $"Expected revision.json at {file}");
         }
     }
@@ -113,7 +113,7 @@ public class ExportWorkItemRevisionsSteps
         foreach (var rev in _ctx.SourceRevisions)
         {
             var folderPath = WorkItemExportOrchestrator.BuildFolderPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate);
-            var file = Path.Combine(_ctx.PackageRoot!, folderPath.Replace('/', Path.DirectorySeparatorChar), "revision.json");
+            var file = Path.Combine(_ctx.PackageRoot!, "WorkItems", folderPath.Replace('/', Path.DirectorySeparatorChar), "revision.json");
             Assert.IsTrue(File.Exists(file));
         }
     }
@@ -214,7 +214,7 @@ public class ExportWorkItemRevisionsSteps
 
         // Pre-write revision.json for the cursor-position revision so ExistsAsync returns true,
         // causing the orchestrator to skip it (simulating a prior run that already exported it).
-        var filePath = System.IO.Path.Combine(_ctx.PackageRoot!, $"{folderAtCursor}revision.json".Replace('/', System.IO.Path.DirectorySeparatorChar));
+        var filePath = System.IO.Path.Combine(_ctx.PackageRoot!, "WorkItems", $"{folderAtCursor}revision.json".Replace('/', System.IO.Path.DirectorySeparatorChar));
         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(filePath)!);
         await System.IO.File.WriteAllTextAsync(filePath, "{}", CancellationToken.None);
 

@@ -55,23 +55,23 @@ public class ImportEmbeddedImagesContext
         var json = RevisionJson ?? """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"}],"Attachments":[],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
 
         MockPackage
-            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == $"{folder}/revision.json"), It.IsAny<CancellationToken>()))
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.EndsWith($"{folder.Replace("WorkItems/", string.Empty)}/revision.json", System.StringComparison.Ordinal)), It.IsAny<CancellationToken>()))
             .Returns(() =>
             {
                 var bytes = System.Text.Encoding.UTF8.GetBytes(json);
                 return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(bytes, writable: false), "application/json"));
             });
         MockPackage
-            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == $"{folder}/comment.json"), It.IsAny<CancellationToken>()))
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.EndsWith($"{folder.Replace("WorkItems/", string.Empty)}/comment.json", System.StringComparison.Ordinal)), It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult<PackagePayload?>(null));
 
         if (OriginalUrl is not null)
         {
             MockPackage
-                .Setup(p => p.RequestContentBinaryAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == $"{folder}/img1.png"), It.IsAny<CancellationToken>()))
+                .Setup(p => p.RequestContentBinaryAsync(It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.EndsWith($"{folder.Replace("WorkItems/", string.Empty)}/img1.png", System.StringComparison.Ordinal)), It.IsAny<CancellationToken>()))
                 .Returns(() => ValueTask.FromResult<System.IO.Stream?>(new System.IO.MemoryStream(new byte[] { 0x89, 0x50, 0x4E, 0x47 }, writable: false)));
             MockPackage
-                .Setup(p => p.RequestContentBinaryAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == $"{folder}/img2.png"), It.IsAny<CancellationToken>()))
+                .Setup(p => p.RequestContentBinaryAsync(It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.EndsWith($"{folder.Replace("WorkItems/", string.Empty)}/img2.png", System.StringComparison.Ordinal)), It.IsAny<CancellationToken>()))
                 .Returns(() => ValueTask.FromResult<System.IO.Stream?>(new System.IO.MemoryStream(new byte[] { 0x89, 0x50, 0x4E, 0x47 }, writable: false)));
 
             MockTarget

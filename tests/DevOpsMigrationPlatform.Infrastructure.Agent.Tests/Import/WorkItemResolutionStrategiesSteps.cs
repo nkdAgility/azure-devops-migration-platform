@@ -39,18 +39,18 @@ public class WorkItemResolutionStrategiesSteps
 
         _ctx.MockPackage
             .Setup(p => p.EnumerateContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == "WorkItems/"),
+                It.Is<PackageContentContext>(c => c.IsCollectionRequest && string.Equals(c.Module, "WorkItems", System.StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext _, CancellationToken ct) => _ctx.FolderPaths.ToAsyncEnumerable(ct));
         _ctx.MockPackage
             .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == "WorkItems/2024-01-01/00000638000000000001-1-0/revision.json"),
+                It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.EndsWith("2024-01-01/00000638000000000001-1-0/revision.json", System.StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext _, CancellationToken _) =>
                 ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(revisionJson)))));
         _ctx.MockPackage
             .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == "WorkItems/2024-01-01/00000638000000000001-1-0/comment.json"),
+                It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.EndsWith("2024-01-01/00000638000000000001-1-0/comment.json", System.StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(null));
     }
