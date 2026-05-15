@@ -106,7 +106,7 @@ When this skill is active, inspect the target for observability completeness and
 
 Before executing, read the following context files:
 
-- `.agents/context/telemetry-model.md` — Three-layer model, metric naming, span inventory
+- `.agents/30-context/domains/telemetry-model.md` — Three-layer model, metric naming, span inventory
 - `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs` — Existing metric names
 - `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownActivitySourceNames.cs` — Existing ActivitySource names
 - `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMeterNames.cs` — Existing meter names
@@ -601,3 +601,4 @@ If all operations pass, the verdict is PASS. If any operation has a Missing metr
 - [ ] No TODO placeholders remain in the Observability section.
 
 The skill is not complete until all criteria are checked. Any unchecked criterion is a failure.
+

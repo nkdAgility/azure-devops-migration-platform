@@ -1,0 +1,8 @@
+version: 1
+entrypoint: ".agents/00-entry/task-profiles.yaml"
+contracts:
+  - ".agents/10-contracts/surface-catalog.yaml"
+  - ".agents/10-contracts/seam-catalog.yaml"
+  - ".agents/10-contracts/change-classes.yaml"
+  - ".agents/10-contracts/consent-policy.yaml"
+default_reading_order: ".agents/00-entry/reading-order.md"

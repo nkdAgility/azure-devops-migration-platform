@@ -48,18 +48,18 @@ Use this table to decide which docs to open and potentially update based on what
 
 | If the implementation added or changed… | Read and potentially update… |
 |----------------------------------------|------------------------------|
-| A CLI command or flag | `docs/cli-guide.md`, `.agents/context/cli-commands.md` |
+| A CLI command or flag | `docs/cli-guide.md`, `.agents/30-context/domains/cli-commands.md` |
 | A configuration key or options class | `docs/configuration-reference.md` |
 | A module (`IModule`) | `docs/module-development-guide.md` |
-| A job or worker | `docs/agent-hosting.md`, `.agents/context/job-lifecycle.md` |
+| A job or worker | `docs/agent-hosting.md`, `.agents/30-context/domains/job-lifecycle.md` |
 | A connector (Simulated/ADO/TFS) | `docs/capabilities-guide.md` |
-| Package layout or artefact paths | `.agents/context/migration-package-concept.md` |
-| WorkItems folder structure | `.agents/context/workitems-format-summary.md` |
-| Streaming import behaviour | `.agents/context/import-streaming.md` |
-| Checkpointing or cursor state | `.agents/context/checkpointing-summary.md` |
-| `IArtefactStore` or `IStateStore` | `.agents/context/package-manager.md` |
-| Telemetry, metrics, or OTel spans | `.agents/context/telemetry-model.md` |
-| Identity mapping service | `.agents/context/identity-and-mapping.md` |
+| Package layout or artefact paths | `.agents/30-context/domains/migration-package-concept.md` |
+| WorkItems folder structure | `.agents/30-context/domains/workitems-format-summary.md` |
+| Streaming import behaviour | `.agents/30-context/domains/import-streaming.md` |
+| Checkpointing or cursor state | `.agents/30-context/domains/checkpointing-summary.md` |
+| `IArtefactStore` or `IStateStore` | `.agents/30-context/domains/package-manager.md` |
+| Telemetry, metrics, or OTel spans | `.agents/30-context/domains/telemetry-model.md` |
+| Identity mapping service | `.agents/30-context/domains/identity-and-mapping.md` |
 | Aspire integration | `docs/development-setup.md` |
 | Control plane API | `docs/control-plane.md` |
 | Orchestration logic | `docs/migration-process-guide.md` |
@@ -86,7 +86,7 @@ git diff --name-only HEAD
 Categorise each changed file:
 - **Production code** (`.cs` in `src/`) → triggers doc updates based on the mapping table above
 - **Test code** (`.cs` in `tests/`) → no doc update required unless a new test fixture or scenario config was added
-- **Config/schema** (`.json`, `.yml`, `.props`) → may require `docs/configuration-reference.md` or `.agents/context/` update
+- **Config/schema** (`.json`, `.yml`, `.props`) → may require `docs/configuration-reference.md` or `.agents/30-context/` update
 - **Feature files** (`.feature`) → no doc update required (features are self-documenting)
 - **Existing doc files** (`.md` in `docs/`, `.agents/`) → already updated; verify they are accurate
 
@@ -99,7 +99,7 @@ Do not use `git diff`. Instead, build the inventory by reading the codebase dire
 3. **Enumerate all options classes** — find every class implementing `IConfigSection` (grep for `: IConfigSection`). For each, note its `SectionName` and all `init`-only properties.
 4. **Enumerate all connectors** — find every class in `src/` matching `*Source`, `*Target`, `*Connector` or implementing `ISourceEndpointInfo`/`ITargetEndpointInfo`. Note the `ConnectorType` string.
 5. **Enumerate all interfaces in Abstractions** — find every `public interface` in `src/DevOpsMigrationPlatform.Abstractions*/`. Note new ones that may need docs.
-6. **Enumerate all telemetry metrics** — find every `IMigrationMetrics` method call site and every `ActivitySource.StartActivity` span name. Note any span names or metric names not present in `.agents/context/telemetry-model.md`.
+6. **Enumerate all telemetry metrics** — find every `IMigrationMetrics` method call site and every `ActivitySource.StartActivity` span name. Note any span names or metric names not present in `.agents/30-context/domains/telemetry-model.md`.
 
 Then use this enumerated inventory as the change set for Steps 2–7, treating every item as "potentially underdocumented" and checking each against the canonical docs.
 
@@ -139,12 +139,12 @@ For each doc identified in Step 1 and Step 2:
 5. **Do not rewrite prose** that is still accurate — only change what is wrong or missing.
 6. **Cross-link** rather than duplicate: if `docs/cli-guide.md` already documents a flag, do not re-document it in `docs/configuration-reference.md` — add a cross-reference.
 
-### Step 4 — Verify `.agents/context/cli-commands.md`
+### Step 4 — Verify `.agents/30-context/domains/cli-commands.md`
 
 This file is the canonical machine-readable command reference. It is more frequently read by agents than `docs/cli-guide.md`.
 
 For every CLI command added or changed in the implementation:
-1. Open `.agents/context/cli-commands.md`.
+1. Open `.agents/30-context/domains/cli-commands.md`.
 2. Check whether an entry for the command exists:
    - **Entry exists** → verify all flags, types, defaults, and description match the implementation. Update stale fields.
    - **Entry missing** → add a full new entry: command name, all flags with types and defaults, description of behaviour, exit codes if non-zero behaviour is defined.
@@ -170,7 +170,7 @@ Output a summary table of every doc that was checked:
 |----------|--------|----------------|
 | docs/cli-guide.md | ✅ Updated | Added --schema-path flag to queue command |
 | docs/configuration-reference.md | ✅ Updated | Added SchemaOptionsEntry pattern section |
-| .agents/context/cli-commands.md | ✅ Updated | Added queue --schema-path entry |
+| .agents/30-context/domains/cli-commands.md | ✅ Updated | Added queue --schema-path entry |
 | docs/module-development-guide.md | ✅ No change needed | Module list already accurate |
 | docs/architecture.md | ⏭ Skipped | No architectural change detected |
 ```
@@ -203,3 +203,4 @@ Run this loop for every doc updated in this skill execution. A doc update that i
 - **Never update `docs/architecture.md` with implementation details** — architecture docs describe intent and constraints, not code-level specifics.
 - **Always use the same terminology** as the existing doc. If the doc says "connector", do not introduce "adapter" or "provider" for the same concept.
 - **Data Classification**: Never add example values, project names, org URLs, or attachment paths to docs. Use placeholders like `<project-name>`, `<org-url>`.
+

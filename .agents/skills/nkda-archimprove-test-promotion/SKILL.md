@@ -39,8 +39,8 @@ When no path is given, default to the solution root and scan all `tests/` projec
 
 Before executing, read:
 
-- `.agents/guardrails/testing-rules.md` — Test priority hierarchy and anti-patterns
-- `.agents/guardrails/coding-standards.md` — Testability rules (category 6)
+- `.agents/20-guardrails/workflow/testing-rules.md` — Test priority hierarchy and anti-patterns
+- `.agents/20-guardrails/core/coding-standards.md` — Testability rules (category 6)
 
 ---
 
@@ -161,3 +161,4 @@ When run as a post-`speckit.implement` hook:
 2. Focus on newly added tests — were they placed at the fastest viable level?
 3. Also scan existing tests in the same area — can any be promoted now that new unit tests exist?
 4. Include findings in the implementation session log.
+

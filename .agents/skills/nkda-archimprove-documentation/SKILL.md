@@ -37,8 +37,8 @@ Organise documentation by **audience** and **authority**.
 The same topic may appear in all three places, but with a different purpose:
 
 - `/docs/package-guide.md` explains the package to humans.
-- `.agents/context/migration-package-concept.md` gives agents enough context to reason.
-- `.agents/guardrails/package-rules.md` defines what agents must not violate.
+- `.agents/30-context/domains/migration-package-concept.md` gives agents enough context to reason.
+- `.agents/20-guardrails/domains/package-rules.md` defines what agents must not violate.
 
 ## Glossary
 
@@ -76,8 +76,8 @@ Before proposing changes, inspect the current repository documentation in this o
 
 1. `agents.md` — mandatory pre-flight list and entry point for all agents.
 2. `.github/copilot-instructions.md` — Copilot-specific pre-flight; must mirror `agents.md`.
-3. `.agents/guardrails/README.md`, if present.
-4. `.agents/context/README.md`, if present.
+3. `.agents/20-guardrails/README.md`, if present.
+4. `.agents/30-context/README.md`, if present.
 5. `docs/README.md`, if present.
 6. `docs/adr/README.md` and relevant ADRs, if present.
 7. Documentation files directly related to the requested area.
@@ -224,3 +224,4 @@ Never put client SDK, external API, pagination, retry, or connector implementati
 - [TOKEN-BUDGETS.md](TOKEN-BUDGETS.md)
 - [REPORT-FORMAT.md](REPORT-FORMAT.md)
 - [ADR-FORMAT.md](ADR-FORMAT.md)
+

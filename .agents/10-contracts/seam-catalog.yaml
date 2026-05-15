@@ -1,0 +1,27 @@
+version: 1
+seams:
+  package:
+    owner: "IPackageAccess"
+    policy_layers:
+      - "Module wrappers"
+      - "Orchestrator sequencing"
+    prohibited_parallel_entrypoints:
+      - "Runtime package reads/writes over ad-hoc path logic"
+  node_translation:
+    owner: "INodeTranslationTool"
+    policy_layers:
+      - "WorkItems node policy adapters"
+    prohibited_parallel_entrypoints:
+      - "Custom translation engines in extensions"
+  identity:
+    owner: "IIdentityMappingService"
+    policy_layers:
+      - "Module-level mapping policy"
+    prohibited_parallel_entrypoints:
+      - "Manual identity matching logic in modules"
+  field_transform:
+    owner: "IFieldTransformTool"
+    policy_layers:
+      - "WorkItems field policy adapters"
+    prohibited_parallel_entrypoints:
+      - "Independent field transform pipelines"

@@ -26,8 +26,8 @@ When no path is given, default to the solution root and scan all `tests/` projec
 
 Before executing, read:
 
-- `.agents/guardrails/testing-rules.md` — Test conventions and anti-patterns
-- `.agents/guardrails/coding-standards.md` — Testability rules (category 6)
+- `.agents/20-guardrails/workflow/testing-rules.md` — Test conventions and anti-patterns
+- `.agents/20-guardrails/core/coding-standards.md` — Testability rules (category 6)
 
 ---
 
@@ -266,3 +266,4 @@ When run as a post-`speckit.implement` hook (before `nkda-archimprove-test-promo
 3. Delete WASTE, annotate LOW VALUE.
 4. Pass clean test suite to `nkda-archimprove-test-promotion` for category optimisation.
 5. Include the validity report in the implementation session log.
+

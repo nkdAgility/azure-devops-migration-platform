@@ -2,109 +2,91 @@
 
 **Follow [agents.md](../agents.md) for all guardrails, technology stack, and architectural constraints.**
 
-For structured workflows, use SpecKit agents (e.g., `/speckit.implement`).
-For ad-hoc tasks, follow the mandatory guardrails validation in [agents.md](../agents.md).
+For structured workflows, use SpecKit agents.
+For ad-hoc tasks, follow the mandatory guardrails validation in `agents.md`.
 
 ---
 
-## ⛔ NEVER Auto-Commit
+## NEVER Auto-Commit
 
-**Do NOT run `git commit`, `git push`, or any commit/push tool unless the user explicitly asks you to commit.**
-Stage changes if needed, but leave committing to the human. This rule has zero exceptions.
+Do NOT run `git commit` or `git push` unless the user explicitly asks.
 
 ---
 
-## ⛔ CRITICAL: This Summary Is NOT Compliance
+## CRITICAL: This Summary Is NOT Compliance
 
-The table below is a **quick reference only**. It does **NOT** satisfy the mandatory guardrails validation in `agents.md`.
+The summary in this file is a quick reference only. It does NOT replace mandatory preflight reads.
 
-### Mandatory Pre-Flight — ZERO exceptions
+### Mandatory Pre-Flight - ZERO exceptions
 
-**Any output produced without completing ALL steps below is invalid and must be discarded.**
+Before writing, editing, or suggesting code/config/docs changes:
 
-Before writing, editing, or suggesting any code, settings, config, or docs change:
+1. Read entry + contract files:
+   - `.agents/00-entry/manifest.yaml`
+   - `.agents/00-entry/task-profiles.yaml`
+   - `.agents/00-entry/reading-order.md`
+   - `.agents/10-contracts/surface-catalog.yaml`
+   - `.agents/10-contracts/seam-catalog.yaml`
+   - `.agents/10-contracts/change-classes.yaml`
+   - `.agents/10-contracts/consent-policy.yaml`
 
-1. Use `read_file` to read **every** guardrail file in `/.agents/guardrails/` and every relevant context file in `/.agents/context/`.
-   - Guardrails:
-     - `.agents/guardrails/architecture-boundaries.md`
-     - `.agents/guardrails/capability-ethos-rules.md`
-     - `.agents/guardrails/coding-standards.md`
-     - `.agents/guardrails/engineering-nonfunctional-rules.md`
-     - `.agents/guardrails/delivery-quality-rules.md`
-     - `.agents/guardrails/coding-standards-examples.md`
-     - `.agents/guardrails/testing-rules.md`
-     - `.agents/guardrails/workitems-rules.md`
-     - `.agents/guardrails/migration-rules.md`
-     - `.agents/guardrails/module-rules.md`
-     - `.agents/guardrails/connector-rules.md`
-     - `.agents/guardrails/control-plane-rules.md`
-     - `.agents/guardrails/cli-tui-rules.md`
-     - `.agents/guardrails/observability-requirements.md`
-     - `.agents/guardrails/security-rules.md`
-     - `.agents/guardrails/data-sovereignty-rules.md`
-     - `.agents/guardrails/package-rules.md`
-     - `.agents/guardrails/configuration-rules.md`
-     - `.agents/guardrails/documentation-rules.md`
-     - `.agents/guardrails/definition-of-done.md`
-     - `.agents/guardrails/test-first-workflow.md`
-     - `.agents/guardrails/acceptance-test-format.md`
-   - Context:
-     - `.agents/context/migration-package-concept.md`
-     - `.agents/context/workitems-format-summary.md`
-     - `.agents/context/import-streaming.md`
-     - `.agents/context/checkpointing-summary.md`
-     - `.agents/context/package-manager.md`
-     - `.agents/context/capability-seam-contract.md`
-     - `.agents/context/job-lifecycle.md`
-     - `.agents/context/telemetry-model.md`
-     - `.agents/context/ui-mode-summary.md`
-     - `.agents/context/architecture/agent-failure-pattern-checks.md`
-     - `.agents/context/identity-and-mapping.md`
-	For CLI/TUI contract work, this includes the UI mode summary listed in [agents.md](../agents.md).
-	For Prepare/import failure-pattern architecture work, this includes `.agents/context/architecture/agent-failure-pattern-checks.md`.
-2. State explicitly which guardrails apply to the current task.
-3. Explicitly reject any approach that violates them before writing any code.
+2. Read ALL guardrails:
+   - `.agents/20-guardrails/core/architecture-boundaries.md`
+   - `.agents/20-guardrails/core/capability-ethos-rules.md`
+   - `.agents/20-guardrails/core/coding-standards.md`
+   - `.agents/20-guardrails/core/coding-standards-examples.md`
+   - `.agents/20-guardrails/core/surface-usage.md`
+   - `.agents/20-guardrails/core/change-governance.md`
+   - `.agents/20-guardrails/domains/workitems-rules.md`
+   - `.agents/20-guardrails/domains/migration-rules.md`
+   - `.agents/20-guardrails/domains/module-rules.md`
+   - `.agents/20-guardrails/domains/package-rules.md`
+   - `.agents/20-guardrails/domains/control-plane-rules.md`
+   - `.agents/20-guardrails/domains/cli-tui-rules.md`
+   - `.agents/20-guardrails/domains/connector-rules.md`
+   - `.agents/20-guardrails/domains/observability-requirements.md`
+   - `.agents/20-guardrails/domains/security-rules.md`
+   - `.agents/20-guardrails/domains/data-sovereignty-rules.md`
+   - `.agents/20-guardrails/domains/configuration-rules.md`
+   - `.agents/20-guardrails/workflow/engineering-nonfunctional-rules.md`
+   - `.agents/20-guardrails/workflow/delivery-quality-rules.md`
+   - `.agents/20-guardrails/workflow/testing-rules.md`
+   - `.agents/20-guardrails/workflow/test-first-workflow.md`
+   - `.agents/20-guardrails/workflow/definition-of-done.md`
+   - `.agents/20-guardrails/workflow/documentation-rules.md`
+   - `.agents/20-guardrails/workflow/acceptance-test-format.md`
 
-Follow the **Guardrail Challenge Protocol** and **Mandatory Compliance Review Loop** defined in `agents.md` exactly.
+3. Read relevant context:
+   - `.agents/30-context/primers/product-vision.md`
+   - `.agents/30-context/primers/domain-model.md`
+   - `.agents/30-context/primers/terminology.md`
+   - `.agents/30-context/domains/migration-package-concept.md`
+   - `.agents/30-context/domains/workitems-format-summary.md`
+   - `.agents/30-context/domains/import-streaming.md`
+   - `.agents/30-context/domains/checkpointing-summary.md`
+   - `.agents/30-context/domains/package-manager.md`
+   - `.agents/30-context/domains/capability-seam-contract.md`
+   - `.agents/30-context/domains/job-lifecycle.md`
+   - `.agents/30-context/domains/telemetry-model.md`
+   - `.agents/30-context/domains/ui-mode-summary.md`
+   - `.agents/30-context/domains/cli-commands.md`
+   - `.agents/30-context/domains/identity-and-mapping.md`
+   - `.agents/30-context/architecture/agent-failure-pattern-checks.md`
 
-**If you have not read every file listed in `agents.md`'s guardrails section this session, stop and do that now.**
+4. State applicable guardrails and change class.
+5. Reject violating approaches.
+6. Apply consent policy for Class C changes.
+
+If preflight is incomplete, stop and do it first.
 
 ---
 
 ## Engineering Practice Quick Reference
 
-Every code suggestion MUST comply with the 22 engineering-practice categories
-enforced by [.agents/guardrails/coding-standards.md](../.agents/guardrails/coding-standards.md).
+All work must satisfy the constraints in:
+- `/.agents/20-guardrails/core/*`
+- `/.agents/20-guardrails/domains/*`
+- `/.agents/20-guardrails/workflow/*`
 
-| # | Category | Key Rule |
-|---|----------|----------|
-| 1 | Boundary Integrity & Separation of Concerns | No infrastructure leakage into domain logic |
-| 2 | Type System & Domain Modelling | Encode intent in types; no primitive obsession |
-| 3 | Immutability & State Management | `init`-only, records, no shared mutable state |
-| 4 | Dependency Management & IoC | Constructor injection; depend on abstractions |
-| 5 | SOLID Compliance | SRP, OCP, LSP, ISP, DIP at object level |
-| 6 | Testability & Determinism | Isolated, repeatable; no external state in tests |
-| 7 | Observability | OpenTelemetry: structured logs, metrics, traces |
-| 8 | Concurrency & Async Safety | No `.Result`/`.Wait()`; propagate `CancellationToken` |
-| 9 | Error Handling & Validation | Fail fast; no exceptions for control flow |
-| 10 | Configuration & Environment Isolation | `IOptions<T>` only; no env-branching in code |
-| 11 | Versioning & Contract Stability | Explicit versions; upgrader for breaking changes |
-| 12 | API & Integration Design | Explicit contracts; SDK calls behind abstractions |
-| 13 | Data Integrity & Persistence | `IArtefactStore`/`IStateStore` only; atomic writes |
-| 14 | Resilience & Fault Tolerance | Retry + back-off; circuit breakers; explicit timeouts |
-| 15 | Security by Design | Validate input; secrets via Key Vault; no creds in args; all vulnerabilities fixed or tracked |
-| 16 | Deployment & Release Discipline | CI/CD; reproducible builds; safe strategies |
-| 17 | Build & Dependency Hygiene | Every change must build clean and all tests must pass; pinned versions; vulnerability scan after build; every `.cs` file MUST begin with an SPDX header |
-| 18 | Performance & Resource Efficiency | Measure first; stream unbounded data; bounded caches |
-| 19 | Cost Awareness | Justified provisioning; explicit scaling bounds |
-| 20 | Operational Readiness | Health checks; correlation IDs; runbooks |
-| 21 | Documentation as Engineering Asset | ADRs; XML doc-comments; living feature files |
-| 22 | Full Connector Coverage | Every feature must be implemented for Simulated, AzureDevOps, AND TFS (where APIs allow) |
+See [agents.md](../agents.md) for full protocol and reject conditions.
 
-> See [Reject Conditions in agents.md](../agents.md#-reject-conditions) for the complete list of instant-reject triggers.
-
-<!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read:
-`specs/034-package-manager-adoption/plan.md`
-<!-- SPECKIT END -->

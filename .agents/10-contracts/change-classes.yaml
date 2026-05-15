@@ -1,0 +1,23 @@
+version: 1
+classes:
+  A:
+    name: "Internal implementation change"
+    definition: "Change remains behind an existing canonical surface and does not alter contract behavior."
+    required_evidence:
+      - "Targeted behavioral tests"
+      - "No new entrypoints"
+  B:
+    name: "Surface-adjacent behavior change"
+    definition: "Change affects behavior at a canonical surface without introducing a new surface."
+    required_evidence:
+      - "Behavioral tests across impacted slices"
+      - "Architecture review evidence across 5 perspectives"
+      - "Updated docs/context where behavior is contractual"
+  C:
+    name: "Surface/contract change"
+    definition: "Change adds, replaces, widens, narrows, or bypasses a canonical surface or blackbox contract."
+    required_evidence:
+      - "Explicit operator consent"
+      - "ADR add/update in same change"
+      - "Contract compatibility tests"
+      - "Test-first trace showing RED -> GREEN -> REFACTOR"

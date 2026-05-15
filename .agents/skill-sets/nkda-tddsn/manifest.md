@@ -61,11 +61,11 @@ Provide a coherent Copilot-operable workflow for assessing a subsystem's current
 - Relevant subsystem documentation
 - Existing `.agents/skills/nkd-tdd-assessment/SKILL.md`
 - Repository guardrails, especially:
-  - `.agents/guardrails/testing-rules.md`
-  - `.agents/guardrails/coding-standards.md`
-  - `.agents/guardrails/architecture-boundaries.md`
-  - `.agents/guardrails/observability-requirements.md`
-  - `.agents/guardrails/definition-of-done.md`
+  - `.agents/20-guardrails/workflow/testing-rules.md`
+  - `.agents/20-guardrails/core/coding-standards.md`
+  - `.agents/20-guardrails/core/architecture-boundaries.md`
+  - `.agents/20-guardrails/domains/observability-requirements.md`
+  - `.agents/20-guardrails/workflow/definition-of-done.md`
 
 Missing guardrails must be reported as partial-analysis warnings rather than silently ignored.
 
@@ -83,3 +83,4 @@ All workflow artefacts are written under `.output/nkda-tddsn/<subsystem>/`:
 ## Defining Rule
 
 This skill set is defined by the `nkda-tddsn-*` prefix and this manifest. New skills, commands, agents, or related workflow artefacts that belong to this set must use the `nkda-tddsn-*` prefix, except the skill-set folder itself, which is `.agents/skill-sets/nkda-tddsn`.
+

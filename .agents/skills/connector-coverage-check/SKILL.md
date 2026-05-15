@@ -36,11 +36,11 @@ When this skill is active, inspect the target for connector coverage completenes
 
 Before executing, read the following context files:
 
-- `.agents/guardrails/coding-standards.md` — Full Connector Implementation Required section
-- `.agents/guardrails/migration-rules.md` — Connector-specific rules (AzureDevOps, TFS, Simulated)
+- `.agents/20-guardrails/core/coding-standards.md` — Full Connector Implementation Required section
+- `.agents/20-guardrails/domains/migration-rules.md` — Connector-specific rules (AzureDevOps, TFS, Simulated)
 - `docs/capabilities-guide.md` — Source type capabilities and constraints
 - `docs/agent-hosting.md` — TFS Migration Agent specification (for TFS capability assessment)
-- `.agents/guardrails/architecture-boundaries.md` — Module isolation and abstraction rules
+- `.agents/20-guardrails/core/architecture-boundaries.md` — Module isolation and abstraction rules
 
 These files establish the connector architecture and capability boundaries.
 
@@ -327,3 +327,4 @@ Prioritised list of changes needed:
 - [ ] No source files were modified without explicit user instruction.
 
 The skill is not complete until all criteria are checked. Any unchecked criterion is a failure.
+

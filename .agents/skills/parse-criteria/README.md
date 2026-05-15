@@ -20,8 +20,8 @@ Typical invocation: **Test Generation Agent** loads this skill before processing
 
 The agent must have access to:
 - The `.feature` file path.
-- The [agents/acceptance-test-format.md](../../.agents/guardrails/acceptance-test-format.md) conventions.
-- The [agents/testing-rules.md](../../.agents/guardrails/testing-rules.md) naming rules.
+- The [agents/acceptance-test-format.md](../../../.agents/20-guardrails/workflow/acceptance-test-format.md) conventions.
+- The [agents/testing-rules.md](../../../.agents/20-guardrails/workflow/testing-rules.md) naming rules.
 
 ## Output Contract
 
@@ -39,3 +39,4 @@ Feature: <Feature Name>
     Assert: <description of assertion from Then clause>
     Dependencies: [IArtefactStore mock | IStateStore mock | ...]
 ```
+
