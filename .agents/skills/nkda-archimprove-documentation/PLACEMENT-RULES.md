@@ -7,17 +7,17 @@ Use these rules when deciding where content belongs.
 When content conflicts, apply this order:
 
 1. `docs/adr/` for recorded architectural decisions.
-2. `.agents/guardrails` for mandatory agent constraints.
+2. `.agents/20-guardrails` for mandatory agent constraints.
 3. `/docs` for human explanation, guides, references, and current design intent.
-4. `.agents/context` for compressed agent-facing summaries.
+4. `.agents/30-context` for compressed agent-facing summaries.
 
-If `.agents/context` conflicts with `/docs` or ADRs, update `.agents/context`.
+If `.agents/30-context` conflicts with `/docs` or ADRs, update `.agents/30-context`.
 
-If implementation conflicts with `.agents/guardrails`, the implementation is wrong unless the guardrail is deliberately amended.
+If implementation conflicts with `.agents/20-guardrails`, the implementation is wrong unless the guardrail is deliberately amended.
 
-## Put Content in `.agents/guardrails` When
+## Put Content in `.agents/20-guardrails` When
 
-Use `.agents/guardrails` when violation would make the implementation unacceptable.
+Use `.agents/20-guardrails` when violation would make the implementation unacceptable.
 
 Content belongs here when it can be written as:
 
@@ -36,9 +36,9 @@ Examples:
 
 Guardrails should be short, imperative, and testable.
 
-## Put Content in `.agents/context` When
+## Put Content in `.agents/30-context` When
 
-Use `.agents/context` when an agent needs compact background to reason correctly.
+Use `.agents/30-context` when an agent needs compact background to reason correctly.
 
 Content belongs here when it answers:
 
@@ -86,8 +86,8 @@ Content belongs here when it records:
 
 Primary folders:
 
-- `.agents/guardrails`
-- `.agents/context`
+- `.agents/20-guardrails`
+- `.agents/30-context`
 
 Needs:
 
@@ -188,3 +188,4 @@ Place these in contributor docs or references:
 - connector implementation boundaries
 
 Do not place those details in operator guides unless the operator needs them to run a migration.
+

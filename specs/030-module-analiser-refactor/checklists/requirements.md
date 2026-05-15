@@ -31,6 +31,7 @@
 
 ## Notes
 
-- All items pass. Spec is grounded in the design document `analysis/draftspec-Module-refactor-consolidation.md` and confirmed against `docs/module-development-guide.md` and `.agents/guardrails/architecture-boundaries.md`.
+- All items pass. Spec is grounded in the design document `analysis/draftspec-Module-refactor-consolidation.md` and confirmed against `docs/module-development-guide.md` and `.agents/20-guardrails/core/architecture-boundaries.md`.
 - Architecture discrepancies logged in `discrepancies.md` — docs must be updated during `speckit.implement`.
 - Ready for `/speckit.plan`.
+

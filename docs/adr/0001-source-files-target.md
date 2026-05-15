@@ -36,4 +36,4 @@ Export writes to the package. Import reads from the package. The package is the 
 
 - [ADR 0002](0002-filesystem-package-as-source-of-truth.md) — package structure
 - [docs/architecture.md](../architecture.md) — full architectural description
-- [.agents/guardrails/architecture-boundaries.md](../../.agents/guardrails/architecture-boundaries.md) — enforced constraints
+- [.agents/20-guardrails/core/architecture-boundaries.md](../../.agents/20-guardrails/core/architecture-boundaries.md) — enforced constraints

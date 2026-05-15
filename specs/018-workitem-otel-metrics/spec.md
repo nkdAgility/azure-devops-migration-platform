@@ -14,10 +14,10 @@
 | `docs/module-development-guide.md` | Confirmed accurate — `IModule` contract with `ExportAsync`, `ImportAsync`, `ValidateAsync` |
 | `docs/migration-process-guide.md` | Confirmed accurate — Job Engine steps, progress event emission after each cursor write |
 | `docs/agent-hosting.md` | Confirmed accurate — three progress sinks, heartbeat, stateless design |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — `IArtefactStore`/`IStateStore` only, streaming, no in-memory sort |
-| `.agents/guardrails/coding-standards.md` | Confirmed accurate — OTel packages already in `Directory.Packages.props` |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — `IArtefactStore`/`IStateStore` only, streaming, no in-memory sort |
+| `.agents/20-guardrails/core/coding-standards.md` | Confirmed accurate — OTel packages already in `Directory.Packages.props` |
 | `docs/configuration-reference.md` | Discrepancy logged — no telemetry naming convention documented |
-| `.agents/context/checkpointing-summary.md` | Confirmed accurate — cursor-based, forward-only |
+| `.agents/30-context/domains/checkpointing-summary.md` | Confirmed accurate — cursor-based, forward-only |
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -202,4 +202,5 @@ After a crash-and-resume scenario, an operator needs signals indicating whether 
 - The work item identity mapping store (SourceId → TargetId) is a separate future spec. The deferred metric instruments will be wired to actual emission logic in that spec.
 - `migration.workitem.payload.bytes` measures the serialised `revision.json` size, not the raw API response size.
 - Queue depth (`migration.queue.workitems.depth`) reflects the agent's internal processing queue, not the control plane job queue.
-- Architecture docs read: `docs/architecture.md`, `docs/validation.md`, `docs/module-development-guide.md`, `docs/migration-process-guide.md`, `docs/agent-hosting.md`, `.agents/guardrails/architecture-boundaries.md`, `.agents/guardrails/coding-standards.md`, `.agents/context/checkpointing-summary.md`.
+- Architecture docs read: `docs/architecture.md`, `docs/validation.md`, `docs/module-development-guide.md`, `docs/migration-process-guide.md`, `docs/agent-hosting.md`, `.agents/20-guardrails/core/architecture-boundaries.md`, `.agents/20-guardrails/core/coding-standards.md`, `.agents/30-context/domains/checkpointing-summary.md`.
+

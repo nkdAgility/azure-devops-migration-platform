@@ -43,7 +43,7 @@ When a rule exists only in `agents.md` or `copilot-instructions.md` and is enfor
 
 Both files must always list the same guardrail and context paths. If they diverge, agents in different runtimes operate under different constraints.
 
-## `.agents/guardrails`
+## `.agents/20-guardrails`
 
 Target size per file: 300 to 900 words.
 
@@ -66,7 +66,7 @@ A guardrail file should not contain:
 
 Split a guardrail file when it contains rules for multiple independent areas.
 
-## `.agents/context`
+## `.agents/30-context`
 
 Target size per file: 250 to 700 words.
 
@@ -90,7 +90,7 @@ A context file should not contain:
 If an agent context file exceeds the target, reduce it by:
 
 1. moving examples into `/docs`
-2. moving mandatory rules into `.agents/guardrails`
+2. moving mandatory rules into `.agents/20-guardrails`
 3. moving decisions into `docs/adr/`
 4. replacing detailed content with links
 
@@ -126,8 +126,8 @@ Duplication is acceptable only when the purpose differs.
 Allowed purposeful overlap:
 
 - `/docs` explains a topic in detail.
-- `.agents/context` summarises the topic for agents.
-- `.agents/guardrails` defines mandatory constraints for that topic.
+- `.agents/30-context` summarises the topic for agents.
+- `.agents/20-guardrails` defines mandatory constraints for that topic.
 
 Disallowed duplication:
 
@@ -137,3 +137,4 @@ Disallowed duplication:
 - a rule appears in multiple guardrail files with different wording
 
 When duplication is found, nominate one canonical source and reduce the others to summary plus link.
+

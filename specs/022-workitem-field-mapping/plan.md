@@ -29,7 +29,7 @@ Key technical decisions:
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **Mandatory context loading:** All files in `/.agents/guardrails/`, `/.agents/context/`, and relevant `/docs/` have been read during this planning session. Constitution v1.3.4 reviewed.
+> **Mandatory context loading:** All files in `/.agents/20-guardrails/`, `/.agents/30-context/`, and relevant `/docs/` have been read during this planning session. Constitution v1.3.4 reviewed.
 
 - [x] **Package-First (I):** FieldTransformTool is a pure transformation — it reads field values from the in-memory field collection (loaded from `revision.json` via `IArtefactStore`) and returns a modified copy. No direct source-to-target API calls. Export-phase transforms modify fields before `revision.json` is written to the package; import-phase transforms modify fields after reading from the package before sending to target.
 - [x] **Streaming (II):** Transforms operate on a single revision's field collection at a time. FR-016 mandates statelessness across revisions — no accumulation. No in-memory buffering of multiple revisions.
@@ -175,3 +175,4 @@ features/
 ## Complexity Tracking
 
 No constitution violations. All requirements fit within existing architectural patterns.
+

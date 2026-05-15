@@ -7,7 +7,7 @@ This file is the canonical backlog of unimplemented spec tasks. It MUST be updat
 - **When a new spec is created**: add a section for any tasks not yet started.
 - **Automatically reviewed** by the end-session skill as part of the Phase 5 Documentation Sync gate.
 
-A stale `pending-actions.md` is a guardrail violation (see `.agents/guardrails/test-first-workflow.md` Phase 5 and `.specify/memory/constitution.md` Spec-Completion Gate).
+A stale `pending-actions.md` is a guardrail violation (see `.agents/20-guardrails/workflow/test-first-workflow.md` Phase 5 and `.specify/memory/constitution.md` Spec-Completion Gate).
 
 ---
 
@@ -108,7 +108,7 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 - 🟢 `T033` Added `### WorkItemsModule — ADO Export` subsection to `docs/module-development-guide.md`.
 - 🟢 `T034` Updated `docs/architecture.md` `Infrastructure.AzureDevOps` row with source connector and streaming attachment binary source notes.
-- 🟢 `T035` Added "Attachment Download Contract" section to `.agents/context/workitems-format-summary.md`.
+- 🟢 `T035` Added "Attachment Download Contract" section to `.agents/30-context/domains/workitems-format-summary.md`.
 
 ---
 
@@ -268,3 +268,4 @@ Identified by architecture review (architecture-review skill, 2025):
 - 🟢 T010/T025/T032 Gherkin: config-applied-on-export.feature, config-audit-trail.feature, legacy-package-fail-fast.feature.
 - 🟢 T040 docs/agent-hosting.md execution flow updated.
 - 🟢 T042 discrepancies.md — 4 of 5 resolved; #5 (configVersion upgrader) marked partial pending T038/T039.
+

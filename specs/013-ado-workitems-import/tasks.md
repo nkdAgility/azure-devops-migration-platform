@@ -57,7 +57,7 @@
 
 ### Gherkin Feature File for User Story 1 (mandatory)
 
-- [X] T016 [US1] Create `features/import/work-items/revisions/streaming-replay.feature` — translate spec.md User Story 1 acceptance scenarios 1–6 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Import Work Item Revisions via Streaming Replay)
+- [X] T016 [US1] Create `features/import/work-items/revisions/streaming-replay.feature` — translate spec.md User Story 1 acceptance scenarios 1–6 into conformant Gherkin per `.agents/20-guardrails/workflow/acceptance-test-format.md` (Feature: Import Work Item Revisions via Streaming Replay)
 
 ### Implementation for User Story 1
 
@@ -82,7 +82,7 @@
 
 ### Gherkin Feature File for User Story 2 (mandatory)
 
-- [X] T025 [US2] Create `features/platform/checkpointing/import-cursor-resume.feature` — translate spec.md User Story 2 acceptance scenarios 1–3 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Import Cursor Resume)
+- [X] T025 [US2] Create `features/platform/checkpointing/import-cursor-resume.feature` — translate spec.md User Story 2 acceptance scenarios 1–3 into conformant Gherkin per `.agents/20-guardrails/workflow/acceptance-test-format.md` (Feature: Import Cursor Resume)
 
 ### Implementation for User Story 2
 
@@ -101,7 +101,7 @@
 
 ### Gherkin Feature File for User Story 3 (mandatory)
 
-- [X] T028 [US3] Create `features/import/work-items/revisions/streaming-memory-safety.feature` — translate spec.md User Story 3 acceptance scenarios 1–3 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Streaming Memory-Safe Import)
+- [X] T028 [US3] Create `features/import/work-items/revisions/streaming-memory-safety.feature` — translate spec.md User Story 3 acceptance scenarios 1–3 into conformant Gherkin per `.agents/20-guardrails/workflow/acceptance-test-format.md` (Feature: Streaming Memory-Safe Import)
 
 ### Implementation for User Story 3
 
@@ -119,7 +119,7 @@
 
 ### Gherkin Feature File for User Story 4 (mandatory)
 
-- [X] T030 [US4] Create `features/services/identity-mapping/import-identity-resolution.feature` — translate spec.md User Story 4 acceptance scenarios 1–3 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Identity Resolution During Import)
+- [X] T030 [US4] Create `features/services/identity-mapping/import-identity-resolution.feature` — translate spec.md User Story 4 acceptance scenarios 1–3 into conformant Gherkin per `.agents/20-guardrails/workflow/acceptance-test-format.md` (Feature: Identity Resolution During Import)
 
 ### Implementation for User Story 4
 
@@ -137,7 +137,7 @@
 
 ### Gherkin Feature File for User Story 5 (mandatory)
 
-- [X] T032 [US5] Create `features/import/work-items/comments/import-comments.feature` — translate spec.md User Story 5 acceptance scenarios 1–3 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Import Work Item Comments)
+- [X] T032 [US5] Create `features/import/work-items/comments/import-comments.feature` — translate spec.md User Story 5 acceptance scenarios 1–3 into conformant Gherkin per `.agents/20-guardrails/workflow/acceptance-test-format.md` (Feature: Import Work Item Comments)
 
 ### Implementation for User Story 5
 
@@ -156,7 +156,7 @@
 
 ### Gherkin Feature File for User Story 6 (mandatory)
 
-- [X] T035 [US6] Create `features/import/work-items/revisions/import-embedded-images.feature` — translate spec.md User Story 6 acceptance scenarios 1–2 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Import Embedded Image URL Rewriting)
+- [X] T035 [US6] Create `features/import/work-items/revisions/import-embedded-images.feature` — translate spec.md User Story 6 acceptance scenarios 1–2 into conformant Gherkin per `.agents/20-guardrails/workflow/acceptance-test-format.md` (Feature: Import Embedded Image URL Rewriting)
 
 ### Implementation for User Story 6
 
@@ -175,7 +175,7 @@
 
 ### Gherkin Feature File for Resolution Strategies (mandatory)
 
-- [X] T038 [US1] Create `features/import/work-items/revisions/work-item-resolution-strategies.feature` — translate spec.md User Story 1 acceptance scenarios 7–8 into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md` (Feature: Work Item Resolution Strategies)
+- [X] T038 [US1] Create `features/import/work-items/revisions/work-item-resolution-strategies.feature` — translate spec.md User Story 1 acceptance scenarios 7–8 into conformant Gherkin per `.agents/20-guardrails/workflow/acceptance-test-format.md` (Feature: Work Item Resolution Strategies)
 
 ### Implementation for Resolution Strategies
 
@@ -193,7 +193,7 @@
 
 - [X] T042 Update `docs/work-item-iteration-guide.md` — add "Import Pattern: WorkItemImportOrchestrator" section with `IWorkItemImportTarget`, `IIdMapStore`, `RevisionFolderProcessor`, and streaming import flow (mirrors existing "Export Pattern" section). Resolves discrepancy #3 and #7.
 - [X] T043 [P] Update `docs/configuration-reference.md` — add `WorkItemResolutionStrategy` extension type to the WorkItems Module Scopes and Extensions table with `strategy` (`TargetField` | `TargetHyperlink`), `fieldName`, and `urlPattern` parameters. Resolves discrepancy #6.
-- [X] T044 [P] Update `.agents/context/cli-commands.md` — confirm `queue` command documentation reflects that `Import` and `Both` modes are now functional (no longer stubbed). No new commands added.
+- [X] T044 [P] Update `.agents/30-context/domains/cli-commands.md` — confirm `queue` command documentation reflects that `Import` and `Both` modes are now functional (no longer stubbed). No new commands added.
 - [X] T045 [P] Update `docs/cli-guide.md` — confirm import mode is documented as functional. No new commands.
 - [X] T046 Mark all items in `specs/013-ado-workitems-import/discrepancies.md` as `Resolved` or `N/A`
 - [X] T047 Review `analysis/pending-actions.md` and remove any items resolved by this spec
@@ -303,3 +303,4 @@ All four work on different files/methods and can proceed independently.
 - Each user story is independently completable and testable after Phase 3 MVP
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
+

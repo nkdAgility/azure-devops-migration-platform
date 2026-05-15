@@ -19,7 +19,7 @@ No production architecture change was required for the PackageValidator behaviou
 
 ## Documentation Change Decision
 
-No canonical architecture document was changed in this pass because the existing `.agents/context/architecture/agent-validation-safety.md` already states the intended responsibility and sequence. The report records a drift risk instead: worker-level fail-fast orchestration is documented but not verified by active compiled tests and was not changed without a confirmed production seam.
+No canonical architecture document was changed in this pass because the existing `.agents/30-context/architecture/agent-validation-safety.md` already states the intended responsibility and sequence. The report records a drift risk instead: worker-level fail-fast orchestration is documented but not verified by active compiled tests and was not changed without a confirmed production seam.
 
 ## Proposed Follow-Up Architecture Clarification
 

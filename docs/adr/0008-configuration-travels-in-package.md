@@ -52,6 +52,7 @@ The `Job` record carries dispatch metadata plus opaque configuration payload. Th
 
 - [ADR-0005](0005-agent-only-package-write-access.md) — amended by this decision
 - [ADR-0002](0002-filesystem-package-as-source-of-truth.md) — package as source of truth
-- [.agents/context/job-lifecycle.md](../../.agents/context/job-lifecycle.md) — job contract
-- [.agents/context/migration-package-concept.md](../../.agents/context/migration-package-concept.md) — package layout
+- [.agents/30-context/domains/job-lifecycle.md](../../.agents/30-context/domains/job-lifecycle.md) — job contract
+- [.agents/30-context/domains/migration-package-concept.md](../../.agents/30-context/domains/migration-package-concept.md) — package layout
 - Driving specs: `specs/025-agent-config-package/spec.md`, `specs/025.1-fold-to-job/spec.md`
+

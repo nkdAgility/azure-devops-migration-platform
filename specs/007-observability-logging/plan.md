@@ -150,9 +150,9 @@ All design decisions checked against:
 - `docs/tui-guide.md` — Terminal.Gui for diagnostics panel; SSE subscription pattern matches existing progress table
 - `docs/control-plane.md` — ring buffer pattern matches existing `JobProgressStore`; separate `DiagnosticLogStore` parallels it
 - `docs/agent-hosting.md` — three sinks (console, package, CP) already documented; adding logger providers follows same wiring
-- `.agents/guardrails/architecture-boundaries.md` — rule #11 (CP no migration logic), #12 (agents stateless), #13 (IArtefactStore only), #16 (CLI no migration logic), #18 (no UI coupling in engine)
-- `.agents/guardrails/control-plane-rules.md` — standalone mode uses embedded Aspire APIs, not AppHost; ServiceDefaults for OTel
-- `.agents/context/job-lifecycle.md` — `--level` value passed via job definition to agent; no schema break (additive field)
+- `.agents/20-guardrails/core/architecture-boundaries.md` — rule #11 (CP no migration logic), #12 (agents stateless), #13 (IArtefactStore only), #16 (CLI no migration logic), #18 (no UI coupling in engine)
+- `.agents/20-guardrails/domains/control-plane-rules.md` — standalone mode uses embedded Aspire APIs, not AppHost; ServiceDefaults for OTel
+- `.agents/30-context/domains/job-lifecycle.md` — `--level` value passed via job definition to agent; no schema break (additive field)
 
 Discrepancies with existing docs flagged in [discrepancies.md](discrepancies.md) (9 items). These will be resolved during `speckit.implement`.
 
@@ -398,3 +398,4 @@ The following debug profiles must be added or updated:
 - [x] **Tiered Log Levels:** Confirmed — agent's per-job `--level` is independent of CP's deployment config. In standalone mode, CP adopts operator's level. In non-standalone, CP uses its own. Package always gets full agent-level detail. CP filters before buffering. App Insights / OTel export at CP level.
 - [x] **CLI constraints (Rule #16):** Confirmed — `export --follow` streams from the CP via SSE (read-only). It does not call modules, write cursors, or access `IArtefactStore`. `manage diagnostics` downloads files via CP API. `manage progress` reads from CP ring buffer. All through `ControlPlaneClient`.
 - [x] **Build & Test gates:** Plan includes: `dotnet clean && dotnet build --no-incremental` must pass; `dotnet test` all tests must pass; at least one scenario config run via `launch.json` debug profile. New `launch.json` entries required for `manage diagnostics` and `manage progress`. New `[TestCategory("SystemTest")]` tests for `export --follow` and `manage diagnostics`.
+

@@ -58,7 +58,7 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. It must be written from the `spec.md` User Story 2 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [X] T007 [US2] Create `features/platform/observability/package-progress-sink.feature` — translate `spec.md` User Story 2 acceptance scenarios (FR-006, FR-007, FR-008) into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T007 [US2] Create `features/platform/observability/package-progress-sink.feature` — translate `spec.md` User Story 2 acceptance scenarios (FR-006, FR-007, FR-008) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Implementation for User Story 2
 
@@ -80,7 +80,7 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. It must be written from the `spec.md` User Story 1 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [X] T011 [US1] Create `features/platform/observability/package-diagnostics-sink.feature` — translate `spec.md` User Story 1 acceptance scenarios (FR-001 through FR-005) into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T011 [US1] Create `features/platform/observability/package-diagnostics-sink.feature` — translate `spec.md` User Story 1 acceptance scenarios (FR-001 through FR-005) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Implementation for User Story 1
 
@@ -103,8 +103,8 @@
 
 > **NOTE: These `.feature` files are the ATDD Phase 1 artifacts. They must be written from the `spec.md` User Story 6 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [X] T016 [US6] Create `features/cli/export/export-follow-and-level.feature` — translate `spec.md` User Story 6 acceptance scenarios (FR-021 through FR-027) into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
-- [X] T017 [P] [US6] Create `features/platform/observability/tiered-log-levels.feature` — translate FR-028, FR-029, FR-030 (tiered log level architecture) into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T016 [US6] Create `features/cli/export/export-follow-and-level.feature` — translate `spec.md` User Story 6 acceptance scenarios (FR-021 through FR-027) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
+- [X] T017 [P] [US6] Create `features/platform/observability/tiered-log-levels.feature` — translate FR-028, FR-029, FR-030 (tiered log level architecture) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Implementation for User Story 6 — Agent Side
 
@@ -145,7 +145,7 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. It must be written from the `spec.md` User Story 4 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [X] T031 [US4] Create `features/platform/observability/endpoint-rename.feature` — translate `spec.md` User Story 4 acceptance scenarios (FR-013, FR-014, FR-015) into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T031 [US4] Create `features/platform/observability/endpoint-rename.feature` — translate `spec.md` User Story 4 acceptance scenarios (FR-013, FR-014, FR-015) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Implementation for User Story 4
 
@@ -172,7 +172,7 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. It must be written from the `spec.md` User Story 5 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [X] T040 [US5] Create `features/platform/observability/log-download.feature` — translate `spec.md` User Story 5 acceptance scenarios (FR-016, FR-017) into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T040 [US5] Create `features/platform/observability/log-download.feature` — translate `spec.md` User Story 5 acceptance scenarios (FR-016, FR-017) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Implementation for User Story 5
 
@@ -194,7 +194,7 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. It must be written from the `spec.md` User Story 3 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [X] T044 [US3] Create `features/platform/observability/diagnostics-streaming.feature` — translate `spec.md` User Story 3 acceptance scenarios (FR-018, FR-019, FR-020) into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T044 [US3] Create `features/platform/observability/diagnostics-streaming.feature` — translate `spec.md` User Story 3 acceptance scenarios (FR-018, FR-019, FR-020) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Implementation for User Story 3
 
@@ -301,3 +301,4 @@ Phase 2 (Foundational) ──→ Phase 3 (US2) ──→ Phase 4 (US1) ──→
 | 8 — US3 (P2) | TUI Diagnostics Panel | 3 | — |
 | 9 — Polish | — | 9 | 6 tasks parallelizable |
 | **Total** | | **55** | **19 parallelizable** |
+

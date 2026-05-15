@@ -142,7 +142,7 @@
 
 **Purpose**: All three discrepancies from `discrepancies.md` are resolved and canonical docs updated.
 
-- [ ] T047 Update `.agents/context/cli-commands.md` — add `| discovery dependencies | DependencyCommandSettings | Analyse work items for cross-project and cross-organisation links. Results written to discovery-dependencies.csv, project pairs to discovery-project-dependencies.csv, and diagram to discovery-project-dependencies.md. |` to the Discovery Commands table; add invocation examples: `devopsmigration discovery dependencies --config migration.json` and `devopsmigration discovery dependencies --config migration.json --output ./reports/deps.csv`; add `branch.AddCommand<DependencyCommand>("dependencies");` to the registration code block
+- [ ] T047 Update `.agents/30-context/domains/cli-commands.md` — add `| discovery dependencies | DependencyCommandSettings | Analyse work items for cross-project and cross-organisation links. Results written to discovery-dependencies.csv, project pairs to discovery-project-dependencies.csv, and diagram to discovery-project-dependencies.md. |` to the Discovery Commands table; add invocation examples: `devopsmigration discovery dependencies --config migration.json` and `devopsmigration discovery dependencies --config migration.json --output ./reports/deps.csv`; add `branch.AddCommand<DependencyCommand>("dependencies");` to the registration code block
 - [ ] T048 [P] Update `docs/cli-guide.md` — add `### discovery dependencies` sub-section under `## Discovery Commands` (or add `## Discovery Commands` heading if absent): describe purpose, `--config`, `--output`, `--output-projects`, `--output-diagram`, `--wiql` options, and console output format (two tables); reference `quickstart.md` for full examples
 - [ ] T049 [P] Update `docs/capabilities-guide.md` — add a **Dependency Analysis** paragraph after each source type's Inventory section: (a) `AzureDevOpsServices` → REST batch-GET with `WorkItemExpand.Relations`; secondary batch-GET for project resolution; concurrency via `MaxConcurrency`; (b) `TeamFoundationServer` → subprocess delegation to `tfsmigration.exe dependencies` via same stdin JSON / NDJSON stdout protocol; (c) `Simulated` → synthetic seeded records with configurable count
 - [ ] T050 Mark all three items in `specs/012-discovery-dependencies/discrepancies.md` as `Resolved`
@@ -220,3 +220,4 @@ All tasks follow the mandatory checklist format `- [ ] [TaskID] [P?] [Story?] De
 | 7 | — | T042–T046 (5 tasks) | TFS subprocess delegation |
 | 8 | — | T047–T054 (8 tasks) | Documentation sync + final gates |
 | **TOTAL** | | **54 tasks** | |
+

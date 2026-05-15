@@ -6,7 +6,7 @@ Subsystem:
 agent_observability
 
 Analysed sources:
-- .agents/context/architecture/agent-observability.md
+- .agents/30-context/architecture/agent-observability.md
 - docs/client-integration-guide.md
 - docs/tui-guide.md
 - src/DevOpsMigrationPlatform.ControlPlane/Controllers/ProgressController.cs
@@ -157,3 +157,4 @@ Highest risk missing protection:
 
 Next best action:
 Implement the DiagnosticLogStore unit suite before touching production code; only adjust production if those target tests expose a failing behaviour.
+

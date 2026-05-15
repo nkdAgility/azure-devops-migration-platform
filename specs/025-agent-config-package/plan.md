@@ -118,10 +118,10 @@ tests/
 └── DevOpsMigrationPlatform.CLI.Migration.Tests/
     └── Commands/QueueRoundtripSimulatedTests.cs ← MODIFY: assert migration-config.json present
 
-.agents/guardrails/
+.agents/20-guardrails/
 └── architecture-boundaries.md                 ← MODIFY: Rule 23 exception
 
-.agents/context/
+.agents/30-context/
 ├── job-lifecycle.md                        ← MODIFY: new minimal schema
 └── migration-package-concept.md                      ← MODIFY: add migration-config.json entry
 
@@ -223,3 +223,4 @@ All design decisions confirmed consistent with constitution:
 - `migration-config.json` stored via `IArtefactStore` — consistent with Principle I, V
 - Breaking `MigrationJob` change has upgrader (Principle VII)
 - All agent types covered (Constitution XI)
+

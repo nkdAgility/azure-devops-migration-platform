@@ -26,7 +26,7 @@ Refactor CLI Program.cs from a monolithic 150+ line god-object into a proper hos
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 > **Mandatory context loading:** Before completing this gate, confirmed that ALL files in
-> `/.agents/guardrails/`, ALL files in `/.agents/context/`, and relevant `/docs/` files
+> `/.agents/20-guardrails/`, ALL files in `/.agents/30-context/`, and relevant `/docs/` files
 > have been read: ✅ architecture-boundaries.md, coding-standards.md, testing-rules.md, cli.md, architecture.md
 
 - [✅] **Package-First (I):** CLI delegates all package operations to ControlPlane/Agents. No direct package access in CLI refactor.
@@ -195,3 +195,4 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
 |-----------|------------|------------------|
 | SOLID & DI violation in Program.cs | 150+ line god-object with manual DI setup violates SRP | MigrationPlatformHost extracts service registration. CommandBase<T> provides proper DI. Program.cs becomes < 10 lines |
 | Module Isolation partial compliance | Manual service registration bypasses DI container | Host builder pattern enforces constructor injection. All dependencies through IServiceProvider |
+

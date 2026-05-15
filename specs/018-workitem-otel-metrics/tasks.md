@@ -55,7 +55,7 @@
 
 ### Gherkin Feature File for User Story 1 (mandatory)
 
-- [X] T015 [US1] Create `features/export/work-items/export-execution-metrics.feature` — translate spec.md US1 acceptance scenarios (50 work items → attempted/completed/failed counters, retry scenario, duration histogram P50/P95) into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md`
+- [X] T015 [US1] Create `features/export/work-items/export-execution-metrics.feature` — translate spec.md US1 acceptance scenarios (50 work items → attempted/completed/failed counters, retry scenario, duration histogram P50/P95) into conformant Gherkin per `.agents/20-guardrails/workflow/acceptance-test-format.md`
 
 ### Implementation for User Story 1
 
@@ -216,3 +216,4 @@ Phase 8: All doc tasks (T038–T044) parallel
 - **MVP scope**: Phase 1 + Phase 2 + Phase 3 (US1) delivers the minimum viable metric instrumentation — execution counters, duration histogram, and MetricSnapshot expansion.
 - **Incremental delivery**: Each subsequent user story adds an independent capability (payload → correctness → in-flight → idempotency).
 - **Parallel opportunities**: After Phase 2, all 5 user stories can proceed independently on different files with no inter-story dependencies.
+

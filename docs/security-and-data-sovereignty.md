@@ -58,5 +58,5 @@ All Control Plane API calls use HTTPS. The agent communicates with the Control P
 ## Further Reading
 
 - [ADR 0005](adr/0005-agent-only-package-write-access.md) — Agent-only write access rationale
-- [`.agents/guardrails/architecture-boundaries.md`](../.agents/guardrails/architecture-boundaries.md) — data residency rules (Rule 23)
+- [`.agents/20-guardrails/core/architecture-boundaries.md`](../.agents/20-guardrails/core/architecture-boundaries.md) — data residency rules (Rule 23)
 - [operator-advanced-guide.md](operator-advanced-guide.md) — hosting model

@@ -22,7 +22,7 @@
 
 ### Nodes/ package artifacts not in canonical package layout
 
-- **Status**: Resolved — `Nodes/` folder with `source-tree.json` and `referenced-paths.json` added to `.agents/context/migration-package-concept.md`.
+- **Status**: Resolved — `Nodes/` folder with `source-tree.json` and `referenced-paths.json` added to `.agents/30-context/domains/migration-package-concept.md`.
 
 ---
 
@@ -73,7 +73,7 @@
 
 ### Nodes/ package artifacts not in canonical package layout
 
-- **Source doc**: `docs/architecture.md` / `.agents/context/migration-package-concept.md`
+- **Source doc**: `docs/architecture.md` / `.agents/30-context/domains/migration-package-concept.md`
 - **Section**: Package layout specification
 - **Issue**: The spec introduces new export artifacts `Nodes/source-tree.json` and `Nodes/referenced-paths.json`. These artifacts are not documented in the canonical package layout. The package format docs need to add `Nodes/` as a top-level module folder alongside `WorkItems/`, `Teams/`, etc.
 - **Suggested update**: Add `Nodes/` to the package layout documentation with its two artifacts (`source-tree.json` with area/iteration tree schema, `referenced-paths.json` with discovered paths schema) and note that both are always written on export.
@@ -82,7 +82,7 @@
 
 ### INodeStructureTool interface not yet defined in Abstractions
 
-- **Source doc**: `.agents/guardrails/architecture-boundaries.md`
+- **Source doc**: `.agents/20-guardrails/core/architecture-boundaries.md`
 - **Section**: Rule 21 — Mandatory reuse of existing architecture and patterns
 - **Issue**: The spec introduces `INodeStructureTool` as a new injectable interface. This interface does not yet exist in `DevOpsMigrationPlatform.Abstractions`. Per rule 21, new abstractions must be defined in `Abstractions` and must be used by at least two independent modules (`WorkItemsModule` and `TeamsModule` are the two planned consumers, satisfying the rule). The interface must be designed with both consumers in mind before it is finalised.
 - **Suggested update**: Document `INodeStructureTool` in `DevOpsMigrationPlatform.Abstractions` during implementation. The plan phase must document the anticipated `TeamsModule` calling contract to validate the interface is sufficiently general before it is frozen.
@@ -115,5 +115,6 @@
 - **Issue**: The factory does not currently pass `IFieldTransformTool` to `RevisionFolderProcessor` (constructor has optional `fieldTransformTool` parameter, factory passes `null`). This is a pre-existing integration gap. The NodeStructureTool will need the same factory integration path.
 - **Suggested update**: Extend `IRevisionFolderProcessorFactory.Create()` to accept optional tool parameters, or inject tools via factory constructor.
 - **Status**: Pending — to be addressed during implementation (factory must be updated for both `IFieldTransformTool` and `INodeStructureTool`).
+
 
 

@@ -6,7 +6,7 @@ Subsystem: `agent_task_execution`.
 
 Primary context:
 
-- `.agents/context/architecture/agent-task-execution.md`
+- `.agents/30-context/architecture/agent-task-execution.md`
 - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobPlanExecutor.cs`
 - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobExecutionPlanBuilder.cs`
 - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobPlanExecutorTests.cs`
@@ -89,3 +89,4 @@ Primary context:
 ## Assessment Conclusion
 
 The safety net was broadly useful but incomplete for dependency resume semantics. The target rebuild should add behavioural regression tests for completed-dependency resume and pre-skipped dependency cascade, then minimally adjust executor filtering and skip propagation.
+

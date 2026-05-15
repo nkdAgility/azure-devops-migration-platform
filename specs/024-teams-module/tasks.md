@@ -69,7 +69,7 @@
 
 ### Gherkin Feature Files for US 0 (mandatory)
 
-- [X] T013 [US0] Create `features/export/identities/export-identity-descriptors.feature` — translate spec.md US 0 acceptance scenarios S1, S5 into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T013 [US0] Create `features/export/identities/export-identity-descriptors.feature` — translate spec.md US 0 acceptance scenarios S1, S5 into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 - [X] T014 [P] [US0] Create `features/import/identities/identity-mapping-resolution.feature` — translate spec.md US 0 acceptance scenarios S2, S3, S4, S6 into conformant Gherkin
 
 ### Implementation for US 0
@@ -329,8 +329,8 @@
 - [X] T087 [P] Update `docs/module-development-guide.md` — add NodeStructureModule detailed section (extraction from tool, config, package folder, cursor, behaviour). Note: no DependsOn property. detailed section (extraction from tool, config, package folder, cursor, behaviour). Note: no DependsOn property.
 - [X] T088 [P] Update `docs/module-development-guide.md` — add TeamsModule detailed section (name, config, package folder, cursor, extensions, behaviour). Note: no DependsOn property. Extensions order is hardcoded. detailed section (name, config, package folder, cursor, extensions, behaviour). Note: no DependsOn property. Extensions order is hardcoded.
 - [X] T089 Update `docs/configuration-reference.md` — add `MigrationPlatform:Modules:Identities`, `MigrationPlatform:Modules:Nodes`, `MigrationPlatform:Modules:Teams` config schema sections` — add `MigrationPlatform:Modules:Identities`, `MigrationPlatform:Modules:Nodes`, `MigrationPlatform:Modules:Teams` config schema sections
-- [X] T090 Update `.agents/context/migration-package-concept.md` — document `Teams/` folder internal structure (`Teams/{team-slug}/team.json`) and add `Identities`, `Nodes` to `includedTypes` example in manifest` — document `Teams/` folder internal structure (`Teams/{team-slug}/team.json`) and add `Identities`, `Nodes` to `includedTypes` example in manifest
-- [X] T091 [P] Update `.agents/context/checkpointing-summary.md` — add NodeStructureModule cursor (`nodes.cursor.json`), IdentitiesModule cursor (`identities.cursor.json`), TeamsModule cursor (`teams.cursor.json`)` — add NodeStructureModule cursor (`nodes.cursor.json`), IdentitiesModule cursor (`identities.cursor.json`), TeamsModule cursor (`teams.cursor.json`)
+- [X] T090 Update `.agents/30-context/domains/migration-package-concept.md` — document `Teams/` folder internal structure (`Teams/{team-slug}/team.json`) and add `Identities`, `Nodes` to `includedTypes` example in manifest` — document `Teams/` folder internal structure (`Teams/{team-slug}/team.json`) and add `Identities`, `Nodes` to `includedTypes` example in manifest
+- [X] T091 [P] Update `.agents/30-context/domains/checkpointing-summary.md` — add NodeStructureModule cursor (`nodes.cursor.json`), IdentitiesModule cursor (`identities.cursor.json`), TeamsModule cursor (`teams.cursor.json`)` — add NodeStructureModule cursor (`nodes.cursor.json`), IdentitiesModule cursor (`identities.cursor.json`), TeamsModule cursor (`teams.cursor.json`)
 - [X] T092 Mark all items in `specs/024-teams-module/discrepancies.md` as `Resolved` or `N/A`
 - [X] T093 Review `analysis/pending-actions.md` and remove any items resolved by this spec
 - [X] T094 Run `dotnet clean && dotnet build --no-incremental` — MUST pass && dotnet build --no-incremental` — MUST pass
@@ -410,6 +410,7 @@
 | 11: Documentation | — | 11 | 3 |
 | 12: Polish | — | 4 | 2 |
 | **Total** | | **127** | **61** |
+
 
 
 

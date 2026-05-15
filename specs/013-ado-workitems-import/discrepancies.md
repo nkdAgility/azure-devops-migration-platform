@@ -14,7 +14,7 @@
 - **Status**: ✓ Resolved in speckit.implement — `WorkItemsModule.ImportAsync` now fully implemented with streaming orchestrator, idmap.db, and 4-stage processor.
 
 ### 2. Import CLI command is hidden/stubbed
-- **Source doc**: `docs/cli-guide.md` and `.agents/context/cli-commands.md`
+- **Source doc**: `docs/cli-guide.md` and `.agents/30-context/domains/cli-commands.md`
 - **Section**: Migration Commands — `import`
 - **Issue**: Both docs describe the `import` command as a first-class migration command with `--force-fresh` support. The actual implementation has `[HideFromChannel(ReleaseChannel.Preview)]` and returns a stub message. The spec requires enabling this command.
 - **Suggested update**: No doc update needed — the docs already reflect the intended state. The code must be updated to match.
@@ -35,7 +35,7 @@
 - **Status**: ✓ Resolved in speckit.implement — `scenarios/import-ado-workitems-single-project.json` created and launch.json profile added.
 
 ### 5. launch.json entry for import not yet present
-- **Source doc**: `.agents/guardrails/coding-standards.md` (reject trigger: "Adds or changes a CLI command without a corresponding `.vscode/launch.json` entry")
+- **Source doc**: `.agents/20-guardrails/core/coding-standards.md` (reject trigger: "Adds or changes a CLI command without a corresponding `.vscode/launch.json` entry")
 - **Section**: Reject triggers
 - **Issue**: The `import` CLI command requires a `.vscode/launch.json` debug profile for scenario testing. This must be added during implementation.
 - **Suggested update**: No doc update needed — the guardrail already requires this. Implementation must add the launch profile.
@@ -56,7 +56,8 @@
 - **Status**: ✓ Resolved in speckit.implement — Section 6 added to `docs/work-item-iteration-guide.md`.
 
 ### 8. EmbeddedImages property missing from WorkItemRevision C# record
-- **Source doc**: `.agents/context/workitems-format-summary.md`
+- **Source doc**: `.agents/30-context/domains/workitems-format-summary.md`
 - **Section**: revision.json Required Fields
 - **Issue**: The JSON schema requires an `embeddedImages` array in `revision.json`, and it is documented as a required field. However, the C# `WorkItemRevision` record in `Abstractions/Models/WorkItemRevision.cs` does not have an `EmbeddedImages` property. The plan requires adding this property.
 - **Suggested update**: No doc update needed — the docs already require this field. The code must be updated to match.
+

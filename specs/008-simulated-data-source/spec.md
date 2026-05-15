@@ -16,10 +16,10 @@ The following canonical documents were read as part of drafting this specificati
 | `docs/capabilities-guide.md` | **Discrepancy logged** — only documents `AzureDevOpsServices` and `TeamFoundationServer`; does not describe a `Simulated` type |
 | `docs/configuration-reference.md` | **Discrepancy logged** — `source.type` and `target.type` enumerations do not include `Simulated` |
 | `docs/cli-guide.md` | Confirmed accurate — CLI command structure applies unchanged to simulated source |
-| `.agents/context/cli-commands.md` | Confirmed accurate — commands used as-is; no new commands required |
+| `.agents/30-context/domains/cli-commands.md` | Confirmed accurate — commands used as-is; no new commands required |
 | `docs/module-development-guide.md` | Confirmed accurate — `IDataTypeModule` contract applies; simulated source implements same export abstraction |
 | `docs/tui-guide.md` | Confirmed accurate — TUI works against control plane progress stream; no changes needed |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — all guardrails apply; simulated source must conform fully |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — all guardrails apply; simulated source must conform fully |
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -145,4 +145,5 @@ A contributor wants to write a `[TestCategory("SystemTest")]` test that executes
 - The simulated source plugs into the existing module architecture as a new `IDataTypeModule` export implementation, not as a bypass of the module system.
 - Identity mapping still runs for simulated migrations: the simulated source generates a fixed set of synthetic user identities and the `IdentitiesModule` processes them in the normal order.
 - The `.vscode/launch.json` entry for the simulated scenario will use the local topology (Aspire-managed, no Docker), consistent with all existing launch profiles.
-- Docs reviewed: `agents.md`, `docs/architecture.md`, `docs/capabilities-guide.md`, `docs/configuration-reference.md`, `docs/cli-guide.md`, `docs/module-development-guide.md`, `docs/tui-guide.md`, `.agents/context/cli-commands.md`, `.agents/guardrails/architecture-boundaries.md`.
+- Docs reviewed: `agents.md`, `docs/architecture.md`, `docs/capabilities-guide.md`, `docs/configuration-reference.md`, `docs/cli-guide.md`, `docs/module-development-guide.md`, `docs/tui-guide.md`, `.agents/30-context/domains/cli-commands.md`, `.agents/20-guardrails/core/architecture-boundaries.md`.
+

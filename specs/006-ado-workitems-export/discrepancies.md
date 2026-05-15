@@ -22,7 +22,8 @@
 
 ### Attachment download contract not yet defined in any doc
 
-- **Source doc**: `.agents/context/workitems-format-summary.md`
+- **Source doc**: `.agents/30-context/domains/workitems-format-summary.md`
 - **Section**: Attachment Rules
 - **Issue**: The format doc describes the `attachments` metadata shape and that binaries live beside `revision.json`, but does not specify the attachment download abstraction (`IAzureDevOpsAttachmentDownloader`) or the SHA-256 check requirement.
 - **Suggested update**: Add an "Attachment Download Contract" section that specifies streaming download (no `MemoryStream` buffering), SHA-256 verification, and retry policy.
+

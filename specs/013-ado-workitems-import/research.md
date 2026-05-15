@@ -40,7 +40,7 @@
 - Cross-platform (Windows, Linux, macOS)
 
 **Alternatives considered**:
-- `Checkpoints/idmap.json` — rejected for scale. A 20k-entry JSON file requires full deserialization on every lookup (O(n)). Already documented as "fallback for small packages" in `.agents/context/checkpointing-summary.md`.
+- `Checkpoints/idmap.json` — rejected for scale. A 20k-entry JSON file requires full deserialization on every lookup (O(n)). Already documented as "fallback for small packages" in `.agents/30-context/domains/checkpointing-summary.md`.
 - LiteDB — rejected because it adds an additional dependency with no significant advantage over SQLite for this use case.
 - Dictionary in memory + periodic flush — rejected because it violates the streaming/memory-safety guardrail. The entire map would be in memory.
 
@@ -60,7 +60,7 @@ CREATE TABLE attachment_map (
 );
 ```
 
-**Note**: The SQLite prohibition in the guardrails applies to the control-plane data store (which must be PostgreSQL). Package-local indexed storage is explicitly permitted per the spec assumptions and `.agents/context/checkpointing-summary.md`.
+**Note**: The SQLite prohibition in the guardrails applies to the control-plane data store (which must be PostgreSQL). Package-local indexed storage is explicitly permitted per the spec assumptions and `.agents/30-context/domains/checkpointing-summary.md`.
 
 ---
 
@@ -211,3 +211,4 @@ This mirrors the export-side extension flags.
 1. Remove `ExecuteImportStub()` — replace with the same `ExecuteExportAsync` flow (which is mode-agnostic: it submits a job and the agent determines export vs import from the `mode` field).
 2. Ensure `QueueCommand` validates that `target` is present in config when `mode` is `Import` or `Both`.
 3. No `[HideFromChannel]` attribute exists in the current code (the spec's FR-017 reference may be outdated — the stub is in the `switch` statement, not an attribute).
+

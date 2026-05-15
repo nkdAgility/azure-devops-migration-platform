@@ -87,7 +87,7 @@ hooks:
     enabled: true
     optional: false
     description: Scan every changed file and update every affected canonical doc in
-      /docs and /.agents/context — CLI commands, configuration keys, modules, connectors,
+      /docs and /.agents/30-context — CLI commands, configuration keys, modules, connectors,
       architecture. Mark all doc-tasks in tasks.md as complete.
     condition: null
   - extension: nkda-observability-contract
@@ -259,3 +259,4 @@ hooks:
     prompt: Commit after syncing issues?
     description: Auto-commit after tasks-to-issues conversion
     condition: null
+

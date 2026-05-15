@@ -14,7 +14,7 @@ Documents read during spec creation:
 | `docs/tui-guide.md` | Confirmed accurate — describes full desired TUI behaviour. Spec implements what is documented. |
 | `docs/cli-guide.md` | Confirmed accurate — job submission output pattern described. |
 | `docs/control-plane.md` | Discrepancy logged — `/jobs/{jobId}/telemetry` referenced in `docs/tui-guide.md` is absent from the API surface table here. |
-| `.agents/guardrails/architecture-boundaries.md` | Guardrails 15, 16, 17, 18 apply directly to this feature. |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Guardrails 15, 16, 17, 18 apply directly to this feature. |
 
 ---
 
@@ -176,3 +176,4 @@ As an operator who already knows their job ID I want to run `devopsmigration tui
 ### Session 2026-04-09
 
 - Q: Does the TUI start the local control plane stack when no `--url` is provided? → A: No. The TUI is a pure viewer — it never starts any hosted services. Only CLI migration commands (export, import, migrate, prepare) start the local stack via `LocalStackHost`. The TUI connects to an already-running control plane or exits with an error.
+

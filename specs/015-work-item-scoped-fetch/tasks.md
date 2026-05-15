@@ -51,7 +51,7 @@
 
 ### Gherkin Feature File for User Story 1 (mandatory)
 
-- [X] T011 [US1] Create `features/inventory/work-items/inventory-field-projection.feature` — translate spec.md US1 acceptance scenarios (field projection, type filter, bounded memory) into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T011 [US1] Create `features/inventory/work-items/inventory-field-projection.feature` — translate spec.md US1 acceptance scenarios (field projection, type filter, bounded memory) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Implementation for User Story 1
 
@@ -71,7 +71,7 @@
 
 ### Gherkin Feature File for User Story 2 (mandatory)
 
-- [X] T015 [US2] Create `features/inventory/work-items/dependency-pre-filter.feature` — translate spec.md US2 acceptance scenarios (pre-filter before Relations expand, non-matching items not yielded, caller-owned relation expansion) into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T015 [US2] Create `features/inventory/work-items/dependency-pre-filter.feature` — translate spec.md US2 acceptance scenarios (pre-filter before Relations expand, non-matching items not yielded, caller-owned relation expansion) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Implementation for User Story 2
 
@@ -90,7 +90,7 @@
 
 ### Gherkin Feature File for User Story 3 (mandatory)
 
-- [X] T018 [US3] Create `features/inventory/work-items/tfs-field-projection.feature` — translate spec.md US3 acceptance scenarios (TFS source streams items with requested fields, filter exclusion works on TFS) into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T018 [US3] Create `features/inventory/work-items/tfs-field-projection.feature` — translate spec.md US3 acceptance scenarios (TFS source streams items with requested fields, filter exclusion works on TFS) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Implementation for User Story 3
 
@@ -191,3 +191,4 @@ Developer C: T018 → T019 → T020 → T021  (US3: TFS implementation)
 4. Add US3 → TFS implementation → validate with TFS source
 5. Documentation Sync → all discrepancies resolved
 6. Each story adds value without breaking previous stories
+

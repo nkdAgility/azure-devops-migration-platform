@@ -2,7 +2,7 @@
 
 Audience: Contributors touching agent runtime internals.
 
-This is a lightweight contributor overview of the runtime package boundary. The binding rules are in [.agents/guardrails/package-rules.md](../.agents/guardrails/package-rules.md), [.agents/guardrails/architecture-boundaries.md](../.agents/guardrails/architecture-boundaries.md), and [.agents/guardrails/data-sovereignty-rules.md](../.agents/guardrails/data-sovereignty-rules.md). The architectural decision is recorded in [adr/0016-unified-package-access.md](adr/0016-unified-package-access.md). The exact package layout remains in [package-format-reference.md](package-format-reference.md).
+This is a lightweight contributor overview of the runtime package boundary. The binding rules are in [.agents/20-guardrails/domains/package-rules.md](../.agents/20-guardrails/domains/package-rules.md), [.agents/20-guardrails/core/architecture-boundaries.md](../.agents/20-guardrails/core/architecture-boundaries.md), and [.agents/20-guardrails/domains/data-sovereignty-rules.md](../.agents/20-guardrails/domains/data-sovereignty-rules.md). The architectural decision is recorded in [adr/0016-unified-package-access.md](adr/0016-unified-package-access.md). The exact package layout remains in [package-format-reference.md](package-format-reference.md).
 
 ## What Contributors Need To Know
 
@@ -44,3 +44,4 @@ These concerns remain implementation detail beneath the caller-facing contract:
 - [adr/0002-filesystem-package-as-source-of-truth.md](adr/0002-filesystem-package-as-source-of-truth.md)
 - [adr/0005-agent-only-package-write-access.md](adr/0005-agent-only-package-write-access.md)
 - [adr/0008-configuration-travels-in-package.md](adr/0008-configuration-travels-in-package.md)
+

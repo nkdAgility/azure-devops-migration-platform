@@ -14,8 +14,8 @@
 | `docs/architecture.md` | Confirmed — no conflicts |
 | `docs/control-plane.md` | **Has gap** — does not describe task-list push endpoint or `JobBootstrap.Tasks` field |
 | `docs/migration-process-guide.md` | **Has gap** — does not describe `IJobExecutionPlanBuilder` or task-attribution in `ProgressEvent` |
-| `.agents/context/job-lifecycle.md` | Confirmed — `ConfigPayload` carries all config; `JobKind` enum defines the six job types |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed — rules 21 (mandatory reuse), 25 (observability) apply |
+| `.agents/30-context/domains/job-lifecycle.md` | Confirmed — `ConfigPayload` carries all config; `JobKind` enum defines the six job types |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed — rules 21 (mandatory reuse), 25 (observability) apply |
 | `agents.md` | Confirmed — binding entry point read |
 
 ---
@@ -165,3 +165,4 @@ This feature adds no new export or import capability. The `IJobExecutionPlanBuil
 - **SC-005**: If `inventory.json` exists, the `Inventory` task is `Skipped` and `knownTotal` on downstream tasks is populated from inventory data.
 - **SC-006**: All existing tests pass after adding `TaskId?` + `TaskStatus?` to `ProgressEvent` — nullable fields are additive and do not break existing serialisation.
 - **SC-007**: The TFS agent's NDJSON progress events include `taskId` and `taskStatus` fields when a module lifecycle transition occurs.
+

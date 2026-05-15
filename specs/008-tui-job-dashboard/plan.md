@@ -39,7 +39,7 @@ Selecting a job in the Job List updates the Metrics and Log panels in place — 
 
 ## Constitution Check
 
-All files in `/.agents/guardrails/`, `/.agents/context/`, and relevant `/docs/` have been read. Applicable guardrails:
+All files in `/.agents/20-guardrails/`, `/.agents/30-context/`, and relevant `/docs/` have been read. Applicable guardrails:
 
 - [x] **Package-First (I):** Not applicable — TUI does not touch the package or artefact store.
 - [x] **Streaming (II):** Not applicable — TUI does not process revision folders.
@@ -295,3 +295,4 @@ All nine principles re-checked after Phase 1. No new violations introduced. No c
 1. **`JobRecord.State` mutation** — the current `MigrationJob` is an immutable record. `JobRecord.State` must be mutable string (or use a separate `ConcurrentDictionary<Guid, string>` in `JobStore`). Prefer the dictionary to keep `JobRecord` immutable.
 2. **Auth forwarding in `TuiCommand`** — ✅ Resolved: `TuiCommand` calls `CreateHost(settings)` (the same `ControlPlaneCommandBase` method used by all other commands). This ensures the `HttpClient` registered in the DI host has the correct Entra/Windows auth handler. No separate `CreateTuiHost` needed.
 3. **`Application.Invoke` from async SSE loop** — verify in prototype that `Application.Invoke` is safe to call before `app.Run` returns; some v2 betas have constraints on post-dispose invocation.
+

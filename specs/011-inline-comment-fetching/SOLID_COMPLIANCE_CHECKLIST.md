@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-The specification for feature 011 (Inline Comment Fetching for Edit/Delete Revisions) has been reviewed against the SOLID principles and architectural guardrails defined in `.agents/guardrails/` and `docs/`. 
+The specification for feature 011 (Inline Comment Fetching for Edit/Delete Revisions) has been reviewed against the SOLID principles and architectural guardrails defined in `.agents/20-guardrails/` and `docs/`. 
 
 **Overall Assessment:** ✅ **COMPLIANT** (specification design aligns with SOLID principles and guardrails)
 
@@ -244,7 +244,7 @@ High-level modules should not depend on low-level modules; both should depend on
 
 ## Alignment with Architectural Guardrails
 
-### System Architecture Rules (from `.agents/guardrails/architecture-boundaries.md`)
+### System Architecture Rules (from `.agents/20-guardrails/core/architecture-boundaries.md`)
 
 #### ✅ Rule 1: WorkItems Chronological Layout
 - **Specification Design:** comment.json stored beside revision.json
@@ -283,7 +283,7 @@ High-level modules should not depend on low-level modules; both should depend on
 
 ---
 
-### Coding Standards Rules (from `.agents/guardrails/coding-standards.md`)
+### Coding Standards Rules (from `.agents/20-guardrails/core/coding-standards.md`)
 
 #### ✅ SOLID Principles
 - **Specification Compliance:** All five principles verified above
@@ -316,7 +316,7 @@ High-level modules should not depend on low-level modules; both should depend on
 
 ---
 
-### WorkItems Rules (from `.agents/guardrails/workitems-rules.md`)
+### WorkItems Rules (from `.agents/20-guardrails/domains/workitems-rules.md`)
 
 #### ✅ Folder Naming Rules
 - **Specification Design:** comment.json stored in existing revision folder (no new naming scheme)
@@ -393,7 +393,7 @@ High-level modules should not depend on low-level modules; both should depend on
 
 **Specification Assessment:** ✅ **FULLY COMPLIANT WITH SOLID PRINCIPLES AND ARCHITECTURAL GUARDRAILS**
 
-The design for feature 011 (Inline Comment Fetching) adheres to all five SOLID principles and aligns with the mandatory guardrails defined in `.agents/guardrails/architecture-boundaries.md`, `.agents/guardrails/coding-standards.md`, and `docs/module-development-guide.md`.
+The design for feature 011 (Inline Comment Fetching) adheres to all five SOLID principles and aligns with the mandatory guardrails defined in `.agents/20-guardrails/core/architecture-boundaries.md`, `.agents/20-guardrails/core/coding-standards.md`, and `docs/module-development-guide.md`.
 
 **Key Strengths:**
 - Clear separation of concerns (detection, fetching, storage, coordination)
@@ -404,3 +404,4 @@ The design for feature 011 (Inline Comment Fetching) adheres to all five SOLID p
 - Non-blocking deferral due to upstream issue; design is sound
 
 **Ready for Implementation:** Once the upstream SDK bug in `AzureDevOpsWorkItemCommentSource` is fixed, no architectural redesign will be needed. This specification can be implemented as-is.
+

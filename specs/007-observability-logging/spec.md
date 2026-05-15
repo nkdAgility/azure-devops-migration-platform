@@ -14,9 +14,9 @@
 | `docs/control-plane.md` | Discrepancy — progress endpoint named `/logs`; no diagnostics endpoint; no download endpoint |
 | `docs/agent-hosting.md` | Confirmed accurate — already documents three sinks and `Logs/` package writing |
 | `docs/cli-guide.md` | Discrepancy — `manage logs` command conflates progress events with diagnostic logs |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — guardrail #12 (agents stateless, durable state in package), #13 (IArtefactStore only), #18 (no UI coupling) all apply |
-| `.agents/context/package-manager.md` | Confirmed accurate — package persistence still routes through `IArtefactStore` |
-| `.agents/context/migration-package-concept.md` | Discrepancy — `Logs/` folder listed but contents not specified |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — guardrail #12 (agents stateless, durable state in package), #13 (IArtefactStore only), #18 (no UI coupling) all apply |
+| `.agents/30-context/domains/package-manager.md` | Confirmed accurate — package persistence still routes through `IArtefactStore` |
+| `.agents/30-context/domains/migration-package-concept.md` | Discrepancy — `Logs/` folder listed but contents not specified |
 
 ---
 
@@ -233,4 +233,5 @@ An operator running `devopsmigration export` needs to control diagnostic verbosi
 - The rename from `/logs` to `/progress` is a breaking API change to the control plane. Since the platform is pre-release, this is acceptable without a versioned upgrader.
 - The control plane diagnostics ring buffer uses the same bounded capacity as the progress ring buffer (default: 1000 records), configurable independently.
 - All live observation of running jobs (job list, events, metrics, diagnostic log stream) is primarily through the TUI. The CLI also provides live diagnostic streaming via `export --follow` (implicit in standalone mode). CLI `manage` commands provide snapshot/download access only — no `--follow` on any `manage` subcommand.
-- Architecture docs read: `docs/architecture.md`, `docs/tui-guide.md`, `docs/control-plane.md`, `docs/agent-hosting.md`, `docs/cli-guide.md`, `docs/development-setup.md`, `.agents/guardrails/architecture-boundaries.md`, `.agents/context/package-manager.md`, `.agents/context/migration-package-concept.md`.
+- Architecture docs read: `docs/architecture.md`, `docs/tui-guide.md`, `docs/control-plane.md`, `docs/agent-hosting.md`, `docs/cli-guide.md`, `docs/development-setup.md`, `.agents/20-guardrails/core/architecture-boundaries.md`, `.agents/30-context/domains/package-manager.md`, `.agents/30-context/domains/migration-package-concept.md`.
+

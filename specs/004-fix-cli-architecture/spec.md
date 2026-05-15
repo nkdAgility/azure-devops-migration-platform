@@ -11,9 +11,9 @@ This specification is grounded in the following documentation:
 
 - **docs/architecture.md**: Confirmed accurate - defines CLI as thin shell, commands submit jobs via ControlPlaneClient
 - **docs/cli-guide.md**: Confirmed accurate - specifies CLI technology (Spectre.Console) and command structure  
-- **.agents/guardrails/architecture-boundaries.md**: Confirmed accurate - Rule 16: "CLI must not contain migration logic"
-- **.agents/guardrails/coding-standards.md**: Confirmed accurate - C# 10+, .NET 9/10 standards
-- **.agents/guardrails/testing-rules.md**: Confirmed accurate - MSTest + Reqnroll framework requirements
+- **.agents/20-guardrails/core/architecture-boundaries.md**: Confirmed accurate - Rule 16: "CLI must not contain migration logic"
+- **.agents/20-guardrails/core/coding-standards.md**: Confirmed accurate - C# 10+, .NET 9/10 standards
+- **.agents/20-guardrails/workflow/testing-rules.md**: Confirmed accurate - MSTest + Reqnroll framework requirements
 
 **Discrepancy**: Current Program.cs implementation violates the "thin shell" principle by aggregating all DI setup and configuration logic. The reference implementation in azure-devops-migration-tools demonstrates the correct pattern where commands manage their own hosting lifecycle through a host builder.
 

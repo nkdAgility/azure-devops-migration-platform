@@ -173,8 +173,8 @@ This document defines the complete task decomposition for implementing the Work 
 ### Path Translation Consistency (US2: Scenario 3, FR-008)
 
 - [X] T058 [US2] [P] Apply NodeTranslationTool consistently to paths during both node creation and later work item field replay
-- [ ] T059 [US2] [P] Cache translated paths in NodeTranslationHelper to ensure same source path → same target path throughout import
-- [ ] T060 [US2] [P] Verify that node creation and later field writes use identical translated paths (no inconsistency)
+- [X] T059 [US2] [P] Cache translated paths in NodeTranslationHelper to ensure same source path → same target path throughout import
+- [X] T060 [US2] [P] Verify that node creation and later field writes use identical translated paths (no inconsistency)
 
 ### Resume & Duplication Prevention (US2: Scenario 4)
 
@@ -383,7 +383,7 @@ This document defines the complete task decomposition for implementing the Work 
 - [ ] T149 Update `docs/configuration-reference.md` with WorkItemImport extension lever schema and examples
 - [ ] T150 Update `docs/cli-guide.md` with CLI commands for prepare and import phases (--extensions flags, --diagnostics output)
 - [ ] T151 Create migration runbook in `docs/` directory with operator decisions, error resolution, and post-import validation steps
-- [ ] T152 Update `.agents/context/package-manager.md` with import checkpoint and idmap.db storage contract
+- [ ] T152 Update `.agents/30-context/domains/package-manager.md` with import checkpoint and idmap.db storage contract
 - [ ] T153 Update `docs/troubleshooting-guide.md` with common import failures and resolutions
 
 ### SPDX Headers & Code Quality
@@ -547,4 +547,5 @@ Each feature file contains Gherkin scenarios matching user story acceptance crit
 - [ ] All tests pass: `dotnet test` succeeds with no failures
 - [ ] StyleCop analysis passes with no violations
 - [ ] Definition of Done checklist (T158-T160) verified
+
 

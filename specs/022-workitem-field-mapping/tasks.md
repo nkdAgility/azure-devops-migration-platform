@@ -75,7 +75,7 @@
 
 ### Gherkin Feature File (mandatory — ATDD Phase 1)
 
-- [X] T025 [US1] Create `features/import/workitems/field-transform/value-remapping.feature` — translate spec.md US1 acceptance scenarios (4 scenarios: value mapped, unmapped value preserved with warning, applyTo filter skips non-matching type, sequential transforms in declaration order) into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md`
+- [X] T025 [US1] Create `features/import/workitems/field-transform/value-remapping.feature` — translate spec.md US1 acceptance scenarios (4 scenarios: value mapped, unmapped value preserved with warning, applyTo filter skips non-matching type, sequential transforms in declaration order) into conformant Gherkin per `.agents/20-guardrails/workflow/acceptance-test-format.md`
 
 ### Implementation
 
@@ -367,4 +367,5 @@ Each increment adds value without breaking previous stories.
 - One scenario per ATDD session per commit (Constitution VIII)
 - All transforms are pure functions — testable without mocks for I/O
 - 14 transform types across 7 user stories, plus validation and docs
+
 

@@ -13,8 +13,8 @@
 
 ### `IWorkItemImportSink` abstraction not yet documented
 
-- **Source doc**: `docs/module-development-guide.md`, `.agents/guardrails/module-rules.md`
-- **Section**: `docs/module-development-guide.md` — IDataTypeModule Contract; `.agents/guardrails/module-rules.md` — Module Checklist section 4
+- **Source doc**: `docs/module-development-guide.md`, `.agents/20-guardrails/domains/module-rules.md`
+- **Section**: `docs/module-development-guide.md` — IDataTypeModule Contract; `.agents/20-guardrails/domains/module-rules.md` — Module Checklist section 4
 - **Issue**: The plan introduces `IWorkItemImportSink` as a new abstraction in `DevOpsMigrationPlatform.Abstractions` to decouple `WorkItemsModule.ImportAsync` from the target system. This interface is not mentioned in `docs/module-development-guide.md` (which documents only `IDataTypeModule`, `IArtefactStore`, and `IStateStore` as module-facing abstractions), nor in the module template checklist.
 - **Suggested update**: Add a paragraph to `docs/module-development-guide.md` under the "IDataTypeModule Contract" section documenting `IWorkItemImportSink` and its role in the import path. Update the module template checklist to include a step for implementing or injecting the import sink when a module writes to a target.
 
@@ -38,3 +38,4 @@
 - **Section**: Implementation Priority — test structure
 - **Issue**: The plan adds a new `tests/DevOpsMigrationPlatform.SystemTests/` project with `[TestCategory("SystemTest")]` tests. This project is not mentioned in any existing doc and will need to be added to both `DevOpsMigrationPlatform.slnx` and the CI pipeline.
 - **Suggested update**: Add the project to `DevOpsMigrationPlatform.slnx`. Add a CI pipeline step or filter for running `TestCategory=SystemTest` tests in a dedicated stage (to keep unit test runs fast).
+

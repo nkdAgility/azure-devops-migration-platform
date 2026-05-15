@@ -24,7 +24,7 @@ Implement a `devopsmigration discovery inventory` CLI command that counts work i
 
 ## Constitution Check
 
-> ALL files in `/.agents/guardrails/`, relevant `/.agents/context/` files, and `/docs/` files have been read. See Architecture References table in `spec.md`.
+> ALL files in `/.agents/20-guardrails/`, relevant `/.agents/30-context/` files, and `/docs/` files have been read. See Architecture References table in `spec.md`.
 
 - [x] **Package-First (I):** Inventory is a read-only pre-flight operation. It writes no package and calls no `IArtefactStore`. Not applicable — no violation possible.
 - [x] **Streaming (II):** No revision folders or work item revisions are loaded into memory. Query windows are processed one at a time. The `IAsyncEnumerable<InventoryProgressEvent>` pattern ensures lazy streaming.
@@ -140,4 +140,5 @@ Each row is one ATDD session (one scenario, one commit).
 ## Complexity Tracking
 
 > No constitution gate violations requiring justification in this plan.
+
 

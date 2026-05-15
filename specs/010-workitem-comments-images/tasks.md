@@ -52,7 +52,7 @@
 
 ### Feature File (ATDD Phase 1 — write before any step definitions or implementation)
 
-- [X] T010 [US1] Create `features/export/work-items/comments/export-comments.feature` — translate all 4 P1 acceptance scenarios from `spec.md` User Story 1 into Reqnroll Gherkin per `.agents/guardrails/acceptance-test-format.md`; scenarios: (1) 3 comments → 3 folders, (2) 0 comments → 0 folders, (3) >1 page → all folders, (4) resume cursor skips completed work items
+- [X] T010 [US1] Create `features/export/work-items/comments/export-comments.feature` — translate all 4 P1 acceptance scenarios from `spec.md` User Story 1 into Reqnroll Gherkin per `.agents/20-guardrails/workflow/acceptance-test-format.md`; scenarios: (1) 3 comments → 3 folders, (2) 0 comments → 0 folders, (3) >1 page → all folders, (4) resume cursor skips completed work items
 
 ### Implementation for User Story 1
 
@@ -122,8 +122,8 @@
 - [X] T033 [P] Add OTel activity sources `DevOpsMigrationPlatform.WorkItems.Comments` and `DevOpsMigrationPlatform.WorkItems.EmbeddedImages` in `WorkItemCommentExportService` and `EmbeddedImageExportService` — emit spans per work item and per image; register in service collection per existing OTel patterns in `ExportServiceCollectionExtensions`
 - [X] T034 [P] Add OTel counters to `WorkItemCommentExportService` and `EmbeddedImageExportService`: `workitems.comments.fetched`, `workitems.comments.folders_written`, `workitems.comments.pages_fetched`, `workitems.comments.skipped_tfs_not_supported`, `workitems.images.downloaded`, `workitems.images.skipped_external`, `workitems.images.failed`, `workitems.images.bytes_downloaded`
 - [X] T035 [P] Write unit tests for `CommentsScope` and `EmbeddedImagesScope` properties in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Modules/CommentsScopeTests.cs` and `EmbeddedImagesScopeTests.cs` — verify defaults: `Comments.Enabled=true`, `Comments.IncludeDeleted=false`, `EmbeddedImages.Enabled=true`, `EmbeddedImages.DownloadTimeoutSeconds=30`; verify JSON binding maps correctly from scenario config
-- [X] T036 Update `.agents/context/workitems-format-summary.md` to document `<ticks>-<workItemId>-c<commentId>/comment.json` sub-folder, comment version folder layout, and embedded image files beside `revision.json`
-- [X] T037 [P] Update `.agents/context/migration-package-concept.md` to document embedded-image files beside documents and `Checkpoints/workitems-comments.cursor.json` cursor
+- [X] T036 Update `.agents/30-context/domains/workitems-format-summary.md` to document `<ticks>-<workItemId>-c<commentId>/comment.json` sub-folder, comment version folder layout, and embedded image files beside `revision.json`
+- [X] T037 [P] Update `.agents/30-context/domains/migration-package-concept.md` to document embedded-image files beside documents and `Checkpoints/workitems-comments.cursor.json` cursor
 - [X] T038 Run `dotnet clean && dotnet build --no-incremental` from repo root — MUST produce zero errors and zero warnings before task is declared complete
 - [X] T039 Run `dotnet test` from repo root — ALL tests MUST pass before task is declared complete
 - [X] T040 Run export via `.vscode/launch.json` debug profile using `scenarios/export-ado-workitems-single-project.json` — verify: comment folders appear, embedded images downloaded, `revision.json` URLs rewritten, no errors in console output
@@ -187,3 +187,4 @@ Within Phase 5: T028 → T029 → T030 → T031 → T032
 | 5 – US3 | T028–T032 | US3 (P3) | Markdown images downloaded + URLs rewritten |
 | 6 – Polish | T033–T041 | — | OTel, docs, final gates, SystemTest |
 | **Total** | **41 tasks** | **3 stories** | |
+

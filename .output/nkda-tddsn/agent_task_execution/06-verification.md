@@ -32,7 +32,7 @@ Result: exit code 0 after trimming the architecture context file ending.
 | --- | --- |
 | `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobPlanExecutor.cs` | Added shared blocked-dependency skip propagation and terminal task filtering. |
 | `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobPlanExecutorTests.cs` | Added two behavioural regression tests for dependency resume/skip semantics. |
-| `.agents/context/architecture/agent-task-execution.md` | Documented completed/skipped/failed dependency resume semantics. |
+| `.agents/30-context/architecture/agent-task-execution.md` | Documented completed/skipped/failed dependency resume semantics. |
 | `.output/nkda-tddsn/agent_task_execution/*.md` | Produced all six TDDSN workflow artefacts. |
 
 ## Target Suite Coverage Status
@@ -52,3 +52,4 @@ Result: exit code 0 after trimming the architecture context file ending.
 ## Guardrail Violations
 
 None identified in the modified scope. The changes preserve package-backed durable task state, do not add direct filesystem access in module code, do not change connector behaviour, and do not introduce UI coupling.
+

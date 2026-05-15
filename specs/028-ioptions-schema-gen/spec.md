@@ -15,7 +15,7 @@ The following documents were read as part of the architecture check for this spe
 | -------- | ------ |
 | `docs/architecture.md` | Confirmed accurate — no conflicts with this feature |
 | `docs/configuration-reference.md` | **Has discrepancies** — see `discrepancies.md`. Does not describe SchemaOptionsEntry, IAgentJobContext, json.schemas integration, or the DI-driven schema generation pattern |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed — rules 21 (mandatory reuse), 24 (module/tool identifier derivation), 25 (observability) apply. No conflicts. |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed — rules 21 (mandatory reuse), 24 (module/tool identifier derivation), 25 (observability) apply. No conflicts. |
 | `agents.md` | Confirmed — binding entry point read |
 
 ---
@@ -280,3 +280,4 @@ None — all connector-specific requirements are captured in Functional Requirem
 - The per-job DI container in the Migration Agent (introduced by feature 025) already provides the correct `IConfiguration` source for all `IOptions<T>` bindings at runtime; this feature targets CLI-side DI cleanup and schema generation only.
 - `ActiveJobConfigState.PackageConfig` (`IConfiguration`) is currently used for polymorphic endpoint-type binding. Once connectors register `ISourceEndpointInfo`/`ITargetEndpointInfo` from their own DI extensions (which already have access to `IConfiguration` at registration time), this bridge is no longer needed and `ActiveJobConfigState` is deleted in full.
 - `ConfigPayload` in the job is already set by reading the raw JSON file bytes directly (`File.ReadAllTextAsync`) — it is never produced by serialising a `MigrationOptions` object. This confirms `MigrationOptions` has no legitimate serialisation role today.
+

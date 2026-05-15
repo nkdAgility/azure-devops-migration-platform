@@ -133,9 +133,9 @@ Quick reference linking design to SOLID + guardrails:
 ## 🔗 Cross-References to Guardrails
 
 ### Enforced Guidelines
-- [.agents/guardrails/architecture-boundaries.md](../../.agents/guardrails/architecture-boundaries.md) — 14 rules (all ✅ compliant)
-- [.agents/guardrails/coding-standards.md](../../.agents/guardrails/coding-standards.md) — 7 standards (all ✅ compliant)
-- [.agents/guardrails/workitems-rules.md](../../.agents/guardrails/workitems-rules.md) — 4 rules (all ✅ compliant)
+- [.agents/20-guardrails/core/architecture-boundaries.md](../../.agents/20-guardrails/core/architecture-boundaries.md) — 14 rules (all ✅ compliant)
+- [.agents/20-guardrails/core/coding-standards.md](../../.agents/20-guardrails/core/coding-standards.md) — 7 standards (all ✅ compliant)
+- [.agents/20-guardrails/domains/workitems-rules.md](../../.agents/20-guardrails/domains/workitems-rules.md) — 4 rules (all ✅ compliant)
 
 ### Architecture Documents
 - [docs/architecture.md](../../docs/architecture.md) — Foundational architecture
@@ -308,3 +308,4 @@ For questions about:
 - **Implementation approach:** See `tasks.md` + `DESIGN_DECISIONS_RATIONALE.md`
 - **Compliance verification:** See `SOLID_COMPLIANCE_CHECKLIST.md`
 - **Quick reference:** See `COMPLIANCE_SUMMARY.md`
+

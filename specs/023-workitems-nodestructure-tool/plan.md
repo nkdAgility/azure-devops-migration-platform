@@ -29,7 +29,7 @@ The NodeStructure Tool adds area/iteration path mapping, node creation, and clas
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **Mandatory context loading:** Confirmed ALL files in `/.agents/guardrails/`, `/.agents/context/`, and relevant `/docs/` files have been read.
+> **Mandatory context loading:** Confirmed ALL files in `/.agents/20-guardrails/`, `/.agents/30-context/`, and relevant `/docs/` files have been read.
 
 - [x] **Package-First (I):** Export writes `Nodes/source-tree.json` and `Nodes/referenced-paths.json` via `IArtefactStore`. Import reads from these artifacts — never from the live source API. No direct source-to-target migration.
 - [x] **Streaming (II):** `Nodes/source-tree.json` is streamed one node at a time during import replication (FR-016). Revision processing is standard streaming via `RevisionFolderProcessor`. Only the distinct path set (bounded, ~100s) is held in memory for pre-collection.
@@ -210,3 +210,4 @@ All constitution principles re-checked against the completed design:
 - [x] **ATDD-First (VIII):** Verified — 29 acceptance scenarios across 7 user stories.
 - [x] **SOLID & DI (IX):** Verified — constructor injection throughout, `IOptions<NodeStructureOptions>` for config, dedicated `AddNodeStructureToolServices()` extension.
 - [x] **Engineering Practice (X):** Verified — OpenTelemetry metrics/traces/logging defined in spec Observability section, `DataClassification.Customer` scoping for path values, retry with exponential back-off (FR-022), ReDoS protection via `RegexOptions.NonBacktracking` (FR-004a).
+

@@ -30,7 +30,7 @@ Both services use `IArtefactStore` exclusively for all package I/O and integrate
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **Mandatory context loading:** Confirmed — all files in `/.agents/guardrails/`, all files in `/.agents/context/`, and all relevant `/docs/` files read in this session.
+> **Mandatory context loading:** Confirmed — all files in `/.agents/20-guardrails/`, all files in `/.agents/30-context/`, and all relevant `/docs/` files read in this session.
 
 - [x] **Package-First (I):** No direct source-to-target migration. Comments API results are written to `IArtefactStore`. Image bytes are written to `IArtefactStore`. No direct filesystem access inside any module class.
 - [x] **Streaming (II):** `IAsyncEnumerable<WorkItemComment>` is consumed one record at a time. Image downloads happen per-record. No in-memory lists of all comments accumulated, no sort of enumeration results in memory.
@@ -329,7 +329,8 @@ Each activity spans one work item's comment export; child activities span each c
 
 See `discrepancies.md`. Two docs must be updated as part of implementation:
 
-1. **`.agents/context/workitems-format-summary.md`** — add `<ticks>-<workItemId>-c<commentId>/comment.json` sub-folder description
-2. **`.agents/context/migration-package-concept.md`** — add embedded image files beside documents; add `workitems-comments.cursor.json` cursor description
+1. **`.agents/30-context/domains/workitems-format-summary.md`** — add `<ticks>-<workItemId>-c<commentId>/comment.json` sub-folder description
+2. **`.agents/30-context/domains/migration-package-concept.md`** — add embedded image files beside documents; add `workitems-comments.cursor.json` cursor description
 
 These must be updated before the final task in `tasks.md` is marked complete.
+

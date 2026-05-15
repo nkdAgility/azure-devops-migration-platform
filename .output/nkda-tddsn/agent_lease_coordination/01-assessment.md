@@ -6,9 +6,9 @@ Subsystem:
 agent_lease_coordination
 
 Analysed sources:
-- `.agents/context/architecture/agent-lease-coordination.md`
-- `.agents/context/control-plane-concept.md`
-- `.agents/context/entitlements-model.md`
+- `.agents/30-context/architecture/agent-lease-coordination.md`
+- `.agents/30-context/domains/control-plane-concept.md`
+- `.agents/30-context/domains/entitlements-model.md`
 - `docs/agent-hosting.md`
 - `src/DevOpsMigrationPlatform.Infrastructure.Agent/AgentWorkerBase.cs`
 - `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`
@@ -132,3 +132,4 @@ D4. TFS and .NET 10 agent workers share the base lease lifecycle, so base cleanu
 2. First test: `ExecuteAsync_WhenJobDispatchThrows_ClearsActiveLeaseAndPackageState`.
 3. Implement the minimal production change in `AgentWorkerBase.PollAndExecuteAsync` using `try/finally` around dispatch, post-job flush, and package cleanup.
 4. Keep existing TFS and inventory tests unchanged.
+

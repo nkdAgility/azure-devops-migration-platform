@@ -1,18 +1,18 @@
 ---
 name: nkda-archimprove-documentation
-description: Analyse repository documentation and propose restructuring, deepening, and broadening opportunities across docs, .agents/context, and .agents/guardrails. Use when the user wants documentation architecture, documentation audits, audience separation, agent token control, or documentation growth as features are added.
+description: Analyse repository documentation and propose restructuring, deepening, and broadening opportunities across docs, .agents/30-context, and .agents/20-guardrails. Use when the user wants documentation architecture, documentation audits, audience separation, agent token control, or documentation growth as features are added.
 ---
 
 # Improve Documentation Architecture
 
-Surface documentation architecture friction and propose **documentation deepening opportunities**. The aim is to make the human documentation more valuable while keeping `.agents/context` and `.agents/guardrails` small, current, and useful for agent work.
+Surface documentation architecture friction and propose **documentation deepening opportunities**. The aim is to make the human documentation more valuable while keeping `.agents/30-context` and `.agents/20-guardrails` small, current, and useful for agent work.
 
 This skill covers:
 
 - `agents.md`
 - `.github/copilot-instructions.md`
-- `.agents/guardrails`
-- `.agents/context`
+- `.agents/20-guardrails`
+- `.agents/30-context`
 - `docs`
 
 It deliberately excludes:
@@ -31,8 +31,8 @@ Those areas may provide supporting evidence, but they are not part of the docume
 Organise documentation by **audience** and **authority**.
 
 - `/docs` explains.
-- `.agents/context` compresses.
-- `.agents/guardrails` constrains.
+- `.agents/30-context` compresses.
+- `.agents/20-guardrails` constrains.
 
 The same topic may appear in all three places, but with a different purpose:
 
@@ -49,8 +49,8 @@ Use these terms exactly in every suggestion. Full placement and authority rules 
 - **Guide**: human-facing explanatory documentation that teaches operation, hosting, contribution, or diagnosis.
 - **Reference**: precise human-facing documentation that records exact schemas, formats, commands, endpoints, or contracts.
 - **ADR**: a permanent decision record under `docs/adr/`.
-- **Context**: compressed agent-facing system understanding under `.agents/context`.
-- **Guardrail**: mandatory agent-facing constraint under `.agents/guardrails`.
+- **Context**: compressed agent-facing system understanding under `.agents/30-context`.
+- **Guardrail**: mandatory agent-facing constraint under `.agents/20-guardrails`.
 - **Reject condition**: an explicit condition under which an agent must reject or rewrite a proposed change.
 - **Token surface**: the amount of text an agent must read to act safely.
 - **Canonical source**: the most authoritative place for a fact, rule, decision, or contract.
@@ -65,7 +65,7 @@ Key principles:
 - **Audience test**: a file has one primary audience. Secondary audiences are allowed only when their needs do not dilute the file.
 - **Authority test**: a statement belongs where its authority matches its purpose.
 - **Token test**: agent context should contain only what an agent must know before changing code or docs.
-- **Rejection test**: if violation would make implementation unacceptable, the rule belongs in `.agents/guardrails`.
+- **Rejection test**: if violation would make implementation unacceptable, the rule belongs in `.agents/20-guardrails`.
 - **Human value test**: if a human needs examples, workflows, troubleshooting, or explanation, the content belongs in `/docs`.
 - **Decision permanence test**: if future contributors need to know why a decision was made, record it as an ADR.
 - **Drift test**: if two files say the same thing with the same authority, nominate one canonical source and reduce the other to a link or summary.
@@ -74,14 +74,17 @@ Key principles:
 
 Before proposing changes, inspect the current repository documentation in this order:
 
-1. `agents.md` — mandatory pre-flight list and entry point for all agents.
-2. `.github/copilot-instructions.md` — Copilot-specific pre-flight; must mirror `agents.md`.
-3. `.agents/20-guardrails/README.md`, if present.
-4. `.agents/30-context/README.md`, if present.
-5. `docs/README.md`, if present.
-6. `docs/adr/README.md` and relevant ADRs, if present.
-7. Documentation files directly related to the requested area.
-8. Any referenced context or guardrail files that claim authority over the requested area.
+1. `.agents/00-entry/manifest.yaml` — decision-system entrypoint.
+2. `.agents/00-entry/task-profiles.yaml` and `.agents/00-entry/reading-order.md` — profile loading contract.
+3. `.agents/10-contracts/*.yaml` — surface/seam/change-class/consent governance.
+4. `agents.md` — mandatory pre-flight policy and repository entrypoint.
+5. `.github/copilot-instructions.md` — Copilot-specific pre-flight; must mirror `agents.md`.
+6. `.agents/20-guardrails/README.md`, if present.
+7. `.agents/30-context/README.md`, if present.
+8. `docs/README.md`, if present.
+9. `docs/adr/README.md` and relevant ADRs, if present.
+10. Documentation files directly related to the requested area.
+11. Any referenced context or guardrail files that claim authority over the requested area.
 
 If the user provides specific files, inspect them before responding. Do not infer their contents.
 
@@ -98,7 +101,7 @@ Record:
 - which files appear misplaced
 - which files mix audiences
 - which files mix guide, reference, guardrail, context, and ADR content
-- where long-form documentation has been placed in `.agents/context`
+- where long-form documentation has been placed in `.agents/30-context`
 - where enforceable rules are buried in `/docs`
 - where human guides contain agent-only constraints
 - where docs refer to missing or renamed files
@@ -127,8 +130,8 @@ Look for opportunities that deepen and broaden the docs without expanding the ag
 
 A good opportunity usually does one or more of these:
 
-- moves operator explanation out of `.agents/context`
-- moves mandatory rules out of `/docs` into `.agents/guardrails`
+- moves operator explanation out of `.agents/30-context`
+- moves mandatory rules out of `/docs` into `.agents/20-guardrails`
 - moves inline rules out of `agents.md` or `copilot-instructions.md` into the appropriate guardrail file, replacing them with a reference
 - removes verbatim duplication between `agents.md` and a guardrail by keeping only the reference in `agents.md`
 - compresses long agent context into short concept summaries
@@ -165,8 +168,8 @@ When implementing a selected candidate:
 1. Re-read the source files being changed.
 2. Preserve canonical content.
 3. Move full paragraphs rather than sentence fragments unless the user explicitly asks for surgical edits.
-4. Keep `.agents/context` concise.
-5. Keep `.agents/guardrails` imperative and testable.
+4. Keep `.agents/30-context` concise.
+5. Keep `.agents/20-guardrails` imperative and testable.
 6. Keep `/docs` useful to humans with examples, workflows, troubleshooting, and references.
 7. Add links between layers instead of duplicating long content.
 8. Update indexes and related-document sections.
@@ -209,9 +212,9 @@ Never present inferred structure as if it already exists.
 
 Never claim a file exists unless it was inspected or found.
 
-Never treat `.agents/context` as a dumping ground for long documentation.
+Never treat `.agents/30-context` as a dumping ground for long documentation.
 
-Never treat `/docs` as lower authority than `.agents/context` for human explanation.
+Never treat `/docs` as lower authority than `.agents/30-context` for human explanation.
 
 Never move contributor-only content into operator guides.
 
@@ -224,4 +227,5 @@ Never put client SDK, external API, pagination, retry, or connector implementati
 - [TOKEN-BUDGETS.md](TOKEN-BUDGETS.md)
 - [REPORT-FORMAT.md](REPORT-FORMAT.md)
 - [ADR-FORMAT.md](ADR-FORMAT.md)
+
 

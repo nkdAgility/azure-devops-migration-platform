@@ -34,7 +34,7 @@ This document captures research findings and design decisions that inform the im
 **Integration Point**: Import module will use existing `IStateStore` abstraction to read/write cursor and idmap.db.
 
 **Citations**: 
-- `.agents/context/checkpointing-summary.md`
+- `.agents/30-context/domains/checkpointing-summary.md`
 - `src/DevOpsMigrationPlatform.Abstractions.Agent/Lease/PackagePaths.cs`
 - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/StateStoreBase.cs`
 
@@ -58,7 +58,7 @@ This document captures research findings and design decisions that inform the im
 **Integration Point**: Import module receives `IIdentityMappingService` via constructor injection. No direct filesystem access to mapping file.
 
 **Citations**:
-- `.agents/context/identity-and-mapping.md`
+- `.agents/30-context/domains/identity-and-mapping.md`
 - `src/DevOpsMigrationPlatform.Abstractions.Agent/Services/IIdentityMappingService.cs`
 
 ---
@@ -135,8 +135,8 @@ This document captures research findings and design decisions that inform the im
 **Integration Point**: Import module receives `IProgressSink` and `ILogger` via constructor. All status updates and errors reported through these abstractions.
 
 **Citations**:
-- `.agents/context/telemetry-model.md`
-- `.agents/guardrails/observability-requirements.md`
+- `.agents/30-context/domains/telemetry-model.md`
+- `.agents/20-guardrails/domains/observability-requirements.md`
 - `src/DevOpsMigrationPlatform.Abstractions.Agent/Sinks/IProgressSink.cs`
 
 ---
@@ -205,7 +205,7 @@ This document captures research findings and design decisions that inform the im
 **Integration Point**: Import module receives `IArtefactStore` via constructor. Enumerates revision folders one at a time; reads `revision.json` and attachment binaries from each folder.
 
 **Citations**:
-- `.agents/context/migration-package-concept.md`
+- `.agents/30-context/domains/migration-package-concept.md`
 - `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/IArtefactStore.cs`
 
 ---
@@ -365,4 +365,5 @@ All core infrastructure is in place. Import module is a consumer of existing abs
 2. ⏳ **Phase 1**: Generate `data-model.md`, `contracts/`, `quickstart.md`.
 3. ⏳ **Phase 2**: Generate `tasks.md` via `/speckit.tasks` with full connector coverage allocation.
 4. ⏳ **ATDD inner loop**: One scenario at a time via `/speckit.specify` → Gherkin → tests → implementation.
+
 

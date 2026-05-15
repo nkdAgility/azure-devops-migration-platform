@@ -104,6 +104,6 @@ DataClassification.System(value)
 
 ## Further Reading
 
-- [.agents/context/telemetry-model.md](../.agents/context/telemetry-model.md) — telemetry model overview
-- [.agents/guardrails/architecture-boundaries.md](../.agents/guardrails/architecture-boundaries.md) — data residency rules
+- [.agents/30-context/domains/telemetry-model.md](../.agents/30-context/domains/telemetry-model.md) — telemetry model overview
+- [.agents/20-guardrails/core/architecture-boundaries.md](../.agents/20-guardrails/core/architecture-boundaries.md) — data residency rules
 - [observability.md](observability.md) — observability for operators

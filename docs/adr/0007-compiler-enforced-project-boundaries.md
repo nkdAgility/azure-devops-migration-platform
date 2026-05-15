@@ -62,5 +62,6 @@ The in-process fallback (`LocalStackHost`) is replaced by `ChildProcessHost`, wh
 ## Related
 
 - [docs/architecture.md](../architecture.md) — component boundaries
-- [.agents/guardrails/architecture-boundaries.md](../../.agents/guardrails/architecture-boundaries.md) — enforced rules
+- [.agents/20-guardrails/core/architecture-boundaries.md](../../.agents/20-guardrails/core/architecture-boundaries.md) — enforced rules
 - Driving spec: `specs/021.2-separation-of-concerns/spec.md`
+

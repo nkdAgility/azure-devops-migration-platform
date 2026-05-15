@@ -277,8 +277,8 @@
 
 - [X] T099 Update `docs/module-development-guide.md` — (1) extend IModule contract code block with `InventoryAsync`, `PrepareAsync`, `SupportsInventory`, `SupportsPrepare`; (2) replace "Discovery Modules" section with "Analysers" section documenting `IAnalyser`, `AnalyseContext`, `DependencyAnalyser`; (3) remove `InventoryModule`, `InventoryDiscoveryModule`, `DependencyDiscoveryModule` from module table; (4) update Module ↔ Orchestrator mapping table; (5) add Module Phase Support Matrix; (6) add "Module Dependencies and DependsOn" subsection with `DependencyPhase` enum values. See `discrepancies.md` for complete list.
 - [X] T100 [P] Update `docs/architecture.md` — add `JobKind → Phase dispatch table`; add `IAnalyser` to extension-point list; update Migrate pipeline sequence (`inventory → export → prepare → import → validate`)
-- [X] T101 [P] Update `.agents/guardrails/architecture-boundaries.md` Rule 24 — add `{Stem}Analyser` naming convention (`Name = "{Stem}"`, config = `"MigrationPlatform:Analysers:{Stem}"`, DI = `Add{Stem}AnalyserServices`, interface = `IAnalyser`, file = `{Stem}Analyser.cs`). See `discrepancies.md` entry for exact wording.
-- [X] T102 [P] Update `.agents/guardrails/module-rules.md` — add `InventoryAsync` and `PrepareAsync` implementation checklist items; add `SupportsInventory`/`SupportsPrepare` property declarations; add `prepare-report.json` output contract
+- [X] T101 [P] Update `.agents/20-guardrails/core/architecture-boundaries.md` Rule 24 — add `{Stem}Analyser` naming convention (`Name = "{Stem}"`, config = `"MigrationPlatform:Analysers:{Stem}"`, DI = `Add{Stem}AnalyserServices`, interface = `IAnalyser`, file = `{Stem}Analyser.cs`). See `discrepancies.md` entry for exact wording.
+- [X] T102 [P] Update `.agents/20-guardrails/domains/module-rules.md` — add `InventoryAsync` and `PrepareAsync` implementation checklist items; add `SupportsInventory`/`SupportsPrepare` property declarations; add `prepare-report.json` output contract
 - [X] T103 Mark all 8 items in `specs/030-module-analiser-refactor/discrepancies.md` as `Resolved` or `N/A`
 - [X] T104 Review `analysis/pending-actions.md` — remove or update any items resolved by this spec
 - [X] T105 Update `analysis/draftspec-Module-refactor-consolidation.md` — mark as `Superseded by spec 030` (or archive)
@@ -360,4 +360,5 @@ Each story adds value without breaking previous stories. Build must pass after e
 - `Assert.Inconclusive()` is forbidden — all test stubs must be either implemented or deleted
 - No `throw new NotImplementedException()` may remain in any reachable code path at the end of each phase
 - The Simulated connector MUST yield ≥2 items per operation — zero-item sources make every downstream test vacuously pass
+
 

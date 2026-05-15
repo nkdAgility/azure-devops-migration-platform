@@ -104,8 +104,9 @@ tests/
 3. Remove package-facing runtime bypasses by migrating checkpointing, plan persistence, package config, progress/diagnostics logging, and worker flows to `IPackageAccess`.
 4. Keep unavoidable string-path compatibility isolated in `LegacyPackagePathShim` and treat every remaining shim call site as migration debt to be audited and reduced.
 5. Add or refresh tests for route validation, explicit content API behavior, resume and phase semantics, package-config hardening, Simulated/AzureDevOps/TFS parity, and the required representative scenario validation gate.
-6. Update `.agents/context` and `/docs` references so the package boundary is documented as `IPackageAccess` only, with no package-facing store bypasses in runtime code.
+6. Update `.agents/30-context` and `/docs` references so the package boundary is documented as `IPackageAccess` only, with no package-facing store bypasses in runtime code.
 
 ## Complexity Tracking
 
 No constitution violations requiring justification.
+

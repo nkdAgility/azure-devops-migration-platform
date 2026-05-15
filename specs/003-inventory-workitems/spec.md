@@ -18,9 +18,9 @@ The following documents were read before drafting this specification.
 | `docs/configuration-reference.md` | **Discrepancy** — `source` section omits authentication fields; needs update to include auth shape |
 | `docs/architecture.md` | Confirmed accurate — inventory is a read-only pre-flight operation; does not violate job-engine separation |
 | `docs/module-development-guide.md` | Confirmed accurate — no inventory module type yet; this feature introduces `IInventoryService` as a separate concern |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — rules 16, 19 consulted; inventory is not migration logic; TFS still requires subprocess isolation |
-| `.agents/guardrails/coding-standards.md` | Confirmed — Spectre.Console.Cli for CLI; no bare credential args |
-| `.agents/guardrails/migration-rules.md` | Confirmed — inventory is not migration; no package, no checkpoint |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — rules 16, 19 consulted; inventory is not migration logic; TFS still requires subprocess isolation |
+| `.agents/20-guardrails/core/coding-standards.md` | Confirmed — Spectre.Console.Cli for CLI; no bare credential args |
+| `.agents/20-guardrails/domains/migration-rules.md` | Confirmed — inventory is not migration; no package, no checkpoint |
 
 ---
 
@@ -329,3 +329,4 @@ The `accessToken` field value is resolved in this order (highest precedence firs
 - The TFS inventory subprocess reuses the existing `DevOpsMigrationPlatform.CLI.TfsMigration` binary with a new `inventory` subcommand — no new binary is introduced.
 - `target` in the config file is silently ignored by the inventory command.
 - Architecture docs consulted: `docs/cli-guide.md`, `docs/configuration-reference.md`, `docs/capabilities-guide.md`, `docs/tfs-exporter.md`, `docs/architecture.md`. All gaps are filed in `discrepancies.md`.
+

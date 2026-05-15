@@ -49,7 +49,7 @@ public Task ImportAsync(ImportContext context, CancellationToken ct) =>
 
 `IArtefactStore.EnumerateAsync` exists and returns paths in lexicographic ascending order — the exact requirement for streaming chronological import.
 
-**Stage contract** (from `.agents/context/checkpointing-summary.md` and `.agents/context/import-streaming.md`):
+**Stage contract** (from `.agents/30-context/domains/checkpointing-summary.md` and `.agents/30-context/domains/import-streaming.md`):
 
 | Stage | Label | Action |
 |---|---|---|
@@ -147,7 +147,7 @@ A `PhaseTrackingService` class wraps this logic (reads/writes via `IStateStore`)
 
 **Decision**: At Stage D (`UploadedAttachments`), check `Checkpoints/idmap.json` for an existing `(workItemId, revisionIndex, relativePath) → targetAttachmentId` entry before uploading. If present, skip upload.
 
-**Rationale**: ADO REST does not expose SHA256 in attachment list responses (from `.agents/context/import-streaming.md`). The only reliable idempotency check is a local record of what was already uploaded.
+**Rationale**: ADO REST does not expose SHA256 in attachment list responses (from `.agents/30-context/domains/import-streaming.md`). The only reliable idempotency check is a local record of what was already uploaded.
 
 **Implementation**: A simple JSON dictionary keyed by `"workItemId:revisionIndex:relativePath"` stored at `Checkpoints/idmap.json`. Read at Stage D start; write new entries after each successful upload. Read/write via `IStateStore`.
 
@@ -163,6 +163,7 @@ All required types (`IAsyncEnumerable<T>`, `System.Text.Json`, `Microsoft.Extens
 
 Three documentation gaps were identified during research. They will be rectified in task T17:
 
-1. `.agents/context/checkpointing-summary.md` — Add export cursor behaviour description
-2. `.agents/context/job-lifecycle.md` — Add `resume` block to schema
-3. `.agents/context/checkpointing-summary.md` — Add Both-mode phase tracking section
+1. `.agents/30-context/domains/checkpointing-summary.md` — Add export cursor behaviour description
+2. `.agents/30-context/domains/job-lifecycle.md` — Add `resume` block to schema
+3. `.agents/30-context/domains/checkpointing-summary.md` — Add Both-mode phase tracking section
+

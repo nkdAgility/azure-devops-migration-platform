@@ -30,8 +30,8 @@ The following architecture and guardrail documents were read before drafting thi
 | `docs/module-development-guide.md` | Confirmed accurate — this feature is not a module |
 | `docs/capabilities-guide.md` | **Discrepancy** — inventory section per source type needs a corresponding dependencies section |
 | `docs/validation.md` | Confirmed accurate — does not apply to discovery commands |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — Rules 16 (no migration logic in CLI) applies |
-| `.agents/context/cli-commands.md` | **Discrepancy** — `discovery dependencies` command is not yet registered here |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — Rules 16 (no migration logic in CLI) applies |
+| `.agents/30-context/domains/cli-commands.md` | **Discrepancy** — `discovery dependencies` command is not yet registered here |
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -163,3 +163,4 @@ A migration planner needs to understand not just which individual work items hav
 - **Simulated source support**: When an organisation entry in `DiscoveryOptions` has `Type` = `Simulated`, the command generates synthetic dependency records so the feature can be tested without a live ADO organisation.
 - **No checkpoint support**: Discovery commands are fast local queries. If the run is interrupted, the operator re-runs from scratch. This is consistent with `discovery inventory`.
 - **Report format**: CSV is chosen as the primary output format for compatibility with common analysis tools. A machine-readable JSON summary format is out of scope for this initial version.
+

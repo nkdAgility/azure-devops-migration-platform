@@ -33,7 +33,7 @@ After a spec is approved and before implementation proceeds, the repository expe
 - observability coverage
 - red-team blind spots
 
-The agent-oriented enforcement lives in [test-first-workflow.md](../.agents/guardrails/test-first-workflow.md). Contributors should treat that file as the exact contract and this guide as the human explanation.
+The agent-oriented enforcement lives in [test-first-workflow.md](../.agents/20-guardrails/workflow/test-first-workflow.md). Contributors should treat that file as the exact contract and this guide as the human explanation.
 
 ## Test Hierarchy
 
@@ -104,7 +104,7 @@ SimulatedWorkItemSource_WhenSeeded_ReturnsAtLeastTwoItems
 
 Feature files live in `features/`. Step definitions follow Reqnroll.MSTest conventions.
 
-- Feature files must comply with [acceptance-test-format.md](../.agents/guardrails/acceptance-test-format.md).
+- Feature files must comply with [acceptance-test-format.md](../.agents/20-guardrails/workflow/acceptance-test-format.md).
 - Step definitions must be in a class annotated `[Binding]`.
 - Use feature tests for behaviour scenarios with in-memory fakes or mocks, not for live environment coverage.
 
@@ -177,5 +177,6 @@ What every test must prove:
 - [contributor-guide.md](contributor-guide.md) — contributor entry point
 - [live-system-testing-guide.md](live-system-testing-guide.md) — live environment setup and CI patterns
 - [module-development-guide.md](module-development-guide.md) — module test expectations
-- [.agents/guardrails/testing-rules.md](../.agents/guardrails/testing-rules.md) — enforced testing constraints
-- [.agents/guardrails/test-first-workflow.md](../.agents/guardrails/test-first-workflow.md) — exact tests-first workflow contract
+- [.agents/20-guardrails/workflow/testing-rules.md](../.agents/20-guardrails/workflow/testing-rules.md) — enforced testing constraints
+- [.agents/20-guardrails/workflow/test-first-workflow.md](../.agents/20-guardrails/workflow/test-first-workflow.md) — exact tests-first workflow contract
+

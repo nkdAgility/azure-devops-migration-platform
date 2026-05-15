@@ -32,8 +32,8 @@ changes.
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **Mandatory context loading:** ALL files in `/.agents/guardrails/`, ALL files in
-> `/.agents/context/`, and relevant `/docs/` files have been read prior to this plan.
+> **Mandatory context loading:** ALL files in `/.agents/20-guardrails/`, ALL files in
+> `/.agents/30-context/`, and relevant `/docs/` files have been read prior to this plan.
 
 - [x] **Package-First (I):** `DependencyCapture` writes only to `IArtefactStore` via `discovery/{org}/{project}/dependencies.csv`. No direct source-to-target migration. No module may write files directly. ✅
 - [x] **Streaming (II):** This refactor does not alter any streaming import path. `DependencyCapture.CaptureAsync` is a single-project per-call operation with no in-memory accumulation of revisions. ✅
@@ -50,7 +50,7 @@ changes.
 
 *GATE: Must be completed before task generation. Every operation enumerated here MUST appear as explicit tasks in `tasks.md`.*
 
-> Files consulted: `.agents/context/telemetry-architecture.md`, `.agents/context/telemetry-model.md`, `WellKnownActivitySourceNames.cs`, `WellKnownAgentMetricNames.cs`, `WellKnownMeterNames.cs`, `WellKnownTagNames.cs`, `IPlatformMetrics.cs`.
+> Files consulted: `.agents/30-context/telemetry-architecture.md`, `.agents/30-context/domains/telemetry-model.md`, `WellKnownActivitySourceNames.cs`, `WellKnownAgentMetricNames.cs`, `WellKnownMeterNames.cs`, `WellKnownTagNames.cs`, `IPlatformMetrics.cs`.
 
 For this feature, the only **new** operation is `DependencyCapture.CaptureAsync`. Existing module operations (`workitems`, `identities`, `nodes`, `teams`) are renamed method-only (`InventoryAsync` → `CaptureAsync`) and retain all current signals unchanged.
 
@@ -206,3 +206,4 @@ features/
 ## Complexity Tracking
 
 No constitution violations. All principles satisfied without architectural workarounds.
+

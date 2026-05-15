@@ -37,7 +37,7 @@
 
 ### Gherkin Feature File for User Story 1
 
-- [X] T003 [US1] Create `features/platform/telemetry/cli-otel.feature` — translate `spec.md` User Story 1 acceptance scenarios 1–4 into conformant Gherkin (`Feature: CLI OTel Observability`, `As a platform operator…`; four scenarios: span appears in Azure Monitor, span marked failed on error, command runs normally without connection string, root ActivitySource created on startup); follow `.agents/guardrails/acceptance-test-format.md` naming and tag rules
+- [X] T003 [US1] Create `features/platform/telemetry/cli-otel.feature` — translate `spec.md` User Story 1 acceptance scenarios 1–4 into conformant Gherkin (`Feature: CLI OTel Observability`, `As a platform operator…`; four scenarios: span appears in Azure Monitor, span marked failed on error, command runs normally without connection string, root ActivitySource created on startup); follow `.agents/20-guardrails/workflow/acceptance-test-format.md` naming and tag rules
 
 ### Implementation for User Story 1
 
@@ -96,7 +96,7 @@
 
 ### Gherkin Feature File for User Story 3
 
-- [X] T022 [US3] Create `features/cli/execute/migrate-logs.feature` — translate US3 acceptance scenarios 1–6 into conformant Gherkin under `cli/execute/` tier (CLI tier: stdout NDJSON format, exit codes, Ctrl+C behaviour, error messages for unknown job and 403); tag scenarios per `.agents/guardrails/acceptance-test-format.md`
+- [X] T022 [US3] Create `features/cli/execute/migrate-logs.feature` — translate US3 acceptance scenarios 1–6 into conformant Gherkin under `cli/execute/` tier (CLI tier: stdout NDJSON format, exit codes, Ctrl+C behaviour, error messages for unknown job and 403); tag scenarios per `.agents/20-guardrails/workflow/acceptance-test-format.md`
 
 ### Implementation for User Story 3
 
@@ -177,3 +177,4 @@ T022 + T023 + T024
 **Increment 2**: US3 (T022–T026) — adds `migrate logs` command on top of the US2 infrastructure.
 
 **Deferred**: US4 (TUI SSE consumer, P3) is not included. It is planned for a separate session once US2 and US3 infrastructure is proven stable.
+

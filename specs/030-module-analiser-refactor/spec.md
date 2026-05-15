@@ -13,8 +13,8 @@
 |---|---|
 | `docs/module-development-guide.md` | ⚠️ Has discrepancies — `IModule` contract, discovery module descriptions, phase dispatch table all require update |
 | `docs/architecture.md` | ✓ Confirmed accurate — phase gate rules already reference `Inventory` and `Prepare` phases |
-| `.agents/guardrails/architecture-boundaries.md` | ✓ Confirmed — rule 10 (phase gates), rule 15 (job unit), rule 17 (execution plan) all apply |
-| `.agents/guardrails/module-rules.md` | ⚠️ Has discrepancies — template describes only `ExportAsync`/`ImportAsync`; must be extended for `InventoryAsync`/`PrepareAsync` |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | ✓ Confirmed — rule 10 (phase gates), rule 15 (job unit), rule 17 (execution plan) all apply |
+| `.agents/20-guardrails/domains/module-rules.md` | ⚠️ Has discrepancies — template describes only `ExportAsync`/`ImportAsync`; must be extended for `InventoryAsync`/`PrepareAsync` |
 | `analysis/draftspec-Module-refactor-consolidation.md` | Source design document — grounded this spec |
 
 ---
@@ -406,4 +406,5 @@ traces
 - Each `IModule.InventoryAsync` writes its domain counts to a per-module file (`{Module}/inventory.json`); `InventoryAnalyser` reads all per-module files and produces the consolidated `inventory.json` and `inventory.csv` at the package root. No module writes to `inventory.json` directly.
 - The `IAnalyser` interface is placed in `DevOpsMigrationPlatform.Abstractions.Agent` (same assembly as `IModule`) per the project reference boundary rules (guardrail 20a).
 - `JobKind.Dependencies` remains a valid `JobKind` value and dispatches as `analyse (DependencyAnalyser only)`. No inventory phase runs as a prerequisite.
-- Docs read: `docs/module-development-guide.md`, `docs/architecture.md`, `.agents/guardrails/architecture-boundaries.md`, `.agents/guardrails/module-rules.md`. Gaps found — see `discrepancies.md`.
+- Docs read: `docs/module-development-guide.md`, `docs/architecture.md`, `.agents/20-guardrails/core/architecture-boundaries.md`, `.agents/20-guardrails/domains/module-rules.md`. Gaps found — see `discrepancies.md`.
+

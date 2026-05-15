@@ -13,9 +13,9 @@
 - **Suggested update**: Add a brief note in the Abstractions section mentioning `OrganisationEndpoint` as the canonical endpoint type for org/collection connections.
 - **Status**: ✓ Resolved in speckit.implement
 
-### `DiscoveryJobOrganisation` referenced in `.agents/context/job-lifecycle.md`
+### `DiscoveryJobOrganisation` referenced in `.agents/30-context/domains/job-lifecycle.md`
 
-- **Source doc**: `.agents/context/job-lifecycle.md`
+- **Source doc**: `.agents/30-context/domains/job-lifecycle.md`
 - **Issue**: The job contract documentation may reference `DiscoveryJobOrganisation` by name. After the rename, the doc should reference `ScopedOrganisationEndpoint` and `OrganisationEndpoint`.
 - **Suggested update**: Update any mentions of `DiscoveryJobOrganisation` to `ScopedOrganisationEndpoint` in the discovery job section.
 - **Status**: N/A — file does not reference `DiscoveryJobOrganisation`
@@ -26,3 +26,4 @@
 - **Issue**: The service interface signature changes (from `(string url, string pat)` to `OrganisationEndpoint`) are not reflected in any doc. After this feature, docs should reflect that service interfaces accept `OrganisationEndpoint`.
 - **Suggested update**: Add a note in the relevant doc sections about the `OrganisationEndpoint` parameter convention.
 - **Status**: ✓ Resolved in speckit.implement — documented in `docs/architecture.md` under "OrganisationEndpoint — Canonical Connection Context"
+

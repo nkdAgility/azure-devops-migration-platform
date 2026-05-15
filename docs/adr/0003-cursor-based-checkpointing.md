@@ -31,5 +31,5 @@ Checkpoints are cursor-based. Each project/module/action combination records the
 
 ## Related
 
-- [.agents/context/checkpointing-summary.md](../../.agents/context/checkpointing-summary.md) — checkpointing model details
-- [.agents/guardrails/migration-rules.md](../../.agents/guardrails/migration-rules.md) — resumability rules
+- [.agents/30-context/domains/checkpointing-summary.md](../../.agents/30-context/domains/checkpointing-summary.md) — checkpointing model details
+- [.agents/20-guardrails/domains/migration-rules.md](../../.agents/20-guardrails/domains/migration-rules.md) — resumability rules

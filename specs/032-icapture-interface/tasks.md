@@ -43,7 +43,7 @@ description: "Task list for ICapture Interface — Unified Capture Contract"
 
 ### Gherkin Feature File for User Story 1 (mandatory — ATDD Phase 1 artifact)
 
-- [X] T004 [US1] Create `features/inventory/icapture-rename/US1-modules-dispatch-via-icapture.feature` — translate spec.md US1 acceptance scenarios (3 scenarios) into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md`; commit before any step definitions or production code
+- [X] T004 [US1] Create `features/inventory/icapture-rename/US1-modules-dispatch-via-icapture.feature` — translate spec.md US1 acceptance scenarios (3 scenarios) into conformant Gherkin per `.agents/20-guardrails/workflow/acceptance-test-format.md`; commit before any step definitions or production code
 
 ### Implementation for User Story 1
 
@@ -76,7 +76,7 @@ description: "Task list for ICapture Interface — Unified Capture Contract"
 
 ### Gherkin Feature File for User Story 2 (mandatory — ATDD Phase 1 artifact)
 
-- [X] T016 [US2] Create `features/inventory/dependency-capture/US2-pure-capture-handlers.feature` — translate spec.md US2 acceptance scenarios (4 scenarios, including US2 Scenario 4 Simulated connector) into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md`; commit before any step definitions or production code
+- [X] T016 [US2] Create `features/inventory/dependency-capture/US2-pure-capture-handlers.feature` — translate spec.md US2 acceptance scenarios (4 scenarios, including US2 Scenario 4 Simulated connector) into conformant Gherkin per `.agents/20-guardrails/workflow/acceptance-test-format.md`; commit before any step definitions or production code
 
 ### Metric Infrastructure (prerequisites for DependencyCapture)
 
@@ -126,7 +126,7 @@ description: "Task list for ICapture Interface — Unified Capture Contract"
 
 ### Gherkin Feature File for User Story 3 (mandatory — ATDD Phase 1 artifact)
 
-- [X] T034 [US3] Create `features/platform/iproject-analyser-removal/US3-iproject-analyser-removed.feature` — translate spec.md US3 acceptance scenarios (2 scenarios) into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md`; commit before any step definitions or production code
+- [X] T034 [US3] Create `features/platform/iproject-analyser-removal/US3-iproject-analyser-removed.feature` — translate spec.md US3 acceptance scenarios (2 scenarios) into conformant Gherkin per `.agents/20-guardrails/workflow/acceptance-test-format.md`; commit before any step definitions or production code
 
 ### Implementation for User Story 3
 
@@ -144,7 +144,7 @@ description: "Task list for ICapture Interface — Unified Capture Contract"
 
 **Purpose**: Ensure all canonical docs reflect the ICapture interface introduction, `IModule : ICapture` change, `IJobPlanExecutor` signature update, `DependencyCapture` and `SimulatedDependencyDiscoveryServiceFactory` additions, and `IProjectAnalyser` deletion.
 
-- [X] T038 Update `.agents/context/` files that reference `IModule.InventoryAsync`, `modulesByName`, or `IJobPlanExecutor.ExecuteTasksAsync` — replace with `CaptureAsync`, `captureHandlersByName`, and the updated signature; add entry for `DependencyCapture` and `ICapture` under the agent modules context file; document `SimulatedDependencyDiscoveryServiceFactory` in the Simulated connector context file
+- [X] T038 Update `.agents/30-context/` files that reference `IModule.InventoryAsync`, `modulesByName`, or `IJobPlanExecutor.ExecuteTasksAsync` — replace with `CaptureAsync`, `captureHandlersByName`, and the updated signature; add entry for `DependencyCapture` and `ICapture` under the agent modules context file; document `SimulatedDependencyDiscoveryServiceFactory` in the Simulated connector context file
 - [X] T039 Update `/docs/` files that describe module lifecycle, capture dispatch, or dependency discovery — align with `ICapture` unified dispatch; remove any references to `IProjectAnalyser`; add `DependencyCapture` to the module/capture handler reference
 - [X] T040 Review `analysis/pending-actions.md` and remove any items resolved by this spec (dependency discovery Simulated connector gap FR-016, IProjectAnalyser architectural debt)
 - [X] T041 Run `dotnet clean && dotnet build --no-incremental` on `DevOpsMigrationPlatform.sln` — MUST pass with zero warnings and zero errors
@@ -271,3 +271,4 @@ These rules apply to this `tasks.md`. They are not suggestions.
 3. **O-4 CLI Visible (T029) is required.** The `DependencyCapture` progress bar row must be added to `QueueCommand.BuildProgressRenderable` before the US2 checkpoint is reached.
 4. **DI wiring (T030) is a required task.** The class must be registered via `AddDependencyCaptureServices`; the extension method must be called from the host startup.
 5. **Observability unit tests (T031–T033, T044) are mandatory.** One test each for O-1 (span emitted with correct name and tags), O-2 (all six `IPlatformMetrics` method variants called in both success and failure paths), O-4 (ProgressSink `Emit` called at start, completion, and failure with correct `Stage` and `Metrics`), and O-3 (structured `ILogger` calls with all required fields including `{JobId}` and `{Handler}`).
+

@@ -50,7 +50,7 @@ Bump rationale:    Clarification — Spec-Completion Gate added to Governance:
                        updated before the branch may merge.
                    The gate is codified in both the Governance section of this
                    constitution and propagated to agents.md (3 new reject conditions),
-                   .agents/guardrails/test-first-workflow.md (Phase 5), and
+                   .agents/20-guardrails/workflow/test-first-workflow.md (Phase 5), and
                    .agents/skills/end-session/SKILL.md (doc-sync checklist).
 
 Principles modified:
@@ -287,7 +287,7 @@ a tested, reviewed increment.
 ### X. Engineering Practice Discipline (NON-NEGOTIABLE)
 
 All production code MUST comply with the 21 engineering-practice categories defined in
-`.agents/guardrails/coding-standards.md`. The categories are enumerated here as a
+`.agents/20-guardrails/core/coding-standards.md`. The categories are enumerated here as a
 constitution-level commitment; the guardrail file contains the enforceable rules and
 concrete examples for each.
 
@@ -367,7 +367,7 @@ for all three connectors: **Simulated**, **AzureDevOpsServices**, and
 
 Any proposal that violates any of these categories MUST be rejected. The detailed
 enforcement rules, prohibited patterns, and code examples live in
-`.agents/guardrails/coding-standards.md` and MUST be consulted alongside this
+`.agents/20-guardrails/core/coding-standards.md` and MUST be consulted alongside this
 constitution.
 
 ## Technology Stack
@@ -423,7 +423,7 @@ Reject any proposal that:
   project.
 - Uses a data store other than PostgreSQL for the control plane.
 - Creates agent rule files under `/docs` — all agent rules live in
-  `.agents/guardrails/`.
+  `.agents/20-guardrails/`.
 - Writes tests using xUnit or NUnit.
 - Implements a new module without an accepted Gherkin `.feature` file.
 - Uses `new` to construct a registered service inside production or module code
@@ -469,15 +469,15 @@ Reject any proposal that:
 - Declares a task done without completing the Mandatory Compliance Review Loop (see Governance).
 - Marks a spec's last task `[X]` without all items in `specs/<feature>/discrepancies.md` being `Resolved` or `N/A`.
 - Closes a spec branch without reviewing and removing resolved items from `analysis/pending-actions.md`.
-- Declares done without updating every canonical doc file (`/docs/*.md`, `.agents/context/*.md`) named in any doc-task in `tasks.md`.
+- Declares done without updating every canonical doc file (`/docs/*.md`, `.agents/30-context/*.md`) named in any doc-task in `tasks.md`.
 - Implements a feature for one connector (Simulated, AzureDevOps, or TFS) while leaving stubs, placeholders, or `NotImplementedException` in the other connectors where the API supports the capability.
 - Defers a connector implementation to a follow-up PR or future task instead of implementing all connectors in the same spec.
 
 ## Governance
 
-- `/.agents/guardrails/*.md` files define hard, non-negotiable architectural
+- `/.agents/20-guardrails/*.md` files define hard, non-negotiable architectural
   rules and supersede all other documentation and practices.
-- `/.agents/context/*.md` files are canonical reference documents for package
+- `/.agents/30-context/*.md` files are canonical reference documents for package
   format, streaming, checkpointing, identity, job contracts, and artefact store
   abstractions. They MUST be consulted alongside guardrails.
 - `/docs/*.md` files define architectural intent and design rationale.
@@ -486,13 +486,13 @@ Reject any proposal that:
 - `constitution.md` (this file) supersedes all other development practices.
   When this file and a guardrail conflict, the guardrail wins.
 - **Mandatory context loading:** Every AI agent and every contributor MUST load
-  and apply the full contents of `/.agents/guardrails/`, `/.agents/context/`,
+  and apply the full contents of `/.agents/20-guardrails/`, `/.agents/30-context/`,
   and relevant `/docs/` files before producing any code, review, specification,
   or plan output. Partial loading (e.g., only reading one guardrail file or
-  skipping `.agents/context/`) is insufficient and constitutes a violation.
+  skipping `.agents/30-context/`) is insufficient and constitutes a violation.
 - **Mandatory Compliance Review Loop:** After completing any unit of work, before
   declaring it done, the agent or contributor MUST:
-  1. Re-read the relevant `/docs/` and `.agents/context/` files for everything just changed.
+  1. Re-read the relevant `/docs/` and `.agents/30-context/` files for everything just changed.
   2. Check each change line-by-line against those docs: does it match? Does it add anything
      undocumented? Does it omit anything required?
   3. If any non-compliance is found, fix it immediately and repeat from step 1.
@@ -505,10 +505,10 @@ Reject any proposal that:
   2. Open `analysis/pending-actions.md` and remove every item that is now implemented by this spec.
   3. Confirm that every `/docs/*.md` file referenced in any doc-task in `tasks.md` has been
      updated and the task is `[X]`.
-  4. Confirm that every `.agents/context/*.md` file affected by the implementation has been updated.
+  4. Confirm that every `.agents/30-context/*.md` file affected by the implementation has been updated.
   5. If any of steps 1–4 are not satisfied, the branch MUST NOT be merged.
   Skipping this gate because "the tests pass" is a violation. The gate is enforced by
-  `.agents/guardrails/test-first-workflow.md` Phase 5 and `.agents/skills/end-session/SKILL.md`.
+  `.agents/20-guardrails/workflow/test-first-workflow.md` Phase 5 and `.agents/skills/end-session/SKILL.md`.
 - Amendments to this constitution require:
   1. A version increment following semantic versioning (MAJOR for removals or
      redefinitions of principles; MINOR for new sections or material expansions;
@@ -519,3 +519,4 @@ Reject any proposal that:
   constitution and the guardrails before approving.
 
 **Version**: 1.4.1 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-28
+

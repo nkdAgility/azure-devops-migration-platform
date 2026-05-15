@@ -11,7 +11,7 @@ The architecture narrative for `agent_task_execution` now needs to distinguish d
 
 ## Documentation Change Applied
 
-Updated `.agents/context/architecture/agent-task-execution.md` with explicit dependency and resume semantics.
+Updated `.agents/30-context/architecture/agent-task-execution.md` with explicit dependency and resume semantics.
 
 ## Guardrail Alignment
 
@@ -19,3 +19,4 @@ Updated `.agents/context/architecture/agent-task-execution.md` with explicit dep
 - Preserves control-plane-visible task state through `JobTaskList`.
 - Does not introduce UI coupling or direct filesystem access.
 - Does not change connector behaviour.
+

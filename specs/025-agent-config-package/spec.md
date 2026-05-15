@@ -44,9 +44,9 @@ The storage location is the single source of truth. The ControlPlane and `Migrat
 |---|---|
 | `docs/architecture.md` | Confirmed accurate; fix aligns with Source → Package → Target principle |
 | `docs/agent-hosting.md` | **Discrepancy** — no mention of reading `migration-config.json` from package; needs update |
-| `.agents/context/job-lifecycle.md` | **Discrepancy** — omission of tool config from `MigrationJob` is intentional but undocumented; needs note |
-| `.agents/context/migration-package-concept.md` | **Discrepancy** — `migration-config.json` well-known path not yet defined; needs update |
-| `.agents/guardrails/architecture-boundaries.md` | **Guardrail Challenge** — Rule 23 (CLI has no package write access) conflicts with this design. Operator confirmed: **Option A — amend Rule 23** to permit CLI write of `migration-config.json` only. Rationale: config must be in the package before the job is dispatched; agent cannot write it before it has received the job. Rule 23 amendment required as part of this feature. |
+| `.agents/30-context/domains/job-lifecycle.md` | **Discrepancy** — omission of tool config from `MigrationJob` is intentional but undocumented; needs note |
+| `.agents/30-context/domains/migration-package-concept.md` | **Discrepancy** — `migration-config.json` well-known path not yet defined; needs update |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | **Guardrail Challenge** — Rule 23 (CLI has no package write access) conflicts with this design. Operator confirmed: **Option A — amend Rule 23** to permit CLI write of `migration-config.json` only. Rationale: config must be in the package before the job is dispatched; agent cannot write it before it has received the job. Rule 23 amendment required as part of this feature. |
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -266,4 +266,5 @@ traces
 - The `IArtefactStore` write operations are sufficiently atomic for the single-writer CLI case (no concurrent CLI writes to the same package root are expected at job-submission time).
 - The per-job child `IServiceScope` pattern does not require changes to any existing module or tool beyond wiring — modules already consume `IOptions<T>` via constructor injection.
 - All `MigrationOptions` option types travel in the file. New option types added in future are automatically included without requiring a spec amendment.
-- Docs read: `docs/architecture.md`, `docs/agent-hosting.md`, `.agents/context/job-lifecycle.md`, `.agents/context/migration-package-concept.md`, `.agents/guardrails/architecture-boundaries.md`.
+- Docs read: `docs/architecture.md`, `docs/agent-hosting.md`, `.agents/30-context/domains/job-lifecycle.md`, `.agents/30-context/domains/migration-package-concept.md`, `.agents/20-guardrails/core/architecture-boundaries.md`.
+

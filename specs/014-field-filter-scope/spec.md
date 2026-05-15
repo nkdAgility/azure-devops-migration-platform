@@ -11,7 +11,7 @@
 |---|---|
 | `docs/configuration-reference.md` | ✅ Confirmed accurate — `organisations[].scopes` does not yet exist; discrepancy logged |
 | `docs/module-development-guide.md` | ✅ Confirmed accurate — `wiql` only scope documented; `filter` scope not yet documented; discrepancy logged |
-| `.agents/guardrails/architecture-boundaries.md` | ✅ Confirmed — no conflicts; new scopes flow through the job contract |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | ✅ Confirmed — no conflicts; new scopes flow through the job contract |
 
 ## Clarifications
 
@@ -161,3 +161,4 @@ A migration engineer is importing a previously exported package. The package was
 - Org-level scopes (`wiql`, `filter`) are carried on `ScopedOrganisationEndpoint.Scopes` in the job contract; `InventoryService` reads them to build `WorkItemFetchScope` for each project
 - The `wiql` scope on an organisation applies to inventory and discovery operations; it is not relevant to migration export/import, which uses the module-level `wiql` scope
 - Adding `scopes` to `OrganisationEntry` is a non-breaking additive change — no `configVersion` bump or upgrader is required; existing configs without `scopes` continue to work unchanged
+

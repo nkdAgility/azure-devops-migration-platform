@@ -14,11 +14,11 @@
 - **Status**: Resolved — Section 11 added to `docs/work-item-iteration-guide.md` covering BatchContinuationToken, ResumeDecision delivery, caller responsibilities, query fingerprint, ordering, and backward compatibility.
 
 ### Query fingerprint guard behavior undocumented
-- **Source doc**: `.agents/context/checkpointing-summary.md`
+- **Source doc**: `.agents/30-context/domains/checkpointing-summary.md`
 - **Section**: Query Fingerprint Compatibility (Resumable Batching)
 - **Issue**: The specification requires query-fingerprint mismatch detection to reject unsafe continuation, but checkpointing documentation previously described only path/stage cursor semantics.
 - **Suggested update**: Extend checkpointing guidance with a query-fingerprint compatibility rule and expected mismatch handling outcome.
-- **Status**: Resolved — "Query Fingerprint Compatibility (Resumable Batching)" section added to `.agents/context/checkpointing-summary.md` covering fingerprint scope, mismatch decision table, strategy version handling, and continuation token storage paths.
+- **Status**: Resolved — "Query Fingerprint Compatibility (Resumable Batching)" section added to `.agents/30-context/domains/checkpointing-summary.md` covering fingerprint scope, mismatch decision table, strategy version handling, and continuation token storage paths.
 
 ### Caller resume persistence responsibilities unspecified
 - **Source doc**: `docs/configuration-reference.md`
@@ -26,3 +26,4 @@
 - **Issue**: The specification requires caller-owned save strategy and duplicate handling, but configuration guidance did not previously describe caller persistence expectations for continuation state.
 - **Suggested update**: Document configuration and operational expectations for caller persistence cadence, duplicate handling strategy, and safe restart behavior.
 - **Status**: Resolved — "Resumable Batching — Operational Responsibilities" section added to `docs/configuration-reference.md` covering persistence cadence options, duplicate handling strategies, and safe restart guidance table.
+

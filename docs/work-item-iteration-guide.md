@@ -1,7 +1,7 @@
 # Work Item Iteration Pattern
 
 > This guide describes the canonical implementation pattern for work item processing.
-> Enforcement for divergence and rejection conditions lives in `.agents/guardrails/architecture-boundaries.md` and `.agents/guardrails/workitems-rules.md`.
+> Enforcement for divergence and rejection conditions lives in `.agents/20-guardrails/core/architecture-boundaries.md` and `.agents/20-guardrails/domains/workitems-rules.md`.
 
 ## Reuse Principle
 
@@ -23,7 +23,7 @@ If an existing pattern does not fit your use case:
 3. Ensure the new abstraction is used by at least two independent modules (no single-use abstractions).
 4. Get explicit approval from the architecture team before implementing.
 
-Guardrail-level rejection conditions are defined in [.agents/guardrails/architecture-boundaries.md](../.agents/guardrails/architecture-boundaries.md), [.agents/guardrails/workitems-rules.md](../.agents/guardrails/workitems-rules.md), and [agents.md](../agents.md).
+Guardrail-level rejection conditions are defined in [.agents/20-guardrails/core/architecture-boundaries.md](../.agents/20-guardrails/core/architecture-boundaries.md), [.agents/20-guardrails/domains/workitems-rules.md](../.agents/20-guardrails/domains/workitems-rules.md), and [agents.md](../agents.md).
 
 ---
 
@@ -561,5 +561,6 @@ Non-resume callers retain the existing traversal behavior.
 - `DevOpsMigrationPlatform.Infrastructure.Modules.WorkItemsModule` — the module that uses the orchestrator
 - `DevOpsMigrationPlatform.Abstractions.Services.IWorkItemRevisionSource` — the source interface
 - [docs/module-development-guide.md](module-development-guide.md) — module architecture and module contract
-- [.agents/context/workitems-format-summary.md](../.agents/context/workitems-format-summary.md) — on-disk format specification
-- [.agents/context/import-streaming.md](../.agents/context/import-streaming.md) — import streaming semantics (future)
+- [.agents/30-context/domains/workitems-format-summary.md](../.agents/30-context/domains/workitems-format-summary.md) — on-disk format specification
+- [.agents/30-context/domains/import-streaming.md](../.agents/30-context/domains/import-streaming.md) — import streaming semantics (future)
+

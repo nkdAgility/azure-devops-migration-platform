@@ -133,9 +133,9 @@
 - [X] T059 Update state-model docs for implemented behavior in `docs/package-format-reference.md`
 - [X] T060 [P] Update operator guidance for resume/cadence behavior in `docs/package-guide.md`
 - [X] T061 [P] Update migration orchestration guidance in `docs/migration-process-guide.md`
-- [X] T062 [P] Sync concise agent context summary in `.agents/context/migration-package-concept.md`
-- [X] T063 [P] Sync checkpointing summary in `.agents/context/checkpointing-summary.md`
-- [X] T064 [P] Sync package-format summary in `.agents/context/package-format-summary.md`
+- [X] T062 [P] Sync concise agent context summary in `.agents/30-context/domains/migration-package-concept.md`
+- [X] T063 [P] Sync checkpointing summary in `.agents/30-context/domains/checkpointing-summary.md`
+- [X] T064 [P] Sync package-format summary in `.agents/30-context/domains/package-format-summary.md`
 - [X] T065 Run full build/test for `DevOpsMigrationPlatform.slnx` using commands in `specs/033-runtime-state-categories/quickstart.md`
 
 ---
@@ -237,3 +237,4 @@ Task: "T058 [P] [US3] Test O-4 cadence progress events in WorkItemCadenceProgres
 ### Format Validation
 
 All tasks follow required checklist format: checkbox + sequential Task ID + optional `[P]` + required `[US#]` in story phases + explicit file path.
+

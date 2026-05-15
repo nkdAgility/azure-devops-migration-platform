@@ -11,10 +11,10 @@
 |---|---|
 | `docs/module-development-guide.md` | Confirmed accurate — Module/Orchestrator/Service pattern, `IModule` contract, dependency graph rules |
 | `docs/architecture.md` | Confirmed accurate — Source → Package → Target model, no direct migration |
-| `.agents/context/import-streaming.md` | Confirmed accurate — four-stage streaming import model (A: CreatedOrUpdated, B: AppliedFields, C: AppliedLinks, D: UploadedAttachments) |
-| `.agents/context/migration-package-concept.md` | Confirmed accurate — `WorkItems/`, `Nodes/` layout, `idmap.db`, cursor schema |
-| `.agents/context/checkpointing-summary.md` | Confirmed accurate — cursor-based resume per revision folder |
-| `.agents/guardrails/architecture-boundaries.md` | Confirms: streaming is mandatory (rule 2), no in-memory sort (rule 3), cursors required (rule 4), attachments beside revision.json (rule 5), modules through `IArtefactStore`/`IStateStore` only (rule 7), Nodes before WorkItems (rule 8/dependency graph) |
+| `.agents/30-context/domains/import-streaming.md` | Confirmed accurate — four-stage streaming import model (A: CreatedOrUpdated, B: AppliedFields, C: AppliedLinks, D: UploadedAttachments) |
+| `.agents/30-context/domains/migration-package-concept.md` | Confirmed accurate — `WorkItems/`, `Nodes/` layout, `idmap.db`, cursor schema |
+| `.agents/30-context/domains/checkpointing-summary.md` | Confirmed accurate — cursor-based resume per revision folder |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirms: streaming is mandatory (rule 2), no in-memory sort (rule 3), cursors required (rule 4), attachments beside revision.json (rule 5), modules through `IArtefactStore`/`IStateStore` only (rule 7), Nodes before WorkItems (rule 8/dependency graph) |
 | `analysis/proposed-features.md` | Reference for M2 (NodeTranslationTool — referred to as `NodeStructureTool` in proposed-features.md; canonical code name is `NodeTranslationTool`), M4 (WorkItemsModule missing options including `Attachments.maxSizeBytes`), T7 (WorkItemResolutionTool), P1 (Checkpoint Reconciliation) |
 
 > **No conflicts found** between user intent and documented architecture. The implementation patterns (`WorkItemImportOrchestrator`, `RevisionFolderProcessor`, `NodesModule`) already exist. This spec formalises the acceptance criteria, connector coverage requirements, and observable test assertions that are currently absent or incomplete.
@@ -307,7 +307,7 @@ A migration operator runs a full import job. The platform ensures that `NodesMod
 - Pre-flight identity validation (G-12): If identities are unresolved, `FR-010` and `FR-035` ensure a `Warning` is emitted before import starts. Identity field values will be written with the source descriptor value; this may produce disconnected user references on the target. The operator is responsible for running `IdentitiesModule` before `WorkItemsModule`.
 - The `WorkItemResolutionTool` (T7) configurable per-type strategy is partially implemented; this spec requires only the default `ReflectedWorkItemId` strategy to work correctly for all standard work item types.
 - Embedded images are exported to the package by the export phase (`IEmbeddedImageDownloader`). If `extensions[EmbeddedImages].enabled = false` at export time, binaries will not be in the package and URLs in imported HTML fields will remain as dead source-system URLs.
-- Read of docs: `docs/module-development-guide.md`, `docs/architecture.md`, `.agents/context/import-streaming.md`, `.agents/context/migration-package-concept.md`, `.agents/context/checkpointing-summary.md`, `.agents/guardrails/architecture-boundaries.md`, `analysis/proposed-features.md`.
+- Read of docs: `docs/module-development-guide.md`, `docs/architecture.md`, `.agents/30-context/domains/import-streaming.md`, `.agents/30-context/domains/migration-package-concept.md`, `.agents/30-context/domains/checkpointing-summary.md`, `.agents/20-guardrails/core/architecture-boundaries.md`, `analysis/proposed-features.md`.
 
 ## Legacy Parity Gap Analysis
 
@@ -353,3 +353,4 @@ A migration operator runs a full import job. The platform ensures that `NodesMod
 All high and medium priority gaps have been addressed with new FRs in this spec update. Remaining:
 
 1. **G-10 (Git commit link rewrite)** — warrants a separate spec covering link enrichment.
+

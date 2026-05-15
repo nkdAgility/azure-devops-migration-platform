@@ -23,8 +23,8 @@ See [tasks.md](tasks.md) for per-task completion status.
 ## Architecture References
 
 - ✅ [docs/architecture.md](../../docs/architecture.md) — Confirmed: revision-centric model applies
-- ✅ [.agents/guardrails/architecture-boundaries.md](../../.agents/guardrails/architecture-boundaries.md) — Confirmed: no streaming violation
-- ✅ [.agents/context/migration-package-concept.md](../../.agents/context/migration-package-concept.md) — Confirmed: comment.json placement valid
+- ✅ [.agents/20-guardrails/core/architecture-boundaries.md](../../.agents/20-guardrails/core/architecture-boundaries.md) — Confirmed: no streaming violation
+- ✅ [.agents/30-context/domains/migration-package-concept.md](../../.agents/30-context/domains/migration-package-concept.md) — Confirmed: comment.json placement valid
 - ✅ [docs/module-development-guide.md](../../docs/module-development-guide.md) — Confirmed: module coordination pattern applies
 
 ---
@@ -234,3 +234,4 @@ These requirements document the intended behavior and will become active once th
 - No separate comment export pass
 - Timestamp-based API correlation
 - Factory pattern for comment source creation
+

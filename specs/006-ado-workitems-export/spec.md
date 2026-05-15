@@ -14,12 +14,12 @@ The following documents were read before drafting this spec:
 | `docs/architecture.md` | Confirmed accurate — CLI is a thin shell; export logic lives in the Job Engine via `IDataTypeModule` |
 | `docs/module-development-guide.md` | Confirmed accurate — `WorkItemsModule` is the canonical module name; `IDataTypeModule` is the contract |
 | `docs/cli-guide.md` | Confirmed accurate — `export` command submits a job via `ControlPlaneClient`; it contains no export logic |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed — Rule 6 (no direct source→target), Rule 7 (`IArtefactStore` only), Rule 14 (lexicographic enumeration), Rule 16 (CLI contains no migration logic) |
-| `.agents/guardrails/workitems-rules.md` | Confirmed — canonical folder layout, cursor-based checkpointing, attachments beside `revision.json` |
-| `.agents/context/workitems-format-summary.md` | Confirmed — `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/revision.json` is canonical |
-| `.agents/context/checkpointing-summary.md` | Confirmed — cursor file at `Checkpoints/workitems.cursor.json` |
-| `.agents/context/package-manager.md` | Confirmed — package persistence still uses `IArtefactStore` as a primitive |
-| `.agents/context/job-lifecycle.md` | Confirmed — `MigrationJob.source.type = AzureDevOpsServices` with WIQL module scope |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed — Rule 6 (no direct source→target), Rule 7 (`IArtefactStore` only), Rule 14 (lexicographic enumeration), Rule 16 (CLI contains no migration logic) |
+| `.agents/20-guardrails/domains/workitems-rules.md` | Confirmed — canonical folder layout, cursor-based checkpointing, attachments beside `revision.json` |
+| `.agents/30-context/domains/workitems-format-summary.md` | Confirmed — `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/revision.json` is canonical |
+| `.agents/30-context/domains/checkpointing-summary.md` | Confirmed — cursor file at `Checkpoints/workitems.cursor.json` |
+| `.agents/30-context/domains/package-manager.md` | Confirmed — package persistence still uses `IArtefactStore` as a primitive |
+| `.agents/30-context/domains/job-lifecycle.md` | Confirmed — `MigrationJob.source.type = AzureDevOpsServices` with WIQL module scope |
 | `docs/configuration-reference.md` | Confirmed — module scope config via `MigrationJobModule.scopes` |
 
 **No conflicts found.** This spec implements the first concrete realisation of `WorkItemsModule.ExportAsync` for the `AzureDevOpsServices` source type. Discrepancies (undocumented ADO-specific implementation details) are logged in `discrepancies.md`.
@@ -194,4 +194,5 @@ As a platform operator, I need the export to emit structured progress events so 
 - Clock collisions (two revisions with identical `changedDate` ticks for different work items) are handled by the lexicographic folder naming — the `<workItemId>` segment disambiguates.
 - Attachment delta detection compares relations of the current revision against the immediately preceding revision in the fetched revision list. If the work item has only one revision, all its attachments are treated as new.
 - The ADO REST API (`GetRevisionsAsync`) call pattern is O(N) per work item; there is no bulk-revisions endpoint. This is expected and acceptable for v1.
+
 

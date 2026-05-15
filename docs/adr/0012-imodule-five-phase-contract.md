@@ -55,5 +55,6 @@ The standalone `InventoryModule`, `InventoryDiscoveryModule`, and `DependencyDis
 - [docs/module-development-guide.md](../module-development-guide.md) — module contract
 - [ADR-0010](0010-plan-driven-dag-execution.md) — plan executor that calls phase methods
 - [ADR-0014](0014-icapture-unified-capture-contract.md) — ICapture extraction that amends this ADR
-- [.agents/guardrails/module-rules.md](../../.agents/guardrails/module-rules.md) — module implementation checklist
+- [.agents/20-guardrails/domains/module-rules.md](../../.agents/20-guardrails/domains/module-rules.md) — module implementation checklist
 - Driving spec: `specs/030-module-analiser-refactor/spec.md`
+

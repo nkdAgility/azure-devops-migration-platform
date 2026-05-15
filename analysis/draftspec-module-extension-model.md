@@ -122,7 +122,7 @@ Every module configuration has three distinct concerns:
 | `WorkItemResolutionStrategy` | Processing | Yes | How unresolvable IDs are handled on import |
 | `FieldTransform` | Processing | No | Per-field value rewriting rules |
 
-> **Intentional delta vs current `.agents/context/architecture/module-anatomy.md`:**
+> **Intentional delta vs current `.agents/30-context/architecture/module-anatomy.md`:**
 > this draft proposes `EmbeddedImages` as optional `Data` for WorkItems. If this proposal is accepted, the canonical module-anatomy context and downstream docs must be updated atomically.
 
 ### Teams classification
@@ -521,3 +521,4 @@ MigrationPlatform
 
 - Changing how Tools are declared or invoked from Processing entries
 - Changing module execution order or dependency graph logic
+

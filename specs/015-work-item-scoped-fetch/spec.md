@@ -14,7 +14,7 @@
 | `docs/module-development-guide.md` | Confirmed accurate — abstraction lives outside module layer |
 | `docs/capabilities-guide.md` | Confirmed accurate — both ADO and TFS sources need implementations |
 | `docs/work-item-iteration-guide.md` | **Discrepancy logged** — new abstraction must be registered in the mandatory reuse section |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — new interface must live in `DevOpsMigrationPlatform.Abstractions` |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — new interface must live in `DevOpsMigrationPlatform.Abstractions` |
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -121,3 +121,4 @@ As a migration operator using a TFS source, I want `IWorkItemFetchService` to ha
 - Relations expansion is intentionally excluded from `IWorkItemFetchService`; this is a deliberate architectural constraint, not an oversight.
 - This feature is a prerequisite for feature 014 field-filter scopes; both may be developed in parallel but 015 must land first (or concurrently) to unblock the per-caller wiring in 014.
 - Feature 016 (`OrganisationEndpoint`) must land before or alongside this feature so that `FetchAsync` can accept `OrganisationEndpoint` in its signature.
+

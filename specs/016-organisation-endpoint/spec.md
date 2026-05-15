@@ -11,7 +11,7 @@
 | Document | Status |
 |---|---|
 | `docs/architecture.md` | Confirmed — no structural changes required |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed — new type must live in `DevOpsMigrationPlatform.Abstractions` |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed — new type must live in `DevOpsMigrationPlatform.Abstractions` |
 | `docs/module-development-guide.md` | Confirmed — no module-layer changes required |
 | `docs/capabilities-guide.md` | Confirmed — both ADO and TFS callers adopt the new type |
 
@@ -149,3 +149,4 @@ During implementation, the design evolved beyond the original spec in one key wa
 - `OrganisationEndpoint` (sealed) — resolved ADO/TFS connection context, used by `IAzureDevOpsClientFactory`
 
 This is a better design (OCP-compliant, supports new connector types without modifying interfaces) and all original success criteria are still met.
+

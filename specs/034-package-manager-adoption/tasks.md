@@ -149,8 +149,8 @@
 
 **Purpose**: Finalize documentation, observability verification, boundary enforcement, and full-suite validation.
 
-- [ ] T065 [P] Update package-boundary architecture context in `.agents/context/package-manager.md`
-- [ ] T066 [P] Update package format and routing context in `.agents/context/migration-package-concept.md`
+- [ ] T065 [P] Update package-boundary architecture context in `.agents/30-context/domains/package-manager.md`
+- [ ] T066 [P] Update package format and routing context in `.agents/30-context/domains/migration-package-concept.md`
 - [ ] T067 [P] Update architecture guidance for package-boundary usage in `docs/architecture.md`
 - [ ] T068 [P] Update module guidance for `IPackageAccess` usage in `docs/module-development-guide.md`
 - [ ] T069 [P] Update canonical package layout guidance in `docs/package-format-reference.md`
@@ -256,3 +256,4 @@ Task: "T054 [P] [US3] Add unsupported-capability guardrail tests per connector i
    - Engineer C: US3 test scaffolding and connector parity work
 3. Merge and finish with Phase 6.
 Generated from `spec.md`, `plan.md`, `research.md`, `data-model.md`, `contracts/package-boundary-contract.md`, and `quickstart.md`.
+

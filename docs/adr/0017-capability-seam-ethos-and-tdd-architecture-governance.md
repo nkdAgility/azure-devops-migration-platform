@@ -34,13 +34,14 @@ Test-first workflow is the primary control mechanism for this decision:
 
 ## Enforced By
 
-- `.agents/guardrails/capability-ethos-rules.md`
-- `.agents/context/capability-seam-contract.md`
-- `.agents/guardrails/test-first-workflow.md`
-- `.agents/guardrails/definition-of-done.md`
+- `.agents/20-guardrails/core/capability-ethos-rules.md`
+- `.agents/30-context/domains/capability-seam-contract.md`
+- `.agents/20-guardrails/workflow/test-first-workflow.md`
+- `.agents/20-guardrails/workflow/definition-of-done.md`
 
 ## Related
 
 - [ADR-0012](0012-imodule-five-phase-contract.md)
 - [ADR-0016](0016-unified-package-access.md)
 - [Architecture overview](../architecture.md)
+

@@ -87,7 +87,7 @@ The feature is **package-driven** (no source system consultation during import),
 - Each service group (identity, node translation, field transform) registered via extension method.
 
 ### Principle X: Engineering Practice Discipline ✅ **PASS**
-- 21 categories enforced via `.agents/guardrails/coding-standards.md`.
+- 21 categories enforced via `.agents/20-guardrails/core/coding-standards.md`.
 - All `.cs` files start with SPDX header (SA1633 build error if missing).
 - Every change must produce clean `dotnet build --no-incremental` and passing `dotnet test`.
 - OpenTelemetry instrumentation (O-1 through O-5) required.
@@ -254,7 +254,7 @@ The `/speckit.tasks` command will:
    - One task per connector (Simulated, AzureDevOpsServices, TeamFoundationServer) for multi-connector features.
    - Dependency order (prepare-phase tasks before import-phase tasks; node readiness before revision replay; revision replay before link/attachment replay).
    - Explicit reference to acceptance scenarios from `spec.md`.
-   - Doc-sync task at the end (update `/docs/*.md` and `.agents/context/*.md` files touched by the feature).
+   - Doc-sync task at the end (update `/docs/*.md` and `.agents/30-context/*.md` files touched by the feature).
 
 **Expected task count**: ~15–20 tasks (5 US groups × 3 connectors + doc-sync + verification).
 
@@ -274,11 +274,12 @@ See [tasks.md](tasks.md) (output of speckit.tasks) for the complete task decompo
 ## Guardrails & Compliance References
 
 This plan was validated against:
-- `.agents/guardrails/architecture-boundaries.md` — Module isolation, package-first, streaming import.
-- `.agents/guardrails/coding-standards.md` — SOLID principles, dependency injection, immutability.
-- `.agents/guardrails/testing-rules.md` — Reqnroll.MSTest, acceptance test format, test naming.
-- `.agents/guardrails/migration-rules.md` — Package structure, checkpoint semantics, phase gates.
-- `.agents/guardrails/connector-rules.md` — Full connector coverage, no stubs, per-connector tasks.
+- `.agents/20-guardrails/core/architecture-boundaries.md` — Module isolation, package-first, streaming import.
+- `.agents/20-guardrails/core/coding-standards.md` — SOLID principles, dependency injection, immutability.
+- `.agents/20-guardrails/workflow/testing-rules.md` — Reqnroll.MSTest, acceptance test format, test naming.
+- `.agents/20-guardrails/domains/migration-rules.md` — Package structure, checkpoint semantics, phase gates.
+- `.agents/20-guardrails/domains/connector-rules.md` — Full connector coverage, no stubs, per-connector tasks.
 - `.specify/memory/constitution.md` — Principles I–XI fully respected.
 
 See [agents.md](../../agents.md) for the mandatory pre-flight guardrail validation workflow.
+

@@ -24,10 +24,10 @@ Add system test framework to validate inventory command functionality against li
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 > **Mandatory context loading:** Before completing this gate, confirm that ALL files in
-> `/.agents/guardrails/`, ALL files in `/.agents/context/`, and relevant `/docs/` files
+> `/.agents/20-guardrails/`, ALL files in `/.agents/30-context/`, and relevant `/docs/` files
 > have been read. Skipping either `.agents/` subdirectory is a constitution violation.
 
-✅ **Architecture files read**: `docs/cli-guide.md`, `.agents/guardrails/architecture-boundaries.md`, `.agents/guardrails/testing-rules.md`, `.agents/guardrails/acceptance-test-format.md`
+✅ **Architecture files read**: `docs/cli-guide.md`, `.agents/20-guardrails/core/architecture-boundaries.md`, `.agents/20-guardrails/workflow/testing-rules.md`, `.agents/20-guardrails/workflow/acceptance-test-format.md`
 
 - [x] **Package-First (I):** ✅ N/A - This is test code that validates CLI behavior, does not involve migration package operations
 - [x] **Streaming (II):** ✅ N/A - This is test code, does not involve WorkItems processing or import logic
@@ -177,3 +177,4 @@ Execute: `/speckit.tasks` - Generate actionable task breakdown for implementatio
 
 ## Implementation Readiness
 The system test framework design is ready for task generation and implementation. All research questions resolved, design artifacts complete, and architectural compliance verified.
+

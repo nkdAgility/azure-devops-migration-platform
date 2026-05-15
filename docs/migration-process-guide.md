@@ -4,7 +4,7 @@
 
 The **Job Engine** is the shared execution core used by Migration Agents in all hosting topologies. It receives a `Job`, resolves the execution plan, and runs modules in dependency order. It has no knowledge of the TUI, the console, or any progress renderer.
 
-See [docs/cli-guide.md](cli-guide.md) for how the CLI routes a job to the Job Engine. See [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md) for the `Job` wire format.
+See [docs/cli-guide.md](cli-guide.md) for how the CLI routes a job to the Job Engine. See [.agents/30-context/domains/job-lifecycle.md](../.agents/30-context/domains/job-lifecycle.md) for the `Job` wire format.
 
 ### Steps
 
@@ -222,3 +222,4 @@ See [docs/cli-guide.md](cli-guide.md) for local and server command details.
 - Cursor schema and resume behaviour.
 - Package layout.
 - Fail-fast rules.
+

@@ -408,7 +408,7 @@ Any class that currently injected `IDiscoveryMetrics` or `IMigrationMetrics` now
 
 | File | Change | Status |
 |---|---|---|
-| `.agents/context/telemetry-model.md` | Replace `IDiscoveryMetrics`/`IMigrationMetrics` references with `IPlatformMetrics`; update meter name; add meter name reference table | ✅ Done |
+| `.agents/30-context/domains/telemetry-model.md` | Replace `IDiscoveryMetrics`/`IMigrationMetrics` references with `IPlatformMetrics`; update meter name; add meter name reference table | ✅ Done |
 
 ---
 
@@ -493,3 +493,4 @@ Meter: `WellKnownMeterNames.Cli` (`DevOpsMigrationPlatform.CLI`) — unchanged.
 | Q1 | Should `IWorkItemExportMetrics` (TfsObjectModel) be merged into `IPlatformMetrics` or left as a TFS-specific sub-interface? | Open |
 | Q2 | Should spec-030 `InventoryAsync` metrics be added to this spec's mapping table, or left to spec-030? | Resolved — left to spec-030 |
 | Q3 | ~~Do we need a Prometheus/OTEL collector relabelling rule to bridge old → new metric names for existing dashboards during transition?~~ **Resolved:** Yes — the runbook must include relabelling rules for all four old prefixes (`discovery.*`, `migration.*`, `controlplane.*`, `cli.*`) until dashboards are updated. | Resolved |
+

@@ -21,7 +21,7 @@
 - **Status**: ✓ Resolved in speckit.implement
 
 ### DI Container Management Responsibility
-- **Source doc**: `.agents/guardrails/architecture-boundaries.md` (Rule 16)
+- **Source doc**: `.agents/20-guardrails/core/architecture-boundaries.md` (Rule 16)
 - **Section**: "The CLI must not contain migration logic"  
 - **Issue**: While the rule correctly prohibits migration logic in CLI, it doesn't clarify the proper pattern for DI container management. The current Program.cs implementation aggregates infrastructure concerns that should be in a dedicated host builder.
 - **Suggested update**: Expand Rule 16 to specify that CLI infrastructure setup should follow the host builder pattern, with Program.cs limited to bootstrapping and commands managing their hosting lifecycle through dependency injection.

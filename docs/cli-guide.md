@@ -195,13 +195,13 @@ CLI code reads counters from the Channel 2 telemetry polling endpoint, not from 
 
 ### Rule
 
-> `QueueCommand` (and any future command that renders live progress) consumes both Channel 1 (SSE) and Channel 2 (polling) from the ControlPlane and does not wire to an in-process `IProgressSink`. The CLI is never in the same process as the Migration Agent in any production topology. Enforced constraints are in `.agents/guardrails/cli-tui-rules.md`.
+> `QueueCommand` (and any future command that renders live progress) consumes both Channel 1 (SSE) and Channel 2 (polling) from the ControlPlane and does not wire to an in-process `IProgressSink`. The CLI is never in the same process as the Migration Agent in any production topology. Enforced constraints are in `.agents/20-guardrails/domains/cli-tui-rules.md`.
 
 ---
 
 ## Commands
 
-Commands are organised into four groups. See [.agents/context/cli-commands.md](../.agents/context/cli-commands.md) for the canonical machine-readable reference.
+Commands are organised into four groups. See [.agents/30-context/domains/cli-commands.md](../.agents/30-context/domains/cli-commands.md) for the canonical machine-readable reference.
 
 ---
 
@@ -337,7 +337,7 @@ Before any execution, the CLI converts the local config file into a `Job` (dispa
 4. Normalise `artefacts.path` to a URI (`file:///` prefix if a bare filesystem path is given).
 5. Construct the `Job` — set `Kind` from `mode`, `Connectors` from the endpoint config, serialise the config JSON into `Job.ConfigPayload`.
 
-The local config file is never sent directly anywhere. The `Job` (with `ConfigPayload`) is the only artefact that crosses boundaries. See [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md).
+The local config file is never sent directly anywhere. The `Job` (with `ConfigPayload`) is the only artefact that crosses boundaries. See [.agents/30-context/domains/job-lifecycle.md](../.agents/30-context/domains/job-lifecycle.md).
 
 ---
 
@@ -411,3 +411,4 @@ The CLI recomputes `configHash` from the config file and queries the control pla
 - `manage progress` returns a snapshot of buffered events — earlier events may be in `.migration/runs/<runId>/logs/progress.ndjson` in the package, with legacy fallback for older flat `.migration/Logs/progress.jsonl` packages.
 - `manage diagnostics` downloads diagnostic logs from the package's run-scoped `.migration/runs/<runId>/logs/diagnostics.ndjson`, with legacy fallback for older flat `.migration/Logs/agent.jsonl` packages.
 - `manage pause`, `manage resume`, `manage cancel` are the only commands that change job state.
+

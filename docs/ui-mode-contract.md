@@ -521,4 +521,5 @@ Any change to these contracts must update tests that pin the surface.
 - [cli-guide.md](cli-guide.md)
 - [tui-guide.md](tui-guide.md)
 - [adr/0015-mode-driven-cli-and-tui-ui-contract.md](adr/0015-mode-driven-cli-and-tui-ui-contract.md)
-- [../.agents/guardrails/cli-tui-rules.md](../.agents/guardrails/cli-tui-rules.md)
+- [../.agents/20-guardrails/domains/cli-tui-rules.md](../.agents/20-guardrails/domains/cli-tui-rules.md)
+

@@ -19,11 +19,19 @@ Use this skill as an `after_plan` hook to validate that the **proposed changes**
 When this skill is active:
 
 1. Read the feature's `spec.md` and `plan.md`.
-2. Read all guardrail files in `/.agents/20-guardrails/` and the constitution (`.specify/memory/constitution.md`).
-3. Evaluate the **proposed** architecture, data model, module placement, interface design, and naming against each of the five perspectives.
-4. Check alignment with constitution principles and system-architecture guardrails.
-5. Produce a consolidated compliance report with findings and recommendations.
-6. Do **not** modify any files — this is a read-only analysis.
+2. Load the decision system first:
+   - `/.agents/00-entry/manifest.yaml`
+   - `/.agents/00-entry/task-profiles.yaml`
+   - `/.agents/00-entry/reading-order.md`
+   - `/.agents/10-contracts/change-classes.yaml`
+   - `/.agents/10-contracts/consent-policy.yaml`
+   - `/.agents/10-contracts/surface-catalog.yaml`
+   - `/.agents/10-contracts/seam-catalog.yaml`
+3. Load the architecture guardrails for this analysis using the selected profile plus architecture-core files (at minimum `core/architecture-boundaries.md`, `core/coding-standards.md`, and relevant domain/workflow guardrails for the feature scope), and load the constitution (`.specify/memory/constitution.md`).
+4. Evaluate the **proposed** architecture, data model, module placement, interface design, and naming against each of the five perspectives.
+5. Check alignment with constitution principles and system-architecture guardrails.
+6. Produce a consolidated compliance report with findings and recommendations.
+7. Do **not** modify any files — this is a read-only analysis.
 
 The goal is to catch architectural violations **in the design** before they become code — preventing rework, not detecting it after the fact.
 
@@ -39,6 +47,7 @@ The skill requires these files to exist in the feature directory:
 | `plan.md` | Architecture choices, data model, phases, file paths, module placement, technical constraints |
 
 Additionally, the skill loads:
+- `/.agents/00-entry/manifest.yaml` + `/.agents/00-entry/task-profiles.yaml` + `/.agents/10-contracts/*.yaml` — decision-system source of truth for what must be loaded
 - `/.agents/20-guardrails/core/architecture-boundaries.md` — hard architectural rules
 - `/.agents/20-guardrails/core/coding-standards.md` — engineering practice categories
 - `.specify/memory/constitution.md` — non-negotiable principles

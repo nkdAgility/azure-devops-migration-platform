@@ -10,9 +10,9 @@
 
 **Purpose**: Guardrail and canonical-doc updates that gate all implementation.
 
-- [x] T001 Amend `.agents/guardrails/architecture-boundaries.md` — update Rule 23 to add the approved CLI exception: "The CLI MAY write `migration-config.json` to the package root as a pre-submission step before calling the control plane. This is the only package write permitted from the CLI."
-- [x] T002 [P] Update `.agents/context/migration-package-concept.md` — add `migration-config.json` to the canonical package root structure section, documenting its purpose, written-by (CLI), and read-by (agent)
-- [x] T003 [P] Update `.agents/context/job-lifecycle.md` — document the new minimal `MigrationJob` schema (v2.0): fields retained (`jobId`, `mode`, `package`, `configVersion`, `guardrails`, `diagnostics`, `resume`) and fields removed (`source`, `target`, `modules`, `policies`, `configHash`)
+- [x] T001 Amend `.agents/20-guardrails/core/architecture-boundaries.md` — update Rule 23 to add the approved CLI exception: "The CLI MAY write `migration-config.json` to the package root as a pre-submission step before calling the control plane. This is the only package write permitted from the CLI."
+- [x] T002 [P] Update `.agents/30-context/domains/migration-package-concept.md` — add `migration-config.json` to the canonical package root structure section, documenting its purpose, written-by (CLI), and read-by (agent)
+- [x] T003 [P] Update `.agents/30-context/domains/job-lifecycle.md` — document the new minimal `MigrationJob` schema (v2.0): fields retained (`jobId`, `mode`, `package`, `configVersion`, `guardrails`, `diagnostics`, `resume`) and fields removed (`source`, `target`, `modules`, `policies`, `configHash`)
 
 ---
 
@@ -46,7 +46,7 @@
 
 ### Gherkin Feature File for User Story 1 (mandatory)
 
-- [x] T010 [US1] Create `features/export/config-in-package/config-applied-on-export.feature` — translate spec.md US1 acceptance scenarios (tool config applied, node translations applied, migration-config.json written before dispatch, resume uses same config) into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [x] T010 [US1] Create `features/export/config-in-package/config-applied-on-export.feature` — translate spec.md US1 acceptance scenarios (tool config applied, node translations applied, migration-config.json written before dispatch, resume uses same config) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Implementation for User Story 1
 
@@ -220,3 +220,4 @@ Phase 8 Polish (T043–T046) — requires all phases complete
 - Phase 8 (Polish): 4
 
 **Parallel opportunities**: 21 tasks marked `[P]`
+

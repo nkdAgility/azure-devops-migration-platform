@@ -23,7 +23,7 @@ Implement the `WorkItemsModule.ImportAsync` method to replace the current `NotSu
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **Mandatory context loading:** Confirmed — ALL files in `/.agents/guardrails/` (system-architecture, coding-standards, testing-standards, workitems-rules, migration-rules, module-template, aspire-integration, atdd-workflow, acceptance-test-format), ALL files in `/.agents/context/` (package-format, workitems-format, import-streaming, checkpointing, identity-and-mapping, job-contract), and relevant `/docs/` files (architecture, modules, work-item-iteration-pattern, cli, configuration) have been read.
+> **Mandatory context loading:** Confirmed — ALL files in `/.agents/20-guardrails/` (system-architecture, coding-standards, testing-standards, workitems-rules, migration-rules, module-template, aspire-integration, atdd-workflow, acceptance-test-format), ALL files in `/.agents/30-context/` (package-format, workitems-format, import-streaming, checkpointing, identity-and-mapping, job-contract), and relevant `/docs/` files (architecture, modules, work-item-iteration-pattern, cli, configuration) have been read.
 
 - [x] **Package-First (I):** Import reads from the on-disk package via `IArtefactStore`. No direct source-to-target migration. The Azure DevOps target SDK calls are behind `IWorkItemImportTarget` — the module itself only touches `IArtefactStore` for reads.
 - [x] **Streaming (II):** Import processes one revision folder at a time via `IArtefactStore.EnumerateAsync("WorkItems/")`. No list/array accumulation. No in-memory sort. The `EnumerateAsync` implementation already returns lexicographic order.
@@ -122,3 +122,4 @@ scenarios/
 |-----------|------------|-------------------------------------|
 | SQLite dependency (`Microsoft.Data.Sqlite`) added to `Infrastructure` | `idmap.db` requires indexed lookup for 20k+ mappings. The spec mandates SQLite for portable, single-file, indexed storage inside the package. | JSON-based `idmap.json` was considered but is too slow for O(1) lookup at scale. The checkpointing guardrail prohibits databases for the cursor, but SQLite is explicitly permitted for the ID map (package-local storage, not control-plane). |
 | `IWorkItemImportTarget` is a new single-use abstraction | FR-018 mandates wrapping all Azure DevOps SDK write calls behind an abstraction. This is the import-side mirror of `IWorkItemRevisionSource`. | Direct SDK calls in module code would violate system-architecture rule 21 and coding-standards rule 12 (SDK calls behind abstractions). The abstraction enables mocking for tests and future non-ADO targets. |
+

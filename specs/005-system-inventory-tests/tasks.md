@@ -50,7 +50,7 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. It must be written from the `spec.md` User Story 1 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [ ] T010 [US1] Create `features/cli/inventory/system-test-local-execution.feature` — translate `spec.md` User Story 1 acceptance scenarios into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [ ] T010 [US1] Create `features/cli/inventory/system-test-local-execution.feature` — translate `spec.md` User Story 1 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Implementation for User Story 1
 
@@ -77,7 +77,7 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. Write from `spec.md` User Story 2 acceptance scenarios before any step definitions or production code.**
 
-- [ ] T019 [US2] Create `features/cli/inventory/system-test-ci-execution.feature` — translate `spec.md` User Story 2 acceptance scenarios into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [ ] T019 [US2] Create `features/cli/inventory/system-test-ci-execution.feature` — translate `spec.md` User Story 2 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Implementation for User Story 2
 
@@ -103,7 +103,7 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. Write from `spec.md` User Story 3 acceptance scenarios before any step definitions or production code.**
 
-- [ ] T027 [US3] Create `features/platform/documentation/contributor-onboarding-system-tests.feature` — translate `spec.md` User Story 3 acceptance scenarios into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [ ] T027 [US3] Create `features/platform/documentation/contributor-onboarding-system-tests.feature` — translate `spec.md` User Story 3 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Implementation for User Story 3
 

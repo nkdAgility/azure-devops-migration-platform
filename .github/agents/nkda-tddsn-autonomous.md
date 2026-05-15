@@ -32,11 +32,11 @@ Execute the following phases in strict order. Do not advance to the next phase i
 
 1. Read `.agents/skill-sets/nkda-tddsn/manifest.md` and `.agents/skill-sets/nkda-tddsn/workflow.md`.
 2. Read all repository guardrails:
-   - `.agents/guardrails/testing-rules.md`
-   - `.agents/guardrails/coding-standards.md`
-   - `.agents/guardrails/architecture-boundaries.md`
-   - `.agents/guardrails/observability-requirements.md`
-   - `.agents/guardrails/definition-of-done.md`
+   - `.agents/20-guardrails/workflow/testing-rules.md`
+   - `.agents/20-guardrails/core/coding-standards.md`
+   - `.agents/20-guardrails/core/architecture-boundaries.md`
+   - `.agents/20-guardrails/domains/observability-requirements.md`
+   - `.agents/20-guardrails/workflow/definition-of-done.md`
 3. Read `.agents/skills/nkd-tdd-assessment/SKILL.md` (legacy precursor).
 4. Discover production and test files for the subsystem.
 5. Read relevant subsystem documentation.
@@ -106,3 +106,4 @@ Execute the following phases in strict order. Do not advance to the next phase i
 - `.output/nkda-tddsn/<subsystem>/04-rebuild-plan.md`
 - `.output/nkda-tddsn/<subsystem>/05-implementation-summary.md`
 - `.output/nkda-tddsn/<subsystem>/06-verification.md`
+

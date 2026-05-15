@@ -9,10 +9,10 @@
 
 | Document | Status |
 |---|---|
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — Rule #4 mandates cursor-based checkpoints; Rule #2 mandates streaming import |
-| `.agents/context/checkpointing-summary.md` | Confirmed: defines cursor schema, stage values, and resume logic for import; **export cursor is not yet specified — discrepancy logged** |
-| `.agents/context/import-streaming.md` | Confirmed accurate — staged import, idempotency notes, and failure behaviour already defined |
-| `.agents/context/job-lifecycle.md` | Confirmed accurate — `MigrationJob` schema does not include a resume mode flag; **gap logged** |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — Rule #4 mandates cursor-based checkpoints; Rule #2 mandates streaming import |
+| `.agents/30-context/domains/checkpointing-summary.md` | Confirmed: defines cursor schema, stage values, and resume logic for import; **export cursor is not yet specified — discrepancy logged** |
+| `.agents/30-context/domains/import-streaming.md` | Confirmed accurate — staged import, idempotency notes, and failure behaviour already defined |
+| `.agents/30-context/domains/job-lifecycle.md` | Confirmed accurate — `MigrationJob` schema does not include a resume mode flag; **gap logged** |
 | `docs/architecture.md` | Confirmed accurate — resumability described as a property of the Files layer; no implementation detail |
 | `docs/module-development-guide.md` | Confirmed accurate — `IDataTypeModule.ExportAsync` and `ImportAsync` contracts |
 
@@ -117,8 +117,9 @@ An operator ran a migration in Both mode (export then import in a single job) an
 
 - The package path is the same between the original interrupted run and the resume run. If the operator changes the package path, a fresh run begins.
 - The scope query (WIQL) for export is assumed to be deterministic and returns the same logical set of work items in the same order across runs. New items added to the source between runs that fall after the cursor position in sort order will be included; items before the cursor will not be re-fetched on resume.
-- Both export cursor and import cursor use the same JSON schema (defined in `.agents/context/checkpointing-summary.md`). The export cursor always writes `stage: "Completed"` since export has no intra-item stages.
+- Both export cursor and import cursor use the same JSON schema (defined in `.agents/30-context/domains/checkpointing-summary.md`). The export cursor always writes `stage: "Completed"` since export has no intra-item stages.
 - The forced fresh-start option applies at the module level. The operator can reset one module's cursor without affecting other modules' cursors in the same package.
 - The `idmap.db`/`idmap.json` identity map is scoped to a single package. It is never shared between packages.
 - Import-phase resume is only safe if the package was not modified after the interrupted run (i.e., no new export was run against the same package between the interrupted import and the resume). This constraint is not enforced by the system in v1 but is documented as an operator responsibility.
 - The feature does not add retry-on-failure within a single run (that is covered by resilience policies elsewhere). It handles restart of the entire job process.
+

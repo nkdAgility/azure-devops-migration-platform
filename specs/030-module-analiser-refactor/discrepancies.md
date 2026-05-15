@@ -48,7 +48,7 @@
 
 ### module-rules.md does not cover InventoryAsync or PrepareAsync
 
-- **Source doc**: `.agents/guardrails/module-rules.md`
+- **Source doc**: `.agents/20-guardrails/domains/module-rules.md`
 - **Section**: Full checklist for new modules
 - **Issue**: The module template only describes `ExportAsync` and `ImportAsync` implementation steps. After this spec, new modules must also implement `InventoryAsync` (if `SupportsInventory`) and `PrepareAsync` (if `SupportsPrepare`).
 - **Suggested update**: Add checklist items for `InventoryAsync` and `PrepareAsync` implementations, including the required `prepare-report.json` output contract and the `SupportsInventory`/`SupportsPrepare` property declarations.
@@ -72,8 +72,9 @@
 
 ### architecture-boundaries.md Rule 24 does not define the {Stem}Analyser naming convention
 
-- **Source doc**: `.agents/guardrails/architecture-boundaries.md`
+- **Source doc**: `.agents/20-guardrails/core/architecture-boundaries.md`
 - **Section**: Rule 24 — Module/Tool identifier naming convention
 - **Issue**: Rule 24 defines conventions for `{Stem}Module` (config path, Name property, cursor key, file name) and `{Stem}Tool` (folder, file, DI extension, interface, options, config). It does not define the equivalent convention for `{Stem}Analyser`, which this spec introduces. Without a documented convention, subsequent analysers could be named or configured inconsistently.
 - **Suggested update**: Extend Rule 24 to include: `{Stem}Analyser: Name = "{Stem}", config = "MigrationPlatform:Analysers:{Stem}", DI extension = Add{Stem}AnalyserServices (or grouped in AddAnalyserServices), interface = IAnalyser, file = {Stem}Analyser.cs`. This must be updated in `architecture-boundaries.md` as a doc-task in `tasks.md`.
 - **Status**: ✓ Resolved in speckit.implement
+

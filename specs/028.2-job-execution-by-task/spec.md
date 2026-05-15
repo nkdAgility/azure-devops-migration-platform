@@ -16,10 +16,10 @@
 | `docs/architecture.md` | Confirmed — no conflicts |
 | `docs/module-development-guide.md` | **Applies directly** — `IModule.DependsOn` documents the dependency graph contract; this spec realises it |
 | `docs/migration-process-guide.md` | **Has gap** — does not describe plan-driven execution or per-phase parallelism; needs updating after implementation |
-| `.agents/guardrails/architecture-boundaries.md` | Rules 7 (IStateStore only), 12 (stateless agent/durable state in package), 17 (all state in checkpoints), 21 (mandatory reuse of existing architecture) apply |
-| `.agents/guardrails/coding-standards.md` | Rule 8 (no `.Result`/`.Wait()`), rule 14 (resilience) apply |
-| `.agents/context/job-lifecycle.md` | Confirmed — `Job.Resume.Mode == ForceFresh` must trigger plan deletion + rebuild |
-| `.agents/context/package-manager.md` | Confirmed — plan persistence uses `IStateStore`, not `IArtefactStore` |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Rules 7 (IStateStore only), 12 (stateless agent/durable state in package), 17 (all state in checkpoints), 21 (mandatory reuse of existing architecture) apply |
+| `.agents/20-guardrails/core/coding-standards.md` | Rule 8 (no `.Result`/`.Wait()`), rule 14 (resilience) apply |
+| `.agents/30-context/domains/job-lifecycle.md` | Confirmed — `Job.Resume.Mode == ForceFresh` must trigger plan deletion + rebuild |
+| `.agents/30-context/domains/package-manager.md` | Confirmed — plan persistence uses `IStateStore`, not `IArtefactStore` |
 
 ---
 
@@ -181,3 +181,4 @@ The plan executor emits `ProgressEvent` with `TaskId` and `TaskStatus` on every 
 4. A simulated crash-and-resume (delete the plan file entry from state, re-run without `ForceFresh`) causes completed modules to not be re-executed; the resumed run completes successfully.
 5. `dotnet clean && dotnet build --no-incremental` — 0 errors.
 6. All tests pass: `dotnet test DevOpsMigrationPlatform.slnx`.
+

@@ -12,9 +12,9 @@
 | `docs/architecture.md` | Confirmed accurate — tool resolution model not yet documented (discrepancy logged) |
 | `docs/module-development-guide.md` | Confirmed accurate — WorkItemsModule and extension model documented; no tool injection model yet (discrepancy logged) |
 | `docs/configuration-reference.md` | Confirmed accurate — `Tools` top-level section not yet documented (discrepancy logged) |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — rules 6 (no direct S→T), 7 (IArtefactStore only), 8 (identity cross-cutting), 14 (lexicographic enumeration), 21 (mandatory reuse) all apply |
-| `.agents/context/migration-package-concept.md` | Confirmed accurate — revision.json is the write target |
-| `.agents/context/workitems-format-summary.md` | Confirmed accurate — field values stored in revision.json |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — rules 6 (no direct S→T), 7 (IArtefactStore only), 8 (identity cross-cutting), 14 (lexicographic enumeration), 21 (mandatory reuse) all apply |
+| `.agents/30-context/domains/migration-package-concept.md` | Confirmed accurate — revision.json is the write target |
+| `.agents/30-context/domains/workitems-format-summary.md` | Confirmed accurate — field values stored in revision.json |
 | `analysis/proposed-features.md` | Source — M1 and T1 sections define the 14 map types and tool resolution model |
 
 ## Clarifications
@@ -407,3 +407,4 @@ As a migration operator, I want to merge multiple source fields into a single ta
 - Work item type remapping is handled by a separate `WorkItemTypeMappingTool` (T3) and is out of scope for this feature.
 - Runtime error policy for v1 is fail-fast on first transform error. Future integration with P4 (Operator Interaction — see `analysis/proposed-features.md`) will allow pause-and-ask behaviour.
 - Dry-run mode: prepare-time validation (FR-020) includes a sample dry-run against a configurable number of work items. A full dry-run across all items is a future feature.
+

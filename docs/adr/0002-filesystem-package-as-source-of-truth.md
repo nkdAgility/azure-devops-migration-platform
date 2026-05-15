@@ -29,5 +29,5 @@ The filesystem package (a directory tree rooted at `Package.WorkingDirectory`) i
 ## Related
 
 - [ADR 0001](0001-source-files-target.md) — Source→Files→Target model
-- [.agents/context/migration-package-concept.md](../../.agents/context/migration-package-concept.md) — package structure details
-- [.agents/guardrails/architecture-boundaries.md](../../.agents/guardrails/architecture-boundaries.md) — enforced constraints
+- [.agents/30-context/domains/migration-package-concept.md](../../.agents/30-context/domains/migration-package-concept.md) — package structure details
+- [.agents/20-guardrails/core/architecture-boundaries.md](../../.agents/20-guardrails/core/architecture-boundaries.md) — enforced constraints

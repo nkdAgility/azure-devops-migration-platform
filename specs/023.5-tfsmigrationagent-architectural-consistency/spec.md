@@ -447,9 +447,9 @@ The entire project is replaced by `TfsMigrationAgent`. All reusable code (TFS OM
 | `docs/architecture.md` | Update TFS Export Agent description |
 | `docs/control-plane.md` | Add capability routing, multi-agent lifecycle |
 | `docs/agent-hosting.md` | Note TFS agent as a peer |
-| `.agents/guardrails/architecture-boundaries.md` | Update TFS isolation rules |
-| `.agents/guardrails/coding-standards.md` | Update subprocess references |
-| `.agents/context/job-lifecycle.md` | Add `source` to `DiscoveryJob` |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Update TFS isolation rules |
+| `.agents/20-guardrails/core/coding-standards.md` | Update subprocess references |
+| `.agents/30-context/domains/job-lifecycle.md` | Add `source` to `DiscoveryJob` |
 
 ---
 
@@ -490,3 +490,4 @@ The entire project is replaced by `TfsMigrationAgent`. All reusable code (TFS OM
 3. **`Microsoft.Extensions.Hosting` on net481** — .NET Framework 4.8.1 can consume `Microsoft.Extensions.Hosting` via NuGet (targets .NET Standard 2.0). This would give `BackgroundService`, `IHostedService`, `IHost`, and `IConfiguration` on net481 — making the TFS agent structurally identical to the MigrationAgent. Worth evaluating vs. a plain console loop. If it works cleanly, it significantly reduces the code divergence.
 
 4. **Cancellation model** — the current subprocess uses a sentinel file for cancellation. The agent model can use `POST /agents/lease/{leaseId}/heartbeat` response to signal pause/cancel (the MigrationAgent reads a signal from the heartbeat response). The sentinel file mechanism is deleted.
+

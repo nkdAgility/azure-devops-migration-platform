@@ -19,7 +19,7 @@
 - [X] T001 Create `src/DevOpsMigrationPlatform.SchemaGenerator/DevOpsMigrationPlatform.SchemaGenerator.csproj` targeting `net10.0`, referencing all connector projects (Abstractions, Abstractions.Agent, Infrastructure.Agent, Infrastructure, Infrastructure.Simulated, Infrastructure.AzureDevOps, Infrastructure.TfsObjectModel), and add `NJsonSchema` and `Microsoft.Extensions.DependencyInjection` to `Directory.Packages.props` if not already present
 - [X] T002 Add `DevOpsMigrationPlatform.SchemaGenerator` to `DevOpsMigrationPlatform.slnx`
 - [X] T003 [P] Add `NJsonSchema` package reference to `DevOpsMigrationPlatform.Infrastructure` in `Directory.Packages.props` (used by `JsonSchemaConfigValidator`)
-- [X] T004 [P] Create `features/cli/schema-validation.feature` — Gherkin scenarios for US-5 acceptance criteria (unknown key exits non-zero; missing required field exits non-zero; valid config passes silently; absent schema file logs Warning and proceeds). See `.agents/guardrails/acceptance-test-format.md`.
+- [X] T004 [P] Create `features/cli/schema-validation.feature` — Gherkin scenarios for US-5 acceptance criteria (unknown key exits non-zero; missing required field exits non-zero; valid config passes silently; absent schema file logs Warning and proceeds). See `.agents/20-guardrails/workflow/acceptance-test-format.md`.
 - [X] T005 [P] Create `features/platform/agent-job-context.feature` — Gherkin scenarios for US-4 (module reads Mode from IAgentJobContext without full options graph; no module can write to context; TFS source-only job resolves context without ITargetEndpointInfo). Create `features/platform/module-isolation.feature` — Gherkin scenarios for US-3 (module constructs with isolated options only; duplicate SectionName fails at startup)
 
 **Checkpoint**: SchemaGenerator project compiles (empty), feature files committed, packages available — story implementation can begin
@@ -241,3 +241,4 @@ Phase 6 + Phase 7 → Phase 8 (Polish / Delete ActiveJobConfigState + MigrationO
 - [ ] `grep -r "MigrationOptions" src/` returns zero results (only allowed in `MigrationPackageOptions`, `MigrationPoliciesOptions`, `MigrationOptionsScope` filenames/class names — NOT in field declarations, constructor parameters, or injection sites)
 - [ ] All four modules compile with only their own `IOptions<T>`, `IAgentJobContext`, `ISourceEndpointInfo`, `ITargetEndpointInfo` — no `MigrationOptions` in constructor
 - [ ] `dotnet test DevOpsMigrationPlatform.slnx` passes with zero failures
+

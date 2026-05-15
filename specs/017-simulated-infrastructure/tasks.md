@@ -86,7 +86,7 @@
 
 **Independent Test**: Run `scenarios/queue-import-workitems-simulated-fixture.json` — must still pass after the ADO leaks are removed. The keyed `"Simulated"` service is not yet registered so jobs with `Target.Type: "Simulated"` will fail clearly with a missing-service error, not silently.
 
-- [X] T028 [US5] Create `features/import/work-items/simulated-boundary-cleanup.feature` — Gherkin scenarios from spec.md User Story 5 acceptance scenarios (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T028 [US5] Create `features/import/work-items/simulated-boundary-cleanup.feature` — Gherkin scenarios from spec.md User Story 5 acceptance scenarios (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 - [X] T029 [P] [US5] Write unit test `tests/DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Tests/Import/AzureDevOpsWorkItemImportTargetFactoryTests.cs` — assert that `CreateAsync` with a `SimulatedEndpointOptions` throws `ArgumentException` (not `NotImplementedException`)
 - [X] T030 [P] [US5] Write unit test `tests/DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Tests/Import/AzureDevOpsResolutionStrategyFactoryTests.cs` — assert that `CreateAsync` does not accept a `SimulatedWorkItemImportTarget` instance (pass a mock ADO target; verify `NullResolutionStrategy` is NOT returned)
 
@@ -274,3 +274,4 @@ Phase 1 (Setup)
 **Never leave `throw new NotImplementedException()`** in any reachable code path. All Simulated implementations must be complete and functional before being committed.
 
 **Validation**: After T027, after T041, and after T056 — run `dotnet clean && dotnet build --no-incremental` and `dotnet test` before proceeding.
+

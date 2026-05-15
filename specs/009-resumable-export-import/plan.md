@@ -29,7 +29,7 @@ Two secondary gaps: (1) no forced fresh-start flag on `MigrationJob` or the CLI;
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-**Mandatory context loaded**: `.agents/guardrails/architecture-boundaries.md`, `.agents/guardrails/coding-standards.md`, `.agents/guardrails/testing-rules.md`, `.agents/guardrails/module-rules.md`, `.agents/context/checkpointing-summary.md`, `.agents/context/import-streaming.md`, `.agents/context/job-lifecycle.md`, `.agents/context/package-manager.md`, `docs/architecture.md`, `docs/module-development-guide.md` — all read in current session.
+**Mandatory context loaded**: `.agents/20-guardrails/core/architecture-boundaries.md`, `.agents/20-guardrails/core/coding-standards.md`, `.agents/20-guardrails/workflow/testing-rules.md`, `.agents/20-guardrails/domains/module-rules.md`, `.agents/30-context/domains/checkpointing-summary.md`, `.agents/30-context/domains/import-streaming.md`, `.agents/30-context/domains/job-lifecycle.md`, `.agents/30-context/domains/package-manager.md`, `docs/architecture.md`, `docs/module-development-guide.md` — all read in current session.
 
 - [x] **Package-First (I):** `WorkItemImportOrchestrator` reads only from `IArtefactStore`; no source API calls during import. Export writes to `IArtefactStore` only. No direct source→target path exists or is introduced.
 - [x] **Streaming (II):** `WorkItemImportOrchestrator` uses `IArtefactStore.EnumerateAsync` lazily with `await foreach` — one folder at a time. No `ToList()` or array materialisation of revision folders.
@@ -130,7 +130,7 @@ No constitution violations requiring justification. All changes are additive or 
 
 | Decision | Rationale |
 |---|---|
-| Reuse `ICheckpointingService` + `CursorEntry` for import cursor | Already used by export; schema matches `.agents/context/checkpointing-summary.md` exactly |
+| Reuse `ICheckpointingService` + `CursorEntry` for import cursor | Already used by export; schema matches `.agents/30-context/domains/checkpointing-summary.md` exactly |
 | `WorkItemExportOrchestrator` unchanged | Full cursor skip/write logic already implemented; only gap is `DeleteCursorAsync` |
 | Per-stage cursor in import | Matches `CursorStage` enum; enables fine-grained resume without reprocessing completed stages |
 | `Checkpoints/job.phase.json` for Both-mode | Fits `IStateStore` key pattern; agent reads before deciding which phases to run |
@@ -202,7 +202,7 @@ The control plane stores and forwards `MigrationJob.Resume` unchanged in all cas
 | T13 | `MigrationAgentWorker` Both-mode phase skip | Worker reads phase record; skips completed phases; feature scenario S3-A |
 | T14 | Both-mode forced fresh-start deletes `job.phase.json` | Worker ForceFresh path; feature scenario S3-B |
 | T15 | `--force-fresh` CLI flag + `launch.json` entries | `MigrationExportCommandSettings`, `MigrationImportCommandSettings`, `MigrationMigrateCommandSettings`, command wiring |
-| T16 | Doc discrepancy rectification | Update `.agents/context/checkpointing-summary.md`, `.agents/context/job-lifecycle.md` |
+| T16 | Doc discrepancy rectification | Update `.agents/30-context/domains/checkpointing-summary.md`, `.agents/30-context/domains/job-lifecycle.md` |
 
 ### Architecture Alignment Post-Design
 
@@ -218,3 +218,4 @@ All design decisions confirmed consistent with the constitution and guardrails:
 - `--force-fresh` encoded in `MigrationJob` before submission — topology-transparent ✓ (Principle VI)
 
 Discrepancies from [discrepancies.md](discrepancies.md) are addressed in task T17.
+

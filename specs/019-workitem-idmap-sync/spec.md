@@ -13,11 +13,11 @@
 | `docs/module-development-guide.md` | Confirmed accurate — IModule contract, WorkItemsModule with extensions |
 | `docs/configuration-reference.md` | Confirmed accurate — WorkItemResolutionStrategy extension documented (TargetField, TargetHyperlink) |
 | `docs/work-item-iteration-guide.md` | Confirmed accurate — mandatory reuse of WorkItemExportOrchestrator, ICheckpointingService |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — streaming, cursor, IArtefactStore rules enforced; rule 4 (cursor-based checkpoints); rule 12 (agents stateless, all durable state in package) |
-| `.agents/context/migration-package-concept.md` | Confirmed accurate — Checkpoints/idmap.db documented |
-| `.agents/context/import-streaming.md` | Confirmed accurate — staged import (A→B→C→D), idempotency via idmap.db |
-| `.agents/context/checkpointing-summary.md` | Confirmed accurate — idmap.db documented as source-to-target mapping store |
-| `.agents/context/identity-and-mapping.md` | Discrepancy logged — idmap.db described as PostgreSQL Portable but implementation is SQLite; discrepancy in `discrepancies.md` |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — streaming, cursor, IArtefactStore rules enforced; rule 4 (cursor-based checkpoints); rule 12 (agents stateless, all durable state in package) |
+| `.agents/30-context/domains/migration-package-concept.md` | Confirmed accurate — Checkpoints/idmap.db documented |
+| `.agents/30-context/domains/import-streaming.md` | Confirmed accurate — staged import (A→B→C→D), idempotency via idmap.db |
+| `.agents/30-context/domains/checkpointing-summary.md` | Confirmed accurate — idmap.db documented as source-to-target mapping store |
+| `.agents/30-context/domains/identity-and-mapping.md` | Discrepancy logged — idmap.db described as PostgreSQL Portable but implementation is SQLite; discrepancy in `discrepancies.md` |
 | `docs/cli-guide.md` | Needs review — no rebuild-idmap command documented yet |
 
 ## Clarifications
@@ -170,4 +170,5 @@ As a migration operator, I want the ID map to track the last successfully migrat
 - The `idmap.db` file is package-local (inside `Checkpoints/`) and travels with the package. It is not a control-plane database.
 - Revision-level tracking (FR-009) requires a schema addition to the existing `work_item_map` table (adding a `last_revision_index` column).
 - The integrity check (FR-010) requires network access to the target system to verify work item existence.
-- Architecture docs read: `agents.md`, `docs/architecture.md`, `docs/module-development-guide.md`, `docs/configuration-reference.md`, `docs/work-item-iteration-guide.md`, `.agents/guardrails/architecture-boundaries.md`, `.agents/context/migration-package-concept.md`, `.agents/context/import-streaming.md`, `.agents/context/checkpointing-summary.md`, `.agents/context/identity-and-mapping.md`.
+- Architecture docs read: `agents.md`, `docs/architecture.md`, `docs/module-development-guide.md`, `docs/configuration-reference.md`, `docs/work-item-iteration-guide.md`, `.agents/20-guardrails/core/architecture-boundaries.md`, `.agents/30-context/domains/migration-package-concept.md`, `.agents/30-context/domains/import-streaming.md`, `.agents/30-context/domains/checkpointing-summary.md`, `.agents/30-context/domains/identity-and-mapping.md`.
+

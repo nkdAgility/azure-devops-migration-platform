@@ -41,7 +41,7 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [x] T017 [US1] Create `features/import/workitems/nodestructure/path-mapping.feature` — translate spec.md User Story 1 acceptance scenarios (regex mapping with Match/Replacement, auto-swap, pass-through, tool disabled) into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md`
+- [x] T017 [US1] Create `features/import/workitems/nodestructure/path-mapping.feature` — translate spec.md User Story 1 acceptance scenarios (regex mapping with Match/Replacement, auto-swap, pass-through, tool disabled) into conformant Gherkin per `.agents/20-guardrails/workflow/acceptance-test-format.md`
 - [x] T018 Implement `NodeStructureTool` (`INodeStructureTool`) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeStructureTool.cs` — constructor takes `IOptions<NodeStructureOptions>`, pre-compiles all `NodeMapping` patterns with `RegexOptions.IgnoreCase | RegexOptions.NonBacktracking`. Implements `TranslatePath()` with language override → iterate mapping rules (`Regex.IsMatch` then `Regex.Replace`, first match wins) → auto-swap → pass-through logic, `IsEnabled` property. Pure, no I/O.
 - [x] T019 Create unit tests for `NodeStructureTool` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/NodeStructureToolTests.cs` — cover regex map hit (with capture groups `$1`/`$2`), auto-swap, external path pass-through, case-insensitive matching, whitespace trimming, language override normalisation, tool disabled state, `Enabled: false` with differing project names emits warning (FR-023)
 
@@ -227,7 +227,7 @@
 
 - [x] T053 Update `docs/configuration-reference.md` — add `### NodeStructure Tool` subsection under `## Tools` with JSON schema, property table, and config example (resolves discrepancy #1 in `discrepancies.md`)
 - [x] T054 [P] Update `docs/module-development-guide.md` — add `NodeStructureTool` to Tool Resolution section; update `WorkItemsModule` responsibility row to note `Revisions` extension optionally consumes `INodeStructureTool` (resolves discrepancy #2)
-- [x] T055 [P] Update `.agents/context/migration-package-concept.md` — add `Nodes/` as a top-level package folder with `source-tree.json` and `referenced-paths.json` artifact descriptions (resolves discrepancy #3)
+- [x] T055 [P] Update `.agents/30-context/domains/migration-package-concept.md` — add `Nodes/` as a top-level package folder with `source-tree.json` and `referenced-paths.json` artifact descriptions (resolves discrepancy #3)
 - [x] T056 Mark all items in `specs/023-workitems-nodestructure-tool/discrepancies.md` as `Resolved` or `N/A`
 - [x] T057 Review `analysis/pending-actions.md` and remove any items resolved by this spec
 - [x] T058 Run `dotnet clean && dotnet build --no-incremental` — MUST pass
@@ -300,3 +300,4 @@ Phase 12 (Doc Sync)       → depends on ALL prior phases
 11. Phase 10: US6 — Iteration Dates (date preservation)
 12. Phase 11: Validation
 13. Phase 12: Documentation Sync
+

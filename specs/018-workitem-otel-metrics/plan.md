@@ -25,7 +25,7 @@ Expand the platform's OpenTelemetry instrumentation from 13 export-centric metri
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **Mandatory context loading:** Confirmed ALL files in `/.agents/guardrails/` (system-architecture, coding-standards, testing-standards, workitems-rules, migration-rules, module-template, aspire-integration, atdd-workflow, acceptance-test-format), ALL relevant files in `/.agents/context/` (checkpointing), and relevant `/docs/` files (architecture, validation, modules, orchestration, migration-agent, configuration) have been read.
+> **Mandatory context loading:** Confirmed ALL files in `/.agents/20-guardrails/` (system-architecture, coding-standards, testing-standards, workitems-rules, migration-rules, module-template, aspire-integration, atdd-workflow, acceptance-test-format), ALL relevant files in `/.agents/30-context/` (checkpointing), and relevant `/docs/` files (architecture, validation, modules, orchestration, migration-agent, configuration) have been read.
 
 - [x] **Package-First (I):** Not affected. Metrics are observational — they record measurements about the migration process. No reads/writes to the package are introduced by this feature. Existing package I/O paths are unchanged.
 - [x] **Streaming (II):** Not affected. No import logic is altered. Metrics are recorded inline during existing streaming processing; they do not buffer or materialise data.
@@ -106,3 +106,4 @@ features/
 ## Complexity Tracking
 
 No constitution violations. All changes fit within existing project boundaries and established patterns.
+

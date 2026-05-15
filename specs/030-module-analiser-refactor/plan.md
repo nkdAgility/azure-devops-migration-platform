@@ -34,7 +34,7 @@ Research findings are in [research.md](research.md). Data model is in [data-mode
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 > **Mandatory context loading:** Before completing this gate, confirm that ALL files in
-> `/.agents/guardrails/`, ALL files in `/.agents/context/`, and relevant `/docs/` files
+> `/.agents/20-guardrails/`, ALL files in `/.agents/30-context/`, and relevant `/docs/` files
 > have been read. Skipping either `.agents/` subdirectory is a constitution violation.
 
 - [x] **Package-First (I):** `InventoryAsync` and `PrepareAsync` write only via `IArtefactStore`. `AnalyseAsync` reads and writes artefacts only. No source-to-target migration. Verified.
@@ -393,3 +393,4 @@ tests/
 ## Complexity Tracking
 
 No constitution violations requiring justification.
+

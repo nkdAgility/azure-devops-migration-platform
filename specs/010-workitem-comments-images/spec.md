@@ -13,9 +13,9 @@ The following documents were read during specification authoring:
 | -------- | ------ |
 | `agents.md` | Confirmed accurate |
 | `docs/module-development-guide.md` | Confirmed accurate — module contract applies |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — attachments-beside-revision rule, streaming, IArtefactStore rules all apply |
-| `.agents/context/workitems-format-summary.md` | **Discrepancy** — does not yet describe comments or embedded-image sub-folders; logged in `discrepancies.md` |
-| `.agents/context/migration-package-concept.md` | **Discrepancy** — does not yet describe comment sub-folders or embedded-image files beside documents; logged in `discrepancies.md` |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — attachments-beside-revision rule, streaming, IArtefactStore rules all apply |
+| `.agents/30-context/domains/workitems-format-summary.md` | **Discrepancy** — does not yet describe comments or embedded-image sub-folders; logged in `discrepancies.md` |
+| `.agents/30-context/domains/migration-package-concept.md` | **Discrepancy** — does not yet describe comment sub-folders or embedded-image files beside documents; logged in `discrepancies.md` |
 | Azure DevOps REST API — Comments (7.1-preview.4) | External reference — confirmed via live API docs fetch. Comments live at `/wit/workItems/{id}/comments` — a **separate paginated endpoint** from revisions. Supports HTML and Markdown formats with embedded images. |
 
 ## User Scenarios & Testing *(mandatory)*
@@ -143,4 +143,5 @@ Work item fields and comments can use Markdown format. Markdown allows image emb
 - When a comment is edited, the original is stored at the `createdDate` and each edit is stored as an additional folder at its `modifiedDate`. The streaming import reader processes these in chronological order as it enumerates date folders.
 - Image deduplication is scoped per parent document folder. The same URL appearing in multiple fields of the same revision is downloaded once to that revision folder. The same URL appearing in a revision field and a comment field results in two separate image file copies (one per folder). Cross-document and cross-work-item deduplication are out of scope.
 - OTel instrumentation for sub-modules follows existing `WorkItemsModule` patterns; specific span and metric names are defined in plan.md.
-- The docs `.agents/context/workitems-format-summary.md` and `.agents/context/migration-package-concept.md` do not yet describe comment sub-folders or embedded-image handling; these will be updated as part of implementation (see `discrepancies.md`).
+- The docs `.agents/30-context/domains/workitems-format-summary.md` and `.agents/30-context/domains/migration-package-concept.md` do not yet describe comment sub-folders or embedded-image handling; these will be updated as part of implementation (see `discrepancies.md`).
+

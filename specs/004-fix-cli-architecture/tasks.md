@@ -62,7 +62,7 @@ description: "Task list for CLI architecture refactoring and command testing imp
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. It must be written from the `spec.md` User Story 1 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [X] T011 [US1] Create `features/cli/execute/commands-execute-successfully.feature` — translate `spec.md` User Story 1 acceptance scenarios into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T011 [US1] Create `features/cli/execute/commands-execute-successfully.feature` — translate `spec.md` User Story 1 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Tests for User Story 1
 
@@ -96,7 +96,7 @@ description: "Task list for CLI architecture refactoring and command testing imp
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. Write from `spec.md` User Story 2 acceptance scenarios before any step definitions or production code.**
 
-- [X] T022 [US2] Create `features/cli/execute/configuration-flow.feature` — translate `spec.md` User Story 2 acceptance scenarios into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T022 [US2] Create `features/cli/execute/configuration-flow.feature` — translate `spec.md` User Story 2 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Tests for User Story 2
 
@@ -126,7 +126,7 @@ description: "Task list for CLI architecture refactoring and command testing imp
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. Write from `spec.md` User Story 3 acceptance scenarios before any step definitions or production code.**
 
-- [ ] T031 [US3] Create `features/cli/execute/host-builder-architecture.feature` — translate `spec.md` User Story 3 acceptance scenarios into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [ ] T031 [US3] Create `features/cli/execute/host-builder-architecture.feature` — translate `spec.md` User Story 3 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Tests for User Story 3
 

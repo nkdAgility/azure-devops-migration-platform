@@ -47,7 +47,7 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. It must be written from the `spec.md` User Story 1 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [X] T004 [US1] Create `features/services/organisation-endpoint/organisation-endpoint-service-interfaces.feature` — translate spec.md User Story 1 acceptance scenarios into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T004 [US1] Create `features/services/organisation-endpoint/organisation-endpoint-service-interfaces.feature` — translate spec.md User Story 1 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Implementation for User Story 1
 
@@ -72,7 +72,7 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. Write from `spec.md` User Story 3 acceptance scenarios before any step definitions or production code.**
 
-- [X] T009 [US3] Create `features/services/organisation-endpoint/organisation-entry-conversion.feature` — translate spec.md User Story 3 acceptance scenarios into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T009 [US3] Create `features/services/organisation-endpoint/organisation-entry-conversion.feature` — translate spec.md User Story 3 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Implementation for User Story 3
 
@@ -94,7 +94,7 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. Write from `spec.md` User Story 2 acceptance scenarios before any step definitions or production code.**
 
-- [X] T011 [US2] Create `features/services/organisation-endpoint/discovery-job-organisation-scope.feature` — translate spec.md User Story 2 acceptance scenarios into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T011 [US2] Create `features/services/organisation-endpoint/discovery-job-organisation-scope.feature` — translate spec.md User Story 2 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
 
 ### Implementation for User Story 2
 
@@ -124,7 +124,7 @@
 **Purpose**: Ensure all canonical docs reflect the OrganisationEndpoint refactor. Resolve all discrepancies flagged during planning.
 
 - [X] T019 Update `docs/architecture.md` — add `OrganisationEndpoint` as the canonical connection context type in the Abstractions section (see `discrepancies.md` item 1)
-- [X] T020 [P] Update `.agents/context/job-lifecycle.md` — replace all `DiscoveryJobOrganisation` references with `ScopedOrganisationEndpoint` and `OrganisationEndpoint` (see `discrepancies.md` item 2)
+- [X] T020 [P] Update `.agents/30-context/domains/job-lifecycle.md` — replace all `DiscoveryJobOrganisation` references with `ScopedOrganisationEndpoint` and `OrganisationEndpoint` (see `discrepancies.md` item 2)
 - [X] T021 [P] Update `docs/module-development-guide.md` and `docs/capabilities-guide.md` — document `OrganisationEndpoint` parameter convention for service interfaces (see `discrepancies.md` item 3)
 - [X] T022 Mark all items in `specs/016-organisation-endpoint/discrepancies.md` as `Resolved`
 - [X] T023 Review `analysis/pending-actions.md` and remove any items resolved by this spec
@@ -215,3 +215,4 @@ This refactor changes type signatures across 3 layers (Abstractions → Infrastr
 - JSON property names are stable — no scenario file changes needed (research.md task 2)
 - `AuthenticationType` is an existing enum — no new enum needed (research.md task 4)
 - Commit after each phase or logical group
+

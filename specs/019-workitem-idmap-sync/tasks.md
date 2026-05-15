@@ -94,7 +94,7 @@ All Phase 1 tasks must be complete before any user story phase begins.
   - Scenario: Second agent hard-bounced when live lock exists (owning agent confirmed active via ControlPlane)
   - Scenario: Stale lock (owning agent no longer active per ControlPlane) is replaced and agent proceeds normally
   - Scenario: Lock is released when job completes normally
-  See `.agents/guardrails/acceptance-test-format.md` for format rules.
+  See `.agents/20-guardrails/workflow/acceptance-test-format.md` for format rules.
 
 ### Implementation
 
@@ -117,7 +117,7 @@ All Phase 1 tasks must be complete before any user story phase begins.
   - Scenario: New mapping recorded after work item creation
   - Scenario: Partially imported work item resumes from correct stage
   - Scenario: Revision skipped when mapped target work item is deleted
-  See `.agents/guardrails/acceptance-test-format.md` for format rules.
+  See `.agents/20-guardrails/workflow/acceptance-test-format.md` for format rules.
 
 ### Implementation
 
@@ -146,7 +146,7 @@ All Phase 1 tasks must be complete before any user story phase begins.
   - Scenario: Rebuild merges into existing idmap.db without overwriting existing entries
   - Scenario: TargetField strategy queries custom field for source IDs
   - Scenario: TargetHyperlink strategy extracts source IDs from URL pattern
-  See `.agents/guardrails/acceptance-test-format.md` for format rules.
+  See `.agents/20-guardrails/workflow/acceptance-test-format.md` for format rules.
 
 ### Implementation
 
@@ -170,7 +170,7 @@ All Phase 1 tasks must be complete before any user story phase begins.
   - Scenario: Import cursor resumes from last position after re-export adds new revision folders
   - Scenario: Already-imported work items are not reprocessed after delta re-import
   - Scenario: Fresh-export + fresh-job uses rebuilt ID map and processes all folders
-  See `.agents/guardrails/acceptance-test-format.md` for format rules.
+  See `.agents/20-guardrails/workflow/acceptance-test-format.md` for format rules.
 
 ### Implementation
 
@@ -193,7 +193,7 @@ All Phase 1 tasks must be complete before any user story phase begins.
   - Scenario: Integrity check completes without aborting the job
   - Scenario: Integrity check reports nothing when all mappings are valid
   - Scenario: Integrity check reports that idmap.db does not exist
-  See `.agents/guardrails/acceptance-test-format.md` for format rules.
+  See `.agents/20-guardrails/workflow/acceptance-test-format.md` for format rules.
 
 ### Implementation
 
@@ -226,7 +226,7 @@ All Phase 1 tasks must be complete before any user story phase begins.
   - Scenario: New revision applied when revision index exceeds last tracked index
   - Scenario: Already-applied revision skipped when revision index is at or below last tracked index
   - Scenario: Falls back to cursor-based behaviour when no last_revision_index is recorded
-  See `.agents/guardrails/acceptance-test-format.md` for format rules.
+  See `.agents/20-guardrails/workflow/acceptance-test-format.md` for format rules.
 
 ### Implementation
 
@@ -242,14 +242,14 @@ All Phase 1 tasks must be complete before any user story phase begins.
 
 **Purpose**: Align all canonical context and architecture docs with what was implemented. Resolve all 5 discrepancies in `discrepancies.md`.
 
-- [ ] T031 Update `.agents/context/identity-and-mapping.md` — "ID Mapping (Work Item IDs)" section: change `idmap.db (PostgreSQL Portable binary ...)` to `idmap.db (SQLite — package-local indexed storage, not a control-plane database)`. Resolves **Discrepancy 1**.
+- [ ] T031 Update `.agents/30-context/domains/identity-and-mapping.md` — "ID Mapping (Work Item IDs)" section: change `idmap.db (PostgreSQL Portable binary ...)` to `idmap.db (SQLite — package-local indexed storage, not a control-plane database)`. Resolves **Discrepancy 1**.
 
-- [ ] T032 Update `.agents/context/checkpointing-summary.md`:
+- [ ] T032 Update `.agents/30-context/domains/checkpointing-summary.md`:
   1. In "Per-Module Cursors" / ID map section: change PostgreSQL reference to `idmap.db (SQLite — source workItemId → target workItemId mapping; package-local indexed storage)`. Resolves **Discrepancy 2**.
   2. In the ID Map section: add a note — `The work_item_map table also tracks last_revision_index per source work item, enabling revision-level skip logic during sync/rerun imports.` Resolves **Discrepancy 4**.
   3. Add a note about the package lock: `At import job startup, an exclusive Checkpoints/agent.lock (JSON, contains jobId + agentInstanceId GUID) is acquired via IPackageLockService. A second agent targeting the same package is hard-bounced (PackageLockConflictException) if the owning agent instance is confirmed active via ControlPlane status endpoint.`
 
-- [ ] T033 Add "Rerun / Sync Import" section to `.agents/context/import-streaming.md` describing:
+- [ ] T033 Add "Rerun / Sync Import" section to `.agents/30-context/domains/import-streaming.md` describing:
   (a) How the export cursor (`Checkpoints/workitems.cursor.json`) enables delta re-export (only new revision folders written).
   (b) How the import cursor enables delta re-import (only folders beyond the cursor are processed).
   (c) How `idmap.db` `last_revision_index` enables per-work-item skip logic for already-applied revisions within a work item.
@@ -320,3 +320,4 @@ Phase N (Doc Sync)      ← depends on all implementation phases
 - `PackageLockFileService` uses `FileStream(CreateNew)` directly — this is a documented justified exception to the `IArtefactStore` rule (same as `SqliteIdMapStore`); the lock file requires an atomic OS primitive
 - The `RevisionProcessResult` (T014) is `internal` to the Infrastructure assembly — it is a typed return value replacing exception-as-control-flow; must not be exposed through the Abstractions layer
 - Phases 3–5 all depend on Phase 1 being complete, but US1 (Phase 3) is the highest-value story — prioritise it first after Phase 1
+

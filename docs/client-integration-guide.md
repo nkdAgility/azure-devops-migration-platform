@@ -2,7 +2,7 @@
 
 This contributor guide explains the current Control Plane client protocol for building a web dashboard, VS Code extension, CI/CD integration, or other client.
 
-Enforced client-side constraints live in [cli-tui-rules.md](../.agents/guardrails/cli-tui-rules.md) and the relevant ADRs. This guide explains the protocol and expected usage patterns.
+Enforced client-side constraints live in [cli-tui-rules.md](../.agents/20-guardrails/domains/cli-tui-rules.md) and the relevant ADRs. This guide explains the protocol and expected usage patterns.
 
 All client communication uses the **Control Plane HTTP API** exclusively. There is no SDK, no shared-memory bus, and no direct file-system access. The control plane is always the single source of truth.
 
@@ -723,5 +723,6 @@ Common client mistakes to avoid:
 | [docs/control-plane.md](control-plane.md) | Full API surface, authentication, data store, and authorisation rules |
 | [docs/cli-guide.md](cli-guide.md) | CLI implementation — reference client using this flow |
 | [docs/tui-guide.md](tui-guide.md) | TUI implementation — reference client using this flow |
-| [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md) | Job definition schema and field semantics |
-| [.agents/context/telemetry-model.md](../.agents/context/telemetry-model.md) | Three-channel model — agent-side contract |
+| [.agents/30-context/domains/job-lifecycle.md](../.agents/30-context/domains/job-lifecycle.md) | Job definition schema and field semantics |
+| [.agents/30-context/domains/telemetry-model.md](../.agents/30-context/domains/telemetry-model.md) | Three-channel model — agent-side contract |
+

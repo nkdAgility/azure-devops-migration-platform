@@ -6,7 +6,7 @@ Subsystem:
   agent_validation_safety
 
 Analysed sources:
-  - `.agents/context/architecture/agent-validation-safety.md`
+  - `.agents/30-context/architecture/agent-validation-safety.md`
   - `features/platform/validation/package-validation.feature`
   - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Validation/PackageValidator.cs`
   - `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/IPackageValidator.cs`

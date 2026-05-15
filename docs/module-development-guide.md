@@ -313,7 +313,7 @@ The package output is identical to an ADO export — the same `WorkItems/yyyy-MM
 
 ### Adding a New Module
 
-See [.agents/guardrails/module-rules.md](../.agents/guardrails/module-rules.md) for the full checklist.
+See [.agents/20-guardrails/domains/module-rules.md](../.agents/20-guardrails/domains/module-rules.md) for the full checklist.
 
 > **Naming convention**: modules are named by *domain* (`WorkItems`, `Identities`, `Teams`, `Git`), not by operation. One module handles both export and import for its domain. `Scopes` are mandatory selection criteria (e.g. a `wiql` scope for WorkItems). The `Extensions` array controls which sub-data is collected.
 
@@ -512,3 +512,4 @@ The `Infrastructure.Modules.Discovery` namespace contains **utility types** used
 - `ProjectDependencyRecord` / `ProjectPairKey` — data records for dependency edges.
 
 > **Important**: These are NOT `IModule` or `IDiscoveryModule` implementations. They are internal utilities consumed only by `DependencyDiscoveryModule`.
+

@@ -26,7 +26,7 @@ The implementation extends the existing `WorkItemExportOrchestrator` (streaming 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 > **Mandatory context loading:** Before completing this gate, confirm that ALL files in
-> `/.agents/guardrails/`, ALL files in `/.agents/context/`, and relevant `/docs/` files
+> `/.agents/20-guardrails/`, ALL files in `/.agents/30-context/`, and relevant `/docs/` files
 > have been read. Skipping either `.agents/` subdirectory is a constitution violation.
 
 - [x] **Package-First (I):** `WorkItemsModule.ExportAsync` writes only via `IArtefactStore`. No ADO API calls from within module code — all ADO interaction is behind `IWorkItemRevisionSource` and `IAttachmentDownloader` abstractions.
@@ -294,4 +294,5 @@ All nine principles re-verified against the Phase 1 design above:
 ---
 
 *Next step: run `/speckit.tasks` to generate the dependency-ordered task list for implementation.*
+
 

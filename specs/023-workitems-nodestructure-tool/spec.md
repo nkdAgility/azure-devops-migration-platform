@@ -16,10 +16,10 @@ The following canonical documents were read before drafting this specification:
 | `agents.md` | Confirmed accurate |
 | `docs/module-development-guide.md` | Confirmed accurate — Tool Resolution section referenced; `NodeStructureTool` not yet described → **discrepancy logged** |
 | `docs/configuration-reference.md` | Confirmed accurate — `Tools` section documents `FieldTransform`; `NodeStructure` tool not yet documented → **discrepancy logged** |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate |
-| `.agents/guardrails/workitems-rules.md` | Confirmed accurate |
-| `.agents/guardrails/migration-rules.md` | Confirmed accurate |
-| `.agents/context/workitems-format-summary.md` | Confirmed accurate |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate |
+| `.agents/20-guardrails/domains/workitems-rules.md` | Confirmed accurate |
+| `.agents/20-guardrails/domains/migration-rules.md` | Confirmed accurate |
+| `.agents/30-context/domains/workitems-format-summary.md` | Confirmed accurate |
 | `azure-devops-migration-tools` — `TfsNodeStructureTool.cs` | Cross-referenced for behavioural completeness — iteration dates, auto project-name swap, unanchored paths, bulk pre-collection |
 
 Discrepancies logged in: `specs/023-workitems-nodestructure-tool/discrepancies.md`
@@ -535,3 +535,4 @@ traces
 - Iteration node start/finish dates and `isBacklogIteration` flag from the source are preserved in `Nodes/source-tree.json` and applied when creating nodes via `ReplicateSourceTree`. Dates are NOT available for on-demand `AutoCreateNodes` creation (the source is not queried at import time).
 - Schema versioning and a config upgrader for the new `NodeStructure` tool type and the new `Nodes/` package artifacts are required per system-architecture guardrail rule 9, and will be addressed in the plan/implementation phases.
 - Architecture sources: `analysis/proposed-features.md` M2 and T2 entries, cross-validated against `azure-devops-migration-tools` `TfsNodeStructureTool` implementation, and all guardrail and context files listed in the Architecture References section.
+

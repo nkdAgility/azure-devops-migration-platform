@@ -59,7 +59,7 @@
 
 ### Gherkin Feature File for User Story 1
 
-- [ ] T012 [US1] Create `features/inventory/work-items/simulate-work-item-discovery.feature` — translate the three US1 acceptance scenarios from `specs/008-simulated-data-source/spec.md` into conformant Gherkin; include `@simulated` tag on all scenarios; follow tier/naming rules from `.agents/guardrails/acceptance-test-format.md`
+- [ ] T012 [US1] Create `features/inventory/work-items/simulate-work-item-discovery.feature` — translate the three US1 acceptance scenarios from `specs/008-simulated-data-source/spec.md` into conformant Gherkin; include `@simulated` tag on all scenarios; follow tier/naming rules from `.agents/20-guardrails/workflow/acceptance-test-format.md`
 
 ### Implementation for User Story 1
 
@@ -81,7 +81,7 @@
 
 ### Gherkin Feature File for User Story 2
 
-- [ ] T018 [US2] Create `features/export/work-items/revisions/simulate-work-item-export.feature` — translate the four US2 acceptance scenarios from `specs/008-simulated-data-source/spec.md` into conformant Gherkin; include `@simulated` tag on all scenarios; `@checkpoint` tag on the resume scenario; follow tier/naming rules from `.agents/guardrails/acceptance-test-format.md`
+- [ ] T018 [US2] Create `features/export/work-items/revisions/simulate-work-item-export.feature` — translate the four US2 acceptance scenarios from `specs/008-simulated-data-source/spec.md` into conformant Gherkin; include `@simulated` tag on all scenarios; `@checkpoint` tag on the resume scenario; follow tier/naming rules from `.agents/20-guardrails/workflow/acceptance-test-format.md`
 
 ### Implementation for User Story 2
 
@@ -103,7 +103,7 @@
 
 ### Gherkin Feature File for User Story 3
 
-- [ ] T024 [US3] Create `features/import/work-items/revisions/simulate-work-item-import.feature` — translate the four US3 acceptance scenarios from `specs/008-simulated-data-source/spec.md` into conformant Gherkin; include `@simulated` and `@end-to-end` tags; `@tui` tag on the TUI scenario; `@validation` tag on the round-trip fidelity scenario; follow tier/naming rules from `.agents/guardrails/acceptance-test-format.md`
+- [ ] T024 [US3] Create `features/import/work-items/revisions/simulate-work-item-import.feature` — translate the four US3 acceptance scenarios from `specs/008-simulated-data-source/spec.md` into conformant Gherkin; include `@simulated` and `@end-to-end` tags; `@tui` tag on the TUI scenario; `@validation` tag on the round-trip fidelity scenario; follow tier/naming rules from `.agents/20-guardrails/workflow/acceptance-test-format.md`
 
 ### Implementation for User Story 3
 
@@ -126,7 +126,7 @@
 
 ### Gherkin Feature File for User Story 4
 
-- [ ] T031 [US4] Create `features/platform/simulated-migration/simulated-end-to-end-migration.feature` — translate the two US4 acceptance scenarios from `specs/008-simulated-data-source/spec.md` into conformant Gherkin; include `@simulated`, `@system-test`, and `@ci` tags; the performance-gate scenario should carry `@performance`; follow tier/naming rules from `.agents/guardrails/acceptance-test-format.md`
+- [ ] T031 [US4] Create `features/platform/simulated-migration/simulated-end-to-end-migration.feature` — translate the two US4 acceptance scenarios from `specs/008-simulated-data-source/spec.md` into conformant Gherkin; include `@simulated`, `@system-test`, and `@ci` tags; the performance-gate scenario should carry `@performance`; follow tier/naming rules from `.agents/20-guardrails/workflow/acceptance-test-format.md`
 
 ### Implementation for User Story 4
 
@@ -298,3 +298,4 @@ With multiple contributors after Phase 2 is complete:
 - `WorkItemsModule.ImportAsync` was previously `NotImplementedException` — T028 is the first real implementation
 - System tests in Phase 6 must carry `[TestCategory("SystemTest")]` so CI can filter them into a dedicated stage
 - Commit after each completed phase checkpoint; do not commit broken builds
+

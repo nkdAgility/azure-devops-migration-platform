@@ -9,9 +9,9 @@
 
 **Files Read**:
 - `docs/cli-guide.md` — confirmed accurate regarding CLI architecture and testing patterns
-- `.agents/guardrails/architecture-boundaries.md` — confirmed accurate, no conflicts
-- `.agents/guardrails/testing-rules.md` — confirmed accurate for test framework requirements
-- `.agents/guardrails/acceptance-test-format.md` — confirmed accurate for test organization
+- `.agents/20-guardrails/core/architecture-boundaries.md` — confirmed accurate, no conflicts
+- `.agents/20-guardrails/workflow/testing-rules.md` — confirmed accurate for test framework requirements
+- `.agents/20-guardrails/workflow/acceptance-test-format.md` — confirmed accurate for test organization
 
 **Assessment**: No discrepancies found. The proposed system test framework aligns with existing CLI testing patterns and MSTest conventions.
 
@@ -112,3 +112,4 @@ As a new contributor, I need clear documentation on how to set up and run system
 - System tests will validate configuration and basic functionality, not full end-to-end inventory operations initially
 - Temporary test output directories can be created and cleaned up automatically during test execution
 - Network connectivity to Azure DevOps services is available in both local development and CI environments
+

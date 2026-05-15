@@ -1,8 +1,8 @@
 # Architecture Overview
 
 > This document defines architectural intent and is the primary human reference.
-> In any conflict between this document and `/.agents/guardrails/*.md` guardrails, **the guardrails win**.
-> See [.agents/guardrails/architecture-boundaries.md](../.agents/guardrails/architecture-boundaries.md) for the enforced rules.
+> In any conflict between this document and `/.agents/20-guardrails/*.md` guardrails, **the guardrails win**.
+> See [.agents/20-guardrails/core/architecture-boundaries.md](../.agents/20-guardrails/core/architecture-boundaries.md) for the enforced rules.
 > See [agents.md](../agents.md) for the agent entry point that binds docs to guardrails.
 
 ## 1. System Purpose
@@ -184,7 +184,7 @@ flowchart TD
 
 The `ControlPlaneHost` receives a `Job` from the CLI. It is the fully serialisable dispatch token that `ControlPlaneHost` passes to an Agent under a lease. The class was named `MigrationJob` until feature 025.1-fold-to-job unified the class hierarchy (replacing both `MigrationJob` and `DiscoveryJob`). All job kinds now use the same `Job` wire format with a `Kind` discriminator (`JobKind` enum). The config file is never sent to the Agent directly — it travels as `Job.ConfigPayload` (raw JSON) and the Agent writes it to `migration-config.json` at the package root before any module executes.
 
-See [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md).
+See [.agents/30-context/domains/job-lifecycle.md](../.agents/30-context/domains/job-lifecycle.md).
 
 ### ControlPlaneHost is Always an HTTP Service
 
@@ -395,19 +395,19 @@ Key properties:
 
 | Section | Document |
 |---|---|
-| 2. Package structure & manifest | [.agents/context/migration-package-concept.md](../.agents/context/migration-package-concept.md) |
-| 3. WorkItems on-disk layout | [.agents/context/workitems-format-summary.md](../.agents/context/workitems-format-summary.md) |
-| 4. Streaming import model | [.agents/context/import-streaming.md](../.agents/context/import-streaming.md) |
-| 5. Cursor-based checkpointing | [.agents/context/checkpointing-summary.md](../.agents/context/checkpointing-summary.md) |
+| 2. Package structure & manifest | [.agents/30-context/domains/migration-package-concept.md](../.agents/30-context/domains/migration-package-concept.md) |
+| 3. WorkItems on-disk layout | [.agents/30-context/domains/workitems-format-summary.md](../.agents/30-context/domains/workitems-format-summary.md) |
+| 4. Streaming import model | [.agents/30-context/domains/import-streaming.md](../.agents/30-context/domains/import-streaming.md) |
+| 5. Cursor-based checkpointing | [.agents/30-context/domains/checkpointing-summary.md](../.agents/30-context/domains/checkpointing-summary.md) |
 | 6. Module architecture | [docs/module-development-guide.md](module-development-guide.md) |
-| 7. Identity & mapping | [.agents/context/identity-and-mapping.md](../.agents/context/identity-and-mapping.md) |
+| 7. Identity & mapping | [.agents/30-context/domains/identity-and-mapping.md](../.agents/30-context/domains/identity-and-mapping.md) |
 | 8. Source types | [docs/capabilities-guide.md](capabilities-guide.md) |
 | 9. Configuration model | [docs/configuration-reference.md](configuration-reference.md) |
 | 10. Orchestration | [docs/migration-process-guide.md](migration-process-guide.md) |
 | 11. Zip packaging | [docs/package-format-reference.md](package-format-reference.md) |
 | 12. Validation (pre-flight & post-flight) | [docs/validation.md](validation.md) |
 | 13. Package manager and persistence | [docs/package-boundary-reference.md](package-boundary-reference.md) |
-| 14. Job contract | [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md) |
+| 14. Job contract | [.agents/30-context/domains/job-lifecycle.md](../.agents/30-context/domains/job-lifecycle.md) |
 | 15. Control plane | [docs/control-plane.md](control-plane.md) |
 | 16. Migration Agent (worker) | [docs/agent-hosting.md](agent-hosting.md) |
 | 17. CLI | [docs/cli-guide.md](cli-guide.md) |
@@ -417,8 +417,9 @@ Key properties:
 
 | Topic | Document |
 |---|---|
-| Hard architectural constraints (authoritative) | [.agents/guardrails/architecture-boundaries.md](../.agents/guardrails/architecture-boundaries.md) |
-| WorkItems-specific rules | [.agents/guardrails/workitems-rules.md](../.agents/guardrails/workitems-rules.md) |
-| Migration behaviour invariants | [.agents/guardrails/migration-rules.md](../.agents/guardrails/migration-rules.md) |
-| Coding standards | [.agents/guardrails/coding-standards.md](../.agents/guardrails/coding-standards.md) |
-| New module checklist | [.agents/guardrails/module-rules.md](../.agents/guardrails/module-rules.md) |
+| Hard architectural constraints (authoritative) | [.agents/20-guardrails/core/architecture-boundaries.md](../.agents/20-guardrails/core/architecture-boundaries.md) |
+| WorkItems-specific rules | [.agents/20-guardrails/domains/workitems-rules.md](../.agents/20-guardrails/domains/workitems-rules.md) |
+| Migration behaviour invariants | [.agents/20-guardrails/domains/migration-rules.md](../.agents/20-guardrails/domains/migration-rules.md) |
+| Coding standards | [.agents/20-guardrails/core/coding-standards.md](../.agents/20-guardrails/core/coding-standards.md) |
+| New module checklist | [.agents/20-guardrails/domains/module-rules.md](../.agents/20-guardrails/domains/module-rules.md) |
+

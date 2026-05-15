@@ -31,5 +31,5 @@ Only the Migration Agent and the TFS Migration Agent may write package artefacts
 
 ## Related
 
-- [.agents/guardrails/architecture-boundaries.md](../../.agents/guardrails/architecture-boundaries.md) — enforced constraints (Rule 23)
+- [.agents/20-guardrails/core/architecture-boundaries.md](../../.agents/20-guardrails/core/architecture-boundaries.md) — enforced constraints (Rule 23)
 - [docs/architecture.md](../architecture.md#data-residency--agent-only-write-access) — data residency section
