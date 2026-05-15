@@ -91,7 +91,7 @@ Processing entries are not data kinds. They do not appear in the package manifes
 | `EmbeddedImages` | Data | Yes | Images embedded in HTML description fields |
 | `Comments` | Data | No | Discussion thread; not supported by TFS |
 | `WorkItemResolutionStrategy` | Processing | Yes | How unresolvable IDs are handled on import |
-| `FieldTransform` | Processing | No | Per-field value rewriting rules |
+| `FieldTransform` | Processing | No | Per-field value rewriting rules; contract details in `.agents/10-contracts/specs/field-transform-contract.md` |
 
 ### Teams Module
 
@@ -142,6 +142,7 @@ Modules use `Selection`, `Data`, `Processing` as top-level config sections. Conf
 ```
 
 Required entries (`Revisions`, `Links`, `Attachments`, `EmbeddedImages`, `WorkItemResolutionStrategy`) do not appear unless they carry user-tunable parameters.
+Do not define FieldTransform rule/failure semantics in this context file; they are canonical in `.agents/10-contracts/specs/field-transform-contract.md`.
 
 ---
 

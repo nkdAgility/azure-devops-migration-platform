@@ -4,6 +4,7 @@
 - `.agents/10-contracts/seam-catalog.yaml`
 - `.agents/10-contracts/change-classes.yaml`
 - `.agents/10-contracts/consent-policy.yaml`
+- `.agents/10-contracts/specs/field-transform-contract.md`
 
 Entry flow:
 

@@ -50,7 +50,7 @@ Modules are one of three extension points in the job engine:
 | Pure Capture Handler | `ICapture` (not `IModule`) | Inventory capture only; no export/import lifecycle |
 | Analyser | `IAnalyser` | After all inventory modules complete; writes analysis artefacts to the package |
 
-**Tools** (`MigrationPlatform:Tools.*`) are a fourth extension point but are stateless services, not phase participants. They are injected into modules and orchestrators to perform pure transformations (field rewriting, path translation, identity lookup) with no I/O.
+**Tools** (`MigrationPlatform:Tools.*`) are a fourth extension point but are stateless services, not phase participants. They are injected into modules and orchestrators to perform pure transformations (field rewriting, path translation, identity lookup) with no I/O. FieldTransform rule/failure behavior and config shape are contract-owned by `.agents/10-contracts/specs/field-transform-contract.md`.
 
 Current pure capture handlers:
 - `DependencyCapture` — captures per-project dependency links via `IDependencyDiscoveryServiceFactory.CreateForProject` and `IDependencyOrchestrator.CaptureProjectAsync`. Registered as `ICapture` only via `AddDependencyCapture()`. TFS agents must NOT register this.

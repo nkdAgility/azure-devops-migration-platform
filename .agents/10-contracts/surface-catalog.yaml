@@ -37,6 +37,7 @@ surfaces:
   field_transform:
     concern: "Field transformation"
     surface: "IFieldTransformTool"
+    contract_doc: ".agents/10-contracts/specs/field-transform-contract.md"
     owners:
       - "Tools.FieldTransform"
     allowed_callers:
