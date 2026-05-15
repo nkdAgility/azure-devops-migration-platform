@@ -137,6 +137,12 @@ Orchestrator *implementations* are `internal sealed` classes in `Infrastructure.
 3. **Consistency** — Every module follows the same structure. New contributors can navigate any module by recognising the pattern.
 4. **Separation of concerns** — Guard checks and config resolution (Module) are separate from enumeration/checkpoint/progress logic (Orchestrator), which is separate from SDK calls (Service).
 
+#### Capability Seam Rule (Tools, Modules, Extensions)
+
+When a concern already has a canonical seam (for example node translation, identity lookup, field transform), modules and extensions must consume that seam. They must not introduce alternate concern engines.
+
+Extensions are policy adapters: they decide when/how to apply the seam, skip/fail behavior, and checkpoint interaction. They are not replacement translation or mapping engines.
+
 #### Module ↔ Orchestrator Mapping
 
 | Module | Orchestrator | Services |

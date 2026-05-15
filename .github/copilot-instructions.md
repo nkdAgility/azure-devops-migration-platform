@@ -24,7 +24,40 @@ The table below is a **quick reference only**. It does **NOT** satisfy the manda
 
 Before writing, editing, or suggesting any code, settings, config, or docs change:
 
-1. Use `read_file` to read **every** guardrail file in `/.agents/guardrails/` and every relevant context file in `/.agents/context/` — the complete file lists are in [agents.md](../agents.md) under **Guardrails Validation**.
+1. Use `read_file` to read **every** guardrail file in `/.agents/guardrails/` and every relevant context file in `/.agents/context/`.
+   - Guardrails:
+     - `.agents/guardrails/architecture-boundaries.md`
+     - `.agents/guardrails/capability-ethos-rules.md`
+     - `.agents/guardrails/coding-standards.md`
+     - `.agents/guardrails/coding-standards-examples.md`
+     - `.agents/guardrails/testing-rules.md`
+     - `.agents/guardrails/workitems-rules.md`
+     - `.agents/guardrails/migration-rules.md`
+     - `.agents/guardrails/module-rules.md`
+     - `.agents/guardrails/connector-rules.md`
+     - `.agents/guardrails/control-plane-rules.md`
+     - `.agents/guardrails/cli-tui-rules.md`
+     - `.agents/guardrails/observability-requirements.md`
+     - `.agents/guardrails/security-rules.md`
+     - `.agents/guardrails/data-sovereignty-rules.md`
+     - `.agents/guardrails/package-rules.md`
+     - `.agents/guardrails/configuration-rules.md`
+     - `.agents/guardrails/documentation-rules.md`
+     - `.agents/guardrails/definition-of-done.md`
+     - `.agents/guardrails/test-first-workflow.md`
+     - `.agents/guardrails/acceptance-test-format.md`
+   - Context:
+     - `.agents/context/migration-package-concept.md`
+     - `.agents/context/workitems-format-summary.md`
+     - `.agents/context/import-streaming.md`
+     - `.agents/context/checkpointing-summary.md`
+     - `.agents/context/package-manager.md`
+     - `.agents/context/capability-seam-contract.md`
+     - `.agents/context/job-lifecycle.md`
+     - `.agents/context/telemetry-model.md`
+     - `.agents/context/ui-mode-summary.md`
+     - `.agents/context/architecture/agent-failure-pattern-checks.md`
+     - `.agents/context/identity-and-mapping.md`
 	For CLI/TUI contract work, this includes the UI mode summary listed in [agents.md](../agents.md).
 	For Prepare/import failure-pattern architecture work, this includes `.agents/context/architecture/agent-failure-pattern-checks.md`.
 2. State explicitly which guardrails apply to the current task.

@@ -79,6 +79,8 @@ If a rule below forces a **clearly worse outcome**: Stop → Cite rule number �
 
 27. **`IOptions<T>` is the only permitted runtime config injection pattern (spec 028).** `MigrationOptions` is a serialisation-only DTO — it MUST NOT be injected into modules, tools, or services. Every options class MUST declare `public const string SectionName = "MigrationPlatform:...";` and be registered via `AddSchemaEntry<T>()`. The `migration.schema.json` file MUST be generated from DI registrations. CI MUST fail if the committed schema differs from the generated schema. Adding options that bypass `SectionName` and `AddSchemaEntry<T>()` is an instant reject.
 
+28. **Capability seams are canonical and singular.** Each concern has one canonical runtime seam and one public reusable contract surface. Modules, orchestrators, extensions, and analysers must consume that seam rather than introducing parallel runtime entry points or duplicate concern engines. Phase/slice policy belongs in thin adapters. See [capability-ethos-rules.md](./capability-ethos-rules.md).
+
 ---
 
 ## Reference

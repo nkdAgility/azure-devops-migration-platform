@@ -21,11 +21,20 @@ After ATDD intent is approved and before tests or production changes proceed, th
 
 Blocking findings from those runs must be resolved in the specification before continuing.
 
+Specification hardening must also record a **Capability Seam Decision** for each concern in scope:
+
+- canonical seam owner
+- public reusable contract surface
+- adapter/extension policy responsibilities
+- prohibited parallel runtime entry points
+
+Missing this decision block is a hard stop.
+
 Implementation is mandatory RED → GREEN → REFACTOR:
 
 - RED: add or update the smallest failing behavioural test first.
-- GREEN: make the minimal production change required to turn that test green, then progressively broaden verification through the next wider relevant test layers before the final full-suite run so the repository is restored to an all-green state.
-- REFACTOR: improve the design only after the relevant tests are green, while keeping them green.
+- GREEN: make the minimal production change required to turn that test green, then progressively broaden verification through the next wider relevant test layers before the final full-suite run so the repository is restored to an all-green state. GREEN must not introduce alternate runtime paths that bypass the declared canonical seam.
+- REFACTOR: improve the design only after the relevant tests are green, while keeping them green. REFACTOR must consolidate duplicated concern logic back behind the canonical seam.
 
 GREEN is not satisfied by a slice-only pass. The local failing test proves the intended behaviour; progressively wider layers reduce feedback latency while rebuilding confidence; the fresh full-suite pass is the final no-regression gate before REFACTOR or any completion claim.
 

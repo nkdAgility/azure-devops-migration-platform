@@ -76,6 +76,17 @@ Available tools: `FieldTransform`, `NodeTranslation`, `IdentityLookup`.
 
 Extension points in the execution engine are `IModule` (phase methods) and `IAnalyser` (`AnalyseAsync` for cross-cutting analysis artefacts).
 
+### Capability Seam Ethos
+
+The platform uses a seam-first ethos for every concern (not only tools):
+
+1. one canonical business seam per concern
+2. one public reusable contract surface for runtime consumers
+3. thin module/extension adapters for phase and policy behavior
+4. centralized concern logic behind the seam
+
+This prevents concern logic from being duplicated across modules, orchestrators, extensions, and analysers while still allowing slice-specific policy decisions. If internals need to evolve, they evolve behind the seam rather than adding parallel runtime entry points.
+
 ### Project Boundary Rules
 
 Project references are compiler-enforced (no cyclic references allowed). Each layer may only reference the layers below it:

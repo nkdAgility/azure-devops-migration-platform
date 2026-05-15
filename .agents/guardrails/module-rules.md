@@ -47,11 +47,13 @@ Module (thin wrapper: ~100–130 lines)
 - Registered as a singleton in DI (stateless between calls — all operation state passed via method parameters).
 - Handles: checkpointing (cursor read/write via `ICheckpointingServiceFactory`), progress events (`IProgressSink`), metrics (OTel `ActivitySource` + `IMigrationMetrics`), CSV/JSON writing, enumeration loops, resume logic.
 - Receives connector services as method parameters (not constructor-injected), so the same orchestrator can work with any connector.
+- Must consume canonical capability seams (tools/services) for concern logic; must not implement parallel engines for concerns already owned by a seam.
 
 ### Service Layer (external calls)
 - Connector-specific SDK/API calls behind abstraction interfaces (e.g. `ITeamSource`, `IIdentitySource`, `IClassificationTreeCapture`).
 - One implementation per connector (AzureDevOps, TFS, Simulated).
 - Injected into the module by DI, passed to the orchestrator at call time.
+- Extension or policy adapters in this layer must stay thin (application policy/orchestration only) and must not become alternate concern engines.
 
 ## 5. Inventory
 

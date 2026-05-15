@@ -43,6 +43,9 @@ Code MUST be deterministic, testable, maintainable, and aligned with the defined
 - MUST use `IArtefactStore` for all file writes.
 - MUST use `IStateStore` for all resume/checkpoint state.
 - MUST isolate modules via interface boundaries.
+- MUST preserve one canonical capability seam per concern; do not add parallel runtime entry points.
+- MUST centralize concern engine logic behind the canonical seam; do not duplicate it across modules/orchestrators/extensions.
+- MUST keep extensions/adapters thin and policy-focused (when/how/skip/fail/checkpoint), not alternate engines.
 
 ---
 

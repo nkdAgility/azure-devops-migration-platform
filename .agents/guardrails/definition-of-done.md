@@ -49,6 +49,16 @@ Every module/tool must pass all four checks:
 - Constructor injection only — no `new` in module/service code.
 - Verified by scenario run (missing reg → `InvalidOperationException`).
 
+## 3b. Capability Seam Integrity ⛔ MANDATORY
+
+- A canonical seam exists for each concern touched by the change.
+- No parallel runtime entry point was introduced for that concern.
+- Core concern logic remains centralized behind the seam (no duplicate engines in modules/orchestrators/extensions).
+- Adapter/extension changes are policy-orchestration only.
+- Review evidence explicitly states pass/fail across Modular Monolith, Clean, Hexagonal, Vertical Slice, and Screaming perspectives for the touched scope.
+
+Failing any item blocks completion.
+
 ## 4. Scenario Execution
 
 - At least one scenario config run via `.vscode/launch.json` debug profile.
@@ -110,6 +120,7 @@ Re-read every relevant doc. Check each change line by line. Fix any non-complian
 [ ] O-4: ProgressEvents verified (3+ Emit calls, Metrics populated)
 [ ] O-4: CLI progress row visible in BuildProgressRenderable
 [ ] O-5: Every discovery/fetch call site wired with IProgress<int> callback
+[ ] Capability seam integrity verified (single canonical seam, no parallel entry points, adapter-only policy)
 [ ] Pipeline wiring table all ✅
 [ ] CLI reads counters from telemetry endpoint, NOT ProgressEvent.Metrics
 [ ] No direct IProgressSink wiring in CLI or TUI

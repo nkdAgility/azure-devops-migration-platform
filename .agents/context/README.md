@@ -23,6 +23,7 @@ Context does not override guardrails. If context conflicts with guardrails, the 
 | `import-streaming.md` | Streaming import requirements — memory-safe enumeration |
 | `checkpointing-summary.md` | Cursor-based checkpointing — resumability, idempotency |
 | `package-manager.md` | Frozen package boundary contract mirror for agents — concrete runtime package access surface and state-scope model |
+| `capability-seam-contract.md` | Practical capability seam contract — canonical boundary ownership, adapter rules, anti-drift checks |
 | `job-lifecycle.md` | Job contract specification — what a Job is, fields, lifecycle |
 | `telemetry-model.md` | Telemetry layer model — spans, metrics, logs, progress events |
 | `identity-and-mapping.md` | Identity mapping service — how source identities map to target |
