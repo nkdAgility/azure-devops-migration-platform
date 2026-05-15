@@ -13,6 +13,10 @@ These rules encode the architecture-review tenets at creation time, not after im
 - Screaming Architecture
 - Continuous deepening (`nkda-archimprove-codebase`)
 
+Canonical per-perspective ethos and reject matrix:
+
+- `.agents/20-guardrails/core/architecture-perspectives-ethos.md`
+
 ## Core Rules
 
 1. **One canonical business seam per concern.** A concern (for example node translation, identity lookup, field transform) must have one canonical runtime boundary.
@@ -62,6 +66,7 @@ No silent exceptions.
 ## Related
 
 - [architecture-boundaries.md](../core/architecture-boundaries.md)
+- [architecture-perspectives-ethos.md](../core/architecture-perspectives-ethos.md)
 - [coding-standards.md](../core/coding-standards.md)
 - [module-rules.md](../domains/module-rules.md)
 - [definition-of-done.md](../workflow/definition-of-done.md)

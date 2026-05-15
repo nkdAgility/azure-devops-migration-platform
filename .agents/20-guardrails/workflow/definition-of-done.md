@@ -55,7 +55,8 @@ Every module/tool must pass all four checks:
 - No parallel runtime entry point was introduced for that concern.
 - Core concern logic remains centralized behind the seam (no duplicate engines in modules/orchestrators/extensions).
 - Adapter/extension changes are policy-orchestration only.
-- Review evidence explicitly states pass/fail across Modular Monolith, Clean, Hexagonal, Vertical Slice, and Screaming perspectives for the touched scope.
+- Review evidence explicitly states pass/fail across Modular Monolith, Clean, Hexagonal, Vertical Slice, Screaming, and Architecture Deepening perspectives for the touched scope.
+- Perspective evidence must follow `.agents/20-guardrails/core/architecture-perspectives-ethos.md`.
 
 Failing any item blocks completion.
 
@@ -121,6 +122,7 @@ Re-read every relevant doc. Check each change line by line. Fix any non-complian
 [ ] O-4: CLI progress row visible in BuildProgressRenderable
 [ ] O-5: Every discovery/fetch call site wired with IProgress<int> callback
 [ ] Capability seam integrity verified (single canonical seam, no parallel entry points, adapter-only policy)
+[ ] Perspective evidence recorded for Modular Monolith, Clean, Hexagonal, Vertical Slice, Screaming, and Architecture Deepening
 [ ] Pipeline wiring table all ✅
 [ ] CLI reads counters from telemetry endpoint, NOT ProgressEvent.Metrics
 [ ] No direct IProgressSink wiring in CLI or TUI

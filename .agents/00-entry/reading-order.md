@@ -6,6 +6,7 @@
 4. Read all guardrails listed by the selected profile.
 5. Read all context files listed by the selected profile.
 6. If the task changes contracts or boundaries, also load:
+   - `.agents/20-guardrails/core/architecture-perspectives-ethos.md`
    - `.agents/20-guardrails/core/surface-usage.md`
    - `.agents/20-guardrails/core/change-governance.md`
    - `.agents/20-guardrails/workflow/test-first-workflow.md`

@@ -30,6 +30,12 @@ Specification hardening must also record a **Capability Seam Decision** for each
 
 Missing this decision block is a hard stop.
 
+Specification hardening must also complete a non-skill architecture-perspectives gate for touched scope using:
+
+- `.agents/20-guardrails/core/architecture-perspectives-ethos.md`
+
+This gate is mandatory even when architecture-review skills are not invoked.
+
 Implementation is mandatory RED → GREEN → REFACTOR:
 
 - RED: add or update the smallest failing behavioural test first.
@@ -52,6 +58,7 @@ Implementation execution must also run `.agents/commands/nkda-tddsn-autonomous.m
 | --- | --- | --- | --- |
 | 1. Specification | speckit.specify | `spec.md` | Human approval of spec |
 | 2. Spec Hardening | `.agents/skills/nkda-archimprove-red-team-review` + `.agents/skills/nkda-observability-contract` + `.agents/skills/nkda-archcheck-architecture-review` | Reviewed and corrected `spec.md` plus review outputs | All blocking architecture, observability, and red-team findings resolved or explicitly approved by the human before continuing |
+| 2a. Perspectives Gate | Guardrail-driven review against `.agents/20-guardrails/core/architecture-perspectives-ethos.md` | Perspective evidence for touched scope | Pass required for all six perspectives before Test Generation |
 | 3. Test Generation | parse-criteria + test-templates | `.feature` + `*Steps.cs` | Tests compile and fail for the intended missing behaviour (RED) |
 | 4. Implementation | `.agents/commands/nkda-tddsn-autonomous.md` | Production code plus six NKDA TDD Safety Net artefacts | Minimal code turns the relevant tests green, a fresh full-suite run is green, refactor stays green, and the command produces all required outputs |
 | 5. Review | review skill | Verdict in session log | Pass verdict (no blockers) |

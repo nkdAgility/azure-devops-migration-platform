@@ -32,6 +32,7 @@ Before writing, editing, or suggesting code/config/docs changes:
 
 2. Read ALL guardrails:
    - `.agents/20-guardrails/core/architecture-boundaries.md`
+   - `.agents/20-guardrails/core/architecture-perspectives-ethos.md`
    - `.agents/20-guardrails/core/capability-ethos-rules.md`
    - `.agents/20-guardrails/core/coding-standards.md`
    - `.agents/20-guardrails/core/coding-standards-examples.md`

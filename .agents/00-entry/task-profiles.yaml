@@ -3,6 +3,7 @@ profiles:
   package-runtime:
     guardrails:
       - ".agents/20-guardrails/core/architecture-boundaries.md"
+      - ".agents/20-guardrails/core/architecture-perspectives-ethos.md"
       - ".agents/20-guardrails/core/capability-ethos-rules.md"
       - ".agents/20-guardrails/core/surface-usage.md"
       - ".agents/20-guardrails/core/change-governance.md"
@@ -20,6 +21,7 @@ profiles:
   cli-tui:
     guardrails:
       - ".agents/20-guardrails/core/architecture-boundaries.md"
+      - ".agents/20-guardrails/core/architecture-perspectives-ethos.md"
       - ".agents/20-guardrails/core/capability-ethos-rules.md"
       - ".agents/20-guardrails/core/surface-usage.md"
       - ".agents/20-guardrails/core/change-governance.md"
@@ -35,6 +37,7 @@ profiles:
   control-plane:
     guardrails:
       - ".agents/20-guardrails/core/architecture-boundaries.md"
+      - ".agents/20-guardrails/core/architecture-perspectives-ethos.md"
       - ".agents/20-guardrails/core/capability-ethos-rules.md"
       - ".agents/20-guardrails/core/surface-usage.md"
       - ".agents/20-guardrails/core/change-governance.md"
@@ -50,6 +53,7 @@ profiles:
   connectors:
     guardrails:
       - ".agents/20-guardrails/core/architecture-boundaries.md"
+      - ".agents/20-guardrails/core/architecture-perspectives-ethos.md"
       - ".agents/20-guardrails/core/capability-ethos-rules.md"
       - ".agents/20-guardrails/core/coding-standards.md"
       - ".agents/20-guardrails/core/surface-usage.md"

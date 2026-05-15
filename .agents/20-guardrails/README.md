@@ -10,6 +10,10 @@ Guardrails define what must be true, what must not change, and what must be reje
 - `domains/` - domain-specific runtime constraints
 - `workflow/` - tests-first, completion, and documentation process constraints
 
+Core includes:
+
+- `.agents/20-guardrails/core/architecture-perspectives-ethos.md`
+
 ## Index
 
 See `.agents/90-index/guardrails-index.md`.

@@ -8,6 +8,7 @@ This file explains how to apply the capability ethos in day-to-day design and im
 
 Normative rules are in:
 
+- `../../20-guardrails/core/architecture-perspectives-ethos.md`
 - `../../20-guardrails/core/capability-ethos-rules.md`
 - `../../../docs/adr/0017-capability-seam-ethos-and-tdd-architecture-governance.md`
 
@@ -56,6 +57,7 @@ Any "no" indicates boundary drift.
 - Clean/Hexagonal: dependency direction preserves seam abstraction
 - Vertical Slice: slice policy in adapters, core logic in seam
 - Screaming Architecture: names reveal seam and policy boundaries
+- Architecture Deepening: touched scope records explicit deepening assessment
 
 Record evidence in review/DoD outputs; do not defer.
 
