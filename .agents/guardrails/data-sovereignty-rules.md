@@ -34,5 +34,5 @@ Violations of package write access are reject conditions. Reject any change that
 ## Related
 
 - [architecture-boundaries.md](./architecture-boundaries.md) — Rule 23
-- [docs/security-and-data-sovereignty.md](../docs/security-and-data-sovereignty.md) — operator guide
-- [docs/adr/0005-agent-only-package-write-access.md](../docs/adr/0005-agent-only-package-write-access.md) — decision record
+- [docs/security-and-data-sovereignty.md](../../docs/security-and-data-sovereignty.md) — operator guide
+- [docs/adr/0005-agent-only-package-write-access.md](../../docs/adr/0005-agent-only-package-write-access.md) — decision record

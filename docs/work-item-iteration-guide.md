@@ -1,11 +1,11 @@
 # Work Item Iteration Pattern
 
-> **MANDATORY**: All implementations that process work items MUST use the patterns documented here.
-> Do not create alternative approaches. Reuse existing abstractions and augment them where necessary.
+> This guide describes the canonical implementation pattern for work item processing.
+> Enforcement for divergence and rejection conditions lives in `.agents/guardrails/architecture-boundaries.md` and `.agents/guardrails/workitems-rules.md`.
 
-## Mandatory Reuse Principle
+## Reuse Principle
 
-**New implementations MUST use existing architecture before building new infrastructure.**
+New implementations are expected to extend existing architecture before introducing new infrastructure.
 
 This pattern has been proven to handle 20,000+ work items with bounded memory. Every implementation that touches work item export/import must:
 
@@ -16,14 +16,14 @@ This pattern has been proven to handle 20,000+ work items with bounded memory. E
 5. Stream attachment binaries directly — never buffer in memory.
 6. Use `IWorkItemFetchService` for field-projected, filtered work item fetching in inventory, dependency analysis, and catalog operations. Do not call `GetWorkItemsAsync` directly from these callers.
 
-If an existing pattern does not fit your use case, you MUST:
+If an existing pattern does not fit your use case:
 
 1. Document why the existing pattern cannot be reused or extended.
 2. Propose a new abstraction (in `DevOpsMigrationPlatform.Abstractions` or module-private).
 3. Ensure the new abstraction is used by at least two independent modules (no single-use abstractions).
 4. Get explicit approval from the architecture team before implementing.
 
-**Violations of the mandatory reuse principle are rejection triggers.** See [.agents/guardrails/architecture-boundaries.md](../.agents/guardrails/architecture-boundaries.md) rule 21 and [agents.md](../agents.md) reject conditions.
+Guardrail-level rejection conditions are defined in [.agents/guardrails/architecture-boundaries.md](../.agents/guardrails/architecture-boundaries.md), [.agents/guardrails/workitems-rules.md](../.agents/guardrails/workitems-rules.md), and [agents.md](../agents.md).
 
 ---
 

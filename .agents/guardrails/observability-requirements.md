@@ -64,5 +64,5 @@ The CLI progress display and TUI Metrics panel must read from the Control Plane 
 ## Related
 
 - [.agents/context/telemetry-model.md](../context/telemetry-model.md) — telemetry model overview
-- [docs/telemetry-development-guide.md](../docs/telemetry-development-guide.md) — implementation guide
-- [docs/observability.md](../docs/observability.md) — operator observability guide
+- [docs/telemetry-development-guide.md](../../docs/telemetry-development-guide.md) — implementation guide
+- [docs/observability.md](../../docs/observability.md) — operator observability guide

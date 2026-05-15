@@ -35,4 +35,4 @@ These rules are mandatory for all agent-authored code.
 
 - [coding-standards.md](./coding-standards.md) — secure coding practices
 - [architecture-boundaries.md](./architecture-boundaries.md) — data residency rules (Rule 23)
-- [docs/security-and-data-sovereignty.md](../docs/security-and-data-sovereignty.md) — operator-facing security guide
+- [docs/security-and-data-sovereignty.md](../../docs/security-and-data-sovereignty.md) — operator-facing security guide

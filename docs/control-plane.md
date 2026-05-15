@@ -281,7 +281,7 @@ The connection string value is:
 | Environment | Source |
 |---|---|
 | Local | Aspire generates it from the portable PostgreSQL binary endpoint and injects it automatically |
-| Cloud | Azure Container Apps reads it from Key Vault via a managed identity secret reference (see [docs/development-setup.md](control-plane-rules.md)) |
+| Cloud | Azure Container Apps reads it from Key Vault via a managed identity secret reference (see [docs/development-setup.md](development-setup.md)) |
 
 ### Table Schema
 

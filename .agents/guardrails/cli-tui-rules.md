@@ -40,6 +40,6 @@ These rules are mandatory for all CLI and TUI code.
 
 - [control-plane-rules.md](./control-plane-rules.md) — Control Plane API contracts
 - [.agents/context/cli-commands.md](../context/cli-commands.md) — canonical command reference
-- [docs/cli-guide.md](../docs/cli-guide.md) — CLI operator guide
-- [docs/tui-guide.md](../docs/tui-guide.md) — TUI operator guide
-- [docs/ui-mode-contract.md](../docs/ui-mode-contract.md) — canonical mode-to-view contract
+- [docs/cli-guide.md](../../docs/cli-guide.md) — CLI operator guide
+- [docs/tui-guide.md](../../docs/tui-guide.md) — TUI operator guide
+- [docs/ui-mode-contract.md](../../docs/ui-mode-contract.md) — canonical mode-to-view contract

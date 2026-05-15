@@ -39,4 +39,4 @@ The Control Plane is a coordination service. It manages jobs but never executes 
 ## Related
 
 - [.agents/guardrails/control-plane-rules.md](../guardrails/control-plane-rules.md) — enforced constraints
-- [docs/control-plane.md](../docs/control-plane.md) — full explanation for operators/contributors
+- [../../docs/control-plane.md](../../docs/control-plane.md) — full explanation for operators/contributors

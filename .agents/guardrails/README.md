@@ -15,6 +15,8 @@ Agents must read the relevant guardrails before making changes and must check co
 | `architecture-boundaries.md` | Core architecture constraints — Source→Files→Target, no direct migration, boundary rules |
 | `capability-ethos-rules.md` | Capability boundary ethos — canonical seam, public surface, thin adapters, no duplicate engines |
 | `coding-standards.md` | Code shape rules — SOLID, async, DI, immutability, SPDX, no fakes |
+| `engineering-nonfunctional-rules.md` | Non-functional rules — config/versioning, resilience, performance, operations |
+| `delivery-quality-rules.md` | Delivery rules — tests-first quality, no placeholders, completion verification |
 | `coding-standards-examples.md` | Companion code examples for coding-standards.md |
 | `testing-rules.md` | Test rules — MSTest/Reqnroll conventions, no vacuous assertions, required categories |
 | `migration-rules.md` | Migration behaviour invariants — phases, resumability, determinism |

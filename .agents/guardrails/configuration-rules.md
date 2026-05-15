@@ -37,5 +37,5 @@ These rules are mandatory for all configuration-related code.
 ## Related
 
 - [coding-standards.md](./coding-standards.md) — IOptions<T> pattern
-- [docs/configuration-reference.md](../docs/configuration-reference.md) — full schema reference
-- [docs/configuration-guide.md](../docs/configuration-guide.md) — operator configuration guide
+- [docs/configuration-reference.md](../../docs/configuration-reference.md) — full schema reference
+- [docs/configuration-guide.md](../../docs/configuration-guide.md) — operator configuration guide

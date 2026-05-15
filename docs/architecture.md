@@ -66,7 +66,7 @@ The platform separates **job coordination** (control plane) from **job execution
 | **ControlPlane** | Service library (`DevOpsMigrationPlatform.ControlPlane`). Contains the HTTP API controllers, job state machine, lease protocol, and progress tracking. Currently all stores are in-memory; durable EF Core / PostgreSQL persistence is planned for a later phase. Has no entry point — it is referenced and hosted by `ControlPlaneHost`. |
 | **ControlPlaneHost** | Deployable ASP.NET Core host (`DevOpsMigrationPlatform.ControlPlaneHost`). References the `ControlPlane` service library and adds: process entry point and `AgentLifecycleService` (currently monitors TFS agent on Windows). In Standalone mode the CLI (`LocalStackHost`) manages agent process lifecycle directly; in Cloud mode `ContainerAgentLauncher` deploys and scales agent containers to a configurable ACA environment. Always reachable over HTTP. |
 | **Migration Agent** | (`DevOpsMigrationPlatform.MigrationAgent`) Stateless worker that executes migration jobs. Polls `ControlPlaneHost` for assigned jobs under a time-bounded lease, runs modules via the Job Engine, writes to the package, reports progress back. In Standalone mode its lifecycle is managed by `LocalStackHost` in the CLI; in Cloud mode by `ContainerAgentLauncher` in `ControlPlaneHost`. A single binary and container image supports all modes (`Inventory`, `Export`, `Prepare`, `Import`, `Validate`, `Migrate`). |
-| **TFS Migration Agent** | (`DevOpsMigrationPlatform.TfsMigrationAgent`) A .NET 4.8 polling agent — structural peer of the `MigrationAgent` — that handles jobs with `source.type: TeamFoundationServer`. Polls `GET /agents/lease?capabilities=tfs`, acquires TFS jobs, runs `IModule` dispatch (`TfsJobAgentWorker` accepts `IEnumerable<IModule>`), connects to TFS via the TFS Object Model, accesses the package through `IPackageAccess` (backed by `FileSystemArtefactStore` on net481), maintains checkpoints and phase metadata through that same boundary, and reports progress via `ControlPlaneProgressSink`. Currently supports Export mode only; Import support will be added to the same binary. Windows-only — TFS OM cannot run in containers. `AgentLifecycleService` spawns it on Windows and skips it elsewhere. See [docs/agent-hosting.md — TFS Migration Agent](migration-agent.md#tfs-migration-agent). |
+| **TFS Migration Agent** | (`DevOpsMigrationPlatform.TfsMigrationAgent`) A .NET 4.8 polling agent — structural peer of the `MigrationAgent` — that handles jobs with `source.type: TeamFoundationServer`. Polls `GET /agents/lease?capabilities=tfs`, acquires TFS jobs, runs `IModule` dispatch (`TfsJobAgentWorker` accepts `IEnumerable<IModule>`), connects to TFS via the TFS Object Model, accesses the package through `IPackageAccess` (backed by `FileSystemArtefactStore` on net481), maintains checkpoints and phase metadata through that same boundary, and reports progress via `ControlPlaneProgressSink`. Currently supports Export mode only; Import support will be added to the same binary. Windows-only — TFS OM cannot run in containers. `AgentLifecycleService` spawns it on Windows and skips it elsewhere. See [docs/agent-hosting.md — TFS Migration Agent](agent-hosting.md#tfs-migration-agent). |
 
 ### Tools
 
@@ -86,6 +86,8 @@ The platform uses a seam-first ethos for every concern (not only tools):
 4. centralized concern logic behind the seam
 
 This prevents concern logic from being duplicated across modules, orchestrators, extensions, and analysers while still allowing slice-specific policy decisions. If internals need to evolve, they evolve behind the seam rather than adding parallel runtime entry points.
+
+This ethos is codified as [ADR-0017](adr/0017-capability-seam-ethos-and-tdd-architecture-governance.md).
 
 ### Project Boundary Rules
 
@@ -264,7 +266,7 @@ The filter applies **only** to the OTel log export pipeline. `PackageLoggerProvi
 
 Unclassified logs default to `System` — they are safe for Azure Monitor. This safe-by-default design allows gradual rollout: existing log statements work without change, and new customer-data log statements are wrapped in classification scopes as they are identified.
 
-See [docs/configuration-reference.md — Data Classification](configuration.md#data-classification) for the usage pattern and classification table.
+See [docs/configuration-reference.md — Data Classification](configuration-reference.md#data-classification) for the usage pattern and classification table.
 
 ### Data Residency — Agent-Only Write Access
 

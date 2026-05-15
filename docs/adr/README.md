@@ -30,3 +30,4 @@ Each ADR records an important architectural decision: what was decided, why, wha
 | [0014](0014-icapture-unified-capture-contract.md) | ICapture: Unified capture contract | Accepted — amends ADR-0012 |
 | [0015](0015-mode-driven-cli-and-tui-ui-contract.md) | Mode-driven CLI and TUI UI contract | Accepted |
 | [0016](0016-unified-package-access.md) | Unified package access | Accepted |
+| [0017](0017-capability-seam-ethos-and-tdd-architecture-governance.md) | Capability seam ethos and TDD architecture governance | Accepted |

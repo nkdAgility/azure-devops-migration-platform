@@ -29,6 +29,8 @@ Before writing, editing, or suggesting any code, settings, config, or docs chang
      - `.agents/guardrails/architecture-boundaries.md`
      - `.agents/guardrails/capability-ethos-rules.md`
      - `.agents/guardrails/coding-standards.md`
+     - `.agents/guardrails/engineering-nonfunctional-rules.md`
+     - `.agents/guardrails/delivery-quality-rules.md`
      - `.agents/guardrails/coding-standards-examples.md`
      - `.agents/guardrails/testing-rules.md`
      - `.agents/guardrails/workitems-rules.md`

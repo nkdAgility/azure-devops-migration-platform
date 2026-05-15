@@ -41,4 +41,4 @@ These rules are mandatory for all connector implementations.
 
 - [coding-standards.md](./coding-standards.md) — general code quality rules
 - [architecture-boundaries.md](./architecture-boundaries.md) — infrastructure boundary rules
-- [docs/connector-development-guide.md](../docs/connector-development-guide.md) — implementation guide
+- [docs/connector-development-guide.md](../../docs/connector-development-guide.md) — implementation guide

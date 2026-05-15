@@ -113,3 +113,11 @@ All metric strings across Agent, ControlPlane, and CLI use `platform.<domain>.<p
 `IPackageAccess` is the canonical caller-facing package boundary for runtime package operations. `IPackageContentAddress` supplies module-owned relative content addressing beneath that boundary.
 
 **Current implication:** Runtime modules, orchestrators, workers, checkpointing, phase tracking, and package-backed logging should use `IPackageAccess` for package-facing reads and writes instead of rebuilding path logic directly over `IArtefactStore` or `IStateStore`.
+
+## ADR 0017 — Capability Seam Ethos and TDD Architecture Governance
+
+**Status:** Accepted
+
+Every concern uses one canonical seam and one reusable public runtime surface. Adapters/extensions remain thin policy facades; concern engines stay centralized behind the seam.
+
+**Current implication:** Design artifacts must include a Capability Seam Decision before implementation. Test-first workflow and DoD checks enforce seam integrity early so architecture-review tenets apply during creation, not only after implementation.

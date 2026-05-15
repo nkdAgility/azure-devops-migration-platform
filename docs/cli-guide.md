@@ -191,11 +191,11 @@ For migration modes that use the shared task view, the live display includes per
 
 `ProgressEvent` has an optional `Metrics` field. It is **only populated by the TFS subprocess (net481)**; for all .NET 10 Migration Agent jobs it is always null. Reading counters from `ProgressEvent.Metrics` is therefore only correct for TFS jobs and silently displays zeros for all .NET 10 jobs.
 
-CLI code MUST read counters from the Channel 2 telemetry polling endpoint, not from `ProgressEvent.Metrics`.
+CLI code reads counters from the Channel 2 telemetry polling endpoint, not from `ProgressEvent.Metrics`.
 
 ### Rule
 
-> `QueueCommand` (and any future command that renders live progress) MUST consume BOTH Channel 1 (SSE) and Channel 2 (polling) from the ControlPlane. It MUST NOT be wired to an in-process `IProgressSink`. The CLI is never in the same process as the Migration Agent in any production topology.
+> `QueueCommand` (and any future command that renders live progress) consumes both Channel 1 (SSE) and Channel 2 (polling) from the ControlPlane and does not wire to an in-process `IProgressSink`. The CLI is never in the same process as the Migration Agent in any production topology. Enforced constraints are in `.agents/guardrails/cli-tui-rules.md`.
 
 ---
 

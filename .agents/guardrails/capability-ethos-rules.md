@@ -66,3 +66,4 @@ No silent exceptions.
 - [module-rules.md](./module-rules.md)
 - [definition-of-done.md](./definition-of-done.md)
 - [test-first-workflow.md](./test-first-workflow.md)
+- [../../docs/adr/0017-capability-seam-ethos-and-tdd-architecture-governance.md](../../docs/adr/0017-capability-seam-ethos-and-tdd-architecture-governance.md)

@@ -62,6 +62,6 @@ The context type `InventoryContext` is **not** renamed — it describes the data
 
 - [ADR-0012](0012-imodule-five-phase-contract.md) — IModule five-phase contract (amended by this ADR)
 - [ADR-0010](0010-plan-driven-dag-execution.md) — plan executor that dispatches capture tasks
-- [docs/modules.md](../modules.md) — module contract
+- [docs/module-development-guide.md](../module-development-guide.md) — module contract
 - [docs/architecture.md](../architecture.md) — phase gate rules
 - Driving spec: `specs/032-icapture-interface/spec.md`

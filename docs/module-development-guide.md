@@ -373,7 +373,7 @@ Available tools:
 | `RegexField` | Apply a regex find-and-replace to a field value |
 | `TreeToTag` | Flatten a hierarchical path (area/iteration) into tag values |
 
-For the full tool schema and available options, see [docs/configuration-reference.md — Tools](configuration.md#fieldtransform-tool--available-transform-types).
+For the full tool schema and available options, see [docs/configuration-reference.md — Tools](configuration-reference.md#fieldtransform-tool--available-transform-types).
 
 ### IdentitiesModule
 

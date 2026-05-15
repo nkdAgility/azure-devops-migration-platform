@@ -9,6 +9,7 @@ This file explains how to apply the capability ethos in day-to-day design and im
 Normative rules are in:
 
 - `.agents/guardrails/capability-ethos-rules.md`
+- `docs/adr/0017-capability-seam-ethos-and-tdd-architecture-governance.md`
 
 ## Canonical Shape
 
