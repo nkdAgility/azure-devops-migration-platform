@@ -19,7 +19,7 @@ This document captures research findings and design decisions that inform the im
   - Folders are enumerated in strict lexicographic (ascending) order.
   - This is the streaming import contract — revisions processed one folder at a time.
 
-- **Checkpointing**: Implemented via cursor files under `.mission/Checkpoints/`.
+- **Checkpointing**: Implemented via cursor files under `.migration/Checkpoints/`.
   - Current pattern: `<modulename>.cursor.json` with fields:
     - `lastProcessed`: Relative path of last completed revision folder (or module-specific key).
     - `stage`: Enum value indicating which phase of revision processing completed.

@@ -52,7 +52,7 @@ The feature is **package-driven** (no source system consultation during import),
 - Attachments remain beside `revision.json` (no global Attachments/ root).
 
 ### Principle IV: Cursor-Based Checkpointing ✅ **PASS**
-- Checkpoints stored at `.mission/Checkpoints/workitems-import.cursor.json` with `lastProcessed` (folder path) and `stage`.
+- Checkpoints stored at `.migration/Checkpoints/workitems-import.cursor.json` with `lastProcessed` (folder path) and `stage`.
 - Valid stages: `CreatedOrUpdated`, `AppliedFields`, `AppliedLinks`, `UploadedAttachments`, `Completed`.
 - Resume continues from the stage after `lastProcessed`, not replaying completed stages.
 - Identity mappings and work item ID mappings recorded in `idmap.db`.
@@ -98,6 +98,11 @@ The feature is **package-driven** (no source system consultation during import),
 - **AzureDevOpsServices**: Full import via REST API, all features.
 - **TeamFoundationServer**: Full import via TFS OM (in .NET 4.8 agent), all features (NOOP with graceful skip if TFS OM does not expose capability).
 - **Plan MUST allocate tasks for all three connectors.** No stubs, no `NotImplementedException`.
+
+### Principle XII: Capability Seam Governance ✅ **PASS**
+- Node translation, identity mapping, and field transform each use one canonical runtime seam.
+- Runtime consumers must use canonical surfaces (`INodeTranslationTool`, `IIdentityMappingService`, `IFieldTransformTool`) and avoid parallel concern engines.
+- Module/orchestrator policy stays thin and must not duplicate seam engine logic.
 
 ### Constitution Gate Summary
 
@@ -275,11 +280,18 @@ See [tasks.md](tasks.md) (output of speckit.tasks) for the complete task decompo
 
 This plan was validated against:
 - `.agents/20-guardrails/core/architecture-boundaries.md` — Module isolation, package-first, streaming import.
+- `.agents/20-guardrails/core/architecture-perspectives-ethos.md` — architecture-perspective reject matrix.
+- `.agents/20-guardrails/core/capability-ethos-rules.md` — single canonical seam ownership and boundary rules.
+- `.agents/20-guardrails/core/surface-usage.md` — mandatory canonical runtime surface usage.
 - `.agents/20-guardrails/core/coding-standards.md` — SOLID principles, dependency injection, immutability.
 - `.agents/20-guardrails/workflow/testing-rules.md` — Reqnroll.MSTest, acceptance test format, test naming.
+- `.agents/20-guardrails/workflow/documentation-rules.md` — documentation sync requirements for implementation drift.
 - `.agents/20-guardrails/domains/migration-rules.md` — Package structure, checkpoint semantics, phase gates.
+- `.agents/20-guardrails/domains/workitems-rules.md` — canonical WorkItems folder/stage and idempotency rules.
 - `.agents/20-guardrails/domains/connector-rules.md` — Full connector coverage, no stubs, per-connector tasks.
-- `.specify/memory/constitution.md` — Principles I–XI fully respected.
+- `.agents/10-contracts/surface-catalog.yaml` — canonical concern surfaces and allowed callers.
+- `.agents/10-contracts/seam-catalog.yaml` — seam ownership and prohibited parallel entrypoints.
+- `.specify/memory/constitution.md` — Principles I–XII fully respected.
 
 See [agents.md](../../agents.md) for the mandatory pre-flight guardrail validation workflow.
 

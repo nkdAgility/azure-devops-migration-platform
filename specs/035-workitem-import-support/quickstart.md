@@ -32,7 +32,7 @@ devopsmigration queue \
 
 # Step 4: Review prepare findings
 # (Look for ImportReadinessReport in package:
-#  .mission/Readiness/workitems-import-readiness.json)
+#  .migration/Readiness/workitems-import-readiness.json)
 
 # Step 5: Resolve blocking issues if any
 # - Create missing node paths on target
@@ -144,7 +144,7 @@ WorkItem Import Progress:
 **Error**: `ImportReadinessReport records blocking issues.`
 
 **Resolution**:
-1. Open `.mission/Readiness/workitems-import-readiness.json` in package.
+1. Open `.migration/Readiness/workitems-import-readiness.json` in package.
 2. Review `BlockingIssues` array.
 3. Common issues:
    - **MissingNodePath**: Create the area/iteration path on target, or enable automatic node creation.
@@ -157,7 +157,7 @@ WorkItem Import Progress:
 **Error**: `Import interrupted; checkpoint saved.`
 
 **Resolution**:
-1. Check `.mission/Checkpoints/workitems-import.cursor.json` to see last completed stage.
+1. Check `.migration/Checkpoints/workitems-import.cursor.json` to see last completed stage.
 2. Fix the underlying issue (e.g., target API rate limit, attachment upload failure).
 3. Rerun import command with same package and target.
 4. Import resumes from next incomplete stage (no duplicate work items created).
@@ -230,7 +230,7 @@ src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/
 │       └── ImportAsync(context, progressSink) → void
 │
 ├── ImportCheckpointService.cs
-│   └── Manages .mission/Checkpoints/workitems-import.cursor.json
+│   └── Manages .migration/Checkpoints/workitems-import.cursor.json
 │       └── SaveCheckpoint(folder, stage) → void
 │
 ├── NodeReadinessOrchestrator.cs
@@ -381,7 +381,7 @@ var logger = loggerFactory.CreateLogger<WorkItemImportModule>();
 
 ```bash
 # After interrupted import:
-cat .mission/Checkpoints/workitems-import.cursor.json
+cat .migration/Checkpoints/workitems-import.cursor.json
 
 # Output:
 {
@@ -399,7 +399,7 @@ cat .mission/Checkpoints/workitems-import.cursor.json
 
 ```bash
 # Query SQLite idmap.db:
-sqlite3 .mission/Checkpoints/idmap.db
+sqlite3 .migration/Checkpoints/idmap.db
 
 # List tables:
 .tables

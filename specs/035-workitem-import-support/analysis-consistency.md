@@ -56,7 +56,7 @@
 | Referenced Node Path Set | NodeReadinessOrchestrator.referenced-path strategy | ✅ MAPPED |
 | Source Tree Snapshot | NodeReadinessOrchestrator.full-tree replication strategy | ✅ MAPPED |
 | Identity Mapping Decision | IIdentityMappingService integration + IdentityResolutionContext cache | ✅ MAPPED |
-| NodeTranslation Rules | NodeTranslationTool + NodeTranslationHelper cache | ✅ MAPPED |
+| NodeTranslation Rules | NodeTranslationTool seam-backed memoization policy | ✅ MAPPED |
 | FieldTransform Group | FieldTransformTool + FieldTransformOrchestrator sequencing | ✅ MAPPED |
 | Extension Control Lever | WorkItemImportOptions (5 properties) | ✅ MAPPED |
 | Revision-Owned Attachment | AttachmentReplayService + idmap.db mappings | ✅ MAPPED |
@@ -82,7 +82,7 @@
 | I. Package-First | IArtefactStore abstraction; no Source API calls during import | ✅ PASS |
 | II. Streaming Import & Memory Safety | Lazy EnumerateAsync; one revision at a time; no full materialization | ✅ PASS |
 | III. Canonical WorkItems Layout | Import respects `WorkItems/yyyy-MM-dd/<ticks>-<id>-<rev>/` structure | ✅ PASS |
-| IV. Cursor-Based Checkpointing | ImportCheckpointService manages `.mission/Checkpoints/workitems-import.cursor.json` | ✅ PASS |
+| IV. Cursor-Based Checkpointing | ImportCheckpointService manages `.migration/Checkpoints/workitems-import.cursor.json` | ✅ PASS |
 | V. Module Isolation via Abstractions | IArtefactStore, IIdentityMappingService, NodeTranslationTool, FieldTransformTool | ✅ PASS |
 | VI. Separation of Planes | WorkItemImportModule in agent boundary; CLI/TUI consume via ControlPlane | ✅ PASS |
 | VII. Determinism & Idempotency | Cursor → idmap.db prevents duplicates; same package → same result | ✅ PASS |
@@ -210,7 +210,7 @@
 | IIdentityMappingService integration | T012-T013 | ✅ MAPPED |
 | IdentityResolutionContext cache | T013 | ✅ MAPPED |
 | INodeTranslationTool integration | T014-T016 | ✅ MAPPED |
-| NodeTranslationHelper cache | T016 | ✅ MAPPED |
+| NodeTranslation seam memoization | T016 | ✅ MAPPED |
 | IFieldTransformTool integration | T015 | ✅ MAPPED |
 | WorkItemImportOptions configuration | T017-T020 | ✅ MAPPED |
 
@@ -343,7 +343,7 @@
 - **In scope (US1-US5)**: Prepare validation, node creation (2 strategies), deterministic revision replay, link replay, attachment/image replay, NodeTranslation, identity resolution, FieldTransform
 - **Out of scope (future work)**: Comment replay, audit comment generation, revision-history attachment handling
 
-**Tasks.md adheres to this boundary**: All 120 tasks focus exclusively on the 5 user stories; no task description references excluded items.
+**Tasks.md adheres to this boundary**: All 160 numbered tasks focus exclusively on the 5 user stories; no task description references excluded items.
 
 **Scope Consistency Verdict**: ✅ **STRICT ADHERENCE** — Out-of-scope items are absent from tasks; in-scope items are fully covered.
 
@@ -390,10 +390,10 @@
 
 #### ✅ Principle IV: Cursor-Based Checkpointing
 
-**Principle**: Checkpoints stored at `.mission/Checkpoints/workitems-import.cursor.json` with `lastProcessed` (folder path) and `stage`.
+**Principle**: Checkpoints stored at `.migration/Checkpoints/workitems-import.cursor.json` with `lastProcessed` (folder path) and `stage`.
 
 **Task Implementation**:
-- T009: "Create ImportCheckpointService class ... read/write cursor from `.mission/Checkpoints/workitems-import.cursor.json`"
+- T009: "Create ImportCheckpointService class ... read/write cursor from `.migration/Checkpoints/workitems-import.cursor.json`"
 - T011: "Implement cursor resume logic ... return the next stage to process and prevent duplicate work"
 - T082-T084: "After each stage completion ... write checkpoint ... checkpoint writes are atomic (<500ms target)"
 
@@ -427,7 +427,7 @@
 **Principle**: Re-running import on same package produces same result. Cursor → idmap.db prevents duplicates.
 
 **Task Implementation**:
-- T010: "idmap.db (SQLite) under `.mission/Checkpoints/idmap.db` with source→target ID mappings"
+- T010: "idmap.db (SQLite) under `.migration/Checkpoints/idmap.db` with source→target ID mappings"
 - T074: "Check idmap.db for existing mapping before creating new work item"
 - T011: "prevent duplicate work" (resume semantics)
 
@@ -492,7 +492,7 @@
 | I. Package-First | ✅ PASS | IArtefactStore throughout; no source APIs |
 | II. Streaming | ✅ PASS | Lazy enumeration; no materialization |
 | III. Canonical Layout | ✅ PASS | WorkItems folder structure respected |
-| IV. Cursor Checkpointing | ✅ PASS | `.mission/Checkpoints/` paths explicit |
+| IV. Cursor Checkpointing | ✅ PASS | `.migration/Checkpoints/` paths explicit |
 | V. Module Isolation | ✅ PASS | Abstractions via DI; no direct I/O |
 | VI. Separation of Planes | ✅ PASS | MigrationAgent boundary; IProgressSink |
 | VII. Determinism | ✅ PASS | idmap.db deduplication; cursor resume |
@@ -672,8 +672,8 @@
 |------|-----------|-----------|------------|--------------|
 | **Revision** | "exported work item revision", "revision folder" | "revision folders", "revisions processed one folder at a time" | "revision folder", "WorkItemRevisionImporter" | ✅ CONSISTENT |
 | **Checkpoint** | "checkpoint state", "resume safely after interruption" | "cursor-based checkpointing", "ImportCheckpoint record" | "ImportCheckpointService", "checkpoint persistence" | ✅ CONSISTENT |
-| **Translated** / **Translation** | "translated node paths", "NodeTranslation" | "NodeTranslationTool", "apply ... consistently" | "NodeTranslationHelper", "translate area/iteration paths" | ✅ CONSISTENT |
-| **NodeTranslation** | "NodeTranslation rules" | "NodeTranslationTool" | "NodeTranslationTool", "NodeTranslationHelper" | ✅ CONSISTENT |
+| **Translated** / **Translation** | "translated node paths", "NodeTranslation" | "NodeTranslationTool", "apply ... consistently" | "NodeTranslationTool seam memoization policy" | ✅ CONSISTENT |
+| **NodeTranslation** | "NodeTranslation rules" | "NodeTranslationTool" | "NodeTranslationTool canonical surface" | ✅ CONSISTENT |
 | **FieldTransform** | "FieldTransform Group", "declarative field transformation rules" | "FieldTransformTool" | "FieldTransformTool", "FieldTransformOrchestrator" | ✅ CONSISTENT |
 | **Extension Lever** | "extension levers that explicitly control ...", "operator-facing enable or disable decision" | "WorkItemImportOptions (5 boolean levers)" | "WorkItemImportOptions" properties | ✅ CONSISTENT |
 | **Readiness** / **Prepare** | "prepare phase", "Import Readiness Report", "ready-or-blocked" | "prepare phase validation", "ImportReadinessReport" | "ImportPreparer", "prepare orchestration" | ✅ CONSISTENT |

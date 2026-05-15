@@ -331,7 +331,7 @@ public sealed record WarningItem
 
 ### 3. ImportCheckpoint
 
-**Purpose**: Immutable checkpoint record written to `.mission/Checkpoints/workitems-import.cursor.json`. Enables resumable import from any stage.
+**Purpose**: Immutable checkpoint record written to `.migration/Checkpoints/workitems-import.cursor.json`. Enables resumable import from any stage.
 
 ```csharp
 /// <summary>
@@ -748,7 +748,7 @@ public sealed record TranslatedNodePaths
 ### Package-Resident Artefacts
 
 ```
-.mission/
+.migration/
 ├── Checkpoints/
 │   ├── workitems-import.cursor.json          # Import checkpoint (this module)
 │   └── idmap.db                              # SQLite: identity/attachment/image mappings

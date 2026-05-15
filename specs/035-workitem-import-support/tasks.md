@@ -15,14 +15,14 @@ This document defines the complete task decomposition for implementing the Work 
 **Task Organization**:
 - **Phase 1**: Setup & Base Abstractions (8 tasks)
 - **Phase 2**: Foundational Infrastructure (12 tasks)
-- **Phase 3**: User Story 1 - Prepare Phase Import Readiness Validation (15 tasks)
-- **Phase 4**: User Story 2 - Mandatory Node Readiness (18 tasks)
-- **Phase 5**: User Story 3 - Deterministic Revision Replay (21 tasks)
-- **Phase 6**: User Story 4 - Attachment & Embedded Image Replay (18 tasks)
-- **Phase 7**: User Story 5 - FieldTransform Orchestration (12 tasks)
-- **Phase 8**: Polish & Cross-Cutting (16 tasks)
+- **Phase 3**: User Story 1 - Prepare Phase Import Readiness Validation (25 tasks)
+- **Phase 4**: User Story 2 - Mandatory Node Readiness (19 tasks)
+- **Phase 5**: User Story 3 - Deterministic Revision Replay (23 tasks)
+- **Phase 6**: User Story 4 - Attachment & Embedded Image Replay (22 tasks)
+- **Phase 7**: User Story 5 - FieldTransform Orchestration (14 tasks)
+- **Phase 8**: Polish & Cross-Cutting (37 tasks)
 
-**Total Tasks**: 120 implementation tasks across all phases, with explicit connector coverage.
+**Total Tasks**: 160 numbered implementation tasks (`T001`–`T160`) across all phases, with explicit connector coverage.
 
 **Connector Coverage**: Every major feature includes three parallel tasks (Simulated, Azure DevOps, TFS) — no stubs, no deferred implementations.
 
@@ -54,8 +54,8 @@ This document defines the complete task decomposition for implementing the Work 
 
 ### Checkpoint & State Management
 
-- [ ] T009 Create ImportCheckpointService class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/ImportCheckpointService.cs` with methods to read/write cursor from `.mission/Checkpoints/workitems-import.cursor.json`
-- [ ] T010 [P] Extend ImportCheckpointService to manage idmap.db (SQLite) under `.mission/Checkpoints/idmap.db` with source→target ID mappings for work items, attachments, and embedded images
+- [ ] T009 Create ImportCheckpointService class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/ImportCheckpointService.cs` with methods to read/write cursor from `.migration/Checkpoints/workitems-import.cursor.json`
+- [ ] T010 [P] Extend ImportCheckpointService to manage idmap.db (SQLite) under `.migration/Checkpoints/idmap.db` with source→target ID mappings for work items, attachments, and embedded images
 - [ ] T011 [P] Implement cursor resume logic: Given a saved checkpoint with lastProcessed and stage, return the next stage to process and prevent duplicate work
 
 ### Identity Resolution Integration
@@ -67,7 +67,7 @@ This document defines the complete task decomposition for implementing the Work 
 
 - [ ] T014 [P] Wire INodeTranslationTool into WorkItemImportModule constructor; ensure tool is configured before import phase
 - [ ] T015 [P] Wire IFieldTransformTool into WorkItemImportModule constructor; ensure tool is configured before import phase
-- [ ] T016 [P] Create NodeTranslationHelper class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/NodeTranslationHelper.cs` with method to translate area/iteration paths and cache translated results
+- [ ] T016 [P] Implement node translation memoization/policy behind the canonical `INodeTranslationTool` seam (no parallel runtime translation surface)
 
 ### Extension Lever Configuration
 
@@ -133,7 +133,7 @@ This document defines the complete task decomposition for implementing the Work 
 
 - [X] T043 [US1] Implement report assembly logic to combine all validator findings into ImportReadinessReport record
 - [X] T044 [US1] Calculate IsReadyForImport = (BlockingIssues.Length == 0)
-- [X] T045 [US1] Write ImportReadinessReport to package at `.mission/Readiness/workitems-import-readiness.json` via IArtefactStore
+- [X] T045 [US1] Write ImportReadinessReport to package at `.migration/Readiness/workitems-import-readiness.json` via IArtefactStore
 
 **Independent Test Criteria**:
 - Prepare phase validates all required artefacts without calling source system
@@ -173,7 +173,7 @@ This document defines the complete task decomposition for implementing the Work 
 ### Path Translation Consistency (US2: Scenario 3, FR-008)
 
 - [X] T058 [US2] [P] Apply NodeTranslationTool consistently to paths during both node creation and later work item field replay
-- [X] T059 [US2] [P] Cache translated paths in NodeTranslationHelper to ensure same source path → same target path throughout import
+- [ ] T059 [US2] [P] Ensure translated path memoization is provided behind the canonical `INodeTranslationTool` seam so the same source path always maps to the same target path
 - [X] T060 [US2] [P] Verify that node creation and later field writes use identical translated paths (no inconsistency)
 
 ### Resume & Duplication Prevention (US2: Scenario 4)
@@ -226,7 +226,7 @@ This document defines the complete task decomposition for implementing the Work 
 
 ### Checkpoint Persistence (US3: Scenario 4, FR-011)
 
-- [ ] T082 [US3] [P] After each stage completion for a revision, write checkpoint to `.mission/Checkpoints/workitems-import.cursor.json` with lastProcessed = current revision folder path and stage = completed stage
+- [ ] T082 [US3] [P] After each stage completion for a revision, write checkpoint to `.migration/Checkpoints/workitems-import.cursor.json` with lastProcessed = current revision folder path and stage = completed stage
 - [ ] T083 [US3] [P] Ensure checkpoint writes are atomic (<500ms target per specification)
 - [ ] T084 [US3] [P] On resume, read checkpoint and continue from next incomplete stage for that revision (no replay of completed stages)
 
@@ -349,7 +349,7 @@ This document defines the complete task decomposition for implementing the Work 
 
 - [ ] T128 [P] Create comprehensive error handling in WorkItemImportModule — catch and log all exceptions with context
 - [ ] T129 [P] Implement graceful error recovery per extension lever configuration (skip-or-halt policies for missing artefacts, transform errors, identity failures)
-- [ ] T130 [P] Record all errors to package progress logs at `.mission/runs/<runId>/logs/diagnostics.ndjson`
+- [ ] T130 [P] Record all errors to package progress logs at `.migration/runs/<runId>/logs/diagnostics.ndjson`
 - [ ] T131 [P] Report error counts and types to progress sink for CLI/TUI display
 
 ### Stage-Specific Retry & Resilience
@@ -537,7 +537,7 @@ Each feature file contains Gherkin scenarios matching user story acceptance crit
 
 ## Acceptance Criteria for Completion
 
-- [ ] All 120 tasks implemented and integrated
+- [ ] All 160 numbered tasks (`T001`–`T160`) implemented and integrated
 - [ ] All feature files (T135-T139) passing with 100% scenario coverage
 - [ ] All unit tests (T140-T147) passing with >85% code coverage in Import module
 - [ ] All three connectors (Simulated, AzureDevOps, TFS) have explicit task implementations

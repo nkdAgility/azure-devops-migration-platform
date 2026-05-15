@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Import Checkpoint",
-  "description": "Schema for ImportCheckpoint written to .mission/Checkpoints/workitems-import.cursor.json",
+  "description": "Schema for ImportCheckpoint written to .migration/Checkpoints/workitems-import.cursor.json",
   "type": "object",
   "required": [
     "version",

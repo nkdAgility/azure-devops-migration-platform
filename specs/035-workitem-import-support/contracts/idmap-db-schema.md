@@ -1,6 +1,6 @@
 # ID Mapping Database Schema
 
-**Location**: `.mission/Checkpoints/idmap.db`
+**Location**: `.migration/Checkpoints/idmap.db`
 
 **Purpose**: SQLite database storing ID mappings for work items, attachments, and embedded images. Enables idempotent resume from checkpoints without duplicate creation.
 
@@ -335,14 +335,14 @@ var duplicateAttachments = await _idMapDb.QueryAsync(
 
 ```bash
 # Copy idmap.db before starting import
-cp .mission/Checkpoints/idmap.db .mission/Checkpoints/idmap.db.backup
+cp .migration/Checkpoints/idmap.db .migration/Checkpoints/idmap.db.backup
 ```
 
 ### Recovery After Failure
 
 ```bash
 # If import is corrupted, restore from backup and checkpoint rollback is handled by import module
-cp .mission/Checkpoints/idmap.db.backup .mission/Checkpoints/idmap.db
+cp .migration/Checkpoints/idmap.db.backup .migration/Checkpoints/idmap.db
 
 # Re-run import; it will use checkpoint to resume from last complete stage
 ```
