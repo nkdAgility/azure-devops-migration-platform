@@ -43,7 +43,7 @@ internal sealed class ReferencedPathsFromWorkItemsStrategy
         await foreach (var path in _packageAccess.EnumerateContentAsync(
                            new PackageContentContext(
                                PackageContentKind.Collection,
-                               SplitRouteSegments("WorkItems/"),
+                               Address: new RelativePathAddress("WorkItems/"),
                                IsCollectionRequest: true),
                            ct).ConfigureAwait(false))
         {
@@ -52,7 +52,7 @@ internal sealed class ReferencedPathsFromWorkItemsStrategy
                 continue;
 
             var payload = await _packageAccess
-                .RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(revisionPath)), ct)
+                .RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(revisionPath)), ct)
                 .ConfigureAwait(false);
 
             if (payload is null)
@@ -121,9 +121,9 @@ internal sealed class ReferencedPathsFromWorkItemsStrategy
         return lastSlash >= 0 ? trimmed[(lastSlash + 1)..] : trimmed;
     }
 
-    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
-        => relativePath
-            .Replace('\\', '/')
-            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+    }
 }
 #endif

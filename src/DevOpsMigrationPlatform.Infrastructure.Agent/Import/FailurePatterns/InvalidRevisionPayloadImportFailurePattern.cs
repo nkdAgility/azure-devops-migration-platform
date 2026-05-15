@@ -21,7 +21,7 @@ internal sealed class InvalidRevisionPayloadImportFailurePattern : IImportFailur
         var findings = new List<ImportFailureFinding>();
 
         await foreach (var parsedRevision in WorkItemsPrepareRevisionReader.EnumerateAsync(
-                           context.PrepareContext.ArtefactStore,
+                           context.PrepareContext.Package,
                            cancellationToken).ConfigureAwait(false))
         {
             if (string.IsNullOrWhiteSpace(parsedRevision.ParseError))

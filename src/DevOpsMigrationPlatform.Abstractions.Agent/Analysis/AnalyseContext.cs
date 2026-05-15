@@ -10,8 +10,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 public record AnalyseContext
 {
     public required Job Job { get; init; }
-    public required IArtefactStore ArtefactStore { get; init; }
-    public required IStateStore StateStore { get; init; }
+    public required IPackageAccess Package { get; init; }
     public IProgressSink? ProgressSink { get; init; }
     public JobPolicies Policies { get; init; } = new();
 }

@@ -98,7 +98,6 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         }
         using var activity = s_activitySource.StartActivity("teams.export");
 
-        var artefactStore = context.ArtefactStore;
         var projectName = sourceEndpointInfo.Project;
 
         using (_logger.BeginDataScope(DataClassification.Customer))
@@ -112,7 +111,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             Message = $"Starting team export for project '{projectName}'."
         });
 
-        var checkpointing = checkpointingFactory?.Create(context.StateStore);
+        var checkpointing = checkpointingFactory?.Create(context.Package);
 
         Regex? filterRegex = null;
         if (string.Equals(options.Scope, "teams", StringComparison.OrdinalIgnoreCase)
@@ -136,7 +135,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             var artifactPath = $"Teams/{slug}/team.json";
 
             if (!options.AlwaysExport
-                && await TeamDefinitionExistsAsync(artifactPath, ct).ConfigureAwait(false))
+                && await TeamDefinitionExistsAsync(sourceEndpointInfo.Url, sourceEndpointInfo.Project, artifactPath, ct).ConfigureAwait(false))
             {
                 _logger.LogWarning("[Teams] Skipping already-exported team '{Name}' ({Path}) — use AlwaysExport: true to force re-export.",
                     team.Name, artifactPath);
@@ -154,7 +153,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             try
             {
                 await _exportOrchestrator.ExportTeamAsync(
-                    projectName, team, slug, artefactStore, options.Extensions, ct).ConfigureAwait(false);
+                    sourceEndpointInfo.Url, projectName, team, slug, _package!, options.Extensions, ct).ConfigureAwait(false);
 
                 count++;
                 _PlatformMetrics?.RecordTeamExportCount(exportTags);
@@ -230,7 +229,6 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         }
         using var activity = s_activitySource.StartActivity("teams.import");
 
-        var artefactStore = context.ArtefactStore;
         var projectName = targetEndpointInfo.Project;
         var sourceProjectName = sourceEndpointInfo.Project;
 
@@ -246,12 +244,12 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         });
 
         var count = 0;
-        await foreach (var teamPath in EnumeratePackageContentAsync("Teams/", ct).ConfigureAwait(false))
+        await foreach (var teamPath in EnumeratePackageContentAsync(context.Package, sourceEndpointInfo.Url, sourceProjectName, ct).ConfigureAwait(false))
         {
             if (!teamPath.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            var json = await ReadPackageContentAsync(teamPath, ct).ConfigureAwait(false);
+            var json = await ReadPackageContentAsync(context.Package, sourceEndpointInfo.Url, sourceProjectName, teamPath, ct).ConfigureAwait(false);
             if (json is null)
             {
                 _logger.LogWarning("[Teams] Could not read team file '{Path}' — skipping.", teamPath);
@@ -320,7 +318,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
 
         if (checkpointingFactory is not null)
         {
-            var checkpointing = checkpointingFactory.Create(context.StateStore);
+            var checkpointing = checkpointingFactory.Create(context.Package);
             await checkpointing.WriteCursorAsync("import.teams", new CursorEntry
             {
                 LastProcessed = $"Teams/{count}",
@@ -336,7 +334,9 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
     /// <c>definition</c> field.
     /// </summary>
     public async Task ValidateAsync(
-        IArtefactStore artefactStore,
+        IPackageAccess package,
+        string organisation,
+        string project,
         ValidationContext context,
         CancellationToken ct)
     {
@@ -347,14 +347,14 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             { "operation", "teams.validate" }
         };
 
-        await foreach (var teamPath in EnumeratePackageContentAsync("Teams/", ct).ConfigureAwait(false))
+        await foreach (var teamPath in EnumeratePackageContentAsync(package, organisation, project, ct).ConfigureAwait(false))
         {
             if (!teamPath.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase))
                 continue;
 
             teamCount++;
 
-            var json = await ReadPackageContentAsync(teamPath, ct).ConfigureAwait(false);
+            var json = await ReadPackageContentAsync(package, organisation, project, teamPath, ct).ConfigureAwait(false);
             if (json is null)
             {
                 context.Errors.Add(new ValidationError
@@ -405,36 +405,31 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         }
     }
 
-    private async IAsyncEnumerable<string> EnumeratePackageContentAsync(
-        string prefix,
+    private static async IAsyncEnumerable<string> EnumeratePackageContentAsync(
+        IPackageAccess package,
+        string organisation,
+        string project,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
-        if (_package is not null)
-        {
-            var paths = _package.EnumerateContentAsync(
-                new PackageContentContext(
-                    PackageContentKind.Collection,
-                    SplitRouteSegments(prefix),
-                    IsCollectionRequest: true),
-                ct);
-            if (paths is not null)
-            {
-                await foreach (var path in paths.ConfigureAwait(false))
-                    yield return path;
-                yield break;
-            }
-        }
+        var paths = package.EnumerateContentAsync(
+            new PackageContentContext(
+                PackageContentKind.Collection,
+                Organisation: organisation,
+                Project: project,
+                Module: "Teams",
+                IsCollectionRequest: true),
+            ct);
+        if (paths is null)
+            yield break;
 
-        yield break;
+        await foreach (var path in paths.ConfigureAwait(false))
+            yield return path;
     }
 
-    private async Task<string?> ReadPackageContentAsync(string relativePath, CancellationToken ct)
+    private static async Task<string?> ReadPackageContentAsync(IPackageAccess package, string organisation, string project, string relativePath, CancellationToken ct)
     {
-        if (_package is null)
-            return null;
-
-        var payload = await _package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+        var payload = await package.RequestContentAsync(
+            CreateTeamContext(organisation, project, relativePath),
             ct).ConfigureAwait(false);
         if (payload is null)
             return null;
@@ -445,20 +440,35 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
-    private async Task<bool> TeamDefinitionExistsAsync(string relativePath, CancellationToken ct)
+    private async Task<bool> TeamDefinitionExistsAsync(string organisation, string project, string relativePath, CancellationToken ct)
     {
         if (_package is null)
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
         return await _package.ContentExistsAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            CreateTeamContext(organisation, project, relativePath),
             ct).ConfigureAwait(false);
     }
 
-    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
-        => relativePath
-            .Replace('\\', '/')
-            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+    private static PackageContentContext CreateTeamContext(string organisation, string project, string relativePath)
+        => new(
+            PackageContentKind.Artefact,
+            Organisation: organisation,
+            Project: project,
+            Module: "Teams",
+            Address: new TeamDefinitionAddress(GetTeamSlug(relativePath)));
+
+    private static string GetTeamSlug(string relativePath)
+    {
+        var normalized = relativePath.Replace('\\', '/').Trim('/');
+        if (normalized.StartsWith("Teams/", StringComparison.OrdinalIgnoreCase))
+            normalized = normalized["Teams/".Length..];
+
+        var suffix = "/team.json";
+        return normalized.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)
+            ? normalized[..^suffix.Length]
+            : normalized;
+    }
 }
 #endif
 

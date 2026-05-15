@@ -7,7 +7,6 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -37,14 +36,11 @@ public class LegacyStateResumeCompatibilityTests
                 It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/export.workitems.cursor.json", null)));
 
-        var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
-
-        var sut = new CheckpointingService(stateStore.Object, endpointAccessor.Object, null, null, package.Object);
+        var sut = new CheckpointingService(endpointAccessor.Object, null, null, package.Object);
         var result = await sut.ReadCursorAsync("export.workitems", CancellationToken.None);
 
         Assert.IsNull(result);
         package.VerifyAll();
-        stateStore.VerifyAll();
     }
 
     [TestMethod]
@@ -68,13 +64,10 @@ public class LegacyStateResumeCompatibilityTests
                 It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/export.workitems.continuation.json", null)));
 
-        var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
-
-        var sut = new CheckpointingService(stateStore.Object, endpointAccessor.Object, null, null, package.Object);
+        var sut = new CheckpointingService(endpointAccessor.Object, null, null, package.Object);
         var result = await sut.ReadContinuationTokenAsync("export.workitems", CancellationToken.None);
 
         Assert.IsNull(result);
         package.VerifyAll();
-        stateStore.VerifyAll();
     }
 }

@@ -24,7 +24,6 @@ public class PackagePersistenceRunLogFlushTests
     public async Task PackageProgressSink_FlushAfterPackageStateClear_WritesToOriginalRunLogFolder()
     {
         var contexts = new List<PackageLogContext>();
-        var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
         var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
         mockPackage.Setup(p => p.AppendLogAsync(
                 It.IsAny<PackageLogContext>(),
@@ -35,7 +34,6 @@ public class PackagePersistenceRunLogFlushTests
 
         var state = new ActivePackageState
         {
-            CurrentStore = mockStore.Object,
             CurrentJob = new Job { JobId = "job-progress", Kind = JobKind.Export }
         };
         var expectedRunId = state.CurrentRunId;
@@ -54,7 +52,6 @@ public class PackagePersistenceRunLogFlushTests
     [TestMethod]
     public async Task PackageProgressSink_WithActiveStore_AppendsThroughPackageBoundary()
     {
-        var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
         var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
         mockPackage.Setup(p => p.AppendLogAsync(
                 It.Is<PackageLogContext>(c => c.Stream == PackageLogStream.Progress),
@@ -64,7 +61,6 @@ public class PackagePersistenceRunLogFlushTests
 
         var state = new ActivePackageState
         {
-            CurrentStore = mockStore.Object,
             CurrentJob = new Job { JobId = "job-progress", Kind = JobKind.Export }
         };
         var sink = new PackageProgressSink(state, NullLogger<PackageProgressSink>.Instance, mockPackage.Object);
@@ -82,7 +78,6 @@ public class PackagePersistenceRunLogFlushTests
     public async Task PackageLoggerProvider_FlushAfterPackageStateClear_WritesToOriginalRunLogFolder()
     {
         var contexts = new List<PackageLogContext>();
-        var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
         var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
         mockPackage.Setup(p => p.AppendLogAsync(
                 It.IsAny<PackageLogContext>(),
@@ -93,7 +88,6 @@ public class PackagePersistenceRunLogFlushTests
 
         var state = new ActivePackageState
         {
-            CurrentStore = mockStore.Object,
             CurrentJob = new Job { JobId = "job-logger", Kind = JobKind.Import }
         };
         var expectedRunId = state.CurrentRunId;
@@ -116,7 +110,6 @@ public class PackagePersistenceRunLogFlushTests
     [TestMethod]
     public async Task PackageLoggerProvider_WithActiveStore_AppendsThroughPackageBoundary()
     {
-        var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
         var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
         mockPackage.Setup(p => p.AppendLogAsync(
                 It.Is<PackageLogContext>(c => c.Stream == PackageLogStream.Diagnostics),
@@ -126,7 +119,6 @@ public class PackagePersistenceRunLogFlushTests
 
         var state = new ActivePackageState
         {
-            CurrentStore = mockStore.Object,
             CurrentJob = new Job { JobId = "job-logger", Kind = JobKind.Import }
         };
         using var provider = new PackageLoggerProvider(
@@ -145,3 +137,5 @@ public class PackagePersistenceRunLogFlushTests
     }
 }
 #endif
+
+

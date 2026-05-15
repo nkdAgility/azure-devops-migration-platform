@@ -20,6 +20,6 @@ public sealed class PhaseTrackingServiceFactory : IPhaseTrackingServiceFactory
     }
 
     /// <inheritdoc/>
-    public IPhaseTrackingService Create(IStateStore stateStore)
-        => new PhaseTrackingService(_package);
+    public IPhaseTrackingService Create(IPackageAccess packageAccess)
+        => new PhaseTrackingService(packageAccess ?? throw new ArgumentNullException(nameof(packageAccess)));
 }

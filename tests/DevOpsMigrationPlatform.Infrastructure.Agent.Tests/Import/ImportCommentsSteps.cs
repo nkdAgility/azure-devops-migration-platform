@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Reqnroll;
@@ -40,12 +41,17 @@ public class ImportCommentsSteps
         };
         var commentJson = """{"Id":1,"Text":"This is a comment.","IsDeleted":false}""";
 
-        _ctx.MockArtefactStore
-            .Setup(s => s.EnumerateAsync("WorkItems/", It.IsAny<CancellationToken>()))
-            .Returns((string _, CancellationToken ct) => _ctx.FolderPaths.ToAsyncEnumerable(ct));
-        _ctx.MockArtefactStore
-            .Setup(s => s.ReadAsync("WorkItems/2024-01-01/00000638000000000001-5-c1/comment.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(commentJson);
+        _ctx.MockPackage
+            .Setup(p => p.EnumerateContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath == "WorkItems/"),
+                It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken ct) => _ctx.FolderPaths.ToAsyncEnumerable(ct));
+        _ctx.MockPackage
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath == "WorkItems/2024-01-01/00000638000000000001-5-c1/comment.json"),
+                It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) =>
+                ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(commentJson)))));
     }
 
     [Given("the source work item ID is mapped to a target work item ID in idmap.db")]

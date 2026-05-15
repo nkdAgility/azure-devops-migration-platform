@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -17,7 +18,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 /// </summary>
 public class ImportEmbeddedImagesContext
 {
-    public Mock<IArtefactStore> MockArtefactStore { get; } = new(MockBehavior.Strict);
     public Mock<ICheckpointingService> MockCheckpointing { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
@@ -33,7 +33,7 @@ public class ImportEmbeddedImagesContext
 
     public ImportEmbeddedImagesContext()
     {
-        MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
+        MockPackage = PackageTestFactory.CreateLooseMock();
     }
 
     public RevisionFolderProcessor BuildProcessor()
@@ -43,8 +43,9 @@ public class ImportEmbeddedImagesContext
             MockIdMapStore.Object,
             MockCheckpointing.Object,
             MockIdentityMapping.Object,
-            MockArtefactStore.Object,
             NullLogger<RevisionFolderProcessor>.Instance,
+            "https://dev.azure.com/contoso",
+            "Shop",
             package: MockPackage.Object);
     }
 
@@ -53,21 +54,25 @@ public class ImportEmbeddedImagesContext
         var folder = "WorkItems/2024-01-01/00000638000000000001-1-0";
         var json = RevisionJson ?? """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"}],"Attachments":[],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
 
-        MockArtefactStore
-            .Setup(s => s.ReadAsync($"{folder}/revision.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(json);
-        MockArtefactStore
-            .Setup(s => s.ReadAsync($"{folder}/comment.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
+        MockPackage
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == $"{folder}/revision.json"), It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+                return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(bytes, writable: false), "application/json"));
+            });
+        MockPackage
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == $"{folder}/comment.json"), It.IsAny<CancellationToken>()))
+            .Returns(ValueTask.FromResult<PackagePayload?>(null));
 
         if (OriginalUrl is not null)
         {
-            MockArtefactStore
-                .Setup(s => s.ReadBinaryAsync($"{folder}/img1.png", It.IsAny<CancellationToken>()))
-                .Returns(Task.FromResult<System.IO.Stream?>(new System.IO.MemoryStream(new byte[] { 0x89, 0x50, 0x4E, 0x47 })));
-            MockArtefactStore
-                .Setup(s => s.ReadBinaryAsync($"{folder}/img2.png", It.IsAny<CancellationToken>()))
-                .Returns(Task.FromResult<System.IO.Stream?>(new System.IO.MemoryStream(new byte[] { 0x89, 0x50, 0x4E, 0x47 })));
+            MockPackage
+                .Setup(p => p.RequestContentBinaryAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == $"{folder}/img1.png"), It.IsAny<CancellationToken>()))
+                .Returns(() => ValueTask.FromResult<System.IO.Stream?>(new System.IO.MemoryStream(new byte[] { 0x89, 0x50, 0x4E, 0x47 }, writable: false)));
+            MockPackage
+                .Setup(p => p.RequestContentBinaryAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == $"{folder}/img2.png"), It.IsAny<CancellationToken>()))
+                .Returns(() => ValueTask.FromResult<System.IO.Stream?>(new System.IO.MemoryStream(new byte[] { 0x89, 0x50, 0x4E, 0x47 }, writable: false)));
 
             MockTarget
                 .Setup(t => t.UploadEmbeddedImageAsync("img1.png", It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()))

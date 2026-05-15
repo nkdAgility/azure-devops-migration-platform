@@ -18,7 +18,7 @@ public interface INodeTranslationValidator
     /// otherwise falls back to scanning all <c>revision.json</c> files.
     /// </summary>
     Task<NodeTranslationValidationReport> ValidateAsync(
-        IArtefactStore artefactStore,
+        IPackageAccess package,
         ProjectMapping context,
         CancellationToken ct);
 }

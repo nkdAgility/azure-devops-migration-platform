@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import.FailurePatterns;
 
@@ -19,7 +20,9 @@ internal sealed class MissingRevisionArtefactImportFailurePattern : IImportFailu
         CancellationToken cancellationToken)
     {
         var hasRevision = false;
-        await foreach (var artefactPath in context.PrepareContext.ArtefactStore.EnumerateAsync("WorkItems/", cancellationToken).ConfigureAwait(false))
+        await foreach (var artefactPath in context.PrepareContext.Package.EnumerateContentAsync(
+                           new PackageContentContext(PackageContentKind.Collection, Address: new RelativePathAddress("WorkItems/"), IsCollectionRequest: true),
+                           cancellationToken).ConfigureAwait(false))
         {
             if (artefactPath.EndsWith("/revision.json", System.StringComparison.Ordinal))
             {
@@ -42,6 +45,11 @@ internal sealed class MissingRevisionArtefactImportFailurePattern : IImportFailu
                 "No revision.json artefacts were found under WorkItems/.",
                 "Re-run export and verify WorkItems revision folders were produced before re-running Prepare.")
         ];
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }
 

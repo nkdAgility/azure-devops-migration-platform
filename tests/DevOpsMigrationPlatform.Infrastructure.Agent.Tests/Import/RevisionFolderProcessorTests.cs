@@ -3,10 +3,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -23,7 +25,6 @@ public class RevisionFolderProcessorTests
 
     private const string Folder = "WorkItems/2024-01-01/00000638000000000001-1-0";
 
-    private Mock<IArtefactStore> _mockArtefactStore = null!;
     private Mock<ICheckpointingService> _mockCheckpointing = null!;
     private Mock<IWorkItemImportTarget> _mockTarget = null!;
     private Mock<IIdMapStore> _mockIdMapStore = null!;
@@ -34,13 +35,12 @@ public class RevisionFolderProcessorTests
     [TestInitialize]
     public void Setup()
     {
-        _mockArtefactStore = new Mock<IArtefactStore>(MockBehavior.Strict);
         _mockCheckpointing = new Mock<ICheckpointingService>(MockBehavior.Strict);
         _mockTarget = new Mock<IWorkItemImportTarget>(MockBehavior.Strict);
         _mockIdMapStore = new Mock<IIdMapStore>(MockBehavior.Strict);
         _mockIdentityMapping = new Mock<IIdentityLookupTool>(MockBehavior.Loose);
         _mockResolutionStrategy = new Mock<IWorkItemResolutionStrategy>(MockBehavior.Strict);
-        _mockPackage = PackageTestFactory.CreateDelegatingMock(_mockArtefactStore.Object);
+        _mockPackage = PackageTestFactory.CreateLooseMock();
 
         // Default identity pass-through
         _mockIdentityMapping
@@ -57,8 +57,9 @@ public class RevisionFolderProcessorTests
             _mockIdMapStore.Object,
             _mockCheckpointing.Object,
             _mockIdentityMapping.Object,
-            _mockArtefactStore.Object,
             NullLogger<RevisionFolderProcessor>.Instance,
+            "https://dev.azure.com/contoso",
+            "Shop",
             package: _mockPackage.Object);
 
     // ── ProcessAsync_WhenRevisionJsonMissing_SkipsFolder ──────────────────────
@@ -66,9 +67,7 @@ public class RevisionFolderProcessorTests
     [TestMethod]
     public async Task ProcessAsync_WhenRevisionJsonMissing_SkipsFolder()
     {
-        _mockArtefactStore
-            .Setup(s => s.ReadAsync($"{Folder}/revision.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
+        SetupPackageText($"{Folder}/revision.json", null);
 
         var sut = CreateSut();
         await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
@@ -176,7 +175,7 @@ public class RevisionFolderProcessorTests
         await sut.ProcessAsync(Folder, ext, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.UploadAttachmentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()), Times.Never);
-        _mockArtefactStore.Verify(s => s.ReadBinaryAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockPackage.Verify(p => p.RequestContentBinaryAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── ProcessAsync_WhenResumingFromAppliedFields_SkipsStagesAandB ──────────
@@ -210,13 +209,9 @@ public class RevisionFolderProcessorTests
     public async Task ProcessAsync_WhenIdentityFieldPresent_ResolvesViaIdentityMappingService()
     {
         var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"},{"ReferenceName":"System.AssignedTo","Value":"source@example.com"}],"Attachments":[],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
-        _mockArtefactStore
-            .Setup(s => s.ReadAsync($"{Folder}/revision.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(json);
+        SetupPackageText($"{Folder}/revision.json", json);
         // Comments stage always runs (Enabled=true by default); return null so no comments are posted.
-        _mockArtefactStore
-            .Setup(s => s.ReadAsync($"{Folder}/comment.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
+        SetupPackageText($"{Folder}/comment.json", null);
 
         _mockIdentityMapping
             .Setup(s => s.Resolve("source@example.com"))
@@ -256,12 +251,31 @@ public class RevisionFolderProcessorTests
 
     private void SetupRevisionJson(string? json = null)
     {
-        _mockArtefactStore
-            .Setup(s => s.ReadAsync($"{Folder}/revision.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(json ?? _minimalRevisionJson);
-        _mockArtefactStore
-            .Setup(s => s.ReadAsync($"{Folder}/comment.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
+        SetupPackageText($"{Folder}/revision.json", json ?? _minimalRevisionJson);
+        SetupPackageText($"{Folder}/comment.json", null);
+    }
+
+    private void SetupPackageText(string path, string? content)
+    {
+        _mockPackage
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == path), It.IsAny<CancellationToken>()))
+            .Returns(() => ToPayload(content));
+    }
+
+    private void SetupPackageBinary(string path, byte[] content)
+    {
+        _mockPackage
+            .Setup(p => p.RequestContentBinaryAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == path), It.IsAny<CancellationToken>()))
+            .Returns(() => ValueTask.FromResult<System.IO.Stream?>(new System.IO.MemoryStream(content, writable: false)));
+    }
+
+    private static ValueTask<PackagePayload?> ToPayload(string? content)
+    {
+        if (content is null)
+            return ValueTask.FromResult<PackagePayload?>(null);
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(content);
+        return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(bytes, writable: false), "application/json"));
     }
 
     private void SetupNoMapping()

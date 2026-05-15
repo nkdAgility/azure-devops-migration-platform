@@ -13,6 +13,6 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 public class ValidationContext
 {
     public Job Job { get; init; } = null!;
-    public IArtefactStore ArtefactStore { get; init; } = null!;
+    public IPackageAccess Package { get; init; } = null!;
     public System.Collections.Generic.List<ValidationError> Errors { get; } = new();
 }

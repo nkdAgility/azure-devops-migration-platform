@@ -81,7 +81,7 @@ public sealed class WorkItemsModuleImportTests
 
         var checkpointFactory = new Mock<ICheckpointingServiceFactory>(MockBehavior.Strict);
         checkpointFactory
-            .Setup(f => f.Create(It.IsAny<IStateStore>()))
+            .Setup(f => f.Create(It.IsAny<IPackageAccess>()))
             .Returns(checkpointing.Object);
 
         var resolutionStrategy = new Mock<IWorkItemResolutionStrategy>(MockBehavior.Strict);
@@ -138,7 +138,8 @@ public sealed class WorkItemsModuleImportTests
                 idMapStore.Object,
                 checkpointing.Object,
                 It.IsAny<IIdentityLookupTool?>(),
-                It.IsAny<IArtefactStore>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
                 It.IsAny<ProjectMapping?>()))
             .Returns(revisionProcessor.Object);
 
@@ -177,8 +178,6 @@ public sealed class WorkItemsModuleImportTests
                     Package = new JobPackage { PackageUri = "file:///package" },
                     Resume = new JobResume { Mode = ResumeMode.Auto }
                 },
-                ArtefactStore = Mock.Of<IArtefactStore>(),
-                StateStore = Mock.Of<IStateStore>(),
                 ProgressSink = Mock.Of<IProgressSink>()
             },
             CancellationToken.None);
@@ -247,7 +246,7 @@ public sealed class WorkItemsModuleImportTests
 
         var checkpointFactory = new Mock<ICheckpointingServiceFactory>(MockBehavior.Strict);
         checkpointFactory
-            .Setup(f => f.Create(It.IsAny<IStateStore>()))
+            .Setup(f => f.Create(It.IsAny<IPackageAccess>()))
             .Returns(checkpointing.Object);
 
         var resolutionStrategy = new Mock<IWorkItemResolutionStrategy>(MockBehavior.Strict);
@@ -304,7 +303,8 @@ public sealed class WorkItemsModuleImportTests
                 idMapStore.Object,
                 checkpointing.Object,
                 It.IsAny<IIdentityLookupTool?>(),
-                It.IsAny<IArtefactStore>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
                 It.IsAny<ProjectMapping?>()))
             .Returns(revisionProcessor.Object);
 
@@ -344,8 +344,6 @@ public sealed class WorkItemsModuleImportTests
                     Package = new JobPackage { PackageUri = "file:///package" },
                     Resume = new JobResume { Mode = ResumeMode.Auto }
                 },
-                ArtefactStore = Mock.Of<IArtefactStore>(),
-                StateStore = Mock.Of<IStateStore>(),
                 ProgressSink = Mock.Of<IProgressSink>()
             },
             CancellationToken.None);

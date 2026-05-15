@@ -81,7 +81,6 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         rootActivity?.SetTag("job.id", context.Job.JobId);
 
         var job = context.Job;
-        var store = context.ArtefactStore;
         var sink = context.ProgressSink ?? NullProgressSink.Instance;
         IJobMetricsStore? metricsStore = null;
         IJobSnapshotStore? snapshotStore = null;
@@ -523,7 +522,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         await WritePackageTextAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
 
         // Generate grouped CSV, Mermaid diagrams, and per-project transitive graphs.
-        await GenerateAnalysisOutputsAsync(store, csvBuilder.ToString(), ct).ConfigureAwait(false);
+        await GenerateAnalysisOutputsAsync(csvBuilder.ToString(), ct).ConfigureAwait(false);
 
         // Emit ProjectComplete events for any configured project that did not receive one
         // during the main loop (e.g. projects with zero external links where the service
@@ -612,12 +611,11 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
     {
         var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? string.Empty;
         var project = context.Project;
-        var store = context.ArtefactStore;
-        var state = context.StateStore;
+        var package = context.Package;
         var sink = context.ProgressSink ?? NullProgressSink.Instance;
         var job = context.Job;
         var checkpointInterval = TimeSpan.FromSeconds(Math.Max(0, policies.CheckpointIntervalSeconds));
-        var checkpointing = _checkpointingFactory.Create(state);
+        var checkpointing = _checkpointingFactory.Create(package);
         var checkpointIdentity = StateCursorIdentity.Build("dependencies", "dependencies");
 
         var orgFolder = PackagePathResolver.ExtractOrgFolderName(orgUrl);
@@ -1144,7 +1142,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
     /// Regenerates per-org and per-project <c>dependencies.csv</c> files from the root CSV.
     /// </summary>
     private async Task RegenerateOutputFilesFromRootCsvAsync(
-        IArtefactStore store, string rootCsvContent, CancellationToken ct)
+        string rootCsvContent, CancellationToken ct)
     {
         const string CsvHeader =
             "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
@@ -1214,7 +1212,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
     /// Generates the analysis outputs from the root <c>dependencies.csv</c>.
     /// </summary>
     private async Task GenerateAnalysisOutputsAsync(
-        IArtefactStore store, string rootCsvContent, CancellationToken ct)
+        string rootCsvContent, CancellationToken ct)
     {
         // ── Step 1: Parse root CSV into grouped project-pair records ─────
         var pairAccumulator = new Dictionary<string, (string SourceProject, string TargetProject, string TargetOrganisation, LinkScope Scope, int Count, DateTimeOffset? MostRecentLinkDate, DateTimeOffset? MostRecentSourceWorkItemChangedDate)>(
@@ -1464,7 +1462,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
         var payload = await _package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            CreatePackageContentContext(relativePath),
             ct).ConfigureAwait(false);
         if (payload is null)
             return null;
@@ -1482,15 +1480,20 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
 
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
         await _package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            CreatePackageContentContext(relativePath),
             new PackagePayload(stream, "text/csv"),
             ct).ConfigureAwait(false);
     }
 
-    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
-        => relativePath
-            .Replace('\\', '/')
-            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+    private static PackageContentContext CreatePackageContentContext(string relativePath)
+        => new(
+            PackageContentKind.Artefact,
+            Address: new RelativePathAddress(relativePath));
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+    }
 
     private sealed class OrganisationMigrationEndpointOptions : MigrationEndpointOptions
     {

@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -162,38 +162,28 @@ public class ResumableBatchingContractTests
     [TestMethod]
     public async Task ReadContinuationTokenAsync_NoToken_ReturnsNull()
     {
-        var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
-        stateStore.Setup(s => s.ReadAsync(
-                ".migration/inventory.inventory.continuation.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
+        package.Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ContinuationToken && c.Action == "inventory" && c.Module == "inventory"),
+                It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/inventory.inventory.continuation.json", null)));
 
         var sut = new CheckpointingService(
-            stateStore.Object,
             BuildEndpointAccessor().Object,
-            package: PackageTestFactory.CreateStateDelegatingMock(stateStore.Object).Object);
+            package: package.Object);
         var result = await sut.ReadContinuationTokenAsync("inventory.inventory", CancellationToken.None);
 
         Assert.IsNull(result);
-        stateStore.VerifyAll();
+        package.VerifyAll();
     }
 
     [TestMethod]
     public async Task WriteThenRead_ContinuationToken_RoundTrips()
     {
-        var store = new Dictionary<string, string>();
-        var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
-
-        stateStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((k, v, _) => store[k] = v)
-            .Returns(Task.CompletedTask);
-
-        stateStore.Setup(s => s.ReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string key, CancellationToken _) => store.GetValueOrDefault(key));
-
+        var package = PackageTestFactory.CreateLooseMock().Object;
         var sut = new CheckpointingService(
-            stateStore.Object,
             BuildEndpointAccessor().Object,
-            package: PackageTestFactory.CreateStateDelegatingMock(stateStore.Object).Object);
+            package: package);
         var token = new BatchContinuationToken
         {
             StrategyVersion = "1.0",
@@ -216,18 +206,18 @@ public class ResumableBatchingContractTests
     [TestMethod]
     public async Task DeleteContinuationTokenAsync_CallsStateStoreDelete()
     {
-        var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
-        stateStore.Setup(s => s.DeleteAsync(
-                ".migration/inventory.inventory.continuation.json", It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
+        package.Setup(p => p.ResetMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ContinuationToken && c.Action == "inventory" && c.Module == "inventory"),
+                It.IsAny<CancellationToken>()))
+            .Returns(ValueTask.CompletedTask);
 
         var sut = new CheckpointingService(
-            stateStore.Object,
             BuildEndpointAccessor().Object,
-            package: PackageTestFactory.CreateStateDelegatingMock(stateStore.Object).Object);
+            package: package.Object);
         await sut.DeleteContinuationTokenAsync("inventory.inventory", CancellationToken.None);
 
-        stateStore.VerifyAll();
+        package.VerifyAll();
     }
 
     // ── PackagePathTestHelper ────────────────────────────────────────────────────

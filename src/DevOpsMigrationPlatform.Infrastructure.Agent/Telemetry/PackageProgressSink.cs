@@ -19,7 +19,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 /// Writes <see cref="ProgressEvent"/> records to the run-scoped package stream
 /// (<c>.migration/runs/&lt;runId&gt;/logs/progress.ndjson</c>) via <see cref="IPackageAccess"/>.
 /// Uses a bounded channel and background drain loop following the same pattern
-/// as <see cref="ControlPlaneProgressSink"/>. The backing store is resolved
+/// as <see cref="ControlPlaneProgressSink"/>. The active run context is resolved
 /// lazily from <see cref="ActivePackageState"/> because it is only available after a
 /// job lease is acquired.
 /// </summary>
@@ -36,7 +36,6 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
     private readonly IPackageAccess _package;
     private readonly ILogger<PackageProgressSink> _logger;
     private long _droppedCount;
-    private volatile IArtefactStore? _lastKnownStore;
     private volatile string? _lastKnownRunId;
 
     public PackageProgressSink(
@@ -51,13 +50,12 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
 
     public void Emit(ProgressEvent evt)
     {
-        // Eagerly capture the store reference on the emit path so the drain loop
+        // Eagerly capture the active run on the emit path so the drain loop
         // can flush even if the job completes before the next poll interval.
-        var store = _packageState.CurrentStore;
-        if (store is not null)
+        var runId = _packageState.CurrentRunId;
+        if (!string.IsNullOrWhiteSpace(runId))
         {
-            _lastKnownStore = store;
-            _lastKnownRunId = _packageState.CurrentRunId;
+            _lastKnownRunId = runId;
         }
 
         _channel.Writer.TryWrite(evt);
@@ -86,15 +84,15 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                // Wait for a store to become available before consuming from the channel.
+                // Wait for a run context to become available before consuming from the channel.
                 // Records stay safely buffered in the bounded channel while no job is active.
-                var currentStore = _packageState.CurrentStore;
-                if (currentStore is null)
+                var currentRunId = _packageState.CurrentRunId;
+                if (string.IsNullOrWhiteSpace(currentRunId))
                 {
                     await Task.Delay(FlushInterval, stoppingToken).ConfigureAwait(false);
                     continue;
                 }
-                _lastKnownStore = currentStore;
+                _lastKnownRunId = currentRunId;
                 batch.Clear();
 
                 // Wait for at least one item (with timeout), then drain all immediately
@@ -147,19 +145,6 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
 
     private async Task FlushBatchAsync(List<ProgressEvent> batch, CancellationToken cancellationToken)
     {
-        // Prefer the live store; fall back to the last known reference so the
-        // shutdown drain can still flush after MigrationAgentWorker clears the state.
-        var store = _packageState.CurrentStore ?? _lastKnownStore;
-        if (store is null)
-        {
-            // No store has ever been set — count as dropped.
-            Interlocked.Add(ref _droppedCount, batch.Count);
-            _logger.LogWarning(
-                "Dropping {Count} progress records — no artefact store available. Total dropped: {DroppedCount}.",
-                batch.Count, Interlocked.Read(ref _droppedCount));
-            return;
-        }
-
         try
         {
             var sb = new StringBuilder();
@@ -173,6 +158,9 @@ public sealed class PackageProgressSink : BackgroundService, IProgressSink, IFlu
             if (string.IsNullOrWhiteSpace(runId))
             {
                 Interlocked.Add(ref _droppedCount, batch.Count);
+                _logger.LogWarning(
+                    "Dropping {Count} progress records — no active package run is available. Total dropped: {DroppedCount}.",
+                    batch.Count, Interlocked.Read(ref _droppedCount));
                 return;
             }
 

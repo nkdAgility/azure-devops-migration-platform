@@ -14,6 +14,7 @@ using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
@@ -52,7 +53,9 @@ public sealed class ClassificationTreeCapture : IClassificationTreeCapture
     /// </summary>
     /// <returns>Total number of nodes captured (area + iteration).</returns>
     public async Task<int> CaptureAsync(
-        IArtefactStore artefactStore,
+        IPackageAccess package,
+        string organisation,
+        string project,
         CancellationToken ct,
         IPlatformMetrics? metrics = null,
         string? jobId = null,
@@ -84,7 +87,11 @@ public sealed class ClassificationTreeCapture : IClassificationTreeCapture
 
             var snapshot = new ClassificationTreeSnapshot(areaNodes, iterationNodes);
             var json = JsonSerializer.Serialize(snapshot, s_jsonOptions);
-            await artefactStore.WriteAsync(ArtifactPath, json, ct).ConfigureAwait(false);
+            using var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(json), writable: false);
+            await package.PersistContentAsync(
+                CreateContext(organisation, project),
+                new PackagePayload(stream, "application/json"),
+                ct).ConfigureAwait(false);
 
             var totalNodes = areaNodes.Count + iterationNodes.Count;
             metrics?.RecordNodeExportTreeCount(totalNodes, tags);
@@ -108,5 +115,13 @@ public sealed class ClassificationTreeCapture : IClassificationTreeCapture
             throw;
         }
     }
+
+    private static PackageContentContext CreateContext(string organisation, string project)
+        => new(
+            PackageContentKind.Artefact,
+            Organisation: organisation,
+            Project: project,
+            Module: "Nodes",
+            Address: new NodeSourceTreeAddress());
 }
 

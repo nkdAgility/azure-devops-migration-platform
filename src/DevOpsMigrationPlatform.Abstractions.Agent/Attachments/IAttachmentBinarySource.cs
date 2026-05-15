@@ -45,7 +45,9 @@ public interface IStreamingAttachmentBinarySource : IAttachmentBinarySource
         int workItemId,
         int revisionIndex,
         AttachmentMetadata attachment,
-        IArtefactStore store,
-        string targetPath,
+        IPackageAccess package,
+        string organisation,
+        string project,
+        string revisionFolderPath,
         CancellationToken cancellationToken);
 }

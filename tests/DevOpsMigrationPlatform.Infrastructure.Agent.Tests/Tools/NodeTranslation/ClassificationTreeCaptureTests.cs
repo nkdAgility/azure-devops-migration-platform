@@ -5,13 +5,16 @@ using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,17 +37,26 @@ public class ClassificationTreeCaptureTests
             iterationNodes: new[] { new IterationNodeEntry(@"ProjectA\Sprint 1", null, null, false) });
 
         string? writtenContent = null;
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
-        storeMock.Setup(s => s.WriteAsync(
-                "Nodes/source-tree.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((_, c, _) => writtenContent = c)
-            .Returns(Task.CompletedTask);
+        var package = PackageTestFactory.CreateLooseMock();
+        package.Setup(p => p.PersistContentAsync(
+                It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath == "Nodes/source-tree.json"),
+                It.IsAny<PackagePayload>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<PackageContentContext, PackagePayload, CancellationToken>((_, payload, _) =>
+            {
+                using var reader = new StreamReader(payload.Content, Encoding.UTF8, true, 1024, leaveOpen: true);
+                if (payload.Content.CanSeek)
+                    payload.Content.Position = 0;
+                writtenContent = reader.ReadToEnd();
+            })
+            .Returns(ValueTask.CompletedTask);
 
         var capture = CreateCapture(reader);
-        await capture.CaptureAsync(storeMock.Object, CancellationToken.None);
+        await capture.CaptureAsync(package.Object, "org", "ProjectA", CancellationToken.None);
 
-        storeMock.Verify(s => s.WriteAsync(
-            "Nodes/source-tree.json", It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        package.Verify(p => p.PersistContentAsync(
+            It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath == "Nodes/source-tree.json"),
+            It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()), Times.Once);
 
         Assert.IsNotNull(writtenContent);
         var snapshot = JsonSerializer.Deserialize<ClassificationTreeSnapshot>(
@@ -59,30 +71,29 @@ public class ClassificationTreeCaptureTests
     public async Task CaptureAsync_EmptyTree_WritesEmptyArtifact()
     {
         var reader = new FakeClassificationTreeReader(Array.Empty<string>(), Array.Empty<IterationNodeEntry>());
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
-        storeMock.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        var package = PackageTestFactory.CreateLooseMock();
 
         var capture = CreateCapture(reader);
-        await capture.CaptureAsync(storeMock.Object, CancellationToken.None);
+        await capture.CaptureAsync(package.Object, "org", "ProjectA", CancellationToken.None);
 
-        storeMock.Verify(s => s.WriteAsync(
-            "Nodes/source-tree.json", It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        package.Verify(p => p.PersistContentAsync(
+            It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath == "Nodes/source-tree.json"),
+            It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [TestMethod]
     public async Task CaptureAsync_ApiFailure_ThrowsAndDoesNotWrite()
     {
         var reader = new ThrowingClassificationTreeReader();
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Strict);
+        var package = PackageTestFactory.CreateLooseMock();
 
         var capture = CreateCapture(reader);
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => capture.CaptureAsync(storeMock.Object, CancellationToken.None));
+            () => capture.CaptureAsync(package.Object, "org", "ProjectA", CancellationToken.None));
 
-        storeMock.Verify(s => s.WriteAsync(
-            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        package.Verify(p => p.PersistContentAsync(
+            It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // --- Fakes ---

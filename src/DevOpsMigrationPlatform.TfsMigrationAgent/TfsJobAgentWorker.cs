@@ -59,7 +59,6 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     private string? _currentPackageUri;
 
     public TfsJobAgentWorker(
-        IPackageStoreFactory packageStoreFactory,
         IProgressSink progressSink,
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
@@ -75,7 +74,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         ActiveTfsJobServices activeTfsJobServices,
         ILogger<TfsJobAgentWorker> logger,
         IPackageAccess? package)
-        : base(packageStoreFactory, progressSink, checkpointingFactory,
+        : base(progressSink, checkpointingFactory,
              phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageMigrationConfigLoader,
                 package!, moduleScopeFactory, httpClientFactory, logger, activeJobState)
     {
@@ -154,8 +153,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         _currentPackageUri = job.Package.PackageUri ?? ".";
 
         // Update plan file to mark TFS export task as Running (best-effort).
-        var (_, stateStore) = PackageStoreFactory.Create(_currentPackageUri);
-        await UpdatePlanTaskStatusAsync(stateStore, "export.workitems", JobTaskStatus.Running, ct)
+        await UpdatePlanTaskStatusAsync("export.workitems", JobTaskStatus.Running, ct)
             .ConfigureAwait(false);
     }
 
@@ -186,8 +184,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         // If the job failed, the status remains Failed (set in the exception handler).
         if (_currentPackageUri != null)
         {
-            var (_, stateStore) = PackageStoreFactory.Create(_currentPackageUri);
-            await UpdatePlanTaskStatusAsync(stateStore, "export.workitems", JobTaskStatus.Completed, ct)
+            await UpdatePlanTaskStatusAsync("export.workitems", JobTaskStatus.Completed, ct)
                 .ConfigureAwait(false);
             _currentPackageUri = null;
         }
@@ -198,7 +195,6 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     /// Best-effort — logs warnings on failure but does not throw.
     /// </summary>
     private async Task UpdatePlanTaskStatusAsync(
-        IStateStore stateStore,
         string taskId,
         JobTaskStatus newStatus,
         CancellationToken ct)
@@ -279,10 +275,6 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
         ActiveJobIdentity?.Set(job.JobId, job.Kind.ToString());
-        var (artefactStore, stateStore) = PackageStoreFactory.Create(
-            job.Package.PackageUri ?? ".");
-
-        PackageState.CurrentStore = artefactStore;
 
         // Discovery config (organisations, endpoint) is read from migration-config.json.
         // Read the raw config section for the TFS source endpoint.

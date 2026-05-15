@@ -3,7 +3,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,6 +19,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -27,6 +30,11 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules;
 [TestClass]
 public sealed class WorkItemsModulePrepareTests
 {
+    private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
+
+    private static PackageContentContext ContentAt(string path)
+        => new(PackageContentKind.Artefact, Address: new TestPackageAddress(path));
+
     [TestMethod]
     public async Task PrepareAsync_WritesBlockingFindings_WhenAttachmentAndImageBinariesAreMissing()
     {
@@ -35,30 +43,16 @@ public sealed class WorkItemsModulePrepareTests
         string? writtenReport = null;
         string? writtenReadinessReport = null;
 
-        var artefactStore = new Mock<IArtefactStore>(MockBehavior.Strict);
-        artefactStore
-            .Setup(s => s.EnumerateAsync("WorkItems/", It.IsAny<CancellationToken>()))
-            .Returns(EnumerateSingleAsync(revisionPath));
-        artefactStore
-            .Setup(s => s.ReadAsync(revisionPath, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(revisionJson);
-        artefactStore
-            .Setup(s => s.ExistsAsync("WorkItems/2026-05-13/638827200000000000-42-0/attachment-a.png", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-        artefactStore
-            .Setup(s => s.ExistsAsync("WorkItems/2026-05-13/638827200000000000-42-0/image-a.png", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-        artefactStore
-            .Setup(s => s.WriteAsync("WorkItems/prepare-report.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((_, payload, _) => writtenReport = payload)
-            .Returns(Task.CompletedTask);
-        artefactStore
-            .Setup(s => s.WriteAsync(".mission/Readiness/workitems-import-readiness.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((_, payload, _) => writtenReadinessReport = payload)
-            .Returns(Task.CompletedTask);
+        var package = PackageTestFactory.CreateLooseMock();
+        package
+            .Setup(p => p.EnumerateContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath.StartsWith("WorkItems/")), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => EnumerateSingleAsync(revisionPath));
+        package
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == revisionPath), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(revisionJson)))));
 
         var module = CreateModule();
-        var context = CreatePrepareContext(artefactStore.Object);
+        var context = CreatePrepareContext(package.Object);
 
         await module.PrepareAsync(context, CancellationToken.None);
 
@@ -95,8 +89,6 @@ public sealed class WorkItemsModulePrepareTests
             },
             report.UnresolvedItems.Select(i => i.Key).ToArray());
         Assert.IsTrue(report.UnresolvedItems.All(i => i.Severity == PrepareIssueSeverity.Blocking));
-
-        artefactStore.VerifyAll();
     }
 
     [TestMethod]
@@ -107,30 +99,19 @@ public sealed class WorkItemsModulePrepareTests
         string? writtenReport = null;
         string? writtenReadinessReport = null;
 
-        var artefactStore = new Mock<IArtefactStore>(MockBehavior.Strict);
-        artefactStore
-            .Setup(s => s.EnumerateAsync("WorkItems/", It.IsAny<CancellationToken>()))
-            .Returns(EnumerateSingleAsync(revisionPath));
-        artefactStore
-            .Setup(s => s.ReadAsync(revisionPath, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(revisionJson);
-        artefactStore
-            .Setup(s => s.ExistsAsync("WorkItems/2026-05-13/638827200000000000-42-0/attachment-a.png", It.IsAny<CancellationToken>()))
+        var package = PackageTestFactory.CreateLooseMock();
+        package
+            .Setup(p => p.EnumerateContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath.StartsWith("WorkItems/")), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => EnumerateSingleAsync(revisionPath));
+        package
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == revisionPath), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(revisionJson)))));
+        package
+            .Setup(p => p.ContentExistsAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
-        artefactStore
-            .Setup(s => s.ExistsAsync("WorkItems/2026-05-13/638827200000000000-42-0/image-a.png", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-        artefactStore
-            .Setup(s => s.WriteAsync("WorkItems/prepare-report.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((_, payload, _) => writtenReport = payload)
-            .Returns(Task.CompletedTask);
-        artefactStore
-            .Setup(s => s.WriteAsync(".mission/Readiness/workitems-import-readiness.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((_, payload, _) => writtenReadinessReport = payload)
-            .Returns(Task.CompletedTask);
 
         var module = CreateModule();
-        var context = CreatePrepareContext(artefactStore.Object);
+        var context = CreatePrepareContext(package.Object);
 
         await module.PrepareAsync(context, CancellationToken.None);
 
@@ -156,8 +137,6 @@ public sealed class WorkItemsModulePrepareTests
         Assert.IsTrue(readinessReport.IsReadyForImport);
         Assert.AreEqual(0, readinessReport.BlockingCount);
         Assert.AreEqual(0, readinessReport.WarningCount);
-
-        artefactStore.VerifyAll();
     }
 
     [TestMethod]
@@ -167,18 +146,13 @@ public sealed class WorkItemsModulePrepareTests
         string? writtenReport = null;
         string? writtenReadinessReport = null;
 
-        var artefactStore = new Mock<IArtefactStore>(MockBehavior.Strict);
-        artefactStore
-            .Setup(s => s.EnumerateAsync("WorkItems/", It.IsAny<CancellationToken>()))
-            .Returns(EnumerateSingleAsync(revisionPath));
-        artefactStore
-            .Setup(s => s.WriteAsync("WorkItems/prepare-report.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((_, payload, _) => writtenReport = payload)
-            .Returns(Task.CompletedTask);
-        artefactStore
-            .Setup(s => s.WriteAsync(".mission/Readiness/workitems-import-readiness.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((_, payload, _) => writtenReadinessReport = payload)
-            .Returns(Task.CompletedTask);
+        var package = PackageTestFactory.CreateLooseMock();
+        package
+            .Setup(p => p.EnumerateContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath.StartsWith("WorkItems/")), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => EnumerateSingleAsync(revisionPath));
+        package
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == revisionPath), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("{}")))));
 
         var module = CreateModule(
         [
@@ -191,7 +165,7 @@ public sealed class WorkItemsModulePrepareTests
                     "Update the transform configuration.")
             ])
         ]);
-        var context = CreatePrepareContext(artefactStore.Object);
+        var context = CreatePrepareContext(package.Object);
 
         await module.PrepareAsync(context, CancellationToken.None);
 
@@ -217,8 +191,6 @@ public sealed class WorkItemsModulePrepareTests
         Assert.IsFalse(readinessReport.IsReadyForImport);
         Assert.AreEqual(1, readinessReport.BlockingCount);
         Assert.AreEqual(0, readinessReport.WarningCount);
-
-        artefactStore.VerifyAll();
     }
 
     private static WorkItemRevision CreateRevisionWithArtefacts() =>
@@ -264,7 +236,7 @@ public sealed class WorkItemsModulePrepareTests
             importFailurePatterns: importFailurePatterns);
     }
 
-    private static PrepareContext CreatePrepareContext(IArtefactStore store)
+    private static PrepareContext CreatePrepareContext(IPackageAccess package)
     {
         var targetEndpoint = new Mock<ITargetEndpointInfo>();
         targetEndpoint.SetupGet(s => s.Project).Returns("ProjectA");
@@ -274,8 +246,7 @@ public sealed class WorkItemsModulePrepareTests
         return new PrepareContext
         {
             Job = new Job { JobId = "job-prepare-1", Kind = JobKind.Prepare },
-            ArtefactStore = store,
-            StateStore = Mock.Of<IStateStore>(),
+            Package = package,
             ProgressSink = Mock.Of<IProgressSink>(),
             TargetEndpoint = targetEndpoint.Object
         };
@@ -297,3 +268,4 @@ public sealed class WorkItemsModulePrepareTests
             => Task.FromResult(findings);
     }
 }
+

@@ -38,7 +38,9 @@ public interface ITeamsOrchestrator
         CancellationToken ct);
 
     Task ValidateAsync(
-        IArtefactStore artefactStore,
+        IPackageAccess package,
+        string organisation,
+        string project,
         ValidationContext context,
         CancellationToken ct);
 }

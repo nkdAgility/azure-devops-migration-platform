@@ -41,16 +41,6 @@ public class CheckpointingService : ICheckpointingService
         _package = package;
     }
 
-    public CheckpointingService(
-        IStateStore _,
-        ICurrentJobEndpointAccessor? currentJobEndpointAccessor = null,
-        ICurrentPackageConfigAccessor? currentPackageConfigAccessor = null,
-        ILogger<CheckpointingService>? logger = null,
-        IPackageAccess? package = null)
-        : this(currentJobEndpointAccessor, currentPackageConfigAccessor, logger, package)
-    {
-    }
-
     public async Task<CursorEntry?> ReadCursorAsync(string checkpointIdentity, CancellationToken cancellationToken)
     {
         using var activity = ActivitySource.StartActivity("state.cursor.update");

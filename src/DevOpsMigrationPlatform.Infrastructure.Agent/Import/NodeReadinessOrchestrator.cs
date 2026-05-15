@@ -156,7 +156,7 @@ public sealed class NodeReadinessOrchestrator
     private async Task<T?> ReadArtifactAsync<T>(string relativePath, CancellationToken ct)
     {
         var payload = await _packageAccess
-            .RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)), ct)
+            .RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)), ct)
             .ConfigureAwait(false);
 
         if (payload is not null)
@@ -184,7 +184,7 @@ public sealed class NodeReadinessOrchestrator
         await foreach (var enumeratedPath in _packageAccess.EnumerateContentAsync(
                            new PackageContentContext(
                                PackageContentKind.Collection,
-                               SplitRouteSegments(parentPath),
+                               Address: new RelativePathAddress(parentPath),
                                IsCollectionRequest: true),
                            ct).ConfigureAwait(false))
         {
@@ -196,7 +196,7 @@ public sealed class NodeReadinessOrchestrator
                 continue;
 
             var payload = await _packageAccess
-                .RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(candidatePath)), ct)
+                .RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(candidatePath)), ct)
                 .ConfigureAwait(false);
             if (payload is not null)
                 return payload;
@@ -221,9 +221,9 @@ public sealed class NodeReadinessOrchestrator
     private static string BuildNodeKey(ClassificationNodeType nodeType, string path)
         => $"{nodeType}:{path}";
 
-    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
-        => relativePath
-            .Replace('\\', '/')
-            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+    }
 }
 #endif

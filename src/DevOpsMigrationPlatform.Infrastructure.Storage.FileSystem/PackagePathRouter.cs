@@ -21,6 +21,7 @@ internal sealed class PackagePathRouter
     private const string LockFilePath = $"{Checkpoints}/agent.lock";
     private const string RunsRoot = $"{SystemRoot}/runs";
     private const string PrepareReportPath = ".migration/prepare-report.json";
+    private const string PrepareProbe = ".migration/prepare-probe.json";
     private const string JobDescriptorPath = ".migration/job.json";
 
     private static string RunFolder(string runId) => $"{RunsRoot}/{runId}";
@@ -165,6 +166,7 @@ internal sealed class PackagePathRouter
             PackageMetaKind.PhaseRecord => PhaseFile,
             PackageMetaKind.InventoryCompletionMarker => InventoryCompleteFile,
             PackageMetaKind.PrepareReport => PrepareReportPath,
+            PackageMetaKind.PrepareProbe => PrepareProbe,
             PackageMetaKind.JobDescriptor => !string.IsNullOrWhiteSpace(runId)
                 ? RunJobFile(runId!)
                 : JobDescriptorPath,

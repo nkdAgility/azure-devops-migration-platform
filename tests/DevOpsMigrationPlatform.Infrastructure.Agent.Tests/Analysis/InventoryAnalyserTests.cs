@@ -4,7 +4,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -16,6 +18,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -33,8 +36,8 @@ public sealed class InventoryAnalyserTests
 
         await analyser.AnalyseAsync(CreateContext(artefactStore.Object), CancellationToken.None);
 
-        artefactStore.Verify(s => s.WriteAsync("inventory.json", It.Is<string>(v => !string.IsNullOrWhiteSpace(v)), It.IsAny<CancellationToken>()), Times.Once);
-        artefactStore.Verify(s => s.WriteAsync("inventory.csv", It.Is<string>(v => v.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length > 1), It.IsAny<CancellationToken>()), Times.Once);
+        artefactStore.Verify(p => p.PersistContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "inventory.json"), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()), Times.Once);
+        artefactStore.Verify(p => p.PersistContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "inventory.csv"), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [TestMethod]
@@ -78,8 +81,7 @@ public sealed class InventoryAnalyserTests
     [TestMethod]
     public async Task AnalyseAsync_LogsWarningsForMissingModuleFilesAndZeroTotals()
     {
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        store.Setup(s => s.ReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync((string?)null);
+        var store = PackageTestFactory.CreateLooseMock();
         var logger = new CapturingLogger<InventoryAnalyser>();
         var analyser = new InventoryAnalyser(logger);
 
@@ -102,18 +104,22 @@ public sealed class InventoryAnalyserTests
         Assert.IsTrue(events.Any(e => e.Stage == "Analysed"));
     }
 
-    private static AnalyseContext CreateContext(IArtefactStore artefactStore, IProgressSink? sink = null)
+    private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
+
+    private static PackageContentContext ContentAt(string path)
+        => new(PackageContentKind.Artefact, Address: new TestPackageAddress(path));
+
+    private static AnalyseContext CreateContext(IPackageAccess package, IProgressSink? sink = null)
     {
         return new AnalyseContext
         {
             Job = new Job { JobId = "job-1", Kind = JobKind.Inventory },
-            ArtefactStore = artefactStore,
-            StateStore = Mock.Of<IStateStore>(),
+            Package = package,
             ProgressSink = sink
         };
     }
 
-    private static Mock<IArtefactStore> CreateInventoryStore()
+    private static Mock<IPackageAccess> CreateInventoryStore()
     {
         // Root InventoryReport — org "https://dev.azure.com/testorg" → slug "testorg", project "ProjectA" with workItems=5
         const string rootInventoryJson = """
@@ -149,9 +155,15 @@ public sealed class InventoryAnalyserTests
             ["testorg/ProjectA/inventory.json"] = projectInventoryJson
         };
 
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        store.Setup(s => s.ReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string path, CancellationToken _) => map.TryGetValue(path, out var value) ? value : null);
+        var store = PackageTestFactory.CreateLooseMock();
+        store.Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext ctx, CancellationToken _) =>
+            {
+                var path = ctx.Address?.RelativePath ?? string.Empty;
+                if (!map.TryGetValue(path, out var value))
+                    return ValueTask.FromResult<PackagePayload?>(null);
+                return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(value))));
+            });
         return store;
     }
 

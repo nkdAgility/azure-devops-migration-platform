@@ -3,6 +3,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
@@ -30,25 +32,30 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules;
 [TestClass]
 public class NodesModuleTests
 {
+    private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
+
+    private static PackageContentContext ContentAt(string path)
+        => new(PackageContentKind.Artefact, Address: new TestPackageAddress(path));
+
     private static NodesModule CreateModule(
         NodesModuleOptions? options = null,
         IClassificationTreeCapture? capture = null,
         INodesOrchestrator? orchestrator = null,
         string sourceProject = "TestProject",
         string targetProject = "TargetProject",
-        IArtefactStore? packageStore = null)
+        IPackageAccess? package = null)
     {
         options ??= new NodesModuleOptions { Enabled = true };
         return new NodesModule(
             NullLogger<NodesModule>.Instance,
             Options.Create(options),
             sourceEndpointInfo: CreateSourceEndpointInfo(sourceProject),
-            orchestrator: orchestrator ?? CreateRealOrchestrator(packageStore),
+            orchestrator: orchestrator ?? CreateRealOrchestrator(package),
             capture: capture,
             targetEndpointInfo: CreateTargetEndpointInfo(targetProject));
     }
 
-    private static NodesOrchestrator CreateRealOrchestrator(IArtefactStore? packageStore = null)
+    private static NodesOrchestrator CreateRealOrchestrator(IPackageAccess? package = null)
     {
         var opts = new NodeTranslationOptions { Enabled = true };
         var optsMon = new Mock<IOptionsMonitor<NodeTranslationOptions>>();
@@ -58,9 +65,7 @@ public class NodesModuleTests
             Mock.Of<INodeTranslationTool>(),
             Mock.Of<INodeCreator>(),
             optsMon.Object,
-            package: packageStore is null
-                ? PackageTestFactory.CreateLooseMock().Object
-                : PackageTestFactory.CreateDelegatingMock(packageStore).Object);
+            package: package ?? PackageTestFactory.CreateLooseMock().Object);
     }
 
     private static IAgentJobContext CreateAgentJobContext()
@@ -90,34 +95,32 @@ public class NodesModuleTests
         return mock.Object;
     }
 
-    private static ExportContext CreateExportContext(IArtefactStore store)
+    private static ExportContext CreateExportContext(IPackageAccess package)
     {
         return new ExportContext
         {
             Job = new Job { Kind = JobKind.Export },
-            ArtefactStore = store,
-            StateStore = Mock.Of<IStateStore>(),
+            Package = package,
             ProgressSink = Mock.Of<IProgressSink>()
         };
     }
 
-    private static ImportContext CreateImportContext(IArtefactStore store)
+    private static ImportContext CreateImportContext(IPackageAccess package)
     {
         return new ImportContext
         {
             Job = new Job { Kind = JobKind.Import },
-            ArtefactStore = store,
-            StateStore = Mock.Of<IStateStore>(),
+            Package = package,
             ProgressSink = Mock.Of<IProgressSink>()
         };
     }
 
-    private static ValidationContext CreateValidationContext(Mock<IArtefactStore> store)
+    private static ValidationContext CreateValidationContext(IPackageAccess package)
     {
         return new ValidationContext
         {
             Job = new Job(),
-            ArtefactStore = store.Object
+            Package = package
         };
     }
 
@@ -128,7 +131,9 @@ public class NodesModuleTests
         var captureMock = new Mock<IClassificationTreeCapture>(MockBehavior.Strict);
         captureMock
             .Setup(c => c.CaptureAsync(
-                It.IsAny<IArtefactStore>(),
+                It.IsAny<IPackageAccess>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
                 It.IsAny<CancellationToken>(),
                 It.IsAny<IPlatformMetrics?>(),
                 It.IsAny<string?>(),
@@ -136,16 +141,18 @@ public class NodesModuleTests
                 It.IsAny<string>()))
             .Returns(Task.FromResult(0));
 
-        var store = Mock.Of<IArtefactStore>();
-        var module = CreateModule(capture: captureMock.Object, packageStore: store);
-        var context = CreateExportContext(store);
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var module = CreateModule(capture: captureMock.Object, package: package);
+        var context = CreateExportContext(package);
 
         // Act
         await module.ExportAsync(context, CancellationToken.None);
 
         // Assert
         captureMock.Verify(c => c.CaptureAsync(
-            It.IsAny<IArtefactStore>(),
+            It.IsAny<IPackageAccess>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
             It.IsAny<CancellationToken>(),
             It.IsAny<IPlatformMetrics?>(),
             It.IsAny<string?>(),
@@ -158,9 +165,9 @@ public class NodesModuleTests
     {
         // Arrange
         var captureMock = new Mock<IClassificationTreeCapture>(MockBehavior.Strict);
-        var store = Mock.Of<IArtefactStore>();
-        var module = CreateModule(new NodesModuleOptions { Enabled = false }, captureMock.Object, packageStore: store);
-        var context = CreateExportContext(store);
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var module = CreateModule(new NodesModuleOptions { Enabled = false }, captureMock.Object, package: package);
+        var context = CreateExportContext(package);
 
         // Act
         await module.ExportAsync(context, CancellationToken.None);
@@ -184,9 +191,9 @@ public class NodesModuleTests
             .Returns(Task.CompletedTask);
 
         var opts = new NodesModuleOptions { Enabled = true, ReplicateSourceTree = true };
-        var store = Mock.Of<IArtefactStore>();
-        var module = CreateModule(opts, orchestrator: orchestratorMock.Object, packageStore: store);
-        var context = CreateImportContext(store);
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var module = CreateModule(opts, orchestrator: orchestratorMock.Object, package: package);
+        var context = CreateImportContext(package);
 
         // Act
         await module.ImportAsync(context, CancellationToken.None);
@@ -221,9 +228,9 @@ public class NodesModuleTests
             Enabled = true,
             ReplicateSourceTree = false
         };
-        var store = Mock.Of<IArtefactStore>();
-        var module = CreateModule(opts, orchestrator: orchestratorMock.Object, packageStore: store);
-        var context = CreateImportContext(store);
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var module = CreateModule(opts, orchestrator: orchestratorMock.Object, package: package);
+        var context = CreateImportContext(package);
 
         // Act
         await module.ImportAsync(context, CancellationToken.None);
@@ -242,13 +249,10 @@ public class NodesModuleTests
     public async Task ValidateAsync_AddsError_WhenSourceTreeJsonMissing()
     {
         // Arrange
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
-        storeMock
-            .Setup(s => s.ExistsAsync("Nodes/source-tree.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+        var storeMock = PackageTestFactory.CreateLooseMock();
 
-        var module = CreateModule(packageStore: storeMock.Object);
-        var context = CreateValidationContext(storeMock);
+        var module = CreateModule(package: storeMock.Object);
+        var context = CreateValidationContext(storeMock.Object);
 
         // Act
         await module.ValidateAsync(context, CancellationToken.None);
@@ -262,16 +266,13 @@ public class NodesModuleTests
     public async Task ValidateAsync_AddsError_WhenSourceTreeJsonIsMalformed()
     {
         // Arrange
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = PackageTestFactory.CreateLooseMock();
         storeMock
-            .Setup(s => s.ExistsAsync("Nodes/source-tree.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-        storeMock
-            .Setup(s => s.ReadAsync("Nodes/source-tree.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync("not-valid-json");
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "source-tree.json"), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("not-valid-json")))));
 
-        var module = CreateModule(packageStore: storeMock.Object);
-        var context = CreateValidationContext(storeMock);
+        var module = CreateModule(package: storeMock.Object);
+        var context = CreateValidationContext(storeMock.Object);
 
         // Act
         await module.ValidateAsync(context, CancellationToken.None);
@@ -285,16 +286,13 @@ public class NodesModuleTests
     public async Task ValidateAsync_PassesForValidSourceTreeJson()
     {
         // Arrange
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = PackageTestFactory.CreateLooseMock();
         storeMock
-            .Setup(s => s.ExistsAsync("Nodes/source-tree.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-        storeMock
-            .Setup(s => s.ReadAsync("Nodes/source-tree.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync("{\"areaNodes\":[\"ProjectA\",\"ProjectA/Sub\"],\"iterationNodes\":[]}");
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "source-tree.json"), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("{\"areaNodes\":[\"ProjectA\",\"ProjectA/Sub\"],\"iterationNodes\":[]}")))));
 
-        var module = CreateModule(packageStore: storeMock.Object);
-        var context = CreateValidationContext(storeMock);
+        var module = CreateModule(package: storeMock.Object);
+        var context = CreateValidationContext(storeMock.Object);
 
         // Act
         await module.ValidateAsync(context, CancellationToken.None);

@@ -55,8 +55,7 @@ public interface IJobPlanExecutor
         ExportContext? baseExportContext,
         ImportContext? importContext,
         IReadOnlyDictionary<string, OrganisationEndpoint>? endpointsByUrl,
-        IStateStore stateStore,
-        CancellationToken ct);
+                CancellationToken ct);
 
     /// <summary>
     /// Executes Export-phase tasks in <paramref name="plan"/>.
@@ -69,8 +68,7 @@ public interface IJobPlanExecutor
         InventoryContext? baseInventoryContext,
         IReadOnlyDictionary<string, OrganisationEndpoint>? endpointsByUrl,
         ExportContext exportContext,
-        IStateStore stateStore,
-        CancellationToken ct);
+                CancellationToken ct);
 
     /// <summary>
     /// Executes Import-phase tasks in dependency-tier order.
@@ -80,6 +78,5 @@ public interface IJobPlanExecutor
         JobTaskList plan,
         IReadOnlyDictionary<string, IModule> modulesByName,
         ImportContext importContext,
-        IStateStore stateStore,
-        CancellationToken ct);
+                CancellationToken ct);
 }

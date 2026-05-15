@@ -13,6 +13,8 @@ using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Validation;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Reqnroll;
 
@@ -124,7 +126,7 @@ public sealed class TestWorkItemsModule : IModule
 /// <summary>
 /// Simple in-memory state store for tests.
 /// </summary>
-public sealed class InMemoryStateStore : IStateStore
+public sealed class InMemoryStateStore : ITestStateStore
 {
     private readonly Dictionary<string, string> _data = new(StringComparer.OrdinalIgnoreCase);
 
@@ -302,7 +304,8 @@ public sealed class PlanDrivenExecutionSteps
     [When(@"the agent loads the plan on resume")]
     public async Task WhenTheAgentLoadsThePlanOnResume()
     {
-        var loaded = await Infrastructure.Agent.Context.JobPlanExecutor.LoadOrResetAsync(_context.StateStore, CancellationToken.None);
+        var package = PackageTestFactory.CreateStateDelegatingMock(_context.StateStore).Object;
+        var loaded = await JobPlanExecutor.LoadOrResetAsync(package, CancellationToken.None);
         _context.ExecutionPlan = loaded;
     }
 

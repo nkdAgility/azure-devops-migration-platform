@@ -74,7 +74,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         ExportContext? baseExportContext,
         ImportContext? importContext,
         IReadOnlyDictionary<string, OrganisationEndpoint>? endpointsByUrl,
-        IStateStore stateStore,
         CancellationToken ct)
     {
         plan = await MarkBlockedDependenciesSkippedAsync(
@@ -82,7 +81,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             _ => true,
             "Task.Skipped",
             captureHandlersByName.Keys.Concat(analysersByName.Keys),
-            stateStore,
             ct).ConfigureAwait(false);
 
         var hasCanonicalFailures = HasFailedTasks(plan, _ => true);
@@ -122,7 +120,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
             var result = await ExecuteTierAsync(
                 tier, captureHandlersByName, analysersByName, baseInventoryContext,
-                baseExportContext, importContext, endpointsByUrl, stateStore, plan, ct)
+                baseExportContext, importContext, endpointsByUrl, plan, ct)
                 .ConfigureAwait(false);
 
             plan = result.UpdatedPlan;
@@ -151,7 +149,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                             var idx = taskList.FindIndex(t => t.Id == task.Id);
                             taskList[idx] = skipped;
                                 plan = plan with { Tasks = taskList.AsReadOnly() };
-                                await PersistPlanAsync(plan, stateStore, ct).ConfigureAwait(false);
+                                await PersistPlanAsync(plan, ct).ConfigureAwait(false);
 
                                 _progressSink?.Emit(new ProgressEvent
                                 {
@@ -196,7 +194,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         Func<JobTask, bool> isInScope,
         string stage,
         IEnumerable<string> registeredNames,
-        IStateStore stateStore,
         CancellationToken ct)
     {
         var scopedTasks = plan.Tasks.Where(isInScope).ToList();
@@ -234,7 +231,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
                 taskList[idx] = updated;
                 plan = plan with { Tasks = taskList.AsReadOnly() };
-                await PersistPlanAsync(plan, stateStore, ct).ConfigureAwait(false);
+                await PersistPlanAsync(plan, ct).ConfigureAwait(false);
 
                 _progressSink?.Emit(new ProgressEvent
                 {
@@ -266,7 +263,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         InventoryContext? baseInventoryContext,
         IReadOnlyDictionary<string, OrganisationEndpoint>? endpointsByUrl,
         ExportContext exportContext,
-        IStateStore stateStore,
         CancellationToken ct)
     {
         plan = await MarkBlockedDependenciesSkippedAsync(
@@ -274,7 +270,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             t => t.Phase == "Export" || t.TaskKind is TaskKind.Capture or TaskKind.Analyse,
             "Export.Skipped",
             modulesByName.Keys.Concat(analysersByName.Keys),
-            stateStore,
             ct).ConfigureAwait(false);
 
         var hasCanonicalFailures = HasFailedTasks(plan, t => t.Phase == "Export" || t.TaskKind is TaskKind.Capture or TaskKind.Analyse);
@@ -324,7 +319,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 exportContext,
                 importContext: null,
                 endpointsByUrl,
-                stateStore,
                 plan,
                 ct)
                 .ConfigureAwait(false);
@@ -357,7 +351,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                             {
                                 taskList[idx] = updated;
                                 plan = plan with { Tasks = taskList.AsReadOnly() };
-                                await PersistPlanAsync(plan, stateStore, ct).ConfigureAwait(false);
+                                await PersistPlanAsync(plan, ct).ConfigureAwait(false);
 
                                 _progressSink?.Emit(new ProgressEvent
                                 {
@@ -397,7 +391,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
     private static async Task<InventoryReport?> TryReadInventoryReportAsync(
         IPackageAccess? package,
-        IArtefactStore artefactStore,
         CancellationToken ct)
     {
         try
@@ -450,11 +443,9 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     private static async Task<(long? KnownTotal, long? CompletedCount)> TryResolveTaskProgressSnapshotAsync(
         JobTask task,
         IPackageAccess? package,
-        IArtefactStore? artefactStore,
         CancellationToken ct)
     {
-        if (artefactStore is null)
-            return (null, null);
+        var resolvedPackage = ResolvePackage(package);
 
         ProjectInventoryData? projectInventory = null;
         if (!string.IsNullOrWhiteSpace(task.OrganisationUrl) && !string.IsNullOrWhiteSpace(task.ProjectName))
@@ -463,10 +454,10 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             var projectName = task.ProjectName!;
             var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
             var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, projectName);
-            projectInventory = await ProjectInventoryFile.ReadAsync(artefactStore, projectPath, ct).ConfigureAwait(false);
+            projectInventory = await ProjectInventoryFile.ReadAsync(resolvedPackage, projectPath, ct).ConfigureAwait(false);
         }
 
-        var inventoryReport = await TryReadInventoryReportAsync(package, artefactStore, ct).ConfigureAwait(false);
+        var inventoryReport = await TryReadInventoryReportAsync(resolvedPackage, ct).ConfigureAwait(false);
         return TryResolveTaskProgressSnapshot(task, inventoryReport, projectInventory);
     }
 
@@ -480,7 +471,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         JobTaskList plan,
         IReadOnlyDictionary<string, IModule> modulesByName,
         ImportContext importContext,
-        IStateStore stateStore,
         CancellationToken ct)
     {
         plan = await MarkBlockedDependenciesSkippedAsync(
@@ -488,7 +478,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             t => t.Phase == "Import",
             "Import.Skipped",
             modulesByName.Keys,
-            stateStore,
             ct).ConfigureAwait(false);
 
         var hasCanonicalFailures = HasFailedTasks(plan, t => t.Phase == "Import");
@@ -530,7 +519,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
             var failed = await ExecuteTierAsync(
                 tier, modulesByName.ToDictionary(kvp => kvp.Key, kvp => (ICapture)kvp.Value, StringComparer.OrdinalIgnoreCase), analysersByName: null, baseInventoryContext: null,
-                exportContext: null, importContext, endpointsByUrl: null, stateStore, plan, ct)
+                exportContext: null, importContext, endpointsByUrl: null, plan, ct)
                 .ConfigureAwait(false);
 
             plan = failed.UpdatedPlan; // Propagate plan updates from tier execution
@@ -562,7 +551,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                             {
                                 taskList[idx] = updated;
                                 plan = plan with { Tasks = taskList.AsReadOnly() };
-                                await PersistPlanAsync(plan, stateStore, ct).ConfigureAwait(false);
+                                await PersistPlanAsync(plan, ct).ConfigureAwait(false);
 
                                 _progressSink?.Emit(new ProgressEvent
                                 {
@@ -615,7 +604,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         ExportContext? exportContext,
         ImportContext? importContext,
         IReadOnlyDictionary<string, OrganisationEndpoint>? endpointsByUrl,
-        IStateStore stateStore,
         JobTaskList plan,
         CancellationToken ct)
     {
@@ -700,7 +688,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             try
             {
                 lock (planLock) { updatedPlan = plan; }
-                await PersistPlanAsync(updatedPlan, stateStore, ct).ConfigureAwait(false);
+                await PersistPlanAsync(updatedPlan, ct).ConfigureAwait(false);
             }
             finally
             {
@@ -753,10 +741,8 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                     // Analyse task: build context from whichever base context is available.
                     var job = (baseInventoryContext?.Job ?? exportContext?.Job ?? importContext?.Job)
                         ?? throw new InvalidOperationException("No job context available to build AnalyseContext.");
-                    var artefactStore = (baseInventoryContext?.ArtefactStore ?? exportContext?.ArtefactStore ?? importContext?.ArtefactStore)
-                        ?? throw new InvalidOperationException("No ArtefactStore available.");
-                    var stateStoreForAnalyse = (baseInventoryContext?.StateStore ?? exportContext?.StateStore ?? importContext?.StateStore)
-                        ?? throw new InvalidOperationException("No StateStore available.");
+                    var packageAccess = (baseInventoryContext?.Package ?? exportContext?.Package ?? importContext?.Package)
+                        ?? throw new InvalidOperationException("No IPackageAccess available.");
                     var progressSink = baseInventoryContext?.ProgressSink ?? exportContext?.ProgressSink ?? importContext?.ProgressSink;
 
                     // IOrganisationsAnalyser (e.g. DependencyAnalyser) needs the full organisations list
@@ -766,8 +752,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                             ? new OrganisationsAnalyseContext
                             {
                                 Job = job,
-                                ArtefactStore = artefactStore,
-                                StateStore = stateStoreForAnalyse,
+                                Package = packageAccess,
                                 ProgressSink = progressSink,
                                 Policies = baseInventoryContext.Policies,
                                 Organisations = orgs
@@ -775,8 +760,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                             : new AnalyseContext
                             {
                                 Job = job,
-                                ArtefactStore = artefactStore,
-                                StateStore = stateStoreForAnalyse,
+                                Package = packageAccess,
                                 ProgressSink = progressSink
                             };
 
@@ -863,8 +847,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                                 var scopedCtx = new ExportContext
                                 {
                                     Job = exportContext.Job,
-                                    ArtefactStore = exportContext.ArtefactStore,
-                                    StateStore = exportContext.StateStore,
+                                    Package = exportContext.Package,
                                     ProgressSink = exportContext.ProgressSink,
                                     MetricsStore = exportContext.MetricsStore,
                                     SnapshotStore = exportContext.SnapshotStore,
@@ -969,13 +952,13 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                     }
                 }
 
-                var artefactStoreForTask = baseInventoryContext?.ArtefactStore
-                    ?? exportContext?.ArtefactStore
-                    ?? importContext?.ArtefactStore;
+                var packageForTask = baseInventoryContext?.Package
+                    ?? exportContext?.Package
+                    ?? importContext?.Package
+                    ?? _package;
                 var (resolvedKnownTotal, resolvedCompletedCount) = await TryResolveTaskProgressSnapshotAsync(
                     task,
-                    _package,
-                    artefactStoreForTask,
+                    packageForTask,
                     ct).ConfigureAwait(false);
 
                 var knownTotal = executionResult.KnownTotal ?? resolvedKnownTotal;
@@ -1013,7 +996,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 try
                 {
                     lock (planLock) { updatedPlan = plan; }
-                    await PersistPlanAsync(updatedPlan, stateStore, ct).ConfigureAwait(false);
+                    await PersistPlanAsync(updatedPlan, ct).ConfigureAwait(false);
                 }
                 finally
                 {
@@ -1069,7 +1052,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 try
                 {
                     lock (planLock) { updatedPlan = plan; }
-                    await PersistPlanAsync(updatedPlan, stateStore, ct).ConfigureAwait(false);
+                    await PersistPlanAsync(updatedPlan, ct).ConfigureAwait(false);
                 }
                 finally
                 {
@@ -1104,7 +1087,6 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
     private async Task PersistPlanAsync(
         JobTaskList plan,
-        IStateStore stateStore,
         CancellationToken ct)
     {
         try
@@ -1124,7 +1106,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     {
         var resolved = ResolvePackage(package);
         var payload = await resolved.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
             ct).ConfigureAwait(false);
         if (payload is null)
             return null;
@@ -1169,15 +1151,15 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         }
 
         await resolved.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(key)),
+            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(key)),
             new PackagePayload(stream),
             ct).ConfigureAwait(false);
     }
 
-    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
-        => relativePath
-            .Replace('\\', '/')
-            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+    }
 
     private static IPackageAccess ResolvePackage(IPackageAccess? package)
         => package ?? throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for plan persistence operations.");
@@ -1302,9 +1284,8 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     /// Returns <c>null</c> if the plan file does not exist or cannot be deserialised.
     /// </summary>
     public static async Task<JobTaskList?> LoadOrResetAsync(
-        IStateStore stateStore,
-        CancellationToken ct,
-        IPackageAccess? package = null)
+        IPackageAccess? package,
+        CancellationToken ct)
     {
         try
         {

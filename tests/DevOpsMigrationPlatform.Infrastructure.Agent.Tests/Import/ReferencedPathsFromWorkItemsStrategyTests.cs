@@ -21,6 +21,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Import;
 [TestClass]
 public class ReferencedPathsFromWorkItemsStrategyTests
 {
+    private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
+
     [TestMethod]
     public async Task CollectDistinctPathsAsync_CollectsDistinctAreaAndIterationPaths_FromExportedRevisions()
     {
@@ -127,7 +129,7 @@ public class ReferencedPathsFromWorkItemsStrategyTests
         var payload = new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false), "application/json");
 
         await packageAccess.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(path)),
+            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress(path)),
             payload,
             CancellationToken.None);
     }

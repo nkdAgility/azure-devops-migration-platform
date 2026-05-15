@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -18,6 +19,7 @@ using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -90,13 +92,15 @@ public sealed class DependencyAnalyserTests
     [TestMethod]
     public async Task AnalyseAsync_WritesAnalysisDependenciesCsvAndMmd()
     {
-        var store = new InMemoryArtefactStore();
-        var analyser = CreateAnalyser(artefactStore: store);
+        var package = PackageTestFactory.CreateLooseMock();
+        var analyser = CreateAnalyser(package: package.Object);
 
-        await analyser.AnalyseAsync(CreateContext(artefactStore: store), CancellationToken.None);
+        await analyser.AnalyseAsync(CreateContext(package: package.Object), CancellationToken.None);
 
-        var csv = await store.ReadAsync("analysis/dependencies.csv", CancellationToken.None);
-        var mmd = await store.ReadAsync("analysis/dependencies.mmd", CancellationToken.None);
+        var csvPayload = await package.Object.RequestContentAsync(ContentAt("analysis/dependencies.csv"), CancellationToken.None);
+        var mmdPayload = await package.Object.RequestContentAsync(ContentAt("analysis/dependencies.mmd"), CancellationToken.None);
+        var csv = csvPayload is not null ? new StreamReader(csvPayload.Content).ReadToEnd() : null;
+        var mmd = mmdPayload is not null ? new StreamReader(mmdPayload.Content).ReadToEnd() : null;
 
         Assert.IsNotNull(csv);
         Assert.IsTrue(csv!.Split('\n', System.StringSplitOptions.RemoveEmptyEntries).Length > 1);
@@ -104,14 +108,18 @@ public sealed class DependencyAnalyserTests
         Assert.IsTrue(mmd!.Contains("graph TD"));
     }
 
+    private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
+
+    private static PackageContentContext ContentAt(string path)
+        => new(PackageContentKind.Artefact, Address: new TestPackageAddress(path));
+
     private static DependencyAnalyser CreateAnalyser(
         ILogger<DependencyAnalyser>? logger = null,
         IPlatformMetrics? metrics = null,
-        IArtefactStore? artefactStore = null,
+        IPackageAccess? package = null,
         IReadOnlyList<string>? csvRows = null)
     {
         csvRows ??= ["1,2,ProjA,https://org,4,5,ProjB,https://orgB,6", "7,8,ProjA,https://org,9,10,ProjB,https://orgB,11"];
-        var store = artefactStore ?? new InMemoryArtefactStore();
         var factory = new Mock<IDependencyDiscoveryServiceFactory>(MockBehavior.Strict);
         factory.Setup(f => f.Create(It.IsAny<IReadOnlyList<ScopedOrganisationEndpoint>>(), It.IsAny<JobPolicies>()))
             .Returns(Mock.Of<IDependencyDiscoveryService>());
@@ -130,7 +138,7 @@ public sealed class DependencyAnalyserTests
                     var content = "SourceId,TargetId,SourceProject,SourceOrganisationUrl,SourceWorkItemType,TargetWorkItemType,TargetProject,TargetOrganisationUrl,TargetId\n"
                         + string.Join('\n', csvRows)
                         + '\n';
-                    await context.ArtefactStore.WriteAsync("dependencies.csv", content, ct);
+                    await context.Package.PersistContentAsync(ContentAt("dependencies.csv"), new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(content))), ct);
                 });
 
         return new DependencyAnalyser(
@@ -140,12 +148,11 @@ public sealed class DependencyAnalyserTests
             metrics);
     }
 
-    private static OrganisationsAnalyseContext CreateContext(IProgressSink? progressSink = null, IArtefactStore? artefactStore = null)
+    private static OrganisationsAnalyseContext CreateContext(IProgressSink? progressSink = null, IPackageAccess? package = null)
         => new()
         {
             Job = new Job { JobId = "job-1", Kind = JobKind.Dependencies },
-            ArtefactStore = artefactStore ?? new InMemoryArtefactStore(),
-            StateStore = Mock.Of<IStateStore>(),
+            Package = package ?? PackageTestFactory.CreateLooseMock().Object,
             ProgressSink = progressSink,
             Organisations = [new ScopedOrganisationEndpoint
             {
@@ -159,8 +166,9 @@ public sealed class DependencyAnalyserTests
     {
         // Arrange: a store that enumerates paths but ReadAsync returns null for them (simulates
         // a capture task that ran but did not write the CSV file).
-        var store = new MissingCsvArtefactStore("org/ProjectA/dependencies.csv",
-                             "org/ProjectB/dependencies.csv");
+        var package = PackageTestFactory.CreateLooseMock();
+        package.Setup(p => p.EnumerateContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => GetGhostPathsAsync());
 
         var logger = new Mock<ILogger<DependencyAnalyser>>(MockBehavior.Loose);
 
@@ -179,13 +187,13 @@ public sealed class DependencyAnalyserTests
             .Returns<IDependencyDiscoveryService, OrganisationsAnalyseContext, JobPolicies, int, CancellationToken>(
                 async (_, context, _, _, ct) =>
                 {
-                    await context.ArtefactStore.WriteAsync("dependencies.csv", "header\n", ct);
+                    await context.Package.PersistContentAsync(ContentAt("dependencies.csv"), new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("header\n"))), ct);
                 });
 
         var analyser = new DependencyAnalyser(factory.Object, orchestrator.Object, logger.Object);
 
         var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
-            await analyser.AnalyseAsync(CreateContext(artefactStore: store), CancellationToken.None));
+            await analyser.AnalyseAsync(CreateContext(package: package.Object), CancellationToken.None));
 
         // Assert: LogError called once per missing file (2 paths, both null from ReadAsync)
         StringAssert.Contains(ex.Message, "required per-project dependency CSV");
@@ -197,104 +205,15 @@ public sealed class DependencyAnalyserTests
                 It.IsAny<System.Exception?>(),
                 It.IsAny<System.Func<It.IsAnyType, System.Exception?, string>>()),
             Times.Exactly(2));
-        Assert.IsFalse(store.Exists("dependencies.csv"), "Consolidated root dependency output must not be written when required inputs are missing.");
-        Assert.IsFalse(store.Exists("analysis/dependencies.csv"), "Analysis dependency output must not be written when required inputs are missing.");
+        Assert.IsFalse(await package.Object.ContentExistsAsync(ContentAt("dependencies.csv"), CancellationToken.None), "Consolidated root dependency output must not be written when required inputs are missing.");
+        Assert.IsFalse(await package.Object.ContentExistsAsync(ContentAt("analysis/dependencies.csv"), CancellationToken.None), "Analysis dependency output must not be written when required inputs are missing.");
     }
 
-    /// <summary>
-    /// A store that enumerates pre-registered paths but returns null from ReadAsync for all of them.
-    /// Used to simulate EC-5: capture tasks ran but did not write their CSV files.
-    /// </summary>
-    private sealed class MissingCsvArtefactStore : IArtefactStore
+    private static async IAsyncEnumerable<string> GetGhostPathsAsync()
     {
-        private readonly string[] _paths;
-        private readonly Dictionary<string, string> _written = new(System.StringComparer.OrdinalIgnoreCase);
-
-        public MissingCsvArtefactStore(params string[] paths) => _paths = paths;
-
-        public Task<string?> ReadAsync(string path, CancellationToken cancellationToken)
-        {
-            // Return written content if it exists; null for pre-registered "missing" paths.
-            return Task.FromResult(_written.TryGetValue(path, out var val) ? val : (string?)null);
-        }
-
-        public Task WriteAsync(string path, string content, CancellationToken cancellationToken)
-        {
-            _written[path] = content;
-            return Task.CompletedTask;
-        }
-
-        public Task<bool> ExistsAsync(string path, CancellationToken cancellationToken)
-            => Task.FromResult(_written.ContainsKey(path));
-
-        public bool Exists(string path) => _written.ContainsKey(path);
-
-        public Task WriteBinaryAsync(string path, byte[] content, CancellationToken cancellationToken)
-            => Task.CompletedTask;
-
-        public Task<Stream?> ReadBinaryAsync(string path, CancellationToken cancellationToken)
-            => Task.FromResult<Stream?>(null);
-
-        public async IAsyncEnumerable<string> EnumerateAsync(string prefix, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
-        {
-            // Enumerate the pre-registered paths (these simulate paths that "exist" in the store
-            // but whose content was never written due to a failed capture task).
-            foreach (var p in _paths.Where(p => p.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase)))
-            {
-                yield return p;
-                await Task.Yield();
-            }
-        }
-
-        public Task WriteStreamAsync(string path, Stream content, CancellationToken cancellationToken)
-            => Task.CompletedTask;
-
-        public Task AppendAsync(string path, string content, CancellationToken cancellationToken)
-        {
-            _written[path] = _written.TryGetValue(path, out var e) ? e + content : content;
-            return Task.CompletedTask;
-        }
-    }
-
-    private sealed class InMemoryArtefactStore : IArtefactStore
-    {
-        private readonly Dictionary<string, string> _files = new(System.StringComparer.OrdinalIgnoreCase);
-
-        public Task<string?> ReadAsync(string path, CancellationToken cancellationToken)
-            => Task.FromResult(_files.TryGetValue(path, out var value) ? value : null);
-
-        public Task WriteAsync(string path, string content, CancellationToken cancellationToken)
-        {
-            _files[path] = content;
-            return Task.CompletedTask;
-        }
-
-        public Task<bool> ExistsAsync(string path, CancellationToken cancellationToken)
-            => Task.FromResult(_files.ContainsKey(path));
-
-        public Task WriteBinaryAsync(string path, byte[] content, CancellationToken cancellationToken)
-            => Task.CompletedTask;
-
-        public Task<Stream?> ReadBinaryAsync(string path, CancellationToken cancellationToken)
-            => Task.FromResult<Stream?>(null);
-
-        public async IAsyncEnumerable<string> EnumerateAsync(string prefix, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
-        {
-            foreach (var key in _files.Keys.Where(k => k.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase)))
-            {
-                yield return key;
-                await Task.Yield();
-            }
-        }
-
-        public Task WriteStreamAsync(string path, Stream content, CancellationToken cancellationToken)
-            => Task.CompletedTask;
-
-        public Task AppendAsync(string path, string content, CancellationToken cancellationToken)
-        {
-            _files[path] = _files.TryGetValue(path, out var existing) ? existing + content : content;
-            return Task.CompletedTask;
-        }
+        yield return "org/ProjectA/dependencies.csv";
+        await Task.Yield();
+        yield return "org/ProjectB/dependencies.csv";
     }
 }
 

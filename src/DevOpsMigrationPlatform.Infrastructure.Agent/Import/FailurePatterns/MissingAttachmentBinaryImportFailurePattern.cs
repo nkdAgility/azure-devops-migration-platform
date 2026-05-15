@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import.FailurePatterns;
 
@@ -24,10 +26,10 @@ internal sealed class MissingAttachmentBinaryImportFailurePattern : IImportFailu
         }
 
         var findings = new List<ImportFailureFinding>();
-        var artefactStore = context.PrepareContext.ArtefactStore;
+        var package = context.PrepareContext.Package;
 
         await foreach (var parsedRevision in WorkItemsPrepareRevisionReader.EnumerateAsync(
-                           artefactStore,
+                           package,
                            cancellationToken).ConfigureAwait(false))
         {
             if (parsedRevision.Revision is null)
@@ -49,7 +51,9 @@ internal sealed class MissingAttachmentBinaryImportFailurePattern : IImportFailu
                 }
 
                 var attachmentPath = $"{parsedRevision.RevisionFolderPath}/{attachment.RelativePath}";
-                if (!await artefactStore.ExistsAsync(attachmentPath, cancellationToken).ConfigureAwait(false))
+                if (!await package.ContentExistsAsync(
+                        new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(attachmentPath)),
+                        cancellationToken).ConfigureAwait(false))
                 {
                     findings.Add(new ImportFailureFinding(
                         PatternCode,
@@ -62,6 +66,11 @@ internal sealed class MissingAttachmentBinaryImportFailurePattern : IImportFailu
         }
 
         return findings;
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }
 

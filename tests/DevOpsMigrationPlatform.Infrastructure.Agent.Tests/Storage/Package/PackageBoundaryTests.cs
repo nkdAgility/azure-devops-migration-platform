@@ -21,15 +21,12 @@ public sealed class PackageBoundaryTests
     [TestMethod]
     public async Task ExistsAsync_ReturnsTrue_WhenContentPathExists()
     {
-        var store = new InMemoryArtefactStore();
+        var store = new InMemoryPackageAccess();
         await store.WriteAsync("WorkItems/entry.json", "{}", CancellationToken.None);
-        var sut = new ActivePackageAccess(
-            new ActivePackageState { CurrentStore = store },
-            new PackagePathRouter(),
-            NullLogger<ActivePackageAccess>.Instance);
+        var (sut, _) = ActivePackageTestFactory.Create(store);
 
         var exists = await sut.ContentExistsAsync(
-            new PackageContentContext(PackageContentKind.Artefact, RouteSegments: ["WorkItems", "entry.json"]),
+            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("WorkItems/entry.json")),
             CancellationToken.None);
 
         Assert.IsTrue(exists);
@@ -38,17 +35,14 @@ public sealed class PackageBoundaryTests
     [TestMethod]
     public async Task EnumerateAsync_YieldsLexicographicStoreEntries()
     {
-        var store = new InMemoryArtefactStore();
+        var store = new InMemoryPackageAccess();
         await store.WriteAsync("WorkItems/b.json", "{}", CancellationToken.None);
         await store.WriteAsync("WorkItems/a.json", "{}", CancellationToken.None);
-        var sut = new ActivePackageAccess(
-            new ActivePackageState { CurrentStore = store },
-            new PackagePathRouter(),
-            NullLogger<ActivePackageAccess>.Instance);
+        var (sut, _) = ActivePackageTestFactory.Create(store);
 
         var entries = new List<string>();
         await foreach (var item in sut.EnumerateContentAsync(
-            new PackageContentContext(PackageContentKind.Collection, RouteSegments: ["WorkItems"]),
+            new PackageContentContext(PackageContentKind.Collection, Address: new TestPackageAddress("WorkItems")),
             CancellationToken.None))
             entries.Add(item);
 
@@ -58,15 +52,12 @@ public sealed class PackageBoundaryTests
     [TestMethod]
     public async Task AppendAsync_AppendsContentToExistingFile()
     {
-        var store = new InMemoryArtefactStore();
+        var store = new InMemoryPackageAccess();
         await store.WriteAsync("Identities/descriptors.jsonl", "one\n", CancellationToken.None);
-        var sut = new ActivePackageAccess(
-            new ActivePackageState { CurrentStore = store },
-            new PackagePathRouter(),
-            NullLogger<ActivePackageAccess>.Instance);
+        var (sut, _) = ActivePackageTestFactory.Create(store);
 
         await sut.AppendContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, RouteSegments: ["Identities", "descriptors.jsonl"]),
+            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("Identities/descriptors.jsonl")),
             new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("two\n"))),
             CancellationToken.None);
 
@@ -76,13 +67,8 @@ public sealed class PackageBoundaryTests
     [TestMethod]
     public async Task PersistMetaAsync_RelatedToRun_WritesAuthoritativeAndAuditCopies()
     {
-        var store = new InMemoryArtefactStore();
-        var active = new ActivePackageState
-        {
-            CurrentStore = store,
-            CurrentJob = new Job { JobId = "job-1", Kind = JobKind.Export }
-        };
-        var sut = new ActivePackageAccess(active, new PackagePathRouter(), NullLogger<ActivePackageAccess>.Instance);
+        var store = new InMemoryPackageAccess();
+        var (sut, active) = ActivePackageTestFactory.Create(store, "job-1", JobKind.Export);
         var payload = new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("{\"mode\":\"Export\"}")));
 
         await sut.PersistMetaAsync(
@@ -97,9 +83,8 @@ public sealed class PackageBoundaryTests
     [TestMethod]
     public async Task AppendLogAsync_AppendsToRunStream()
     {
-        var store = new InMemoryArtefactStore();
-        var active = new ActivePackageState { CurrentStore = store };
-        var sut = new ActivePackageAccess(active, new PackagePathRouter(), NullLogger<ActivePackageAccess>.Instance);
+        var store = new InMemoryPackageAccess();
+        var (sut, active) = ActivePackageTestFactory.Create(store);
         var payload = new PackageLogPayload(new MemoryStream(Encoding.UTF8.GetBytes("{\"msg\":\"hello\"}\n")));
         var context = new PackageLogContext("20260509-120500", PackageLogStream.Diagnostics);
 
@@ -110,4 +95,5 @@ public sealed class PackageBoundaryTests
     }
 
 }
+
 

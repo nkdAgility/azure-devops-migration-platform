@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
@@ -18,7 +20,6 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
-using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -30,11 +31,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules;
 [TestClass]
 public sealed class DependencyOrchestratorTests
 {
+    private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
+
     [TestMethod]
     public async Task AnalyseAsync_WritesMostRecentDateIntoGroupedProjectSummary()
     {
-        var store = new InMemoryArtefactStore();
-        var stateStore = new InMemoryStateStore();
+        var package = PackageTestFactory.CreateLooseMock();
         var service = new FakeDependencyDiscoveryService(
         [
             new DependencyFoundEvent(new DependencyRecord
@@ -83,15 +85,14 @@ public sealed class DependencyOrchestratorTests
         var orchestrator = new DependencyOrchestrator(
             NullLogger<DependencyOrchestrator>.Instance,
             CreateCheckpointingFactory("https://dev.azure.com/org", "ProjectA"),
-            package: PackageTestFactory.CreateDelegatingMock(store, stateStore).Object);
+            package: package.Object);
 
         await orchestrator.AnalyseAsync(
             service,
             new OrganisationsAnalyseContext
             {
                 Job = new Job { JobId = "job-1", Kind = JobKind.Dependencies },
-                ArtefactStore = store,
-                StateStore = stateStore,
+                Package = package.Object,
                 Organisations =
                 [
                     new ScopedOrganisationEndpoint
@@ -105,7 +106,8 @@ public sealed class DependencyOrchestratorTests
             300,
             CancellationToken.None);
 
-        var groupedCsv = await store.ReadAsync("discovery-project-dependencies.csv", CancellationToken.None);
+        var groupedPayload = await package.Object.RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("discovery-project-dependencies.csv")), CancellationToken.None);
+        var groupedCsv = groupedPayload is not null ? new StreamReader(groupedPayload.Content).ReadToEnd() : null;
 
         Assert.IsNotNull(groupedCsv);
         var lines = groupedCsv!.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
@@ -119,22 +121,20 @@ public sealed class DependencyOrchestratorTests
     [TestMethod]
     public async Task CaptureProjectAsync_WhenBatchCheckpointOccurs_WritesProjectScopedDependencyState()
     {
-        var store = new InMemoryArtefactStore();
-        var stateStore = new RecordingStateStore();
+        var package = PackageTestFactory.CreateLooseMock();
         var service = new CheckpointingDependencyDiscoveryService();
 
         var orchestrator = new DependencyOrchestrator(
             NullLogger<DependencyOrchestrator>.Instance,
             CreateCheckpointingFactory("https://dev.azure.com/org", "ProjectA"),
-            package: PackageTestFactory.CreateDelegatingMock(store, stateStore).Object);
+            package: package.Object);
 
         await orchestrator.CaptureProjectAsync(
             service,
             new InventoryContext
             {
                 Job = new Job { JobId = "job-2", Kind = JobKind.Dependencies },
-                ArtefactStore = store,
-                StateStore = stateStore,
+                Package = package.Object,
                 SourceEndpoint = new OrganisationEndpoint
                 {
                     ResolvedUrl = "https://dev.azure.com/org",
@@ -153,14 +153,16 @@ public sealed class DependencyOrchestratorTests
             new JobPolicies { CheckpointIntervalSeconds = 0 },
             CancellationToken.None);
 
-        var expectedCursorKey = PackagePathTestHelper.CursorFile("dependencies", "dependencies", "https://dev.azure.com/org", "ProjectA");
-        var expectedContinuationKey = PackagePathTestHelper.ContinuationFile("dependencies", "dependencies", "https://dev.azure.com/org", "ProjectA");
-        Assert.IsTrue(stateStore.WrittenKeys.Contains(expectedCursorKey), "Dependencies capture must checkpoint to the project-local cursor path.");
-        Assert.IsTrue(stateStore.WrittenKeys.Contains(expectedContinuationKey), "Dependencies capture must persist the continuation token for project-local resume.");
-        Assert.IsFalse(stateStore.WrittenKeys.Contains(PackagePathTestHelper.CursorFile("DependencyDiscovery")), "Dependencies capture must not write the legacy root dependency cursor.");
+        var cursorResult = await package.Object.RequestMetaAsync(new PackageMetaContext(PackageMetaKind.CheckpointCursor, Action: "dependencies", Module: "dependencies"), CancellationToken.None);
+        var contResult = await package.Object.RequestMetaAsync(new PackageMetaContext(PackageMetaKind.ContinuationToken, Action: "dependencies", Module: "dependencies"), CancellationToken.None);
+        Assert.IsTrue(cursorResult.Payload is not null, "Dependencies capture must checkpoint to the project-local cursor path.");
+        Assert.IsTrue(contResult.Payload is not null, "Dependencies capture must persist the continuation token.");
+        Assert.IsFalse(await package.Object.ContentExistsAsync(new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress(PackagePathTestHelper.CursorFile("DependencyDiscovery"))), CancellationToken.None), "Dependencies capture must not write the legacy root dependency cursor.");
 
-        var canonicalProjectCsv = await store.ReadAsync("org/ProjectA/dependencies.csv", CancellationToken.None);
-        var invalidDiscoveryCsv = await store.ReadAsync("discovery/org/ProjectA/dependencies.csv", CancellationToken.None);
+        var canonicalProjectPayload = await package.Object.RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("org/ProjectA/dependencies.csv")), CancellationToken.None);
+        var invalidDiscoveryPayload = await package.Object.RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("discovery/org/ProjectA/dependencies.csv")), CancellationToken.None);
+        var canonicalProjectCsv = canonicalProjectPayload is not null ? new StreamReader(canonicalProjectPayload.Content).ReadToEnd() : null;
+        var invalidDiscoveryCsv = invalidDiscoveryPayload is not null ? new StreamReader(invalidDiscoveryPayload.Content).ReadToEnd() : null;
         Assert.IsNotNull(canonicalProjectCsv, "Dependencies capture must write to the canonical org/project path.");
         Assert.IsNull(invalidDiscoveryCsv, "Dependencies capture must not write to the invalid discovery/ subtree.");
     }
@@ -168,8 +170,7 @@ public sealed class DependencyOrchestratorTests
     [TestMethod]
     public async Task AnalyseAsync_DoesNotWriteLegacyAggregateDependencyCursor()
     {
-        var store = new InMemoryArtefactStore();
-        var stateStore = new RecordingStateStore();
+        var package = PackageTestFactory.CreateLooseMock();
         var service = new FakeDependencyDiscoveryService(
         [
             new DependencyHeartbeatEvent(
@@ -186,15 +187,14 @@ public sealed class DependencyOrchestratorTests
         var orchestrator = new DependencyOrchestrator(
             NullLogger<DependencyOrchestrator>.Instance,
             CreateCheckpointingFactory("https://dev.azure.com/org", "ProjectA"),
-            package: PackageTestFactory.CreateDelegatingMock(store, stateStore).Object);
+            package: package.Object);
 
         await orchestrator.AnalyseAsync(
             service,
             new OrganisationsAnalyseContext
             {
                 Job = new Job { JobId = "job-aggregate", Kind = JobKind.Dependencies },
-                ArtefactStore = store,
-                StateStore = stateStore,
+                Package = package.Object,
                 Organisations =
                 [
                     new ScopedOrganisationEndpoint
@@ -209,7 +209,7 @@ public sealed class DependencyOrchestratorTests
             CancellationToken.None);
 
         Assert.IsFalse(
-            stateStore.WrittenKeys.Contains(PackagePathTestHelper.CursorFile("DependencyDiscovery")),
+            await package.Object.ContentExistsAsync(new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress(PackagePathTestHelper.CursorFile("DependencyDiscovery"))), CancellationToken.None),
             "Aggregate dependency analysis must not persist the legacy root cursor blob in the clean long-term model.");
     }
 
@@ -273,96 +273,6 @@ public sealed class DependencyOrchestratorTests
         }
     }
 
-    private sealed class InMemoryArtefactStore : IArtefactStore
-    {
-        private readonly Dictionary<string, string> _files = new(StringComparer.OrdinalIgnoreCase);
-
-        public Task<string?> ReadAsync(string path, CancellationToken cancellationToken)
-            => Task.FromResult(_files.TryGetValue(path, out var value) ? value : null);
-
-        public Task WriteAsync(string path, string content, CancellationToken cancellationToken)
-        {
-            _files[path] = content;
-            return Task.CompletedTask;
-        }
-
-        public Task<bool> ExistsAsync(string path, CancellationToken cancellationToken)
-            => Task.FromResult(_files.ContainsKey(path));
-
-        public Task WriteBinaryAsync(string path, byte[] content, CancellationToken cancellationToken)
-            => Task.CompletedTask;
-
-        public Task<Stream?> ReadBinaryAsync(string path, CancellationToken cancellationToken)
-            => Task.FromResult<Stream?>(null);
-
-        public async IAsyncEnumerable<string> EnumerateAsync(string prefix, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
-        {
-            foreach (var key in _files.Keys.Where(k => k.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).OrderBy(k => k, StringComparer.Ordinal))
-            {
-                yield return key;
-                await Task.Yield();
-            }
-        }
-
-        public Task WriteStreamAsync(string path, Stream content, CancellationToken cancellationToken)
-            => Task.CompletedTask;
-
-        public Task AppendAsync(string path, string content, CancellationToken cancellationToken)
-        {
-            _files[path] = _files.TryGetValue(path, out var existing) ? existing + content : content;
-            return Task.CompletedTask;
-        }
-    }
-
-    private sealed class InMemoryStateStore : IStateStore
-    {
-        private readonly Dictionary<string, string> _entries = new(StringComparer.OrdinalIgnoreCase);
-
-        public Task WriteAsync(string key, string value, CancellationToken cancellationToken)
-        {
-            _entries[key] = value;
-            return Task.CompletedTask;
-        }
-
-        public Task<string?> ReadAsync(string key, CancellationToken cancellationToken)
-            => Task.FromResult(_entries.TryGetValue(key, out var value) ? value : null);
-
-        public Task<bool> ExistsAsync(string key, CancellationToken cancellationToken)
-            => Task.FromResult(_entries.ContainsKey(key));
-
-        public Task DeleteAsync(string key, CancellationToken cancellationToken)
-        {
-            _entries.Remove(key);
-            return Task.CompletedTask;
-        }
-    }
-
-    private sealed class RecordingStateStore : IStateStore
-    {
-        private readonly Dictionary<string, string> _entries = new(StringComparer.OrdinalIgnoreCase);
-
-        public HashSet<string> WrittenKeys { get; } = new(StringComparer.OrdinalIgnoreCase);
-
-        public Task WriteAsync(string key, string value, CancellationToken cancellationToken)
-        {
-            WrittenKeys.Add(key);
-            _entries[key] = value;
-            return Task.CompletedTask;
-        }
-
-        public Task<string?> ReadAsync(string key, CancellationToken cancellationToken)
-            => Task.FromResult(_entries.TryGetValue(key, out var value) ? value : null);
-
-        public Task<bool> ExistsAsync(string key, CancellationToken cancellationToken)
-            => Task.FromResult(_entries.ContainsKey(key));
-
-        public Task DeleteAsync(string key, CancellationToken cancellationToken)
-        {
-            _entries.Remove(key);
-            return Task.CompletedTask;
-        }
-    }
-
     private static ICheckpointingServiceFactory CreateCheckpointingFactory(string endpointUrl, string projectName)
     {
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
@@ -392,11 +302,12 @@ public sealed class DependencyOrchestratorTests
             _packageConfigAccessor = packageConfigAccessor;
         }
 
-        public ICheckpointingService Create(IStateStore stateStore)
+        public ICheckpointingService Create(IPackageAccess packageAccess)
             => new CheckpointingService(
-                stateStore,
                 _endpointAccessor,
                 _packageConfigAccessor,
-                package: PackageTestFactory.CreateStateDelegatingMock(stateStore).Object);
+                null,
+                packageAccess);
     }
 }
+

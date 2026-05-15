@@ -18,6 +18,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -109,8 +110,7 @@ public sealed class TeamsModuleInventoryTests
         return new InventoryContext
         {
             Job = new Job { JobId = "job-1", Kind = JobKind.Inventory },
-            ArtefactStore = Mock.Of<IArtefactStore>(),
-            StateStore = Mock.Of<IStateStore>(),
+            Package = PackageTestFactory.CreateLooseMock().Object,
             ProgressSink = progressSink,
             Project = "ProjectA"
         };

@@ -24,7 +24,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 /// as NDJSON <see cref="DiagnosticLogRecord"/> lines to the run-scoped diagnostics stream
 /// (<c>.migration/runs/&lt;runId&gt;/logs/diagnostics.ndjson</c>) via <see cref="IPackageAccess"/>. Uses a bounded channel and
 /// <see cref="BackgroundService"/> drain loop for non-blocking writes. Respects
-/// <see cref="DiagnosticLogOptions.MinimumLevel"/>. The backing store is
+/// <see cref="DiagnosticLogOptions.MinimumLevel"/>. The active run context is
 /// resolved lazily from <see cref="ActivePackageState"/> because it is only available
 /// after a job lease is acquired.
 /// </summary>
@@ -39,7 +39,6 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
     private readonly TimeSpan _flushInterval;
     private readonly long _maxSegmentBytes;
     private long _droppedCount;
-    private volatile IArtefactStore? _lastKnownStore;
     private volatile string? _lastKnownLogFolder;
     private volatile string? _lastKnownRunId;
 
@@ -72,7 +71,7 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
     {
         get
         {
-            var logDir = _packageState.CurrentStore is not null
+            var logDir = _packageState.CurrentRunId is not null
                 ? _packageState.CurrentLogFolder
                 : _lastKnownLogFolder ?? _packageState.CurrentLogFolder;
             return $"{logDir}/diagnostics.ndjson";
@@ -87,14 +86,13 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
 
     internal void Write(DiagnosticLogRecord record)
     {
-        // Eagerly capture the store reference on the write path so the drain loop
+        // Eagerly capture the active run on the write path so the drain loop
         // can flush even if the job completes before the next poll interval.
-        var store = _packageState.CurrentStore;
-        if (store is not null)
+        var runId = _packageState.CurrentRunId;
+        if (!string.IsNullOrWhiteSpace(runId))
         {
-            _lastKnownStore = store;
             _lastKnownLogFolder = _packageState.CurrentLogFolder;
-            _lastKnownRunId = _packageState.CurrentRunId;
+            _lastKnownRunId = runId;
         }
 
         _channel.Writer.TryWrite(record);
@@ -123,15 +121,15 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                // Wait for a store to become available before consuming from the channel.
+                // Wait for a run context to become available before consuming from the channel.
                 // Records stay safely buffered in the bounded channel while no job is active.
-                var currentStore = _packageState.CurrentStore;
-                if (currentStore is null)
+                var currentRunId = _packageState.CurrentRunId;
+                if (string.IsNullOrWhiteSpace(currentRunId))
                 {
                     await Task.Delay(_flushInterval, stoppingToken).ConfigureAwait(false);
                     continue;
                 }
-                _lastKnownStore = currentStore;
+                _lastKnownRunId = currentRunId;
                 _lastKnownLogFolder = _packageState.CurrentLogFolder;
 
                 batch.Clear();
@@ -181,16 +179,6 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
 
     private async Task FlushBatchAsync(List<DiagnosticLogRecord> batch, CancellationToken cancellationToken)
     {
-        // Prefer the live store; fall back to the last known reference so the
-        // shutdown drain can still flush after MigrationAgentWorker clears the state.
-        var store = _packageState.CurrentStore ?? _lastKnownStore;
-        if (store is null)
-        {
-            // No store has ever been set — count as dropped.
-            Interlocked.Add(ref _droppedCount, batch.Count);
-            return;
-        }
-
         try
         {
             var sb = new StringBuilder();

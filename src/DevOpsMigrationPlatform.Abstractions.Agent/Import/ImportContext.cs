@@ -8,13 +8,12 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Import;
 
 /// <summary>
 /// Context passed to IModule.ImportAsync.
-/// Import reads from the package via IArtefactStore and writes state via IStateStore.
+/// Import reads from and writes to the package via IPackageAccess.
 /// </summary>
 public class ImportContext
 {
     public Job Job { get; init; } = null!;
-    public IArtefactStore ArtefactStore { get; init; } = null!;
-    public IStateStore StateStore { get; init; } = null!;
+    public IPackageAccess Package { get; init; } = null!;
     public IProgressSink ProgressSink { get; init; } = null!;
 }
 

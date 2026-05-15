@@ -13,7 +13,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Storage;
 /// Backed by SQLite (<c>Checkpoints/idmap.db</c>) in production.
 /// The SQLite file is package-local indexed storage — not a control-plane database.
 /// </summary>
-internal interface IIdMapStore : System.IAsyncDisposable
+public interface IIdMapStore : System.IAsyncDisposable
 {
     /// <summary>Creates the database tables if they do not exist and prepares the connection.</summary>
     Task InitializeAsync(CancellationToken ct);

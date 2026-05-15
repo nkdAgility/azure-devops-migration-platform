@@ -140,8 +140,9 @@ public sealed class DependencyCapture : ICapture
             var outputPath = $"{orgFolder}/{PackagePathResolver.Sanitise(project)}/dependencies.csv";
 
             // O-3: debug log if file already exists (overwrite path)
-            if (context.ArtefactStore != null &&
-                await context.ArtefactStore.ExistsAsync(outputPath, ct).ConfigureAwait(false))
+            if (await context.Package.ContentExistsAsync(
+                    new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(outputPath)),
+                    ct).ConfigureAwait(false))
             {
                 using (DataClassificationScope.Begin(DataClassification.Customer))
                 {
@@ -251,5 +252,10 @@ public sealed class DependencyCapture : ICapture
             // O-2: decrement in-flight (always)
             _metrics?.DependenciesCaptureInFlightDecrement(tags);
         }
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

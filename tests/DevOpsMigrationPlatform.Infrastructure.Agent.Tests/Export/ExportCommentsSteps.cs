@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
-
+using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System;
 using System.Collections.Generic;
@@ -10,17 +10,16 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
-using Microsoft.Extensions.Logging;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Reqnroll;
-
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Export;
-
 [Binding]
 [Scope(Feature = "Export Work Item Comments")]
 public class ExportCommentsSteps
@@ -35,38 +34,31 @@ public class ExportCommentsSteps
             AccessToken = "pat-token"
         }
     };
-
     private readonly ExportCommentsContext _context;
-
     public ExportCommentsSteps(ExportCommentsContext context)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
-
     // ──────────────────────────────────────────────────────────────────────────
     // Background
     // ──────────────────────────────────────────────────────────────────────────
-
     [Given("the test project is ready for export")]
     public void GivenTheTestProjectIsReadyForExport()
     {
         _context.PackageRoot = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(_context.PackageRoot);
-        _context.ArtefactStore = new FileSystemArtefactStore(_context.PackageRoot);
+        _context.Package = CreatePackageAccess(_context.PackageRoot, "export-comments-tests");
     }
-
     // ──────────────────────────────────────────────────────────────────────────
     // Scenario 1: Three comments exported to three separate folders
     // ──────────────────────────────────────────────────────────────────────────
-
-    [Given("a work item with ID (\\d+) exists in the source")]
+    [Given(@"a work item with ID (\d+) exists in the source")]
     public void GivenAWorkItemWithIdExistsInTheSource(int workItemId)
     {
         _context.CurrentWorkItemId = workItemId;
         _context.Comments = new List<WorkItemComment>();
     }
-
-    [Given("the work item has (\\d+) comments created on different dates")]
+    [Given(@"the work item has (\d+) comments created on different dates")]
     public void GivenTheWorkItemHasCommentsCreatedOnDifferentDates(int commentCount)
     {
         for (int i = 1; i <= commentCount; i++)
@@ -95,97 +87,74 @@ public class ExportCommentsSteps
             });
         }
     }
-
     [When("the export runs")]
     public async Task WhenTheExportRuns()
     {
-        // Create one "comment-edit" revision per comment, with ChangedDate matching
-        // the comment's ModifiedDate so the orchestrator timestamp filter (≤1 s) matches.
         var revisions = _context.Comments!.Select((comment, i) => new WorkItemRevision
         {
             WorkItemId = _context.CurrentWorkItemId,
-            RevisionIndex = i + 1, // RevisionIndex > 0 required for IsCommentEditOrDeleteRevision
+            RevisionIndex = i + 1,
             ChangedDate = comment.ModifiedDate,
             Fields = new List<WorkItemField>
             {
                 new WorkItemField { ReferenceName = "System.CommentCount", Value = (i + 1).ToString() }
-                // No System.History → IsCommentEditOrDeleteRevision returns true
             },
             Attachments = new List<AttachmentMetadata>()
         }).ToList();
-
         var mockSource = new Mock<IWorkItemRevisionSource>();
         mockSource
             .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
             .Returns((CancellationToken ct) => revisions.ToAsyncEnumerable(ct));
-
         _context.MockCommentSource = new Mock<IWorkItemCommentSource>();
         _context.MockCommentSource
             .Setup(s => s.GetCommentsAsync(_context.CurrentWorkItemId, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .Returns((int id, bool includeDeleted, CancellationToken ct) =>
                 _context.Comments!.ToAsyncEnumerable(ct));
-
         var mockCommentFactory = new Mock<IWorkItemCommentSourceFactory>();
         mockCommentFactory
             .Setup(f => f.Create(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>()))
             .Returns(_context.MockCommentSource.Object);
-
-        var stateStore = new FileSystemStateStore(_context.PackageRoot);
-        var checkpointingService = new CheckpointingService(package: PackageTestFactory.CreateStateDelegatingMock(stateStore).Object);
-
+        var checkpointingService = new CheckpointingService(package: _context.Package);
         var orchestrator = new WorkItemExportOrchestrator(
-            _context.ArtefactStore,
+            _context.Package,
+            string.Empty,
+            string.Empty,
             checkpointingService,
-            attachmentBinarySource: null,
-            progressSink: null,
             endpoint: TestEndpoint,
-            project: "MyProject",
             inlineCommentSourceFactory: mockCommentFactory.Object);
-
         await orchestrator.ExportAsync(mockSource.Object, CancellationToken.None);
     }
-
-    [Then("(\\d+) comment folders are created with pattern \"\\*-(\\d+)-c<commentId>/\"")]
+    [Then(@"(\d+) comment folders are created with pattern ""\*-(\d+)-c<commentId>/""")]
     public void ThenCommentFoldersAreCreatedWithPattern(int expectedCount, int workItemId)
     {
-        // With the inline design, comments are stored as comment.json inside revision folders
-        // (WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/comment.json).
-        var workItemsDir = Path.Combine(_context.PackageRoot, "export.workitems");
+        var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
         Assert.IsTrue(Directory.Exists(workItemsDir), "WorkItems directory should exist");
-
         var commentFiles = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories)
-            .Where(f => Path.GetFileName(Path.GetDirectoryName(f)!)!.Contains($"-{workItemId}-"))
+            .Where(f => Path.GetFileName(Path.GetDirectoryName(f)!)!.Contains($"-{workItemId}-", StringComparison.Ordinal))
             .ToList();
-
         Assert.AreEqual(expectedCount, commentFiles.Count,
             $"Expected {expectedCount} comment.json files for work item {workItemId}, found {commentFiles.Count}");
     }
     public void ThenEachFolderContainsAValidCommentJsonFile()
     {
-        var workItemsDir = Path.Combine(_context.PackageRoot, "export.workitems");
+        var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
         var commentJsonFiles = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories);
-
         Assert.IsTrue(commentJsonFiles.Length > 0, "Should have written at least one comment.json");
-
         foreach (var filePath in commentJsonFiles)
         {
             var json = File.ReadAllText(filePath);
-            // comment.json contains a JSON array of WorkItemComment objects.
             var comments = JsonSerializer.Deserialize<List<WorkItemComment>>(json);
             Assert.IsNotNull(comments, "comment.json should deserialize to a list of WorkItemComment");
             Assert.IsTrue(comments!.Count > 0, "comment.json should contain at least one comment");
             Assert.IsFalse(string.IsNullOrEmpty(comments[0].CommentId), "comment.CommentId should not be empty");
         }
     }
-
     [Then("all comment metadata is preserved")]
     public void ThenAllCommentMetadataIsPreserved()
     {
-        var workItemsDir = Path.Combine(_context.PackageRoot, "export.workitems");
+        var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
         var commentJsonFiles = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories);
-
         Assert.IsTrue(commentJsonFiles.Length > 0, "Should have written at least one comment.json");
-
         foreach (var filePath in commentJsonFiles)
         {
             var json = File.ReadAllText(filePath);
@@ -197,49 +166,38 @@ public class ExportCommentsSteps
             Assert.IsFalse(string.IsNullOrEmpty(comment.CreatedBy.DisplayName), "DisplayName should be preserved");
         }
     }
-
     // ──────────────────────────────────────────────────────────────────────────
     // Scenario 2: Zero comments result in zero comment folders
     // ──────────────────────────────────────────────────────────────────────────
-
     [Given("the work item has no comments")]
     public void GivenTheWorkItemHasNoComments()
     {
         _context.Comments = new List<WorkItemComment>();
     }
-
-    [Then("no comment folders are created for work item (\\d+)")]
+    [Then(@"no comment folders are created for work item (\d+)")]
     public void ThenNoCommentFoldersAreCreatedForWorkItem(int workItemId)
     {
-        var workItemsDir = Path.Combine(_context.PackageRoot, "export.workitems");
+        var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
         if (!Directory.Exists(workItemsDir))
-            return; // No folders created is correct
-
-        // With the inline design, comments appear as comment.json in revision folders.
-        // A revision folder is named <ticks>-<workItemId>-<revisionIndex>/ — check none exist for this ID.
+            return;
         var commentFiles = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories)
             .Where(f =>
             {
                 var dir = Path.GetFileName(Path.GetDirectoryName(f)!);
-                return dir!.Contains($"-{workItemId}-");
+                return dir!.Contains($"-{workItemId}-", StringComparison.Ordinal);
             })
             .ToList();
-
         Assert.AreEqual(0, commentFiles.Count, "No comment.json files should be written for this work item");
     }
-
     [Then("the work item revisions are still exported normally")]
     public void ThenTheWorkItemRevisionsAreStillExportedNormally()
     {
-        // This is verified by the fact that processing completes without exception
         Assert.IsTrue(true);
     }
-
     // ──────────────────────────────────────────────────────────────────────────
     // Scenario 3: Pagination handles more than one page of comments
     // ──────────────────────────────────────────────────────────────────────────
-
-    [Given("the work item has (\\d+) comments \\(exceeding a typical page size of (\\d+)\\)")]
+    [Given(@"the work item has (\d+) comments \(exceeding a typical page size of (\d+)\)")]
     public void GivenTheWorkItemHasCommentsExceedingPageSize(int totalComments, int pageSize)
     {
         _context.Comments = new List<WorkItemComment>();
@@ -269,34 +227,28 @@ public class ExportCommentsSteps
             });
         }
     }
-
-    [Then("all (\\d+) comments are exported across multiple comment folders")]
+    [Then(@"all (\d+) comments are exported across multiple comment folders")]
     public void ThenAllCommentsAreExportedAcrossMultipleFolders(int expectedCount)
     {
-        var workItemsDir = Path.Combine(_context.PackageRoot, "export.workitems");
+        var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
         var allCommentJsonFiles = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories);
         Assert.AreEqual(expectedCount, allCommentJsonFiles.Length,
             $"Expected {expectedCount} comment.json files, found {allCommentJsonFiles.Length}");
     }
-
     [Then("comment pagination cursor is properly managed")]
     public void ThenCommentPaginationCursorIsProperlyManaged()
     {
-        // Inline comment fetching uses the main WorkItems cursor (not a separate comments cursor).
         var cursorPath = Path.Combine(_context.PackageRoot, PackagePathTestHelper.SystemRoot, "Checkpoints", "workitems.cursor.json");
         Assert.IsTrue(File.Exists(cursorPath), "WorkItems cursor file should exist");
-
         var json = File.ReadAllText(cursorPath);
         var cursor = JsonSerializer.Deserialize<JsonElement>(json);
         Assert.IsTrue(cursor.TryGetProperty("lastProcessed", out _),
             "Cursor should contain lastProcessed");
     }
-
     // ──────────────────────────────────────────────────────────────────────────
     // Scenario 4: Resume cursor skips already-exported work items
     // ──────────────────────────────────────────────────────────────────────────
-
-    [Given("a work item with ID (\\d+) is already exported with (\\d+) comments")]
+    [Given(@"a work item with ID (\d+) is already exported with (\d+) comments")]
     public void GivenAWorkItemIsAlreadyExportedWithComments(int workItemId, int commentCount)
     {
         _context.WorkItemFirstPassId = workItemId;
@@ -317,8 +269,7 @@ public class ExportCommentsSteps
             });
         }
     }
-
-    [Given("a new work item with ID (\\d+) has (\\d+) comments not yet exported")]
+    [Given(@"a new work item with ID (\d+) has (\d+) comments not yet exported")]
     public void GivenANewWorkItemHasCommentsNotYetExported(int newWorkItemId, int commentCount)
     {
         _context.WorkItemSecondPassId = newWorkItemId;
@@ -339,14 +290,10 @@ public class ExportCommentsSteps
             });
         }
     }
-
     [When("the export resumes")]
     public async Task WhenTheExportResumes()
     {
-        var stateStore = new FileSystemStateStore(_context.PackageRoot);
-        var checkpointingService = new CheckpointingService(package: PackageTestFactory.CreateStateDelegatingMock(stateStore).Object);
-
-        // Run first work item's comment-edit revisions.
+        var checkpointingService = new CheckpointingService(package: _context.Package);
         var revisions1 = _context.Comments!.Select((c, i) => new WorkItemRevision
         {
             WorkItemId = _context.WorkItemFirstPassId,
@@ -358,29 +305,26 @@ public class ExportCommentsSteps
             },
             Attachments = new List<AttachmentMetadata>()
         }).ToList();
-
         var mockSource1 = new Mock<IWorkItemRevisionSource>();
         mockSource1
             .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
             .Returns((CancellationToken ct) => revisions1.ToAsyncEnumerable(ct));
-
         var mockCommentSource1 = new Mock<IWorkItemCommentSource>();
         mockCommentSource1
             .Setup(s => s.GetCommentsAsync(_context.WorkItemFirstPassId, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .Returns((int id, bool includeDeleted, CancellationToken ct) =>
                 _context.Comments!.ToAsyncEnumerable(ct));
-
         var mockFactory1 = new Mock<IWorkItemCommentSourceFactory>();
         mockFactory1.Setup(f => f.Create(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>()))
             .Returns(mockCommentSource1.Object);
-
         var orchestrator1 = new WorkItemExportOrchestrator(
-            _context.ArtefactStore, checkpointingService,
-            endpoint: TestEndpoint, project: "MyProject",
+            _context.Package,
+            string.Empty,
+            string.Empty,
+            checkpointingService,
+            endpoint: TestEndpoint,
             inlineCommentSourceFactory: mockFactory1.Object);
         await orchestrator1.ExportAsync(mockSource1.Object, CancellationToken.None);
-
-        // Run second work item's comment-edit revisions.
         var revisions2 = _context.NewComments!.Select((c, i) => new WorkItemRevision
         {
             WorkItemId = _context.WorkItemSecondPassId,
@@ -392,65 +336,70 @@ public class ExportCommentsSteps
             },
             Attachments = new List<AttachmentMetadata>()
         }).ToList();
-
         var mockSource2 = new Mock<IWorkItemRevisionSource>();
         mockSource2
             .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
             .Returns((CancellationToken ct) => revisions2.ToAsyncEnumerable(ct));
-
         var mockCommentSource2 = new Mock<IWorkItemCommentSource>();
         mockCommentSource2
             .Setup(s => s.GetCommentsAsync(_context.WorkItemSecondPassId, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .Returns((int id, bool includeDeleted, CancellationToken ct) =>
                 _context.NewComments!.ToAsyncEnumerable(ct));
-
         var mockFactory2 = new Mock<IWorkItemCommentSourceFactory>();
         mockFactory2.Setup(f => f.Create(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>()))
             .Returns(mockCommentSource2.Object);
-
         var orchestrator2 = new WorkItemExportOrchestrator(
-            _context.ArtefactStore, checkpointingService,
-            endpoint: TestEndpoint, project: "MyProject",
+            _context.Package,
+            string.Empty,
+            string.Empty,
+            checkpointingService,
+            endpoint: TestEndpoint,
             inlineCommentSourceFactory: mockFactory2.Object);
         await orchestrator2.ExportAsync(mockSource2.Object, CancellationToken.None);
     }
-
-    [Then("work item (\\d+) comments are not re-exported")]
+    [Then(@"work item (\d+) comments are not re-exported")]
     public void ThenWorkItemCommentsAreNotReExported(int workItemId)
     {
-        // Verify comment.json files exist for the first work item in revision folders.
-        var workItemsDir = Path.Combine(_context.PackageRoot, "export.workitems");
+        var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
         var files = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories)
-            .Where(f => Path.GetFileName(Path.GetDirectoryName(f)!)!.Contains($"-{workItemId}-"))
+            .Where(f => Path.GetFileName(Path.GetDirectoryName(f)!)!.Contains($"-{workItemId}-", StringComparison.Ordinal))
             .ToList();
         Assert.IsTrue(files.Count > 0, $"comment.json files should exist for work item {workItemId}");
     }
-
-    [Then("work item (\\d+) comments are exported")]
+    [Then(@"work item (\d+) comments are exported")]
     public void ThenWorkItemCommentsAreExported(int workItemId)
     {
-        var workItemsDir = Path.Combine(_context.PackageRoot, "export.workitems");
+        var workItemsDir = Path.Combine(_context.PackageRoot, "WorkItems");
         var files = Directory.GetFiles(workItemsDir, "comment.json", SearchOption.AllDirectories)
-            .Where(f => Path.GetFileName(Path.GetDirectoryName(f)!)!.Contains($"-{workItemId}-"))
+            .Where(f => Path.GetFileName(Path.GetDirectoryName(f)!)!.Contains($"-{workItemId}-", StringComparison.Ordinal))
             .ToList();
         Assert.IsTrue(files.Count > 0, $"comment.json files should exist for work item {workItemId}");
     }
-
-    [Then("the cursor advances to work item (\\d+)")]
+    [Then(@"the cursor advances to work item (\d+)")]
     public void ThenTheCursorAdvancesToWorkItem(int expectedWorkItemId)
     {
-        // The main WorkItems cursor's lastProcessed path contains the last work item ID.
         var cursorPath = Path.Combine(_context.PackageRoot, PackagePathTestHelper.SystemRoot, "Checkpoints", "workitems.cursor.json");
         Assert.IsTrue(File.Exists(cursorPath), "WorkItems cursor file should exist");
-
         var json = File.ReadAllText(cursorPath);
         var cursor = JsonSerializer.Deserialize<JsonElement>(json);
         Assert.IsTrue(cursor.TryGetProperty("lastProcessed", out var prop), "Cursor should contain lastProcessed");
-        Assert.IsTrue(prop.GetString()!.Contains($"-{expectedWorkItemId}-"),
+        Assert.IsTrue(prop.GetString()!.Contains($"-{expectedWorkItemId}-", StringComparison.Ordinal),
             $"Cursor lastProcessed should reference work item {expectedWorkItemId}");
     }
+    private static IPackageAccess CreatePackageAccess(string packageRoot, string jobId)
+    {
+        var packageState = new ActivePackageState
+        {
+            CurrentJob = new Job
+            {
+                JobId = jobId,
+                Kind = JobKind.Export,
+                Package = new JobPackage { PackageUri = $"file:///{packageRoot.Replace(Path.DirectorySeparatorChar, '/')}" }
+            }
+        };
+        return new ActivePackageAccess(packageState, new PackagePathRouter(), NullLogger<ActivePackageAccess>.Instance);
+    }
 }
-
 /// <summary>
 /// Context shared across step definitions for comment export scenarios.
 /// </summary>
@@ -458,12 +407,10 @@ public class ExportCommentsSteps
 public class ExportCommentsContext
 {
     public string PackageRoot { get; set; } = string.Empty;
-    public IArtefactStore ArtefactStore { get; set; } = null!;
+    public IPackageAccess Package { get; set; } = null!;
     public Mock<IWorkItemCommentSource> MockCommentSource { get; set; } = null!;
-
     public int CurrentWorkItemId { get; set; }
     public List<WorkItemComment>? Comments { get; set; }
-
     public int WorkItemFirstPassId { get; set; }
     public int WorkItemSecondPassId { get; set; }
     public List<WorkItemComment>? NewComments { get; set; }

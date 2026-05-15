@@ -26,7 +26,6 @@ public class PackageLoggerProviderRotationTests
     {
         // Arrange — 50 MB limit (default), small messages won't rotate.
         var appendedContexts = new List<PackageLogContext>();
-        var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
         var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
         mockPackage.Setup(p => p.AppendLogAsync(
                 It.IsAny<PackageLogContext>(),
@@ -37,7 +36,6 @@ public class PackageLoggerProviderRotationTests
 
         var state = new ActivePackageState
         {
-            CurrentStore = mockStore.Object,
             CurrentJob = new Job { JobId = "job-under-limit", Kind = JobKind.Export }
         };
         var opts = Options.Create(new DiagnosticLogOptions { MaxLogFileSizeMB = 50 });
@@ -70,7 +68,6 @@ public class PackageLoggerProviderRotationTests
     {
         var appendedContexts = new List<PackageLogContext>();
         long totalBytesAppended = 0;
-        var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
         var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
         mockPackage.Setup(p => p.AppendLogAsync(
                 It.IsAny<PackageLogContext>(),
@@ -87,7 +84,6 @@ public class PackageLoggerProviderRotationTests
 
         var state = new ActivePackageState
         {
-            CurrentStore = mockStore.Object,
             CurrentJob = new Job { JobId = "job-over-limit", Kind = JobKind.Export }
         };
         // 1 MB limit with a large channel and small batches so everything flushes.
@@ -129,7 +125,6 @@ public class PackageLoggerProviderRotationTests
     {
         // Arrange — MaxLogFileSizeMB = 0 disables rotation.
         var appendedContexts = new List<PackageLogContext>();
-        var mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
         var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
         mockPackage.Setup(p => p.AppendLogAsync(
                 It.IsAny<PackageLogContext>(),
@@ -140,7 +135,6 @@ public class PackageLoggerProviderRotationTests
 
         var state = new ActivePackageState
         {
-            CurrentStore = mockStore.Object,
             CurrentJob = new Job { JobId = "job-no-rotation", Kind = JobKind.Export }
         };
         var opts = Options.Create(new DiagnosticLogOptions
@@ -187,3 +181,5 @@ public class PackageLoggerProviderRotationTests
     }
 }
 #endif
+
+

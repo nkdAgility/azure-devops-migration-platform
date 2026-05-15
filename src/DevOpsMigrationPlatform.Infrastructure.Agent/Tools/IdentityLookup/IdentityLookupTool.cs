@@ -152,7 +152,7 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
     private async Task<string?> ReadPackageTextAsync(string relativePath, CancellationToken ct)
     {
         var payload = await _package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
             ct).ConfigureAwait(false);
         if (payload is null)
             return null;
@@ -167,14 +167,14 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
     {
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
         await _package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
             new PackagePayload(stream, "application/json"),
             ct).ConfigureAwait(false);
     }
 
-    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
-        => relativePath
-            .Replace('\\', '/')
-            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+    }
 }
 #endif

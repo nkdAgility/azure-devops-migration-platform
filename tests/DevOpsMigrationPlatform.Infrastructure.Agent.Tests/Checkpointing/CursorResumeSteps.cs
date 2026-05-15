@@ -312,14 +312,14 @@ public class CursorResumeSteps
         };
 
         // Module calls the platform service (CheckpointingService = _ctx.Sut).
-        // It must NOT call IStateStore.WriteAsync directly — that would require a separate setup.
+        // It must NOT call IPackageAccess.WriteAsync directly — that would require a separate setup.
         await _ctx.Sut.WriteCursorAsync(CursorResumeContext.CursorIdentity, entry, CancellationToken.None);
     }
 
     [Then(@"the cursor is saved by the platform checkpointing service")]
     public void ThenTheCursorIsSavedByThePlatformCheckpointingService()
     {
-        // Verify the platform delegated to IStateStore exactly once via CheckpointingService.
+        // Verify the platform delegated to IPackageAccess exactly once via CheckpointingService.
         _ctx.MockStateStore.Verify(
             s => s.WriteAsync(
                 PackagePathTestHelper.CursorFile("import", "workitems", CursorResumeContext.EndpointUrl, CursorResumeContext.ProjectName),

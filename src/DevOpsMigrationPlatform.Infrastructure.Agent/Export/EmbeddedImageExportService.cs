@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -11,7 +10,10 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 
@@ -25,16 +27,19 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 public class EmbeddedImageExportService : IEmbeddedImageExportService
 {
     private readonly IEmbeddedImageDownloader _downloader;
-    private readonly IArtefactStore _artefactStore;
+    private readonly IPackageAccess _package;
+    private readonly ISourceEndpointInfo _sourceEndpointInfo;
     private readonly ILogger<EmbeddedImageExportService> _logger;
 
     public EmbeddedImageExportService(
         IEmbeddedImageDownloader downloader,
-        IArtefactStore artefactStore,
+        IPackageAccess package,
+        ISourceEndpointInfo sourceEndpointInfo,
         ILogger<EmbeddedImageExportService> logger)
     {
         _downloader = downloader ?? throw new ArgumentNullException(nameof(downloader));
-        _artefactStore = artefactStore ?? throw new ArgumentNullException(nameof(artefactStore));
+        _package = package ?? throw new ArgumentNullException(nameof(package));
+        _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -75,9 +80,7 @@ public class EmbeddedImageExportService : IEmbeddedImageExportService
                 localFilename = ComputeImageFilename(result.Bytes, result.Extension);
                 downloadedImages[originalUrl] = localFilename;
 
-                // Write image to store
-                var imagePath = Path.Combine(folderPath, localFilename);
-                await _artefactStore.WriteBinaryAsync(imagePath, result.Bytes, cancellationToken);
+                await PersistImageAsync(folderPath, localFilename, result.Bytes, cancellationToken).ConfigureAwait(false);
                 using (DataClassificationScope.Begin(DataClassification.Customer))
                     _logger.LogInformation("Downloaded image {url} -> {filename}", originalUrl, localFilename);
             }
@@ -125,8 +128,7 @@ public class EmbeddedImageExportService : IEmbeddedImageExportService
                 localFilename = ComputeImageFilename(downloadResult.Bytes, downloadResult.Extension);
                 downloadedImages[originalUrl] = localFilename;
 
-                var imagePath = Path.Combine(folderPath, localFilename);
-                await _artefactStore.WriteBinaryAsync(imagePath, downloadResult.Bytes, cancellationToken);
+                await PersistImageAsync(folderPath, localFilename, downloadResult.Bytes, cancellationToken).ConfigureAwait(false);
                 using (DataClassificationScope.Begin(DataClassification.Customer))
                     _logger.LogInformation("Downloaded image {url} -> {filename}", originalUrl, localFilename);
             }
@@ -136,6 +138,26 @@ public class EmbeddedImageExportService : IEmbeddedImageExportService
         }
 
         return result;
+    }
+
+    private async Task PersistImageAsync(string folderPath, string fileName, byte[] bytes, CancellationToken cancellationToken)
+    {
+        var normalizedFolderPath = folderPath.Replace('\\', '/').Trim('/');
+        var imagePath = string.IsNullOrEmpty(normalizedFolderPath)
+            ? fileName
+            : $"{normalizedFolderPath}/{fileName}";
+
+        using var stream = new MemoryStream(bytes, writable: false);
+        await _package.PersistContentStreamAsync(
+            new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: _sourceEndpointInfo.Url,
+                Project: _sourceEndpointInfo.Project,
+                Module: "WorkItems",
+                Address: new WorkItemEmbeddedImageAddress(imagePath)),
+            stream,
+            null,
+            cancellationToken).ConfigureAwait(false);
     }
 
     private static string ComputeImageFilename(byte[] bytes, string extension)

@@ -28,9 +28,9 @@ public sealed class CheckpointingServiceFactory : ICheckpointingServiceFactory
     }
 
     /// <inheritdoc/>
-    public ICheckpointingService Create(IStateStore stateStore)
+    public ICheckpointingService Create(IPackageAccess packageAccess)
         => new CheckpointingService(
             _currentJobEndpointAccessor,
             _currentPackageConfigAccessor,
-            package: _package);
+            package: packageAccess ?? throw new ArgumentNullException(nameof(packageAccess)));
 }

@@ -42,14 +42,18 @@ public interface INodesOrchestrator
     /// </summary>
     Task EnsureReferencedPathsAsync(
         ProjectMapping context,
-        IArtefactStore artefactStore,
+        IPackageAccess package,
+        string organisation,
+        string project,
         CancellationToken ct,
         IPlatformMetrics? metrics = null,
         string? jobId = null);
 #endif
 
     Task ValidateAsync(
-        IArtefactStore artefactStore,
+        IPackageAccess package,
+        string organisation,
+        string project,
         ValidationContext context,
         CancellationToken ct);
 }

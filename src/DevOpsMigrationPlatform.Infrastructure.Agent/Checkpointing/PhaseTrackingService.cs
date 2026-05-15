@@ -20,11 +20,6 @@ public class PhaseTrackingService : IPhaseTrackingService
         _package = package ?? throw new ArgumentNullException(nameof(package));
     }
 
-    public PhaseTrackingService(IStateStore _, IPackageAccess package)
-        : this(package)
-    {
-    }
-
     public async Task<JobPhaseRecord> ReadPhaseRecordAsync(CancellationToken cancellationToken)
     {
         var phaseMeta = await _package.RequestMetaAsync(

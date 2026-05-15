@@ -123,10 +123,11 @@ public class FilterScopeExportSteps
         SetupMocks();
 
         _ctx.Sut = new WorkItemExportOrchestrator(
-            _ctx.MockArtefactStore.Object,
+            _ctx.MockPackage.Object,
+            TestEndpoint.Url,
+            "TestProject",
             _ctx.MockCheckpointingService.Object,
             endpoint: TestEndpoint,
-            project: "TestProject",
             fetchService: _ctx.FilterOptions.Count > 0 ? _ctx.MockFetchService.Object : null,
             filterOptions: _ctx.FilterOptions.Count > 0 ? _ctx.FilterOptions : null);
 
@@ -225,10 +226,10 @@ public class FilterScopeExportSteps
         _ctx.MockCheckpointingService
             .Setup(s => s.WriteCursorAsync(It.IsAny<string>(), It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-        _ctx.MockArtefactStore
-            .Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((p, _, _) => _ctx.WrittenPaths.Add(p))
-            .Returns(Task.CompletedTask);
+        _ctx.MockPackage
+            .Setup(p => p.PersistContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
+            .Callback<PackageContentContext, PackagePayload, CancellationToken>((ctx, _, _) => _ctx.WrittenPaths.Add(ctx.Address!.RelativePath))
+            .Returns(ValueTask.CompletedTask);
     }
 
     private void SetupRevisionsWithAreaPath(int matchCount, int noMatchCount, string matchValue, string noMatchValue)

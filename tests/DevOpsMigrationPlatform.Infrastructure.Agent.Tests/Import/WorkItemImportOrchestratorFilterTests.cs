@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -20,7 +21,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 [TestClass]
 public class WorkItemImportOrchestratorFilterTests
 {
-    private Mock<IArtefactStore> _mockStore = null!;
     private Mock<ICheckpointingService> _mockCps = null!;
     private Mock<IProgressSink> _mockProgress = null!;
     private Mock<IWorkItemResolutionStrategy> _mockStrategy = null!;
@@ -32,13 +32,12 @@ public class WorkItemImportOrchestratorFilterTests
     [TestInitialize]
     public void Setup()
     {
-        _mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
         _mockCps = new Mock<ICheckpointingService>(MockBehavior.Loose);
         _mockProgress = new Mock<IProgressSink>(MockBehavior.Loose);
         _mockStrategy = new Mock<IWorkItemResolutionStrategy>(MockBehavior.Loose);
         _mockIdMap = new Mock<IIdMapStore>(MockBehavior.Loose);
         _mockTarget = new Mock<IWorkItemImportTarget>(MockBehavior.Loose);
-        _mockPackage = PackageTestFactory.CreateDelegatingMock(_mockStore.Object);
+        _mockPackage = PackageTestFactory.CreateLooseMock();
         _folders = new List<string>();
 
         _mockCps.Setup(s => s.ReadCursorAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -65,11 +64,11 @@ public class WorkItemImportOrchestratorFilterTests
         _mockTarget.Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
                    .ReturnsAsync(true);
 
-        _mockStore.Setup(s => s.EnumerateAsync("WorkItems/", It.IsAny<CancellationToken>()))
-                  .Returns((string _, CancellationToken ct) => ToAsyncEnumerable(_folders, ct));
+        _mockPackage.Setup(p => p.EnumerateContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "WorkItems"), It.IsAny<CancellationToken>()))
+                    .Returns((PackageContentContext _, CancellationToken ct) => ToAsyncEnumerable(_folders, ct));
 
-        _mockStore.Setup(s => s.ReadAsync(It.Is<string>(p => p.EndsWith("revision.json")), It.IsAny<CancellationToken>()))
-                  .ReturnsAsync((string path, CancellationToken _) => DefaultRevisionJson(path));
+        _mockPackage.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath.EndsWith("revision.json")), It.IsAny<CancellationToken>()))
+                    .Returns((PackageContentContext context, CancellationToken _) => ToPayload(DefaultRevisionJson(context.Address!.RelativePath)));
     }
 
     // ── filter pre-pass ───────────────────────────────────────────────────────
@@ -167,12 +166,15 @@ public class WorkItemImportOrchestratorFilterTests
             _mockIdMap.Object,
             _mockCps.Object,
             (IIdentityLookupTool?)null,
-            _mockStore.Object,
             NullLogger<RevisionFolderProcessor>.Instance,
+            "https://dev.azure.com/contoso",
+            "Shop",
             package: _mockPackage.Object);
 
         return new WorkItemImportOrchestrator(
-            _mockStore.Object,
+            _mockPackage.Object,
+            "https://dev.azure.com/contoso",
+            "Shop",
             _mockCps.Object,
             _mockProgress.Object,
             _mockStrategy.Object,
@@ -180,8 +182,7 @@ public class WorkItemImportOrchestratorFilterTests
             processor,
             _mockTarget.Object,
             NullLogger<WorkItemImportOrchestrator>.Instance,
-            filterOptions: filterOptions,
-            package: _mockPackage.Object);
+            filterOptions: filterOptions);
     }
 
     private void AddRevisionFolder(int wiId, int revIndex, string areaPath)
@@ -196,10 +197,10 @@ public class WorkItemImportOrchestratorFilterTests
             new WorkItemField { ReferenceName = "System.WorkItemType", Value = "Task" },
             new WorkItemField { ReferenceName = "System.AreaPath", Value = areaPath }
         });
-        _mockStore.Setup(s => s.ReadAsync(
-                It.Is<string>(p => p.Contains($"{ticks}-{wiId}-{revIndex}") && p.EndsWith("revision.json")),
+        _mockPackage.Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath.Contains($"{ticks}-{wiId}-{revIndex}") && c.Address.RelativePath.EndsWith("revision.json")),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(json);
+            .Returns(() => ToPayload(json));
     }
 
     private void AddRevisionFolderWithState(int wiId, int revIndex, string state)
@@ -214,10 +215,10 @@ public class WorkItemImportOrchestratorFilterTests
             new WorkItemField { ReferenceName = "System.WorkItemType", Value = "Task" },
             new WorkItemField { ReferenceName = "System.State", Value = state }
         });
-        _mockStore.Setup(s => s.ReadAsync(
-                It.Is<string>(p => p.Contains($"{ticks}-{wiId}-{revIndex}") && p.EndsWith("revision.json")),
+        _mockPackage.Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath.Contains($"{ticks}-{wiId}-{revIndex}") && c.Address.RelativePath.EndsWith("revision.json")),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(json);
+            .Returns(() => ToPayload(json));
     }
 
     private static string? DefaultRevisionJson(string path)
@@ -239,6 +240,15 @@ public class WorkItemImportOrchestratorFilterTests
         var fieldsJson = JsonSerializer.Serialize(
             Array.ConvertAll(fields, f => new { referenceName = f.ReferenceName, value = f.Value }));
         return $"{{\"WorkItemId\":{wiId},\"RevisionIndex\":{revIndex},\"Fields\":{fieldsJson},\"Attachments\":[],\"RelatedLinks\":[],\"ExternalLinks\":[],\"Hyperlinks\":[],\"EmbeddedImages\":[]}}";
+    }
+
+    private static ValueTask<PackagePayload?> ToPayload(string? content)
+    {
+        if (content is null)
+            return ValueTask.FromResult<PackagePayload?>(null);
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(content);
+        return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(bytes, writable: false), "application/json"));
     }
 
     private static async IAsyncEnumerable<string> ToAsyncEnumerable(

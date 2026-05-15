@@ -317,7 +317,7 @@ public sealed class WorkItemsModule : IModule
 
                 var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
                 await ProjectInventoryFile.MergeAsync(
-                    context.ArtefactStore, projectPath,
+                    context.Package, projectPath,
                     orgUrl: orgUrl, project: project,
                     workItems: projectWorkItems,
                     revisions: projectRevisions,
@@ -378,11 +378,14 @@ public sealed class WorkItemsModule : IModule
         _metrics?.RecordPrepareWorkItemsResolved(report.ResolvedCount, tags);
         _metrics?.RecordPrepareWorkItemsUnresolved(report.UnresolvedCount, tags);
         _metrics?.RecordPrepareWorkItemsDuration(stopwatch.Elapsed.TotalMilliseconds, tags);
-        await context.ArtefactStore.WriteAsync("WorkItems/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
+        await WritePackageTextAsync(context.Package, "WorkItems/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
         if (report.ImportReadinessReport is not null)
         {
-            await context.ArtefactStore
-                .WriteAsync(".mission/Readiness/workitems-import-readiness.json", JsonSerializer.Serialize(report.ImportReadinessReport), ct)
+            await WritePackageTextAsync(
+                    context.Package,
+                    ".mission/Readiness/workitems-import-readiness.json",
+                    JsonSerializer.Serialize(report.ImportReadinessReport),
+                    ct)
                 .ConfigureAwait(false);
         }
 
@@ -523,7 +526,9 @@ public sealed class WorkItemsModule : IModule
     private static async Task<int> CountRevisionArtefactsAsync(PrepareContext context, CancellationToken ct)
     {
         var resolvedCount = 0;
-        await foreach (var artefactPath in context.ArtefactStore.EnumerateAsync("WorkItems/", ct).ConfigureAwait(false))
+        await foreach (var artefactPath in context.Package.EnumerateContentAsync(
+                           new PackageContentContext(PackageContentKind.Collection, Address: new RelativePathAddress("WorkItems/"), IsCollectionRequest: true),
+                           ct).ConfigureAwait(false))
         {
             if (artefactPath.EndsWith("/revision.json", StringComparison.Ordinal))
             {
@@ -595,10 +600,10 @@ public sealed class WorkItemsModule : IModule
             _logger.LogWarning("[WorkItems] IReferencedPathTracker is not available — referenced path tracking will be skipped.");
 
         if (_referencedPathTracker is not null)
-            await _referencedPathTracker.InitializeAsync(context.ArtefactStore, ct).ConfigureAwait(false);
+            await _referencedPathTracker.InitializeAsync(context.Package, orgUrl, project, ct).ConfigureAwait(false);
 #endif
 
-        var checkpointingService = _checkpointingFactory.Create(context.StateStore);
+        var checkpointingService = _checkpointingFactory.Create(context.Package);
 
         // Comments extension gates inline comment fetching.
 #if !NET481
@@ -608,7 +613,9 @@ public sealed class WorkItemsModule : IModule
 #endif
 
         var orchestrator = new WorkItemExportOrchestrator(
-            context.ArtefactStore,
+            context.Package,
+            orgUrl,
+            project,
             checkpointingService,
 #if !NET481
             ext.AttachmentsEnabled ? _attachmentBinarySource : null,
@@ -617,7 +624,6 @@ public sealed class WorkItemsModule : IModule
 #endif
             context.ProgressSink,
             endpoint: null, // Connectors now resolve from DI
-            project: project,
             inlineCommentSourceFactory: inlineFactory,
             fetchService: allFilters.Count > 0 ? _fetchService : null,
             filterOptions: allFilters.Count > 0 ? allFilters : null,
@@ -630,14 +636,12 @@ public sealed class WorkItemsModule : IModule
             discoveryService: _discoveryService,
             exportProgressStoreFactory: _exportProgressStoreFactory,
              packageUri: job.Package.PackageUri,
-            package: _package,
             referencedPathTracker: _referencedPathTracker
 #else
             wiqlQuery: wiqlQuery,
             discoveryService: discoveryService481,
             exportProgressStoreFactory: _exportProgressStoreFactory,
-            packageUri: job.Package.PackageUri,
-            package: _package
+            packageUri: job.Package.PackageUri
 #endif
             );
 
@@ -672,7 +676,7 @@ public sealed class WorkItemsModule : IModule
 
         // NOTE: Connectors now resolve their own credentials from DI; no need to pass endpoint options.
         var target = await _importTargetFactory.CreateAsync(ct).ConfigureAwait(false);
-        var checkpointingService = _checkpointingFactory.Create(context.StateStore);
+        var checkpointingService = _checkpointingFactory.Create(context.Package);
 
         // Resolve the strategy at execution time — the factory creates the correct implementation
         // based on the module config and target connection parameters.
@@ -699,7 +703,7 @@ public sealed class WorkItemsModule : IModule
         {
             _logger.LogWarning("[WorkItems] NodeReadinessOrchestrator is not available — falling back to INodesOrchestrator.EnsureReferencedPathsAsync.");
             await _nodesOrchestrator
-                .EnsureReferencedPathsAsync(nodeReadinessContext, context.ArtefactStore, ct, _metrics, job.JobId)
+                .EnsureReferencedPathsAsync(nodeReadinessContext, _package, _sourceEndpointInfo.Url, sourceProjectName, ct, _metrics, job.JobId)
                 .ConfigureAwait(false);
         }
         else
@@ -713,14 +717,16 @@ public sealed class WorkItemsModule : IModule
         var nodeStructureContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectNameForProcessor, project);
 
         processor = _processorFactory.Create(
-            target, idMapStore, checkpointingService, _identityLookupTool, context.ArtefactStore,
+            target, idMapStore, checkpointingService, _identityLookupTool, _sourceEndpointInfo.Url, sourceProjectNameForProcessor,
             nodeStructureContext);
 
         // Build combined filter options for import (include as Regex + exclude as NotRegex).
         var importFilters = ext.IncludeFilters.Concat(ext.ExcludeFilters).ToList();
 
         var orchestrator = new WorkItemImportOrchestrator(
-            context.ArtefactStore,
+            _package,
+            _sourceEndpointInfo.Url,
+            sourceProjectName,
             checkpointingService,
             context.ProgressSink,
             resolutionStrategy,
@@ -730,8 +736,7 @@ public sealed class WorkItemsModule : IModule
             _orchestratorLogger,
             filterOptions: importFilters.Count > 0 ? importFilters : null,
             metrics: _metrics,
-            jobId: job.JobId,
-            package: _package);
+            jobId: job.JobId);
 
         var resumeMode = job.Resume?.Mode ?? ResumeMode.Auto;
         await orchestrator.ImportAsync(ext, resumeMode, ct).ConfigureAwait(false);
@@ -752,7 +757,9 @@ public sealed class WorkItemsModule : IModule
 
         // Tier 2: Verify the WorkItems/ prefix has at least one revision folder
         var found = false;
-        await foreach (var path in context.ArtefactStore.EnumerateAsync("WorkItems/", ct).ConfigureAwait(false))
+        await foreach (var path in context.Package.EnumerateContentAsync(
+                           new PackageContentContext(PackageContentKind.Collection, Address: new RelativePathAddress("WorkItems/"), IsCollectionRequest: true),
+                           ct).ConfigureAwait(false))
         {
             found = true;
             break;
@@ -771,4 +778,17 @@ public sealed class WorkItemsModule : IModule
         return TaskExecutionResult.Completed();
     }
 
+    private static async Task WritePackageTextAsync(IPackageAccess package, string relativePath, string content, CancellationToken cancellationToken)
+    {
+        using var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(content), writable: false);
+        await package.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
+            new PackagePayload(stream, "application/json"),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+    }
 }

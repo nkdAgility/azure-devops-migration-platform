@@ -28,7 +28,7 @@ public class PackageBoundaryConnectorParityTests
 
         var endpointAccessor = BuildSourceEndpointAccessor(endpointUrl, projectName, "AzureDevOpsServices");
         var package = BuildPackageReturningCursor(expectedKey);
-        var sut = new CheckpointingService(new Mock<IStateStore>(MockBehavior.Strict).Object, endpointAccessor.Object, null, null, package.Object);
+        var sut = new CheckpointingService(endpointAccessor.Object, null, null, package.Object);
 
         var result = await sut.ReadCursorAsync("export.workitems", CancellationToken.None);
 
@@ -45,7 +45,7 @@ public class PackageBoundaryConnectorParityTests
 
         var endpointAccessor = BuildSourceEndpointAccessor(endpointUrl, projectName, "TeamFoundationServer");
         var package = BuildPackageReturningCursor(expectedKey);
-        var sut = new CheckpointingService(new Mock<IStateStore>(MockBehavior.Strict).Object, endpointAccessor.Object, null, null, package.Object);
+        var sut = new CheckpointingService(endpointAccessor.Object, null, null, package.Object);
 
         var result = await sut.ReadCursorAsync("export.workitems", CancellationToken.None);
 
@@ -62,7 +62,7 @@ public class PackageBoundaryConnectorParityTests
 
         var endpointAccessor = BuildSourceEndpointAccessor(endpointUrl, projectName, "Simulated");
         var package = BuildPackageReturningCursor(expectedKey);
-        var sut = new CheckpointingService(new Mock<IStateStore>(MockBehavior.Strict).Object, endpointAccessor.Object, null, null, package.Object);
+        var sut = new CheckpointingService(endpointAccessor.Object, null, null, package.Object);
 
         var result = await sut.ReadCursorAsync("export.workitems", CancellationToken.None);
 

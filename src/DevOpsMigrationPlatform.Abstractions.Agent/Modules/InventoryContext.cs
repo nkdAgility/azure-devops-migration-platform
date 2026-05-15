@@ -22,8 +22,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 public sealed record InventoryContext
 {
     public Job Job { get; init; } = null!;
-    public IArtefactStore ArtefactStore { get; init; } = null!;
-    public IStateStore StateStore { get; init; } = null!;
+    public IPackageAccess Package { get; init; } = null!;
     public IProgressSink? ProgressSink { get; init; }
     public IJobMetricsStore? MetricsStore { get; init; }
     public IJobSnapshotStore? SnapshotStore { get; init; }

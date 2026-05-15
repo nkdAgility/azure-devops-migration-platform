@@ -43,7 +43,7 @@ internal sealed class FieldTransformCompatibilityImportFailurePattern : IImportF
 
         var exportedFieldValues = new Dictionary<string, List<string?>>(System.StringComparer.OrdinalIgnoreCase);
         await foreach (var parsedRevision in WorkItemsPrepareRevisionReader.EnumerateAsync(
-                           context.PrepareContext.ArtefactStore,
+                           context.PrepareContext.Package,
                            cancellationToken).ConfigureAwait(false))
         {
             if (parsedRevision.Revision is null)

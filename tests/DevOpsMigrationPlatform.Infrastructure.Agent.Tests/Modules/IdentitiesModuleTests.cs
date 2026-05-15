@@ -2,7 +2,9 @@
 // Copyright (c) Naked Agility Limited
 
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -37,11 +39,16 @@ public class IdentitiesModuleTests
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
+    private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
+
+    private static PackageContentContext ContentAt(string path)
+        => new(PackageContentKind.Artefact, Address: new TestPackageAddress(path));
+
     private static IdentitiesModule CreateModule(
         IdentitiesModuleOptions? options = null,
         IIdentitySource? identitySource = null,
         string sourceProject = "TestProject",
-        IArtefactStore? packageStore = null)
+        IPackageAccess? package = null)
     {
         options ??= new IdentitiesModuleOptions { Enabled = true };
         return new IdentitiesModule(
@@ -50,9 +57,7 @@ public class IdentitiesModuleTests
             sourceEndpointInfo: CreateSourceEndpointInfo(sourceProject),
             orchestrator: new IdentitiesOrchestrator(
                 NullLogger<IdentitiesOrchestrator>.Instance,
-                package: packageStore is null
-                    ? PackageTestFactory.CreateLooseMock().Object
-                    : PackageTestFactory.CreateDelegatingMock(packageStore).Object),
+                package: package ?? PackageTestFactory.CreateLooseMock().Object),
             identitySource: identitySource);
     }
 
@@ -74,34 +79,32 @@ public class IdentitiesModuleTests
         return mock.Object;
     }
 
-    private static ExportContext CreateExportContext(Mock<IArtefactStore> store)
+    private static ExportContext CreateExportContext(IPackageAccess package)
     {
         return new ExportContext
         {
             Job = new Job { Kind = JobKind.Export },
-            ArtefactStore = store.Object,
-            StateStore = Mock.Of<IStateStore>(),
+            Package = package,
             ProgressSink = Mock.Of<IProgressSink>()
         };
     }
 
-    private static ImportContext CreateImportContext(Mock<IArtefactStore> store)
+    private static ImportContext CreateImportContext(IPackageAccess package)
     {
         return new ImportContext
         {
             Job = new Job { Kind = JobKind.Import },
-            ArtefactStore = store.Object,
-            StateStore = Mock.Of<IStateStore>(),
+            Package = package,
             ProgressSink = Mock.Of<IProgressSink>()
         };
     }
 
-    private static ValidationContext CreateValidationContext(Mock<IArtefactStore> store)
+    private static ValidationContext CreateValidationContext(IPackageAccess package)
     {
         return new ValidationContext
         {
             Job = new Job(),
-            ArtefactStore = store.Object
+            Package = package
         };
     }
 
@@ -109,12 +112,16 @@ public class IdentitiesModuleTests
     public async Task ExportAsync_WritesDescriptorsJsonl_WhenIdentitiesExist()
     {
         // Arrange
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = PackageTestFactory.CreateLooseMock();
         var appendedContent = new System.Text.StringBuilder();
         storeMock
-            .Setup(s => s.AppendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((path, content, _) => appendedContent.Append(content))
-            .Returns(Task.CompletedTask);
+            .Setup(p => p.AppendContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Identities/descriptors.jsonl"), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
+            .Callback<PackageContentContext, PackagePayload, CancellationToken>((_, payload, _) =>
+            {
+                payload.Content.Position = 0;
+                appendedContent.Append(new StreamReader(payload.Content).ReadToEnd());
+            })
+            .Returns(ValueTask.CompletedTask);
 
         var source = new StubIdentitySource(new[]
         {
@@ -122,15 +129,15 @@ public class IdentitiesModuleTests
             new IdentityDescriptor("desc-2", "Bob", "bob@src.com", "User", "Simulated", true),
         });
 
-        var module = CreateModule(identitySource: source, packageStore: storeMock.Object);
-        var context = CreateExportContext(storeMock);
+        var module = CreateModule(identitySource: source, package: storeMock.Object);
+        var context = CreateExportContext(storeMock.Object);
 
         // Act
         await module.ExportAsync(context, CancellationToken.None);
 
         // Assert — AppendAsync should have been called twice (once per identity)
         storeMock.Verify(
-            s => s.AppendAsync("Identities/descriptors.jsonl", It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            p => p.AppendContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Identities/descriptors.jsonl"), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()),
             Times.Exactly(2));
 
         var lines = appendedContent.ToString().Split('\n', System.StringSplitOptions.RemoveEmptyEntries);
@@ -141,10 +148,10 @@ public class IdentitiesModuleTests
     public async Task ExportAsync_Skips_WhenModuleDisabled()
     {
         // Arrange
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Strict);
+        var storeMock = new Mock<IPackageAccess>(MockBehavior.Strict);
         var source = new StubIdentitySource(new[] { new IdentityDescriptor("d", "A", "a@b.com", "User", "Sim", true) });
-        var module = CreateModule(new IdentitiesModuleOptions { Enabled = false }, source, packageStore: storeMock.Object);
-        var context = CreateExportContext(storeMock);
+        var module = CreateModule(new IdentitiesModuleOptions { Enabled = false }, source, package: storeMock.Object);
+        var context = CreateExportContext(storeMock.Object);
 
         // Act — should not throw or call store
         await module.ExportAsync(context, CancellationToken.None);
@@ -156,9 +163,9 @@ public class IdentitiesModuleTests
     public async Task ExportAsync_Skips_WhenNoIdentitySourceRegistered()
     {
         // Arrange
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Strict);
-        var module = CreateModule(packageStore: storeMock.Object); // no identity source
-        var context = CreateExportContext(storeMock);
+        var storeMock = new Mock<IPackageAccess>(MockBehavior.Strict);
+        var module = CreateModule(package: storeMock.Object); // no identity source
+        var context = CreateExportContext(storeMock.Object);
 
         // Act — should not throw or call store
         await module.ExportAsync(context, CancellationToken.None);
@@ -173,13 +180,10 @@ public class IdentitiesModuleTests
     public async Task ImportAsync_LogsWhenDescriptorsMissing()
     {
         // Arrange
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
-        storeMock
-            .Setup(s => s.ReadAsync("Identities/descriptors.jsonl", It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
+        var storeMock = PackageTestFactory.CreateLooseMock();
 
-        var module = CreateModule(packageStore: storeMock.Object);
-        var context = CreateImportContext(storeMock);
+        var module = CreateModule(package: storeMock.Object);
+        var context = CreateImportContext(storeMock.Object);
 
         // Act — should not throw
         await module.ImportAsync(context, CancellationToken.None);
@@ -195,16 +199,13 @@ public class IdentitiesModuleTests
         var descriptor = new IdentityDescriptor("desc-1", "Alice", "alice@src.com", "User", "Sim", true);
         var line = JsonSerializer.Serialize(descriptor, s_jsonOptions);
 
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = PackageTestFactory.CreateLooseMock();
         storeMock
-            .Setup(s => s.ReadAsync("Identities/descriptors.jsonl", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(line + "\n");
-        storeMock
-            .Setup(s => s.ReadAsync("Identities/mapping.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Identities/descriptors.jsonl"), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(line + "\n")))));
 
-        var module = CreateModule(packageStore: storeMock.Object);
-        var context = CreateImportContext(storeMock);
+        var module = CreateModule(package: storeMock.Object);
+        var context = CreateImportContext(storeMock.Object);
 
         // Act
         await module.ImportAsync(context, CancellationToken.None);
@@ -215,13 +216,10 @@ public class IdentitiesModuleTests
     public async Task ValidateAsync_AddsError_WhenDescriptorsFileMissing()
     {
         // Arrange
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
-        storeMock
-            .Setup(s => s.ExistsAsync("Identities/descriptors.jsonl", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+        var storeMock = PackageTestFactory.CreateLooseMock();
 
-        var module = CreateModule(packageStore: storeMock.Object);
-        var context = CreateValidationContext(storeMock);
+        var module = CreateModule(package: storeMock.Object);
+        var context = CreateValidationContext(storeMock.Object);
 
         // Act
         await module.ValidateAsync(context, CancellationToken.None);
@@ -235,16 +233,13 @@ public class IdentitiesModuleTests
     public async Task ValidateAsync_AddsError_WhenDescriptorsContainsMalformedJson()
     {
         // Arrange
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = PackageTestFactory.CreateLooseMock();
         storeMock
-            .Setup(s => s.ExistsAsync("Identities/descriptors.jsonl", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-        storeMock
-            .Setup(s => s.ReadAsync("Identities/descriptors.jsonl", It.IsAny<CancellationToken>()))
-            .ReturnsAsync("{\"descriptor\":\"d1\"}\nnot-valid-json\n");
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Identities/descriptors.jsonl"), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("{\"descriptor\":\"d1\"}\nnot-valid-json\n")))));
 
-        var module = CreateModule(packageStore: storeMock.Object);
-        var context = CreateValidationContext(storeMock);
+        var module = CreateModule(package: storeMock.Object);
+        var context = CreateValidationContext(storeMock.Object);
 
         // Act
         await module.ValidateAsync(context, CancellationToken.None);
@@ -261,16 +256,13 @@ public class IdentitiesModuleTests
         var descriptor = new IdentityDescriptor("desc-1", "Alice", "alice@src.com", "User", "Sim", true);
         var line = JsonSerializer.Serialize(descriptor, s_jsonOptions);
 
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = PackageTestFactory.CreateLooseMock();
         storeMock
-            .Setup(s => s.ExistsAsync("Identities/descriptors.jsonl", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-        storeMock
-            .Setup(s => s.ReadAsync("Identities/descriptors.jsonl", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(line + "\n");
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Identities/descriptors.jsonl"), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(line + "\n")))));
 
-        var module = CreateModule(packageStore: storeMock.Object);
-        var context = CreateValidationContext(storeMock);
+        var module = CreateModule(package: storeMock.Object);
+        var context = CreateValidationContext(storeMock.Object);
 
         // Act
         await module.ValidateAsync(context, CancellationToken.None);
@@ -289,7 +281,8 @@ public class IdentitiesModuleTests
         var descriptor = new IdentityDescriptor("desc-1", "Alice", "alice@src.com", "User", "Sim", true);
         var line = JsonSerializer.Serialize(descriptor, s_jsonOptions);
 
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock
             .Setup(s => s.ReadAsync("Identities/descriptors.jsonl", It.IsAny<CancellationToken>()))
             .ReturnsAsync(line + "\n");
@@ -297,8 +290,8 @@ public class IdentitiesModuleTests
             .Setup(s => s.ReadAsync("Identities/mapping.json", It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);  // mapping absent
 
-        var module = CreateModule(packageStore: storeMock.Object);
-        var context = CreateImportContext(storeMock);
+        var module = CreateModule(package: package.Object);
+        var context = CreateImportContext(package.Object);
 
         // Act — must not throw; missing mapping is a warning, not an error
         await module.ImportAsync(context, CancellationToken.None);
@@ -312,13 +305,14 @@ public class IdentitiesModuleTests
     public async Task ImportAsync_CompletesWithoutThrowing_WhenBothDescriptorsAndMappingAbsent()
     {
         // Arrange — store returns null for everything
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock
             .Setup(s => s.ReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
 
-        var module = CreateModule(packageStore: storeMock.Object);
-        var context = CreateImportContext(storeMock);
+        var module = CreateModule(package: package.Object);
+        var context = CreateImportContext(package.Object);
 
         // Act — module must tolerate empty state (e.g. first run, prepare-only scenario)
         await module.ImportAsync(context, CancellationToken.None);
@@ -340,7 +334,8 @@ public class IdentitiesModuleTests
             new Dictionary<string, string> { ["desc-1"] = "alice@target.com" },
             s_jsonOptions);
 
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock
             .Setup(s => s.ReadAsync("Identities/descriptors.jsonl", It.IsAny<CancellationToken>()))
             .ReturnsAsync(descriptorLine + "\n");
@@ -348,8 +343,8 @@ public class IdentitiesModuleTests
             .Setup(s => s.ReadAsync("Identities/mapping.json", It.IsAny<CancellationToken>()))
             .ReturnsAsync(mappingJson);
 
-        var module = CreateModule(packageStore: storeMock.Object);
-        var context = CreateImportContext(storeMock);
+        var module = CreateModule(package: package.Object);
+        var context = CreateImportContext(package.Object);
 
         // Act — should load and apply mapping without error
         await module.ImportAsync(context, CancellationToken.None);

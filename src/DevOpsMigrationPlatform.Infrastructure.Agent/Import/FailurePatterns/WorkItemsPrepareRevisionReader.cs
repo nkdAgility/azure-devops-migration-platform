@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,10 +16,15 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import.FailurePatterns;
 internal static class WorkItemsPrepareRevisionReader
 {
     public static async IAsyncEnumerable<ParsedWorkItemRevision> EnumerateAsync(
-        IArtefactStore artefactStore,
+        IPackageAccess package,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        await foreach (var artefactPath in artefactStore.EnumerateAsync("WorkItems/", cancellationToken).ConfigureAwait(false))
+        await foreach (var artefactPath in package.EnumerateContentAsync(
+                           new PackageContentContext(
+                               PackageContentKind.Collection,
+                               Address: new RelativePathAddress("WorkItems/"),
+                               IsCollectionRequest: true),
+                           cancellationToken).ConfigureAwait(false))
         {
             if (!artefactPath.EndsWith("/revision.json", System.StringComparison.Ordinal))
             {
@@ -24,7 +32,7 @@ internal static class WorkItemsPrepareRevisionReader
             }
 
             var revisionFolder = artefactPath.Substring(0, artefactPath.Length - "/revision.json".Length);
-            var revisionJson = await artefactStore.ReadAsync(artefactPath, cancellationToken).ConfigureAwait(false);
+            var revisionJson = await ReadPackageTextAsync(package, artefactPath, cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(revisionJson))
             {
                 yield return new ParsedWorkItemRevision(
@@ -65,6 +73,25 @@ internal static class WorkItemsPrepareRevisionReader
                 revision,
                 null);
         }
+    }
+
+    private static async Task<string?> ReadPackageTextAsync(IPackageAccess package, string relativePath, CancellationToken cancellationToken)
+    {
+        var payload = await package.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
+            cancellationToken).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }
 

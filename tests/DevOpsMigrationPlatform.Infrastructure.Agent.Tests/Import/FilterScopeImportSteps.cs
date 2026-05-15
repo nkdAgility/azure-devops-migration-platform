@@ -192,20 +192,23 @@ public class FilterScopeImportSteps
             .Setup(s => s.Emit(It.IsAny<ProgressEvent>()))
             .Callback<ProgressEvent>(_ => { });
 
-        _ctx.MockArtefactStore
-            .Setup(s => s.EnumerateAsync("WorkItems/", It.IsAny<CancellationToken>()))
-            .Returns((string _, CancellationToken ct) =>
+        _ctx.MockPackage
+            .Setup(p => p.EnumerateContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath == "WorkItems/"),
+                It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken ct) =>
                 FilterScopeImportContext.ToAsyncEnumerable(_ctx.FolderPaths, ct));
 
-        _ctx.MockArtefactStore
-            .Setup(s => s.ReadAsync(It.Is<string>(p => p.EndsWith("revision.json")), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string path, CancellationToken _) =>
+        _ctx.MockPackage
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath.EndsWith("revision.json")), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext context, CancellationToken _) =>
             {
-                // Parse wiId and revIndex from path to generate appropriate JSON
+                var path = context.Address!.RelativePath;
                 var parts = GetFolderName(path.Replace("/revision.json", "")).Split('-');
                 int.TryParse(parts.Length >= 2 ? parts[1] : "0", out var wiId);
                 int.TryParse(parts.Length >= 3 ? parts[2] : "0", out var revIdx);
-                return BuildRevisionJson(wiId, revIdx);
+                var json = BuildRevisionJson(wiId, revIdx);
+                return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(json))));
             });
     }
 
@@ -218,11 +221,12 @@ public class FilterScopeImportSteps
 
         // Store the fields for this revision so ReadAsync can return the right JSON
         var json = BuildRevisionJsonWithFields(wiId, revIndex, fields);
-        _ctx.MockArtefactStore
-            .Setup(s => s.ReadAsync(
-                It.Is<string>(p => p.Contains($"{ticks}-{wiId}-{revIndex}") && p.EndsWith("revision.json")),
+        _ctx.MockPackage
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath.Contains($"{ticks}-{wiId}-{revIndex}") && c.Address!.RelativePath.EndsWith("revision.json")),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(json);
+            .Returns((PackageContentContext _, CancellationToken _) =>
+                ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(json)))));
     }
 
     private static string GetFolderName(string path)

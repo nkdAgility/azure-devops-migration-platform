@@ -122,7 +122,7 @@ public sealed class TeamsModule : IModule
 
                 var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
                 await ProjectInventoryFile.MergeAsync(
-                    context.ArtefactStore, projectPath,
+                    context.Package, projectPath,
                     orgUrl: orgUrl, project: project,
                     teams: count, ct: ct).ConfigureAwait(false);
             }
@@ -167,7 +167,13 @@ public sealed class TeamsModule : IModule
         var report = new PrepareReport { ModuleName = Name, ResolvedCount = 0 };
         _PlatformMetrics?.RecordPrepareTeamsResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
         _PlatformMetrics?.RecordPrepareTeamsUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
-        await context.ArtefactStore.WriteAsync("Teams/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
+        using (var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(report)), writable: false))
+        {
+            await context.Package.PersistContentAsync(
+                new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress("Teams/prepare-report.json")),
+                new PackagePayload(stream, "application/json"),
+                ct).ConfigureAwait(false);
+        }
         _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", Name, report.ResolvedCount, report.UnresolvedCount, 0);
         context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Prepared", Message = $"{Name} prepare complete", Timestamp = DateTimeOffset.UtcNow });
 
@@ -221,9 +227,14 @@ public sealed class TeamsModule : IModule
     /// <inheritdoc/>
     public async Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct)
     {
-        await _orchestrator.ValidateAsync(context.ArtefactStore, context, ct).ConfigureAwait(false);
+        await _orchestrator.ValidateAsync(context.Package, _sourceEndpointInfo.Url, _sourceEndpointInfo.Project, context, ct).ConfigureAwait(false);
 
         return TaskExecutionResult.Completed();
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }
 #endif

@@ -1,40 +1,34 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
-
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
-using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using Moq;
-
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Export;
-
 /// <summary>
 /// Shared state for ExportAttachments step definitions.
 /// A <see cref="FakeAttachmentBinarySource"/> is wired into
 /// <see cref="WorkItemExportOrchestrator"/> so that attachment binary files are actually
-/// written to the <see cref="FileSystemArtefactStore"/> without a live Azure DevOps connection.
+/// written through an <see cref="IPackageAccess"/> backed package without a live Azure DevOps connection.
 /// </summary>
 public class ExportAttachmentsContext
 {
     public Mock<ICheckpointingService> MockCheckpointingService { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemRevisionSource> MockRevisionSource { get; } = new(MockBehavior.Strict);
-    public IArtefactStore? RealArtefactStore { get; set; }
+    public IPackageAccess? Package { get; set; }
     public string? PackageRoot { get; set; }
     public WorkItemExportOrchestrator? Sut { get; set; }
-
     /// <summary>Revisions the mock source yields.</summary>
     public List<WorkItemRevision> SourceRevisions { get; set; } = new();
-
     /// <summary>
     /// A test double that returns a fixed byte payload for every attachment.
     /// This lets the orchestrator write real binary files without an Azure DevOps connection.
     /// </summary>
     public FakeAttachmentBinarySource AttachmentSource { get; } = new();
 }
-
 /// <summary>
 /// Returns a small fixed byte array for every attachment, enabling binary-file assertions
 /// without a live source system.
@@ -42,7 +36,6 @@ public class ExportAttachmentsContext
 public class FakeAttachmentBinarySource : IAttachmentBinarySource
 {
     private static readonly byte[] FakeContent = new byte[] { 0x50, 0x4B, 0x03, 0x04 }; // ZIP magic bytes
-
     public Task<byte[]?> GetBytesAsync(
         int workItemId,
         int revisionIndex,

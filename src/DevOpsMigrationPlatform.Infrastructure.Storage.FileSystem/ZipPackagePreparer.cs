@@ -14,8 +14,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 
 /// <summary>
 /// <see cref="IPackagePreparer"/> implementation that reads a fixture ZIP from the local
-/// filesystem and streams every entry into the target <see cref="IArtefactStore"/> via
-/// <see cref="IArtefactStore.WriteStreamAsync"/>.
+/// filesystem and streams every entry into the target <see cref="IPackageAccess"/> via
+/// <see cref="IPackageAccess.PersistContentStreamAsync"/>.
 ///
 /// <para>
 /// The destination writes are storage-agnostic — this implementation works with both
@@ -33,7 +33,7 @@ internal sealed class ZipPackagePreparer : IPackagePreparer
 
     /// <inheritdoc/>
     public async Task PrepareForImportAsync(
-        IArtefactStore artefactStore,
+        IPackageAccess packageAccess,
         IConfiguration packageConfig,
         CancellationToken cancellationToken)
     {
@@ -62,14 +62,21 @@ internal sealed class ZipPackagePreparer : IPackagePreparer
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            // entry.FullName uses '/' separators per ZIP spec, matching IArtefactStore path convention.
             using var entryStream = entry.Open();
-            await artefactStore.WriteStreamAsync(entry.FullName, entryStream, cancellationToken)
-                .ConfigureAwait(false);
+            await packageAccess.PersistContentStreamAsync(
+                new PackageContentContext(PackageContentKind.Artefact, Address: new ZipEntryAddress(entry.FullName)),
+                entryStream,
+                contentType: null,
+                cancellationToken).ConfigureAwait(false);
             count++;
         }
 
         _logger.LogInformation(
             "Extracted {Count} files from fixture {ZipPath} into package store.", count, resolvedZipPath);
+    }
+
+    private sealed class ZipEntryAddress(string fullName) : IPackageContentAddress
+    {
+        public string RelativePath => fullName;
     }
 }

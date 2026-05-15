@@ -30,12 +30,13 @@ public sealed class CursorUpdateTracingTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
         var endpoints = CreateEndpointAccessor();
+        var package = PackageTestFactory.CreateLooseMock();
         var sut = new CheckpointingService(
-            stateStore.Object,
             endpoints.Object,
-            package: PackageTestFactory.CreateStateDelegatingMock(stateStore.Object).Object);
+            null,
+            null,
+            package.Object);
         await sut.WriteCursorAsync("import.workitems", new CursorEntry { LastProcessed = "P", Stage = CursorStage.Completed }, CancellationToken.None);
         CollectionAssert.Contains(names, "state.cursor.update");
     }

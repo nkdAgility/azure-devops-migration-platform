@@ -6,7 +6,6 @@ using System.IO;
 using System.Text;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -18,7 +17,6 @@ public sealed class PhaseTrackingServiceTests
     [TestMethod]
     public async Task WritePhaseRecordAsync_WithPackageBoundary_PersistsViaMetaRouting()
     {
-        var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package.Setup(p => p.PersistMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.PhaseRecord),
@@ -26,7 +24,7 @@ public sealed class PhaseTrackingServiceTests
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.CompletedTask);
 
-        var sut = new PhaseTrackingService(stateStore.Object, package.Object);
+        var sut = new PhaseTrackingService(package.Object);
 
         await sut.WritePhaseRecordAsync(new JobPhaseRecord { ExportCompleted = true }, CancellationToken.None);
 
@@ -39,7 +37,6 @@ public sealed class PhaseTrackingServiceTests
     [TestMethod]
     public async Task ReadPhaseRecordAsync_WithPackageBoundary_ReadsViaMetaRouting()
     {
-        var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         var payload = "{\"ExportCompleted\":true,\"PrepareCompleted\":false,\"ImportCompleted\":false}";
         package.Setup(p => p.RequestMetaAsync(
@@ -47,7 +44,7 @@ public sealed class PhaseTrackingServiceTests
                 It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/phase.json", new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes(payload))))));
 
-        var sut = new PhaseTrackingService(stateStore.Object, package.Object);
+        var sut = new PhaseTrackingService(package.Object);
 
         var record = await sut.ReadPhaseRecordAsync(CancellationToken.None);
 

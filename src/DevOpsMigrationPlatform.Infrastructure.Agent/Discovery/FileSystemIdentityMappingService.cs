@@ -64,12 +64,18 @@ public class FileSystemIdentityMappingService : IIdentityMappingService
     {
         foreach (var identity in _unmapped)
         {
-            var segments = new List<string> { ".migration", "identity-warnings", Uri.EscapeDataString(identity) + ".log" };
-            var ctx = new PackageContentContext(PackageContentKind.Artefact, segments);
+            var ctx = new PackageContentContext(
+                PackageContentKind.Artefact,
+                Address: new RelativePathAddress($".migration/identity-warnings/{Uri.EscapeDataString(identity)}.log"));
             var bytes = Encoding.UTF8.GetBytes($"WARN: No identity mapping for '{identity}'. Fell back to '{_fallbackIdentity}'.");
             using var stream = new MemoryStream(bytes, writable: false);
             await _package.PersistContentAsync(ctx, new PackagePayload(stream, "text/plain"), cancellationToken).ConfigureAwait(false);
         }
         _unmapped.Clear();
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

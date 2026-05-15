@@ -49,14 +49,9 @@ public sealed class PackageBoundaryObservabilityTests
         meterListener.Start();
 
         var logger = new TestLogger<ActivePackageAccess>();
-        var store = new InMemoryArtefactStore();
-        var active = new ActivePackageState
-        {
-            CurrentStore = store,
-            CurrentJob = new Job { JobId = "job-obs", Kind = JobKind.Export }
-        };
+        var store = new InMemoryPackageAccess();
+        var (sut, active) = ActivePackageTestFactory.Create(store, "job-obs", JobKind.Export, logger);
         var runId = active.CurrentRunId!;
-        var sut = new ActivePackageAccess(active, new PackagePathRouter(), logger);
 
         await sut.PersistMetaAsync(
             new PackageMetaContext(PackageMetaKind.MigrationConfig, RelatedToRun: true),
@@ -87,3 +82,4 @@ public sealed class PackageBoundaryObservabilityTests
     }
 }
 #endif
+

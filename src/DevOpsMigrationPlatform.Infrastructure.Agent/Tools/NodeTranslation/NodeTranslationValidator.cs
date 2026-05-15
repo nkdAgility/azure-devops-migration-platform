@@ -40,7 +40,7 @@ public sealed class NodeTranslationValidator : INodeTranslationValidator
 
     /// <inheritdoc/>
     public async Task<NodeTranslationValidationReport> ValidateAsync(
-        IArtefactStore artefactStore,
+        IPackageAccess package,
         ProjectMapping context,
         CancellationToken ct)
     {
@@ -60,7 +60,20 @@ public sealed class NodeTranslationValidator : INodeTranslationValidator
                 MalformedTargetPaths: malformed);
         }
 
-        var json = await artefactStore.ReadAsync("Nodes/referenced-paths.json", ct).ConfigureAwait(false);
+        var payload = await package.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress("Nodes/referenced-paths.json")),
+            ct).ConfigureAwait(false);
+        if (payload is null)
+        {
+            return new NodeTranslationValidationReport(
+                IsValid: true,
+                UnmappedPaths: [],
+                UnanchoredPaths: [],
+                MalformedTargetPaths: []);
+        }
+
+        using var reader = new System.IO.StreamReader(payload.Content, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+        var json = await reader.ReadToEndAsync().ConfigureAwait(false);
         if (json is null)
         {
             return new NodeTranslationValidationReport(
@@ -130,6 +143,11 @@ public sealed class NodeTranslationValidator : INodeTranslationValidator
                 malformed.Add(mapping.Match);
             }
         }
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }
 #endif

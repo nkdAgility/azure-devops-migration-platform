@@ -54,7 +54,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly ILogger<JobAgentWorker> _logger;
 
     public JobAgentWorker(
-        IPackageStoreFactory packageStoreFactory,
         IPackagePreparer packagePreparer,
         IPackageAccess package,
         IProgressSink progressSink,
@@ -76,7 +75,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null,
         PolymorphicOrganisationEntryConverter? organisationConverter = null)
-        : base(packageStoreFactory, progressSink, checkpointingFactory,
+        : base(progressSink, checkpointingFactory,
              phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageMigrationConfigLoader,
                  package, moduleScopeFactory, httpClientFactory, logger, activeJobState, endpointConverter, organisationConverter)
     {
@@ -107,7 +106,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
         // ── Shared preamble: package stores, config write, config load ────────
-        var (artefactStore, stateStore) = await InitializeJobPackageAsync(job, ct).ConfigureAwait(false);
+        await InitializeJobPackageAsync(job, ct).ConfigureAwait(false);
 
         // Write config payload from the Job into the package before any config reads.
         await WriteConfigPayloadAsync(_package, job, ct).ConfigureAwait(false);
@@ -161,11 +160,11 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 case JobKind.Migrate:
                 case JobKind.Prepare:
                 case JobKind.Inventory:
-                    await OnMigrationJobAsync(job, controlPlane, leaseId, artefactStore, stateStore, packageConfig, ct).ConfigureAwait(false);
+                    await OnMigrationJobAsync(job, controlPlane, leaseId, packageConfig, ct).ConfigureAwait(false);
                     break;
 
                 case JobKind.Dependencies:
-                    await OnDiscoveryJobAsync(job, controlPlane, leaseId, artefactStore, stateStore, packageConfig, ct).ConfigureAwait(false);
+                    await OnDiscoveryJobAsync(job, controlPlane, leaseId, packageConfig, ct).ConfigureAwait(false);
                     break;
 
                 default:
@@ -280,9 +279,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private static bool PlanMaterializesInventorySnapshot(JobTaskList plan)
         => plan.Tasks.Any(task => task.Id.Equals("analyse.inventory", StringComparison.OrdinalIgnoreCase));
 
-    private static async Task WriteInventoryCompletionMarkerAsync(IPackageAccess package, Job job, IStateStore stateStore, CancellationToken ct)
+    private static async Task WriteInventoryCompletionMarkerAsync(IPackageAccess package, Job job, CancellationToken ct)
     {
-        _ = stateStore;
         var payload = JsonSerializer.Serialize(new
         {
             phase = "Inventory",
@@ -355,9 +353,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             return;
 
         var forceFresh = job.Resume?.Mode == DevOpsMigrationPlatform.Abstractions.Jobs.ResumeMode.ForceFresh;
-        var exists = await package.ContentExistsAsync(
-            CreateArtefactContext(".migration/migration-config.json"),
-            ct).ConfigureAwait(false);
+        var existingResult = await package.RequestMetaAsync(
+            new PackageMetaContext(PackageMetaKind.MigrationConfig), ct).ConfigureAwait(false);
+        var exists = existingResult.Payload is not null;
 
         if (exists && !forceFresh)
         {
@@ -430,36 +428,33 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     private static async Task<string?> ReadPackageTextAsync(IPackageAccess package, string relativePath, CancellationToken ct)
     {
-        var payload = await package.RequestContentAsync(CreateArtefactContext(relativePath), ct).ConfigureAwait(false);
-        if (payload is null)
+        // Only migration-config.json is supported via this helper; routed through PackageMetaKind.MigrationConfig.
+        _ = relativePath; // path is always migration-config.json — enforced by call sites
+        var result = await package.RequestMetaAsync(new PackageMetaContext(PackageMetaKind.MigrationConfig), ct).ConfigureAwait(false);
+        if (result.Payload is null)
             return null;
 
-        if (payload.Content.CanSeek)
-            payload.Content.Position = 0;
-        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+        if (result.Payload.Content.CanSeek)
+            result.Payload.Content.Position = 0;
+        using var reader = new StreamReader(result.Payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
         return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
     private static async Task WritePackageTextAsync(IPackageAccess package, string relativePath, string content, CancellationToken ct)
     {
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
-        await package.PersistContentAsync(
-            CreateArtefactContext(relativePath),
-            new PackagePayload(stream, "application/json"),
+        var kind = relativePath.Contains("prepare-probe", StringComparison.OrdinalIgnoreCase)
+            ? PackageMetaKind.PrepareProbe
+            : PackageMetaKind.MigrationConfig;
+        await package.PersistMetaAsync(
+            new PackageMetaContext(kind),
+            new PackageMetaPayload(stream),
             ct).ConfigureAwait(false);
     }
 
-    private static PackageContentContext CreateArtefactContext(string relativePath)
-        => new(PackageContentKind.Artefact, SplitRouteSegments(relativePath));
-
-    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
-        => relativePath
-            .Replace('\\', '/')
-            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
-
     private async Task OnMigrationJobAsync(
         Job job, HttpClient controlPlane, string leaseId,
-        IArtefactStore artefactStore, IStateStore stateStore, IConfiguration? packageConfig, CancellationToken ct)
+        IConfiguration? packageConfig, CancellationToken ct)
     {
         var planConfig = packageConfig ?? new ConfigurationBuilder().Build();
         using var jobScope = _moduleScopeFactory.CreateScope();
@@ -483,8 +478,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             // Handle ForceFresh BEFORE loading the plan — delete cursors, phase record, and plan file.
             if (job.Resume?.Mode == ResumeMode.ForceFresh)
             {
-                var freshCheckpointer = CheckpointingFactory.Create(stateStore);
-                var freshPhaseTracker = PhaseTrackingFactory.Create(stateStore);
+                var freshCheckpointer = CheckpointingFactory.Create(_package);
+                var freshPhaseTracker = PhaseTrackingFactory.Create(_package);
 
                 _logger.LogInformation("ForceFresh requested for job {JobId} — deleting module cursors, completion markers, and plan file.", job.JobId);
                 foreach (var module in jobModules)
@@ -517,7 +512,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
             // Load persisted plan (resume) or build and persist a fresh one.
             executionPlan = await planBuilder
-                .BuildAndSaveAsync(planConfig, job.Kind, artefactStore, stateStore, ct)
+                .BuildAndSaveAsync(planConfig, job.Kind, _package, ct)
                 .ConfigureAwait(false);
 
             // Push plan to the control plane for display.
@@ -539,8 +534,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             return;
         }
 
-        var checkpointer = CheckpointingFactory.Create(stateStore);
-        var phaseTracker = PhaseTrackingFactory.Create(stateStore);
+        var checkpointer = CheckpointingFactory.Create(_package);
+        var phaseTracker = PhaseTrackingFactory.Create(_package);
         RunScopeAuthorityGuard.EnsureAuthoritativePath(".migration/plan.json", "job-execution");
         RunScopeAuthorityGuard.EnsureAuthoritativePath(".migration/inventory.complete.json", "inventory-phase-gate");
 
@@ -555,22 +550,19 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         var exportContext = new ExportContext
         {
             Job = job,
-            ArtefactStore = artefactStore,
-            StateStore = stateStore,
+            Package = _package,
             ProgressSink = ProgressSink
         };
         var importContext = new ImportContext
         {
             Job = job,
-            ArtefactStore = artefactStore,
-            StateStore = stateStore,
+            Package = _package,
             ProgressSink = ProgressSink
         };
         var prepareContext = new PrepareContext
         {
             Job = job,
-            ArtefactStore = artefactStore,
-            StateStore = stateStore,
+            Package = _package,
             ProgressSink = ProgressSink,
             TargetEndpoint = jobScope.ServiceProvider.GetRequiredService<ITargetEndpointInfo>()
         };
@@ -595,7 +587,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         // FileSystem today and Azure Blob Storage in the future.
         if (runImport)
         {
-            await _packagePreparer.PrepareForImportAsync(artefactStore, planConfig, ct)
+            await _packagePreparer.PrepareForImportAsync(_package, planConfig, ct)
                 .ConfigureAwait(false);
         }
 
@@ -643,8 +635,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 var baseInventoryContext = new InventoryContext
                 {
                     Job = job,
-                    ArtefactStore = artefactStore,
-                    StateStore = stateStore,
+                    Package = _package,
                     ProgressSink = ProgressSink,
                     SourceEndpoint = endpointsByUrl.Values.FirstOrDefault() ?? new OrganisationEndpoint(),
                     Project = string.Empty // set per-task by executor
@@ -657,11 +648,11 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 var inventoryOk = await planExecutor.ExecuteTasksAsync(
                     executionPlan, captureHandlersByName, analysersByName,
                     baseInventoryContext, baseExportContext: null, importContext: null,
-                    endpointsByUrl, stateStore, ct).ConfigureAwait(false);
+                    endpointsByUrl, ct).ConfigureAwait(false);
 
                 if (inventoryOk && PlanMaterializesInventorySnapshot(executionPlan))
                 {
-                    await WriteInventoryCompletionMarkerAsync(_package, job, stateStore, ct).ConfigureAwait(false);
+                    await WriteInventoryCompletionMarkerAsync(_package, job, ct).ConfigureAwait(false);
                 }
 
                 failed = !inventoryOk;
@@ -679,8 +670,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     var exportInventoryContext = new InventoryContext
                     {
                         Job = job,
-                        ArtefactStore = artefactStore,
-                        StateStore = stateStore,
+                        Package = _package,
                         ProgressSink = ProgressSink,
                         SourceEndpoint = sourceEndpoint,
                         Project = sourceEndpointInfo.Project
@@ -707,12 +697,11 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                         exportInventoryContext,
                         endpointsByUrl,
                         exportContext,
-                        stateStore,
                         ct).ConfigureAwait(false);
 
                     if (exportOk && PlanMaterializesInventorySnapshot(executionPlan))
                     {
-                        await WriteInventoryCompletionMarkerAsync(_package, job, stateStore, ct).ConfigureAwait(false);
+                        await WriteInventoryCompletionMarkerAsync(_package, job, ct).ConfigureAwait(false);
                     }
 
                     failed = !exportOk;
@@ -730,7 +719,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     // Execute import phase using the plan executor.
                     var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
                     var importOk = await planExecutor.ExecuteImportPhaseAsync(
-                        executionPlan, moduleMap, importContext, stateStore, ct).ConfigureAwait(false);
+                        executionPlan, moduleMap, importContext, ct).ConfigureAwait(false);
 
                     failed = !importOk;
 
@@ -764,8 +753,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                         await analyser.AnalyseAsync(new AnalyseContext
                         {
                             Job = job,
-                            ArtefactStore = artefactStore,
-                            StateStore = stateStore,
+                            Package = _package,
                             ProgressSink = ProgressSink
                         }, ct).ConfigureAwait(false);
                     }
@@ -810,7 +798,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     private async Task OnDiscoveryJobAsync(
         Job job, HttpClient controlPlane, string leaseId,
-        IArtefactStore artefactStore, IStateStore stateStore, IConfiguration? packageConfig, CancellationToken ct)
+        IConfiguration? packageConfig, CancellationToken ct)
     {
         using var jobScope = _moduleScopeFactory.CreateScope();
         var modulesToRun = jobScope.ServiceProvider.GetServices<IModule>().ToList();
@@ -820,7 +808,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
         if (job.Resume?.Mode == ResumeMode.ForceFresh)
         {
-            var freshCheckpointer = CheckpointingFactory.Create(stateStore);
+            var freshCheckpointer = CheckpointingFactory.Create(_package);
 
             _logger.LogInformation(
                 "ForceFresh requested for discovery job {JobId} — deleting module cursors, completion markers, and plan file.", job.JobId);
@@ -917,7 +905,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
             var planConfig = packageConfig ?? new ConfigurationBuilder().Build();
             discoveryPlan = await planBuilder
-                .BuildAndSaveAsync(planConfig, job.Kind, artefactStore, stateStore, ct)
+                .BuildAndSaveAsync(planConfig, job.Kind, _package, ct)
                 .ConfigureAwait(false);
             await _telemetryClient.PushTaskListAsync(leaseId, discoveryPlan, ct).ConfigureAwait(false);
 
@@ -953,8 +941,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 var baseInventoryContext = new InventoryContext
                 {
                     Job = job,
-                    ArtefactStore = artefactStore,
-                    StateStore = stateStore,
+                    Package = _package,
                     ProgressSink = ProgressSink,
                     SourceEndpoint = endpointsByUrl.Values.FirstOrDefault() ?? new OrganisationEndpoint(),
                     Project = string.Empty,
@@ -970,11 +957,11 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     var depsOk = await planExecutor.ExecuteTasksAsync(
                         discoveryPlan, captureHandlersByName, depAnalysersByName,
                         baseInventoryContext, baseExportContext: null, importContext: null,
-                        endpointsByUrl, stateStore, ct).ConfigureAwait(false);
+                        endpointsByUrl, ct).ConfigureAwait(false);
 
                     if (depsOk && PlanMaterializesInventorySnapshot(discoveryPlan))
                     {
-                        await WriteInventoryCompletionMarkerAsync(_package, job, stateStore, ct).ConfigureAwait(false);
+                        await WriteInventoryCompletionMarkerAsync(_package, job, ct).ConfigureAwait(false);
                     }
 
                     failed = !depsOk;

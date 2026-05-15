@@ -57,10 +57,11 @@ public sealed class TeamExportOrchestrator
     /// <c>Teams/{slug}/team.json</c>.
     /// </summary>
     public async Task ExportTeamAsync(
+        string organisation,
         string projectName,
         TeamDefinition team,
         string slug,
-        IArtefactStore artefactStore,
+        IPackageAccess package,
         TeamsModuleExtensionsOptions extensions,
         CancellationToken ct)
     {
@@ -83,7 +84,7 @@ public sealed class TeamExportOrchestrator
                 if (extensions.NodeTranslation && _referencedPathTracker is not null)
                 {
                     await _referencedPathTracker.RecordIterationPathAsync(
-                        iteration.Path, artefactStore, ct).ConfigureAwait(false);
+                        iteration.Path, package, organisation, projectName, ct).ConfigureAwait(false);
                 }
             }
         }
@@ -104,12 +105,12 @@ public sealed class TeamExportOrchestrator
             if (_referencedPathTracker is not null && areaPaths is not null)
             {
                 if (!string.IsNullOrEmpty(areaPaths.DefaultAreaPath))
-                    await _referencedPathTracker.RecordAreaPathAsync(areaPaths.DefaultAreaPath, artefactStore, ct).ConfigureAwait(false);
+                    await _referencedPathTracker.RecordAreaPathAsync(areaPaths.DefaultAreaPath, package, organisation, projectName, ct).ConfigureAwait(false);
 
                 foreach (var path in areaPaths.IncludedAreaPaths)
                 {
                     if (string.IsNullOrEmpty(path)) continue;
-                    await _referencedPathTracker.RecordAreaPathAsync(path, artefactStore, ct).ConfigureAwait(false);
+                    await _referencedPathTracker.RecordAreaPathAsync(path, package, organisation, projectName, ct).ConfigureAwait(false);
                 }
             }
         }
@@ -146,12 +147,20 @@ public sealed class TeamExportOrchestrator
         };
 
         var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
-        var artifactPath = $"Teams/{slug}/team.json";
-        await artefactStore.WriteAsync(artifactPath, json, ct).ConfigureAwait(false);
+        using var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(json), writable: false);
+        await package.PersistContentAsync(
+            new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: organisation,
+                Project: projectName,
+                Module: "Teams",
+                Address: new TeamDefinitionAddress(slug)),
+            new PackagePayload(stream, "application/json"),
+            ct).ConfigureAwait(false);
 
         _logger.LogInformation(
             "[Teams] Exported team '{Name}' → {Path} ({IterCount} iterations, {MemberCount} members).",
-            team.Name, artifactPath, iterations.Count, members.Count);
+            team.Name, $"Teams/{slug}/team.json", iterations.Count, members.Count);
     }
 
     private static bool IsCapacityNotSupportedException(Exception ex)

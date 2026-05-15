@@ -13,6 +13,7 @@ public enum PackageMetaKind
     ContinuationToken,
     InventoryCompletionMarker,
     PrepareReport,
+    PrepareProbe,
     RunConfigSnapshot,
     ExportProgressDb,
     IdMapDb

@@ -21,7 +21,7 @@ public class CursorResumeContext
     public const string CursorIdentity = "import.workitems";
 
     /// <summary>Strict mock for the state store — modules must not call this directly.</summary>
-    public Mock<IStateStore> MockStateStore { get; } = new Mock<IStateStore>(MockBehavior.Strict);
+    internal Mock<ITestStateStore> MockStateStore { get; } = new Mock<ITestStateStore>(MockBehavior.Strict);
 
     public Mock<ICurrentJobEndpointAccessor> MockEndpointAccessor { get; } = new(MockBehavior.Strict);
     public Mock<IPackageAccess> MockPackage { get; }
@@ -70,8 +70,9 @@ public class CursorResumeContext
         MockEndpointAccessor.SetupGet(a => a.Target).Returns(target.Object);
 
         Sut = new CheckpointingService(
-            MockStateStore.Object,
             MockEndpointAccessor.Object,
-            package: MockPackage.Object);
+            null,
+            null,
+            MockPackage.Object);
     }
 }

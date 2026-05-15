@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
-using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -31,12 +30,10 @@ public sealed class RuntimeStateTracingTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
         var endpoints = CreateEndpointAccessor();
         var sut = new CheckpointingService(
-            stateStore.Object,
             endpoints.Object,
-            package: PackageTestFactory.CreateStateDelegatingMock(stateStore.Object).Object);
+            package: PackageTestFactory.CreateLooseMock().Object);
         await sut.WriteCursorAsync("export.workitems", new CursorEntry { LastProcessed = "X", Stage = CursorStage.Completed }, CancellationToken.None);
 
         CollectionAssert.Contains(spans, "state.cursor.update");

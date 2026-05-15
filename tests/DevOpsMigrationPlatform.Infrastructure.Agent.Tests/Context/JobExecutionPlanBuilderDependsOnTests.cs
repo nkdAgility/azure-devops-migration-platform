@@ -3,6 +3,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -46,11 +48,10 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
 
         var builder = CreateBuilder(new[] { workItemsModule, identitiesModule, nodesModule, teamsModule });
         var config = AllEnabledConfig();
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose).Object;
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose).Object;
+        var package = PackageTestFactory.CreateLooseMock().Object;
 
         // Act
-        var plan = await builder.BuildPlanAsync(config, JobKind.Import, store, stateStore, CancellationToken.None);
+        var plan = await builder.BuildPlanAsync(config, JobKind.Import, package, CancellationToken.None);
 
         // Assert
         var workItemsTask = plan.Tasks.First(t => t.Id.StartsWith("import.workitems"));
@@ -75,11 +76,10 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
 
         var builder = CreateBuilder(new[] { workItemsModule, identitiesModule, nodesModule });
         var config = AllEnabledConfig();
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose).Object;
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose).Object;
+        var package = PackageTestFactory.CreateLooseMock().Object;
 
         // Act
-        var plan = await builder.BuildPlanAsync(config, JobKind.Export, store, stateStore, CancellationToken.None);
+        var plan = await builder.BuildPlanAsync(config, JobKind.Export, package, CancellationToken.None);
 
         // Assert
         foreach (var task in plan.Tasks.Where(t => t.Phase == "Export"))
@@ -124,15 +124,16 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
             })
             .Build();
 
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var markerAbsentStateStore = new Mock<IStateStore>(MockBehavior.Loose);
-        markerAbsentStateStore.Setup(s => s.ExistsAsync(PackagePathTestHelper.InventoryCompleteFile, It.IsAny<CancellationToken>())).ReturnsAsync(false);
-        var markerPresentStateStore = new Mock<IStateStore>(MockBehavior.Loose);
-        markerPresentStateStore.Setup(s => s.ExistsAsync(PackagePathTestHelper.InventoryCompleteFile, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var markerAbsentPackage = PackageTestFactory.CreateLooseMock().Object;
+        var markerPresentPackage = PackageTestFactory.CreateLooseMock().Object;
+        await markerPresentPackage.PersistMetaAsync(
+            new PackageMetaContext(PackageMetaKind.InventoryCompletionMarker),
+            new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("{}"), writable: false)),
+            CancellationToken.None);
 
         // Act
-        var markerAbsentPlan = await builder.BuildPlanAsync(config, JobKind.Export, store.Object, markerAbsentStateStore.Object, CancellationToken.None);
-        var markerPresentPlan = await builder.BuildPlanAsync(config, JobKind.Export, store.Object, markerPresentStateStore.Object, CancellationToken.None);
+        var markerAbsentPlan = await builder.BuildPlanAsync(config, JobKind.Export, markerAbsentPackage, CancellationToken.None);
+        var markerPresentPlan = await builder.BuildPlanAsync(config, JobKind.Export, markerPresentPackage, CancellationToken.None);
 
         // Assert
         var absentIds = markerAbsentPlan.Tasks.Select(t => t.Id).ToList();
@@ -160,12 +161,11 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
 
         var builder = CreateBuilder(new[] { moduleA, moduleB });
         var config = AllEnabledConfig();
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose).Object;
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose).Object;
+        var package = PackageTestFactory.CreateLooseMock().Object;
 
         // Act & Assert
         var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => builder.BuildPlanAsync(config, JobKind.Import, store, stateStore, CancellationToken.None));
+            () => builder.BuildPlanAsync(config, JobKind.Import, package, CancellationToken.None));
 
         Assert.IsTrue(exception.Message.Contains("Circular dependency"),
             "Exception message should mention circular dependency");
@@ -189,11 +189,10 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
             })
             .Build();
 
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose).Object;
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose).Object;
+        var package = PackageTestFactory.CreateLooseMock().Object;
 
         // Act
-        var plan = await builder.BuildPlanAsync(config, JobKind.Import, store, stateStore, CancellationToken.None);
+        var plan = await builder.BuildPlanAsync(config, JobKind.Import, package, CancellationToken.None);
 
         // Assert
         var taskB = plan.Tasks.FirstOrDefault(t => t.Id.StartsWith("import.moduleb"));
@@ -213,11 +212,10 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
 
         var builder = CreateBuilder(new[] { moduleA }, logger: logger);
         var config = AllEnabledConfig();
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose).Object;
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose).Object;
+        var package = PackageTestFactory.CreateLooseMock().Object;
 
         // Act
-        var plan = await builder.BuildPlanAsync(config, JobKind.Import, store, stateStore, CancellationToken.None);
+        var plan = await builder.BuildPlanAsync(config, JobKind.Import, package, CancellationToken.None);
 
         // Assert
         var taskA = plan.Tasks.First(t => t.Id.StartsWith("import.modulea"));
@@ -265,8 +263,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         var plan = await builder.BuildPlanAsync(
             config,
             JobKind.Prepare,
-            new Mock<IArtefactStore>(MockBehavior.Loose).Object,
-            new Mock<IStateStore>(MockBehavior.Loose).Object,
+            PackageTestFactory.CreateLooseMock().Object,
             CancellationToken.None);
 
         // Assert
@@ -313,8 +310,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         var plan = await builder.BuildPlanAsync(
             config,
             JobKind.Prepare,
-            new Mock<IArtefactStore>(MockBehavior.Loose).Object,
-            new Mock<IStateStore>(MockBehavior.Loose).Object,
+            PackageTestFactory.CreateLooseMock().Object,
             CancellationToken.None);
 
         // Assert
@@ -343,8 +339,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         var plan = await builder.BuildPlanAsync(
             config,
             JobKind.Inventory,
-            new Mock<IArtefactStore>(MockBehavior.Loose).Object,
-            new Mock<IStateStore>(MockBehavior.Loose).Object,
+            PackageTestFactory.CreateLooseMock().Object,
             CancellationToken.None);
 
         // Assert
@@ -384,8 +379,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         var plan = await builder.BuildPlanAsync(
             config,
             JobKind.Inventory,
-            new Mock<IArtefactStore>(MockBehavior.Loose).Object,
-            new Mock<IStateStore>(MockBehavior.Loose).Object,
+            PackageTestFactory.CreateLooseMock().Object,
             CancellationToken.None);
 
         // Assert
@@ -412,8 +406,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         var plan = await builder.BuildPlanAsync(
             config,
             JobKind.Dependencies,
-            new Mock<IArtefactStore>(MockBehavior.Loose).Object,
-            new Mock<IStateStore>(MockBehavior.Loose).Object,
+            PackageTestFactory.CreateLooseMock().Object,
             CancellationToken.None);
 
         // Assert
@@ -445,8 +438,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         var plan = await builder.BuildPlanAsync(
             config,
             JobKind.Dependencies,
-            new Mock<IArtefactStore>(MockBehavior.Loose).Object,
-            new Mock<IStateStore>(MockBehavior.Loose).Object,
+            PackageTestFactory.CreateLooseMock().Object,
             CancellationToken.None);
 
         // Assert
@@ -477,7 +469,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
             .Setup(s => s.ReadPhaseRecordAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new JobPhaseRecord());
         phaseFactory
-            .Setup(f => f.Create(It.IsAny<IStateStore>()))
+            .Setup(f => f.Create(It.IsAny<IPackageAccess>()))
             .Returns(phaseService.Object);
 
         return new JobExecutionPlanBuilder(

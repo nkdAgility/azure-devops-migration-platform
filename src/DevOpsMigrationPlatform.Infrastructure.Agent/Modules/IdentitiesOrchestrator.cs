@@ -75,13 +75,12 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         ICheckpointingServiceFactory? checkpointingFactory,
         CancellationToken ct)
     {
-        var artefactStore = context.ArtefactStore;
-        var stateStore = context.StateStore;
+        var package = context.Package;
 
         // Idempotency: skip if already completed.
         if (checkpointingFactory is not null)
         {
-            var checkpointing = checkpointingFactory.Create(stateStore);
+            var checkpointing = checkpointingFactory.Create(package);
             var cursor = await checkpointing.ReadCursorAsync("export.identities", ct).ConfigureAwait(false);
             if (cursor?.Stage == CursorStage.Completed
                 && await ExistsInPackageAsync(DescriptorsPath, ct).ConfigureAwait(false))
@@ -156,7 +155,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         // Write cursor after successful export.
         if (checkpointingFactory is not null)
         {
-            var checkpointing = checkpointingFactory.Create(stateStore);
+            var checkpointing = checkpointingFactory.Create(package);
             await checkpointing.WriteCursorAsync("export.identities", new CursorEntry
             {
                 LastProcessed = DescriptorsPath,
@@ -178,8 +177,6 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         ICheckpointingServiceFactory? checkpointingFactory,
         CancellationToken ct)
     {
-        var artefactStore = context.ArtefactStore;
-
         using var activity = s_activitySource.StartActivity("identities.import");
 
         var importSink = context.ProgressSink;
@@ -240,17 +237,22 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
     /// line contains a <c>descriptor</c> field.
     /// </summary>
     public async Task ValidateAsync(
-        IArtefactStore artefactStore,
+        IPackageAccess package,
+        string organisation,
+        string project,
         ValidationContext context,
         CancellationToken ct)
     {
+        _ = organisation;
+        _ = project;
+
         var validateTags = new MetricsTagList
         {
             new("module", "Identities"),
             new("operation", "identities.validate")
         };
 
-        var content = await ReadPackageContentAsync(DescriptorsPath, ct).ConfigureAwait(false);
+        var content = await ReadPackageContentAsync(package, DescriptorsPath, ct).ConfigureAwait(false);
         if (content is null)
         {
             context.Errors.Add(new ValidationError
@@ -313,8 +315,13 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         if (_package is null)
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
-        var payload = await _package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+        return await ReadPackageContentAsync(_package, relativePath, ct).ConfigureAwait(false);
+    }
+
+    private static async Task<string?> ReadPackageContentAsync(IPackageAccess package, string relativePath, CancellationToken ct)
+    {
+        var payload = await package.RequestContentAsync(
+            CreatePackageContentContext(relativePath),
             ct).ConfigureAwait(false);
         if (payload is null)
             return null;
@@ -331,7 +338,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
         return await _package.ContentExistsAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            CreatePackageContentContext(relativePath),
             ct).ConfigureAwait(false);
     }
 
@@ -342,14 +349,19 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
         await _package.AppendContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            CreatePackageContentContext(relativePath),
             new PackagePayload(stream, "application/x-ndjson"),
             ct).ConfigureAwait(false);
     }
 
-    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
-        => relativePath
-            .Replace('\\', '/')
-            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+    private static PackageContentContext CreatePackageContentContext(string relativePath)
+        => new(
+            PackageContentKind.Artefact,
+            Address: new RelativePathAddress(relativePath));
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+    }
 }
 

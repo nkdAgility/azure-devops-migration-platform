@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
@@ -37,8 +38,9 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     private readonly IIdMapStore _idMapStore;
     private readonly ICheckpointingService _checkpointing;
     private readonly IIdentityLookupTool? _identityLookupTool;
-    private readonly IArtefactStore _artefactStore;
     private readonly ILogger<RevisionFolderProcessor> _logger;
+    private readonly string _organisation;
+    private readonly string _project;
     private readonly IPlatformMetrics? _metrics;
     private readonly string? _jobId;
     private readonly IFieldTransformTool? _fieldTransformTool;
@@ -59,8 +61,9 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
         IIdentityLookupTool? identityLookupTool,
-        IArtefactStore artefactStore,
         ILogger<RevisionFolderProcessor> logger,
+        string organisation,
+        string project,
         IPlatformMetrics? metrics = null,
         string? jobId = null,
         IFieldTransformTool? fieldTransformTool = null,
@@ -73,8 +76,9 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));
         _checkpointing = checkpointing ?? throw new ArgumentNullException(nameof(checkpointing));
         _identityLookupTool = identityLookupTool;
-        _artefactStore = artefactStore ?? throw new ArgumentNullException(nameof(artefactStore));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _organisation = organisation ?? throw new ArgumentNullException(nameof(organisation));
+        _project = project ?? throw new ArgumentNullException(nameof(project));
         _metrics = metrics;
         _jobId = jobId;
         _fieldTransformTool = fieldTransformTool;
@@ -466,7 +470,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
         var payload = await _package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(path)),
+            CreateArtefactContext(path),
             ct).ConfigureAwait(false);
         if (payload is null)
             return null;
@@ -483,14 +487,46 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
         return await _package.RequestContentBinaryAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(path)),
+            CreateArtefactContext(path),
             ct).ConfigureAwait(false);
     }
 
-    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
-        => relativePath
-            .Replace('\\', '/')
-            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+    private PackageContentContext CreateArtefactContext(string path)
+    {
+        if (path.EndsWith("revision.json", StringComparison.OrdinalIgnoreCase))
+        {
+            return new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: _organisation,
+                Project: _project,
+                Module: "WorkItems",
+                Address: new WorkItemRevisionAddress(GetRevisionFolderPath(path)));
+        }
+
+        return new PackageContentContext(
+            PackageContentKind.Artefact,
+            Organisation: _organisation,
+            Project: _project,
+            Module: "WorkItems",
+            Address: new WorkItemAttachmentAddress(GetRevisionFolderPath(path), GetFileName(path)));
+    }
+
+    private static string GetRevisionFolderPath(string path)
+    {
+        var normalized = path.Replace('\\', '/').TrimEnd('/');
+        if (normalized.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase))
+            normalized = normalized["WorkItems/".Length..];
+
+        var lastSlash = normalized.LastIndexOf('/');
+        return lastSlash >= 0 ? normalized[..lastSlash] : normalized;
+    }
+
+    private static string GetFileName(string path)
+    {
+        var normalized = path.Replace('\\', '/').TrimEnd('/');
+        var lastSlash = normalized.LastIndexOf('/');
+        return lastSlash >= 0 ? normalized[(lastSlash + 1)..] : normalized;
+    }
 
     private Task WriteCursorAsync(string folderPath, string stage, CancellationToken ct)
         => _checkpointing.WriteCursorAsync("import.workitems", new CursorEntry

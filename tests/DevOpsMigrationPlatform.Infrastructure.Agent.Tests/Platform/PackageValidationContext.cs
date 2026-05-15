@@ -4,7 +4,9 @@
 using System.Collections.Generic;
 using System.IO;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Validation;
 using Moq;
 
@@ -13,7 +15,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Platform;
 public class PackageValidationContext
 {
     public string? PackageRoot { get; set; }
-    public IArtefactStore? RealStore { get; set; }
+    internal FileSystemArtefactStore? RealStore { get; set; }
+    public IPackageAccess? Package { get; set; }
     public PackageValidator? Sut { get; set; }
     public ValidationResult? LastResult { get; set; }
 
@@ -27,7 +30,8 @@ public class PackageValidationContext
         PackageRoot = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(PackageRoot);
         RealStore = new FileSystemArtefactStore(PackageRoot);
-        Sut = new PackageValidator(RealStore);
+        Package = PackageTestFactory.CreateDelegatingMock(RealStore).Object;
+        Sut = new PackageValidator(Package);
     }
 
     public void WritePackageFile(string relativePath, string content)

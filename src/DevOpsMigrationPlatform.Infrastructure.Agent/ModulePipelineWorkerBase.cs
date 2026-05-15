@@ -40,9 +40,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent;
 /// </summary>
 public abstract class ModulePipelineWorkerBase : AgentWorkerBase
 {
-    /// <summary>Factory for creating per-job artefact and state stores.</summary>
-    protected IPackageStoreFactory PackageStoreFactory { get; }
-
     /// <summary>Progress sink for emitting <see cref="ProgressEvent"/> records.</summary>
     protected IProgressSink ProgressSink { get; }
 
@@ -79,7 +76,6 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     private readonly IServiceScopeFactory _moduleScopeFactory;
 
     protected ModulePipelineWorkerBase(
-        IPackageStoreFactory packageStoreFactory,
         IProgressSink progressSink,
         ICheckpointingServiceFactory checkpointingFactory,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
@@ -103,7 +99,6 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
 #endif
                  )
     {
-        PackageStoreFactory = packageStoreFactory ?? throw new ArgumentNullException(nameof(packageStoreFactory));
         ProgressSink = progressSink ?? throw new ArgumentNullException(nameof(progressSink));
         CheckpointingFactory = checkpointingFactory ?? throw new ArgumentNullException(nameof(checkpointingFactory));
         PhaseTrackingFactory = phaseTrackingFactory ?? throw new ArgumentNullException(nameof(phaseTrackingFactory));
@@ -132,18 +127,13 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         => Task.CompletedTask;
 
     /// <summary>
-    /// Creates artefact/state stores for the package, sets the active package store,
-    /// and writes run metadata into the package when a run id is active.
+    /// Initializes package-scoped runtime state and writes run metadata into the package when a run id is active.
     /// </summary>
-    protected async Task<(IArtefactStore ArtefactStore, IStateStore StateStore)> InitializeJobPackageAsync(
+    protected async Task InitializeJobPackageAsync(
         Job job,
         CancellationToken ct)
     {
-        var (artefactStore, stateStore) = PackageStoreFactory.Create(job.Package.PackageUri ?? ".");
-        PackageState.CurrentStore = artefactStore;
-        PackageState.CurrentStateStore = stateStore;
         await WriteRunMetadataAsync(job, ct).ConfigureAwait(false);
-        return (artefactStore, stateStore);
     }
 
     protected async Task WriteRunMetadataAsync(Job job, CancellationToken ct)
@@ -155,7 +145,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         var jobJson = JsonSerializer.Serialize(job, AgentJsonOptions);
         using var jobStream = new MemoryStream(Encoding.UTF8.GetBytes(jobJson), writable: false);
         await PackageAccess.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, new[] { ".migration", "runs", runId!, "job.json" }),
+            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress($".migration/runs/{runId}/job.json")),
             new PackagePayload(jobStream, "application/json"),
             ct).ConfigureAwait(false);
 
@@ -163,7 +153,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         {
             using var cfgStream = new MemoryStream(Encoding.UTF8.GetBytes(job.ConfigPayload!), writable: false);
             await PackageAccess.PersistContentAsync(
-                new PackageContentContext(PackageContentKind.Artefact, new[] { ".migration", "runs", runId!, "config.json" }),
+                new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress($".migration/runs/{runId}/config.json")),
                 new PackagePayload(cfgStream, "application/json"),
                 ct).ConfigureAwait(false);
         }
@@ -182,7 +172,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
         _activeJobState?.Set(job.JobId, job.Kind.ToString());
-        var (artefactStore, stateStore) = await InitializeJobPackageAsync(job, ct).ConfigureAwait(false);
+        await InitializeJobPackageAsync(job, ct).ConfigureAwait(false);
 
         // T035 — explicit fail-fast for pre-025 packages that have no migration-config.json.
         IConfiguration packageConfig;
@@ -209,7 +199,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         using var jobScope = _moduleScopeFactory.CreateScope();
         var jobModules = jobScope.ServiceProvider.GetServices<IModule>();
 
-        var checkpointer = CheckpointingFactory.Create(stateStore);
+        var checkpointer = CheckpointingFactory.Create(PackageAccess);
 
         if (job.Resume?.Mode == ResumeMode.ForceFresh)
         {
@@ -224,8 +214,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         var exportContext = new ExportContext
         {
             Job = job,
-            ArtefactStore = artefactStore,
-            StateStore = stateStore,
+            Package = PackageAccess,
             ProgressSink = ProgressSink
         };
 
@@ -256,5 +245,10 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
 
         await SignalTerminalAsync(controlPlane, leaseId, failed ? "fail" : "complete", ct)
             .ConfigureAwait(false);
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

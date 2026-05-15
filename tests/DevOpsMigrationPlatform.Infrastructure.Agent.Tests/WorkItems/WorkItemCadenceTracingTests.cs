@@ -7,8 +7,6 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -30,12 +28,10 @@ public sealed class WorkItemCadenceTracingTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
         var endpoints = CreateEndpointAccessor();
         var sut = new CheckpointingService(
-            stateStore.Object,
             endpoints.Object,
-            package: PackageTestFactory.CreateStateDelegatingMock(stateStore.Object).Object);
+            package: PackageTestFactory.CreateLooseMock().Object);
         await sut.WriteContinuationTokenAsync("export.workitems", new BatchContinuationToken(), CancellationToken.None);
 
         CollectionAssert.Contains(spans, "state.continuation.update");

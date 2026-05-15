@@ -36,6 +36,9 @@ internal sealed class ActivePackageAccess : IPackageAccess
     private readonly IControlPlaneAgentClient? _controlPlaneAgentClient;
     private readonly Guid _agentInstanceId;
     private readonly ILogger<ActivePackageAccess>? _logger;
+    private IArtefactStore? _lazyStore;
+    private IStateStore? _lazyStateStore;
+    private string? _lazyStoreRoot;
 
     [ActivatorUtilitiesConstructor]
     public ActivePackageAccess(
@@ -287,16 +290,30 @@ internal sealed class ActivePackageAccess : IPackageAccess
     }
 
     private IArtefactStore RequireStore()
-        => _activePackageState.CurrentStore
-            ?? throw new PackageOperationException(
-                "PKG_STORE_UNAVAILABLE",
-                "No active package store is available.");
+    {
+        var root = RequireLocalRoot();
+        if (_lazyStore is null || !string.Equals(_lazyStoreRoot, root, StringComparison.OrdinalIgnoreCase))
+        {
+            _lazyStore = new FileSystemArtefactStore(root);
+            _lazyStateStore = null;
+            _lazyStoreRoot = root;
+        }
+
+        return _lazyStore;
+    }
 
     private IStateStore RequireStateStore()
-        => _activePackageState.CurrentStateStore
-            ?? throw new PackageOperationException(
-                "PKG_STATE_STORE_UNAVAILABLE",
-                "No active package state store is available.");
+    {
+        var root = RequireLocalRoot();
+        if (_lazyStateStore is null || !string.Equals(_lazyStoreRoot, root, StringComparison.OrdinalIgnoreCase))
+        {
+            _lazyStore = null;
+            _lazyStateStore = new FileSystemStateStore(root);
+            _lazyStoreRoot = root;
+        }
+
+        return _lazyStateStore;
+    }
 
     private string RequireLocalRoot()
     {

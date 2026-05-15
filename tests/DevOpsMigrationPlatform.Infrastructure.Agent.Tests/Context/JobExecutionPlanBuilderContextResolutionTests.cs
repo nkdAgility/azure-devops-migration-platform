@@ -31,8 +31,7 @@ public sealed class JobExecutionPlanBuilderContextResolutionTests
             new EndpointPairAnalyserStub(),
             new Job(),
             BuildConfig(),
-            Mock.Of<IArtefactStore>(),
-            Mock.Of<IStateStore>(),
+            PackageTestFactory.CreateLooseMock().Object,
             Mock.Of<IProgressSink>());
 
         Assert.IsInstanceOfType<EndpointPairAnalyseContext>(context);
@@ -46,8 +45,7 @@ public sealed class JobExecutionPlanBuilderContextResolutionTests
             new OrganisationsAnalyserStub(),
             new Job(),
             BuildConfig(),
-            Mock.Of<IArtefactStore>(),
-            Mock.Of<IStateStore>(),
+            PackageTestFactory.CreateLooseMock().Object,
             Mock.Of<IProgressSink>());
 
         Assert.IsInstanceOfType<OrganisationsAnalyseContext>(context);
@@ -63,8 +61,7 @@ public sealed class JobExecutionPlanBuilderContextResolutionTests
             new DualAnalyserStub(),
             new Job(),
             BuildConfig(),
-            Mock.Of<IArtefactStore>(),
-            Mock.Of<IStateStore>(),
+            PackageTestFactory.CreateLooseMock().Object,
             Mock.Of<IProgressSink>());
 
         Assert.IsInstanceOfType<EndpointPairAnalyseContext>(context);
@@ -78,8 +75,7 @@ public sealed class JobExecutionPlanBuilderContextResolutionTests
             new BaseAnalyserStub(),
             new Job(),
             BuildConfig(),
-            Mock.Of<IArtefactStore>(),
-            Mock.Of<IStateStore>(),
+            PackageTestFactory.CreateLooseMock().Object,
             Mock.Of<IProgressSink>());
 
         Assert.AreEqual(typeof(AnalyseContext), context.GetType());
@@ -89,7 +85,7 @@ public sealed class JobExecutionPlanBuilderContextResolutionTests
     {
         var phaseFactory = new Mock<IPhaseTrackingServiceFactory>(MockBehavior.Loose);
         var phaseService = new Mock<IPhaseTrackingService>(MockBehavior.Loose);
-        phaseFactory.Setup(x => x.Create(It.IsAny<IStateStore>())).Returns(phaseService.Object);
+        phaseFactory.Setup(x => x.Create(It.IsAny<IPackageAccess>())).Returns(phaseService.Object);
         return new JobExecutionPlanBuilder(
             [],
             [],

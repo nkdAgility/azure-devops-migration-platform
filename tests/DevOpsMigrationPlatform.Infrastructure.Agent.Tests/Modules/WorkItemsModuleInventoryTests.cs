@@ -20,6 +20,7 @@ using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -155,8 +156,7 @@ public sealed class WorkItemsModuleInventoryTests
         => new()
         {
             Job = new Job { JobId = "job-1", Kind = JobKind.Inventory },
-            ArtefactStore = Mock.Of<IArtefactStore>(),
-            StateStore = Mock.Of<IStateStore>(),
+            Package = PackageTestFactory.CreateLooseMock().Object,
             ProgressSink = progressSink,
             SourceEndpoint = new OrganisationEndpoint { Type = "Simulated", ResolvedUrl = "https://source.example" },
             Project = "ProjectA"

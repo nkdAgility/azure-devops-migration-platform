@@ -3,7 +3,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -68,33 +70,36 @@ public class TeamsModuleTests
         return mock.Object;
     }
 
-    private static ExportContext CreateExportContext(IArtefactStore store)
+    private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
+
+    private static PackageContentContext ContentAt(string path)
+        => new(PackageContentKind.Artefact, Address: new TestPackageAddress(path));
+
+    private static ExportContext CreateExportContext(IPackageAccess package)
         => new()
         {
             Job = new Job { Kind = JobKind.Export },
-            ArtefactStore = store,
-            StateStore = Mock.Of<IStateStore>(),
+            Package = package,
             ProgressSink = Mock.Of<IProgressSink>()
         };
 
-    private static ImportContext CreateImportContext(IArtefactStore store)
+    private static ImportContext CreateImportContext(IPackageAccess package)
         => new()
         {
             Job = new Job { Kind = JobKind.Import },
-            ArtefactStore = store,
-            StateStore = Mock.Of<IStateStore>(),
+            Package = package,
             ProgressSink = Mock.Of<IProgressSink>()
         };
 
-    private static ValidationContext CreateValidationContext(Mock<IArtefactStore> store)
+    private static ValidationContext CreateValidationContext(IPackageAccess package)
         => new()
         {
             Job = new Job(),
-            ArtefactStore = store.Object
+            Package = package
         };
 
     private static TeamsOrchestrator CreateTeamsOrchestrator(
-        IArtefactStore artefactStore,
+        IPackageAccess package,
         TeamExportOrchestrator? exportOrchestrator = null,
         TeamImportOrchestrator? importOrchestrator = null)
         => new(
@@ -102,24 +107,25 @@ public class TeamsModuleTests
             exportOrchestrator: exportOrchestrator,
             importOrchestrator: importOrchestrator,
             slugGenerator: new TeamSlugGenerator(),
-            package: PackageTestFactory.CreateDelegatingMock(artefactStore).Object);
+            package: package);
 
     [TestMethod]
     public async Task ExportAsync_Skips_WhenModuleDisabled()
     {
         // Arrange
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Strict);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Strict);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         var source = new SimulatedTeamSource();
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = false }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object),
+            orchestrator: CreateTeamsOrchestrator(package.Object),
             teamSource: source);
 
         // Act — no store calls expected
-        await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
+        await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
 
         storeMock.VerifyNoOtherCalls();
     }
@@ -128,16 +134,17 @@ public class TeamsModuleTests
     public async Task ExportAsync_Skips_WhenNoTeamSourceRegistered()
     {
         // Arrange
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Strict);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Strict);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = true }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object)); // no teamSource
+            orchestrator: CreateTeamsOrchestrator(package.Object)); // no teamSource
 
         // Act
-        await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
+        await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
 
         storeMock.VerifyNoOtherCalls();
     }
@@ -147,7 +154,8 @@ public class TeamsModuleTests
     {
         // Arrange
         var writtenPaths = new List<string>();
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock
             .Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Callback<string, string, CancellationToken>((path, _, __) => writtenPaths.Add(path))
@@ -164,11 +172,11 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object, exportOrchestrator: exportOrch),
+            orchestrator: CreateTeamsOrchestrator(package.Object, exportOrchestrator: exportOrch),
             teamSource: source);
 
         // Act
-        await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
+        await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
 
         // Assert — two teams from SimulatedTeamSource → two team.json files
         Assert.AreEqual(2, writtenPaths.Count, $"Expected 2 team files. Written: {string.Join(", ", writtenPaths)}");
@@ -180,7 +188,8 @@ public class TeamsModuleTests
     {
         // Arrange
         var writtenPaths = new List<string>();
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock
             .Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Callback<string, string, CancellationToken>((path, _, __) => writtenPaths.Add(path))
@@ -196,10 +205,10 @@ public class TeamsModuleTests
             Options.Create(opts),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object, exportOrchestrator: exportOrch), teamSource: source);
+            orchestrator: CreateTeamsOrchestrator(package.Object, exportOrchestrator: exportOrch), teamSource: source);
 
         // Act
-        await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
+        await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
 
         // Assert — only "Alpha Team" matches → 1 file
         Assert.AreEqual(1, writtenPaths.Count, $"Expected 1 filtered team. Written: {string.Join(", ", writtenPaths)}");
@@ -210,7 +219,8 @@ public class TeamsModuleTests
     public async Task ExportAsync_SkipsExistingTeam_WhenAlwaysExportFalse()
     {
         // Arrange — team.json already exists in the store
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock
             .Setup(s => s.ExistsAsync(It.Is<string>(p => p.EndsWith("/team.json")), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true); // already exported
@@ -223,10 +233,10 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true, AlwaysExport = false }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object, exportOrchestrator: exportOrch), teamSource: source);
+            orchestrator: CreateTeamsOrchestrator(package.Object, exportOrchestrator: exportOrch), teamSource: source);
 
         // Act
-        await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
+        await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
 
         // Assert — no team.json writes (all skipped)
         storeMock.Verify(
@@ -240,7 +250,8 @@ public class TeamsModuleTests
     {
         // Arrange — team.json already exists, but AlwaysExport forces a fresh export
         var writtenPaths = new List<string>();
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock
             .Setup(s => s.ExistsAsync(It.Is<string>(p => p.EndsWith("/team.json")), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true); // already exported
@@ -257,10 +268,10 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true, AlwaysExport = true }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object, exportOrchestrator: exportOrch), teamSource: source);
+            orchestrator: CreateTeamsOrchestrator(package.Object, exportOrchestrator: exportOrch), teamSource: source);
 
         // Act
-        await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
+        await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
 
         // Assert — both teams written despite artefacts already existing
         Assert.AreEqual(2, writtenPaths.Count,
@@ -271,16 +282,17 @@ public class TeamsModuleTests
     public async Task ImportAsync_Skips_WhenModuleDisabled()
     {
         // Arrange
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Strict);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Strict);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(new TeamsModuleOptions { Enabled = false }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object));
+            orchestrator: CreateTeamsOrchestrator(package.Object));
 
         // Act
-        await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
 
         storeMock.VerifyNoOtherCalls();
     }
@@ -306,7 +318,8 @@ public class TeamsModuleTests
         var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
 
         var paths = new[] { "Teams/alpha-team/team.json" };
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock
             .Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
             .Returns(ToAsyncEnum(paths));
@@ -319,10 +332,10 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object, importOrchestrator: importOrch), teamTarget: target);
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: target);
 
         // Act
-        await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
 
         // Assert — team was created in the target
         Assert.AreEqual(1, target.Teams.Count, "Expected exactly one team to be imported");
@@ -332,7 +345,8 @@ public class TeamsModuleTests
     public async Task ValidateAsync_AddsError_WhenNoTeamFilesFound()
     {
         // Arrange
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock
             .Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
             .Returns(ToAsyncEnum(Array.Empty<string>()));
@@ -342,9 +356,9 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object));
+            orchestrator: CreateTeamsOrchestrator(package.Object));
 
-        var context = CreateValidationContext(storeMock);
+        var context = CreateValidationContext(package.Object);
 
         // Act
         await module.ValidateAsync(context, CancellationToken.None);
@@ -358,7 +372,8 @@ public class TeamsModuleTests
     public async Task ValidateAsync_AddsError_WhenTeamJsonMissingDefinitionField()
     {
         // Arrange
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock
             .Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
             .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
@@ -371,9 +386,9 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object));
+            orchestrator: CreateTeamsOrchestrator(package.Object));
 
-        var context = CreateValidationContext(storeMock);
+        var context = CreateValidationContext(package.Object);
 
         // Act
         await module.ValidateAsync(context, CancellationToken.None);
@@ -387,7 +402,8 @@ public class TeamsModuleTests
     public async Task ValidateAsync_AddsError_WhenTeamJsonIsMalformed()
     {
         // Arrange
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock
             .Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
             .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
@@ -400,9 +416,9 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object));
+            orchestrator: CreateTeamsOrchestrator(package.Object));
 
-        var context = CreateValidationContext(storeMock);
+        var context = CreateValidationContext(package.Object);
 
         // Act
         await module.ValidateAsync(context, CancellationToken.None);
@@ -425,7 +441,8 @@ public class TeamsModuleTests
         };
         var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
 
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock
             .Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
             .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
@@ -438,9 +455,9 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object));
+            orchestrator: CreateTeamsOrchestrator(package.Object));
 
-        var context = CreateValidationContext(storeMock);
+        var context = CreateValidationContext(package.Object);
 
         // Act
         await module.ValidateAsync(context, CancellationToken.None);
@@ -470,7 +487,8 @@ public class TeamsModuleTests
         };
         var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
 
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
             .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
         storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
@@ -481,10 +499,10 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true } }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object, importOrchestrator: importOrch), teamTarget: target);
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: target);
 
         // Act
-        await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
 
         // Assert — iteration was assigned to the created team
         Assert.AreEqual(1, target.Teams.Count);
@@ -520,7 +538,8 @@ public class TeamsModuleTests
         };
         var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
 
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
             .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
         storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
@@ -531,10 +550,10 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamMembers = true } }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object, importOrchestrator: importOrch), teamTarget: target);
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: target);
 
         // Act
-        await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
 
         // Assert — both members added with resolved descriptors
         var teamId = new System.Collections.Generic.List<string>(target.Teams.Keys)[0];
@@ -569,7 +588,8 @@ public class TeamsModuleTests
         };
         var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
 
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
             .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
         storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
@@ -580,10 +600,10 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamCapacity = true } }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object, importOrchestrator: importOrch), teamTarget: target);
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: target);
 
         // Act
-        await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
 
         // Assert — capacity was set
         var teamId = new System.Collections.Generic.List<string>(target.Teams.Keys)[0];
@@ -611,7 +631,8 @@ public class TeamsModuleTests
         };
         var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
 
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
             .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
         storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
@@ -622,10 +643,10 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamCapacity = false } }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object, importOrchestrator: importOrch), teamTarget: target);
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: target);
 
         // Act
-        await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
 
         // Assert — no capacity entries stored
         Assert.AreEqual(0, target.Capacity.Count, "Capacity should be empty when extension is disabled");
@@ -642,19 +663,20 @@ public class TeamsModuleTests
 
         var trackerMock = new Mock<IReferencedPathTracker>(MockBehavior.Loose);
         trackerMock
-            .Setup(t => t.RecordAreaPathAsync(It.IsAny<string>(), It.IsAny<IArtefactStore>(), It.IsAny<CancellationToken>()))
-            .Callback<string, IArtefactStore, CancellationToken>((path, _, __) => recordedAreaPaths.Add(path))
+            .Setup(t => t.RecordAreaPathAsync(It.IsAny<string>(), It.IsAny<IPackageAccess>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, IPackageAccess, string, string, CancellationToken>((path, _, __, ___, ____) => recordedAreaPaths.Add(path))
             .Returns(Task.CompletedTask);
         trackerMock
-            .Setup(t => t.RecordIterationPathAsync(It.IsAny<string>(), It.IsAny<IArtefactStore>(), It.IsAny<CancellationToken>()))
-            .Callback<string, IArtefactStore, CancellationToken>((path, _, __) => recordedIterPaths.Add(path))
+            .Setup(t => t.RecordIterationPathAsync(It.IsAny<string>(), It.IsAny<IPackageAccess>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, IPackageAccess, string, string, CancellationToken>((path, _, __, ___, ____) => recordedIterPaths.Add(path))
             .Returns(Task.CompletedTask);
 
         var source = new SimulatedTeamSource();
         var exportOrch = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance, endpointInfo: CreateSourceEndpointInfo(),
             referencedPathTracker: trackerMock.Object);
 
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock
             .Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -669,10 +691,10 @@ public class TeamsModuleTests
             Options.Create(opts),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object, exportOrchestrator: exportOrch), teamSource: source);
+            orchestrator: CreateTeamsOrchestrator(package.Object, exportOrchestrator: exportOrch), teamSource: source);
 
         // Act
-        await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
+        await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
 
         // Assert — iteration paths should be recorded (SimulatedTeamSource has sprint iterations)
         Assert.IsTrue(recordedIterPaths.Count > 0, "Expected at least one iteration path to be recorded.");
@@ -689,7 +711,8 @@ public class TeamsModuleTests
         var exportOrch = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance, endpointInfo: CreateSourceEndpointInfo(),
             referencedPathTracker: trackerMock.Object);
 
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock
             .Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -704,10 +727,10 @@ public class TeamsModuleTests
             Options.Create(opts),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object, exportOrchestrator: exportOrch), teamSource: source);
+            orchestrator: CreateTeamsOrchestrator(package.Object, exportOrchestrator: exportOrch), teamSource: source);
 
         // Act
-        await module.ExportAsync(CreateExportContext(storeMock.Object), CancellationToken.None);
+        await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
 
         // Assert — no path tracker calls when NodeTranslation extension is disabled
         trackerMock.VerifyNoOtherCalls();
@@ -748,7 +771,8 @@ public class TeamsModuleTests
         };
         var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
 
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
             .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
         storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
@@ -759,10 +783,10 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true } }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object, importOrchestrator: importOrch), teamTarget: target);
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: target);
 
         // Act
-        await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
 
         // Assert — TranslatePath was called and path was translated
         translationToolMock.Verify(t => t.TranslatePath(
@@ -814,7 +838,8 @@ public class TeamsModuleTests
         };
         var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
 
-        var storeMock = new Mock<IArtefactStore>(MockBehavior.Loose);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
         storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
             .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
         storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
@@ -833,10 +858,10 @@ public class TeamsModuleTests
             }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
-            orchestrator: CreateTeamsOrchestrator(storeMock.Object, importOrchestrator: importOrch), teamTarget: target);
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: target);
 
         // Act
-        await module.ImportAsync(CreateImportContext(storeMock.Object), CancellationToken.None);
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
 
         // Assert — iteration translation used System.IterationPath, area used System.AreaPath
         Assert.AreEqual("System.IterationPath", capturedIterationField,
