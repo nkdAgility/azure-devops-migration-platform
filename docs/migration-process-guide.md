@@ -13,7 +13,7 @@ See [docs/cli-guide.md](cli-guide.md) for how the CLI routes a job to the Job En
 3. **Validate package** — Run each module's `ValidateAsync` (pre-execution pass). Fail fast on errors.
 4. **Build module dependency graph** — Topological sort of all enabled modules using `DependsOn` declarations per phase. Fail fast on circular dependencies.
 5. **Execute tasks in order** — Walk the task list phase by phase. Within each phase, execute tasks in topological dependency order. Each task invokes one module method (`ExportAsync`, `PrepareAsync`, `ImportAsync`, or `ValidateAsync`) depending on the phase.
-6. **Maintain state via cursors** — Each module writes its cursor after each unit of work via `IStateStore`.
+6. **Maintain state via cursors** — Each module writes cursor/meta state through `IPackageAccess` package-state intents after each unit of work.
 7. **Emit progress events** — After each cursor write, emit a `ProgressEvent` to `IProgressSink`.
 7a. **Record metrics** — After each work item processing step, record OTel metrics via `IMigrationMetrics` (execution counters, payload histograms, duration).
 8. **Fail fast on module failure** — A non-recoverable error in any module halts the run. Cursor state allows resume.
@@ -202,7 +202,7 @@ The orchestrator runs in the same way regardless of execution context. The conte
 ### Local / Server Hosted
 
 - The CLI uses embedded Aspire `DistributedApplication` APIs to start `ControlPlaneHost`, `MigrationAgent`(s), and PostgreSQL on the local machine. All components communicate over HTTP (`http://localhost:5100`).
-- `IArtefactStore` is backed by the local filesystem (`FileSystemArtefactStore`).
+- The package boundary is backed by the local filesystem store (`FileSystemArtefactStore` beneath `IPackageAccess`).
 - Progress is consumed by all three sinks simultaneously: `ConsoleProgressSink`, `PackageProgressSink`, and `ControlPlaneProgressSink` (enables live TUI streaming via the control plane).
 - Any machine with network access to the host can attach a TUI via the control plane HTTP endpoint.
 
@@ -211,7 +211,7 @@ See [docs/cli-guide.md](cli-guide.md) for local and server command details.
 ### Agent (Cloud)
 
 - A Migration Agent calls the Job Engine after receiving a leased `Job` from the remote control plane.
-- `IArtefactStore` is backed by the shared artefact store (`AzureBlobArtefactStore` or equivalent).
+- The package boundary is backed by the shared artefact store (`AzureBlobArtefactStore` or equivalent beneath `IPackageAccess`).
 - Progress is consumed by `ControlPlaneProgressSink`, which pushes events to the control plane.
 - The control plane's progress view mirrors the cursor; the cursor in the package remains authoritative for resume.
 

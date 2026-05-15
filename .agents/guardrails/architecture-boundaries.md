@@ -22,7 +22,7 @@ If a rule below forces a **clearly worse outcome**: Stop → Cite rule number �
 
 6. **No source-to-target direct migration.** Source → Package → Target. Always.
 
-7. **Modules only through IArtefactStore and IStateStore.** No direct filesystem access, no source/target API calls outside export/import context, no global shared state.
+7. **Modules use the package boundary (`IPackageAccess`) for package-facing operations.** No direct filesystem access, no source/target API calls outside export/import context, no global shared state.
 
 8. **Identity is cross-cutting.** All modules use `IIdentityMappingService`. `IdentitiesModule` completes before any identity-mapping module.
 

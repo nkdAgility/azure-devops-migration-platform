@@ -10,7 +10,7 @@ A module is a self-contained unit of migration logic for a single data type (e.g
 
 - Modules must not call other modules.
 - Modules must not call connectors from other modules.
-- Modules must not access the filesystem directly — all package access goes through `IArtefactStore` and `IStateStore`.
+- Modules must not access the filesystem directly — package-facing access goes through `IPackageAccess` (with `IArtefactStore`/`IStateStore` beneath the boundary).
 
 ## Execution Shape
 

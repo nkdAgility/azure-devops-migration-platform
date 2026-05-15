@@ -23,7 +23,7 @@ Agents must read the relevant guardrails before making changes and must check co
 | `workitems-rules.md` | Work Items specific rules — chronological layout, attachment placement, orchestrator reuse |
 | `module-rules.md` | Module rules — isolation, required interfaces, telemetry and test expectations |
 | `control-plane-rules.md` | Control Plane rules — coordination only, no migration execution, no package writes |
-| `package-rules.md` | Package rules — IArtefactStore-only access, no direct filesystem writes, enumeration ordering |
+| `package-rules.md` | Package rules — IPackageAccess caller boundary, no direct filesystem writes, enumeration ordering |
 | `connector-rules.md` | Connector rules — full three-variant coverage, no empty Simulated, real SDK calls required |
 | `cli-tui-rules.md` | CLI and TUI rules — API-only progress display, no in-process sink wiring |
 | `configuration-rules.md` | Configuration rules — IOptions<T> only, schema versioning, no undocumented options |

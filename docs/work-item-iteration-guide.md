@@ -12,7 +12,7 @@ This pattern has been proven to handle 20,000+ work items with bounded memory. E
 1. Use `WorkItemExportOrchestrator` for export streaming.
 2. Use `IWorkItemRevisionSource` as the source abstraction.
 3. Use `ICheckpointingService` for cursor-based progress tracking.
-4. Use `IArtefactStore.EnumerateAsync()` (in lexicographic order) for import enumeration.
+4. Use the package-boundary import enumeration path (lexicographic order preserved by boundary/store contracts), not custom in-memory ordering loops.
 5. Stream attachment binaries directly — never buffer in memory.
 6. Use `IWorkItemFetchService` for field-projected, filtered work item fetching in inventory, dependency analysis, and catalog operations. Do not call `GetWorkItemsAsync` directly from these callers.
 
@@ -400,7 +400,7 @@ The pattern is memory-safe because:
 | `IWorkItemRevisionSource.GetRevisionsAsync()` | Yields one revision at a time via `async yield return` |
 | `WorkItemExportOrchestrator.ExportAsync()` | Processes via `await foreach` (no buffering) |
 | `IAttachmentBinarySource.GetBinariesAsync()` | Streams content directly; no byte array accumulation |
-| `IArtefactStore.EnumerateAsync()` | Lexicographic order on each call; no pre-loading |
+| Package-boundary enumeration (`IPackageAccess` over artefact store) | Lexicographic order on each call; no pre-loading |
 | `IProgressSink.Emit()` | Async write to remote sink (non-blocking) |
 | Cursor checkpoint | Single `Cursor` object in memory (constant size, ~100 bytes) |
 
@@ -415,10 +415,10 @@ The pattern is memory-safe because:
 | Load all revisions into `List<WorkItemRevision>` before processing | Breaks memory safety for 20k+ items |
 | Sort enumerated paths in memory | Defeats the chronological ordering guarantee |
 | Implement a custom export loop instead of using `WorkItemExportOrchestrator` | Duplicates logic, introduces bugs, misses resume/checkpoint semantics |
-| Write attachment binaries to a temporary file list, then upload | Holds all attachments in memory; use `IArtefactStore.WriteBinaryAsync` directly |
-| Use watermark tables or in-memory dictionaries for progress tracking | Use `ICheckpointingService` via `IStateStore` (cursor-based) |
+| Write attachment binaries to a temporary file list, then upload | Holds all attachments in memory; use package-boundary streaming/binary paths directly |
+| Use watermark tables or in-memory dictionaries for progress tracking | Use cursor-based checkpointing through package state intents (`IPackageAccess`) |
 | Bypass `IWorkItemRevisionSource` and call the source API directly from module code | Couples modules to specific source systems; breaks multi-source flexibility |
-| Write files outside `IArtefactStore` | Breaks cloud deployment (local filesystem is not portable to blob storage) |
+| Write files outside the package boundary (`IPackageAccess`) | Breaks portability and bypasses boundary routing/state contracts |
 
 ---
 

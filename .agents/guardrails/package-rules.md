@@ -5,7 +5,7 @@ These rules are mandatory for all code that reads or writes the migration packag
 ## Package as Source of Truth
 
 1. The package is the source of truth for all migration state. No migration state may be held in memory, databases, or external services as the authoritative store.
-2. All module code must access the package exclusively through `IArtefactStore` and `IStateStore`. Direct filesystem access is forbidden in module code.
+2. Runtime module/orchestrator code must access the package through `IPackageAccess`. `IArtefactStore` and `IStateStore` are lower-level boundary internals and must not be used as alternate caller-facing seams. Direct filesystem access remains forbidden in module code.
 
 ## Unified Package Boundary Contract
 
@@ -31,7 +31,7 @@ These rules are mandatory for all code that reads or writes the migration packag
 
 ## Binary Access
 
-1. Binary attachments must be streamed via `IArtefactStore.WriteBinaryAsync()` and `IArtefactStore.ReadBinaryAsync()`. Buffering attachments in memory is forbidden.
+1. Binary attachments must be streamed through package-boundary streaming paths (`IPackageAccess` caller surface with boundary-owned binary persistence). Buffering attachments in memory is forbidden.
 
 ## Hidden State
 
