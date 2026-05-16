@@ -214,6 +214,23 @@ public sealed class WorkItemsModulePrepareTests
         Assert.AreEqual("synthetic-prepare-failure", exception.InnerException.Message);
     }
 
+    [TestMethod]
+    public async Task PrepareAsync_PropagatesCancellation_WhenCancellationRequested()
+    {
+        var package = PackageTestFactory.CreateLooseMock();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var module = CreateModule(
+        [
+            new ThrowingImportFailurePattern(new OperationCanceledException(cts.Token))
+        ]);
+        var context = CreatePrepareContext(package.Object);
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(
+            () => module.PrepareAsync(context, cts.Token));
+    }
+
     private static WorkItemRevision CreateRevisionWithArtefacts() =>
         new()
         {
@@ -300,7 +317,7 @@ public sealed class WorkItemsModulePrepareTests
 
         package
             .Setup(p => p.PersistContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == ".mission/Readiness/workitems-import-readiness.json"),
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath == ".migration/Readiness/workitems-import-readiness.json"),
                 It.IsAny<PackagePayload>(),
                 It.IsAny<CancellationToken>()))
             .Callback<PackageContentContext, PackagePayload, CancellationToken>((_, payload, _) =>

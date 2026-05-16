@@ -387,6 +387,10 @@ public sealed class WorkItemsModule : IModule
         {
             report = await _importPreparer.PrepareAsync(context, ct).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _metrics?.RecordPrepareWorkItemsError(tags);
@@ -406,7 +410,7 @@ public sealed class WorkItemsModule : IModule
         {
             await WritePackageTextAsync(
                     context.Package,
-                    ".mission/Readiness/workitems-import-readiness.json",
+                    ".migration/Readiness/workitems-import-readiness.json",
                     JsonSerializer.Serialize(report.ImportReadinessReport),
                     ct)
                 .ConfigureAwait(false);
