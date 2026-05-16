@@ -4,6 +4,7 @@
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Configuration;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import.FailurePatterns;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Validators;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -36,6 +37,7 @@ public static class WorkItemImportModuleExtensions
         services.AddTransient<IImportFailurePattern, MissingAttachmentBinaryImportFailurePattern>();
         services.AddTransient<IImportFailurePattern, MissingEmbeddedImageBinaryImportFailurePattern>();
         services.AddTransient<IImportFailurePattern, FieldTransformCompatibilityImportFailurePattern>();
+        services.AddTransient<IImportFailurePattern, NodePathValidator>();
 #if !NET481
         services.AddSingleton<NodeReadinessOrchestrator>();
 #endif

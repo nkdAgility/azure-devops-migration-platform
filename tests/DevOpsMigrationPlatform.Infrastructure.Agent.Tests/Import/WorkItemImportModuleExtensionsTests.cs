@@ -4,6 +4,7 @@
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Configuration;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Extensions;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Validators;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -45,5 +46,17 @@ public class WorkItemImportModuleExtensionsTests
         var options = provider.GetRequiredService<IOptions<WorkItemImportOptions>>();
 
         Assert.ThrowsExactly<OptionsValidationException>(() => _ = options.Value);
+    }
+
+    [TestMethod]
+    public void RegisterWorkItemImportServices_RegistersNodePathValidatorFailurePattern()
+    {
+        var services = new ServiceCollection();
+
+        services.RegisterWorkItemImportServices(new ConfigurationBuilder().Build());
+
+        Assert.IsTrue(services.Any(
+            descriptor => descriptor.ServiceType == typeof(IImportFailurePattern)
+                          && descriptor.ImplementationType == typeof(NodePathValidator)));
     }
 }
