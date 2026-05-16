@@ -59,6 +59,12 @@ public class NodeReadinessOrchestratorTests
         creator.Verify(
             c => c.EnsureExistsAsync(ClassificationNodeType.Iteration, @"Target\Sprint 1", It.IsAny<CancellationToken>()),
             Times.Once);
+        translationTool.Verify(
+            t => t.TranslatePath("System.AreaPath", @"Source\Team A", It.IsAny<ProjectMapping>()),
+            Times.Once);
+        translationTool.Verify(
+            t => t.TranslatePath("System.IterationPath", @"Source\Sprint 1", It.IsAny<ProjectMapping>()),
+            Times.Once);
     }
 
     [TestMethod]
