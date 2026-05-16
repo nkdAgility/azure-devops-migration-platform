@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Microsoft.VisualStudio.Services.Common;
 using Moq;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Import;
@@ -83,7 +84,7 @@ public class AzureDevOpsNodeCreatorTests
                 0,
                 It.IsAny<object>(),
                 It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("not found"));
+            .ThrowsAsync(new VssServiceException("TF401232: Classification node does not exist."));
 
         var sut = new AzureDevOpsNodeCreator(
             factory.Object,
@@ -128,7 +129,7 @@ public class AzureDevOpsNodeCreatorTests
                 0,
                 It.IsAny<object>(),
                 It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("not found"));
+            .ThrowsAsync(new VssServiceException("TF401232: Classification node does not exist."));
 
         witClient
             .Setup(c => c.CreateOrUpdateClassificationNodeAsync(
@@ -181,7 +182,7 @@ public class AzureDevOpsNodeCreatorTests
                 0,
                 It.IsAny<object>(),
                 It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("not found"));
+            .ThrowsAsync(new VssServiceException("TF401232: Classification node does not exist."));
 
         witClient
             .Setup(c => c.CreateOrUpdateClassificationNodeAsync(
@@ -234,7 +235,7 @@ public class AzureDevOpsNodeCreatorTests
                 0,
                 It.IsAny<object>(),
                 It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("not found"));
+            .ThrowsAsync(new VssServiceException("TF401232: Classification node does not exist."));
 
         witClient
             .Setup(c => c.CreateOrUpdateClassificationNodeAsync(
