@@ -35,18 +35,19 @@ internal sealed class NodePathValidator(INodeCreator nodeCreator) : IImportFailu
 
             foreach (var field in parsedRevision.Revision.Fields)
             {
-                if (string.IsNullOrWhiteSpace(field.Value))
+                if (field.Value is not string value || string.IsNullOrWhiteSpace(value))
                 {
                     continue;
                 }
 
+                var trimmedValue = value.Trim();
                 if (string.Equals(field.ReferenceName, "System.AreaPath", System.StringComparison.OrdinalIgnoreCase))
                 {
-                    areaPaths.Add(field.Value.Trim());
+                    areaPaths.Add(trimmedValue);
                 }
                 else if (string.Equals(field.ReferenceName, "System.IterationPath", System.StringComparison.OrdinalIgnoreCase))
                 {
-                    iterationPaths.Add(field.Value.Trim());
+                    iterationPaths.Add(trimmedValue);
                 }
             }
         }
