@@ -67,6 +67,78 @@ public sealed class IdentityMappingValidatorTests
     }
 
     [TestMethod]
+    public async Task EvaluateAsync_ReportsUnresolved_WhenIdentityFallsBackToDefaultIdentityWithoutExplicitMapping()
+    {
+        const string descriptorsPath = "Identities/descriptors.jsonl";
+        const string mappingPath = "Identities/mapping.json";
+
+        var package = PackageTestFactory.CreateLooseMock();
+        package
+            .Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext context, CancellationToken _) =>
+            {
+                var path = context.Address!.RelativePath.Replace('\\', '/');
+                return path switch
+                {
+                    descriptorsPath => ValueTask.FromResult<PackagePayload?>(CreateTextPayload(
+                        Serialize(new IdentityDescriptor("desc-1", "Fallback User", "fallback@source.example", "User", "AzureDevOps", true)) + "\n")),
+                    mappingPath => ValueTask.FromResult<PackagePayload?>(CreateTextPayload("{}")),
+                    _ => ValueTask.FromResult<PackagePayload?>(null)
+                };
+            });
+
+        var identityMappingService = new Mock<IIdentityMappingService>(MockBehavior.Strict);
+        identityMappingService.Setup(s => s.LoadMappingOverrides(It.IsAny<string?>()));
+        identityMappingService.Setup(s => s.Resolve("fallback@source.example")).Returns("migration-default@target.example");
+
+        var sut = new IdentityMappingValidator(identityMappingService.Object);
+
+        var findings = await sut.EvaluateAsync(
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions()),
+            CancellationToken.None);
+
+        Assert.AreEqual(1, findings.Count);
+        Assert.AreEqual("fallback@source.example", findings[0].EvidenceKey);
+        Assert.AreEqual(ImportFailureSeverity.Warning, findings[0].Severity);
+        identityMappingService.Verify(s => s.Resolve("fallback@source.example"), Times.Once);
+    }
+
+    [TestMethod]
+    public async Task EvaluateAsync_DoesNotReportUnresolved_WhenIdentityHasExplicitSelfMapping()
+    {
+        const string descriptorsPath = "Identities/descriptors.jsonl";
+        const string mappingPath = "Identities/mapping.json";
+
+        var package = PackageTestFactory.CreateLooseMock();
+        package
+            .Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext context, CancellationToken _) =>
+            {
+                var path = context.Address!.RelativePath.Replace('\\', '/');
+                return path switch
+                {
+                    descriptorsPath => ValueTask.FromResult<PackagePayload?>(CreateTextPayload(
+                        Serialize(new IdentityDescriptor("desc-1", "Self Map User", "self@source.example", "User", "AzureDevOps", true)) + "\n")),
+                    mappingPath => ValueTask.FromResult<PackagePayload?>(CreateTextPayload("{\"self@source.example\":\"self@source.example\"}")),
+                    _ => ValueTask.FromResult<PackagePayload?>(null)
+                };
+            });
+
+        var identityMappingService = new Mock<IIdentityMappingService>(MockBehavior.Strict);
+        identityMappingService.Setup(s => s.LoadMappingOverrides(It.IsAny<string?>()));
+        identityMappingService.Setup(s => s.Resolve("self@source.example")).Returns("self@source.example");
+
+        var sut = new IdentityMappingValidator(identityMappingService.Object);
+
+        var findings = await sut.EvaluateAsync(
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions()),
+            CancellationToken.None);
+
+        Assert.AreEqual(0, findings.Count);
+        identityMappingService.Verify(s => s.Resolve("self@source.example"), Times.Once);
+    }
+
+    [TestMethod]
     public async Task EvaluateAsync_ReturnsEmpty_WhenDescriptorArtefactIsMissing()
     {
         var package = PackageTestFactory.CreateLooseMock();

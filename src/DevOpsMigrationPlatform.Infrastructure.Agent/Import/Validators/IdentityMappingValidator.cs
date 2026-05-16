@@ -30,6 +30,7 @@ internal sealed class IdentityMappingValidator(IIdentityMappingService identityM
             "Identities/mapping.json",
             cancellationToken).ConfigureAwait(false);
         identityMappingService.LoadMappingOverrides(mappingJson);
+        var explicitMappings = ParseExplicitMappings(mappingJson);
 
         var descriptorsJson = await ReadPackageTextAsync(
             context.PrepareContext.Package,
@@ -46,7 +47,7 @@ internal sealed class IdentityMappingValidator(IIdentityMappingService identityM
         {
             var resolvedIdentity = identityMappingService.Resolve(identity);
             if (string.IsNullOrWhiteSpace(resolvedIdentity)
-                || string.Equals(resolvedIdentity, identity, System.StringComparison.OrdinalIgnoreCase))
+                || !explicitMappings.Contains(identity))
             {
                 unresolvedIdentities.Add(identity);
             }
@@ -98,6 +99,31 @@ internal sealed class IdentityMappingValidator(IIdentityMappingService identityM
 
     private static string? FirstNonEmpty(params string?[] values)
         => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))?.Trim();
+
+    private static HashSet<string> ParseExplicitMappings(string? mappingJson)
+    {
+        if (string.IsNullOrWhiteSpace(mappingJson))
+        {
+            return new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+        }
+
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<Dictionary<string, string>>(mappingJson!, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+            return parsed is null
+                ? new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(
+                    parsed.Keys.Where(key => !string.IsNullOrWhiteSpace(key)).Select(key => key.Trim()),
+                    System.StringComparer.OrdinalIgnoreCase);
+        }
+        catch (JsonException)
+        {
+            return new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+        }
+    }
 
     private static async Task<string?> ReadPackageTextAsync(IPackageAccess package, string relativePath, CancellationToken cancellationToken)
     {
