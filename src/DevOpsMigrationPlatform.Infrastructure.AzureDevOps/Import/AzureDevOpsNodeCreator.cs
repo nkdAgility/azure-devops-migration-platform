@@ -215,5 +215,5 @@ internal sealed class AzureDevOpsNodeCreator : INodeCreator
     }
 
     private static string NormalizePath(string path)
-        => path.Replace('/', '\\').Trim().TrimStart('\\');
+        => path.Replace('/', '\\').Trim().Trim('\\');
 }
