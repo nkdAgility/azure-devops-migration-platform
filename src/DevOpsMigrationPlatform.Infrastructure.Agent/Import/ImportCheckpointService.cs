@@ -15,13 +15,15 @@ using DevOpsMigrationPlatform.Abstractions.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 
-public sealed class ImportCheckpointService
+public sealed class ImportCheckpointService : IAsyncDisposable
 {
     private const string CursorPath = ".migration/Checkpoints/workitems-import.cursor.json";
     private readonly IPackageAccess _package;
     private readonly SemaphoreSlim _idMapInitializeGate = new(initialCount: 1, maxCount: 1);
+    private readonly SemaphoreSlim _idMapWriteGate = new(initialCount: 1, maxCount: 1);
     private DbConnection? _idMapConnection;
     private bool _idMapInitialized;
+    private bool _disposed;
 
     public ImportCheckpointService(IPackageAccess package)
     {
@@ -30,6 +32,7 @@ public sealed class ImportCheckpointService
 
     public async Task<CursorEntry?> ReadCursorAsync(CancellationToken cancellationToken)
     {
+        ThrowIfDisposed();
         var payload = await _package.RequestContentAsync(
             new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(CursorPath)),
             cancellationToken).ConfigureAwait(false);
@@ -49,6 +52,7 @@ public sealed class ImportCheckpointService
 
     public async Task WriteCursorAsync(CursorEntry cursor, CancellationToken cancellationToken)
     {
+        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(cursor);
 
         var json = JsonSerializer.Serialize(cursor);
@@ -61,6 +65,7 @@ public sealed class ImportCheckpointService
 
     public async Task<int?> GetWorkItemMappingAsync(int sourceWorkItemId, CancellationToken cancellationToken)
     {
+        ThrowIfDisposed();
         var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT target_id FROM work_item_map WHERE source_id = @sourceId";
@@ -71,16 +76,26 @@ public sealed class ImportCheckpointService
 
     public async Task SetWorkItemMappingAsync(int sourceWorkItemId, int targetWorkItemId, CancellationToken cancellationToken)
     {
-        var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "INSERT OR REPLACE INTO work_item_map (source_id, target_id) VALUES (@sourceId, @targetId)";
-        AddParameter(command, "@sourceId", sourceWorkItemId);
-        AddParameter(command, "@targetId", targetWorkItemId);
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await _idMapWriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ThrowIfDisposed();
+            var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
+            await using var command = connection.CreateCommand();
+            command.CommandText = "INSERT OR REPLACE INTO work_item_map (source_id, target_id) VALUES (@sourceId, @targetId)";
+            AddParameter(command, "@sourceId", sourceWorkItemId);
+            AddParameter(command, "@targetId", targetWorkItemId);
+            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _idMapWriteGate.Release();
+        }
     }
 
     public async Task<string?> GetAttachmentMappingAsync(int sourceWorkItemId, int revisionIndex, string relativePath, CancellationToken cancellationToken)
     {
+        ThrowIfDisposed();
         ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
 
         var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
@@ -105,25 +120,35 @@ public sealed class ImportCheckpointService
         string targetAttachmentId,
         CancellationToken cancellationToken)
     {
+        ThrowIfDisposed();
         ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(targetAttachmentId);
 
-        var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
-            INSERT OR REPLACE INTO attachment_map
-                (source_work_item_id, revision_index, relative_path, target_attachment_id)
-            VALUES (@sourceWorkItemId, @revisionIndex, @relativePath, @targetAttachmentId)
-            """;
-        AddParameter(command, "@sourceWorkItemId", sourceWorkItemId);
-        AddParameter(command, "@revisionIndex", revisionIndex);
-        AddParameter(command, "@relativePath", relativePath);
-        AddParameter(command, "@targetAttachmentId", targetAttachmentId);
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await _idMapWriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
+            await using var command = connection.CreateCommand();
+            command.CommandText = """
+                INSERT OR REPLACE INTO attachment_map
+                    (source_work_item_id, revision_index, relative_path, target_attachment_id)
+                VALUES (@sourceWorkItemId, @revisionIndex, @relativePath, @targetAttachmentId)
+                """;
+            AddParameter(command, "@sourceWorkItemId", sourceWorkItemId);
+            AddParameter(command, "@revisionIndex", revisionIndex);
+            AddParameter(command, "@relativePath", relativePath);
+            AddParameter(command, "@targetAttachmentId", targetAttachmentId);
+            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _idMapWriteGate.Release();
+        }
     }
 
     public async Task<string?> GetEmbeddedImageMappingAsync(int sourceWorkItemId, int revisionIndex, string relativePath, CancellationToken cancellationToken)
     {
+        ThrowIfDisposed();
         ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
 
         var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
@@ -148,25 +173,35 @@ public sealed class ImportCheckpointService
         string targetImageId,
         CancellationToken cancellationToken)
     {
+        ThrowIfDisposed();
         ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(targetImageId);
 
-        var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
-            INSERT OR REPLACE INTO embedded_image_map
-                (source_work_item_id, revision_index, relative_path, target_image_id)
-            VALUES (@sourceWorkItemId, @revisionIndex, @relativePath, @targetImageId)
-            """;
-        AddParameter(command, "@sourceWorkItemId", sourceWorkItemId);
-        AddParameter(command, "@revisionIndex", revisionIndex);
-        AddParameter(command, "@relativePath", relativePath);
-        AddParameter(command, "@targetImageId", targetImageId);
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await _idMapWriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
+            await using var command = connection.CreateCommand();
+            command.CommandText = """
+                INSERT OR REPLACE INTO embedded_image_map
+                    (source_work_item_id, revision_index, relative_path, target_image_id)
+                VALUES (@sourceWorkItemId, @revisionIndex, @relativePath, @targetImageId)
+                """;
+            AddParameter(command, "@sourceWorkItemId", sourceWorkItemId);
+            AddParameter(command, "@revisionIndex", revisionIndex);
+            AddParameter(command, "@relativePath", relativePath);
+            AddParameter(command, "@targetImageId", targetImageId);
+            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _idMapWriteGate.Release();
+        }
     }
 
     private async Task<DbConnection> EnsureIdMapAsync(CancellationToken cancellationToken)
     {
+        ThrowIfDisposed();
         if (_idMapInitialized && _idMapConnection is not null)
             return _idMapConnection;
 
@@ -176,40 +211,91 @@ public sealed class ImportCheckpointService
             if (_idMapInitialized && _idMapConnection is not null)
                 return _idMapConnection;
 
-            _idMapConnection = await _package.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, cancellationToken).ConfigureAwait(false);
-            if (_idMapConnection.State != ConnectionState.Open)
-                await _idMapConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            var connection = await _package.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, cancellationToken).ConfigureAwait(false);
+            var initialized = false;
+            try
+            {
+                if (connection.State != ConnectionState.Open)
+                    await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
-            await using var command = _idMapConnection.CreateCommand();
-            command.CommandText = """
-                CREATE TABLE IF NOT EXISTS work_item_map (
-                    source_id INTEGER PRIMARY KEY,
-                    target_id INTEGER NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS attachment_map (
-                    source_work_item_id INTEGER NOT NULL,
-                    revision_index       INTEGER NOT NULL,
-                    relative_path        TEXT    NOT NULL,
-                    target_attachment_id TEXT    NOT NULL,
-                    PRIMARY KEY (source_work_item_id, revision_index, relative_path)
-                );
-                CREATE TABLE IF NOT EXISTS embedded_image_map (
-                    source_work_item_id INTEGER NOT NULL,
-                    revision_index      INTEGER NOT NULL,
-                    relative_path       TEXT    NOT NULL,
-                    target_image_id     TEXT    NOT NULL,
-                    PRIMARY KEY (source_work_item_id, revision_index, relative_path)
-                );
-                """;
-            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                await using var pragmaCommand = connection.CreateCommand();
+                pragmaCommand.CommandText = "PRAGMA busy_timeout = 5000;";
+                await pragmaCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
-            _idMapInitialized = true;
-            return _idMapConnection;
+                await using var command = connection.CreateCommand();
+                command.CommandText = """
+                    CREATE TABLE IF NOT EXISTS work_item_map (
+                        source_id INTEGER PRIMARY KEY,
+                        target_id INTEGER NOT NULL
+                    );
+                    CREATE TABLE IF NOT EXISTS attachment_map (
+                        source_work_item_id INTEGER NOT NULL,
+                        revision_index       INTEGER NOT NULL,
+                        relative_path        TEXT    NOT NULL,
+                        target_attachment_id TEXT    NOT NULL,
+                        PRIMARY KEY (source_work_item_id, revision_index, relative_path)
+                    );
+                    CREATE TABLE IF NOT EXISTS embedded_image_map (
+                        source_work_item_id INTEGER NOT NULL,
+                        revision_index      INTEGER NOT NULL,
+                        relative_path       TEXT    NOT NULL,
+                        target_image_id     TEXT    NOT NULL,
+                        PRIMARY KEY (source_work_item_id, revision_index, relative_path)
+                    );
+                    """;
+                await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+
+                _idMapConnection = connection;
+                _idMapInitialized = true;
+                initialized = true;
+                return connection;
+            }
+            finally
+            {
+                if (!initialized)
+                {
+                    _idMapInitialized = false;
+                    if (connection is IAsyncDisposable asyncDisposable)
+                        await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+                    else
+                        connection.Dispose();
+                }
+            }
         }
         finally
         {
             _idMapInitializeGate.Release();
         }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        await _idMapInitializeGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+        try
+        {
+            if (_idMapConnection is IAsyncDisposable asyncDisposable)
+                await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+            else
+                _idMapConnection?.Dispose();
+
+            _idMapConnection = null;
+            _idMapInitialized = false;
+        }
+        finally
+        {
+            _idMapInitializeGate.Release();
+            _idMapInitializeGate.Dispose();
+            _idMapWriteGate.Dispose();
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
     }
 
     private static void AddParameter(DbCommand command, string name, object value)
