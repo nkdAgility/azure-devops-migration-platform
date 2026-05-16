@@ -10,6 +10,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 public class WorkItemImportOptionsTests
 {
     [TestMethod]
+    public void WorkItemImportOptions_UsesExpectedSectionName()
+    {
+        Assert.AreEqual("Extensions:WorkItemImport", WorkItemImportOptions.SectionName);
+    }
+
+    [TestMethod]
     public void WorkItemImportOptions_DefaultFlags_AreFalse()
     {
         var sut = new WorkItemImportOptions();

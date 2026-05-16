@@ -5,13 +5,15 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import.Configuration;
 
 public sealed class WorkItemImportOptions
 {
-    public bool RevisionReplay { get; set; }
+    public const string SectionName = "Extensions:WorkItemImport";
 
-    public bool LinkReplay { get; set; }
+    public bool RevisionReplay { get; init; }
 
-    public bool AttachmentReplay { get; set; }
+    public bool LinkReplay { get; init; }
 
-    public bool EmbeddedImageReplay { get; set; }
+    public bool AttachmentReplay { get; init; }
 
-    public bool FieldTransform { get; set; }
+    public bool EmbeddedImageReplay { get; init; }
+
+    public bool FieldTransform { get; init; }
 }
