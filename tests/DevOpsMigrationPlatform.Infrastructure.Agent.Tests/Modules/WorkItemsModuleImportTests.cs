@@ -78,6 +78,51 @@ public sealed class WorkItemsModuleImportTests
     }
 
     [TestMethod]
+    public async Task ImportAsync_WhenNodeTranslationToolMissing_ThrowsInvalidOperationException()
+    {
+        var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
+        sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
+        sourceEndpoint.SetupGet(s => s.Url).Returns("https://source.example");
+        sourceEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
+
+        var targetEndpoint = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
+        targetEndpoint.SetupGet(s => s.Project).Returns("TargetProject");
+        targetEndpoint.SetupGet(s => s.Url).Returns("https://target.example");
+        targetEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
+
+        var module = new WorkItemsModule(
+            Mock.Of<IWorkItemRevisionSourceFactory>(),
+            NullLogger<WorkItemsModule>.Instance,
+            Options.Create(new WorkItemsModuleOptions()),
+            sourceEndpoint.Object,
+            NullLogger<WorkItemImportOrchestrator>.Instance,
+            new Mock<IWorkItemImportTargetFactory>(MockBehavior.Strict).Object,
+            Mock.Of<IWorkItemResolutionStrategyFactory>(),
+            Mock.Of<ICheckpointingServiceFactory>(),
+            Mock.Of<IIdMapStoreFactory>(),
+            Mock.Of<IRevisionFolderProcessorFactory>(),
+            targetEndpoint.Object,
+            identityMappingService: Mock.Of<IIdentityMappingService>(),
+            package: Mock.Of<IPackageAccess>());
+
+        var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => module.ImportAsync(
+            new ImportContext
+            {
+                Job = new Job
+                {
+                    JobId = "job-import-missing-node-translation",
+                    Kind = JobKind.Import,
+                    Package = new JobPackage { PackageUri = "file:///package" },
+                    Resume = new JobResume { Mode = ResumeMode.Auto }
+                },
+                ProgressSink = Mock.Of<IProgressSink>()
+            },
+            CancellationToken.None));
+
+        StringAssert.Contains(ex.Message, "INodeTranslationTool");
+    }
+
+    [TestMethod]
     public void AddAzureDevOpsWorkItemImport_RegistersIdentityMappingService()
     {
         var services = new ServiceCollection();
@@ -227,6 +272,7 @@ public sealed class WorkItemsModuleImportTests
             processorFactory.Object,
             targetEndpoint.Object,
             identityMappingService: Mock.Of<IIdentityMappingService>(),
+            nodeTranslationTool: nodeTranslationTool.Object,
             nodeReadinessOrchestrator: nodeReadiness,
             package: package.Object);
 
@@ -393,6 +439,7 @@ public sealed class WorkItemsModuleImportTests
             processorFactory.Object,
             targetEndpoint.Object,
             identityMappingService: Mock.Of<IIdentityMappingService>(),
+            nodeTranslationTool: nodeTranslationTool.Object,
             nodeReadinessOrchestrator: nodeReadiness,
             nodesModuleOptions: Options.Create(new NodesModuleOptions { ReplicateSourceTree = true }),
             package: package.Object);

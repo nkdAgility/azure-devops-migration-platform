@@ -104,6 +104,7 @@ public sealed class WorkItemsModule : IModule
 #if !NET481
     private readonly ITargetEndpointInfo _targetEndpointInfo;
     private readonly IIdentityMappingService? _identityMappingService;
+    private readonly INodeTranslationTool? _nodeTranslationTool;
 #endif
 
     public WorkItemsModule(
@@ -137,6 +138,7 @@ public sealed class WorkItemsModule : IModule
         IOptions<NodesModuleOptions>? nodesModuleOptions = null,
 #endif
         IIdentityMappingService? identityMappingService = null,
+        INodeTranslationTool? nodeTranslationTool = null,
         IIdentityLookupTool? identityLookupTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
         IEnumerable<IImportFailurePattern>? importFailurePatterns = null,
@@ -169,6 +171,7 @@ public sealed class WorkItemsModule : IModule
         _nodeReadinessOrchestrator = nodeReadinessOrchestrator;
         _nodesModuleOptions = nodesModuleOptions;
         _identityMappingService = identityMappingService;
+        _nodeTranslationTool = nodeTranslationTool;
 #endif
         _identityLookupTool = identityLookupTool;
         _repoDiscoveryService = repoDiscoveryService;
@@ -667,6 +670,8 @@ public sealed class WorkItemsModule : IModule
         var job = context.Job;
         _ = _identityMappingService ?? throw new InvalidOperationException(
             "IIdentityMappingService is not registered. Register identity mapping services before running WorkItems import.");
+        _ = _nodeTranslationTool ?? throw new InvalidOperationException(
+            "INodeTranslationTool is not registered. Register node translation tool services before running WorkItems import.");
 
         var orgUrl = _targetEndpointInfo.Url;
         var project = _targetEndpointInfo.Project;
