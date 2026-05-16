@@ -264,6 +264,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget, I
     /// <inheritdoc/>
     public async Task<bool> WorkItemTypeExistsAsync(string workItemType, CancellationToken ct)
     {
+        ThrowIfDisposed();
+
         if (string.IsNullOrWhiteSpace(workItemType))
         {
             return false;
@@ -295,6 +297,11 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget, I
         }
 
         return cachedWorkItemTypes.Contains(workItemType.Trim());
+    }
+
+    private void ThrowIfDisposed()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
     }
 
     /// <inheritdoc/>
@@ -340,8 +347,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget, I
             return;
         }
 
-        _workItemTypeCacheLock.Dispose();
         _disposed = true;
+        _workItemTypeCacheLock.Dispose();
         GC.SuppressFinalize(this);
     }
 }
