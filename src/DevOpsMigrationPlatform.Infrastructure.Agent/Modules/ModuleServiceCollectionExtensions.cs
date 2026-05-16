@@ -9,7 +9,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Configuration;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import.FailurePatterns;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 #if !NET481
@@ -17,7 +17,6 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 #endif
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 
@@ -63,22 +62,7 @@ public static class ModuleServiceCollectionExtensions
         services.AddSchemaEntry<WorkItemsModuleOptions>("Work items export/import module configuration");
         services.AddSchemaEntry<WorkItemImportOptions>("Work item import replay lever configuration");
 #endif
-        services.AddSingleton<IValidateOptions<WorkItemImportOptions>, WorkItemImportOptionsValidator>();
-        var workItemImportOptionsBuilder = services.AddOptions<WorkItemImportOptions>();
-        if (configuration is not null)
-        {
-            workItemImportOptionsBuilder.Bind(configuration.GetSection(WorkItemImportOptions.SectionName));
-        }
-        workItemImportOptionsBuilder.ValidateOnStart();
-
-        services.AddTransient<IImportFailurePattern, MissingRevisionArtefactImportFailurePattern>();
-        services.AddTransient<IImportFailurePattern, InvalidRevisionPayloadImportFailurePattern>();
-        services.AddTransient<IImportFailurePattern, MissingAttachmentBinaryImportFailurePattern>();
-        services.AddTransient<IImportFailurePattern, MissingEmbeddedImageBinaryImportFailurePattern>();
-        services.AddTransient<IImportFailurePattern, FieldTransformCompatibilityImportFailurePattern>();
-#if !NET481
-        services.AddSingleton<NodeReadinessOrchestrator>();
-#endif
+        services.RegisterWorkItemImportServices(configuration);
         services.AddTransient<IModule, WorkItemsModule>();
         return services;
     }

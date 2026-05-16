@@ -74,7 +74,7 @@ This document defines the complete task decomposition for implementing the Work 
 - [X] T017 Create WorkItemImportOptions sealed class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Configuration/WorkItemImportOptions.cs` with boolean properties for RevisionReplay, LinkReplay, AttachmentReplay, EmbeddedImageReplay, and FieldTransform
 - [X] T018 [P] Add WorkItemImportOptions validation in ConfigureOptions handler to ensure lever combinations are valid before job execution
 - [X] T019 [P] Register WorkItemImportOptions via IOptions<T> pattern in dependency injection container at module startup
-- [ ] T020 Create WorkItemImportModuleExtensions static class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Extensions/WorkItemImportModuleExtensions.cs` with RegisterWorkItemImportServices method
+- [X] T020 Create WorkItemImportModuleExtensions static class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Extensions/WorkItemImportModuleExtensions.cs` with RegisterWorkItemImportServices method
 
 **Independent Test Criteria**:
 - Checkpoint read/write operations are atomic (no partial reads)
