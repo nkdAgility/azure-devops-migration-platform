@@ -28,7 +28,7 @@ public sealed class NodeTranslationTool : INodeTranslationTool
     private readonly NodeTranslationOptions _options;
     private readonly IReadOnlyList<(Regex Pattern, string Replacement)> _areaRules;
     private readonly IReadOnlyList<(Regex Pattern, string Replacement)> _iterationRules;
-    private readonly ConcurrentDictionary<string, PathTranslation> _translationCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, Lazy<PathTranslation>> _translationCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly IPlatformMetrics? _PlatformMetrics;
     private readonly ILogger<NodeTranslationTool> _logger;
 
@@ -56,13 +56,17 @@ public sealed class NodeTranslationTool : INodeTranslationTool
 
         var path = sourcePathValue.Trim();
         var cacheKey = BuildCacheKey(fieldName, path, context);
-        if (_translationCache.TryGetValue(cacheKey, out var cached))
-            return cached;
+        var cached = _translationCache.GetOrAdd(
+            cacheKey,
+            _ => new Lazy<PathTranslation>(
+                () =>
+                {
+                    using var activity = s_activitySource.StartActivity("nodes.translate");
+                    return TranslateCore(fieldName, path, context);
+                },
+                LazyThreadSafetyMode.ExecutionAndPublication));
 
-        using var activity = s_activitySource.StartActivity("nodes.translate");
-        var translated = TranslateCore(fieldName, path, context);
-        _translationCache[cacheKey] = translated;
-        return translated;
+        return cached.Value;
     }
 
     private PathTranslation TranslateCore(string fieldName, string path, ProjectMapping context)
