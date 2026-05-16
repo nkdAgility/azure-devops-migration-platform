@@ -117,6 +117,17 @@ public class NodeTransformToolTests
         Assert.IsTrue(result.IsExternalPath);
     }
 
+    [TestMethod]
+    public void TranslatePath_WhenCalledWithSameInput_ReturnsMemoizedResultInstance()
+    {
+        var sut = CreateTool(DefaultOptions());
+
+        var first = sut.TranslatePath("System.AreaPath", @"SourceProject\Team B", DefaultMapping);
+        var second = sut.TranslatePath("System.AreaPath", @"SourceProject\Team B", DefaultMapping);
+
+        Assert.AreSame(first, second);
+    }
+
     // --- Whitespace trimming ---
 
     [TestMethod]

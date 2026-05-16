@@ -61,7 +61,7 @@ public class NodeReadinessOrchestratorTests
             Times.Once);
         translationTool.Verify(
             t => t.TranslatePath("System.AreaPath", @"Source\Team A", It.IsAny<ProjectMapping>()),
-            Times.Once);
+            Times.Exactly(2));
         translationTool.Verify(
             t => t.TranslatePath("System.IterationPath", @"Source\Sprint 1", It.IsAny<ProjectMapping>()),
             Times.Once);

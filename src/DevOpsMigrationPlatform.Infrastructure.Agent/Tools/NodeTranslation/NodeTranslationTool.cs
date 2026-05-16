@@ -4,6 +4,7 @@
 #if !NET481
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using DevOpsMigrationPlatform.Abstractions;
@@ -27,6 +28,7 @@ public sealed class NodeTranslationTool : INodeTranslationTool
     private readonly NodeTranslationOptions _options;
     private readonly IReadOnlyList<(Regex Pattern, string Replacement)> _areaRules;
     private readonly IReadOnlyList<(Regex Pattern, string Replacement)> _iterationRules;
+    private readonly ConcurrentDictionary<string, PathTranslation> _translationCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly IPlatformMetrics? _PlatformMetrics;
     private readonly ILogger<NodeTranslationTool> _logger;
 
@@ -52,9 +54,19 @@ public sealed class NodeTranslationTool : INodeTranslationTool
         ArgumentNullException.ThrowIfNull(sourcePathValue);
         ArgumentNullException.ThrowIfNull(context);
 
-        using var activity = s_activitySource.StartActivity("nodes.translate");
         var path = sourcePathValue.Trim();
+        var cacheKey = BuildCacheKey(fieldName, path, context);
+        if (_translationCache.TryGetValue(cacheKey, out var cached))
+            return cached;
 
+        using var activity = s_activitySource.StartActivity("nodes.translate");
+        var translated = TranslateCore(fieldName, path, context);
+        _translationCache[cacheKey] = translated;
+        return translated;
+    }
+
+    private PathTranslation TranslateCore(string fieldName, string path, ProjectMapping context)
+    {
         var tags = new MetricsTagList
         {
             { WellKnownTagNames.Operation.Module, "Nodes" },
@@ -108,6 +120,16 @@ public sealed class NodeTranslationTool : INodeTranslationTool
             MatchedByProjectSwap: false,
             IsExternalPath: true);
     }
+
+    private static string BuildCacheKey(string fieldName, string sourcePathValue, ProjectMapping context)
+        => string.Concat(
+            fieldName,
+            "|",
+            sourcePathValue,
+            "|",
+            context.SourceProjectName,
+            "|",
+            context.TargetProjectName);
 
     // --- Helpers ---
 

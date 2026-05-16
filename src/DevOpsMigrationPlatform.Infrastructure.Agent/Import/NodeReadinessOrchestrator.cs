@@ -67,7 +67,6 @@ public sealed class NodeReadinessOrchestrator
             replicateSourceTree);
 
         var processed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var translationCache = new Dictionary<string, PathTranslation>(StringComparer.OrdinalIgnoreCase);
 
         var referenced = await ReadArtifactAsync<ReferencedPathsArtifact>(ReferencedPathsPath, ct).ConfigureAwait(false);
         if (referenced is null)
@@ -85,7 +84,6 @@ public sealed class NodeReadinessOrchestrator
                 referenced.AreaPaths,
                 context,
                 processed,
-                translationCache,
                 ct).ConfigureAwait(false);
 
             await EnsureTranslatedPathsAsync(
@@ -94,7 +92,6 @@ public sealed class NodeReadinessOrchestrator
                 referenced.IterationPaths,
                 context,
                 processed,
-                translationCache,
                 ct).ConfigureAwait(false);
         }
 
@@ -109,7 +106,6 @@ public sealed class NodeReadinessOrchestrator
                     snapshot.AreaNodes,
                     context,
                     processed,
-                    translationCache,
                     ct).ConfigureAwait(false);
 
                 foreach (var iteration in snapshot.IterationNodes)
@@ -120,8 +116,7 @@ public sealed class NodeReadinessOrchestrator
                     var targetPath = ResolveNodePathOrThrow(
                         "System.IterationPath",
                         iteration.Path,
-                        context,
-                        translationCache);
+                        context);
                     if (targetPath is null)
                         continue;
 
@@ -151,7 +146,6 @@ public sealed class NodeReadinessOrchestrator
         IReadOnlyList<string> sourcePaths,
         ProjectMapping context,
         HashSet<string> processed,
-        Dictionary<string, PathTranslation> translationCache,
         CancellationToken ct)
     {
         foreach (var sourcePath in sourcePaths)
@@ -159,7 +153,7 @@ public sealed class NodeReadinessOrchestrator
             if (string.IsNullOrWhiteSpace(sourcePath))
                 continue;
 
-            var targetPath = ResolveNodePathOrThrow(fieldName, sourcePath, context, translationCache);
+            var targetPath = ResolveNodePathOrThrow(fieldName, sourcePath, context);
             if (targetPath is null)
                 continue;
 
@@ -174,15 +168,9 @@ public sealed class NodeReadinessOrchestrator
     private string? ResolveNodePathOrThrow(
         string fieldName,
         string sourcePath,
-        ProjectMapping context,
-        Dictionary<string, PathTranslation> translationCache)
+        ProjectMapping context)
     {
-        var cacheKey = $"{fieldName}|{sourcePath}";
-        if (!translationCache.TryGetValue(cacheKey, out var translation))
-        {
-            translation = _nodeTranslationTool.TranslatePath(fieldName, sourcePath, context);
-            translationCache[cacheKey] = translation;
-        }
+        var translation = _nodeTranslationTool.TranslatePath(fieldName, sourcePath, context);
         if (!translation.IsExternalPath)
             return translation.TargetPath ?? sourcePath;
 
