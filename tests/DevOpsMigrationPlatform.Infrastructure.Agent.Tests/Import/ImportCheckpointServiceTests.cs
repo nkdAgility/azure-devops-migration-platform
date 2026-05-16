@@ -179,6 +179,132 @@ public class ImportCheckpointServiceTests
         Assert.AreEqual(1001, mapped);
     }
 
+    [TestMethod]
+    public void ResolveResumeDecision_WhenNoCursor_StartsFromBeginning()
+    {
+        var sut = new ImportCheckpointService(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
+
+        var decision = sut.ResolveResumeDecision("WorkItems/2026-01-01/638712000000000000-42-1", cursor: null);
+
+        Assert.IsFalse(decision.ShouldSkip);
+        Assert.IsNull(decision.ResumeAtStage);
+    }
+
+    [TestMethod]
+    public void ResolveResumeDecision_WhenFolderPrecedesLastProcessed_SkipsFolder()
+    {
+        var sut = new ImportCheckpointService(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
+        var cursor = new CursorEntry
+        {
+            LastProcessed = "WorkItems/2026-01-01/638712000000000000-42-3",
+            Stage = CursorStage.Completed
+        };
+
+        var decision = sut.ResolveResumeDecision("WorkItems/2026-01-01/638712000000000000-42-2", cursor);
+
+        Assert.IsTrue(decision.ShouldSkip);
+        Assert.IsNull(decision.ResumeAtStage);
+    }
+
+    [TestMethod]
+    public void ResolveResumeDecision_WhenCursorIsCreatedOrUpdated_ResumesAtAppliedFields()
+    {
+        var sut = new ImportCheckpointService(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
+        var folder = "WorkItems/2026-01-01/638712000000000000-42-3";
+        var cursor = new CursorEntry
+        {
+            LastProcessed = folder,
+            Stage = CursorStage.CreatedOrUpdated
+        };
+
+        var decision = sut.ResolveResumeDecision(folder, cursor);
+
+        Assert.IsFalse(decision.ShouldSkip);
+        Assert.AreEqual(CursorStage.AppliedFields, decision.ResumeAtStage);
+    }
+
+    [TestMethod]
+    public void ResolveResumeDecision_WhenCursorIsAppliedFields_ResumesAtAppliedLinks()
+    {
+        var sut = new ImportCheckpointService(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
+        var folder = "WorkItems/2026-01-01/638712000000000000-42-3";
+        var cursor = new CursorEntry
+        {
+            LastProcessed = folder,
+            Stage = CursorStage.AppliedFields
+        };
+
+        var decision = sut.ResolveResumeDecision(folder, cursor);
+
+        Assert.IsFalse(decision.ShouldSkip);
+        Assert.AreEqual(CursorStage.AppliedLinks, decision.ResumeAtStage);
+    }
+
+    [TestMethod]
+    public void ResolveResumeDecision_WhenCursorIsAppliedLinks_ResumesAtUploadedAttachments()
+    {
+        var sut = new ImportCheckpointService(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
+        var folder = "WorkItems/2026-01-01/638712000000000000-42-3";
+        var cursor = new CursorEntry
+        {
+            LastProcessed = folder,
+            Stage = CursorStage.AppliedLinks
+        };
+
+        var decision = sut.ResolveResumeDecision(folder, cursor);
+
+        Assert.IsFalse(decision.ShouldSkip);
+        Assert.AreEqual(CursorStage.UploadedAttachments, decision.ResumeAtStage);
+    }
+
+    [TestMethod]
+    public void ResolveResumeDecision_WhenCursorIsUploadedAttachments_SkipsToPreventDuplicateWork()
+    {
+        var sut = new ImportCheckpointService(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
+        var folder = "WorkItems/2026-01-01/638712000000000000-42-3";
+        var cursor = new CursorEntry
+        {
+            LastProcessed = folder,
+            Stage = CursorStage.UploadedAttachments
+        };
+
+        var decision = sut.ResolveResumeDecision(folder, cursor);
+
+        Assert.IsTrue(decision.ShouldSkip);
+        Assert.IsNull(decision.ResumeAtStage);
+    }
+
+    [TestMethod]
+    public void ResolveResumeDecision_WhenCursorIsCompleted_SkipsToPreventDuplicateWork()
+    {
+        var sut = new ImportCheckpointService(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
+        var folder = "WorkItems/2026-01-01/638712000000000000-42-3";
+        var cursor = new CursorEntry
+        {
+            LastProcessed = folder,
+            Stage = CursorStage.Completed
+        };
+
+        var decision = sut.ResolveResumeDecision(folder, cursor);
+
+        Assert.IsTrue(decision.ShouldSkip);
+        Assert.IsNull(decision.ResumeAtStage);
+    }
+
+    [TestMethod]
+    public void ResolveResumeDecision_WhenCursorStageIsUnknown_ThrowsInvalidDataException()
+    {
+        var sut = new ImportCheckpointService(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
+        var folder = "WorkItems/2026-01-01/638712000000000000-42-3";
+        var cursor = new CursorEntry
+        {
+            LastProcessed = folder,
+            Stage = "BadStage"
+        };
+
+        Assert.ThrowsExactly<InvalidDataException>(() => sut.ResolveResumeDecision(folder, cursor));
+    }
+
     private sealed class InitializationFailingDbConnection : DbConnection
     {
         private ConnectionState _state = ConnectionState.Closed;
