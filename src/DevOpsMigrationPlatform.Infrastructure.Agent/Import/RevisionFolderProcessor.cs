@@ -15,6 +15,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
@@ -190,7 +191,8 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         {
             // Identity resolution — NOTE: IIdentityMappingService.Resolve is synchronous per the existing interface.
             // Full identity mapping logic is added in T031 (US4). For now, pass fields as-is.
-            var fields = ApplyIdentityResolution(revision.Fields);
+            var identityResolutionContext = new IdentityResolutionContext();
+            var fields = ApplyIdentityResolution(revision.Fields, identityResolutionContext);
 
             // Embedded images — upload and rewrite URLs if extension enabled
             if (ext.EmbeddedImages.Enabled && revision.EmbeddedImages.Count > 0)
@@ -384,7 +386,9 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         return "Task";
     }
 
-    private IReadOnlyList<WorkItemField> ApplyIdentityResolution(IReadOnlyList<WorkItemField> fields)
+    private IReadOnlyList<WorkItemField> ApplyIdentityResolution(
+        IReadOnlyList<WorkItemField> fields,
+        IdentityResolutionContext identityResolutionContext)
     {
         // Identity-type fields resolved via IIdentityLookupTool when enabled.
         var identityFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -397,7 +401,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         {
             if (identityFields.Contains(field.ReferenceName) && field.Value is string identity)
             {
-                var resolved = _identityLookupTool?.IsEnabled == true ? _identityLookupTool.Resolve(identity) : identity;
+                var resolved = identityResolutionContext.Resolve(identity, ResolveIdentity);
                 result.Add(new WorkItemField { ReferenceName = field.ReferenceName, Value = resolved });
             }
             else
@@ -407,6 +411,9 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         }
         return result;
     }
+
+    private string ResolveIdentity(string identity)
+        => _identityLookupTool?.IsEnabled == true ? _identityLookupTool.Resolve(identity) : identity;
 
     private async Task<IReadOnlyList<WorkItemField>> RewriteEmbeddedImageUrlsAsync(
         IReadOnlyList<WorkItemField> fields,

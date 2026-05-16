@@ -249,6 +249,47 @@ public class RevisionFolderProcessorTests
     }
 
     [TestMethod]
+    public async Task ProcessAsync_WhenIdentityValueAppearsInMultipleFields_ResolvesOnlyOncePerRevision()
+    {
+        var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"},{"ReferenceName":"System.AssignedTo","Value":"source@example.com"},{"ReferenceName":"System.ChangedBy","Value":"source@example.com"},{"ReferenceName":"System.CreatedBy","Value":"source@example.com"}],"Attachments":[],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
+        SetupPackageText($"{Folder}/revision.json", json);
+        SetupPackageText($"{Folder}/comment.json", null);
+
+        _mockIdentityMapping
+            .Setup(s => s.Resolve("source@example.com"))
+            .Returns("target@example.com");
+
+        SetupNoMapping();
+        SetupTargetCreate(newTargetId: 10);
+        SetupCursorWrites();
+        SetupResolutionStrategyNoOp();
+
+        IReadOnlyList<WorkItemField>? capturedFields = null;
+        _mockTarget
+            .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
+            .Callback<int, IReadOnlyList<WorkItemField>, CancellationToken>((_, fields, _) => capturedFields = fields)
+            .Returns(Task.CompletedTask);
+        _mockIdMapStore
+            .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(10);
+        _mockTarget
+            .Setup(t => t.WorkItemExistsAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _mockTarget
+            .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var sut = CreateSut();
+        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        _mockIdentityMapping.Verify(s => s.Resolve("source@example.com"), Times.Once);
+        Assert.IsNotNull(capturedFields);
+        Assert.AreEqual("target@example.com", capturedFields!.Single(f => f.ReferenceName == "System.AssignedTo").Value);
+        Assert.AreEqual("target@example.com", capturedFields.Single(f => f.ReferenceName == "System.ChangedBy").Value);
+        Assert.AreEqual("target@example.com", capturedFields.Single(f => f.ReferenceName == "System.CreatedBy").Value);
+    }
+
+    [TestMethod]
     public async Task ProcessAsync_WhenAreaPathIsExternalAndSkipEnabled_SkipsRevisionBeforeFieldReplay()
     {
         var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"},{"ReferenceName":"System.AreaPath","Value":"External\\Area"}],"Attachments":[],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
