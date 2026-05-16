@@ -9,6 +9,7 @@ using Microsoft.Extensions.Hosting;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
+using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
@@ -57,6 +58,7 @@ public static class TfsMigrationAgentServiceExtensions
         services.AddSingleton<IWorkItemRevisionSourceFactory, TfsActiveJobWorkItemRevisionSourceFactory>();
         services.AddSingleton<IIdentitySource, TfsActiveJobIdentitySource>();
         services.AddSingleton<INodeCreator, TfsActiveJobNodeCreator>();
+        services.AddSingleton<IWorkItemImportTargetFactory, TfsActiveJobWorkItemImportTargetFactory>();
 
         // Export progress store — SQLite-backed fast-forward resume (now supported on net481).
         services.AddSingleton<IExportProgressStoreFactory, ExportProgressStoreFactory>();

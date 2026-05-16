@@ -144,6 +144,7 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
 
         return new TfsJobServices(
             collection,
+            workItemStore,
             revisionSource,
             attachmentSource,
             nodeCreator,
@@ -168,6 +169,7 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
 /// </summary>
 public sealed class TfsJobServices : IDisposable
 {
+    public WorkItemStore WorkItemStore { get; }
     public IWorkItemRevisionSource RevisionSource { get; }
     public IAttachmentBinarySource AttachmentSource { get; }
     public INodeCreator NodeCreator { get; }
@@ -185,6 +187,7 @@ public sealed class TfsJobServices : IDisposable
 
     public TfsJobServices(
         TfsTeamProjectCollection collection,
+        WorkItemStore workItemStore,
         IWorkItemRevisionSource revisionSource,
         IAttachmentBinarySource attachmentSource,
         INodeCreator nodeCreator,
@@ -198,6 +201,7 @@ public sealed class TfsJobServices : IDisposable
         IIdentitySource identitySource)
     {
         _collection = collection;
+        WorkItemStore = workItemStore;
         RevisionSource = revisionSource;
         AttachmentSource = attachmentSource;
         NodeCreator = nodeCreator;

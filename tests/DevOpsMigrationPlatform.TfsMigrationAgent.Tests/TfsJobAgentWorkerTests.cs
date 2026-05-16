@@ -703,6 +703,7 @@ internal static class TestTfsJobServicesFactory
 
         return new TfsJobServices(
             collection,
+            null!,
             revisionSource,
             attachmentSource,
             new Mock<INodeCreator>().Object,
