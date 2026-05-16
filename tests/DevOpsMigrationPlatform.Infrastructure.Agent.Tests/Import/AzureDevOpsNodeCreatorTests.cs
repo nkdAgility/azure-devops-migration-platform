@@ -22,6 +22,94 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Import;
 public class AzureDevOpsNodeCreatorTests
 {
     [TestMethod]
+    public async Task NodeExistsAsync_WhenClassificationNodeExists_ReturnsTrue()
+    {
+        var factory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var witClient = new Mock<WorkItemTrackingHttpClient>(MockBehavior.Strict, new object[] { new Uri("https://dev.azure.com/test-org"), null! });
+
+        factory
+            .Setup(f => f.CreateWorkItemClientAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(witClient.Object);
+
+        witClient
+            .Setup(c => c.GetClassificationNodeAsync(
+                "TargetProject",
+                TreeStructureGroup.Areas,
+                "Platform",
+                0,
+                It.IsAny<object>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkItemClassificationNode { Name = "Platform" });
+
+        var sut = new AzureDevOpsNodeCreator(
+            factory.Object,
+            NullLogger<AzureDevOpsNodeCreator>.Instance,
+            new TestTargetEndpointInfo
+            {
+                Url = "https://dev.azure.com/test-org",
+                Project = "TargetProject",
+                ConnectorType = "AzureDevOpsServices"
+            });
+
+        var exists = await sut.NodeExistsAsync(ClassificationNodeType.Area, @"TargetProject\Platform", CancellationToken.None);
+
+        Assert.IsTrue(exists);
+        witClient.Verify(
+            c => c.GetClassificationNodeAsync(
+                "TargetProject",
+                TreeStructureGroup.Areas,
+                "Platform",
+                0,
+                It.IsAny<object>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [TestMethod]
+    public async Task NodeExistsAsync_WhenClassificationNodeDoesNotExist_ReturnsFalse()
+    {
+        var factory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var witClient = new Mock<WorkItemTrackingHttpClient>(MockBehavior.Strict, new object[] { new Uri("https://dev.azure.com/test-org"), null! });
+
+        factory
+            .Setup(f => f.CreateWorkItemClientAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(witClient.Object);
+
+        witClient
+            .Setup(c => c.GetClassificationNodeAsync(
+                "TargetProject",
+                TreeStructureGroup.Iterations,
+                @"Sprint 1",
+                0,
+                It.IsAny<object>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("not found"));
+
+        var sut = new AzureDevOpsNodeCreator(
+            factory.Object,
+            NullLogger<AzureDevOpsNodeCreator>.Instance,
+            new TestTargetEndpointInfo
+            {
+                Url = "https://dev.azure.com/test-org",
+                Project = "TargetProject",
+                ConnectorType = "AzureDevOpsServices"
+            });
+
+        var exists = await sut.NodeExistsAsync(ClassificationNodeType.Iteration, @"TargetProject\Sprint 1", CancellationToken.None);
+
+        Assert.IsFalse(exists);
+        witClient.Verify(
+            c => c.GetClassificationNodeAsync(
+                "TargetProject",
+                TreeStructureGroup.Iterations,
+                @"Sprint 1",
+                0,
+                It.IsAny<object>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [TestMethod]
     public async Task EnsureExistsAsync_AreaPath_CreatesMissingHierarchyWithClassificationNodesApi()
     {
         var factory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
