@@ -66,7 +66,7 @@ This document defines the complete task decomposition for implementing the Work 
 ### Node Translation & Field Transform Integration
 
 - [X] T014 [P] Wire INodeTranslationTool into WorkItemImportModule constructor; ensure tool is configured before import phase
-- [ ] T015 [P] Wire IFieldTransformTool into WorkItemImportModule constructor; ensure tool is configured before import phase
+- [X] T015 [P] Wire IFieldTransformTool into WorkItemImportModule constructor; ensure tool is configured before import phase
 - [X] T016 [P] Implement node translation memoization/policy behind the canonical `INodeTranslationTool` seam (no parallel runtime translation surface)
 
 ### Extension Lever Configuration

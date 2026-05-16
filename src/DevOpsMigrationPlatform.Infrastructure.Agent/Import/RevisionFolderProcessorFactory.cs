@@ -20,6 +20,7 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
     private readonly ILoggerFactory _loggerFactory;
     private readonly IPlatformMetrics? _metrics;
     private readonly INodeTranslationTool? _nodeStructureTool;
+    private readonly IFieldTransformTool? _fieldTransformTool;
     private readonly IPackageAccess _package;
     private readonly NodeTranslationOptions? _nodeStructureOptions;
 
@@ -27,12 +28,14 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
         ILoggerFactory loggerFactory,
         IPackageAccess package,
         IPlatformMetrics? metrics = null,
+        IFieldTransformTool? fieldTransformTool = null,
         INodeTranslationTool? nodeStructureTool = null,
         IOptions<NodeTranslationOptions>? nodeStructureOptions = null)
     {
         _loggerFactory = loggerFactory ?? throw new System.ArgumentNullException(nameof(loggerFactory));
         _package = package ?? throw new System.ArgumentNullException(nameof(package));
         _metrics = metrics;
+        _fieldTransformTool = fieldTransformTool;
         _nodeStructureTool = nodeStructureTool;
         _nodeStructureOptions = nodeStructureOptions?.Value;
     }
@@ -65,6 +68,7 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
             organisation,
             project,
             _metrics,
+            fieldTransformTool: _fieldTransformTool,
             nodeStructureTool: _nodeStructureTool,
             nodeStructureContext: nodeStructureContext,
             nodeStructureOptions: _nodeStructureOptions,

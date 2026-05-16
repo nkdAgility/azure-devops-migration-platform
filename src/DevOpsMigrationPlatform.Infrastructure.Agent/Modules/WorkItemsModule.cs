@@ -105,6 +105,7 @@ public sealed class WorkItemsModule : IModule
     private readonly ITargetEndpointInfo _targetEndpointInfo;
     private readonly IIdentityMappingService? _identityMappingService;
     private readonly INodeTranslationTool? _nodeTranslationTool;
+    private readonly IFieldTransformTool? _fieldTransformTool;
 #endif
 
     public WorkItemsModule(
@@ -139,6 +140,7 @@ public sealed class WorkItemsModule : IModule
 #endif
         IIdentityMappingService? identityMappingService = null,
         INodeTranslationTool? nodeTranslationTool = null,
+        IFieldTransformTool? fieldTransformTool = null,
         IIdentityLookupTool? identityLookupTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
         IEnumerable<IImportFailurePattern>? importFailurePatterns = null,
@@ -172,6 +174,7 @@ public sealed class WorkItemsModule : IModule
         _nodesModuleOptions = nodesModuleOptions;
         _identityMappingService = identityMappingService;
         _nodeTranslationTool = nodeTranslationTool;
+        _fieldTransformTool = fieldTransformTool;
 #endif
         _identityLookupTool = identityLookupTool;
         _repoDiscoveryService = repoDiscoveryService;
@@ -672,6 +675,11 @@ public sealed class WorkItemsModule : IModule
             "IIdentityMappingService is not registered. Register identity mapping services before running WorkItems import.");
         _ = _nodeTranslationTool ?? throw new InvalidOperationException(
             "INodeTranslationTool is not registered. Register node translation tool services before running WorkItems import.");
+        _ = _fieldTransformTool ?? throw new InvalidOperationException(
+            "IFieldTransformTool is not registered. Register field transform tool services before running WorkItems import.");
+        if (!_fieldTransformTool.IsEnabledForPhase(FieldTransformPhase.Import))
+            throw new InvalidOperationException(
+                "FieldTransform is not configured for Import phase. Configure MigrationPlatform:Tools:FieldTransform with at least one enabled Import/Both transform rule before running WorkItems import.");
 
         var orgUrl = _targetEndpointInfo.Url;
         var project = _targetEndpointInfo.Project;
