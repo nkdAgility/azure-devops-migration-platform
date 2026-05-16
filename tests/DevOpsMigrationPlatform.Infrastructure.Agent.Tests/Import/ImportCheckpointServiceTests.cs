@@ -9,6 +9,7 @@ using Moq;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using System.Text;
 using System.IO;
+using Microsoft.Data.Sqlite;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 
@@ -82,5 +83,56 @@ public class ImportCheckpointServiceTests
         await sut.WriteCursorAsync(cursor, CancellationToken.None);
 
         package.VerifyAll();
+    }
+
+    [TestMethod]
+    public async Task SetWorkItemMappingAsync_ThenGetWorkItemMappingAsync_RoundTripsValue()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
+        package
+            .Setup(p => p.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<System.Data.Common.DbConnection>(connection));
+
+        var sut = new ImportCheckpointService(package.Object);
+
+        await sut.SetWorkItemMappingAsync(101, 1001, CancellationToken.None);
+        var targetId = await sut.GetWorkItemMappingAsync(101, CancellationToken.None);
+
+        Assert.AreEqual(1001, targetId);
+    }
+
+    [TestMethod]
+    public async Task SetAttachmentMappingAsync_ThenGetAttachmentMappingAsync_RoundTripsValue()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
+        package
+            .Setup(p => p.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<System.Data.Common.DbConnection>(connection));
+
+        var sut = new ImportCheckpointService(package.Object);
+
+        await sut.SetAttachmentMappingAsync(42, 7, "attachments/a.bin", "target-attachment-1", CancellationToken.None);
+        var targetAttachment = await sut.GetAttachmentMappingAsync(42, 7, "attachments/a.bin", CancellationToken.None);
+
+        Assert.AreEqual("target-attachment-1", targetAttachment);
+    }
+
+    [TestMethod]
+    public async Task SetEmbeddedImageMappingAsync_ThenGetEmbeddedImageMappingAsync_RoundTripsValue()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
+        package
+            .Setup(p => p.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<System.Data.Common.DbConnection>(connection));
+
+        var sut = new ImportCheckpointService(package.Object);
+
+        await sut.SetEmbeddedImageMappingAsync(42, 8, "images/abc.png", "target-image-1", CancellationToken.None);
+        var targetImage = await sut.GetEmbeddedImageMappingAsync(42, 8, "images/abc.png", CancellationToken.None);
+
+        Assert.AreEqual("target-image-1", targetImage);
     }
 }
