@@ -21,12 +21,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 /// All <see cref="WorkItemTrackingHttpClient"/> calls are wrapped here.
 /// Retry with exponential back-off is handled by the underlying VssConnection.
 /// </summary>
-internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
+internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget, IDisposable
 {
     private readonly WorkItemTrackingHttpClient _witClient;
     private readonly string _project;
     private readonly SemaphoreSlim _workItemTypeCacheLock = new(1, 1);
     private HashSet<string>? _cachedWorkItemTypes;
+    private bool _disposed;
 
     /// <summary>Organisation URL used to establish the connection to this target.</summary>
     public string OrganisationUrl { get; }
@@ -330,5 +331,17 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
             });
         }
         return doc;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _workItemTypeCacheLock.Dispose();
+        _disposed = true;
+        GC.SuppressFinalize(this);
     }
 }

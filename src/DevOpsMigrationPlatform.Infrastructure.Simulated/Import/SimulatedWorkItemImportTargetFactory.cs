@@ -35,6 +35,10 @@ public sealed class SimulatedWorkItemImportTargetFactory : IWorkItemImportTarget
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        return Task.FromResult<IWorkItemImportTarget>(new SimulatedWorkItemImportTarget(configuredTypes));
+        IWorkItemImportTarget target = configuredTypes.Length == 0
+            ? new SimulatedWorkItemImportTarget()
+            : new SimulatedWorkItemImportTarget(configuredTypes);
+
+        return Task.FromResult(target);
     }
 }
