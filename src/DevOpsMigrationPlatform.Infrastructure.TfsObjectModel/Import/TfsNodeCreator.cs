@@ -174,7 +174,7 @@ public sealed class TfsNodeCreator : INodeCreator
 
     private static string NormalizePath(string path, string fallbackProject)
     {
-        var trimmed = (path ?? string.Empty).Trim().TrimStart('\\').Replace('/', '\\');
+        var trimmed = NormalizePathCore(path);
         if (string.IsNullOrWhiteSpace(trimmed))
             return fallbackProject;
 
@@ -189,7 +189,10 @@ public sealed class TfsNodeCreator : INodeCreator
     }
 
     private static string NormalizeStoredPath(string? path)
-        => (path ?? string.Empty).Trim().TrimStart('\\').Replace('/', '\\');
+        => NormalizePathCore(path);
+
+    private static string NormalizePathCore(string? path)
+        => (path ?? string.Empty).Trim().Trim('\\').Replace('/', '\\');
 
     private static string GetStructureTypeSuffix(ClassificationNodeType nodeType)
         => nodeType == ClassificationNodeType.Area ? "Area" : "Iteration";
