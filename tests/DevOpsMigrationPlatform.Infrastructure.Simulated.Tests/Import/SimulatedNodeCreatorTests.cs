@@ -48,6 +48,18 @@ public sealed class SimulatedNodeCreatorTests
         Assert.IsTrue(await sut.NodeExistsAsync(ClassificationNodeType.Area, @"TargetProject\Platform\Mobile", CancellationToken.None));
     }
 
+    [TestMethod]
+    public async Task NodeExistsAsync_TrailingAndForwardSlashPathVariants_AreNormalizedAsEquivalent()
+    {
+        var sut = CreateSut(project: "TargetProject");
+
+        await sut.EnsureExistsAsync(ClassificationNodeType.Area, @"TargetProject\Platform\Backend", CancellationToken.None);
+
+        Assert.IsTrue(await sut.NodeExistsAsync(ClassificationNodeType.Area, "TargetProject/Platform/Backend/", CancellationToken.None));
+        Assert.IsTrue(await sut.NodeExistsAsync(ClassificationNodeType.Area, @"\TargetProject\Platform\Backend\", CancellationToken.None));
+        Assert.IsTrue(await sut.NodeExistsAsync(ClassificationNodeType.Area, "Platform/Backend/", CancellationToken.None));
+    }
+
     private static SimulatedNodeCreator CreateSut(string project)
         => new(
             NullLogger<SimulatedNodeCreator>.Instance,

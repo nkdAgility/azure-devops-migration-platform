@@ -86,7 +86,7 @@ CancellationToken ct)
 
     private static string NormalizePath(string path, string project)
     {
-        var trimmedPath = (path ?? string.Empty).Trim().Replace('/', '\\').TrimStart('\\');
+        var trimmedPath = (path ?? string.Empty).Trim().Replace('/', '\\').Trim('\\');
         if (string.IsNullOrWhiteSpace(trimmedPath))
             return project;
 

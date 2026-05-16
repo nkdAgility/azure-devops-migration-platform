@@ -146,7 +146,7 @@ public sealed class NodePathValidatorTests
     }
 
     [TestMethod]
-    public async Task EvaluateAsync_WithSimulatedNodeCreator_NormalizesSlashSeparatedPathsForExistingNodes()
+    public async Task EvaluateAsync_WithSimulatedNodeCreator_NormalizesSlashAndTrailingSeparatorPathsForExistingNodes()
     {
         const string revision = "WorkItems/2026-05-13/638827200000000000-42-0/revision.json";
         var package = PackageTestFactory.CreateLooseMock();
@@ -167,8 +167,8 @@ public sealed class NodePathValidatorTests
                 {
                     Fields =
                     [
-                        new WorkItemField { ReferenceName = "System.AreaPath", Value = "TargetProject/Platform/Backend" },
-                        new WorkItemField { ReferenceName = "System.IterationPath", Value = "TargetProject/Sprint 1" }
+                        new WorkItemField { ReferenceName = "System.AreaPath", Value = "TargetProject/Platform/Backend/" },
+                        new WorkItemField { ReferenceName = "System.IterationPath", Value = "TargetProject/Sprint 1/" }
                     ]
                 }));
             });
