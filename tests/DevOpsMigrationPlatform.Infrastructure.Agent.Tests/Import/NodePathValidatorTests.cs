@@ -18,6 +18,8 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Validators;
+using DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
+using Microsoft.Extensions.Logging.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -143,6 +145,54 @@ public sealed class NodePathValidatorTests
         nodeCreator.VerifyNoOtherCalls();
     }
 
+    [TestMethod]
+    public async Task EvaluateAsync_WithSimulatedNodeCreator_NormalizesSlashSeparatedPathsForExistingNodes()
+    {
+        const string revision = "WorkItems/2026-05-13/638827200000000000-42-0/revision.json";
+        var package = PackageTestFactory.CreateLooseMock();
+        package
+            .Setup(p => p.EnumerateContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => EnumerateManyAsync([revision]));
+        package
+            .Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext context, CancellationToken _) =>
+            {
+                var path = context.Address!.RelativePath.Replace('\\', '/');
+                if (path != revision)
+                {
+                    return ValueTask.FromResult<PackagePayload?>(null);
+                }
+
+                return ValueTask.FromResult<PackagePayload?>(CreatePayload(new WorkItemRevision
+                {
+                    Fields =
+                    [
+                        new WorkItemField { ReferenceName = "System.AreaPath", Value = "TargetProject/Platform/Backend" },
+                        new WorkItemField { ReferenceName = "System.IterationPath", Value = "TargetProject/Sprint 1" }
+                    ]
+                }));
+            });
+
+        var nodeCreator = new SimulatedNodeCreator(
+            NullLogger<SimulatedNodeCreator>.Instance,
+            new TestTargetEndpointInfo
+            {
+                Url = "https://example.dev.azure.com/target",
+                Project = "TargetProject",
+                ConnectorType = "Simulated"
+            });
+        await nodeCreator.EnsureExistsAsync(ClassificationNodeType.Area, @"TargetProject\Platform\Backend", CancellationToken.None);
+        await nodeCreator.EnsureExistsAsync(ClassificationNodeType.Iteration, @"TargetProject\Sprint 1", CancellationToken.None);
+
+        var sut = new NodePathValidator(nodeCreator);
+
+        var findings = await sut.EvaluateAsync(
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions()),
+            CancellationToken.None);
+
+        Assert.AreEqual(0, findings.Count);
+    }
+
     private static PrepareContext CreatePrepareContext(IPackageAccess package)
     {
         var targetEndpoint = new Mock<ITargetEndpointInfo>();
@@ -173,5 +223,12 @@ public sealed class NodePathValidatorTests
     {
         var json = JsonSerializer.Serialize(revision);
         return new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(json)));
+    }
+
+    private sealed record TestTargetEndpointInfo : ITargetEndpointInfo
+    {
+        public required string Url { get; init; }
+        public required string Project { get; init; }
+        public required string ConnectorType { get; init; }
     }
 }

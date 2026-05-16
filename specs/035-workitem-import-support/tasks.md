@@ -97,7 +97,7 @@ This document defines the complete task decomposition for implementing the Work 
 ### Node Readiness Validation (US1: Scenario 1, 3)
 
 - [X] T023 [US1] [P] Implement NodePathValidator class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Validators/NodePathValidator.cs` to enumerate exported node paths from package and check existence on target via INodeService
-- [ ] T024 [US1] [P] **SIMULATED**: Implement Simulated connector node validation — in-memory check that all required paths exist in simulated classification structure
+- [X] T024 [US1] [P] **SIMULATED**: Implement Simulated connector node validation — in-memory check that all required paths exist in simulated classification structure
 - [ ] T025 [US1] [P] **AZURE DEVOPS**: Implement Azure DevOps REST API node validation — call GET /workitemtypes and GET classificationnodes API to verify required paths exist
 - [ ] T026 [US1] [P] **TFS**: Implement TFS OM node validation via TfsMigrationAgent — call TFS node metadata API to verify required paths exist
 - [ ] T027 [US1] Create NodeReadinessFinding record type with path, nodeType (Area/Iteration), status, and targetPath fields
