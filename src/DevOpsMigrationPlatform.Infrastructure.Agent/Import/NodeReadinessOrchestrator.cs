@@ -35,19 +35,22 @@ public sealed class NodeReadinessOrchestrator
     private readonly ReferencedPathsFromWorkItemsStrategy _referencedPathsFromWorkItemsStrategy;
     private readonly ILogger<NodeReadinessOrchestrator> _logger;
     private readonly NodeTranslationOptions? _nodeTranslationOptions;
+    private readonly ImportCheckpointService? _importCheckpointService;
 
     public NodeReadinessOrchestrator(
         IPackageAccess packageAccess,
         INodeTranslationTool nodeTranslationTool,
         INodeCreator nodeCreator,
         ILogger<NodeReadinessOrchestrator> logger,
-        IOptions<NodeTranslationOptions>? nodeTranslationOptions = null)
+        IOptions<NodeTranslationOptions>? nodeTranslationOptions = null,
+        ImportCheckpointService? importCheckpointService = null)
     {
         _packageAccess = packageAccess ?? throw new ArgumentNullException(nameof(packageAccess));
         _nodeTranslationTool = nodeTranslationTool ?? throw new ArgumentNullException(nameof(nodeTranslationTool));
         _nodeCreator = nodeCreator ?? throw new ArgumentNullException(nameof(nodeCreator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _nodeTranslationOptions = nodeTranslationOptions?.Value;
+        _importCheckpointService = importCheckpointService;
         _referencedPathsFromWorkItemsStrategy = new ReferencedPathsFromWorkItemsStrategy(_packageAccess, _logger);
     }
 
@@ -67,6 +70,18 @@ public sealed class NodeReadinessOrchestrator
             replicateSourceTree);
 
         var processed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (_importCheckpointService is not null)
+        {
+            var cursor = await _importCheckpointService.ReadCursorAsync(ct).ConfigureAwait(false);
+            if (cursor is not null)
+            {
+                var checkpointedNodes = await _importCheckpointService.GetCreatedNodePathKeysAsync(ct).ConfigureAwait(false);
+                foreach (var checkpointedNode in checkpointedNodes)
+                {
+                    processed.Add(checkpointedNode);
+                }
+            }
+        }
 
         var referenced = await ReadArtifactAsync<ReferencedPathsArtifact>(ReferencedPathsPath, ct).ConfigureAwait(false);
         if (referenced is null)

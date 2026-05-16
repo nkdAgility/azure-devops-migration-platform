@@ -8,6 +8,7 @@ using System.Data.Common;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
@@ -205,6 +206,33 @@ public sealed class ImportCheckpointService : IAsyncDisposable
         }
     }
 
+    public async Task<IReadOnlySet<string>> GetCreatedNodePathKeysAsync(CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT node_type, node_path FROM node_creation_map
+            """;
+
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            if (reader.IsDBNull(0) || reader.IsDBNull(1))
+                continue;
+
+            var nodeType = reader.GetString(0);
+            var nodePath = reader.GetString(1);
+            if (string.IsNullOrWhiteSpace(nodeType) || string.IsNullOrWhiteSpace(nodePath))
+                continue;
+
+            keys.Add($"{nodeType}:{nodePath}");
+        }
+
+        return keys;
+    }
+
     private async Task<DbConnection> EnsureIdMapAsync(CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
@@ -247,6 +275,11 @@ public sealed class ImportCheckpointService : IAsyncDisposable
                         relative_path       TEXT    NOT NULL,
                         target_image_id     TEXT    NOT NULL,
                         PRIMARY KEY (source_work_item_id, revision_index, relative_path)
+                    );
+                    CREATE TABLE IF NOT EXISTS node_creation_map (
+                        node_type           TEXT    NOT NULL,
+                        node_path           TEXT    NOT NULL,
+                        PRIMARY KEY (node_type, node_path)
                     );
                     """;
                 await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);

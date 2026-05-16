@@ -4,6 +4,7 @@
 using System.Text.Json;
 using System.Data;
 using System.Data.Common;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
@@ -137,6 +138,40 @@ public class ImportCheckpointServiceTests
         var targetImage = await sut.GetEmbeddedImageMappingAsync(42, 8, "images/abc.png", CancellationToken.None);
 
         Assert.AreEqual("target-image-1", targetImage);
+    }
+
+    [TestMethod]
+    public async Task GetCreatedNodePathKeysAsync_WhenNodeCreationRowsExist_ReturnsExistingNodeKeys()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync(CancellationToken.None);
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                CREATE TABLE node_creation_map (
+                    node_type TEXT NOT NULL,
+                    node_path TEXT NOT NULL,
+                    PRIMARY KEY (node_type, node_path)
+                );
+                INSERT INTO node_creation_map (node_type, node_path) VALUES
+                    ('Area', 'Target\Platform'),
+                    ('Iteration', 'Target\Sprint 1');
+                """;
+            await command.ExecuteNonQueryAsync(CancellationToken.None);
+        }
+
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
+        package
+            .Setup(p => p.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<System.Data.Common.DbConnection>(connection));
+
+        var sut = new ImportCheckpointService(package.Object);
+
+        var keys = await sut.GetCreatedNodePathKeysAsync(CancellationToken.None);
+
+        CollectionAssert.AreEquivalent(
+            new[] { "Area:Target\\Platform", "Iteration:Target\\Sprint 1" },
+            new List<string>(keys));
     }
 
     [TestMethod]
