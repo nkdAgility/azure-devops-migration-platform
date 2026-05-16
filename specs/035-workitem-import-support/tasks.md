@@ -54,7 +54,7 @@ This document defines the complete task decomposition for implementing the Work 
 
 ### Checkpoint & State Management
 
-- [ ] T009 Create ImportCheckpointService class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/ImportCheckpointService.cs` with methods to read/write cursor from `.migration/Checkpoints/workitems-import.cursor.json`
+- [X] T009 Create ImportCheckpointService class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/ImportCheckpointService.cs` with methods to read/write cursor from `.migration/Checkpoints/workitems-import.cursor.json`
 - [ ] T010 [P] Extend ImportCheckpointService to manage idmap.db (SQLite) under `.migration/Checkpoints/idmap.db` with source→target ID mappings for work items, attachments, and embedded images
 - [ ] T011 [P] Implement cursor resume logic: Given a saved checkpoint with lastProcessed and stage, return the next stage to process and prevent duplicate work
 
