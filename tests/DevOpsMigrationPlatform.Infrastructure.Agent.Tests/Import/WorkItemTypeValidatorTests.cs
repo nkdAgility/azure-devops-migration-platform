@@ -61,7 +61,7 @@ public sealed class WorkItemTypeValidatorTests
                 return ValueTask.FromResult(payload);
             });
 
-        var target = new Mock<IWorkItemImportTarget>(MockBehavior.Strict);
+        var target = new Mock<IWorkItemTypeReadinessTarget>(MockBehavior.Strict);
         target
             .Setup(t => t.WorkItemTypeExistsAsync("Bug", It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
@@ -69,7 +69,7 @@ public sealed class WorkItemTypeValidatorTests
             .Setup(t => t.WorkItemTypeExistsAsync("User Story", It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
-        var targetFactory = new Mock<IWorkItemImportTargetFactory>(MockBehavior.Strict);
+        var targetFactory = new Mock<IWorkItemTypeReadinessTargetFactory>(MockBehavior.Strict);
         targetFactory
             .Setup(f => f.CreateAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(target.Object);
@@ -122,8 +122,8 @@ public sealed class WorkItemTypeValidatorTests
                 return ValueTask.FromResult<PackagePayload?>(null);
             });
 
-        var target = new Mock<IWorkItemImportTarget>(MockBehavior.Strict);
-        var targetFactory = new Mock<IWorkItemImportTargetFactory>(MockBehavior.Strict);
+        var target = new Mock<IWorkItemTypeReadinessTarget>(MockBehavior.Strict);
+        var targetFactory = new Mock<IWorkItemTypeReadinessTargetFactory>(MockBehavior.Strict);
 
         var sut = new WorkItemTypeValidator(targetFactory.Object);
 

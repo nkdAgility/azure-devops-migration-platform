@@ -19,7 +19,7 @@ public sealed class TfsWorkItemImportTargetTests
     [TestMethod]
     public async Task WorkItemTypeExistsAsync_ReturnsTrue_ForKnownType()
     {
-        var target = new TfsWorkItemImportTarget(["Bug", "User Story"]);
+        var target = new TfsWorkItemTypeReadinessTarget(["Bug", "User Story"]);
 
         var exists = await target.WorkItemTypeExistsAsync(" bug ", CancellationToken.None);
 
@@ -29,7 +29,7 @@ public sealed class TfsWorkItemImportTargetTests
     [TestMethod]
     public async Task WorkItemTypeExistsAsync_ReturnsFalse_ForUnknownType()
     {
-        var target = new TfsWorkItemImportTarget(["Bug", "User Story"]);
+        var target = new TfsWorkItemTypeReadinessTarget(["Bug", "User Story"]);
 
         var exists = await target.WorkItemTypeExistsAsync("Task", CancellationToken.None);
 
@@ -37,14 +37,34 @@ public sealed class TfsWorkItemImportTargetTests
     }
 
     [TestMethod]
-    public void AddTfsMigrationAgentServices_RegistersTfsWorkItemImportTargetFactory()
+    public void AddTfsMigrationAgentServices_RegistersTfsWorkItemTypeReadinessTargetFactory()
     {
         var services = new ServiceCollection();
         var configuration = new ConfigurationBuilder().AddInMemoryCollection().Build();
 
         services.AddTfsMigrationAgentServices(configuration, new Uri("http://localhost:5100"));
 
-        var factoryDescriptor = services.Single(d => d.ServiceType == typeof(IWorkItemImportTargetFactory));
-        Assert.AreEqual(typeof(TfsActiveJobWorkItemImportTargetFactory), factoryDescriptor.ImplementationType);
+        var factoryDescriptor = services.Single(d => d.ServiceType == typeof(IWorkItemTypeReadinessTargetFactory));
+        Assert.AreEqual(typeof(TfsActiveJobWorkItemTypeReadinessTargetFactory), factoryDescriptor.ImplementationType);
+    }
+
+    [TestMethod]
+    public void ResolveProjectName_Throws_WhenProjectNameIsMissing()
+    {
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(
+            () => TfsActiveJobWorkItemTypeReadinessTargetFactory.ResolveProjectName("   ", ["ProjectA"]));
+
+        StringAssert.Contains(exception.Message, "missing");
+    }
+
+    [TestMethod]
+    public void ResolveProjectName_Throws_WithAvailableProjects_WhenProjectNameIsInvalid()
+    {
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(
+            () => TfsActiveJobWorkItemTypeReadinessTargetFactory.ResolveProjectName("MissingProject", ["ProjectA", "ProjectB"]));
+
+        StringAssert.Contains(exception.Message, "MissingProject");
+        StringAssert.Contains(exception.Message, "ProjectA");
+        StringAssert.Contains(exception.Message, "ProjectB");
     }
 }

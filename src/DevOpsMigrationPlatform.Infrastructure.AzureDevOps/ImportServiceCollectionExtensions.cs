@@ -37,6 +37,7 @@ public static class ImportServiceCollectionExtensions
     {
         // Register ADO import target factory as a keyed entry in the composite dispatcher
         services.AddImportTargetFactory<AzureDevOpsWorkItemImportTargetFactory>("AzureDevOpsServices");
+        services.AddWorkItemTypeReadinessTargetFactory<AzureDevOpsWorkItemTypeReadinessTargetFactory>("AzureDevOpsServices");
         // Register ADO resolution strategy factory as a keyed entry in the composite dispatcher
         services.AddResolutionStrategyFactory<AzureDevOpsResolutionStrategyFactory, AzureDevOpsWorkItemImportTarget>();
         services.TryAddSingleton<IIdentityMappingService, PassThroughIdentityMappingService>();

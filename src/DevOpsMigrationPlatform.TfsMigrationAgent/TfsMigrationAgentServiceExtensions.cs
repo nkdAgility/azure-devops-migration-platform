@@ -58,7 +58,7 @@ public static class TfsMigrationAgentServiceExtensions
         services.AddSingleton<IWorkItemRevisionSourceFactory, TfsActiveJobWorkItemRevisionSourceFactory>();
         services.AddSingleton<IIdentitySource, TfsActiveJobIdentitySource>();
         services.AddSingleton<INodeCreator, TfsActiveJobNodeCreator>();
-        services.AddSingleton<IWorkItemImportTargetFactory, TfsActiveJobWorkItemImportTargetFactory>();
+        services.AddSingleton<IWorkItemTypeReadinessTargetFactory, TfsActiveJobWorkItemTypeReadinessTargetFactory>();
 
         // Export progress store — SQLite-backed fast-forward resume (now supported on net481).
         services.AddSingleton<IExportProgressStoreFactory, ExportProgressStoreFactory>();

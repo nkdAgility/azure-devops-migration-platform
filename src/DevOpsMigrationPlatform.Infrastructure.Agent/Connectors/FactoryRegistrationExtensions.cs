@@ -39,6 +39,23 @@ public static class FactoryRegistrationExtensions
     }
 
     /// <summary>
+    /// Registers a concrete <see cref="IWorkItemTypeReadinessTargetFactory"/> implementation
+    /// and ensures the <see cref="CompositeWorkItemTypeReadinessTargetFactory"/> dispatcher is
+    /// registered as <see cref="IWorkItemTypeReadinessTargetFactory"/>.
+    /// </summary>
+    public static IServiceCollection AddWorkItemTypeReadinessTargetFactory<TFactory>(
+        this IServiceCollection services,
+        string typeKey)
+        where TFactory : class, IWorkItemTypeReadinessTargetFactory
+    {
+        services.TryAddSingleton<TFactory>();
+        services.AddSingleton(sp =>
+            new KeyedWorkItemTypeReadinessTargetFactory(typeKey, sp.GetRequiredService<TFactory>()));
+        services.TryAddSingleton<IWorkItemTypeReadinessTargetFactory, CompositeWorkItemTypeReadinessTargetFactory>();
+        return services;
+    }
+
+    /// <summary>
     /// Registers a concrete <see cref="IWorkItemRevisionSourceFactory"/> implementation
     /// and ensures the <see cref="CompositeWorkItemRevisionSourceFactory"/> dispatcher is
     /// registered as <see cref="IWorkItemRevisionSourceFactory"/>.

@@ -10,7 +10,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Import.FailurePatterns;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import.Validators;
 
-internal sealed class WorkItemTypeValidator(IWorkItemImportTargetFactory importTargetFactory) : IImportFailurePattern
+internal sealed class WorkItemTypeValidator(IWorkItemTypeReadinessTargetFactory typeReadinessTargetFactory) : IImportFailurePattern
 {
     public const string Code = "WORKITEMS_PREPARE_MISSING_WORKITEM_TYPE";
     private const string WorkItemTypeReferenceName = "System.WorkItemType";
@@ -53,7 +53,7 @@ internal sealed class WorkItemTypeValidator(IWorkItemImportTargetFactory importT
             return [];
         }
 
-        var target = await importTargetFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+        var target = await typeReadinessTargetFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
         var findings = new List<ImportFailureFinding>();
         foreach (var workItemType in exportedTypes.OrderBy(t => t, System.StringComparer.OrdinalIgnoreCase))
         {

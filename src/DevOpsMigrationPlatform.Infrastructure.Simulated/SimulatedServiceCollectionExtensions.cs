@@ -84,6 +84,7 @@ public static class SimulatedServiceCollectionExtensions
     {
         // Register import target factory as keyed entry in the composite dispatcher
         services.AddImportTargetFactory<SimulatedWorkItemImportTargetFactory>("Simulated");
+        services.AddWorkItemTypeReadinessTargetFactory<SimulatedWorkItemTypeReadinessTargetFactory>("Simulated");
 
         // Register resolution strategy factory — always returns NullResolutionStrategy
         services.AddResolutionStrategyFactory<SimulatedResolutionStrategyFactory, SimulatedWorkItemImportTarget>();
