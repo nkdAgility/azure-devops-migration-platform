@@ -36,7 +36,21 @@ public sealed class TfsActiveJobWorkItemTypeReadinessTargetFactory : IWorkItemTy
             .ToArray();
 
         var projectName = ResolveProjectName(services.Endpoint.GetProject(), availableProjectNames);
-        var project = services.WorkItemStore.Projects[projectName];
+        Project project;
+        try
+        {
+            project = services.WorkItemStore.Projects[projectName];
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            project = services.WorkItemStore.Projects
+                .Cast<Project>()
+                .FirstOrDefault(candidate => string.Equals(candidate.Name?.Trim(), projectName, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException(
+                    $"Target project '{projectName}' could not be resolved from TFS metadata. " +
+                    "Refresh TFS project metadata and rerun Prepare.",
+                    ex);
+        }
 
         var workItemTypes = project.WorkItemTypes
             .Cast<WorkItemType>()
@@ -72,6 +86,6 @@ public sealed class TfsActiveJobWorkItemTypeReadinessTargetFactory : IWorkItemTy
                 $"Available projects: {orderedNames}.");
         }
 
-        return normalizedProjectName;
+        return availableProjectNames.First(name => string.Equals(name, normalizedProjectName, StringComparison.OrdinalIgnoreCase));
     }
 }

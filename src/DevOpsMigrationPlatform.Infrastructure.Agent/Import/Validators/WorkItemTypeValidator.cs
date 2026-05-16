@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -54,23 +55,38 @@ internal sealed class WorkItemTypeValidator(IWorkItemTypeReadinessTargetFactory 
         }
 
         var target = await typeReadinessTargetFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
-        var findings = new List<ImportFailureFinding>();
-        foreach (var workItemType in exportedTypes.OrderBy(t => t, System.StringComparer.OrdinalIgnoreCase))
+        try
         {
-            var exists = await target.WorkItemTypeExistsAsync(workItemType, cancellationToken).ConfigureAwait(false);
-            if (exists)
+            var findings = new List<ImportFailureFinding>();
+            foreach (var workItemType in exportedTypes.OrderBy(t => t, System.StringComparer.OrdinalIgnoreCase))
             {
-                continue;
+                var exists = await target.WorkItemTypeExistsAsync(workItemType, cancellationToken).ConfigureAwait(false);
+                if (exists)
+                {
+                    continue;
+                }
+
+                findings.Add(new ImportFailureFinding(
+                    PatternCode,
+                    ImportFailureSeverity.Blocking,
+                    workItemType,
+                    $"Required work item type '{workItemType}' does not exist on the target project.",
+                    $"Create or map '{workItemType}' on the target before running import."));
             }
 
-            findings.Add(new ImportFailureFinding(
-                PatternCode,
-                ImportFailureSeverity.Blocking,
-                workItemType,
-                $"Required work item type '{workItemType}' does not exist on the target project.",
-                $"Create or map '{workItemType}' on the target before running import."));
+            return findings;
         }
-
-        return findings;
+        finally
+        {
+            switch (target)
+            {
+                case IAsyncDisposable asyncDisposable:
+                    await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+                    break;
+                case System.IDisposable disposable:
+                    disposable.Dispose();
+                    break;
+            }
+        }
     }
 }

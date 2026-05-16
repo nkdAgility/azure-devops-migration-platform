@@ -11,7 +11,7 @@ using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 
-internal sealed class AzureDevOpsWorkItemTypeReadinessTarget : IWorkItemTypeReadinessTarget
+internal sealed class AzureDevOpsWorkItemTypeReadinessTarget : IWorkItemTypeReadinessTarget, IDisposable
 {
     private readonly WorkItemTrackingHttpClient _witClient;
     private readonly string _project;
@@ -57,5 +57,10 @@ internal sealed class AzureDevOpsWorkItemTypeReadinessTarget : IWorkItemTypeRead
         }
 
         return cachedWorkItemTypes.Contains(workItemType.Trim());
+    }
+
+    public void Dispose()
+    {
+        _cacheLock.Dispose();
     }
 }

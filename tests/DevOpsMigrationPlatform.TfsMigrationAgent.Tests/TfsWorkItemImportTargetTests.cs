@@ -10,6 +10,7 @@ using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Moq;
 
 namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests;
 
@@ -44,8 +45,26 @@ public sealed class TfsWorkItemImportTargetTests
 
         services.AddTfsMigrationAgentServices(configuration, new Uri("http://localhost:5100"));
 
-        var factoryDescriptor = services.Single(d => d.ServiceType == typeof(IWorkItemTypeReadinessTargetFactory));
+        var factoryDescriptor = services.Single(d => d.ServiceType == typeof(TfsActiveJobWorkItemTypeReadinessTargetFactory));
         Assert.AreEqual(typeof(TfsActiveJobWorkItemTypeReadinessTargetFactory), factoryDescriptor.ImplementationType);
+    }
+
+    [TestMethod]
+    public void AddTfsMigrationAgentServices_DoesNotOverrideExistingReadinessFactoryRegistration()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection().Build();
+        var existingFactory = new Mock<IWorkItemTypeReadinessTargetFactory>(MockBehavior.Strict).Object;
+
+        services.AddSingleton(existingFactory);
+        services.AddTfsMigrationAgentServices(configuration, new Uri("http://localhost:5100"));
+
+        var readinessFactoryDescriptors = services
+            .Where(d => d.ServiceType == typeof(IWorkItemTypeReadinessTargetFactory))
+            .ToArray();
+
+        Assert.AreEqual(1, readinessFactoryDescriptors.Length);
+        Assert.AreSame(existingFactory, readinessFactoryDescriptors[0].ImplementationInstance);
     }
 
     [TestMethod]
@@ -66,5 +85,13 @@ public sealed class TfsWorkItemImportTargetTests
         StringAssert.Contains(exception.Message, "MissingProject");
         StringAssert.Contains(exception.Message, "ProjectA");
         StringAssert.Contains(exception.Message, "ProjectB");
+    }
+
+    [TestMethod]
+    public void ResolveProjectName_ReturnsCanonicalProjectName_WhenInputCaseDiffers()
+    {
+        var projectName = TfsActiveJobWorkItemTypeReadinessTargetFactory.ResolveProjectName("projecta", ["ProjectA", "ProjectB"]);
+
+        Assert.AreEqual("ProjectA", projectName);
     }
 }

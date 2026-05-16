@@ -136,6 +136,39 @@ public sealed class WorkItemTypeValidatorTests
         target.VerifyNoOtherCalls();
     }
 
+    [TestMethod]
+    public async Task EvaluateAsync_DisposesTarget_WhenFactoryReturnsDisposableTarget()
+    {
+        const string revision = "WorkItems/2026-05-13/638827200000000000-42-0/revision.json";
+
+        var package = PackageTestFactory.CreateLooseMock();
+        package
+            .Setup(p => p.EnumerateContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => EnumerateManyAsync([revision]));
+        package
+            .Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(
+                CreatePayload(new WorkItemRevision
+                {
+                    Fields = [new WorkItemField { ReferenceName = "System.WorkItemType", Value = "Bug" }]
+                })));
+
+        var disposableTarget = new DisposableWorkItemTypeReadinessTarget();
+        var targetFactory = new Mock<IWorkItemTypeReadinessTargetFactory>(MockBehavior.Strict);
+        targetFactory
+            .Setup(f => f.CreateAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(disposableTarget);
+
+        var sut = new WorkItemTypeValidator(targetFactory.Object);
+
+        _ = await sut.EvaluateAsync(
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions()),
+            CancellationToken.None);
+
+        Assert.IsTrue(disposableTarget.IsDisposed);
+        targetFactory.Verify(f => f.CreateAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private static PrepareContext CreatePrepareContext(IPackageAccess package)
     {
         var targetEndpoint = new Mock<ITargetEndpointInfo>();
@@ -166,5 +199,20 @@ public sealed class WorkItemTypeValidatorTests
     {
         var json = JsonSerializer.Serialize(revision);
         return new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(json)));
+    }
+
+    private sealed class DisposableWorkItemTypeReadinessTarget : IWorkItemTypeReadinessTarget, IDisposable
+    {
+        public bool IsDisposed { get; private set; }
+
+        public Task<bool> WorkItemTypeExistsAsync(string workItemType, CancellationToken ct)
+        {
+            return Task.FromResult(true);
+        }
+
+        public void Dispose()
+        {
+            IsDisposed = true;
+        }
     }
 }
