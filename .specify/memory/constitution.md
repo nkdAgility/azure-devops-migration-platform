@@ -467,7 +467,7 @@ Reject any proposal that:
 - Adds or changes a deployable Host (`AppHost`, `ControlPlaneHost`, `MigrationAgent`) without a corresponding mode or build step covered by `build.ps1`.
 - Ships a CLI-exposed feature without a `[TestCategory("SystemTest")]` test that exercises the feature end-to-end and asserts observable output.
 - Declares a task done without completing the Mandatory Compliance Review Loop (see Governance).
-- Marks a spec's last task `[X]` without all items in `specs/<feature>/discrepancies.md` being `Resolved` or `N/A`.
+- Marks a spec's last task `[x]` without all items in `specs/<feature>/discrepancies.md` being `Resolved` or `N/A`.
 - Closes a spec branch without reviewing and removing resolved items from `analysis/pending-actions.md`.
 - Declares done without updating every canonical doc file (`/docs/*.md`, `.agents/30-context/*.md`) named in any doc-task in `tasks.md`.
 - Implements a feature for one connector (Simulated, AzureDevOps, or TFS) while leaving stubs, placeholders, or `NotImplementedException` in the other connectors where the API supports the capability.
@@ -504,7 +504,7 @@ Reject any proposal that:
   1. Open `specs/<feature>/discrepancies.md` and verify every entry is marked `Resolved` or `N/A`.
   2. Open `analysis/pending-actions.md` and remove every item that is now implemented by this spec.
   3. Confirm that every `/docs/*.md` file referenced in any doc-task in `tasks.md` has been
-     updated and the task is `[X]`.
+     updated and the task is `[x]`.
   4. Confirm that every `.agents/30-context/*.md` file affected by the implementation has been updated.
   5. If any of steps 1–4 are not satisfied, the branch MUST NOT be merged.
   Skipping this gate because "the tests pass" is a violation. The gate is enforced by

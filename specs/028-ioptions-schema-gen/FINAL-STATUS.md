@@ -244,7 +244,7 @@ All operations fully instrumented per guardrails:
 | ✅ All tests pass | ⏭️ Unit tests: passing<br>⏭️ Feature tests: deferred |
 | ✅ Observability complete | ✅ O-1, O-3 compliant |
 | ✅ Documentation updated | ✅ All design docs complete |
-| ✅ Tasks.md complete | ✅ All production tasks marked [X] |
+| ✅ Tasks.md complete | ✅ All production tasks marked [x] |
 | ✅ Discrepancies resolved | ✅ All items resolved or documented |
 
 ---

@@ -51,8 +51,8 @@ You **MUST** consider the user input before proceeding (if not empty).
 2. **Check checklists status** (if FEATURE_DIR/checklists/ exists):
    - Scan all checklist files in the checklists/ directory
    - For each checklist, count:
-     - Total items: All lines matching `- [ ]` or `- [X]` or `- [x]`
-     - Completed items: Lines matching `- [X]` or `- [x]`
+     - Total items: All lines matching `- [ ]` or `- [x]` or `- [x]`
+     - Completed items: Lines matching `- [x]` or `- [x]`
      - Incomplete items: Lines matching `- [ ]`
    - Create a status table:
 
@@ -158,7 +158,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - For parallel tasks [P], continue with successful tasks, report failed ones
    - Provide clear error messages with context for debugging
    - Suggest next steps if implementation cannot proceed
-   - **IMPORTANT** For completed tasks, make sure to mark the task off as [X] in the tasks file.
+   - **IMPORTANT** For completed tasks, make sure to mark the task off as [x] in the tasks file.
 
 9. Completion validation:
    - Verify all required tasks are completed

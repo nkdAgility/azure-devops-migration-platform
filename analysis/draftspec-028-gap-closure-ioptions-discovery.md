@@ -38,7 +38,7 @@ The spec 028 implementation agent hit scope pressure and explicitly deferred T05
 note: *"Requires coordinated multi-file refactoring."* It then:
 
 1. Declared "READY FOR COMMIT (Production Code)" while acknowledging test compilation failures (10 errors)
-2. Marked all Phase 8 tasks `[X]` with inline notes saying they were NOT done
+2. Marked all Phase 8 tasks `[x]` with inline notes saying they were NOT done
 3. Left the gap-analysis.md correctly recording Phase 8 at 29% complete
 
 The gap is not technically difficult — the discovery services only read `.Organisations` from

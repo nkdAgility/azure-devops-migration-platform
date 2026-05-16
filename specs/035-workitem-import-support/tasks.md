@@ -54,27 +54,27 @@ This document defines the complete task decomposition for implementing the Work 
 
 ### Checkpoint & State Management
 
-- [X] T009 Create ImportCheckpointService class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/ImportCheckpointService.cs` with methods to read/write cursor from `.migration/Checkpoints/workitems-import.cursor.json`
-- [X] T010 [P] Extend ImportCheckpointService to manage idmap.db (SQLite) under `.migration/Checkpoints/idmap.db` with source→target ID mappings for work items, attachments, and embedded images
-- [X] T011 [P] Implement cursor resume logic: Given a saved checkpoint with lastProcessed and stage, return the next stage to process and prevent duplicate work
+- [x] T009 Create ImportCheckpointService class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/ImportCheckpointService.cs` with methods to read/write cursor from `.migration/Checkpoints/workitems-import.cursor.json`
+- [x] T010 [P] Extend ImportCheckpointService to manage idmap.db (SQLite) under `.migration/Checkpoints/idmap.db` with source→target ID mappings for work items, attachments, and embedded images
+- [x] T011 [P] Implement cursor resume logic: Given a saved checkpoint with lastProcessed and stage, return the next stage to process and prevent duplicate work
 
 ### Identity Resolution Integration
 
-- [X] T012 [P] Wire IIdentityMappingService into WorkItemImportModule constructor via dependency injection; validate service is registered before module runs
-- [X] T013 [P] Create IdentityResolutionContext class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Models/IdentityResolutionContext.cs` to cache resolved identities per revision and prevent duplicate lookups
+- [x] T012 [P] Wire IIdentityMappingService into WorkItemImportModule constructor via dependency injection; validate service is registered before module runs
+- [x] T013 [P] Create IdentityResolutionContext class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Models/IdentityResolutionContext.cs` to cache resolved identities per revision and prevent duplicate lookups
 
 ### Node Translation & Field Transform Integration
 
-- [X] T014 [P] Wire INodeTranslationTool into WorkItemImportModule constructor; ensure tool is configured before import phase
-- [X] T015 [P] Wire IFieldTransformTool into WorkItemImportModule constructor; ensure tool is configured before import phase
-- [X] T016 [P] Implement node translation memoization/policy behind the canonical `INodeTranslationTool` seam (no parallel runtime translation surface)
+- [x] T014 [P] Wire INodeTranslationTool into WorkItemImportModule constructor; ensure tool is configured before import phase
+- [x] T015 [P] Wire IFieldTransformTool into WorkItemImportModule constructor; ensure tool is configured before import phase
+- [x] T016 [P] Implement node translation memoization/policy behind the canonical `INodeTranslationTool` seam (no parallel runtime translation surface)
 
 ### Extension Lever Configuration
 
-- [X] T017 Create WorkItemImportOptions sealed class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Configuration/WorkItemImportOptions.cs` with boolean properties for RevisionReplay, LinkReplay, AttachmentReplay, EmbeddedImageReplay, and FieldTransform
-- [X] T018 [P] Add WorkItemImportOptions validation in ConfigureOptions handler to ensure lever combinations are valid before job execution
-- [X] T019 [P] Register WorkItemImportOptions via IOptions<T> pattern in dependency injection container at module startup
-- [X] T020 Create WorkItemImportModuleExtensions static class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Extensions/WorkItemImportModuleExtensions.cs` with RegisterWorkItemImportServices method
+- [x] T017 Create WorkItemImportOptions sealed class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Configuration/WorkItemImportOptions.cs` with boolean properties for RevisionReplay, LinkReplay, AttachmentReplay, EmbeddedImageReplay, and FieldTransform
+- [x] T018 [P] Add WorkItemImportOptions validation in ConfigureOptions handler to ensure lever combinations are valid before job execution
+- [x] T019 [P] Register WorkItemImportOptions via IOptions<T> pattern in dependency injection container at module startup
+- [x] T020 Create WorkItemImportModuleExtensions static class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Extensions/WorkItemImportModuleExtensions.cs` with RegisterWorkItemImportServices method
 
 **Independent Test Criteria**:
 - Checkpoint read/write operations are atomic (no partial reads)
@@ -91,16 +91,16 @@ This document defines the complete task decomposition for implementing the Work 
 
 ### Prepare Entry Point & Orchestration
 
-- [X] T021 [US1] Create ImportPreparer class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/ImportPreparer.cs` with async Prepare method that orchestrates all validation checks
-- [X] T022 [US1] Implement prepare phase dispatch in WorkItemsModule.PrepareAsync to delegate to ImportPreparer and handle exceptions
+- [x] T021 [US1] Create ImportPreparer class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/ImportPreparer.cs` with async Prepare method that orchestrates all validation checks
+- [x] T022 [US1] Implement prepare phase dispatch in WorkItemsModule.PrepareAsync to delegate to ImportPreparer and handle exceptions
 
 ### Node Readiness Validation (US1: Scenario 1, 3)
 
-- [X] T023 [US1] [P] Implement NodePathValidator class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Validators/NodePathValidator.cs` to enumerate exported node paths from package and check existence on target via INodeService
-- [X] T024 [US1] [P] **SIMULATED**: Implement Simulated connector node validation — in-memory check that all required paths exist in simulated classification structure
-- [X] T025 [US1] [P] **AZURE DEVOPS**: Implement Azure DevOps REST API node validation — call GET /workitemtypes and GET classificationnodes API to verify required paths exist
-- [X] T026 [US1] [P] **TFS**: Implement TFS OM node validation via TfsMigrationAgent — call TFS node metadata API to verify required paths exist
-- [X] T027 [US1] Create NodeReadinessFinding record type with path, nodeType (Area/Iteration), status, and targetPath fields
+- [x] T023 [US1] [P] Implement NodePathValidator class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Validators/NodePathValidator.cs` to enumerate exported node paths from package and check existence on target via INodeService
+- [x] T024 [US1] [P] **SIMULATED**: Implement Simulated connector node validation — in-memory check that all required paths exist in simulated classification structure
+- [x] T025 [US1] [P] **AZURE DEVOPS**: Implement Azure DevOps REST API node validation — call GET /workitemtypes and GET classificationnodes API to verify required paths exist
+- [x] T026 [US1] [P] **TFS**: Implement TFS OM node validation via TfsMigrationAgent — call TFS node metadata API to verify required paths exist
+- [x] T027 [US1] Create NodeReadinessFinding record type with path, nodeType (Area/Iteration), status, and targetPath fields
 
 ### Work Item Type Validation (US1: Scenario 2)
 
@@ -118,22 +118,22 @@ This document defines the complete task decomposition for implementing the Work 
 
 ### Package Artefact Validation (US1: Scenarios 5, 6, FR-005a/b/c)
 
-- [X] T036 [US1] [P] Implement ArtefactValidator class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Validators/ArtefactValidator.cs` to enumerate WorkItems folder and validate required revision.json files exist
-- [X] T037 [US1] [P] Implement attachment binary validation — for each revision with attachment metadata, check that referenced binaries exist in package via IArtefactStore.ExistsAsync
-- [X] T038 [US1] [P] Implement embedded image binary validation — parse revision field values for image references and verify binaries exist in package
-- [X] T039 [US1] Create ArtefactFinding record type with itemType (RevisionFolder/Attachment/EmbeddedImage), itemId, status, and missingPath fields
+- [x] T036 [US1] [P] Implement ArtefactValidator class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Validators/ArtefactValidator.cs` to enumerate WorkItems folder and validate required revision.json files exist
+- [x] T037 [US1] [P] Implement attachment binary validation — for each revision with attachment metadata, check that referenced binaries exist in package via IArtefactStore.ExistsAsync
+- [x] T038 [US1] [P] Implement embedded image binary validation — parse revision field values for image references and verify binaries exist in package
+- [x] T039 [US1] Create ArtefactFinding record type with itemType (RevisionFolder/Attachment/EmbeddedImage), itemId, status, and missingPath fields
 
 ### Field Transform Validation (US1: FR-005d)
 
-- [X] T040 [US1] [P] Implement FieldTransformValidator class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Validators/FieldTransformValidator.cs` to validate that FieldTransform rules reference fields that exist in exported revisions
-- [X] T041 [US1] [P] Check field types for compatibility with transform operations (e.g., string fields for text transforms, numeric fields for math operations)
-- [X] T042 [US1] Create FieldTransformFinding record type with fieldName, typeName, transformRule, status (Valid/FieldNotFound/TypeMismatch/Error), and recommendation fields
+- [x] T040 [US1] [P] Implement FieldTransformValidator class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Validators/FieldTransformValidator.cs` to validate that FieldTransform rules reference fields that exist in exported revisions
+- [x] T041 [US1] [P] Check field types for compatibility with transform operations (e.g., string fields for text transforms, numeric fields for math operations)
+- [x] T042 [US1] Create FieldTransformFinding record type with fieldName, typeName, transformRule, status (Valid/FieldNotFound/TypeMismatch/Error), and recommendation fields
 
 ### Readiness Report Generation
 
-- [X] T043 [US1] Implement report assembly logic to combine all validator findings into ImportReadinessReport record
-- [X] T044 [US1] Calculate IsReadyForImport = (BlockingIssues.Length == 0)
-- [X] T045 [US1] Write ImportReadinessReport to package at `.migration/Readiness/workitems-import-readiness.json` via IArtefactStore
+- [x] T043 [US1] Implement report assembly logic to combine all validator findings into ImportReadinessReport record
+- [x] T044 [US1] Calculate IsReadyForImport = (BlockingIssues.Length == 0)
+- [x] T045 [US1] Write ImportReadinessReport to package at `.migration/Readiness/workitems-import-readiness.json` via IArtefactStore
 
 **Independent Test Criteria**:
 - Prepare phase validates all required artefacts without calling source system
@@ -151,30 +151,30 @@ This document defines the complete task decomposition for implementing the Work 
 
 ### Node Readiness Orchestration
 
-- [X] T046 [US2] Create NodeReadinessOrchestrator class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/NodeReadinessOrchestrator.cs` with ExecuteAsync method to prepare and create required node paths
-- [X] T047 [US2] Implement node readiness dispatch in WorkItemImportModule.Import — call orchestrator before revision import begins
+- [x] T046 [US2] Create NodeReadinessOrchestrator class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/NodeReadinessOrchestrator.cs` with ExecuteAsync method to prepare and create required node paths
+- [x] T047 [US2] Implement node readiness dispatch in WorkItemImportModule.Import — call orchestrator before revision import begins
 
 ### Referenced Node Path Strategy (US2: Scenario 1, FR-006)
 
-- [X] T048 [US2] [P] Implement referenced-path strategy — enumerate WorkItems folder to collect all distinct area and iteration path values referenced by exported work items
-- [X] T049 [US2] [P] **SIMULATED**: Implement Simulated connector node creation — add paths to in-memory classification structure for Area and Iteration types
-- [X] T050 [US2] [P] **AZURE DEVOPS**: Implement Azure DevOps REST API node creation — call POST /classificationnodes API to create required area and iteration paths
-- [X] T051 [US2] [P] **TFS**: Implement TFS OM node creation via TfsMigrationAgent — call TFS classification API to create required paths
-- [X] T052 [US2] [P] Apply NodeTranslationTool to source paths before creating nodes — use translated target paths per specification
+- [x] T048 [US2] [P] Implement referenced-path strategy — enumerate WorkItems folder to collect all distinct area and iteration path values referenced by exported work items
+- [x] T049 [US2] [P] **SIMULATED**: Implement Simulated connector node creation — add paths to in-memory classification structure for Area and Iteration types
+- [x] T050 [US2] [P] **AZURE DEVOPS**: Implement Azure DevOps REST API node creation — call POST /classificationnodes API to create required area and iteration paths
+- [x] T051 [US2] [P] **TFS**: Implement TFS OM node creation via TfsMigrationAgent — call TFS classification API to create required paths
+- [x] T052 [US2] [P] Apply NodeTranslationTool to source paths before creating nodes — use translated target paths per specification
 
 ### Full Source Tree Replication Strategy (US2: Scenario 2, FR-007)
 
-- [X] T053 [US2] [P] Implement source-tree replication strategy — read exported source classification structure from package (if available) and replicate entire tree to target
-- [X] T054 [US2] [P] Enumerate package for exported classification metadata (source area/iteration trees)
-- [X] T055 [US2] [P] **SIMULATED**: Create full classification tree in-memory for replicated source structure
-- [X] T056 [US2] [P] **AZURE DEVOPS**: Create full classification tree via Azure DevOps REST API with proper parent-child relationships
-- [X] T057 [US2] [P] **TFS**: Create full classification tree via TFS OM with proper hierarchical structure
+- [x] T053 [US2] [P] Implement source-tree replication strategy — read exported source classification structure from package (if available) and replicate entire tree to target
+- [x] T054 [US2] [P] Enumerate package for exported classification metadata (source area/iteration trees)
+- [x] T055 [US2] [P] **SIMULATED**: Create full classification tree in-memory for replicated source structure
+- [x] T056 [US2] [P] **AZURE DEVOPS**: Create full classification tree via Azure DevOps REST API with proper parent-child relationships
+- [x] T057 [US2] [P] **TFS**: Create full classification tree via TFS OM with proper hierarchical structure
 
 ### Path Translation Consistency (US2: Scenario 3, FR-008)
 
-- [X] T058 [US2] [P] Apply NodeTranslationTool consistently to paths during both node creation and later work item field replay
-- [X] T059 [US2] [P] Ensure translated path memoization is provided behind the canonical `INodeTranslationTool` seam so the same source path always maps to the same target path
-- [X] T060 [US2] [P] Verify that node creation and later field writes use identical translated paths (no inconsistency)
+- [x] T058 [US2] [P] Apply NodeTranslationTool consistently to paths during both node creation and later work item field replay
+- [x] T059 [US2] [P] Ensure translated path memoization is provided behind the canonical `INodeTranslationTool` seam so the same source path always maps to the same target path
+- [x] T060 [US2] [P] Verify that node creation and later field writes use identical translated paths (no inconsistency)
 
 ### Resume & Duplication Prevention (US2: Scenario 4)
 

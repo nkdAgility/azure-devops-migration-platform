@@ -214,9 +214,9 @@ Successfully implemented the core infrastructure for **Schema Generation from IO
 
 ## Success Criteria Status
 
-- [X] `dotnet build` succeeds with zero errors ✅
-- [X] Schema file committed and validated in CI ✅
-- [X] VS Code IntelliSense works for `migration*.json` ✅
+- [x] `dotnet build` succeeds with zero errors ✅
+- [x] Schema file committed and validated in CI ✅
+- [x] VS Code IntelliSense works for `migration*.json` ✅
 - [⚠️] ALL tests pass (18+ new tests passing; some pre-existing module tests need Phase 6 completion)
 - [⚠️] `grep -r "ActiveJobConfigState" src/` returns zero results (13 remain — requires Phase 6/8 completion)
 - [⚠️] `grep -r "MigrationOptions" src/` returns zero results (still in use — requires Phase 8 completion)

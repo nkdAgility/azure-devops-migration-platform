@@ -77,7 +77,7 @@ IF suggestion seems wrong:
   Push back with technical reasoning
 
 IF can't easily verify:
-  Say so: "I can't verify this without [X]. Should I [investigate/ask/proceed]?"
+  Say so: "I can't verify this without [x]. Should I [investigate/ask/proceed]?"
 
 IF conflicts with your human partner's prior decisions:
   Stop and discuss with your human partner first
@@ -151,7 +151,7 @@ When feedback IS correct:
 
 If you pushed back and were wrong:
 ```
-✅ "You were right - I checked [X] and it does [Y]. Implementing now."
+✅ "You were right - I checked [x] and it does [Y]. Implementing now."
 ✅ "Verified this and you're correct. My initial understanding was wrong because [reason]. Fixing."
 
 ❌ Long apology

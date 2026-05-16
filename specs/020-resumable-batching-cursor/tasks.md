@@ -30,9 +30,9 @@ Explicitly rejected approaches:
 
 **Purpose**: Establish acceptance-test scaffolding and shared test context before implementation.
 
-- [X] T001 Create `features/platform/checkpointing/resumable-batching-cursor.feature` with baseline scenarios mapped from `specs/020-resumable-batching-cursor/spec.md` user stories (US1: resume-from-token, no-token; US2: fingerprint match/mismatch; US3: drift ordering, duplicate tolerance).
-- [X] T002 [P] Create `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Checkpointing/ResumableBatchingCursorContext.cs` with shared scenario state for resume token, fingerprint, and caller checkpoint cadence.
-- [X] T003 [P] Create `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Checkpointing/ResumableBatchingCursorSteps.cs` with intentionally failing Reqnroll bindings for initial scenarios in `features/platform/checkpointing/resumable-batching-cursor.feature`.
+- [x] T001 Create `features/platform/checkpointing/resumable-batching-cursor.feature` with baseline scenarios mapped from `specs/020-resumable-batching-cursor/spec.md` user stories (US1: resume-from-token, no-token; US2: fingerprint match/mismatch; US3: drift ordering, duplicate tolerance).
+- [x] T002 [P] Create `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Checkpointing/ResumableBatchingCursorContext.cs` with shared scenario state for resume token, fingerprint, and caller checkpoint cadence.
+- [x] T003 [P] Create `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Checkpointing/ResumableBatchingCursorSteps.cs` with intentionally failing Reqnroll bindings for initial scenarios in `features/platform/checkpointing/resumable-batching-cursor.feature`.
 
 **Checkpoint**: Acceptance scaffolding exists and fails before production changes.
 
@@ -44,20 +44,20 @@ Explicitly rejected approaches:
 
 **CRITICAL**: User story implementation starts only after this phase is complete.
 
-- [X] T004 Create `src/DevOpsMigrationPlatform.Abstractions/Models/BatchContinuationToken.cs` — sealed record with `StrategyVersion` (string), `ChangedDateUtc` (DateTime), `WorkItemId` (int), `QueryFingerprint` (string), `GeneratedAtUtc` (DateTime), `Completed` (bool). All init-only properties per data-model.md. *(v1: Fallback fields deferred — no concrete consumer.)*
-- [X] T005 [P] Create `src/DevOpsMigrationPlatform.Abstractions/Models/ResumeDecisionStatus.cs` — enum with `Accepted`, `RejectedQueryMismatch`, `Unavailable`.
-- [X] T006 [P] Create `src/DevOpsMigrationPlatform.Abstractions/Models/ResumeDecision.cs` — sealed record with `Status` (ResumeDecisionStatus), `Reason` (string?), `SavedQueryFingerprint` (string?), `CurrentQueryFingerprint` (string?), `TokenStrategyVersion` (string?).
-- [X] T007 Create `src/DevOpsMigrationPlatform.Abstractions/Models/ResumeRejectedException.cs` — extends `InvalidOperationException`; carries `ResumeDecision` payload as a read-only property (per plan.md Finding 1: mismatch delivered via exception).
-- [X] T008 Create `src/DevOpsMigrationPlatform.Abstractions/Services/IQueryFingerprintService.cs` — interface with `string Compute(string queryText, IReadOnlyDictionary<string, string>? parameters = null)`.
-- [X] T009 Create `src/DevOpsMigrationPlatform.Infrastructure/Services/QueryFingerprintService.cs` — SHA-256 deterministic fingerprint from normalised query text + lexicographically sorted parameters. Normalisation: collapse whitespace to single space, trim, uppercase WIQL keywords (SELECT, FROM, WHERE, ORDER BY, ASC, DESC, AND, OR, NOT, IN, UNDER, EVER, CONTAINS, LIKE). Excludes post-fetch filters.
-- [X] T010 Register `IQueryFingerprintService` as singleton in `src/DevOpsMigrationPlatform.Infrastructure/Config/MigrationPlatformServiceExtensions.cs`.
-- [X] T011 Extend `src/DevOpsMigrationPlatform.Abstractions/Services/WorkItemQueryWindow.cs` — add `ResumeEnabled` (bool, default false), `SavedContinuationToken` (BatchContinuationToken?, default null), `QueryParameters` (IReadOnlyDictionary<string, string>?, default null) to `WorkItemQueryWindowOptions`. No regression for existing callers.
-- [X] T012 Extend `src/DevOpsMigrationPlatform.Abstractions/Models/WorkItemFetchScope.cs` — add `ResumeEnabled` (bool, default false), `SavedContinuationToken` (BatchContinuationToken?, default null), `ContinuationCheckpointWriter` (Func<BatchContinuationToken, CancellationToken, Task>?, default null).
-- [X] T013 Add `ContinuationFile(string moduleName)` static method to `src/DevOpsMigrationPlatform.Abstractions/PackagePaths.cs` for continuation token persistence path under `.migration/Checkpoints/<moduleName>.continuation.json`. Path MUST be scoped by caller/module name to prevent concurrent corruption.
-- [X] T014 Add `ReadContinuationTokenAsync`, `WriteContinuationTokenAsync`, `DeleteContinuationTokenAsync` methods to `src/DevOpsMigrationPlatform.Abstractions/Services/ICheckpointingService.cs`.
-- [X] T015 Implement continuation token read/write/delete in `src/DevOpsMigrationPlatform.Infrastructure/Checkpointing/CheckpointingService.cs` using `IStateStore` and `PackagePaths.ContinuationFile()`.
-- [X] T016 [P] Add abstraction contract tests in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Checkpointing/ResumableBatchingContractTests.cs` for token validity, `ResumeDecision` transition invariants, fingerprint determinism, and `ResumeRejectedException` payload.
-- [X] T044 Add `EvaluateResumeDecisionAsync(WorkItemFetchScope, CancellationToken)` to `src/DevOpsMigrationPlatform.Abstractions/Services/IWorkItemFetchService.cs` — returns `ResumeDecision` without starting enumeration (FR-014). `ResumeRejectedException` in `FetchAsync()` remains as safety net.
+- [x] T004 Create `src/DevOpsMigrationPlatform.Abstractions/Models/BatchContinuationToken.cs` — sealed record with `StrategyVersion` (string), `ChangedDateUtc` (DateTime), `WorkItemId` (int), `QueryFingerprint` (string), `GeneratedAtUtc` (DateTime), `Completed` (bool). All init-only properties per data-model.md. *(v1: Fallback fields deferred — no concrete consumer.)*
+- [x] T005 [P] Create `src/DevOpsMigrationPlatform.Abstractions/Models/ResumeDecisionStatus.cs` — enum with `Accepted`, `RejectedQueryMismatch`, `Unavailable`.
+- [x] T006 [P] Create `src/DevOpsMigrationPlatform.Abstractions/Models/ResumeDecision.cs` — sealed record with `Status` (ResumeDecisionStatus), `Reason` (string?), `SavedQueryFingerprint` (string?), `CurrentQueryFingerprint` (string?), `TokenStrategyVersion` (string?).
+- [x] T007 Create `src/DevOpsMigrationPlatform.Abstractions/Models/ResumeRejectedException.cs` — extends `InvalidOperationException`; carries `ResumeDecision` payload as a read-only property (per plan.md Finding 1: mismatch delivered via exception).
+- [x] T008 Create `src/DevOpsMigrationPlatform.Abstractions/Services/IQueryFingerprintService.cs` — interface with `string Compute(string queryText, IReadOnlyDictionary<string, string>? parameters = null)`.
+- [x] T009 Create `src/DevOpsMigrationPlatform.Infrastructure/Services/QueryFingerprintService.cs` — SHA-256 deterministic fingerprint from normalised query text + lexicographically sorted parameters. Normalisation: collapse whitespace to single space, trim, uppercase WIQL keywords (SELECT, FROM, WHERE, ORDER BY, ASC, DESC, AND, OR, NOT, IN, UNDER, EVER, CONTAINS, LIKE). Excludes post-fetch filters.
+- [x] T010 Register `IQueryFingerprintService` as singleton in `src/DevOpsMigrationPlatform.Infrastructure/Config/MigrationPlatformServiceExtensions.cs`.
+- [x] T011 Extend `src/DevOpsMigrationPlatform.Abstractions/Services/WorkItemQueryWindow.cs` — add `ResumeEnabled` (bool, default false), `SavedContinuationToken` (BatchContinuationToken?, default null), `QueryParameters` (IReadOnlyDictionary<string, string>?, default null) to `WorkItemQueryWindowOptions`. No regression for existing callers.
+- [x] T012 Extend `src/DevOpsMigrationPlatform.Abstractions/Models/WorkItemFetchScope.cs` — add `ResumeEnabled` (bool, default false), `SavedContinuationToken` (BatchContinuationToken?, default null), `ContinuationCheckpointWriter` (Func<BatchContinuationToken, CancellationToken, Task>?, default null).
+- [x] T013 Add `ContinuationFile(string moduleName)` static method to `src/DevOpsMigrationPlatform.Abstractions/PackagePaths.cs` for continuation token persistence path under `.migration/Checkpoints/<moduleName>.continuation.json`. Path MUST be scoped by caller/module name to prevent concurrent corruption.
+- [x] T014 Add `ReadContinuationTokenAsync`, `WriteContinuationTokenAsync`, `DeleteContinuationTokenAsync` methods to `src/DevOpsMigrationPlatform.Abstractions/Services/ICheckpointingService.cs`.
+- [x] T015 Implement continuation token read/write/delete in `src/DevOpsMigrationPlatform.Infrastructure/Checkpointing/CheckpointingService.cs` using `IStateStore` and `PackagePaths.ContinuationFile()`.
+- [x] T016 [P] Add abstraction contract tests in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Checkpointing/ResumableBatchingContractTests.cs` for token validity, `ResumeDecision` transition invariants, fingerprint determinism, and `ResumeRejectedException` payload.
+- [x] T044 Add `EvaluateResumeDecisionAsync(WorkItemFetchScope, CancellationToken)` to `src/DevOpsMigrationPlatform.Abstractions/Services/IWorkItemFetchService.cs` — returns `ResumeDecision` without starting enumeration (FR-014). `ResumeRejectedException` in `FetchAsync()` remains as safety net.
 
 **Checkpoint**: Shared contract layer compiles with deterministic resume primitives. All existing tests pass.
 

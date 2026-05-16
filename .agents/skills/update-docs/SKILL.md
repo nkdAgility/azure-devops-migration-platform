@@ -11,7 +11,7 @@ Scan the completed implementation and propagate every observable behaviour chang
 
 | Mode | How to invoke | Input | Output |
 |---|---|---|---|
-| **SpecKit hook** | Automatic via `after_implement` in `.specify/extensions.yml` | The feature directory being implemented | Updated `/docs` and `/.agents/30-context` files; updated tasks.md doc-tasks marked `[X]` |
+| **SpecKit hook** | Automatic via `after_implement` in `.specify/extensions.yml` | The feature directory being implemented | Updated `/docs` and `/.agents/30-context` files; updated tasks.md doc-tasks marked `[x]` |
 | **Manual (incremental)** | `/update-docs` or `/update-docs --feature <dir>` | Feature directory or current working spec | Same as hook mode — uses `git diff` to scope changes |
 | **Reconcile (full audit)** | `/update-docs --reconcile` | Entire solution root | Walks every canonical doc against the actual codebase; no git diff dependency. Use once to bring existing docs up to date. |
 
@@ -35,7 +35,7 @@ Before executing, read the following to understand what changed:
 
 1. `.agents/00-entry/manifest.yaml`, `.agents/00-entry/task-profiles.yaml`, and `.agents/00-entry/reading-order.md` — decision-system loading contract.
 2. `.agents/10-contracts/change-classes.yaml` and `.agents/10-contracts/consent-policy.yaml` — governance for contract/surface-impacting documentation changes.
-3. `specs/<feature>/tasks.md` — identify all completed `[X]` tasks and any doc-tasks (tasks whose description references a `/docs` or `/.agents` file)
+3. `specs/<feature>/tasks.md` — identify all completed `[x]` tasks and any doc-tasks (tasks whose description references a `/docs` or `/.agents` file)
 4. `specs/<feature>/spec.md` — the user-visible feature description and acceptance criteria
 5. `specs/<feature>/plan.md` — the technical design, including new types, interfaces, CLI changes, config keys
 6. Any `specs/<feature>/contracts/*.md` — interface contracts and schema definitions
@@ -118,8 +118,8 @@ Scan `tasks.md` for any task whose description contains:
 - The words "Update", "Document", "Add section", "Add docs", "Write docs"
 
 For each doc-task:
-- If marked `[X]` → verify the referenced file was actually modified (check `git diff`). If not modified, open the file and verify the content matches the implementation. If it does, the `[X]` is correct. If not, update the doc and leave `[X]`.
-- If marked `[ ]` → the doc update is pending. Execute it now and mark `[X]`.
+- If marked `[x]` → verify the referenced file was actually modified (check `git diff`). If not modified, open the file and verify the content matches the implementation. If it does, the `[x]` is correct. If not, update the doc and leave `[x]`.
+- If marked `[ ]` → the doc update is pending. Execute it now and mark `[x]`.
 
 ### Step 3 — Apply doc updates
 
@@ -186,7 +186,7 @@ Status values:
 ### Step 7 — Mark doc-tasks complete
 
 For every doc-task in `tasks.md` that was addressed in Step 2:
-- Mark it `[X]` if not already done.
+- Mark it `[x]` if not already done.
 
 ### Step 8 — Final check
 

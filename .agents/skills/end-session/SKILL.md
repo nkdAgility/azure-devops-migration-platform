@@ -16,8 +16,8 @@ Use this skill after the Reviewer Agent has returned `"verdict": "Approved"` **a
    - No TODOs in production code paths.
    - **Documentation sync gate** (check EACH item before proceeding):
      - [ ] All items in `specs/<feature>/discrepancies.md` are marked `Resolved` or `N/A`
-     - [ ] Every doc-task (e.g. `T0xx`) in `specs/<feature>/tasks.md` that names a `/docs/*.md` file is marked `[X]`
-     - [ ] Every doc-task that names a `.agents/30-context/*.md` file is marked `[X]`
+     - [ ] Every doc-task (e.g. `T0xx`) in `specs/<feature>/tasks.md` that names a `/docs/*.md` file is marked `[x]`
+     - [ ] Every doc-task that names a `.agents/30-context/*.md` file is marked `[x]`
      - [ ] If a new CLI command was added: `docs/cli-guide.md` Commands table updated; `.vscode/launch.json` entry exists
      - [ ] If a new config field was added: `docs/configuration-reference.md` updated
      - [ ] If a new source/target type was added: `docs/capabilities-guide.md` updated; `.agents/30-context/domains/job-lifecycle.md` updated

@@ -111,7 +111,7 @@ Execution steps:
           - Risk reduction (security, performance, maintainability)
           - Alignment with any explicit project goals or constraints visible in the spec
        - Present your **recommended option prominently** at the top with clear reasoning (1-2 sentences explaining why this is the best choice).
-       - Format as: `**Recommended:** Option [X] - <reasoning>`
+       - Format as: `**Recommended:** Option [x] - <reasoning>`
        - When `vscode/askQuestions` tool (or other ask user tool) is not available, render all options as a Markdown table:
 
        | Option | Description |

@@ -119,7 +119,7 @@ Record all auto-fixes in the report under:
 **Document mode:**
 
 1. Check if the document mentions build status or contains a build checklist.
-2. If a tasks.md, check whether the build task is marked `[X]`.
+2. If a tasks.md, check whether the build task is marked `[x]`.
 3. Record status as **Documented/Verified**, **Documented/Unverified**, or **Not mentioned**.
 
 ### Step 2 — Gate 2: Tests
@@ -213,7 +213,7 @@ For each violation found, record: file, line number, violation type, and the off
 **Codebase mode:**
 
 1. If a `tasks.md` exists in the feature directory, identify all doc-tasks (tasks referencing `docs/` or `.agents/30-context/` files).
-2. For each doc-task marked `[X]`, verify the referenced file was actually modified (check git diff or file timestamps).
+2. For each doc-task marked `[x]`, verify the referenced file was actually modified (check git diff or file timestamps).
 3. Check if the feature adds/changes a CLI command → verify `.vscode/launch.json` has a matching entry.
 4. Check if the feature adds/changes a deployable Host → verify `build.ps1` covers it.
 5. If a CLI-exposed feature was added → verify a `[TestCategory("SystemTest")]` test exists.
