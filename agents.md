@@ -142,6 +142,7 @@ After each logical unit of work:
 1. Re-read relevant docs and contracts.
 2. Check changes against guardrails line by line.
 3. Fix non-compliance before claiming completion.
+4. Enforce failure-first testing order: maintain a known-fail queue, run/fix failing tests individually until queue is empty, then run slice/full suites.
 
 Core authoritative constraints:
 
