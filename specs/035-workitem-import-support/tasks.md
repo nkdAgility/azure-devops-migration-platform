@@ -60,7 +60,7 @@ This document defines the complete task decomposition for implementing the Work 
 
 ### Identity Resolution Integration
 
-- [ ] T012 [P] Wire IIdentityMappingService into WorkItemImportModule constructor via dependency injection; validate service is registered before module runs
+- [X] T012 [P] Wire IIdentityMappingService into WorkItemImportModule constructor via dependency injection; validate service is registered before module runs
 - [ ] T013 [P] Create IdentityResolutionContext class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Models/IdentityResolutionContext.cs` to cache resolved identities per revision and prevent duplicate lookups
 
 ### Node Translation & Field Transform Integration

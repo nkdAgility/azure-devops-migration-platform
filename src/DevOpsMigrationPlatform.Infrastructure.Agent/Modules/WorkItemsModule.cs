@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
@@ -102,6 +103,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IReadOnlyList<IImportFailurePattern> _importFailurePatterns;
 #if !NET481
     private readonly ITargetEndpointInfo _targetEndpointInfo;
+    private readonly IIdentityMappingService? _identityMappingService;
 #endif
 
     public WorkItemsModule(
@@ -134,6 +136,7 @@ public sealed class WorkItemsModule : IModule
         NodeReadinessOrchestrator? nodeReadinessOrchestrator = null,
         IOptions<NodesModuleOptions>? nodesModuleOptions = null,
 #endif
+        IIdentityMappingService? identityMappingService = null,
         IIdentityLookupTool? identityLookupTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
         IEnumerable<IImportFailurePattern>? importFailurePatterns = null,
@@ -165,6 +168,7 @@ public sealed class WorkItemsModule : IModule
         _nodesOrchestrator = nodesOrchestrator;
         _nodeReadinessOrchestrator = nodeReadinessOrchestrator;
         _nodesModuleOptions = nodesModuleOptions;
+        _identityMappingService = identityMappingService;
 #endif
         _identityLookupTool = identityLookupTool;
         _repoDiscoveryService = repoDiscoveryService;
@@ -661,6 +665,8 @@ public sealed class WorkItemsModule : IModule
 #else
 
         var job = context.Job;
+        _ = _identityMappingService ?? throw new InvalidOperationException(
+            "IIdentityMappingService is not registered. Register identity mapping services before running WorkItems import.");
 
         var orgUrl = _targetEndpointInfo.Url;
         var project = _targetEndpointInfo.Project;

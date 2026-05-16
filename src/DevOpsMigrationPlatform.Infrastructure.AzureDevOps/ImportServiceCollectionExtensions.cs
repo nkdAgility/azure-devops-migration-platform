@@ -3,6 +3,7 @@
 
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
@@ -38,6 +39,7 @@ public static class ImportServiceCollectionExtensions
         services.AddImportTargetFactory<AzureDevOpsWorkItemImportTargetFactory>("AzureDevOpsServices");
         // Register ADO resolution strategy factory as a keyed entry in the composite dispatcher
         services.AddResolutionStrategyFactory<AzureDevOpsResolutionStrategyFactory, AzureDevOpsWorkItemImportTarget>();
+        services.TryAddSingleton<IIdentityMappingService, PassThroughIdentityMappingService>();
         services.AddIdentityLookupToolServices();
         services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();
         services.AddSingleton<IIdMapStoreFactory, IdMapStoreFactory>();
