@@ -57,6 +57,18 @@ public class WorkItemImportModuleExtensionsTests
 
         Assert.IsTrue(services.Any(
             descriptor => descriptor.ServiceType == typeof(IImportFailurePattern)
-                          && descriptor.ImplementationType == typeof(NodePathValidator)));
+                           && descriptor.ImplementationType == typeof(NodePathValidator)));
+    }
+
+    [TestMethod]
+    public void RegisterWorkItemImportServices_RegistersWorkItemTypeValidatorFailurePattern()
+    {
+        var services = new ServiceCollection();
+
+        services.RegisterWorkItemImportServices(new ConfigurationBuilder().Build());
+
+        Assert.IsTrue(services.Any(
+            descriptor => descriptor.ServiceType == typeof(IImportFailurePattern)
+                          && descriptor.ImplementationType == typeof(WorkItemTypeValidator)));
     }
 }

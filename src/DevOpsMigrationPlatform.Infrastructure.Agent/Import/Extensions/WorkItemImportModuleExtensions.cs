@@ -38,6 +38,7 @@ public static class WorkItemImportModuleExtensions
         services.AddTransient<IImportFailurePattern, MissingEmbeddedImageBinaryImportFailurePattern>();
         services.AddTransient<IImportFailurePattern, FieldTransformCompatibilityImportFailurePattern>();
         services.AddTransient<IImportFailurePattern, NodePathValidator>();
+        services.AddTransient<IImportFailurePattern, WorkItemTypeValidator>();
 #if !NET481
         services.AddSingleton<NodeReadinessOrchestrator>();
 #endif

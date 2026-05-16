@@ -79,6 +79,11 @@ public interface IWorkItemImportTarget
         CancellationToken ct);
 
     /// <summary>
+    /// Returns <see langword="true"/> when the named work item type exists on the target project.
+    /// </summary>
+    Task<bool> WorkItemTypeExistsAsync(string workItemType, CancellationToken ct);
+
+    /// <summary>
     /// Returns <see langword="true"/> if the target work item with <paramref name="targetWorkItemId"/> exists;
     /// <see langword="false"/> if it has been deleted or never existed.
     /// Used by Stage A duplicate prevention and the integrity check pass.

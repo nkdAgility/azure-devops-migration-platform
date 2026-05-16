@@ -259,6 +259,18 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
     }
 
     /// <inheritdoc/>
+    public async Task<bool> WorkItemTypeExistsAsync(string workItemType, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(workItemType))
+        {
+            return false;
+        }
+
+        var types = await _witClient.GetWorkItemTypesAsync(_project, cancellationToken: ct).ConfigureAwait(false);
+        return types.Any(t => string.Equals(t.Name, workItemType, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> WorkItemExistsAsync(int targetWorkItemId, CancellationToken ct)
     {
         try
