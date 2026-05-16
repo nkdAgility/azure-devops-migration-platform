@@ -45,6 +45,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget, I
         IReadOnlyList<PlatformWorkItemField> fields,
         CancellationToken ct)
     {
+        ThrowIfDisposed();
+
         var patchDocument = BuildFieldPatch(fields, Operation.Add);
         var created = await _witClient
             .CreateWorkItemAsync(patchDocument, _project, workItemType, cancellationToken: ct)
@@ -63,6 +65,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget, I
         IReadOnlyList<PlatformWorkItemField> fields,
         CancellationToken ct)
     {
+        ThrowIfDisposed();
+
         var patchDocument = BuildFieldPatch(fields, Operation.Add);
         await _witClient
             .UpdateWorkItemAsync(patchDocument, targetWorkItemId, cancellationToken: ct)
@@ -77,6 +81,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget, I
         IReadOnlyList<HyperlinkWorkItemLink> hyperlinks,
         CancellationToken ct)
     {
+        ThrowIfDisposed();
+
         var existing = await GetExistingRelationsAsync(targetWorkItemId, ct).ConfigureAwait(false);
         var existingRelatedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var existingExternalUris = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -153,6 +159,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget, I
         Stream content,
         CancellationToken ct)
     {
+        ThrowIfDisposed();
+
         var attachment = await _witClient
             .CreateAttachmentAsync(content, fileName: fileName, cancellationToken: ct)
             .ConfigureAwait(false);
@@ -187,6 +195,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget, I
         Stream content,
         CancellationToken ct)
     {
+        ThrowIfDisposed();
+
         var attachment = await _witClient
             .CreateAttachmentAsync(content, fileName: fileName, cancellationToken: ct)
             .ConfigureAwait(false);
@@ -201,6 +211,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget, I
         string text,
         CancellationToken ct)
     {
+        ThrowIfDisposed();
+
         await _witClient
             .AddCommentAsync(
                 new CommentCreate { Text = text },
@@ -215,6 +227,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget, I
         int targetWorkItemId,
         CancellationToken ct)
     {
+        ThrowIfDisposed();
+
         var workItem = await _witClient
             .GetWorkItemAsync(targetWorkItemId, expand: WorkItemExpand.Relations, cancellationToken: ct)
             .ConfigureAwait(false);
@@ -307,6 +321,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget, I
     /// <inheritdoc/>
     public async Task<bool> WorkItemExistsAsync(int targetWorkItemId, CancellationToken ct)
     {
+        ThrowIfDisposed();
+
         try
         {
             var wi = await _witClient
@@ -348,7 +364,6 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget, I
         }
 
         _disposed = true;
-        _workItemTypeCacheLock.Dispose();
         GC.SuppressFinalize(this);
     }
 }

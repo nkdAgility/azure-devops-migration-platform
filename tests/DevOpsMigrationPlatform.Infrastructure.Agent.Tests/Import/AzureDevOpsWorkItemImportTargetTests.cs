@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -77,5 +78,35 @@ public sealed class AzureDevOpsWorkItemImportTargetTests
 
         await Assert.ThrowsExactlyAsync<ObjectDisposedException>(
             async () => await target.WorkItemTypeExistsAsync("Bug", CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task PublicMethods_AfterDispose_ThrowObjectDisposedException()
+    {
+        var witClient = new Mock<WorkItemTrackingHttpClient>(
+            MockBehavior.Strict,
+            new object[] { new Uri("https://dev.azure.com/testorg"), null! });
+        var target = new AzureDevOpsWorkItemImportTarget(witClient.Object, "ProjectA", "https://dev.azure.com/testorg");
+        var ct = CancellationToken.None;
+
+        ((IDisposable)target).Dispose();
+
+        var operations = new Func<Task>[]
+        {
+            async () => await target.CreateWorkItemAsync("Bug", [], ct),
+            async () => await target.UpdateFieldsAsync(1, [], ct),
+            async () => await target.AddLinksAsync(1, [], [], [], ct),
+            async () => await target.UploadAttachmentAsync(1, "file.bin", new MemoryStream(), ct),
+            async () => await target.UploadEmbeddedImageAsync("image.png", new MemoryStream(), ct),
+            async () => await target.CreateCommentAsync(1, "test", ct),
+            async () => await target.GetExistingRelationsAsync(1, ct),
+            async () => await target.WorkItemExistsAsync(1, ct),
+            async () => await target.WorkItemTypeExistsAsync("Bug", ct)
+        };
+
+        foreach (var operation in operations)
+        {
+            await Assert.ThrowsExactlyAsync<ObjectDisposedException>(operation);
+        }
     }
 }
