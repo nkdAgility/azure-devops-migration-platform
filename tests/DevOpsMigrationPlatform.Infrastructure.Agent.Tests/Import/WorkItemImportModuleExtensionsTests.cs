@@ -71,4 +71,16 @@ public class WorkItemImportModuleExtensionsTests
             descriptor => descriptor.ServiceType == typeof(IImportFailurePattern)
                           && descriptor.ImplementationType == typeof(WorkItemTypeValidator)));
     }
+
+    [TestMethod]
+    public void RegisterWorkItemImportServices_RegistersIdentityMappingValidatorFailurePattern()
+    {
+        var services = new ServiceCollection();
+
+        services.RegisterWorkItemImportServices(new ConfigurationBuilder().Build());
+
+        Assert.IsTrue(services.Any(
+            descriptor => descriptor.ServiceType == typeof(IImportFailurePattern)
+                          && descriptor.ImplementationType == typeof(IdentityMappingValidator)));
+    }
 }

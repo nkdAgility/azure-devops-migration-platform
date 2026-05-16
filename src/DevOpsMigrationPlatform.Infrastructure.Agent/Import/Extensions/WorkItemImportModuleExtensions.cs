@@ -39,6 +39,7 @@ public static class WorkItemImportModuleExtensions
         services.AddTransient<IImportFailurePattern, FieldTransformCompatibilityImportFailurePattern>();
         services.AddTransient<IImportFailurePattern, NodePathValidator>();
         services.AddTransient<IImportFailurePattern, WorkItemTypeValidator>();
+        services.AddTransient<IImportFailurePattern, IdentityMappingValidator>();
 #if !NET481
         services.AddSingleton<NodeReadinessOrchestrator>();
 #endif

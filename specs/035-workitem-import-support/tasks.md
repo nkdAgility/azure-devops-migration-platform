@@ -112,7 +112,7 @@ This document defines the complete task decomposition for implementing the Work 
 
 ### Identity Mapping Validation (US1: Scenario 3)
 
-- [ ] T033 [US1] [P] Implement IdentityMappingValidator class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Validators/IdentityMappingValidator.cs` to enumerate exported identities and check mapping service for unresolved entries
+- [x] T033 [US1] [P] Implement IdentityMappingValidator class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Validators/IdentityMappingValidator.cs` to enumerate exported identities and check mapping service for unresolved entries
 - [ ] T034 [US1] Create IdentityMappingFinding record type with sourceIdentityId, status (Mapped/Unresolved/Error), targetReference, and operatorDecision fields
 - [ ] T035 [US1] Implement logic to surface unresolved identities as warnings (not blocking by default) per spec
 
