@@ -139,6 +139,46 @@ public sealed class IdentityMappingValidatorTests
     }
 
     [TestMethod]
+    public async Task EvaluateAsync_ReturnsSortedWarningFindings_WhenMultipleIdentitiesAreUnresolved()
+    {
+        const string descriptorsPath = "Identities/descriptors.jsonl";
+        const string mappingPath = "Identities/mapping.json";
+
+        var package = PackageTestFactory.CreateLooseMock();
+        package
+            .Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext context, CancellationToken _) =>
+            {
+                var path = context.Address!.RelativePath.Replace('\\', '/');
+                return path switch
+                {
+                    descriptorsPath => ValueTask.FromResult<PackagePayload?>(CreateTextPayload(
+                        Serialize(new IdentityDescriptor("desc-1", "Zulu User", "zulu@source.example", "User", "AzureDevOps", true)) + "\n" +
+                        Serialize(new IdentityDescriptor("desc-2", "Alpha User", "alpha@source.example", "User", "AzureDevOps", true)) + "\n")),
+                    mappingPath => ValueTask.FromResult<PackagePayload?>(CreateTextPayload("{}")),
+                    _ => ValueTask.FromResult<PackagePayload?>(null)
+                };
+            });
+
+        var identityMappingService = new Mock<IIdentityMappingService>(MockBehavior.Strict);
+        identityMappingService.Setup(s => s.LoadMappingOverrides(It.IsAny<string?>()));
+        identityMappingService.Setup(s => s.Resolve("zulu@source.example")).Returns("migration-default@target.example");
+        identityMappingService.Setup(s => s.Resolve("alpha@source.example")).Returns("migration-default@target.example");
+
+        var sut = new IdentityMappingValidator(identityMappingService.Object);
+
+        var findings = await sut.EvaluateAsync(
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions()),
+            CancellationToken.None);
+
+        Assert.AreEqual(2, findings.Count);
+        Assert.AreEqual("alpha@source.example", findings[0].EvidenceKey);
+        Assert.AreEqual("zulu@source.example", findings[1].EvidenceKey);
+        Assert.AreEqual(ImportFailureSeverity.Warning, findings[0].Severity);
+        Assert.AreEqual(ImportFailureSeverity.Warning, findings[1].Severity);
+    }
+
+    [TestMethod]
     public async Task EvaluateAsync_ReturnsEmpty_WhenDescriptorArtefactIsMissing()
     {
         var package = PackageTestFactory.CreateLooseMock();

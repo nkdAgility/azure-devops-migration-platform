@@ -95,6 +95,40 @@ public sealed class ImportPreparerTests
     }
 
     [TestMethod]
+    public async Task PrepareAsync_ReturnsReadyAndWarningClassification_WhenOnlyWarningFindingsExist()
+    {
+        var revisionPath = "WorkItems/2026-05-13/638827200000000000-42-0/revision.json";
+        var package = PackageTestFactory.CreateLooseMock();
+        package
+            .Setup(p => p.EnumerateContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => EnumerateManyAsync([revisionPath]));
+
+        IReadOnlyList<ImportFailureFinding> findings =
+        [
+            new(
+                "WORKITEMS_PREPARE_UNRESOLVED_IDENTITY",
+                ImportFailureSeverity.Warning,
+                "fallback@source.example",
+                "No explicit identity mapping was found.",
+                "Add an explicit mapping.")
+        ];
+
+        var sut = new ImportPreparer(
+            Options.Create(new WorkItemsModuleOptions()),
+            [new StaticPattern(findings)]);
+
+        var report = await sut.PrepareAsync(CreateContext(package.Object), CancellationToken.None);
+
+        Assert.AreEqual(WorkItemsPrepareReadinessResult.Ready, report.Readiness);
+        Assert.AreEqual(1, report.UnresolvedCount);
+        Assert.AreEqual(PrepareIssueSeverity.Warning, report.UnresolvedItems[0].Severity);
+        Assert.IsNotNull(report.ImportReadinessReport);
+        Assert.AreEqual(0, report.ImportReadinessReport.BlockingCount);
+        Assert.AreEqual(1, report.ImportReadinessReport.WarningCount);
+        Assert.IsTrue(report.ImportReadinessReport.IsReadyForImport);
+    }
+
+    [TestMethod]
     public async Task PrepareAsync_AggregatesFindingsAcrossAllPatterns()
     {
         var revisionPath = "WorkItems/2026-05-13/638827200000000000-42-0/revision.json";
