@@ -14,13 +14,15 @@ public sealed class IdentityMappingFindingTests
     {
         var finding = new IdentityMappingFinding(
             "aad.1234",
-            IdentityMappingFindingStatus.Unresolved,
+            "Jane Doe",
+            IdentityMappingFindingStatus.Unmapped,
             "user@contoso.com",
-            "UseDefault");
+            IdentityMappingOperatorDecision.UseDefault);
 
-        Assert.AreEqual("aad.1234", finding.SourceIdentityId);
-        Assert.AreEqual(IdentityMappingFindingStatus.Unresolved, finding.Status);
-        Assert.AreEqual("user@contoso.com", finding.TargetReference);
-        Assert.AreEqual("UseDefault", finding.OperatorDecision);
+        Assert.AreEqual("aad.1234", finding.SourceId);
+        Assert.AreEqual("Jane Doe", finding.SourceDisplay);
+        Assert.AreEqual(IdentityMappingFindingStatus.Unmapped, finding.Status);
+        Assert.AreEqual("user@contoso.com", finding.TargetId);
+        Assert.AreEqual(IdentityMappingOperatorDecision.UseDefault, finding.OperatorDecision);
     }
 }

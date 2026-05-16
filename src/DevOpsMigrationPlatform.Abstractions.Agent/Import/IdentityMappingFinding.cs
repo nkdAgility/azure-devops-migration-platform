@@ -6,13 +6,21 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Import;
 public enum IdentityMappingFindingStatus
 {
     Mapped = 0,
-    Unresolved = 1,
+    Unmapped = 1,
     Error = 2
 }
 
+public enum IdentityMappingOperatorDecision
+{
+    Block = 0,
+    UseDefault = 1,
+    Skip = 2
+}
+
 public sealed record IdentityMappingFinding(
-    string SourceIdentityId,
+    string SourceId,
+    string SourceDisplay,
     IdentityMappingFindingStatus Status,
-    string? TargetReference,
-    string? OperatorDecision);
+    string? TargetId,
+    IdentityMappingOperatorDecision? OperatorDecision);
 
