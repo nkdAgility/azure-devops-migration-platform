@@ -14,11 +14,13 @@ public sealed class WorkItemTypeFindingTests
     {
         var finding = new WorkItemTypeFinding(
             "Bug",
-            WorkItemTypeFindingStatus.Missing,
-            "Bug");
+            12,
+            WorkItemTypeFindingStatus.UnsupportedOnTarget,
+            "Type missing on target.");
 
         Assert.AreEqual("Bug", finding.TypeName);
-        Assert.AreEqual(WorkItemTypeFindingStatus.Missing, finding.Status);
-        Assert.AreEqual("Bug", finding.TargetReference);
+        Assert.AreEqual(12, finding.Count);
+        Assert.AreEqual(WorkItemTypeFindingStatus.UnsupportedOnTarget, finding.Status);
+        Assert.AreEqual("Type missing on target.", finding.ErrorMessage);
     }
 }

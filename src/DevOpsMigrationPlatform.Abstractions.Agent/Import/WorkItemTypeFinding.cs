@@ -5,13 +5,14 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Import;
 
 public enum WorkItemTypeFindingStatus
 {
-    Found = 0,
-    Missing = 1,
+    SupportedOnTarget = 0,
+    UnsupportedOnTarget = 1,
     Error = 2
 }
 
 public sealed record WorkItemTypeFinding(
     string TypeName,
+    int Count,
     WorkItemTypeFindingStatus Status,
-    string? TargetReference);
+    string? ErrorMessage);
 

@@ -108,7 +108,7 @@ This document defines the complete task decomposition for implementing the Work 
 - [x] T029 [US1] [P] **SIMULATED**: Implement Simulated connector type validation — in-memory check against simulated work item type list
 - [x] T030 [US1] [P] **AZURE DEVOPS**: Implement Azure DevOps REST API type validation — call GET /workitemtypes API to verify all exported types exist
 - [x] T031 [US1] [P] **TFS**: Implement TFS OM type validation via TfsMigrationAgent — call TFS work item type metadata API to verify types exist
-- [x] T032 [US1] Create WorkItemTypeFinding record type with typeName, status (Found/Missing/Error), and targetReference fields
+- [x] T032 [US1] Create WorkItemTypeFinding record type with typeName, count, status (SupportedOnTarget/UnsupportedOnTarget/Error), and errorMessage fields
 
 ### Identity Mapping Validation (US1: Scenario 3)
 
