@@ -24,11 +24,9 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import.FailurePatterns;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
-#if !NET481
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
-#endif
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.Logging;
@@ -100,7 +98,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IOptions<WorkItemsModuleOptions> _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
     private readonly IRepoDiscoveryService? _repoDiscoveryService;
-    private readonly IReadOnlyList<IImportFailurePattern> _importFailurePatterns;
+    private readonly ImportPreparer _importPreparer;
 #if !NET481
     private readonly ITargetEndpointInfo _targetEndpointInfo;
     private readonly IIdentityMappingService? _identityMappingService;
@@ -144,6 +142,7 @@ public sealed class WorkItemsModule : IModule
         IIdentityLookupTool? identityLookupTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
         IEnumerable<IImportFailurePattern>? importFailurePatterns = null,
+        ImportPreparer? importPreparer = null,
         IPackageAccess? package = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
@@ -178,10 +177,11 @@ public sealed class WorkItemsModule : IModule
 #endif
         _identityLookupTool = identityLookupTool;
         _repoDiscoveryService = repoDiscoveryService;
-        var resolvedFailurePatterns = importFailurePatterns?.ToArray() ?? Array.Empty<IImportFailurePattern>();
-        _importFailurePatterns = resolvedFailurePatterns.Length == 0
-            ? CreateDefaultImportFailurePatterns()
-            : resolvedFailurePatterns;
+        var resolvedFailurePatterns = importFailurePatterns?.ToArray();
+        resolvedFailurePatterns = resolvedFailurePatterns is { Length: > 0 }
+            ? resolvedFailurePatterns
+            : CreateDefaultImportFailurePatterns().ToArray();
+        _importPreparer = importPreparer ?? new ImportPreparer(_options, resolvedFailurePatterns);
         _package = package;
     }
 
@@ -380,11 +380,24 @@ public sealed class WorkItemsModule : IModule
             Timestamp = DateTimeOffset.UtcNow
         });
 
-        var stopwatch = Stopwatch.StartNew();
-        var report = await BuildPrepareReportAsync(context, ct).ConfigureAwait(false);
-        stopwatch.Stop();
-
         var tags = new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } };
+        PrepareReport report;
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            report = await _importPreparer.PrepareAsync(context, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _metrics?.RecordPrepareWorkItemsError(tags);
+            _logger.LogError(ex, "[WorkItems] Prepare phase dispatch failed.");
+            throw new InvalidOperationException("[WorkItems] Prepare phase dispatch failed.", ex);
+        }
+        finally
+        {
+            stopwatch.Stop();
+        }
+
         _metrics?.RecordPrepareWorkItemsResolved(report.ResolvedCount, tags);
         _metrics?.RecordPrepareWorkItemsUnresolved(report.UnresolvedCount, tags);
         _metrics?.RecordPrepareWorkItemsDuration(stopwatch.Elapsed.TotalMilliseconds, tags);
@@ -414,139 +427,6 @@ public sealed class WorkItemsModule : IModule
         });
 
         return TaskExecutionResult.Completed();
-    }
-
-    private async Task<PrepareReport> BuildPrepareReportAsync(PrepareContext context, CancellationToken ct)
-    {
-        var importFailurePatternContext = new ImportFailurePatternContext(context, _options.Value);
-        var failureFindings = new List<ImportFailureFinding>();
-        foreach (var pattern in _importFailurePatterns)
-        {
-            var findings = await pattern.EvaluateAsync(importFailurePatternContext, ct).ConfigureAwait(false);
-            if (findings.Count > 0)
-            {
-                failureFindings.AddRange(findings);
-            }
-        }
-
-        var readiness = failureFindings.Any(f => f.Severity == ImportFailureSeverity.Blocking)
-            ? WorkItemsPrepareReadinessResult.ChangesRequired
-            : WorkItemsPrepareReadinessResult.Ready;
-
-        var unresolvedItems = failureFindings
-            .Select(f => new UnresolvedItem(
-                f.EvidenceKey,
-                $"{f.PatternCode}: {f.Message}",
-                f.Severity == ImportFailureSeverity.Blocking ? PrepareIssueSeverity.Blocking : PrepareIssueSeverity.Warning))
-            .ToList();
-        var artefactFindings = MapArtefactFindings(failureFindings);
-        var fieldTransformFindings = MapFieldTransformFindings(failureFindings);
-        var importReadinessReport = ImportReadinessReport.Create(
-            readiness,
-            failureFindings,
-            artefactFindings,
-            fieldTransformFindings);
-
-        var resolvedCount = await CountRevisionArtefactsAsync(context, ct).ConfigureAwait(false);
-
-        return new PrepareReport
-        {
-            ModuleName = Name,
-            ResolvedCount = resolvedCount,
-            UnresolvedItems = unresolvedItems,
-            ArtefactFindings = artefactFindings,
-            FieldTransformFindings = fieldTransformFindings,
-            Readiness = readiness,
-            ImportReadinessReport = importReadinessReport,
-            FailureFindings = failureFindings
-        };
-    }
-
-    private static IReadOnlyList<ArtefactFinding> MapArtefactFindings(IReadOnlyList<ImportFailureFinding> failureFindings)
-    {
-        var findings = new List<ArtefactFinding>();
-        foreach (var failureFinding in failureFindings)
-        {
-            if (failureFinding.PatternCode == MissingRevisionArtefactImportFailurePattern.Code)
-            {
-                findings.Add(new ArtefactFinding(
-                    ArtefactFindingType.RevisionFolder,
-                    "WorkItems",
-                    ArtefactFindingStatus.Missing,
-                    failureFinding.EvidenceKey));
-            }
-            else if (failureFinding.PatternCode == InvalidRevisionPayloadImportFailurePattern.Code)
-            {
-                findings.Add(new ArtefactFinding(
-                    ArtefactFindingType.RevisionFolder,
-                    failureFinding.EvidenceKey,
-                    ArtefactFindingStatus.Invalid,
-                    failureFinding.EvidenceKey));
-            }
-            else if (failureFinding.PatternCode == MissingAttachmentBinaryImportFailurePattern.Code)
-            {
-                findings.Add(new ArtefactFinding(
-                    ArtefactFindingType.Attachment,
-                    failureFinding.EvidenceKey,
-                    ArtefactFindingStatus.Missing,
-                    failureFinding.EvidenceKey));
-            }
-            else if (failureFinding.PatternCode == MissingEmbeddedImageBinaryImportFailurePattern.Code)
-            {
-                findings.Add(new ArtefactFinding(
-                    ArtefactFindingType.EmbeddedImage,
-                    failureFinding.EvidenceKey,
-                    ArtefactFindingStatus.Missing,
-                    failureFinding.EvidenceKey));
-            }
-        }
-
-        return findings;
-    }
-
-    private static IReadOnlyList<FieldTransformFinding> MapFieldTransformFindings(IReadOnlyList<ImportFailureFinding> failureFindings)
-    {
-        var findings = new List<FieldTransformFinding>();
-        foreach (var failureFinding in failureFindings.Where(f => f.PatternCode == FieldTransformCompatibilityImportFailurePattern.Code))
-        {
-            var segments = failureFinding.EvidenceKey.Split('|');
-            if (segments.Length >= 4
-                && Enum.TryParse(segments[0], ignoreCase: true, out FieldTransformFindingStatus status))
-            {
-                findings.Add(new FieldTransformFinding(
-                    segments[2],
-                    segments[3],
-                    segments[1],
-                    status,
-                    failureFinding.SuggestedAction));
-                continue;
-            }
-
-            findings.Add(new FieldTransformFinding(
-                failureFinding.EvidenceKey,
-                "Unknown",
-                failureFinding.PatternCode,
-                FieldTransformFindingStatus.Error,
-                failureFinding.SuggestedAction));
-        }
-
-        return findings;
-    }
-
-    private static async Task<int> CountRevisionArtefactsAsync(PrepareContext context, CancellationToken ct)
-    {
-        var resolvedCount = 0;
-        await foreach (var artefactPath in context.Package.EnumerateContentAsync(
-                           new PackageContentContext(PackageContentKind.Collection, Address: new RelativePathAddress("WorkItems/"), IsCollectionRequest: true),
-                           ct).ConfigureAwait(false))
-        {
-            if (artefactPath.EndsWith("/revision.json", StringComparison.Ordinal))
-            {
-                resolvedCount++;
-            }
-        }
-
-        return resolvedCount;
     }
 
     private static IReadOnlyList<IImportFailurePattern> CreateDefaultImportFailurePatterns()

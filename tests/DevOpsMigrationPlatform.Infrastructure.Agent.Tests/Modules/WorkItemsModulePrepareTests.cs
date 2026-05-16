@@ -196,6 +196,24 @@ public sealed class WorkItemsModulePrepareTests
         Assert.AreEqual(0, readinessReport.WarningCount);
     }
 
+    [TestMethod]
+    public async Task PrepareAsync_ThrowsWrappedFailure_WhenPreparerEvaluationFails()
+    {
+        var package = PackageTestFactory.CreateLooseMock();
+        var module = CreateModule(
+        [
+            new ThrowingImportFailurePattern(new InvalidOperationException("synthetic-prepare-failure"))
+        ]);
+        var context = CreatePrepareContext(package.Object);
+
+        var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => module.PrepareAsync(context, CancellationToken.None));
+
+        StringAssert.Contains(exception.Message, "[WorkItems] Prepare phase dispatch failed.");
+        Assert.IsNotNull(exception.InnerException);
+        Assert.AreEqual("synthetic-prepare-failure", exception.InnerException.Message);
+    }
+
     private static WorkItemRevision CreateRevisionWithArtefacts() =>
         new()
         {
@@ -303,6 +321,16 @@ public sealed class WorkItemsModulePrepareTests
             ImportFailurePatternContext context,
             CancellationToken cancellationToken)
             => Task.FromResult(findings);
+    }
+
+    private sealed class ThrowingImportFailurePattern(Exception exception) : IImportFailurePattern
+    {
+        public string PatternCode => "THROWING";
+
+        public Task<IReadOnlyList<ImportFailureFinding>> EvaluateAsync(
+            ImportFailurePatternContext context,
+            CancellationToken cancellationToken)
+            => Task.FromException<IReadOnlyList<ImportFailureFinding>>(exception);
     }
 }
 
