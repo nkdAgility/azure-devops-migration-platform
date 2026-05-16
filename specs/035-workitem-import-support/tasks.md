@@ -100,7 +100,7 @@ This document defines the complete task decomposition for implementing the Work 
 - [X] T024 [US1] [P] **SIMULATED**: Implement Simulated connector node validation — in-memory check that all required paths exist in simulated classification structure
 - [X] T025 [US1] [P] **AZURE DEVOPS**: Implement Azure DevOps REST API node validation — call GET /workitemtypes and GET classificationnodes API to verify required paths exist
 - [X] T026 [US1] [P] **TFS**: Implement TFS OM node validation via TfsMigrationAgent — call TFS node metadata API to verify required paths exist
-- [ ] T027 [US1] Create NodeReadinessFinding record type with path, nodeType (Area/Iteration), status, and targetPath fields
+- [X] T027 [US1] Create NodeReadinessFinding record type with path, nodeType (Area/Iteration), status, and targetPath fields
 
 ### Work Item Type Validation (US1: Scenario 2)
 
