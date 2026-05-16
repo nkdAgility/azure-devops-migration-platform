@@ -1,6 +1,6 @@
 # SOLID Compliance Checklist – Feature 011: Inline Comment Fetching
 
-**Status:** Deferred Implementation  
+**Status:** Implemented (reconciled; pending fresh full-suite evidence task)  
 **Reviewer:** Architecture Compliance Check  
 **Date:** 2026-04-11  
 
@@ -12,7 +12,7 @@ The specification for feature 011 (Inline Comment Fetching for Edit/Delete Revis
 
 **Overall Assessment:** ✅ **COMPLIANT** (specification design aligns with SOLID principles and guardrails)
 
-**Note:** This is a compliance review of the **specification/design** only. No code implementation exists yet due to the upstream SDK bug. When implementation resumes, this checklist should be re-validated against actual code.
+**Note:** This checklist began as design-time review material. Implementation now exists in `src\` and tests; reconciliation keeps this checklist as architectural reference while `tasks.md` remains the canonical task-status source.
 
 ---
 

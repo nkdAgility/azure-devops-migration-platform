@@ -177,3 +177,33 @@ As an operator who already knows their job ID I want to run `devopsmigration tui
 
 - Q: Does the TUI start the local control plane stack when no `--url` is provided? → A: No. The TUI is a pure viewer — it never starts any hosted services. Only CLI migration commands (export, import, migrate, prepare) start the local stack via `LocalStackHost`. The TUI connects to an already-running control plane or exits with an error.
 
+---
+
+## Current status
+
+Reconciled to repository truth on 2026-05-16. This spec is **partially implemented and partially superseded** by later specs and architectural changes. Core TUI wiring, control-plane job listing, telemetry endpoint docs, and CLI submission output are implemented; several test and behavior tasks remain incomplete.
+
+## Remaining incomplete work (IDs)
+
+`T025`, `T027`, `T030`, `T031`, `T032`, `T033`, `T034`, `T035`, `T037`, `T042`, `T043`.
+
+## Completed because superseded (IDs + source)
+
+- `T003`, `T009` → superseded by `specs/021.2-separation-of-concerns` (contract and path moves into `Abstractions/ControlPlaneApi` and `ControlPlane/Jobs`).
+- `T017`, `T018`, `T019`, `T020` → superseded by canonical command surface in `.agents/30-context/domains/cli-commands.md` (`queue`/`prepare` pathways).
+- `T028` → superseded by `specs/028.1-task-bootstrap` and `specs/028.2-job-execution-by-task` (task-bootstrap/task-centric TUI behavior).
+
+## Contradictions and reconciliation
+
+- Original FR-012 text excludes prepare submission output, but current implementation submits prepare jobs and prints job submission output; tasks were reconciled as superseded by current command contract.
+- Original TUI panel semantics (Progress/Diagnostics pair) diverged to a broader feed model (`Trace/Logs/Metrics-Feed`); reconciled by marking corresponding task work incomplete/superseded where appropriate.
+- Original path assumptions (`Abstractions/Models`, `ControlPlane/Services`) diverged after boundary refactor; reconciled by mapping to current paths instead of forcing legacy structure.
+
+## Verification evidence
+
+- Implementation evidence: `src/DevOpsMigrationPlatform.CLI.Migration/Commands/TuiCommand.cs`, `Views/TuiMainView.cs`, `Views/TuiJobListView.cs`, `Views/TuiMetricsView.cs`, `Views/TuiLogView.cs`.
+- Control plane evidence: `src/DevOpsMigrationPlatform.ControlPlane/Controllers/JobsController.cs`, `Controllers/AgentLeaseController.cs`, `Controllers/ProgressController.cs`, `Jobs/JobStore.cs`, `Jobs/IJobStore.cs`.
+- CLI submission output evidence: `src/DevOpsMigrationPlatform.CLI.Migration/Commands/ControlPlaneCommandBase.cs`, `Commands/QueueCommand.cs`, `Commands/PrepareCommand.cs`, `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/PrintJobSubmittedTests.cs`.
+- Docs/launch evidence: `docs/control-plane.md`, `.vscode/launch.json`.
+- Validation commands run in this reconciliation: `dotnet clean && dotnet build --no-incremental` (completed), `dotnet test --no-build` (did not complete in-session; marked incomplete evidence for T042).
+

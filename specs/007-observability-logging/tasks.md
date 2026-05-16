@@ -28,7 +28,7 @@
 
 **Purpose**: Verify baseline and confirm no pre-existing build errors
 
-- [X] T001 Verify solution builds clean with `dotnet clean && dotnet build --no-incremental` before starting any work
+- [x] T001 Verify solution builds clean with `dotnet clean && dotnet build --no-incremental` before starting any work - Status: complete
 
 ---
 
@@ -38,11 +38,13 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T002 Add `AppendAsync(string relativePath, string content, CancellationToken cancellationToken)` method to `IArtefactStore` interface in `src/DevOpsMigrationPlatform.Abstractions/Storage/IArtefactStore.cs`
-- [X] T003 [P] Implement `AppendAsync` in `FileSystemArtefactStore` using `File.AppendAllTextAsync` with parent directory creation in `src/DevOpsMigrationPlatform.Infrastructure/Storage/FileSystemArtefactStore.cs`
-- [X] T004 [P] Implement `AppendAsync` in `AzureBlobArtefactStore` using `AppendBlobClient.AppendBlockAsync` in `src/DevOpsMigrationPlatform.Infrastructure/Storage/AzureBlobArtefactStore.cs` (create file if store does not yet exist; stub with `NotImplementedException` if Azure Blob infrastructure is not yet in place)
-- [X] T005 [P] Create `DiagnosticLogRecord` immutable record type with `Timestamp`, `Level`, `Category`, `Message`, `Exception?`, `TraceId?`, `SpanId?` in `src/DevOpsMigrationPlatform.Abstractions/Models/DiagnosticLogRecord.cs`
-- [X] T006 [P] Create sealed `DiagnosticLogOptions` class with `SectionName`, `MinimumLevel` (default `"Warning"`), `ChannelCapacity` (1024), `FlushIntervalMs` (500), `FlushBatchSize` (50) in `src/DevOpsMigrationPlatform.Abstractions/Diagnostics/DiagnosticLogOptions.cs`
+- [x] T002 Add `AppendAsync(string relativePath, string content, CancellationToken cancellationToken)` method to `IArtefactStore` interface in `src/DevOpsMigrationPlatform.Abstractions/Storage/IArtefactStore.cs` - Status: complete
+- [x] T003 [P] Implement `AppendAsync` in `FileSystemArtefactStore` using `File.AppendAllTextAsync` with parent directory creation in `src/DevOpsMigrationPlatform.Infrastructure/Storage/FileSystemArtefactStore.cs` - Status: complete
+- [x] T004 [P] Implement `AppendAsync` in `AzureBlobArtefactStore` using `AppendBlobClient.AppendBlockAsync` in `src/DevOpsMigrationPlatform.Infrastructure/Storage/AzureBlobArtefactStore.cs` (create file if store does not yet exist; stub with `NotImplementedException` if Azure Blob infrastructure is not yet in place) - Status: complete/superseded; completed because superseded by specs/034-package-manager-adoption
+  Evidence: AzureBlobArtefactStore implementation path no longer exists; runtime package logging routes through IPackageAccess.
+- [x] T005 [P] Create `DiagnosticLogRecord` immutable record type with `Timestamp`, `Level`, `Category`, `Message`, `Exception?`, `TraceId?`, `SpanId?` in `src/DevOpsMigrationPlatform.Abstractions/Models/DiagnosticLogRecord.cs` - Status: complete
+- [x] T006 [P] Create sealed `DiagnosticLogOptions` class with `SectionName`, `MinimumLevel` (default `"Warning"`), `ChannelCapacity` (1024), `FlushIntervalMs` (500), `FlushBatchSize` (50) in `src/DevOpsMigrationPlatform.Abstractions/Diagnostics/DiagnosticLogOptions.cs` - Status: complete/superseded; completed because superseded by spec.md FR-003 (default Information level)
+  Evidence: DiagnosticLogOptions default is Information in src/DevOpsMigrationPlatform.Abstractions/Diagnostics/DiagnosticLogOptions.cs.
 
 **Checkpoint**: Foundation ready — `IArtefactStore.AppendAsync` is available, `DiagnosticLogRecord` and `DiagnosticLogOptions` types exist. User story implementation can now begin.
 
@@ -58,13 +60,16 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. It must be written from the `spec.md` User Story 2 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [X] T007 [US2] Create `features/platform/observability/package-progress-sink.feature` — translate `spec.md` User Story 2 acceptance scenarios (FR-006, FR-007, FR-008) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
+- [x] T007 [US2] Create `features/platform/observability/package-progress-sink.feature` — translate `spec.md` User Story 2 acceptance scenarios (FR-006, FR-007, FR-008) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`) - Status: complete
 
 ### Implementation for User Story 2
 
-- [X] T008 [US2] Implement `PackageProgressSink` bounded-channel drain loop: `BoundedChannel<ProgressEvent>` (capacity 100, `DropOldest`), `BackgroundService` drain batching up to 50 records or 500ms, serialize each `ProgressEvent` as JSON + `\n`, call `IArtefactStore.AppendAsync("Logs/progress.jsonl", batch, ct)`, catch/count failures in `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/PackageProgressSink.cs`
-- [X] T009 [US2] Register `PackageProgressSink` as `IProgressSink` in agent DI and as `IHostedService` for the background drain in `src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentServiceExtensions.cs`
-- [ ] T010 [US2] Verify end-to-end: run an export, confirm `Logs/progress.jsonl` exists in package output with at least one NDJSON record per module stage transition
+- [x] T008 [US2] Implement `PackageProgressSink` bounded-channel drain loop: `BoundedChannel<ProgressEvent>` (capacity 100, `DropOldest`), `BackgroundService` drain batching up to 50 records or 500ms, serialize each `ProgressEvent` as JSON + `\n`, call `IArtefactStore.AppendAsync("Logs/progress.jsonl", batch, ct)`, catch/count failures in `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/PackageProgressSink.cs` - Status: complete/superseded; completed because superseded by specs/033-runtime-state-categories and specs/034-package-manager-adoption
+  Evidence: PackageProgressSink writes run-scoped .migration/runs/<runId>/logs/progress.ndjson via IPackageAccess.AppendLogAsync.
+- [x] T009 [US2] Register `PackageProgressSink` as `IProgressSink` in agent DI and as `IHostedService` for the background drain in `src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentServiceExtensions.cs` - Status: complete/superseded; completed because superseded by core wiring consolidation in CoreAgentServiceExtensions
+  Evidence: DI registration is centralized in src/DevOpsMigrationPlatform.Infrastructure.Agent/CoreAgentServiceExtensions.cs.
+- [ ] T010 [US2] Verify end-to-end: run an export, confirm `Logs/progress.jsonl` exists in package output with at least one NDJSON record per module stage transition - Status: incomplete
+  Evidence: No fresh scenario evidence in this session proving end-to-end persisted progress log output.
 
 **Checkpoint**: At this point, User Story 2 should be fully functional — every export produces `Logs/progress.jsonl` in the package.
 
@@ -80,14 +85,17 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. It must be written from the `spec.md` User Story 1 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [X] T011 [US1] Create `features/platform/observability/package-diagnostics-sink.feature` — translate `spec.md` User Story 1 acceptance scenarios (FR-001 through FR-005) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
+- [x] T011 [US1] Create `features/platform/observability/package-diagnostics-sink.feature` — translate `spec.md` User Story 1 acceptance scenarios (FR-001 through FR-005) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`) - Status: complete
 
 ### Implementation for User Story 1
 
-- [X] T012 [US1] Implement `PackageLoggerProvider` (`ILoggerProvider`) and inner `PackageLogger` (`ILogger`) in `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/PackageLoggerProvider.cs`: maps `LogLevel`, category, formatted message, exception, `Activity.Current` trace/span to `DiagnosticLogRecord`; writes to `BoundedChannel<DiagnosticLogRecord>` (capacity from `DiagnosticLogOptions.ChannelCapacity`, `DropOldest`); background drain flushes batches to `IArtefactStore.AppendAsync("Logs/agent.jsonl", ...)`; respects `DiagnosticLogOptions.MinimumLevel`
-- [X] T013 [US1] Create `DiagnosticsServiceExtensions` with `AddDiagnosticsServices(this IServiceCollection)` to register `DiagnosticLogOptions` from configuration, `PackageLoggerProvider`, and hosted drain service in `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/DiagnosticsServiceExtensions.cs`
-- [X] T014 [US1] Wire `PackageLoggerProvider` into agent by calling `AddDiagnosticsServices()` from `MigrationAgentServiceExtensions` and adding provider via `builder.Logging.AddProvider()` in `src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentServiceExtensions.cs`
-- [ ] T015 [US1] Verify end-to-end: run an export, confirm `Logs/agent.jsonl` exists in package output with structured NDJSON records at Warning+ level
+- [x] T012 [US1] Implement `PackageLoggerProvider` (`ILoggerProvider`) and inner `PackageLogger` (`ILogger`) in `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/PackageLoggerProvider.cs`: maps `LogLevel`, category, formatted message, exception, `Activity.Current` trace/span to `DiagnosticLogRecord`; writes to `BoundedChannel<DiagnosticLogRecord>` (capacity from `DiagnosticLogOptions.ChannelCapacity`, `DropOldest`); background drain flushes batches to `IArtefactStore.AppendAsync("Logs/agent.jsonl", ...)`; respects `DiagnosticLogOptions.MinimumLevel` - Status: complete/superseded; completed because superseded by specs/033-runtime-state-categories and specs/034-package-manager-adoption
+  Evidence: PackageLoggerProvider persists run-scoped diagnostics.ndjson via IPackageAccess, not Logs/agent.jsonl via IArtefactStore directly.
+- [x] T013 [US1] Create `DiagnosticsServiceExtensions` with `AddDiagnosticsServices(this IServiceCollection)` to register `DiagnosticLogOptions` from configuration, `PackageLoggerProvider`, and hosted drain service in `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/DiagnosticsServiceExtensions.cs` - Status: complete
+- [x] T014 [US1] Wire `PackageLoggerProvider` into agent by calling `AddDiagnosticsServices()` from `MigrationAgentServiceExtensions` and adding provider via `builder.Logging.AddProvider()` in `src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentServiceExtensions.cs` - Status: complete/superseded; completed because superseded by core wiring consolidation in CoreAgentServiceExtensions
+  Evidence: Provider wiring is done through AddDiagnosticsServices in CoreAgentServiceExtensions.
+- [ ] T015 [US1] Verify end-to-end: run an export, confirm `Logs/agent.jsonl` exists in package output with structured NDJSON records at Warning+ level - Status: incomplete
+  Evidence: No fresh run evidence in this session confirming expected diagnostics file output for the current contract.
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work — every export produces both `Logs/progress.jsonl` and `Logs/agent.jsonl` in the package.
 
@@ -103,33 +111,40 @@
 
 > **NOTE: These `.feature` files are the ATDD Phase 1 artifacts. They must be written from the `spec.md` User Story 6 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [X] T016 [US6] Create `features/cli/export/export-follow-and-level.feature` — translate `spec.md` User Story 6 acceptance scenarios (FR-021 through FR-027) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
-- [X] T017 [P] [US6] Create `features/platform/observability/tiered-log-levels.feature` — translate FR-028, FR-029, FR-030 (tiered log level architecture) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
+- [x] T016 [US6] Create `features/cli/export/export-follow-and-level.feature` — translate `spec.md` User Story 6 acceptance scenarios (FR-021 through FR-027) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`) - Status: complete
+- [x] T017 [P] [US6] Create `features/platform/observability/tiered-log-levels.feature` — translate FR-028, FR-029, FR-030 (tiered log level architecture) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`) - Status: complete
 
 ### Implementation for User Story 6 — Agent Side
 
-- [X] T018 [US6] Implement `ControlPlaneLoggerProvider` (`ILoggerProvider`) and inner `ControlPlaneLogger` in `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/ControlPlaneLoggerProvider.cs`: same bounded-channel pattern as `PackageLoggerProvider`; drain loop POSTs batches to `POST /agents/lease/{leaseId}/diagnostics`; failures caught, counted, logged at Debug; respects `DiagnosticLogOptions.MinimumLevel`
-- [X] T019 [US6] Register `ControlPlaneLoggerProvider` in `DiagnosticsServiceExtensions.AddDiagnosticsServices()` in `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/DiagnosticsServiceExtensions.cs`
-- [X] T020 [US6] Wire `ControlPlaneLoggerProvider` into agent via `builder.Logging.AddProvider()` in `src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentServiceExtensions.cs`
+- [x] T018 [US6] Implement `ControlPlaneLoggerProvider` (`ILoggerProvider`) and inner `ControlPlaneLogger` in `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/ControlPlaneLoggerProvider.cs`: same bounded-channel pattern as `PackageLoggerProvider`; drain loop POSTs batches to `POST /agents/lease/{leaseId}/diagnostics`; failures caught, counted, logged at Debug; respects `DiagnosticLogOptions.MinimumLevel` - Status: complete
+- [x] T019 [US6] Register `ControlPlaneLoggerProvider` in `DiagnosticsServiceExtensions.AddDiagnosticsServices()` in `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/DiagnosticsServiceExtensions.cs` - Status: complete
+- [x] T020 [US6] Wire `ControlPlaneLoggerProvider` into agent via `builder.Logging.AddProvider()` in `src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentServiceExtensions.cs` - Status: complete/superseded; completed because superseded by core wiring consolidation in CoreAgentServiceExtensions
+  Evidence: ControlPlaneLoggerProvider is registered through shared core agent wiring.
 
 ### Implementation for User Story 6 — Control Plane Side
 
-- [X] T021 [P] [US6] Create sealed `DiagnosticLogStoreOptions` with `SectionName`, `Capacity` (1000), `MinimumLevel` (`"Warning"`) in `src/DevOpsMigrationPlatform.ControlPlane/Services/DiagnosticLogStoreOptions.cs`
-- [X] T022 [US6] Create `DiagnosticLogStore` mirroring `JobProgressStore` pattern: `ConcurrentDictionary<Guid, JobEntry>` with `ConcurrentQueue<DiagnosticLogRecord>` ring buffer (bounded by `DiagnosticLogStoreOptions.Capacity`), `List<ChannelWriter<DiagnosticLogRecord>>` SSE subscribers, `Add()` filters by CP deployment-level minimum, `GetSnapshot()` with level filter, `Subscribe()` returns `ChannelReader` in `src/DevOpsMigrationPlatform.ControlPlane/Services/DiagnosticLogStore.cs`
-- [X] T023 [US6] Create `DiagnosticsController` with `POST /agents/lease/{leaseId}/diagnostics` (accept batch, validate lease, call `DiagnosticLogStore.Add()`), `GET /jobs/{jobId}/diagnostics` (snapshot with optional `?level=` filter), `GET /jobs/{jobId}/diagnostics?follow=true` (SSE stream with optional `?level=` filter) in `src/DevOpsMigrationPlatform.ControlPlane/Controllers/DiagnosticsController.cs`
-- [X] T024 [US6] Register `DiagnosticLogStore` and `DiagnosticLogStoreOptions` in control plane DI in the appropriate `Program.cs` or service extensions file
+- [x] T021 [P] [US6] Create sealed `DiagnosticLogStoreOptions` with `SectionName`, `Capacity` (1000), `MinimumLevel` (`"Warning"`) in `src/DevOpsMigrationPlatform.ControlPlane/Services/DiagnosticLogStoreOptions.cs` - Status: complete/superseded; completed because superseded by implemented DiagnosticLogStoreOptions contract
+  Evidence: Current options use section DiagnosticLog and default Information in src/DevOpsMigrationPlatform.ControlPlane/Jobs/DiagnosticLogStoreOptions.cs.
+- [x] T022 [US6] Create `DiagnosticLogStore` mirroring `JobProgressStore` pattern: `ConcurrentDictionary<Guid, JobEntry>` with `ConcurrentQueue<DiagnosticLogRecord>` ring buffer (bounded by `DiagnosticLogStoreOptions.Capacity`), `List<ChannelWriter<DiagnosticLogRecord>>` SSE subscribers, `Add()` filters by CP deployment-level minimum, `GetSnapshot()` with level filter, `Subscribe()` returns `ChannelReader` in `src/DevOpsMigrationPlatform.ControlPlane/Services/DiagnosticLogStore.cs` - Status: complete
+- [x] T023 [US6] Create `DiagnosticsController` with `POST /agents/lease/{leaseId}/diagnostics` (accept batch, validate lease, call `DiagnosticLogStore.Add()`), `GET /jobs/{jobId}/diagnostics` (snapshot with optional `?level=` filter), `GET /jobs/{jobId}/diagnostics?follow=true` (SSE stream with optional `?level=` filter) in `src/DevOpsMigrationPlatform.ControlPlane/Controllers/DiagnosticsController.cs` - Status: complete
+- [x] T024 [US6] Register `DiagnosticLogStore` and `DiagnosticLogStoreOptions` in control plane DI in the appropriate `Program.cs` or service extensions file - Status: complete
 
 ### Implementation for User Story 6 — Job Definition
 
-- [X] T025 [US6] Extend job definition/contract with optional `diagnostics.minimumLevel` field (additive, defaults to `"Warning"`) — update model in `src/DevOpsMigrationPlatform.Abstractions/` and ensure agent reads it to configure `DiagnosticLogOptions.MinimumLevel`
+- [x] T025 [US6] Extend job definition/contract with optional `diagnostics.minimumLevel` field (additive, defaults to `"Warning"`) — update model in `src/DevOpsMigrationPlatform.Abstractions/` and ensure agent reads it to configure `DiagnosticLogOptions.MinimumLevel` - Status: complete/superseded; completed because superseded by implemented JobDiagnostics default Information
+  Evidence: JobDiagnostics.MinimumLevel defaults to Information in src/DevOpsMigrationPlatform.Abstractions/ControlPlaneApi/JobDiagnostics.cs.
 
 ### Implementation for User Story 6 — CLI Side
 
-- [X] T026 [P] [US6] Add `Follow` (bool, default `false`) and `Level` (string, default `"Information"`, validated against `Trace|Debug|Information|Warning|Error|Critical`) properties to `ExportCommandSettings` in `src/DevOpsMigrationPlatform.CLI.Migration/Settings/ExportCommandSettings.cs`
-- [X] T027 [US6] Add `StreamDiagnosticsAsync(Guid jobId, LogLevel? level, CancellationToken ct)` returning `IAsyncEnumerable<DiagnosticLogRecord>` to `ControlPlaneClient` for SSE consumption in `src/DevOpsMigrationPlatform.CLI.Migration/JobRunners/ControlPlaneClient.cs`
-- [X] T028 [US6] Update `MigrationExportCommand` to pass `--level` to job definition, implement `--follow` lifecycle: stream diagnostics SSE to console, print summary on job terminal state, detach on Ctrl+C with "Job continues. Use TUI to watch." message in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/MigrationExportCommand.cs`
-- [X] T029 [US6] Implement standalone mode behaviour: when no `--url`, `--follow` is implicit, locally-started CP's `DiagnosticLogStoreOptions.MinimumLevel` set to operator's `--level` value in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/MigrationExportCommand.cs`
-- [ ] T030 [US6] Verify end-to-end: run `export --level Debug --follow`, confirm Debug records in `agent.jsonl`, diagnostics stream to console, CLI exits on completion
+- [x] T026 [P] [US6] Add `Follow` (bool, default `false`) and `Level` (string, default `"Information"`, validated against `Trace|Debug|Information|Warning|Error|Critical`) properties to `ExportCommandSettings` in `src/DevOpsMigrationPlatform.CLI.Migration/Settings/ExportCommandSettings.cs` - Status: complete/superseded; completed because superseded by specs/028.1-task-bootstrap and specs/028.2-job-execution-by-task
+  Evidence: QueueCommandSettings now owns --follow and --level; ExportCommandSettings file does not exist.
+- [x] T027 [US6] Add `StreamDiagnosticsAsync(Guid jobId, LogLevel? level, CancellationToken ct)` returning `IAsyncEnumerable<DiagnosticLogRecord>` to `ControlPlaneClient` for SSE consumption in `src/DevOpsMigrationPlatform.CLI.Migration/JobRunners/ControlPlaneClient.cs` - Status: complete
+- [x] T028 [US6] Update `MigrationExportCommand` to pass `--level` to job definition, implement `--follow` lifecycle: stream diagnostics SSE to console, print summary on job terminal state, detach on Ctrl+C with "Job continues. Use TUI to watch." message in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/MigrationExportCommand.cs` - Status: complete/superseded; completed because superseded by queue command model from specs/028.1-task-bootstrap and specs/028.2-job-execution-by-task
+  Evidence: QueueCommand implements follow/level lifecycle; MigrationExportCommand path is obsolete.
+- [x] T029 [US6] Implement standalone mode behaviour: when no `--url`, `--follow` is implicit, locally-started CP's `DiagnosticLogStoreOptions.MinimumLevel` set to operator's `--level` value in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/MigrationExportCommand.cs` - Status: complete/superseded; completed because superseded by queue command model from specs/028.1-task-bootstrap and specs/028.2-job-execution-by-task
+  Evidence: Standalone implicit follow behavior is implemented in QueueCommand.
+- [ ] T030 [US6] Verify end-to-end: run `export --level Debug --follow`, confirm Debug records in `agent.jsonl`, diagnostics stream to console, CLI exits on completion - Status: incomplete
+  Evidence: No fresh end-to-end execution evidence captured in this reconciliation session for the asserted follow/debug behavior.
 
 **Checkpoint**: At this point, User Stories 1, 2, AND 6 should all work — exports produce both log files, operators can control verbosity, and `--follow` streams diagnostics inline.
 
@@ -145,18 +160,23 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. It must be written from the `spec.md` User Story 4 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [X] T031 [US4] Create `features/platform/observability/endpoint-rename.feature` — translate `spec.md` User Story 4 acceptance scenarios (FR-013, FR-014, FR-015) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
+- [x] T031 [US4] Create `features/platform/observability/endpoint-rename.feature` — translate `spec.md` User Story 4 acceptance scenarios (FR-013, FR-014, FR-015) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`) - Status: complete
 
 ### Implementation for User Story 4
 
-- [X] T032 [US4] Rename `GET /jobs/{jobId}/logs` route to `GET /jobs/{jobId}/progress` (and `?follow=true` variant) in `ProgressController` in `src/DevOpsMigrationPlatform.ControlPlane/Controllers/` (find existing controller and update route attributes)
-- [X] T033 [P] [US4] Rename `ManageLogsCommand` to `ManageDiagnosticsCommand` and update to download diagnostic logs from completed job package (no `--follow`) in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/ManageDiagnosticsCommand.cs` (rename existing file)
-- [X] T034 [P] [US4] Create `ManageDiagnosticsCommandSettings` with `--job` (required) and `--level` (optional, client-side filter) in `src/DevOpsMigrationPlatform.CLI.Migration/Settings/ManageDiagnosticsCommandSettings.cs`
-- [X] T035 [P] [US4] Create `ManageProgressCommand` with snapshot-only behaviour (no `--follow`) calling `GET /jobs/{jobId}/progress` in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/ManageProgressCommand.cs`
-- [X] T036 [P] [US4] Create `ManageProgressCommandSettings` with `--job` (required) in `src/DevOpsMigrationPlatform.CLI.Migration/Settings/ManageProgressCommandSettings.cs`
-- [X] T037 [US4] Update `Program.cs` command registration: replace `manage logs` with `manage diagnostics` and add `manage progress` in `src/DevOpsMigrationPlatform.CLI.Migration/Program.cs`
-- [X] T038 [US4] Update `ControlPlaneClient` to use `/progress` path instead of `/logs` for progress event methods in `src/DevOpsMigrationPlatform.CLI.Migration/JobRunners/ControlPlaneClient.cs`
-- [X] T039 [P] [US4] Rename `ILogsClient` interface to `IProgressClient` (if it exists) in `src/DevOpsMigrationPlatform.CLI.Migration/JobRunners/`
+- [x] T032 [US4] Rename `GET /jobs/{jobId}/logs` route to `GET /jobs/{jobId}/progress` (and `?follow=true` variant) in `ProgressController` in `src/DevOpsMigrationPlatform.ControlPlane/Controllers/` (find existing controller and update route attributes) - Status: complete
+- [ ] T033 [P] [US4] Rename `ManageLogsCommand` to `ManageDiagnosticsCommand` and update to download diagnostic logs from completed job package (no `--follow`) in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/ManageDiagnosticsCommand.cs` (rename existing file) - Status: incomplete
+  Evidence: ManageDiagnosticsCommand currently prints guidance text and does not download package diagnostics content.
+- [x] T034 [P] [US4] Create `ManageDiagnosticsCommandSettings` with `--job` (required) and `--level` (optional, client-side filter) in `src/DevOpsMigrationPlatform.CLI.Migration/Settings/ManageDiagnosticsCommandSettings.cs` - Status: complete/superseded; completed because superseded by inline command settings pattern
+  Evidence: ManageDiagnostics settings are implemented as nested Settings class in ManageDiagnosticsCommand.
+- [x] T035 [P] [US4] Create `ManageProgressCommand` with snapshot-only behaviour (no `--follow`) calling `GET /jobs/{jobId}/progress` in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/ManageProgressCommand.cs` - Status: complete
+- [x] T036 [P] [US4] Create `ManageProgressCommandSettings` with `--job` (required) in `src/DevOpsMigrationPlatform.CLI.Migration/Settings/ManageProgressCommandSettings.cs` - Status: complete/superseded; completed because superseded by inline command settings pattern
+  Evidence: ManageProgress settings are implemented as nested Settings class in ManageProgressCommand.
+- [ ] T037 [US4] Update `Program.cs` command registration: replace `manage logs` with `manage diagnostics` and add `manage progress` in `src/DevOpsMigrationPlatform.CLI.Migration/Program.cs` - Status: incomplete
+  Evidence: Program.cs still registers deprecated manage logs command, so replacement is not complete.
+- [x] T038 [US4] Update `ControlPlaneClient` to use `/progress` path instead of `/logs` for progress event methods in `src/DevOpsMigrationPlatform.CLI.Migration/JobRunners/ControlPlaneClient.cs` - Status: complete
+- [x] T039 [P] [US4] Rename `ILogsClient` interface to `IProgressClient` (if it exists) in `src/DevOpsMigrationPlatform.CLI.Migration/JobRunners/` - Status: complete/superseded; completed because superseded by current ControlPlaneClient progress API surface
+  Evidence: No ILogsClient interface remains; client methods use /progress and FollowLogsAsync semantics.
 
 **Checkpoint**: At this point, all API endpoints and CLI commands use correct naming — progress for `ProgressEvent`, diagnostics for `DiagnosticLogRecord`.
 
@@ -172,13 +192,16 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. It must be written from the `spec.md` User Story 5 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [X] T040 [US5] Create `features/platform/observability/log-download.feature` — translate `spec.md` User Story 5 acceptance scenarios (FR-016, FR-017) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
+- [x] T040 [US5] Create `features/platform/observability/log-download.feature` — translate `spec.md` User Story 5 acceptance scenarios (FR-016, FR-017) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`) - Status: complete
 
 ### Implementation for User Story 5
 
-- [X] T041 [US5] Create `LogDownloadController` with `GET /jobs/{jobId}/logs/download?type=progress|diagnostics` endpoint: resolve job's `packageUri`, read `Logs/progress.jsonl` or `Logs/agent.jsonl` via `IArtefactStore`, return with `Content-Type: application/x-ndjson` in `src/DevOpsMigrationPlatform.ControlPlane/Controllers/LogDownloadController.cs`
-- [X] T042 [US5] Add `DownloadDiagnosticsAsync(Guid jobId)` and `DownloadProgressAsync(Guid jobId)` methods to `ControlPlaneClient` in `src/DevOpsMigrationPlatform.CLI.Migration/JobRunners/ControlPlaneClient.cs`
-- [X] T043 [US5] Implement download logic in `ManageDiagnosticsCommand`: call `DownloadDiagnosticsAsync`, parse NDJSON, filter by `--level` client-side, output to stdout in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/ManageDiagnosticsCommand.cs`
+- [ ] T041 [US5] Create `LogDownloadController` with `GET /jobs/{jobId}/logs/download?type=progress|diagnostics` endpoint: resolve job's `packageUri`, read `Logs/progress.jsonl` or `Logs/agent.jsonl` via `IArtefactStore`, return with `Content-Type: application/x-ndjson` in `src/DevOpsMigrationPlatform.ControlPlane/Controllers/LogDownloadController.cs` - Status: incomplete
+  Evidence: No LogDownloadController or /jobs/{jobId}/logs/download endpoint exists in current ControlPlane controllers.
+- [ ] T042 [US5] Add `DownloadDiagnosticsAsync(Guid jobId)` and `DownloadProgressAsync(Guid jobId)` methods to `ControlPlaneClient` in `src/DevOpsMigrationPlatform.CLI.Migration/JobRunners/ControlPlaneClient.cs` - Status: incomplete
+  Evidence: ControlPlaneClient has no DownloadDiagnosticsAsync/DownloadProgressAsync methods.
+- [ ] T043 [US5] Implement download logic in `ManageDiagnosticsCommand`: call `DownloadDiagnosticsAsync`, parse NDJSON, filter by `--level` client-side, output to stdout in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/ManageDiagnosticsCommand.cs` - Status: incomplete
+  Evidence: ManageDiagnosticsCommand does not parse/download NDJSON or apply level filtering to downloaded records.
 
 **Checkpoint**: At this point, `manage diagnostics` and `manage progress` are fully functional — snapshot from ring buffer and download from package both work.
 
@@ -194,12 +217,14 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. It must be written from the `spec.md` User Story 3 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [X] T044 [US3] Create `features/platform/observability/diagnostics-streaming.feature` — translate `spec.md` User Story 3 acceptance scenarios (FR-018, FR-019, FR-020) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
+- [x] T044 [US3] Create `features/platform/observability/diagnostics-streaming.feature` — translate `spec.md` User Story 3 acceptance scenarios (FR-018, FR-019, FR-020) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`) - Status: complete
 
 ### Implementation for User Story 3
 
-- [X] T045 [US3] Implement `DiagnosticsPanel` as a `Terminal.Gui` `View` subclass: subscribes to `GET /jobs/{jobId}/diagnostics?follow=true&level=Warning`, renders log records in a scrolling list with level-based coloring, supports level filter toggle (Warning ↔ Information) in `src/DevOpsMigrationPlatform.CLI.Migration/Views/DiagnosticsPanel.cs`
-- [X] T046 [US3] Integrate `DiagnosticsPanel` into existing TUI layout alongside metrics panel and progress table without replacing either in the TUI's main view composition
+- [x] T045 [US3] Implement `DiagnosticsPanel` as a `Terminal.Gui` `View` subclass: subscribes to `GET /jobs/{jobId}/diagnostics?follow=true&level=Warning`, renders log records in a scrolling list with level-based coloring, supports level filter toggle (Warning ↔ Information) in `src/DevOpsMigrationPlatform.CLI.Migration/Views/DiagnosticsPanel.cs` - Status: complete/superseded; completed because superseded by TuiLogView diagnostics stream integration
+  Evidence: Diagnostics streaming is integrated in TuiLogView via StreamDiagnosticsAsync; standalone DiagnosticsPanel is Spectre-based and not the active path.
+- [x] T046 [US3] Integrate `DiagnosticsPanel` into existing TUI layout alongside metrics panel and progress table without replacing either in the TUI's main view composition - Status: complete/superseded; completed because superseded by TuiLogView diagnostics stream integration
+  Evidence: TUI main feed uses TuiLogView logs mode to render diagnostics alongside progress/metrics.
 
 **Checkpoint**: At this point, ALL user stories are implemented — full three-channel observability is operational.
 
@@ -209,15 +234,19 @@
 
 **Purpose**: Launch profiles, SystemTest coverage, build verification, scenario validation
 
-- [X] T047 Add `manage diagnostics` debug profile (`manage diagnostics --job <test-job-id> --level Warning`) to `.vscode/launch.json`
-- [X] T048 [P] Add `manage progress` debug profile (`manage progress --job <test-job-id>`) to `.vscode/launch.json`
-- [X] T049 [P] Update existing `export` debug profile with `--follow` and `--level Warning` options in `.vscode/launch.json`
-- [X] T050 [P] Create `[TestCategory("SystemTest")]` test for `export --follow --level` that runs an export with `--follow` and `--level Debug`, asserts diagnostic output streams to console, and verifies `Logs/agent.jsonl` contains Debug+ records in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/ExportCommandFollowTests.cs`
-- [X] T051 [P] Create `[TestCategory("SystemTest")]` test for `manage diagnostics` that submits a job, then runs `manage diagnostics --job <id>`, and asserts NDJSON output is returned in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/ManageDiagnosticsCommandTests.cs`
-- [X] T052 [P] Create `[TestCategory("SystemTest")]` test for `manage progress` that submits a job, then runs `manage progress --job <id>`, and asserts ProgressEvent records are returned in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/ManageProgressCommandTests.cs`
-- [X] T053 Run `dotnet clean && dotnet build --no-incremental` — MUST pass with zero errors
-- [X] T054 Run `dotnet test` — ALL tests MUST pass
-- [ ] T055 Run scenario config `scenarios/export-ado-workitems-single-project.json` via `.vscode/launch.json` debug profile and verify observable output (both `Logs/progress.jsonl` and `Logs/agent.jsonl` produced)
+- [x] T047 Add `manage diagnostics` debug profile (`manage diagnostics --job <test-job-id> --level Warning`) to `.vscode/launch.json` - Status: complete
+- [x] T048 [P] Add `manage progress` debug profile (`manage progress --job <test-job-id>`) to `.vscode/launch.json` - Status: complete
+- [x] T049 [P] Update existing `export` debug profile with `--follow` and `--level Warning` options in `.vscode/launch.json` - Status: complete
+- [x] T050 [P] Create `[TestCategory("SystemTest")]` test for `export --follow --level` that runs an export with `--follow` and `--level Debug`, asserts diagnostic output streams to console, and verifies `Logs/agent.jsonl` contains Debug+ records in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/ExportCommandFollowTests.cs` - Status: complete/superseded; completed because superseded by queue command model from specs/028.1-task-bootstrap and specs/028.2-job-execution-by-task
+  Evidence: ExportCommandFollowTests covers queue --follow/--level behavior instead of legacy export command.
+- [ ] T051 [P] Create `[TestCategory("SystemTest")]` test for `manage diagnostics` that submits a job, then runs `manage diagnostics --job <id>`, and asserts NDJSON output is returned in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/ManageDiagnosticsCommandTests.cs` - Status: incomplete
+  Evidence: ManageDiagnosticsCommandTests only assert generic output and do not verify NDJSON download behavior.
+- [x] T052 [P] Create `[TestCategory("SystemTest")]` test for `manage progress` that submits a job, then runs `manage progress --job <id>`, and asserts ProgressEvent records are returned in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/ManageProgressCommandTests.cs` - Status: complete
+- [x] T053 Run `dotnet clean && dotnet build --no-incremental` — MUST pass with zero errors - Status: complete
+- [ ] T054 Run `dotnet test` — ALL tests MUST pass - Status: incomplete
+  Evidence: dotnet test --no-build did not complete in this session (stalled and was stopped).
+- [ ] T055 Run scenario config `scenarios/export-ado-workitems-single-project.json` via `.vscode/launch.json` debug profile and verify observable output (both `Logs/progress.jsonl` and `Logs/agent.jsonl` produced) - Status: incomplete
+  Evidence: Referenced scenario path scenarios/export-ado-workitems-single-project.json no longer exists and no replacement run evidence was captured.
 
 ---
 

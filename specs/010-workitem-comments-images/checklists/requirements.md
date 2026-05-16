@@ -6,9 +6,9 @@
 
 ## Content Quality
 
-- [x] No implementation details (languages, frameworks, APIs)
+- [ ] No implementation details (languages, frameworks, APIs)
 - [x] Focused on user value and business needs
-- [x] Written for non-technical stakeholders
+- [ ] Written for non-technical stakeholders
 - [x] All mandatory sections completed
 
 ## Requirement Completeness
@@ -25,11 +25,12 @@
 ## Feature Readiness
 
 - [x] All functional requirements have clear acceptance criteria
-- [x] User scenarios cover primary flows
-- [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] No implementation details leak into specification
+- [ ] User scenarios cover primary flows
+- [ ] Feature meets measurable outcomes defined in Success Criteria
+- [ ] No implementation details leak into specification
 
 ## Notes
 
-- All items pass. Spec is ready for `/speckit.clarify` or `/speckit.plan`.
-- Architecture discrepancies logged in `discrepancies.md` — `workitems-format-summary.md` and `migration-package-concept.md` need updating to describe `comments.json` and embedded-image storage.
+- Reconciliation outcome against repository truth: 9 complete, 14 incomplete, 20 complete/superseded tasks in `tasks.md`.
+- Primary gaps are comment version export, embedded-image orchestration wiring, missing full-suite verification evidence, and stale path assumptions.
+- Primary supersessions are later work-item specs and Agent-layer architecture moves (`specs/011-inline-comment-fetching`, `specs/029-import-workitems-attachments-nodes`, `specs/034-package-manager-adoption`).

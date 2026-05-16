@@ -132,6 +132,34 @@ Work item fields and comments can use Markdown format. Markdown allows image emb
 - Q: Which date determines a comment folder's placement? → A: The comment's `createdDate` determines the date folder. An edit to a comment is a **separate new entry** — it creates another folder at the edit's `modifiedDate` ticks, using the same commentId. Multiple folders may exist for the same commentId (original at `createdDate` plus each edit at its `modifiedDate`), all sorted chronologically in the date folders alongside revisions.
 - Q: What does the package contain for a comment edited multiple times? → A: One folder per version — original at `createdDate`, each edit at its `modifiedDate`. This is always-on behaviour, not an opt-in.
 
+## Reconciliation (Repository Truth)
+
+### Current status
+
+- Reconciled against current codebase and newer related specs.
+- Tasks are no longer all complete; several are incomplete or superseded by later architecture/spec evolution.
+
+### Remaining incomplete work (IDs)
+
+- T014, T022, T024, T025, T026, T028, T030, T031, T032, T033, T034, T038, T039, T040.
+
+### Completed because superseded (IDs + source)
+
+- T001, T003, T004, T005, T006, T007, T008, T009, T009b, T009c, T011, T012, T015, T016, T017, T018, T019, T023, T027, T035.
+- Superseded primarily by: `specs/011-inline-comment-fetching`, `specs/029-import-workitems-attachments-nodes`, `specs/034-package-manager-adoption`, and current Agent-layer implementation structure.
+
+### Contradictions and reconciliation
+
+- This spec assumes a dedicated `WorkItemCommentExportService` and standalone `workitems-comments.cursor.json`; current implementation performs inline comment handling in `WorkItemExportOrchestrator` and uses broader export checkpointing.
+- This spec expects embedded-image export service wiring into orchestrator/module; service exists but orchestration wiring is incomplete.
+- This spec expects comment version history export via versions API; current comment source pages comments but does not fetch per-comment versions.
+
+### Verification evidence
+
+- Code evidence: `src/DevOpsMigrationPlatform.Infrastructure.Agent/Export/WorkItemExportOrchestrator.cs`, `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Export/AzureDevOpsWorkItemCommentSource.cs`, `src/DevOpsMigrationPlatform.Infrastructure.Agent/Export/EmbeddedImageExportService.cs`, `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ExportServiceCollectionExtensions.cs`.
+- Test/spec evidence: `features/export/work-items/comments/export-comments.feature`, `features/export/work-items/embedded-images/export-embedded-images.feature`, `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/MigrationExportCommandTests.cs`.
+- Command evidence: `dotnet build DevOpsMigrationPlatform.slnx -nologo -v minimal` (succeeds with warnings), targeted test pass in `DevOpsMigrationPlatform.Infrastructure.Agent.Tests` filter for export comments/images.
+
 ## Assumptions
 
 - Work item comments via this Comments API are only available on Azure DevOps Services and TFS 2018 Update 2 or later. For older TFS versions lacking this endpoint, the comments sub-module is a no-op and comments stored in `System.History` (the legacy comment mechanism) are already captured via revision fields.

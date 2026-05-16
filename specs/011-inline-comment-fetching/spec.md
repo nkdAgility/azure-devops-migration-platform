@@ -1,6 +1,6 @@
 # Inline Comment Fetching for Edit/Delete Revisions
 
-**Status:** ✅ IMPLEMENTED (feature-gated — `inlineComments.enabled: true` required)  
+**Status:** ✅ IMPLEMENTED (feature-gated — `Modules.WorkItems.Extensions.Comments.Enabled`)  
 **Priority:** Medium  
 **Module:** WorkItems Export  
 
@@ -8,15 +8,44 @@
 
 ## Implementation Notes
 
-The feature is implemented and gated behind `inlineComments.enabled: true` in the scenario
-config's `WorkItems` scope parameters (default: `false`). This prevents unexpected API calls
-in standard export runs.
+The feature is implemented and gated behind `Modules.WorkItems.Extensions.Comments.Enabled`.
+Inline comment fetch failures are non-fatal by design (warning + continue) so export remains
+deterministic and resumable.
 
-**Known limitation:** `AzureDevOpsWorkItemCommentSource.GetCommentsAsync()` has an upstream
-SDK bug (`$top` parameter out of range). Errors are non-fatal — a progress warning is emitted
-and the export continues. Full comment data will be correctly persisted once the SDK is fixed.
+**Note:** Earlier versions of this spec documented an SDK `$top` bug as a blocker. Current code
+uses the project-scoped comments API overload and includes handling/notes in the connector.
 
 See [tasks.md](tasks.md) for per-task completion status.
+
+---
+
+## Current status
+
+- Implemented in export orchestration, DI wiring, connector factories, and tests.
+- `comment.json` is written beside `revision.json` for detected comment edit/delete revisions.
+- Task-level reconciliation is captured in `tasks.md`.
+
+## Remaining incomplete work (IDs)
+
+- Task 7 — full-solution build + full-solution test run evidence still needs to be freshly captured in this spec set.
+
+## Completed because superseded (IDs + source)
+
+- None.
+
+## Contradictions and reconciliation
+
+- Reconciled status contradiction (`IMPLEMENTED` vs `DEFERRED`) to implemented.
+- Reconciled stale config key references from `inlineComments.enabled` to `Modules.WorkItems.Extensions.Comments.Enabled`.
+- Reconciled stale blocker narrative: SDK issue is no longer treated as an implementation blocker in this spec.
+
+## Verification evidence
+
+- `src\DevOpsMigrationPlatform.Infrastructure.Agent\Export\WorkItemExportOrchestrator.cs` (`IsCommentEditOrDeleteRevision`, inline comment fetch/write block).
+- `src\DevOpsMigrationPlatform.Infrastructure.Agent\Modules\WorkItemsModule.cs` (conditional factory wiring via `Comments.Enabled`).
+- `src\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\Export\AzureDevOpsWorkItemCommentSource.cs` (project-scoped `GetCommentsAsync` overload and pagination).
+- `tests\DevOpsMigrationPlatform.Infrastructure.Agent.Tests\Export\WorkItemExportOrchestratorTests.cs` (detection and comment.json behavior tests).
+- Reconciliation session commands: targeted build and tests succeeded (`Infrastructure.Agent` build; `WorkItemExportOrchestratorTests` 29/29 passed).
 
 ---
 
@@ -37,15 +66,15 @@ Azure DevOps WorkItem comments have two channels:
    - No API call needed
    - No data loss for additions
 2. **Comments API** (separate endpoint): Contains full version history including edits and deletes
-   - Edit/delete events invisible in System.History (only CommentCount changes)
+   - Edit/delete events are invisible in System.History (only CommentCount changes)
    - Requires separate API call to retrieve
-   - Currently NOT used by export (non-critical feature gap)
+   - Used by export for inline edit/delete comment capture
 
-**Symptom:** Comment edits and deletions are lost during export. Only comment additions (captured in System.History) are preserved.
+**Symptom addressed by this feature:** Comment edits and deletions can now be captured into inline `comment.json` artifacts instead of being lost.
 
 ---
 
-## Implementation Status: DEFERRED
+## Implementation Status
 
 ✅ **Completed:**
 - Problem analysis and dual-channel architecture documented
@@ -53,10 +82,11 @@ Azure DevOps WorkItem comments have two channels:
 - Functional requirements specified
 - Test scenarios planned
 
-❌ **Blocked (Upstream):**
-- Inline comment fetching blocked by SDK bug in `AzureDevOpsWorkItemCommentSource`
-- Any implementation will immediately fail at runtime
-- Requires upstream fix before this can proceed
+✅ **Implemented in code:**
+- Inline comment detection and fetch path exists in `WorkItemExportOrchestrator`
+- `IWorkItemCommentSourceFactory` is wired through `WorkItemsModule`
+- Connector factories are registered (Azure DevOps and Simulated)
+- Unit/integration tests exist for detection and comment.json behavior
 
 **Non-blocking rationale:**
 - Comment additions ARE captured (via System.History in revision.json)
@@ -66,14 +96,12 @@ Azure DevOps WorkItem comments have two channels:
 
 ---
 
-## Planned User Scenarios (Future Implementation)
-
-These scenarios document the intended behavior once the upstream SDK bug is fixed.
+## User Scenarios
 
 ### Scenario 1: Export Work Item with Comment Addition
 **Actor:** Export operator  
 **Context:** Exporting a work item where a comment was added in revision 10  
-**Action:** Run export (future: when comments are enabled)  
+**Action:** Run export with `Comments.Enabled = true`  
 **Expected Outcome:**
 - Revision 10 folder contains `revision.json` with System.History field showing comment text
 - No additional `comment.json` file (comment data already in System.History)
@@ -82,7 +110,7 @@ These scenarios document the intended behavior once the upstream SDK bug is fixe
 ### Scenario 2: Export Work Item with Comment Edit
 **Actor:** Export operator  
 **Context:** Exporting a work item where a comment was edited in revision 11  
-**Action:** Run export (future: when comments are enabled)  
+**Action:** Run export with `Comments.Enabled = true`  
 **Expected Outcome:**
 - Revision 11 folder contains `revision.json` (metadata only)
 - Revision 11 folder contains `comment.json` with edited comment versions
@@ -92,7 +120,7 @@ These scenarios document the intended behavior once the upstream SDK bug is fixe
 ### Scenario 3: Export Work Item with Comment Deletion
 **Actor:** Export operator  
 **Context:** Exporting a work item where a comment was deleted/marked isDeleted  
-**Action:** Run export (future: when comments are enabled)  
+**Action:** Run export with `Comments.Enabled = true`  
 **Expected Outcome:**
 - Revision with deletion contains `revision.json`
 - Revision contains `comment.json` with isDeleted=true for the comment
@@ -109,48 +137,46 @@ These scenarios document the intended behavior once the upstream SDK bug is fixe
 
 ---
 
-## Functional Requirements (Deferred — Future Implementation)
+## Functional Requirements
 
-These requirements document the intended behavior and will become active once the upstream SDK bug is fixed.
-
-1. **Comment Detection** (Future)
+1. **Comment Detection**
    - Detect comment addition revisions: System.History field present
    - Detect comment edit/delete revisions: System.CommentCount changed AND no System.History field
    - Comment additions require NO API call (data in System.History)
-   - Comment edit/delete revisions MUST fetch API data (when SDK is fixed)
+   - Comment edit/delete revisions MUST fetch API data via the configured comment source
 
-2. **Comment Fetching by Timestamp** (Future)
+2. **Comment Fetching by Timestamp**
    - For edit/delete revisions, fetch all comment versions for the work item
    - Filter comments by creation or modification timestamp
    - Match criteria: `abs(comment.ModifiedDate | comment.CreatedDate - revision.ChangedDate) <= 1.0 second`
    - Store matching comments in `comment.json` beside `revision.json`
 
-3. **Dependency Injection** (Future)
+3. **Dependency Injection**
    - `IWorkItemCommentSourceFactory` injected into `WorkItemsModule`
    - Factory passed to `WorkItemExportOrchestrator` during construction
    - Orchestrator creates source on-demand for comment edit/delete revisions
 
-4. **File Output** (Future)
+4. **File Output**
    - Comment additions: System.History field in revision.json (no comment.json created)
    - Comment edits/deletes: comment.json file created in same folder as revision.json
    - Format: JSON array of matching `WorkItemComment` objects
    - Location: `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/comment.json`
 
-5. **Error Handling** (Future)
+5. **Error Handling**
    - If comment API call fails, log warning and continue (non-fatal)
    - If no comments match timestamp, skip creating comment.json (revision has metadata only)
    - Propagate CancellationToken on all async operations
 
-6. **Memory Safety** (Future)
+6. **Memory Safety**
    - Stream comments as async enumerable (no buffering all comments in memory)
    - Filter by timestamp incrementally as each comment is received
    - No revision list or comment list accumulated across work items
 
 ---
 
-## Future Technical Design
+## Technical Design
 
-### Key Entities (Reference Implementation)
+### Key Entities
 
 #### WorkItemRevision
 - **Fields**: IReadOnlyList<WorkItemField>
@@ -161,12 +187,12 @@ These requirements document the intended behavior and will become active once th
 
 #### WorkItemComment
 - **Fields**: commentId, version, text, format, isDeleted, createdDate, modifiedDate
-- **Source**: Azure DevOps Comments API (v7.1-preview.4) — **Currently Blocked by SDK Bug**
+- **Source**: Azure DevOps Comments API (v7.1-preview.4)
 - **Stored in**: comment.json alongside revision.json
 
 ---
 
-## Success Criteria (For Future Implementation)
+## Success Criteria
 
 1. **Export Coverage**
    - Comment additions captured in System.History (no additional API calls)
@@ -191,7 +217,7 @@ These requirements document the intended behavior and will become active once th
 
 ---
 
-## Assumptions (For Future Implementation)
+## Assumptions
 
 1. Revisions are processed one at a time (streaming model)
 2. System.History field is present if and only if comment was added in that revision
@@ -199,7 +225,7 @@ These requirements document the intended behavior and will become active once th
 4. Timestamp ±1 second is sufficient to correlate comments with revisions
 5. IWorkItemCommentSourceFactory is registered in DI container
 6. Comment API returns comments in chronological order
-7. **Upstream SDK Bug in `AzureDevOpsWorkItemCommentSource` is fixed**
+7. Full-repository build/test evidence is captured separately from this spec during reconciliation runs
 
 ---
 
@@ -212,19 +238,19 @@ These requirements document the intended behavior and will become active once th
 
 ---
 
-## Reference Implementation Design (For Internal Use Only)
+## Reference Implementation Design (Implemented)
 
-### Classes to Modify (When Unblocked)
+### Classes Modified
 - `WorkItemExportOrchestrator`: Add comment detection + inline fetching
 - `WorkItemsModule`: Add factory injection and pass-through
 - Imports: Add `System.Linq` and `DevOpsMigrationPlatform.Abstractions.Models`
 
-### Methods to Add (When Unblocked)
+### Methods Added
 - `IsCommentEditOrDeleteRevision(WorkItemRevision)`: Static detection method
   - Returns false for additions (System.History present)
   - Returns true for edit/delete (CommentCount change without System.History)
 
-### Methods to Remove (When Unblocked)
+### Methods Removed
 - Removed post-processing comment export (worked on per-work-item basis)
 - Removed work-item transition hooks for comment export
 - Simplified ExportAsync() to inline comment handling per revision

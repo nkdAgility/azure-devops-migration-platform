@@ -296,3 +296,30 @@ All nine principles re-checked after Phase 1. No new violations introduced. No c
 2. **Auth forwarding in `TuiCommand`** — ✅ Resolved: `TuiCommand` calls `CreateHost(settings)` (the same `ControlPlaneCommandBase` method used by all other commands). This ensures the `HttpClient` registered in the DI host has the correct Entra/Windows auth handler. No separate `CreateTuiHost` needed.
 3. **`Application.Invoke` from async SSE loop** — verify in prototype that `Application.Invoke` is safe to call before `app.Run` returns; some v2 betas have constraints on post-dispose invocation.
 
+---
+
+## Current status
+
+Reconciled on 2026-05-16 against current repository implementation. Significant portions of this plan have been delivered, but the runtime now reflects newer task-bootstrap/task-centric behavior from later specs in addition to this baseline.
+
+## Remaining incomplete work (IDs)
+
+`T025`, `T027`, `T030`, `T031`, `T032`, `T033`, `T034`, `T035`, `T037`, `T042`, `T043`.
+
+## Completed because superseded (IDs + source)
+
+- `T003`, `T009` superseded by `specs/021.2-separation-of-concerns`.
+- `T017`, `T018`, `T019`, `T020` superseded by `.agents/30-context/domains/cli-commands.md`.
+- `T028` superseded by `specs/028.1-task-bootstrap` and `specs/028.2-job-execution-by-task`.
+
+## Contradictions and reconciliation
+
+- This plan references legacy command/file locations (`Migration*Command.cs`) that no longer represent the canonical submission flow.
+- This plan’s TUI shape assumes a simpler panel contract than current task/bootstrap-aware runtime behavior.
+- Reconciliation preserves task IDs/order and maps each item to complete, incomplete, or complete/superseded with concrete code evidence in `tasks.md`.
+
+## Verification evidence
+
+- Code evidence set: TUI (`TuiCommand`, `TuiMainView`, `TuiJobListView`, `TuiMetricsView`, `TuiLogView`), Control Plane (`JobsController`, `AgentLeaseController`, `ProgressController`, `JobStore`, `IJobStore`), CLI submission (`ControlPlaneCommandBase`, `QueueCommand`, `PrepareCommand`), tests (`PrintJobSubmittedTests`, `JobStoreStateTests`), docs (`docs/control-plane.md`), launch profile (`.vscode/launch.json`).
+- Commands run: `dotnet clean && dotnet build --no-incremental` (success), `dotnet test --no-build` (non-complete in-session; no all-green evidence captured).
+

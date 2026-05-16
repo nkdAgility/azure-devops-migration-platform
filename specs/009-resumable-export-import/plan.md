@@ -5,13 +5,21 @@
 
 ## Summary
 
-Enable export and import operations to resume from exactly where they were interrupted, without re-processing or overwriting already-completed work.
+Historical implementation plan for resumable export/import.  
+Current implementation has delivered core behavior with architectural evolution (`MigrationJob` → `Job`, command-specific CLI → queue-centric CLI, direct infra pathing → package-manager boundaries).
 
-**Export** already has cursor-based resume implemented in `WorkItemExportOrchestrator` — the orchestrator reads the cursor at start, skips revision folders at-or-before the cursor position using a single `string.Compare`, and writes the cursor after each revision. The underlying primitives (`CursorEntry`, `CursorStage`, `ICheckpointingService`, `CheckpointingService`) all exist and are used.
+### Reconciliation Snapshot (2026-05-16)
 
-**Import** is unimplemented — `WorkItemsModule.ImportAsync` throws `NotImplementedException`. This is the primary gap: a `WorkItemImportOrchestrator` with staged processing (`CreatedOrUpdated` → `AppliedFields` → `AppliedLinks` → `UploadedAttachments` → `Completed`) and cursor resume at stage granularity must be built, along with the `IWorkItemTargetService` interface it depends on.
-
-Two secondary gaps: (1) no forced fresh-start flag on `MigrationJob` or the CLI; (2) no Both-mode phase tracking — the agent has no per-phase completion record to skip an already-complete phase on resume.
+- **Current status**: Most planned capabilities are implemented; this plan now serves as historical design intent with reconciled status tracked in `tasks.md`.
+- **Remaining incomplete task IDs**: `T005`, `T015`, `T026`, `T034`.
+- **Completed because superseded (IDs)**: `T002`, `T006`, `T007`, `T008`, `T009`, `T011`, `T012`, `T013`, `T014`, `T016`, `T017`, `T018`, `T019`, `T020`, `T021`, `T022`, `T023`, `T025`, `T027`, `T031`, `T032`.
+- **Contradictions and reconciliation**:
+  - References to `MigrationAgentWorker`, `Migration*Command*`, `MigrationJob*` are superseded by `JobAgentWorker`, `QueueCommand*`, and `Job*`.
+  - References to direct concrete storage/paths are superseded by `IPackageAccess` and `.migration` state routing.
+- **Verification evidence**:
+  - Build pass: `dotnet build DevOpsMigrationPlatform.slnx --nologo`.
+  - Implemented services: `CheckpointingService`, `PhaseTrackingService`, `WorkItemImportOrchestrator`.
+  - Implemented CLI: `QueueCommandSettings --force-fresh`, `QueueCommand`.
 
 ## Technical Context
 
@@ -55,7 +63,7 @@ specs/009-resumable-export-import/
 ├── quickstart.md        ← Phase 1 output ✓
 ├── contracts/
 │   └── cli-contracts.md ← Phase 1 output ✓
-└── tasks.md             ← Phase 2 output (speckit.tasks — not yet created)
+└── tasks.md             ← Phase 2 output (created; reconciled to repository truth on 2026-05-16)
 ```
 
 ### Source Code Layout (affected paths)

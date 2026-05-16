@@ -14,6 +14,34 @@ This feature adds two focused sub-services to the existing `WorkItemsModule`:
 
 Both services use `IArtefactStore` exclusively for all package I/O and integrate cursor-based checkpointing for resumability.
 
+## Reconciliation (Repository Truth)
+
+### Current status
+
+- Original plan assumptions are partially stale relative to current repository architecture.
+- Agent-layer paths and extension-driven configuration replaced several planned file paths and service seams.
+
+### Remaining incomplete work (IDs)
+
+- T014, T022, T024, T025, T026, T028, T030, T031, T032, T033, T034, T038, T039, T040.
+
+### Completed because superseded (IDs + source)
+
+- T001, T003, T004, T005, T006, T007, T008, T009, T009b, T009c, T011, T012, T015, T016, T017, T018, T019, T023, T027, T035.
+- Superseded by newer specs and architecture evolution: `specs/011-inline-comment-fetching`, `specs/029-import-workitems-attachments-nodes`, `specs/034-package-manager-adoption`.
+
+### Contradictions and reconciliation
+
+- Planned dedicated comment export service path is replaced by inline orchestration in `WorkItemExportOrchestrator`.
+- Planned embedded-image orchestration wiring is not fully implemented even though downloader/export service primitives exist.
+- Planned per-comment version export from comments versions API remains unimplemented.
+
+### Verification evidence
+
+- Source review: `WorkItemExportOrchestrator.cs`, `AzureDevOpsWorkItemCommentSource.cs`, `EmbeddedImageExportService.cs`, `ExportServiceCollectionExtensions.cs`, `WorkItemsModuleExtensions.cs`.
+- Feature/test review: export comment and embedded-image feature files; CLI migration export system test presence.
+- Runtime verification: baseline build succeeded with warnings; targeted comment/image export tests passed.
+
 ## Technical Context
 
 **Language/Version**: C# 13 / .NET 10 (`net10.0`); Abstractions project multi-targets `net481;net10.0`  

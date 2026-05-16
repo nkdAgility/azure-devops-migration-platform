@@ -4,31 +4,28 @@
 **Created**: April 7, 2026
 **Feature**: [spec.md](../spec.md)
 
-## Content Quality
+## Reconciliation Status (2026-05)
 
-- [x] No implementation details (languages, frameworks, APIs)
-- [x] Focused on user value and business needs
-- [x] Written for non-technical stakeholders
-- [x] All mandatory sections completed
+### Content Quality
 
-## Requirement Completeness
+- [ ] Architecture references are current (`IDataTypeModule`/deferred import statements are stale)
+- [x] Scope and user value are still clear
+- [ ] Implementation sections are aligned with current seams (`IAttachmentBinarySource`, `JobMetrics`, `IModule`)
 
-- [x] No [NEEDS CLARIFICATION] markers remain
-- [x] Requirements are testable and unambiguous
-- [x] Success criteria are measurable
-- [x] Success criteria are technology-agnostic (no implementation details)
-- [x] All acceptance scenarios are defined
-- [x] Edge cases are identified
-- [x] Scope is clearly bounded
-- [x] Dependencies and assumptions identified
+### Requirement Completeness
 
-## Feature Readiness
+- [x] No `[NEEDS CLARIFICATION]` markers remain
+- [ ] FR/SC set is fully traceable to current task evidence (see incomplete tasks: T001, T005, T010, T017, T019, T026–T029, T031, T035–T037)
+- [ ] Success criteria are fully evidenced in tests (SC-001/SC-003/SC-004/SC-005 have evidence gaps)
+- [ ] Acceptance scenarios fully cover declared behavior (US1/US2/US4 gaps in current feature files)
 
-- [x] All functional requirements have clear acceptance criteria
-- [x] User scenarios cover primary flows
-- [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] No implementation details leak into specification
+### Feature Readiness
+
+- [ ] All functional requirements are reconciled against current implementation
+- [ ] User scenarios cover current behavior and superseded behavior is explicitly documented
+- [ ] Spec is ready for implementation without reconciliation debt
 
 ## Notes
 
-All items pass. Spec is ready for `/speckit.plan`.
+This checklist is now aligned to the reconciled `tasks.md` status markers and evidence notes.  
+Spec `006` is **not** implementation-ready without follow-up updates to stale requirements/plan assumptions.

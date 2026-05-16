@@ -20,6 +20,42 @@
 
 ---
 
+## Reconciliation Status (2026-05-16)
+
+### Current status
+
+This specification remains partially implemented. Core diagnostics/progress streaming is present, but package-download diagnostics workflows and some command-cleanup expectations are still open.
+
+### Remaining incomplete work (tasks.md IDs)
+
+- T010, T015, T030 (fresh end-to-end verification evidence not captured in this reconciliation session)
+- T033, T037 (CLI rename/behavior incomplete: `manage diagnostics` is placeholder; deprecated `manage logs` still registered)
+- T041, T042, T043 (package log download API/client/command path not implemented)
+- T051, T054, T055 (test/evidence gaps)
+
+### Completed because superseded (tasks.md IDs)
+
+- T004, T008, T012, T026, T028, T029, T050 superseded by queue-command and package-manager evolution (`specs/028.1-task-bootstrap`, `specs/028.2-job-execution-by-task`, `specs/034-package-manager-adoption`)
+- T009, T014, T020 superseded by consolidated core DI wiring in `CoreAgentServiceExtensions`
+- T021, T025 superseded by current deployed defaults/contracts (`DiagnosticLogStoreOptions`, `JobDiagnostics`)
+- T034, T036 superseded by inline command settings pattern
+- T039 superseded by current `ControlPlaneClient` surface (no remaining `ILogsClient`)
+- T045, T046 superseded by integrated `TuiLogView` diagnostics streaming path
+
+### Contradictions and reconciliation
+
+- Legacy spec references `Logs/progress.jsonl` / `Logs/agent.jsonl` and direct `IArtefactStore.AppendAsync`; implementation now writes run-scoped `.migration/runs/<runId>/logs/{progress,diagnostics}.ndjson` via `IPackageAccess.AppendLogAsync`.
+- Legacy `export` command assumptions are superseded by queue-based execution (`queue --follow --level`).
+- `manage diagnostics` acceptance intent requires package download, but current command is guidance-only and does not download/parse NDJSON.
+
+### Verification evidence
+
+- `PackageProgressSink` and `PackageLoggerProvider` write via package boundary append APIs.
+- `DiagnosticsController` and `ProgressController` endpoints exist and are wired.
+- `dotnet clean && dotnet build --no-incremental` passes; `dotnet test --no-build` did not complete in this session (stalled/stopped).
+
+---
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — Operator Diagnoses a Failed Migration (Priority: P1)

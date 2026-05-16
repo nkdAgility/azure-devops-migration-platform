@@ -2,7 +2,7 @@
 
 **Feature Branch**: `006-ado-workitems-export`
 **Created**: April 7, 2026
-**Status**: Draft
+**Status**: Reconciled (legacy spec; partially superseded by later work-item specs and current architecture)
 **Input**: User description: "Export work items from Azure DevOps via REST API, working the same way as the TFS POC but using the REST API instead of the TFS Object Model"
 
 ## Architecture References
@@ -22,7 +22,38 @@ The following documents were read before drafting this spec:
 | `.agents/30-context/domains/job-lifecycle.md` | Confirmed — `MigrationJob.source.type = AzureDevOpsServices` with WIQL module scope |
 | `docs/configuration-reference.md` | Confirmed — module scope config via `MigrationJobModule.scopes` |
 
-**No conflicts found.** This spec implements the first concrete realisation of `WorkItemsModule.ExportAsync` for the `AzureDevOpsServices` source type. Discrepancies (undocumented ADO-specific implementation details) are logged in `discrepancies.md`.
+## Current Status (Reconciliation)
+
+This feature is **partially implemented and partially superseded** in the live codebase.  
+The authoritative task-by-task status is in `tasks.md` (T001–T037 now carry final status markers and evidence notes).
+
+### Remaining Incomplete Work
+
+`T001, T005, T010, T017, T019, T026, T027, T028, T029, T031, T035, T036, T037`
+
+### Completed Because Superseded
+
+`T003, T004, T006, T007, T008, T009, T011, T012, T013, T014, T015, T016, T018, T020, T021, T022, T023, T024, T025, T030, T032`
+
+### Contradictions and Reconciliation
+
+- `IDataTypeModule` + deferred import/validate no longer matches runtime truth; `WorkItemsModule` is an `IModule` with active export/prepare/import behavior.
+- Progress contract now uses `ProgressEvent.Metrics`/`JobMetrics` instead of scalar attachment counters on `ProgressEvent`.
+- Attachment export seam is `IAttachmentBinarySource`/`IStreamingAttachmentBinarySource` (not `IAttachmentDownloader`).
+- Retry implementation is Polly-based (`AddHttpClient(...).AddPolicyHandler(...)`), not `Microsoft.Extensions.Resilience`.
+- Factory contract is `IWorkItemRevisionSourceFactory.CreateAsync(CancellationToken)` with endpoint info resolved via DI.
+
+### Verification Evidence
+
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/Export/WorkItemExportOrchestrator.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Export/AzureDevOpsWorkItemRevisionSource.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/AzureDevOpsWorkItemRevisionSourceFactory.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Attachments/AzureDevOpsAttachmentBinarySource.cs`
+- `src/DevOpsMigrationPlatform.Abstractions/Streaming/ProgressEvent.cs`
+- `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Export/WorkItemExportOrchestratorTests.cs`
+- `features/export/work-items/revisions/export-work-item-revisions.feature`
+- `features/export/work-items/attachments/export-attachments.feature`
 
 ---
 

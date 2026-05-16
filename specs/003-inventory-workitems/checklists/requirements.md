@@ -4,31 +4,20 @@
 **Created**: 2026-04-04  
 **Feature**: [spec.md](../spec.md)
 
-## Content Quality
+## Reconciliation Truth Checklist (2026-05-16)
 
-- [x] No implementation details (languages, frameworks, APIs)
-- [x] Focused on user value and business needs
-- [x] Written for non-technical stakeholders
-- [x] All mandatory sections completed
+- [x] Task statuses reconciled to repository truth in `tasks.md`.
+- [x] Every task line now has exactly one terminal status marker.
+- [x] Superseded tasks identify newer source specs and evidence.
+- [x] Checkbox semantics aligned with status markers (`[x]` for complete and complete/superseded).
+- [x] No task remains ambiguous between complete and superseded.
 
-## Requirement Completeness
+## Outcome
 
-- [x] No [NEEDS CLARIFICATION] markers remain
-- [x] Requirements are testable and unambiguous
-- [x] Success criteria are measurable
-- [x] Success criteria are technology-agnostic (no implementation details)
-- [x] All acceptance scenarios are defined
-- [x] Edge cases are identified
-- [x] Scope is clearly bounded
-- [x] Dependencies and assumptions identified
-
-## Feature Readiness
-
-- [x] All functional requirements have clear acceptance criteria
-- [x] User scenarios cover primary flows
-- [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] No implementation details leak into specification
+- Complete tasks: **6** (`T001`, `T002`, `T004`, `T005`, `T039`, `T040`)
+- Complete/superseded tasks: **35** (architecture migrated to queue/control-plane/agent model)
+- Incomplete tasks: **0**
 
 ## Notes
 
-All items pass. Spec is ready for `/speckit.plan`.
+This spec is historical. Most command-level and subprocess tasks were superseded by later specs and the implemented job/agent architecture.

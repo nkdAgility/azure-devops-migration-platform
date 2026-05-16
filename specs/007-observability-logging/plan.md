@@ -7,6 +7,38 @@
 
 Establish three orthogonal observability channels for the Migration Agent: (1) complete the existing `PackageProgressSink` stub so `ProgressEvent` records are persisted to `Logs/progress.jsonl` in the package, (2) add a new diagnostics channel that captures `ILogger` output as `DiagnosticLogRecord` NDJSON in `Logs/agent.jsonl` and streams it to the Control Plane for live TUI and `export --follow` consumption, and (3) rename the misnamed `/logs` endpoints to `/progress` and repurpose `manage logs` as `manage diagnostics`.
 
+## Reconciliation Status (2026-05-16)
+
+### Current status
+
+The plan is partially stale versus current code architecture. Core telemetry and progress/diagnostics endpoints are implemented, but several planned surfaces are either superseded or still incomplete.
+
+### Remaining incomplete work (tasks.md IDs)
+
+- T010, T015, T030 (fresh end-to-end evidence pending)
+- T033, T037 (full `manage diagnostics` replacement and cleanup of deprecated `manage logs`)
+- T041, T042, T043 (download endpoint + client + command flow)
+- T051, T054, T055 (system-test/evidence completion)
+
+### Completed because superseded (tasks.md IDs)
+
+- Queue model superseded export-command assumptions: T026, T028, T029, T050 (`specs/028.1-task-bootstrap`, `specs/028.2-job-execution-by-task`)
+- Package-manager/run-scoped logging superseded legacy `Logs/*.jsonl` write paths: T004, T008, T012 (`specs/034-package-manager-adoption`, `specs/033-runtime-state-categories`)
+- Consolidated core wiring superseded migration-agent-specific DI assumptions: T009, T014, T020
+- Additional superseded implementation-shape tasks: T021, T025, T034, T036, T039, T045, T046
+
+### Contradictions and reconciliation
+
+- Planned direct `IArtefactStore.AppendAsync("Logs/*.jsonl")` persistence has shifted to package boundary append APIs under run-scoped `.migration/runs/<runId>/logs/*.ndjson`.
+- Planned `MigrationExportCommand` focus shifted to queue-command flow.
+- Planned `LogDownloadController` and corresponding CLI retrieval remain unimplemented; this is a true gap, not supersession.
+
+### Verification evidence
+
+- Implemented: `PackageProgressSink`, `PackageLoggerProvider`, `DiagnosticsController`, `ProgressController`, queue `--follow/--level` flow.
+- Missing: `LogDownloadController`, `ControlPlaneClient` download methods, functional `manage diagnostics` download path.
+- Build baseline passes: `dotnet clean && dotnet build --no-incremental`.
+
 Key design decisions:
 - **Tiered log levels**: The agent's diagnostic log level is per-job (set via `export --level`, default: Information). The control plane has an independent deployment-level minimum (default: Warning). The agent writes full detail to the package; the CP filters incoming records at its own floor before buffering, streaming via SSE, or exporting to Application Insights / OTel.
 - **CLI lifecycle**: `export --follow` streams diagnostics inline (implicit in standalone mode). Without `--follow` on a remote CP, the CLI submits the job and exits. Ctrl+C during `--follow` detaches without cancelling the job.

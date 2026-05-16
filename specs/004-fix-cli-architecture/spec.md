@@ -168,3 +168,37 @@ As a platform developer, I need the CLI architecture to follow proper separation
 
 - Q: Test isolation strategy for CLI commands? → A: Use in-memory test doubles for all external dependencies (config, HTTP, file system)
 - Q: CommandBase implementation pattern for host management? → A: CommandBase<T> with IHostApplicationLifetime + IServiceProvider for full host control (Pattern 2 from azure-devops-migration-tools)
+
+## Current status
+
+- Reconciled against repository truth on 2026-05-16.
+- Core host-builder and CommandBase infrastructure exists.
+- Significant task drift exists between this spec and current CLI architecture/command set.
+
+## Remaining incomplete work (IDs)
+
+`T010, T013, T021, T024, T028, T029, T030, T032, T035, T039, T040, T041, T042, T043, T044, T046`
+
+## Completed because superseded (IDs + source)
+
+- `T012, T014, T016, T018` superseded by `specs/025.1-fold-to-job` (single `Job` model + queue-driven submission replacing legacy per-command flows).
+- `T017, T020` superseded by `specs/021.2-separation-of-concerns` and current `ControlPlaneCommandBase` layering.
+
+## Contradictions and reconciliation
+
+- This spec expects minimal Program.cs bootstrapping, but current Program.cs still owns command routing/composition.
+- This spec expects dedicated `TfsExportCommand`/`InventoryCommand` test flow, but current implementation routes through `queue` modes.
+- Documentation (`docs/cli-guide.md`) reflects host-builder patterns more strongly than runtime Program.cs currently does.
+
+## Verification evidence
+
+- `src\DevOpsMigrationPlatform.CLI.Migration\MigrationPlatformHost.cs`
+- `src\DevOpsMigrationPlatform.CLI.Migration\Commands\CommandBase.cs`
+- `src\DevOpsMigrationPlatform.CLI.Migration\Program.cs`
+- `tests\DevOpsMigrationPlatform.CLI.Migration.Tests\MigrationPlatformHostTests.cs`
+- `tests\DevOpsMigrationPlatform.CLI.Migration.Tests\Commands\CommandBaseTests.cs`
+- `features\cli\execute\commands-execute-successfully.feature`
+- `features\cli\execute\configuration-flow.feature`
+- `features\cli\execute\host-builder-architecture.feature`
+- `specs/025.1-fold-to-job/spec.md`
+- `specs/021.2-separation-of-concerns/spec.md`

@@ -141,4 +141,37 @@ Each row is one ATDD session (one scenario, one commit).
 
 > No constitution gate violations requiring justification in this plan.
 
+---
+
+## Current status
+
+Plan implementation is **historical and mostly superseded** by the queue/control-plane/agent runtime architecture now present in the repository.
+
+## Remaining incomplete work (IDs)
+
+None. After reconciliation, no task is marked `Status: incomplete`.
+
+## Completed because superseded (IDs + source)
+
+Superseded task set: `T003, T006-T008, T010-T038, T041`.
+
+Primary supersession sources:
+
+- `specs/025.1-fold-to-job`
+- `specs/028.2-job-execution-by-task`
+- `specs/033-runtime-state-categories`
+
+## Contradictions and reconciliation
+
+- Direct CLI discovery command assumptions were replaced by `queue` job submission.
+- TFS subprocess adapter assumptions were replaced by `TfsMigrationAgent` worker execution.
+- `discovery-summary.csv` output assumptions were replaced by runtime `inventory.csv`/`inventory.json` package artifacts.
+
+## Verification evidence
+
+- `src/DevOpsMigrationPlatform.CLI.Migration/Program.cs` (queue-based command surface)
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/Discovery/InventoryOrchestrator.cs` (inventory artifact output + resume)
+- `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/InventoryServiceCollectionExtensions.cs` and `.../Factories/InventoryServiceFactory.cs` (DI/runtime wiring)
+- `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Inventory/*` and `tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsJobAgentWorkerTests.cs` (current verification surface)
+
 

@@ -1,35 +1,30 @@
-# Specification Quality Checklist: TUI Job Dashboard
+# Reconciliation Checklist: TUI Job Dashboard
 
-**Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-04-09
+**Purpose**: Align checklist truth with reconciled task status and repository evidence  
+**Reconciled**: 2026-05-16  
 **Feature**: [spec.md](../spec.md)
 
-## Content Quality
+## Status Alignment
 
-- [x] No implementation details (languages, frameworks, APIs)
-- [x] Focused on user value and business needs
-- [x] Written for non-technical stakeholders
-- [x] All mandatory sections completed
+- [x] `tasks.md` now has one final status marker per task line.
+- [x] Checkbox semantics are aligned (`complete`/`complete-superseded` = `[x]`, `incomplete` = `[ ]`).
+- [x] Superseded items cite a concrete supersession source.
+- [x] Incomplete items include a short evidence note.
 
-## Requirement Completeness
+## Current Delivery Truth
 
-- [x] No [NEEDS CLARIFICATION] markers remain
-- [x] Requirements are testable and unambiguous
-- [x] Success criteria are measurable
-- [x] Success criteria are technology-agnostic (no implementation details)
-- [x] All acceptance scenarios are defined
-- [x] Edge cases are identified
-- [x] Scope is clearly bounded
-- [x] Dependencies and assumptions identified
+- [x] Core TUI/runtime foundations are implemented (T001–T024, T026, T029, T036, T038–T041, T044).
+- [ ] Required TUI-focused tests remain missing (`T025`, `T030`, `T031`, `T033`, `T034`, `T035`, `T037`, `T043`).
+- [ ] `--job` existence/visibility verification remains incomplete (`T032`).
+- [ ] Full `dotnet test` completion evidence for this reconciliation run is not available (`T042`).
 
-## Feature Readiness
+## Supersession Truth
 
-- [x] All functional requirements have clear acceptance criteria
-- [x] User scenarios cover primary flows
-- [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] No implementation details leak into specification
+- [x] Path and abstraction moves from separation-of-concerns are reflected (`T003`, `T009`).
+- [x] Command-surface changes to `queue/prepare` are reflected (`T017`, `T018`, `T019`, `T020`).
+- [x] Task/bootstrapped TUI evolution is reflected (`T028`).
 
 ## Notes
 
-- All items pass. Spec is ready for `/speckit.clarify` or `/speckit.plan`.
-- One discrepancy noted re: `/jobs/{jobId}/telemetry` endpoint — see `discrepancies.md`. Does not block planning; assumption documented.
+- This checklist now represents reconciliation status, not pre-planning readiness.
+- Remaining work is tracked by incomplete IDs in `tasks.md`, `spec.md`, and `plan.md`.

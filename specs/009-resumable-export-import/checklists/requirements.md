@@ -31,4 +31,5 @@
 
 ## Notes
 
-All items pass. Spec is ready for `/speckit.clarify` or `/speckit.plan`.
+Historical quality gate passed at authoring time.  
+Reconciliation status is tracked in `checklists/reconciliation.md` and `tasks.md` (see incomplete IDs: `T005`, `T015`, `T026`, `T034`).

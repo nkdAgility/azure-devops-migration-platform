@@ -9,6 +9,36 @@ Export all work item revisions from an Azure DevOps project via the REST API, wr
 
 The implementation extends the existing `WorkItemExportOrchestrator` (streaming loop + cursor) by wiring in an abstract `IAttachmentDownloader`, an ADO-specific `AzureDevOpsWorkItemRevisionSource`, and a binary-write extension to `IArtefactStore`. A new `WorkItemsModule` wraps the orchestrator behind `IDataTypeModule`, making the ADO export path a first-class export module.
 
+## Current Status (Reconciliation)
+
+This plan reflects a **historical design snapshot** and is now partially stale against repository truth.
+
+### Remaining Incomplete Work (from tasks reconciliation)
+
+`T001, T005, T010, T017, T019, T026, T027, T028, T029, T031, T035, T036, T037`
+
+### Completed Because Superseded
+
+`T003, T004, T006, T007, T008, T009, T011, T012, T013, T014, T015, T016, T018, T020, T021, T022, T023, T024, T025, T030, T032`
+
+### Contradictions and Reconciliation
+
+- `WorkItemsModule` is implemented as `IModule` in `Infrastructure.Agent`, not `IDataTypeModule` in `Infrastructure`.
+- Attachment flow is implemented via `IAttachmentBinarySource`/`AzureDevOpsAttachmentBinarySource`, not `IAttachmentDownloader`.
+- `IWorkItemRevisionSourceFactory` exists but with async `CreateAsync(CancellationToken)` and DI-resolved endpoint context.
+- Retry policy is implemented with Polly HTTP handlers rather than `Microsoft.Extensions.Resilience`.
+- Progress contract now uses `ProgressEvent.Metrics` (`JobMetrics`) rather than added scalar fields.
+
+### Verification Evidence
+
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/Export/WorkItemExportOrchestrator.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ExportServiceCollectionExtensions.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Attachments/AzureDevOpsAttachmentBinarySource.cs`
+- `src/DevOpsMigrationPlatform.Abstractions.Agent/Export/IWorkItemRevisionSourceFactory.cs`
+- `src/DevOpsMigrationPlatform.Abstractions/Streaming/ProgressEvent.cs`
+- `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Export/WorkItemExportOrchestratorTests.cs`
+
 ## Technical Context
 
 **Language/Version**: C# 12 / .NET 10.0 (multi-targeted `net481;net10.0` for `Abstractions` and `Infrastructure` only; `Infrastructure.AzureDevOps` targets `net10.0` only)  
@@ -293,6 +323,6 @@ All nine principles re-verified against the Phase 1 design above:
 
 ---
 
-*Next step: run `/speckit.tasks` to generate the dependency-ordered task list for implementation.*
+*Reconciliation note: `tasks.md` already exists and has been updated with evidence-backed completion, incomplete, and superseded statuses.*
 
 

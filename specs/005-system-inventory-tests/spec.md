@@ -113,3 +113,33 @@ As a new contributor, I need clear documentation on how to set up and run system
 - Temporary test output directories can be created and cleaned up automatically during test execution
 - Network connectivity to Azure DevOps services is available in both local development and CI environments
 
+## Current status
+
+Partially implemented and partially superseded. Foundational helper infrastructure and feature files exist, but core inventory-live test goals tied to `InventoryCommandTests.cs` are not implemented at the specified path. Repository command architecture moved to `queue`-mode command tests.
+
+## Remaining incomplete work (IDs)
+
+T001, T013, T014, T015, T017, T022, T023, T024, T026, T027, T035, T036, T038, T040, T041, T042.
+
+## Completed because superseded (IDs + source)
+
+- T018: superseded by `CliRunner.RunTestAsync(..., cleanOutputFolder: true)` pattern and existing temp cleanup utilities.
+- T020: superseded by `.github/workflows/main.yml` integrated system-test stages.
+- T021: superseded by `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/*CommandTests.cs` live system tests under queue-command architecture.
+- T025, T028, T029, T030, T031, T032, T033, T034, T039: superseded by split docs model in `docs/contributor-guide.md`, `docs/testing-guide.md`, and `docs/live-system-testing-guide.md`.
+- T037: superseded by existing CLI output capture plus `.otel-diagnostics` troubleshooting guidance.
+
+## Contradictions and reconciliation
+
+- **Command/path drift**: spec and tasks target `Commands/Discovery/InventoryCommandTests.cs`, but repository tests are organized under `Commands/` with `queue` command scenarios.
+- **Documentation path drift**: spec artifacts reference `docs/contributors.md`; repository canonical file is `docs/contributor-guide.md` plus dedicated live/system testing guides.
+- **Missing-env behavior conflict**: this spec expects `Assert.Inconclusive()` for missing env vars; current live-test guidance and many live tests use fail-fast/worfklow gating patterns.
+
+## Verification evidence
+
+- Test utilities present: `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TestUtilities/SystemTestConfiguration.cs`, `SystemTestContext.cs`, `SystemTestBase.cs`, `ValidationResult.cs`, `SystemTestErrorMessages.cs`.
+- Feature files present: `features/cli/inventory/system-test-local-execution.feature`, `features/cli/inventory/system-test-ci-execution.feature`.
+- Live/simulated system tests present in command tests: `tests/.../Commands/QueueCommandTests.cs`, `MigrationExportCommandTests.cs`, `PrepareCommandTests.cs`, `SimulatedMigrationCommandTests.cs`.
+- CI wiring present: `.github/workflows/main.yml` (`SystemTest_Smoke`, `SystemTest_Simulated`, `SystemTest_Live`).
+- Contributor/live test docs present: `docs/contributor-guide.md`, `docs/testing-guide.md`, `docs/live-system-testing-guide.md`.
+

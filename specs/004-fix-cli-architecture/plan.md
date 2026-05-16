@@ -196,3 +196,34 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
 | SOLID & DI violation in Program.cs | 150+ line god-object with manual DI setup violates SRP | MigrationPlatformHost extracts service registration. CommandBase<T> provides proper DI. Program.cs becomes < 10 lines |
 | Module Isolation partial compliance | Manual service registration bypasses DI container | Host builder pattern enforces constructor injection. All dependencies through IServiceProvider |
 
+## Current status
+
+- Reconciliation performed against current codebase on 2026-05-16.
+- Foundational host-builder/command infrastructure is present.
+- Multiple plan assumptions are stale relative to newer specs and current runtime composition.
+
+## Remaining incomplete work (IDs)
+
+`T010, T013, T021, T024, T028, T029, T030, T032, T035, T039, T040, T041, T042, T043, T044, T046`
+
+## Completed because superseded (IDs + source)
+
+- `T012, T014, T016, T018` superseded by `specs/025.1-fold-to-job`.
+- `T017, T020` superseded by `specs/021.2-separation-of-concerns` and the current `ControlPlaneCommandBase` command layering.
+
+## Contradictions and reconciliation
+
+- Planned end-state says Program.cs should be minimal, but Program.cs currently performs full command registration.
+- Planned command/test scope references legacy commands (`TfsExportCommand`, `InventoryCommand`) that are no longer part of the active CLI flow.
+- Contract docs in this folder partly mismatch actual host/command wiring and need further cleanup.
+
+## Verification evidence
+
+- `src\DevOpsMigrationPlatform.CLI.Migration\Program.cs`
+- `src\DevOpsMigrationPlatform.CLI.Migration\MigrationPlatformHost.cs`
+- `src\DevOpsMigrationPlatform.CLI.Migration\Commands\CommandBase.cs`
+- `tests\DevOpsMigrationPlatform.CLI.Migration.Tests\MigrationPlatformHostTests.cs`
+- `tests\DevOpsMigrationPlatform.CLI.Migration.Tests\Commands\CommandBaseTests.cs`
+- `specs/025.1-fold-to-job/spec.md`
+- `specs/021.2-separation-of-concerns/spec.md`
+

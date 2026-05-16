@@ -156,3 +156,36 @@ features/
 ## Complexity Tracking
 
 > No constitution violations identified. All principles are either N/A or pass. This table is not required.
+
+---
+
+## Current status (reconciled 2026-05-16)
+
+Implementation landed, but several planned paths/names are stale versus repository truth. Key classes exist under updated project layout (`Infrastructure.Agent`, `ControlPlane/Jobs`) and endpoint surface now uses `/jobs/{jobId}/progress`.
+
+## Remaining incomplete work (IDs)
+
+None. Reconciliation marks all task IDs as either complete or complete/superseded.
+
+## Completed because superseded (IDs + source)
+
+- T005, T006: superseded by shared CLI host and command-base telemetry instrumentation.
+- T010, T014, T020, T023, T025: superseded by `specs/007-observability-logging` endpoint/command normalization and subsequent runtime updates.
+
+## Contradictions and reconciliation
+
+- Planned `/logs` snapshot/SSE route no longer matches implementation (`/progress`).
+- Planned top-level `logs` command registration no longer matches canonical CLI command surface.
+- Planned file paths in this plan (e.g., `ControlPlane/Services`, `Infrastructure/Telemetry`) were reconciled to `ControlPlane/Jobs` and `Infrastructure.Agent/Telemetry`.
+
+## Verification evidence
+
+- `src/DevOpsMigrationPlatform.ControlPlane/Controllers/ProgressController.cs`
+- `src/DevOpsMigrationPlatform.ControlPlane/Jobs/ControlPlaneServiceExtensions.cs`
+- `src/DevOpsMigrationPlatform.ControlPlane/Jobs/JobProgressOptions.cs`
+- `src/DevOpsMigrationPlatform.ControlPlane/Jobs/JobProgressStore.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/TelemetryServiceExtensions.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/CoreAgentServiceExtensions.cs`
+- `src/DevOpsMigrationPlatform.CLI.Migration/MigrationPlatformHost.cs`
+- `src/DevOpsMigrationPlatform.CLI.Migration/Commands/LogsCommand.cs`
+- `src/DevOpsMigrationPlatform.CLI.Migration/JobRunners/ControlPlaneClient.cs`

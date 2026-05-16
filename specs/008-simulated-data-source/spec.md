@@ -147,3 +147,51 @@ A contributor wants to write a `[TestCategory("SystemTest")]` test that executes
 - The `.vscode/launch.json` entry for the simulated scenario will use the local topology (Aspire-managed, no Docker), consistent with all existing launch profiles.
 - Docs reviewed: `agents.md`, `docs/architecture.md`, `docs/capabilities-guide.md`, `docs/configuration-reference.md`, `docs/cli-guide.md`, `docs/module-development-guide.md`, `docs/tui-guide.md`, `.agents/30-context/domains/cli-commands.md`, `.agents/20-guardrails/core/architecture-boundaries.md`.
 
+## Current status
+
+- Spec intent is partially implemented, but mostly through newer follow-on specs and architecture decisions in `specs/017-simulated-infrastructure` and `specs/021.1-simulated-infrastructure`.
+- Current repository implementation uses generator-driven simulated config (`Generator.Projects[*].WorkItemTypes[*]`) rather than this spec's flat `seed/workItemCount/projectCount` model.
+- CLI/system coverage exists for simulated export/import/roundtrip (`tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/SimulatedMigrationCommandTests.cs`), and launch profiles/scenarios exist for simulated flows.
+
+## Remaining incomplete work (IDs)
+
+- `T003` (FR-003) — deterministic behavior is implemented, but this spec's `source.seed` contract is not implemented.
+- `T009` (FR-009) — no evidence that simulated source/target progress granularity is proven equal to real connectors.
+- `T010` (FR-010) — no operator-configurable time-limit evidence for full 25k migrate run.
+- `T011` (FR-011) — no evidence of automatic seed selection + manifest persistence of chosen seed.
+- `T013` (FR-013) — no ready-to-run 25,000-item scenario/launch profile matching this spec.
+
+## Completed because superseded (IDs + source)
+
+- `T004` (FR-004) — complete/superseded by `specs/017-simulated-infrastructure/spec.md` + `specs/021.1-simulated-infrastructure/spec.md`: generator-based sizing replaced flat `workItemCount` contract.
+- `T006` (FR-006) — complete/superseded by newer queue inventory behavior using generator-derived counts (`docs/capabilities-guide.md` inventory section).
+- `T012` (FR-012) — complete/superseded by generator-project/type schema implemented in code and docs, replacing this spec's flat dimension fields.
+
+## Contradictions and reconciliation
+
+- This spec assumes `discovery inventory` command surface; current canonical flow uses `queue` with `Mode: Inventory`.
+- This spec assumes endpoint factories accept endpoint options directly; current implementation resolves endpoint info from DI and uses `CreateAsync(CancellationToken)` factories.
+- This spec assumes `MigrationEndpointOptions` abstract base with only `Type`; current code keeps additional virtual members and `ToOrganisationEndpoint()`.
+- This spec's discrepancy list claiming missing Simulated docs is stale; `docs/capabilities-guide.md` and `docs/configuration-reference.md` now document Simulated source/target.
+
+## Verification evidence
+
+- Config/docs evidence:
+  - `docs/capabilities-guide.md` (`Simulated` source and target sections)
+  - `docs/configuration-reference.md` (`Type` includes Simulated; Simulated source/target sections)
+  - `.vscode/launch.json` (simulated export/import/roundtrip launch profiles)
+  - `scenarios/queue-export-workitems-simulated-source.json`
+  - `scenarios/queue-import-workitems-simulated-target.json`
+  - `scenarios/roundtrip-simulated.json`
+- Implementation evidence:
+  - `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedServiceCollectionExtensions.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Export/SimulatedWorkItemRevisionSource.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Import/SimulatedWorkItemImportTarget.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions.Agent/Export/IWorkItemRevisionSourceFactory.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions.Agent/Import/IWorkItemImportTargetFactory.cs`
+- Test evidence:
+  - `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/SimulatedMigrationCommandTests.cs`
+  - Baseline command run: `dotnet build DevOpsMigrationPlatform.slnx -v minimal` (pass)
+  - Baseline simulated CLI suite run attempted: `dotnet test ... --filter "TestCategory=SystemTest_Simulated"` (hung in this environment; stopped)
+

@@ -38,3 +38,10 @@
 - Success criteria provide measurable outcomes for both technical and user experience aspects
 - Edge cases cover configuration and error handling scenarios
 - Assumptions document dependencies on existing patterns and technologies
+
+## Reconciliation Status (2026-05-16)
+
+- [ ] Task truth aligned with implementation (see `tasks.md` statuses and evidence)
+- [ ] Program.cs minimal-bootstrap requirement satisfied (`Program.cs` is currently not minimal)
+- [ ] CommandAppTester-based command suite implemented for all targeted commands
+- [ ] CLI architecture docs and runtime behavior are fully consistent

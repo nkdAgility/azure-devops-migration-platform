@@ -2,7 +2,7 @@
 
 **Feature**: Resumable Export and Import  
 **Flagged by**: speckit.specify  
-**Status**: Resolved
+**Status**: Resolved (and reconciliation-verified against current code on 2026-05-16)
 
 ## Discrepancies
 
@@ -16,11 +16,11 @@
 
 ### MigrationJob schema does not include a resume mode or fresh-start flag
 
-- **Source doc**: `.agents/30-context/domains/job-lifecycle.md`
+- **Source doc**: `.agents/30-context/domains/job-lifecycle.md` (historical `MigrationJob`; now `Job`)
 - **Section**: "Schema" and "Fields"
 - **Issue**: The `MigrationJob` schema has no field to signal forced fresh-start behaviour. The spec (FR-007) requires operators to be able to trigger a fresh start that discards the existing cursor. This must either be a flag in the `MigrationJob` schema or a pre-job action the CLI takes before submitting. Neither is documented.
 - **Suggested update**: Add a `resume` block to the `MigrationJob` schema (or equivalent CLI-level option). Example: `"resume": { "mode": "Auto | ForceFresh" }`. Document that `Auto` (the default) detects and uses an existing cursor; `ForceFresh` deletes cursors for all modules before the job begins.
-- **Status**: ✓ Resolved in speckit.implement
+- **Status**: ✓ Resolved in speckit.implement; verified in `src/DevOpsMigrationPlatform.Abstractions/Jobs/Job.cs` + `JobResume.cs`
 
 ### Checkpointing doc does not describe Both-mode phase-level resume
 

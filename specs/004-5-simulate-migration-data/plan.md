@@ -109,3 +109,34 @@ No constitution violations. All design decisions are consistent with the existin
 | New `IWorkItemImportSink` abstraction | Decouples `WorkItemsModule.ImportAsync` from the ADO-specific target writer | Without abstraction, the module cannot be unit-tested and the simulated target cannot be injected |
 | `WorkItemsModule.ImportAsync` implemented here | Required prerequisite for simulated end-to-end migration (Story 3) | Deferring further leaves the import pipeline untestable and blocks all E2E system tests |
 
+## Reconciliation Status (2026-05-16)
+
+### Current status
+
+- This plan is stale relative to repository reality and newer specs.
+- The implementation has moved to keyed connector dispatch, polymorphic endpoint options, and `IWorkItemImportTarget` abstractions.
+- Task statuses have been reconciled in `tasks.md` with evidence-backed markers.
+
+### Remaining incomplete work (IDs)
+
+- `T034` (25k performance-gate automated test)
+- `T039` (quickstart walkthrough validation/update)
+
+### Completed because superseded (IDs + source)
+
+- Superseded by `specs/017-simulated-infrastructure/spec.md`: `T003`, `T004`, `T005`, `T006`, `T007`, `T009`, `T010`, `T012`, `T014`, `T016`, `T017`, `T018`, `T021`, `T022`, `T023`, `T024`, `T025`, `T026`, `T027`, `T028`, `T029`, `T030`, `T031`, `T032`, `T033`, `T038`.
+- Design choices are also aligned with `specs/021.1-simulated-infrastructure/spec.md` and import evolution in `specs/035-workitem-import-support/spec.md`.
+
+### Contradictions and reconciliation
+
+- Planned `IWorkItemImportSink` seam contradicts current/approved `IWorkItemImportTarget` seam.
+- Planned file paths and scenario names diverged from implemented structure.
+- Stale assumptions about `NotImplementedException` import paths no longer apply.
+
+### Verification evidence
+
+- Verified code/docs/tests in `src`, `tests`, `features`, `scenarios`, `.vscode`, and `docs` relevant to simulated infrastructure.
+- Commands run:
+  - `dotnet build DevOpsMigrationPlatform.slnx -v minimal` (pass)
+  - `dotnet test tests\DevOpsMigrationPlatform.Infrastructure.Simulated.Tests\DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.csproj -v minimal` (43 passed)
+

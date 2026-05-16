@@ -28,10 +28,10 @@ description: "Task list for CLI architecture refactoring and command testing imp
 
 **Purpose**: Project initialization and test infrastructure setup
 
-- [X] T001 Create test project DevOpsMigrationPlatform.CLI.Migration.Tests.csproj with Spectre.Console.Cli.Testing, MSTest, and Moq dependencies
-- [X] T002 [P] Add PackageReference for Spectre.Console.Cli.Testing to test project
-- [X] T003 [P] Create TestUtilities/InMemoryTestConfiguration.cs for configuration test doubles
-- [X] T004 [P] Create TestUtilities/MockServiceProvider.cs for DI container test doubles
+- [x] T001 Create test project DevOpsMigrationPlatform.CLI.Migration.Tests.csproj with Spectre.Console.Cli.Testing, MSTest, and Moq dependencies - Status: complete
+- [x] T002 [P] Add PackageReference for Spectre.Console.Cli.Testing to test project - Status: complete
+- [x] T003 [P] Create TestUtilities/InMemoryTestConfiguration.cs for configuration test doubles - Status: complete
+- [x] T004 [P] Create TestUtilities/MockServiceProvider.cs for DI container test doubles - Status: complete
 
 ---
 
@@ -41,12 +41,13 @@ description: "Task list for CLI architecture refactoring and command testing imp
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T005 Create MigrationPlatformHost.cs static factory class in src/DevOpsMigrationPlatform.CLI.Migration/
-- [X] T006 Implement CommandBase<TSettings> abstract class in src/DevOpsMigrationPlatform.CLI.Migration/Commands/CommandBase.cs
-- [X] T007 Extract configuration extraction logic from Program.cs to MigrationPlatformHost.CreateDefaultBuilder() method  
-- [X] T008 Migrate service registration logic from Program.cs to MigrationPlatformHost configuration
-- [X] T009 Setup OpenTelemetry and logging configuration in MigrationPlatformHost per existing Program.cs patterns
-- [X] T010 Create Spectre.Console CommandApp integration in MigrationPlatformHost with proper DI configuration
+- [x] T005 Create MigrationPlatformHost.cs static factory class in src/DevOpsMigrationPlatform.CLI.Migration/ - Status: complete
+- [x] T006 Implement CommandBase<TSettings> abstract class in src/DevOpsMigrationPlatform.CLI.Migration/Commands/CommandBase.cs - Status: complete
+- [x] T007 Extract configuration extraction logic from Program.cs to MigrationPlatformHost.CreateDefaultBuilder() method - Status: complete
+- [x] T008 Migrate service registration logic from Program.cs to MigrationPlatformHost configuration - Status: complete
+- [x] T009 Setup OpenTelemetry and logging configuration in MigrationPlatformHost per existing Program.cs patterns - Status: complete
+- [ ] T010 Create Spectre.Console CommandApp integration in MigrationPlatformHost with proper DI configuration - Status: incomplete
+  - Evidence: `MigrationPlatformHost` does not configure `CommandApp`; command registration remains in `Program.cs` (`src\DevOpsMigrationPlatform.CLI.Migration\Program.cs:52-154`).
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -62,25 +63,33 @@ description: "Task list for CLI architecture refactoring and command testing imp
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. It must be written from the `spec.md` User Story 1 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [X] T011 [US1] Create `features/cli/execute/commands-execute-successfully.feature` — translate `spec.md` User Story 1 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
+- [x] T011 [US1] Create `features/cli/execute/commands-execute-successfully.feature` — translate `spec.md` User Story 1 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`) - Status: complete
 
 ### Tests for User Story 1
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [X] T012 [P] [US1] Create tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/TfsExportCommandTests.cs with CommandAppTester validation tests
-- [X] T013 [P] [US1] Create tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/LogsCommandTests.cs with CommandAppTester validation tests
-- [X] T014 [P] [US1] Create tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/InventoryCommandTests.cs with CommandAppTester validation tests
-- [X] T015 [P] [US1] Create tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/CommandBaseTests.cs for unit testing base class functionality
+- [x] T012 [P] [US1] Create tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/TfsExportCommandTests.cs with CommandAppTester validation tests - Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job
+  - Evidence: `TfsExportCommand` and `TfsExportCommandTests.cs` do not exist; later job-unification spec replaced per-command submission with `queue` by `JobKind` (`specs\025.1-fold-to-job\spec.md:44-46`, `src\DevOpsMigrationPlatform.CLI.Migration\Commands\QueueCommand.cs:37-44`).
+- [ ] T013 [P] [US1] Create tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/LogsCommandTests.cs with CommandAppTester validation tests - Status: incomplete
+  - Evidence: `tests\DevOpsMigrationPlatform.CLI.Migration.Tests\Commands\LogsCommandTests.cs` is absent and no `CommandAppTester` usages are present in the test project.
+- [x] T014 [P] [US1] Create tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/InventoryCommandTests.cs with CommandAppTester validation tests - Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job
+  - Evidence: dedicated `InventoryCommand` test file is absent; inventory is now submitted through `queue` mode (`specs\025.1-fold-to-job\spec.md:68-70`, `src\DevOpsMigrationPlatform.CLI.Migration\Commands\QueueCommand.cs:136`).
+- [x] T015 [P] [US1] Create tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/CommandBaseTests.cs for unit testing base class functionality - Status: complete
 
 ### Implementation for User Story 1
 
-- [X] T016 [P] [US1] Refactor TfsExportCommand in src/DevOpsMigrationPlatform.CLI.Migration/Commands/TfsExportCommand.cs to inherit from CommandBase<TfsExportCommandSettings>
-- [X] T017 [P] [US1] Refactor LogsCommand in src/DevOpsMigrationPlatform.CLI.Migration/Commands/LogsCommand.cs to inherit from CommandBase<LogsCommand.Settings>
-- [X] T018 [P] [US1] Refactor InventoryCommand in src/DevOpsMigrationPlatform.CLI.Migration/Commands/InventoryCommand.cs to inherit from CommandBase<InventoryCommand.Settings>  
-- [X] T019 [US1] Implement proper error handling and telemetry in CommandBase<T>.ExecuteAsync() with exception logging
-- [X] T020 [US1] Add IHostApplicationLifetime.StopApplication() calls to command completion in CommandBase<T>
-- [X] T021 [US1] Update Program.cs to use minimal bootstrapping pattern following azure-devops-migration-tools reference
+- [x] T016 [P] [US1] Refactor TfsExportCommand in src/DevOpsMigrationPlatform.CLI.Migration/Commands/TfsExportCommand.cs to inherit from CommandBase<TfsExportCommandSettings> - Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job
+  - Evidence: `TfsExportCommand` no longer exists; queue submission is the canonical path after job unification (`specs\025.1-fold-to-job\spec.md:44-46`).
+- [x] T017 [P] [US1] Refactor LogsCommand in src/DevOpsMigrationPlatform.CLI.Migration/Commands/LogsCommand.cs to inherit from CommandBase<LogsCommand.Settings> - Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns
+  - Evidence: `LogsCommand` now inherits `ControlPlaneCommandBase<LogsCommand.Settings>` which encapsulates control-plane command behavior over `CommandBase` (`src\DevOpsMigrationPlatform.CLI.Migration\Commands\LogsCommand.cs:19`, `src\DevOpsMigrationPlatform.CLI.Migration\Commands\ControlPlaneCommandBase.cs:19`).
+- [x] T018 [P] [US1] Refactor InventoryCommand in src/DevOpsMigrationPlatform.CLI.Migration/Commands/InventoryCommand.cs to inherit from CommandBase<InventoryCommand.Settings> - Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job
+  - Evidence: dedicated `InventoryCommand` no longer exists; inventory execution is represented by `queue` with `JobKind.Inventory`.
+- [x] T019 [US1] Implement proper error handling and telemetry in CommandBase<T>.ExecuteAsync() with exception logging - Status: complete
+- [x] T020 [US1] Add IHostApplicationLifetime.StopApplication() calls to command completion in CommandBase<T> - Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns
+  - Evidence: current command lifecycle uses per-command host stop/disposal in `finally` instead of `IHostApplicationLifetime.StopApplication()` (`src\DevOpsMigrationPlatform.CLI.Migration\Commands\CommandBase.cs:171-178`).
+- [ ] T021 [US1] Update Program.cs to use minimal bootstrapping pattern following azure-devops-migration-tools reference - Status: incomplete
+  - Evidence: `Program.cs` still contains full command registration and console startup logic (`src\DevOpsMigrationPlatform.CLI.Migration\Program.cs:13-155`).
 
 **Checkpoint**: At this point, User Story 1 should be fully functional - all commands execute without errors
 
@@ -96,21 +105,25 @@ description: "Task list for CLI architecture refactoring and command testing imp
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. Write from `spec.md` User Story 2 acceptance scenarios before any step definitions or production code.**
 
-- [X] T022 [US2] Create `features/cli/execute/configuration-flow.feature` — translate `spec.md` User Story 2 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
+- [x] T022 [US2] Create `features/cli/execute/configuration-flow.feature` — translate `spec.md` User Story 2 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`) - Status: complete
 
 ### Tests for User Story 2
 
-- [ ] T023 [P] [US2] Create integration test tests/DevOpsMigrationPlatform.CLI.Migration.Tests/MigrationPlatformHostTests.cs for configuration binding validation
-- [ ] T024 [P] [US2] Add configuration flow tests to existing command test files verifying config values reach target services  
-- [ ] T025 [P] [US2] Create tests for default config file resolution (migration.json) when --config not specified
+- [x] T023 [P] [US2] Create integration test tests/DevOpsMigrationPlatform.CLI.Migration.Tests/MigrationPlatformHostTests.cs for configuration binding validation - Status: complete
+- [ ] T024 [P] [US2] Add configuration flow tests to existing command test files verifying config values reach target services - Status: incomplete
+  - Evidence: no command-level tests assert source URL/auth values flowing from config into downstream services in existing `Commands\*.cs` tests.
+- [x] T025 [P] [US2] Create tests for default config file resolution (migration.json) when --config not specified - Status: complete
 
 ### Implementation for User Story 2
 
-- [X] T026 [US2] Implement --config parameter extraction logic in MigrationPlatformHost before DI container creation
-- [X] T027 [US2] Setup IOptions<T> pattern integration in MigrationPlatformHost service registration for all existing configuration classes
-- [X] T028 [US2] Verify configuration binding between command-line args, environment variables, and config files follows proper precedence
-- [ ] T029 [US2] Update existing services to receive configuration via dependency injection rather than direct file access where applicable
-- [ ] T030 [US2] Add configuration validation and error handling for malformed JSON and missing required sections
+- [x] T026 [US2] Implement --config parameter extraction logic in MigrationPlatformHost before DI container creation - Status: complete
+- [x] T027 [US2] Setup IOptions<T> pattern integration in MigrationPlatformHost service registration for all existing configuration classes - Status: complete
+- [ ] T028 [US2] Verify configuration binding between command-line args, environment variables, and config files follows proper precedence - Status: incomplete
+  - Evidence: no explicit automated precedence test found; only extraction/default path behavior is verified in `MigrationPlatformHostTests`.
+- [ ] T029 [US2] Update existing services to receive configuration via dependency injection rather than direct file access where applicable - Status: incomplete
+  - Evidence: command flow still reads raw config JSON directly from file in `QueueCommand` (`src\DevOpsMigrationPlatform.CLI.Migration\Commands\QueueCommand.cs:83-87`).
+- [ ] T030 [US2] Add configuration validation and error handling for malformed JSON and missing required sections - Status: incomplete
+  - Evidence: schema validation exists, but no focused malformed JSON/missing required section test coverage is present in CLI test files.
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
@@ -126,21 +139,24 @@ description: "Task list for CLI architecture refactoring and command testing imp
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. Write from `spec.md` User Story 3 acceptance scenarios before any step definitions or production code.**
 
-- [ ] T031 [US3] Create `features/cli/execute/host-builder-architecture.feature` — translate `spec.md` User Story 3 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
+- [x] T031 [US3] Create `features/cli/execute/host-builder-architecture.feature` — translate `spec.md` User Story 3 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`) - Status: complete
 
 ### Tests for User Story 3
 
-- [ ] T032 [P] [US3] Create architectural validation tests in tests/DevOpsMigrationPlatform.CLI.Migration.Tests/ArchitectureTests.cs verifying Program.cs line count < 50
-- [ ] T033 [P] [US3] Add unit tests verifying new commands can be added without modifying Program.cs or host setup
-- [ ] T034 [P] [US3] Create integration tests validating complete DI container service registration and resolution
+- [ ] T032 [P] [US3] Create architectural validation tests in tests/DevOpsMigrationPlatform.CLI.Migration.Tests/ArchitectureTests.cs verifying Program.cs line count < 50 - Status: incomplete
+  - Evidence: `tests\DevOpsMigrationPlatform.CLI.Migration.Tests\ArchitectureTests.cs` does not exist.
+- [x] T033 [P] [US3] Add unit tests verifying new commands can be added without modifying Program.cs or host setup - Status: complete
+- [x] T034 [P] [US3] Create integration tests validating complete DI container service registration and resolution - Status: complete
 
 ### Implementation for User Story 3
 
-- [X] T035 [US3] Finalize Program.cs refactoring to contain only minimal bootstrapping logic (target < 50 lines)
-- [X] T036 [US3] Ensure all service registration, configuration, and infrastructure setup is centralized in MigrationPlatformHost
-- [X] T037 [US3] Validate that CommandBase<T> provides proper lifecycle management and service access patterns
-- [ ] T038 [US3] Add documentation comments to MigrationPlatformHost and CommandBase<T> explaining architecture patterns
-- [X] T039 [US3] Verify separation of concerns between bootstrapping (Program.cs), infrastructure (host builder), and commands
+- [ ] T035 [US3] Finalize Program.cs refactoring to contain only minimal bootstrapping logic (target < 50 lines) - Status: incomplete
+  - Evidence: `Program.cs` currently has 156 lines with command-registration responsibilities.
+- [x] T036 [US3] Ensure all service registration, configuration, and infrastructure setup is centralized in MigrationPlatformHost - Status: complete
+- [x] T037 [US3] Validate that CommandBase<T> provides proper lifecycle management and service access patterns - Status: complete
+- [x] T038 [US3] Add documentation comments to MigrationPlatformHost and CommandBase<T> explaining architecture patterns - Status: complete
+- [ ] T039 [US3] Verify separation of concerns between bootstrapping (Program.cs), infrastructure (host builder), and commands - Status: incomplete
+  - Evidence: DI and telemetry are centralized, but Program still owns substantial command composition and startup behavior.
 
 **Checkpoint**: All user stories should now be independently functional with proper architecture
 
@@ -150,13 +166,19 @@ description: "Task list for CLI architecture refactoring and command testing imp
 
 **Purpose**: Improvements that affect multiple user stories and final validation
 
-- [ ] T040 [P] Update existing command help text to ensure comprehensive information display
-- [ ] T041 [P] Add comprehensive error message validation for all invalid command usage scenarios
-- [ ] T042 [P] Performance validation ensuring command startup time remains under 2 seconds
-- [ ] T043 [P] Memory usage baseline validation for DI container initialization
-- [ ] T044 [P] Run quickstart.md validation against refactored architecture
-- [ ] T045 [P] Update any documentation reflecting the new CLI architecture patterns
-- [ ] T046 Code cleanup and refactoring for maintainability across all changed files
+- [ ] T040 [P] Update existing command help text to ensure comprehensive information display - Status: incomplete
+  - Evidence: no explicit validation artifact or test coverage proving help completeness across all commands.
+- [ ] T041 [P] Add comprehensive error message validation for all invalid command usage scenarios - Status: incomplete
+  - Evidence: targeted invalid-usage assertion suite is not present across the full command set.
+- [ ] T042 [P] Performance validation ensuring command startup time remains under 2 seconds - Status: incomplete
+  - Evidence: no benchmark/test artifact found for startup-time threshold.
+- [ ] T043 [P] Memory usage baseline validation for DI container initialization - Status: incomplete
+  - Evidence: no memory baseline measurement/report artifact found.
+- [ ] T044 [P] Run quickstart.md validation against refactored architecture - Status: incomplete
+  - Evidence: no recorded validation run proving quickstart remains accurate; quickstart still references removed command examples.
+- [x] T045 [P] Update any documentation reflecting the new CLI architecture patterns - Status: complete
+- [ ] T046 Code cleanup and refactoring for maintainability across all changed files - Status: incomplete
+  - Evidence: no explicit completion evidence or cleanup checklist outcome recorded.
 
 ---
 

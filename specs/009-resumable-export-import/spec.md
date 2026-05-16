@@ -2,7 +2,7 @@
 
 **Feature Branch**: `009-resumable-export-import`  
 **Created**: 2026-04-10  
-**Status**: Draft  
+**Status**: Reconciled (legacy-spec; implementation-aligned)  
 **Input**: User description: "We need to have the Export resume from where it left off if possible. We may have already exported 20k work items, and we don't want to overwrite them unnecessarily. This should work for both export and import."
 
 ## Architecture References
@@ -10,11 +10,26 @@
 | Document | Status |
 |---|---|
 | `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — Rule #4 mandates cursor-based checkpoints; Rule #2 mandates streaming import |
-| `.agents/30-context/domains/checkpointing-summary.md` | Confirmed: defines cursor schema, stage values, and resume logic for import; **export cursor is not yet specified — discrepancy logged** |
+| `.agents/30-context/domains/checkpointing-summary.md` | Confirmed accurate — includes cursor schema and export/import resume behaviour |
 | `.agents/30-context/domains/import-streaming.md` | Confirmed accurate — staged import, idempotency notes, and failure behaviour already defined |
-| `.agents/30-context/domains/job-lifecycle.md` | Confirmed accurate — `MigrationJob` schema does not include a resume mode flag; **gap logged** |
+| `.agents/30-context/domains/job-lifecycle.md` | Confirmed accurate — `Job.Resume.Mode` (`Auto`/`ForceFresh`) and phase semantics are documented |
 | `docs/architecture.md` | Confirmed accurate — resumability described as a property of the Files layer; no implementation detail |
 | `docs/module-development-guide.md` | Confirmed accurate — `IDataTypeModule.ExportAsync` and `ImportAsync` contracts |
+
+## Reconciliation Snapshot (2026-05-16)
+
+- **Current status**: Feature capability is implemented in current architecture (`Job`, queue CLI, `IPackageAccess` routing), with legacy naming in this spec folder reconciled via task-level supersession annotations.
+- **Remaining incomplete task IDs**: `T005`, `T015`, `T026`, `T034`.
+- **Completed because superseded (IDs)**: `T002`, `T006`, `T007`, `T008`, `T009`, `T011`, `T012`, `T013`, `T014`, `T016`, `T017`, `T018`, `T019`, `T020`, `T021`, `T022`, `T023`, `T025`, `T027`, `T031`, `T032`.
+- **Contradictions and reconciliation**:
+  - Legacy `MigrationJob*` paths are reconciled to `src/DevOpsMigrationPlatform.Abstractions/Jobs/*`.
+  - Legacy command model (`export/import/migrate`) is reconciled to queue-centric CLI (`QueueCommand`, `QueueCommandSettings --force-fresh`).
+  - Legacy infra paths (`Infrastructure/*`) are reconciled to current agent assembly layout (`Infrastructure.Agent/*`).
+- **Verification evidence**:
+  - Build: `dotnet build DevOpsMigrationPlatform.slnx --nologo` (pass).
+  - Resume model: `src/DevOpsMigrationPlatform.Abstractions/Jobs/Job.cs`, `JobResume.cs`.
+  - Force-fresh handling: `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`.
+  - Cursor/phase services: `src/DevOpsMigrationPlatform.Infrastructure.Agent/Checkpointing/CheckpointingService.cs`, `PhaseTrackingService.cs`.
 
 ## User Scenarios & Testing *(mandatory)*
 
