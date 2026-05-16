@@ -64,7 +64,7 @@ public static class TfsMigrationAgentServiceExtensions
         // Register IModule pipeline (export-only on net481).
         services.AddIdentitiesModule(configuration);
         services.AddNodesModule(configuration);
-        services.AddWorkItemsModule();
+        services.AddWorkItemsModule(configuration);
 
         // NOTE (spec 032, D-007): AddDependencyCapture() is intentionally NOT called here.
         // TFS sources do not support per-project dependency capture; the TFS plan builder emits

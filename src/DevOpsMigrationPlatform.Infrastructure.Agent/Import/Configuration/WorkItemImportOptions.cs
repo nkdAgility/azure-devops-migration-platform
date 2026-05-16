@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Abstractions.Options;
+
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import.Configuration;
 
+#if NET7_0_OR_GREATER
+public sealed class WorkItemImportOptions : IConfigSection
+#else
 public sealed class WorkItemImportOptions
+#endif
 {
-    public const string SectionName = "Extensions:WorkItemImport";
+    public static string SectionName => "Extensions:WorkItemImport";
 
     public bool RevisionReplay { get; init; }
 
