@@ -160,6 +160,28 @@ public class WorkItemImportOrchestratorFilterTests
             Times.AtLeastOnce, "Work item 1 should be imported based on its latest revision.");
     }
 
+    [TestMethod]
+    public async Task ImportAsync_WhenCursorStageIsUploadedAttachments_SkipsFolderToAvoidDuplicateWork()
+    {
+        AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
+        var folderPath = _folders[0].TrimEnd('/');
+
+        _mockCps.Setup(s => s.ReadCursorAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new CursorEntry
+                {
+                    LastProcessed = folderPath,
+                    Stage = CursorStage.UploadedAttachments
+                });
+
+        var orchestrator = BuildOrchestrator();
+        await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
+
+        _mockTarget.Verify(
+            t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "UploadedAttachments cursor stage should advance to Completed and skip duplicate reprocessing.");
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private WorkItemImportOrchestrator BuildOrchestrator(

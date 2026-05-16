@@ -155,27 +155,11 @@ public sealed class WorkItemImportOrchestrator
             {
                 ct.ThrowIfCancellationRequested();
 
-                // Skip folders at or before the cursor (already completed)
-                if (!string.IsNullOrEmpty(lastProcessed)
-                    && string.CompareOrdinal(folderPath, lastProcessed) < 0)
-                {
+                var resumeDecision = ImportResumeDecisionResolver.Resolve(folderPath, cursor);
+                if (resumeDecision.ShouldSkip)
                     continue;
-                }
 
-                // Determine resume stage for the cursor folder (mid-folder resume)
-                string? resumeAtStage = null;
-                if (string.Equals(folderPath, lastProcessed, StringComparison.Ordinal)
-                    && lastStage is not null
-                    && !string.Equals(lastStage, CursorStage.Completed, StringComparison.Ordinal))
-                {
-                    resumeAtStage = GetNextStage(lastStage);
-                }
-                else if (string.Equals(folderPath, lastProcessed, StringComparison.Ordinal)
-                    && string.Equals(lastStage, CursorStage.Completed, StringComparison.Ordinal))
-                {
-                    // This exact folder was fully completed — skip it
-                    continue;
-                }
+                var resumeAtStage = resumeDecision.ResumeAtStage;
 
                 // Parse folder name to distinguish revision vs comment folders
                 var folderName = GetFolderName(folderPath);
@@ -513,14 +497,6 @@ public sealed class WorkItemImportOrchestrator
     /// </summary>
     private static bool IsCommentFolder(string[] segments)
         => segments.Length >= 3 && segments[2].StartsWith("c", StringComparison.OrdinalIgnoreCase);
-
-    private static string? GetNextStage(string currentStage) => currentStage switch
-    {
-        CursorStage.CreatedOrUpdated => CursorStage.AppliedFields,
-        CursorStage.AppliedFields => CursorStage.AppliedLinks,
-        CursorStage.AppliedLinks => CursorStage.UploadedAttachments,
-        _ => null
-    };
 
     private Task WriteCompletedCursorAsync(string folderPath, CancellationToken ct)
         => _checkpointing.WriteCursorAsync("import.workitems", new CursorEntry
