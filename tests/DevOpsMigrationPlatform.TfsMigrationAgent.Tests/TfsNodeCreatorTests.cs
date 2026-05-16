@@ -146,6 +146,26 @@ public class TfsNodeCreatorTests
         Assert.IsTrue(exists);
     }
 
+    [TestMethod]
+    public async Task NodeExistsAsync_NormalizesForwardSlashPath_WithLeadingAndTrailingSeparators()
+    {
+        var css = new Mock<ICommonStructureService4>(MockBehavior.Strict);
+        css.Setup(s => s.ListStructures(ProjectUri)).Returns(
+        [
+            CreateNodeInfo("area-root-uri", @"\TargetProject", "ProjectModelHierarchy"),
+            CreateNodeInfo("team-uri", @"\TargetProject\Team A", "ProjectModelHierarchyArea")
+        ]);
+
+        var sut = new TfsNodeCreator(css.Object, NullLogger<TfsNodeCreator>.Instance, ProjectName, ProjectUri);
+
+        var exists = await sut.NodeExistsAsync(
+            ClassificationNodeType.Area,
+            " /TargetProject/Team A/ ",
+            CancellationToken.None);
+
+        Assert.IsTrue(exists);
+    }
+
     private static NodeInfo CreateNodeInfo(string uri, string path, string structureType)
         => new()
         {

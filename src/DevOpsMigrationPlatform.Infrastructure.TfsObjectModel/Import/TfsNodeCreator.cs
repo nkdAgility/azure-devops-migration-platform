@@ -192,7 +192,7 @@ public sealed class TfsNodeCreator : INodeCreator
         => NormalizePathCore(path);
 
     private static string NormalizePathCore(string? path)
-        => (path ?? string.Empty).Trim().Trim('\\').Replace('/', '\\');
+        => (path ?? string.Empty).Trim().Replace('/', '\\').Trim('\\');
 
     private static string GetStructureTypeSuffix(ClassificationNodeType nodeType)
         => nodeType == ClassificationNodeType.Area ? "Area" : "Iteration";
