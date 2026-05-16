@@ -168,6 +168,6 @@ public sealed class ImportPreparer
 
     private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
     {
-        public string RelativePath { get; } = relativePath;
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

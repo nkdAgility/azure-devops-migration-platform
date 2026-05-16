@@ -94,6 +94,47 @@ public sealed class ImportPreparerTests
         Assert.AreEqual(0, report.ImportReadinessReport.Findings.Count);
     }
 
+    [TestMethod]
+    public async Task PrepareAsync_AggregatesFindingsAcrossAllPatterns()
+    {
+        var revisionPath = "WorkItems/2026-05-13/638827200000000000-42-0/revision.json";
+        var package = PackageTestFactory.CreateLooseMock();
+        package
+            .Setup(p => p.EnumerateContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => EnumerateManyAsync([revisionPath]));
+
+        var patternA = new TrackingPattern(
+        [
+            new(
+                MissingAttachmentBinaryImportFailurePattern.Code,
+                ImportFailureSeverity.Blocking,
+                "WorkItems/2026-05-13/638827200000000000-42-0/attachment-a.png",
+                "Missing attachment binary.",
+                "Export attachment binaries.")
+        ]);
+        var patternB = new TrackingPattern(
+        [
+            new(
+                FieldTransformCompatibilityImportFailurePattern.Code,
+                ImportFailureSeverity.Warning,
+                "FieldNotFound|MapState|Custom.State|Unknown",
+                "Configured transform references a missing field.",
+                "Update transform configuration.")
+        ]);
+
+        var sut = new ImportPreparer(
+            Options.Create(new WorkItemsModuleOptions()),
+            [patternA, patternB]);
+
+        var report = await sut.PrepareAsync(CreateContext(package.Object), CancellationToken.None);
+
+        Assert.AreEqual(1, patternA.InvocationCount);
+        Assert.AreEqual(1, patternB.InvocationCount);
+        Assert.AreEqual(2, report.FailureFindings.Count);
+        Assert.IsNotNull(report.ImportReadinessReport);
+        Assert.AreEqual(2, report.ImportReadinessReport.Findings.Count);
+    }
+
     private static PrepareContext CreateContext(IPackageAccess package)
     {
         var targetEndpoint = new Mock<ITargetEndpointInfo>();
@@ -128,5 +169,20 @@ public sealed class ImportPreparerTests
             ImportFailurePatternContext context,
             CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyList<ImportFailureFinding>>(findings);
+    }
+
+    private sealed class TrackingPattern(IReadOnlyList<ImportFailureFinding> findings) : IImportFailurePattern
+    {
+        public int InvocationCount { get; private set; }
+
+        public string PatternCode => "TRACKING";
+
+        public Task<IReadOnlyList<ImportFailureFinding>> EvaluateAsync(
+            ImportFailurePatternContext context,
+            CancellationToken cancellationToken)
+        {
+            InvocationCount++;
+            return Task.FromResult(findings);
+        }
     }
 }
