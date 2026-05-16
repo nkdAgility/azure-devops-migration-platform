@@ -17,8 +17,40 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
 /// </summary>
 public sealed class SimulatedWorkItemImportTarget : IWorkItemImportTarget
 {
+    private static readonly string[] DefaultKnownWorkItemTypes =
+    [
+        "Bug",
+        "Task",
+        "User Story",
+        "Feature",
+        "Epic",
+        "Issue",
+        "Product Backlog Item"
+    ];
+
     private int _nextId = 1;
     private readonly object _lock = new();
+    private readonly HashSet<string> _knownWorkItemTypes;
+
+    public SimulatedWorkItemImportTarget()
+        : this(DefaultKnownWorkItemTypes)
+    {
+    }
+
+    internal SimulatedWorkItemImportTarget(IEnumerable<string> knownWorkItemTypes)
+    {
+        _knownWorkItemTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var workItemType in knownWorkItemTypes)
+        {
+            if (string.IsNullOrWhiteSpace(workItemType))
+            {
+                continue;
+            }
+
+            _knownWorkItemTypes.Add(workItemType.Trim());
+        }
+    }
 
     /// <inheritdoc/>
     public Task<ImportedWorkItemResult> CreateWorkItemAsync(
@@ -113,7 +145,14 @@ public sealed class SimulatedWorkItemImportTarget : IWorkItemImportTarget
 
     /// <inheritdoc/>
     public Task<bool> WorkItemTypeExistsAsync(string workItemType, CancellationToken ct)
-        => Task.FromResult(!string.IsNullOrWhiteSpace(workItemType));
+    {
+        if (string.IsNullOrWhiteSpace(workItemType))
+        {
+            return Task.FromResult(false);
+        }
+
+        return Task.FromResult(_knownWorkItemTypes.Contains(workItemType.Trim()));
+    }
 
     /// <inheritdoc/>
     public Task<bool> WorkItemExistsAsync(int targetWorkItemId, CancellationToken ct)

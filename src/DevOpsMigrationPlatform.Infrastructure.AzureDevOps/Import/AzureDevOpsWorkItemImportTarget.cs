@@ -25,6 +25,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
 {
     private readonly WorkItemTrackingHttpClient _witClient;
     private readonly string _project;
+    private readonly SemaphoreSlim _workItemTypeCacheLock = new(1, 1);
+    private HashSet<string>? _cachedWorkItemTypes;
 
     /// <summary>Organisation URL used to establish the connection to this target.</summary>
     public string OrganisationUrl { get; }
@@ -266,8 +268,32 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
             return false;
         }
 
-        var types = await _witClient.GetWorkItemTypesAsync(_project, cancellationToken: ct).ConfigureAwait(false);
-        return types.Any(t => string.Equals(t.Name, workItemType, StringComparison.OrdinalIgnoreCase));
+        var cachedWorkItemTypes = _cachedWorkItemTypes;
+        if (cachedWorkItemTypes is null)
+        {
+            await _workItemTypeCacheLock.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                cachedWorkItemTypes = _cachedWorkItemTypes;
+                if (cachedWorkItemTypes is null)
+                {
+                    var types = await _witClient.GetWorkItemTypesAsync(_project, cancellationToken: ct).ConfigureAwait(false);
+                    cachedWorkItemTypes = new HashSet<string>(
+                        types
+                            .Select(t => t.Name)
+                            .Where(name => !string.IsNullOrWhiteSpace(name))
+                            .Select(name => name!),
+                        StringComparer.OrdinalIgnoreCase);
+                    _cachedWorkItemTypes = cachedWorkItemTypes;
+                }
+            }
+            finally
+            {
+                _workItemTypeCacheLock.Release();
+            }
+        }
+
+        return cachedWorkItemTypes.Contains(workItemType.Trim());
     }
 
     /// <inheritdoc/>

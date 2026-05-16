@@ -105,8 +105,8 @@ This document defines the complete task decomposition for implementing the Work 
 ### Work Item Type Validation (US1: Scenario 2)
 
 - [x] T028 [US1] [P] Implement WorkItemTypeValidator class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Validators/WorkItemTypeValidator.cs` to enumerate exported work item types and verify each exists on target
-- [ ] T029 [US1] [P] **SIMULATED**: Implement Simulated connector type validation — in-memory check against simulated work item type list
-- [ ] T030 [US1] [P] **AZURE DEVOPS**: Implement Azure DevOps REST API type validation — call GET /workitemtypes API to verify all exported types exist
+- [x] T029 [US1] [P] **SIMULATED**: Implement Simulated connector type validation — in-memory check against simulated work item type list
+- [x] T030 [US1] [P] **AZURE DEVOPS**: Implement Azure DevOps REST API type validation — call GET /workitemtypes API to verify all exported types exist
 - [ ] T031 [US1] [P] **TFS**: Implement TFS OM type validation via TfsMigrationAgent — call TFS work item type metadata API to verify types exist
 - [ ] T032 [US1] Create WorkItemTypeFinding record type with typeName, status (Found/Missing/Error), and targetReference fields
 

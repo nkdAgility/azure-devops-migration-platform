@@ -65,4 +65,24 @@ public sealed class SimulatedWorkItemImportTargetTests
         StringAssert.Contains(id, "test.pdf");
     }
 
+    [TestMethod]
+    public async Task WorkItemTypeExistsAsync_ReturnsTrue_ForKnownType()
+    {
+        var target = new SimulatedWorkItemImportTarget();
+
+        var exists = await target.WorkItemTypeExistsAsync("Bug", CancellationToken.None);
+
+        Assert.IsTrue(exists);
+    }
+
+    [TestMethod]
+    public async Task WorkItemTypeExistsAsync_ReturnsFalse_ForUnknownType()
+    {
+        var target = new SimulatedWorkItemImportTarget();
+
+        var exists = await target.WorkItemTypeExistsAsync("NotAType", CancellationToken.None);
+
+        Assert.IsFalse(exists);
+    }
+
 }
