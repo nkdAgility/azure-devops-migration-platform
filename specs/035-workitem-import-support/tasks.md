@@ -179,7 +179,7 @@ This document defines the complete task decomposition for implementing the Work 
 ### Resume & Duplication Prevention (US2: Scenario 4)
 
 - [x] T061 [US2] [P] On resume from checkpoint, check ImportCheckpointService to see which nodes were already created
-- [ ] T062 [US2] [P] Skip already-created nodes; only create remaining required paths
+- [x] T062 [US2] [P] Skip already-created nodes; only create remaining required paths
 - [ ] T063 [US2] [P] Verify no duplicate path creation attempts (idempotent behavior)
 - [ ] T064 [US2] Record created node paths in checkpoint state for resume safety
 

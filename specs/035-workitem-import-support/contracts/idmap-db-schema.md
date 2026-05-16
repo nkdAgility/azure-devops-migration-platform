@@ -175,6 +175,38 @@ WHERE source_id = 'img-789' AND source_work_item_id = 42;
 
 ---
 
+### 4. node_creation_map
+
+Maps created node paths for resume-safe node readiness.
+
+```sql
+CREATE TABLE node_creation_map (
+    node_type TEXT NOT NULL,
+    node_path TEXT NOT NULL,
+    PRIMARY KEY (node_type, node_path)
+);
+```
+
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| node_type | TEXT | No | Classification node type (Area/Iteration) |
+| node_path | TEXT | No | Target node path created during readiness |
+
+**Constraints**:
+- PRIMARY KEY (node_type, node_path) — Prevent duplicate node creation records
+
+**Usage**:
+```sql
+-- Record node creation during readiness
+INSERT OR IGNORE INTO node_creation_map (node_type, node_path)
+VALUES ('Area', 'TargetProject\\Platform');
+
+-- Read created nodes on resume to skip duplicates
+SELECT node_type, node_path FROM node_creation_map;
+```
+
+---
+
 ## Migration Operations
 
 ### Initializing the Database
@@ -260,7 +292,7 @@ WHERE source_id = @sourceAttachmentId AND source_work_item_id = @sourceWorkItemI
 
 ## Version & Evolution
 
-**Current Schema Version**: 1.0
+**Current Schema Version**: 1.1
 
 **Forward Compatibility**:
 - Adding new columns: Use `ALTER TABLE ... ADD COLUMN` with default values (safe on resume).
