@@ -19,6 +19,46 @@
 | `docs/configuration-reference.md` | Discrepancy logged — no telemetry naming convention documented |
 | `.agents/30-context/domains/checkpointing-summary.md` | Confirmed accurate — cursor-based, forward-only |
 
+## Reconciliation Snapshot (2026-05-16)
+
+### Current status
+
+- This spec is **partially implemented and partially superseded**.
+- Newer telemetry architecture work in `specs/031-platform-metrics-unification` and `docs/adr/0011-unified-platform-metric-namespace.md` supersedes major contract assumptions in this spec.
+- Task ledger is now reconciled in `tasks.md` with explicit per-task status markers and evidence.
+
+### Remaining incomplete work (IDs)
+
+`T010, T011, T012, T022, T023, T026, T027, T028, T030, T032, T033, T037, T047, T048, T049, T050, T052`
+
+### Completed because superseded (IDs + source)
+
+- Superseded by `specs/031-platform-metrics-unification/spec.md` + `docs/adr/0011-unified-platform-metric-namespace.md`:
+  `T001, T002, T003, T004, T005, T006, T007, T008, T009, T013, T014, T016, T017, T018, T019, T021, T025, T038, T039, T040, T041, T042, T043, T044, T051`
+
+### Contradictions and reconciliation
+
+- `migration.*` and `DevOpsMigrationPlatform.Migration` in this spec conflict with current `platform.*` and `DevOpsMigrationPlatform.Agent` runtime constants.
+- `IMigrationMetrics`/`MigrationMetrics` in this spec conflict with current seam `IPlatformMetrics`/`PlatformMetrics`.
+- `MetricSnapshot` wording in this spec conflicts with current control-plane DTO surface (`JobMetrics` + `MigrationDiagnostics`).
+- The `SnapshotMetricExporterTests` path used by this spec no longer exists; missing tests are now tracked as incomplete tasks.
+
+### Verification evidence
+
+- Code/constants/seam evidence:
+  - `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownAgentMetricNames.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions/WellKnownMeterNames.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions.Agent/Telemetry/IPlatformMetrics.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/PlatformMetrics.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.ControlPlane/Metrics/SnapshotMetricExporter.cs`
+- Wiring evidence:
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/TelemetryServiceExtensions.cs`
+  - `src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentServiceExtensions.cs`
+- Task gap evidence:
+  - `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Telemetry/WorkItemExportMetrics.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Telemetry/AttachmentDownloadMetrics.cs`
+  - Missing: `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs`
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — Operator monitors migration throughput in real time (Priority: P1)

@@ -25,5 +25,5 @@
 - **Source doc**: `docs/module-development-guide.md`, `docs/capabilities-guide.md`
 - **Issue**: The service interface signature changes (from `(string url, string pat)` to `OrganisationEndpoint`) are not reflected in any doc. After this feature, docs should reflect that service interfaces accept `OrganisationEndpoint`.
 - **Suggested update**: Add a note in the relevant doc sections about the `OrganisationEndpoint` parameter convention.
-- **Status**: ✓ Resolved in speckit.implement — documented in `docs/architecture.md` under "OrganisationEndpoint — Canonical Connection Context"
+- **Status**: ⚠ Partially resolved — documented in `docs/architecture.md`, but `docs/module-development-guide.md` and `docs/capabilities-guide.md` still lack endpoint convention updates (tracks `T021`).
 

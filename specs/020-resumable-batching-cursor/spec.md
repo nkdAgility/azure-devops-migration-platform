@@ -2,8 +2,38 @@
 
 **Feature Branch**: `020-resumable-batching-cursor`  
 **Created**: 2026-04-22  
-**Status**: Draft  
+**Status**: Reconciled (implementation drift remains)  
 **Input**: User description: "Make the batching strategy resumable so callers can pass a resume flag, protect resume with a query hash, let callers own duplicate handling and save strategy, and account for data drift by ordering oldest to newest by changed date."
+
+## Reconciliation Snapshot (2026-05-16)
+
+### Current Status
+
+- Spec and task ledger were reconciled against repository truth.
+- Core resumable batching primitives exist, but several FR-critical behaviors remain incomplete.
+- Many completed tasks were path-superseded by later architecture split/package-routing specs.
+
+### Remaining Incomplete Work (Task IDs)
+
+- `T010`, `T020`, `T021`, `T024`, `T025`, `T026`, `T027`, `T028`, `T030`, `T031`, `T034`, `T035`, `T036`, `T037`, `T038`, `T039`, `T040`, `T041`, `T042`, `T043`, `T045`, `T046`
+
+### Completed Because Superseded (Task IDs + Source)
+
+- `T002`, `T003`, `T004`, `T005`, `T006`, `T007`, `T008`, `T009`, `T011`, `T012`, `T014`, `T016`, `T018`, `T019`, `T044` → superseded by `specs/021.2-separation-of-concerns`
+- `T013`, `T015` → superseded by `specs/034-package-manager-adoption`
+
+### Contradictions and Reconciliation
+
+- `FetchAsync` safety-net behavior required by FR-014 (throw `ResumeRejectedException` on mismatch) is not currently enforced.
+- `AzureDevOpsWorkItemFetchService` does not currently register/inject/use `IQueryFingerprintService` in the resumable fetch path as planned.
+- Boundary-cluster semantics in FR-013 are stricter than current resume filtering behavior.
+- Documentation and discrepancy records currently overstate completion; `tasks.md` now records evidence-backed truth.
+
+### Verification Evidence
+
+- Targeted tests passed: `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests` resumable-focused set (`70/70`).
+- Baseline full build command `dotnet build DevOpsMigrationPlatform.slnx --no-incremental` failed due to locked `testhost` artifacts (MSB3027/MSB3021), not compile errors in reconciled files.
+- `/speckit.analyze` and `/speckit.checklist` both reported high-signal drift that is now reflected in reconciled artifacts.
 
 ## Clarifications
 

@@ -29,9 +29,12 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [x] T001 Create `OrganisationEndpointAuthentication` sealed class with `AuthenticationType Type` and `string? ResolvedAccessToken` init-only properties in `src/DevOpsMigrationPlatform.Abstractions/Models/OrganisationEndpointAuthentication.cs`
-- [x] T002 Create `OrganisationEndpoint` sealed class with `string ResolvedUrl`, `string Type`, `OrganisationEndpointAuthentication Authentication`, and `string? ApiVersion` init-only properties in `src/DevOpsMigrationPlatform.Abstractions/Models/OrganisationEndpoint.cs`
-- [x] T003 Create `ScopedOrganisationEndpoint` sealed class with `OrganisationEndpoint Endpoint` and `List<string> Projects` init-only properties in `src/DevOpsMigrationPlatform.Abstractions/Models/ScopedOrganisationEndpoint.cs`
+- [X] T001 Create `OrganisationEndpointAuthentication` sealed class with `AuthenticationType Type` and `string? ResolvedAccessToken` init-only properties in `src/DevOpsMigrationPlatform.Abstractions/Models/OrganisationEndpointAuthentication.cs` — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns/spec.md
+  - Evidence: Type exists at `src/DevOpsMigrationPlatform.Abstractions/Organisations/OrganisationEndpointAuthentication.cs`; folder topology moved from `Models` to `Organisations`.
+- [X] T002 Create `OrganisationEndpoint` sealed class with `string ResolvedUrl`, `string Type`, `OrganisationEndpointAuthentication Authentication`, and `string? ApiVersion` init-only properties in `src/DevOpsMigrationPlatform.Abstractions/Models/OrganisationEndpoint.cs` — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns/spec.md
+  - Evidence: Type exists at `src/DevOpsMigrationPlatform.Abstractions/Organisations/OrganisationEndpoint.cs`; scope is now bounded by later architecture split.
+- [X] T003 Create `ScopedOrganisationEndpoint` sealed class with `OrganisationEndpoint Endpoint` and `List<string> Projects` init-only properties in `src/DevOpsMigrationPlatform.Abstractions/Models/ScopedOrganisationEndpoint.cs` — Status: complete/superseded; completed because superseded by specs/017-simulated-infrastructure/spec.md
+  - Evidence: Current type is `ScopedOrganisationEndpoint.Endpoint : MigrationEndpointOptions` in `src/DevOpsMigrationPlatform.Abstractions/Organisations/ScopedOrganisationEndpoint.cs`, reflecting polymorphic endpoint evolution.
 
 **Checkpoint**: Three new types compile. Existing code unchanged — `dotnet build` passes.
 
@@ -47,14 +50,16 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. It must be written from the `spec.md` User Story 1 acceptance scenarios and committed before any step definitions or production code are written.**
 
-- [x] T004 [US1] Create `features/services/organisation-endpoint/organisation-endpoint-service-interfaces.feature` — translate spec.md User Story 1 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
+- [X] T004 [US1] Create `features/services/organisation-endpoint/organisation-endpoint-service-interfaces.feature` — translate spec.md User Story 1 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`) — Status: complete
 
 ### Implementation for User Story 1
 
-- [x] T005 [P] [US1] Update `IWorkItemDiscoveryService`, `IWorkItemQueryWindowStrategy`, `IProjectDiscoveryService`, `ICatalogService`, `IWorkItemLinkAnalysisService`, and `IWorkItemCommentSourceFactory` — replace `(string url, string pat)` parameters with `OrganisationEndpoint endpoint` in `src/DevOpsMigrationPlatform.Abstractions/Services/`
-- [x] T006 [P] [US1] Update `IAzureDevOpsClientFactory` — replace URL/PAT parameters with `OrganisationEndpoint endpoint` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/IAzureDevOpsClientFactory.cs`
-- [x] T007 [US1] Update `AzureDevOpsClientFactory` implementation to match new `OrganisationEndpoint` parameter on all methods in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/AzureDevOpsClientFactory.cs`
-- [x] T008 [US1] Update all concrete service implementations (`IWorkItemDiscoveryService`, `IWorkItemQueryWindowStrategy`, `IProjectDiscoveryService`, `ICatalogService`, `IWorkItemLinkAnalysisService`, `IWorkItemCommentSourceFactory` impls) to match new `OrganisationEndpoint` parameter signatures in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/`
+- [X] T005 [P] [US1] Update `IWorkItemDiscoveryService`, `IWorkItemQueryWindowStrategy`, `IProjectDiscoveryService`, `ICatalogService`, `IWorkItemLinkAnalysisService`, and `IWorkItemCommentSourceFactory` — replace `(string url, string pat)` parameters with `OrganisationEndpoint endpoint` in `src/DevOpsMigrationPlatform.Abstractions/Services/` — Status: complete/superseded; completed because superseded by specs/017-simulated-infrastructure/spec.md
+  - Evidence: URL/PAT pairs are removed from Abstractions interfaces; signatures now live under `src/DevOpsMigrationPlatform.Abstractions.Agent/*` with a mixed endpoint model (`OrganisationEndpoint` plus `MigrationEndpointOptions` where polymorphism is required).
+- [X] T006 [P] [US1] Update `IAzureDevOpsClientFactory` — replace URL/PAT parameters with `OrganisationEndpoint endpoint` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/IAzureDevOpsClientFactory.cs` — Status: complete
+- [X] T007 [US1] Update `AzureDevOpsClientFactory` implementation to match new `OrganisationEndpoint` parameter on all methods in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/AzureDevOpsClientFactory.cs` — Status: complete
+- [X] T008 [US1] Update all concrete service implementations (`IWorkItemDiscoveryService`, `IWorkItemQueryWindowStrategy`, `IProjectDiscoveryService`, `ICatalogService`, `IWorkItemLinkAnalysisService`, `IWorkItemCommentSourceFactory` impls) to match new `OrganisationEndpoint` parameter signatures in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/` — Status: complete/superseded; completed because superseded by specs/017-simulated-infrastructure/spec.md
+  - Evidence: Implementations now resolve polymorphic `MigrationEndpointOptions` to `OrganisationEndpoint` where needed (e.g., `AzureDevOpsWorkItemCommentSourceFactory`, `AzureDevOpsDependencyAnalysisService`), reflecting later connector model.
 
 **Checkpoint**: All 6 service interfaces and their implementations accept `OrganisationEndpoint`. Callers (factories, CLI) may not compile until US2 phase completes.
 
@@ -72,11 +77,12 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. Write from `spec.md` User Story 3 acceptance scenarios before any step definitions or production code.**
 
-- [x] T009 [US3] Create `features/services/organisation-endpoint/organisation-entry-conversion.feature` — translate spec.md User Story 3 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
+- [X] T009 [US3] Create `features/services/organisation-endpoint/organisation-entry-conversion.feature` — translate spec.md User Story 3 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`) — Status: complete
 
 ### Implementation for User Story 3
 
-- [x] T010 [US3] Add `ToOrganisationEndpoint()` method to `OrganisationEntry` — resolve `$ENV:VARNAME` tokens in URL and AccessToken via `TokenResolver.Resolve()`, map `EndpointAuthenticationOptions` to `OrganisationEndpointAuthentication`, copy `ApiVersion`, return `OrganisationEndpoint` in `src/DevOpsMigrationPlatform.Abstractions/Options/OrganisationEntry.cs`
+- [X] T010 [US3] Add `ToOrganisationEndpoint()` method to `OrganisationEntry` — resolve `$ENV:VARNAME` tokens in URL and AccessToken via `TokenResolver.Resolve()`, map `EndpointAuthenticationOptions` to `OrganisationEndpointAuthentication`, copy `ApiVersion`, return `OrganisationEndpoint` in `src/DevOpsMigrationPlatform.Abstractions/Options/OrganisationEntry.cs` — Status: complete/superseded; completed because superseded by specs/017-simulated-infrastructure/spec.md
+  - Evidence: `OrganisationEntry` is now abstract with `ToEndpointOptions()`; conversion to `OrganisationEndpoint` moved to `MigrationEndpointOptions.ToOrganisationEndpoint()`.
 
 **Checkpoint**: `OrganisationEntry` has a clean conversion path to `OrganisationEndpoint`. Method compiles and is callable.
 
@@ -94,15 +100,19 @@
 
 > **NOTE: This `.feature` file is the ATDD Phase 1 artifact. Write from `spec.md` User Story 2 acceptance scenarios before any step definitions or production code.**
 
-- [x] T011 [US2] Create `features/services/organisation-endpoint/discovery-job-organisation-scope.feature` — translate spec.md User Story 2 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
+- [X] T011 [US2] Create `features/services/organisation-endpoint/discovery-job-organisation-scope.feature` — translate spec.md User Story 2 acceptance scenarios into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`) — Status: complete
 
 ### Implementation for User Story 2
 
-- [x] T012 [US2] Update `DiscoveryJob.Organisations` property from `List<DiscoveryJobOrganisation>` to `List<ScopedOrganisationEndpoint>` in `src/DevOpsMigrationPlatform.Abstractions/Models/DiscoveryJob.cs`
-- [x] T013 [P] [US2] Update `IInventoryServiceFactory` and `IDependencyDiscoveryServiceFactory` interfaces — replace `IReadOnlyList<DiscoveryJobOrganisation>` with `IReadOnlyList<ScopedOrganisationEndpoint>` in `src/DevOpsMigrationPlatform.Abstractions/Services/`
-- [x] T014 [US2] Update `InventoryServiceFactory` and `DependencyDiscoveryServiceFactory` implementations — extract `Endpoint` from each `ScopedOrganisationEndpoint` for service calls, `Projects` for scope filtering in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Factories/`
-- [x] T015 [P] [US2] Update `InventoryCommand.cs` — construct `ScopedOrganisationEndpoint` using `entry.ToOrganisationEndpoint()` instead of `DiscoveryJobOrganisation` in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/Discovery/InventoryCommand.cs`
-- [x] T016 [P] [US2] Update `DependencyCommand.cs` — construct `ScopedOrganisationEndpoint` using `entry.ToOrganisationEndpoint()` instead of `DiscoveryJobOrganisation` in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/Discovery/DependencyCommand.cs`
+- [X] T012 [US2] Update `DiscoveryJob.Organisations` property from `List<DiscoveryJobOrganisation>` to `List<ScopedOrganisationEndpoint>` in `src/DevOpsMigrationPlatform.Abstractions/Models/DiscoveryJob.cs` — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md
+  - Evidence: Discovery job contract was removed during job unification; runtime construction of `ScopedOrganisationEndpoint` now occurs in `MigrationAgent/JobAgentWorker.cs`.
+- [X] T013 [P] [US2] Update `IInventoryServiceFactory` and `IDependencyDiscoveryServiceFactory` interfaces — replace `IReadOnlyList<DiscoveryJobOrganisation>` with `IReadOnlyList<ScopedOrganisationEndpoint>` in `src/DevOpsMigrationPlatform.Abstractions/Services/` — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns/spec.md
+  - Evidence: Interfaces exist with `IReadOnlyList<ScopedOrganisationEndpoint>` under `src/DevOpsMigrationPlatform.Abstractions.Agent/Discovery/`.
+- [X] T014 [US2] Update `InventoryServiceFactory` and `DependencyDiscoveryServiceFactory` implementations — extract `Endpoint` from each `ScopedOrganisationEndpoint` for service calls, `Projects` for scope filtering in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Factories/` — Status: complete
+- [X] T015 [P] [US2] Update `InventoryCommand.cs` — construct `ScopedOrganisationEndpoint` using `entry.ToOrganisationEndpoint()` instead of `DiscoveryJobOrganisation` in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/Discovery/InventoryCommand.cs` — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md
+  - Evidence: Discovery command classes no longer exist; endpoint scoping is now assembled from `MigrationPlatformOptions.Organisations` in `MigrationAgent/JobAgentWorker.cs`.
+- [X] T016 [P] [US2] Update `DependencyCommand.cs` — construct `ScopedOrganisationEndpoint` using `entry.ToOrganisationEndpoint()` instead of `DiscoveryJobOrganisation` in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/Discovery/DependencyCommand.cs` — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md
+  - Evidence: `DependencyCommand` class no longer exists under CLI discovery commands; dependency discovery uses job/task execution flow.
 
 **Checkpoint**: Full compilation should pass. `DiscoveryJob` carries new types. CLI constructs `ScopedOrganisationEndpoint` end-to-end.
 
@@ -112,8 +122,8 @@
 
 **Purpose**: Remove old types and fix any test compilation errors caused by the refactor.
 
-- [x] T017 Delete `DiscoveryJobOrganisation.cs` and `DiscoveryJobAuthentication.cs` from `src/DevOpsMigrationPlatform.Abstractions/Models/`
-- [x] T018 Update test mocks and fakes to use `OrganisationEndpoint` and `ScopedOrganisationEndpoint` in place of deleted types across `tests/`
+- [X] T017 Delete `DiscoveryJobOrganisation.cs` and `DiscoveryJobAuthentication.cs` from `src/DevOpsMigrationPlatform.Abstractions/Models/` — Status: complete
+- [X] T018 Update test mocks and fakes to use `OrganisationEndpoint` and `ScopedOrganisationEndpoint` in place of deleted types across `tests/` — Status: complete
 
 **Checkpoint**: Zero references to `DiscoveryJobOrganisation` or `DiscoveryJobAuthentication` remain. All tests compile.
 
@@ -123,14 +133,17 @@
 
 **Purpose**: Ensure all canonical docs reflect the OrganisationEndpoint refactor. Resolve all discrepancies flagged during planning.
 
-- [x] T019 Update `docs/architecture.md` — add `OrganisationEndpoint` as the canonical connection context type in the Abstractions section (see `discrepancies.md` item 1)
-- [x] T020 [P] Update `.agents/30-context/domains/job-lifecycle.md` — replace all `DiscoveryJobOrganisation` references with `ScopedOrganisationEndpoint` and `OrganisationEndpoint` (see `discrepancies.md` item 2)
-- [x] T021 [P] Update `docs/module-development-guide.md` and `docs/capabilities-guide.md` — document `OrganisationEndpoint` parameter convention for service interfaces (see `discrepancies.md` item 3)
-- [x] T022 Mark all items in `specs/016-organisation-endpoint/discrepancies.md` as `Resolved`
-- [x] T023 Review `analysis/pending-actions.md` and remove any items resolved by this spec
-- [x] T024 Run `dotnet clean && dotnet build --no-incremental` — MUST pass
-- [x] T025 Run `dotnet test` — ALL tests MUST pass
-- [x] T026 Run at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile and verify observable output — satisfied by `[TestCategory("SystemTest")]` tests that execute `queue-export-ado-workitems-single-project.json` against real Azure DevOps (all passed)
+- [X] T019 Update `docs/architecture.md` — add `OrganisationEndpoint` as the canonical connection context type in the Abstractions section (see `discrepancies.md` item 1) — Status: complete
+- [X] T020 [P] Update `.agents/30-context/domains/job-lifecycle.md` — replace all `DiscoveryJobOrganisation` references with `ScopedOrganisationEndpoint` and `OrganisationEndpoint` (see `discrepancies.md` item 2) — Status: complete
+- [ ] T021 [P] Update `docs/module-development-guide.md` and `docs/capabilities-guide.md` — document `OrganisationEndpoint` parameter convention for service interfaces (see `discrepancies.md` item 3) — Status: incomplete
+  - Evidence: No `OrganisationEndpoint`, `ScopedOrganisationEndpoint`, or `MigrationEndpointOptions` references are present in those two documents.
+- [X] T022 Mark all items in `specs/016-organisation-endpoint/discrepancies.md` as `Resolved` — Status: complete
+- [X] T023 Review `analysis/pending-actions.md` and remove any items resolved by this spec — Status: complete
+- [X] T024 Run `dotnet clean && dotnet build --no-incremental` — MUST pass — Status: complete
+- [ ] T025 Run `dotnet test` — ALL tests MUST pass — Status: incomplete
+  - Evidence: `dotnet test --no-build --filter "TestCategory!=SystemTest&TestCategory!=SystemTest_Live"` passed (1274/1274), but a full unfiltered all-tests pass was not established in this reconciliation run.
+- [ ] T026 Run at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile and verify observable output — satisfied by `[TestCategory("SystemTest")]` tests that execute `queue-export-ado-workitems-single-project.json` against real Azure DevOps (all passed) — Status: incomplete
+  - Evidence: Targeted test `QueueCommand_WithExportMode_ExitsZero_AndWritesRevisionFiles` failed with `System.IO.IOException` (locked `CLI-cli.log`) during this reconciliation run.
 
 ---
 

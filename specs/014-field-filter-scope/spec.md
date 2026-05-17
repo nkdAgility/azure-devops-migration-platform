@@ -2,7 +2,7 @@
 
 **Feature Branch**: `014-field-filter-scope`  
 **Created**: 2026-04-17  
-**Status**: Draft  
+**Status**: Reconciled (partial)  
 **Input**: User description: "Add Scopes to Organisations and filter scope for work item field filtering"
 
 ## Architecture References
@@ -162,3 +162,28 @@ A migration engineer is importing a previously exported package. The package was
 - The `wiql` scope on an organisation applies to inventory and discovery operations; it is not relevant to migration export/import, which uses the module-level `wiql` scope
 - Adding `scopes` to `OrganisationEntry` is a non-breaking additive change — no `configVersion` bump or upgrader is required; existing configs without `scopes` continue to work unchanged
 
+## Current status
+
+Reconciled against repository state on 2026-05-16: partially implemented.
+
+## Remaining incomplete work (IDs)
+
+T010, T013, T016, T018, T023, T025, T027, T029, T030, T032, T033.
+
+## Completed because superseded (IDs + source)
+
+- T015 superseded by `specs/025.1-fold-to-job/spec.md` (single `Job` flow removed `InventoryCommand` path; scope mapping now occurs during job materialisation).
+
+## Contradictions and reconciliation
+
+- Spec/tasks reference legacy file paths (`Infrastructure`, `CLI.Migration/Commands/Discovery/InventoryCommand.cs`); implementation moved under `*.Agent` and job-based orchestration.
+- `FR-011` logging detail (field/mode/pattern) is not fully implemented in export/import skip logs.
+- `docs/configuration-reference.md` still contains a `wiql`-only scope statement while also documenting filter fields.
+- `discrepancies.md` reports resolved items that still have open evidence (e.g., placeholder comment in `WorkItemFieldFilterOptions`).
+
+## Verification evidence
+
+- Build: `dotnet build .\\DevOpsMigrationPlatform.slnx -v minimal` passed.
+- Tests: targeted scope tests passed (`dotnet test tests\\DevOpsMigrationPlatform.Infrastructure.Agent.Tests\\DevOpsMigrationPlatform.Infrastructure.Agent.Tests.csproj --no-build --filter "FilterScope|WorkItemFieldFilterEvaluator|WorkItemImportOrchestratorFilter|WorkItemExportOrchestratorTests"` → 66 passed).
+- `dotnet clean && dotnet build --no-incremental -v minimal` failed during this reconciliation with lock/copy/compiler errors (`CS2012`, `MSB3021`, `MSB3027`).
+- Full `dotnet test` did not complete successfully in this reconciliation run.

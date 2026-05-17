@@ -94,9 +94,40 @@ tests/
         └── TfsWorkItemFetchServiceTests.cs              # NEW — TFS implementation tests
 ```
 
-**Structure Decision**: This feature adds types across the existing multi-project solution architecture. No new projects are created. The Abstractions project gets the interface and model types; the Infrastructure.AzureDevOps project gets the ADO implementation; the multi-targeted Infrastructure project gets the TFS implementation.
+**Structure Decision (reconciled)**: Later architecture work (`specs/021.2-separation-of-concerns`) moved these contracts and tests into split assemblies/projects (`Abstractions.Agent`, `Infrastructure.Agent.Tests`, `Infrastructure.TfsObjectModel`). The implementation is present, but several original paths in this plan are now historical.
 
 ## Complexity Tracking
 
-No constitution violations. All design decisions align with existing patterns and guardrails.
+Historical note: this plan predates later constitution tightening and separation-of-concerns refactors. Reconciliation findings are recorded below.
+
+## Current status
+
+- Reconciled on 2026-05-16 against current repository layout.
+- Plan remains directionally valid but contains stale paths and one superseded behaviour statement from the spec chain.
+
+## Remaining incomplete work (IDs)
+
+- T013, T021, T028, T029 (see `tasks.md` evidence notes).
+
+## Completed because superseded (IDs + source)
+
+- `specs/021.2-separation-of-concerns` superseded original file/project paths for T001, T002, T003, T004, T005, T006, T009, T010, T012, T017, T019, T030.
+- `specs/014-field-filter-scope` superseded the earlier “do not change export path” intent tied to FR-012.
+
+## Contradictions and reconciliation
+
+- Original source/test tree in this plan reflects pre-split assemblies and does not match current repository structure.
+- TFS testing intent in this plan assumed dedicated tests; current repository has no dedicated `TfsWorkItemFetchService` test file, so completion is not claimed for that task.
+- Full-suite green evidence is not available in this spec folder; reconcile as incomplete verification.
+
+## Verification evidence
+
+- Current implementation paths verified:
+  - `src/DevOpsMigrationPlatform.Abstractions.Agent/Export/IWorkItemFetchService.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Export/AzureDevOpsWorkItemFetchService.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Export/TfsWorkItemFetchService.cs`
+- Current tests/docs verified:
+  - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Services/AzureDevOpsWorkItemFetchServiceTests.cs`
+  - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Services/WorkItemFieldFilterEvaluatorTests.cs`
+  - `docs/work-item-iteration-guide.md`, `docs/module-development-guide.md`, `docs/architecture.md`
 

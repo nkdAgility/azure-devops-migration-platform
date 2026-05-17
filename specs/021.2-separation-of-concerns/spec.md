@@ -1694,3 +1694,28 @@ the abstraction layer interfaces instead.
 - `SimulatedProjectConfig.cs` — per-project generation settings
 - `SimulatedWorkItemTypeConfig.cs` — work item type definitions
 - `SimulatedGeneratorConfig.cs` — data generation parameters
+
+---
+
+## Reconciliation status update (post-implementation review)
+
+### Current status
+- 021.2 is mostly implemented in code.
+- Several items are implemented in evolved form due to later specs (`023.5`, `028`, `031`, `034`, `035`) and current guardrail contracts.
+- Reconciliation task truth is tracked in `tasks.md`.
+
+### Remaining incomplete IDs
+`P0`, `1.2`, `1.7`, `6.3`, `6.4`, `6.5`, `6.6`, `6.8`
+
+### Superseded IDs
+`1.3`, `1.5`, `1.6`, `1.8`, `2.7`, `3.2`, `3.3`, `4.1a`, `4.1b`, `5.2b`, `5.3`, `5.5`, `6.7`
+
+### Contradictions reconciled
+- Original 021.2 topology assumptions predate storage/project splits and TFS agent architecture now present in the repo.
+- Some legacy wording in this spec and ADR references no longer matches the implemented composition-root model.
+- Current guardrails and implemented project graph were treated as authoritative when reconciling statuses.
+
+### Verification evidence
+- Build passed: `dotnet build DevOpsMigrationPlatform.slnx --no-incremental`.
+- Targeted test smoke passed: `dotnet test tests\DevOpsMigrationPlatform.Abstractions.Tests\DevOpsMigrationPlatform.Abstractions.Tests.csproj --no-build`.
+- Full-suite `dotnet test DevOpsMigrationPlatform.slnx --no-build` did not complete in-session and remains an open verification item.

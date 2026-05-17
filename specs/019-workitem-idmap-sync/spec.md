@@ -172,3 +172,36 @@ As a migration operator, I want the ID map to track the last successfully migrat
 - The integrity check (FR-010) requires network access to the target system to verify work item existence.
 - Architecture docs read: `agents.md`, `docs/architecture.md`, `docs/module-development-guide.md`, `docs/configuration-reference.md`, `docs/work-item-iteration-guide.md`, `.agents/20-guardrails/core/architecture-boundaries.md`, `.agents/30-context/domains/migration-package-concept.md`, `.agents/30-context/domains/import-streaming.md`, `.agents/30-context/domains/checkpointing-summary.md`, `.agents/30-context/domains/identity-and-mapping.md`.
 
+## Reconciliation Status (2026-05-16)
+
+### Current Status
+
+- `tasks.md` reconciled against current implementation evidence (`src/`, `features/`, `tests/`) and SpecKit diagnostics.
+- Completion summary: **16 complete**, **23 incomplete**, **3 complete/superseded**.
+- This spec remains partially implemented and contains known spec-vs-code contract divergences.
+
+### Remaining Incomplete Work
+
+Open tasks are tracked in `tasks.md` with evidence notes, concentrated in:
+- idmap abstraction/schema alignment (`T001–T008` subset)
+- package-lock wiring and control-plane status plumbing (`T012`, `T016`, `T040–T042`)
+- revision-watermark contract conformance (`T029–T030`)
+- documentation and verification closure (`T032–T039`)
+
+### Completed/Superseded Work
+
+Superseded tasks recorded in `tasks.md`:
+- `T011`, `T014`, `T026` superseded by architecture and contract updates represented in `specs/035-workitem-import-support` and current implementation surfaces.
+
+### Contradictions and Reconciliation Notes
+
+- Spec expects `work_item_map.last_revision_index`; implementation uses separate `last_revision_index` table in `SqliteIdMapStore`.
+- Spec expects private orchestrator integrity loop; implementation encapsulates integrity checks in `IIdMapStore.CheckIntegrityAsync`.
+- Spec expects lock acquisition in `JobAgentWorker` via `IPackageLockService`; implementation lock ownership is currently in package-access infrastructure.
+
+### Verification Evidence
+
+- Build evidence captured: `dotnet build DevOpsMigrationPlatform.slnx` passed.
+- Full test-pass evidence and runtime scenario verification remain open (`T038`, `T039`).
+
+

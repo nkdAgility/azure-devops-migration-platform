@@ -34,3 +34,10 @@
 - All items pass. Ready for `/speckit.plan`.
 - Feature 014 (`WorkItemFieldFilterOptions`) is noted as a dependency in Assumptions.
 - TFS implementation scope is explicitly constrained to a functional stub.
+
+## Reconciliation status (2026-05-16)
+
+- [x] Task statuses in `tasks.md` now include final explicit status markers.
+- [x] Superseded tasks are mapped to source specs (`014`, `021.2`) with evidence notes.
+- [ ] Incomplete tasks remain and require follow-up: `T013`, `T021`, `T028`, `T029`.
+- [x] `spec.md` and `plan.md` include current status, supersession, contradiction, and evidence sections.
