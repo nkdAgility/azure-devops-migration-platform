@@ -18,7 +18,7 @@ A connector adapts between the platform and an external system. Every capability
 - **Target connector** — accepts items and pushes them to the target.
 
 All source connectors have Simulated, ADO, and TFS variants.
-All target connectors have Simulated and ADO variants (TFS is always source-only).
+Target connector coverage evolves by capability; do not treat current TFS target gaps as a permanent architecture rule.
 
 ## Client Integration Boundary
 

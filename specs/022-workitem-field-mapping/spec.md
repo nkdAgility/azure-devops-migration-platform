@@ -2,8 +2,35 @@
 
 **Feature Branch**: `022-workitem-field-mapping`  
 **Created**: 2026-04-24  
-**Status**: Draft  
+**Status**: Reconciled (partially complete)  
 **Input**: User description: "M1: WorkItemsModule — FieldMapping from analysis/proposed-features.md. Check against azure-devops-migration-tools field mapping tool and advise on screaming architecture naming."
+
+## Current status
+
+- Field transform capability is implemented in the codebase (`IFieldTransformTool`, transform implementations, DI wiring, import-stage usage, docs, and test assets exist).
+- Task ledger reconciliation identifies completion drift in verification/polish tasks.
+- This spec is not fully done because verification gates and several polish tasks remain incomplete.
+
+## Remaining incomplete work (IDs)
+
+T016, T024, T030, T038, T046, T054, T065, T071, T079, T085, T092, T093, T094, T095, T096, T097, T098.
+
+## Completed because superseded (IDs + source)
+
+- T056 superseded by `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/WorkItemTagParser.cs`
+- T062 superseded by `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Transforms/WorkItemTagParserTests.cs`
+
+## Contradictions and reconciliation
+
+- `tasks.md` previously marked all tasks complete, but current repository truth shows failing baseline build/test and missing benchmark/integration evidence; affected tasks were marked incomplete with evidence notes.
+- Planned `TagUtilities` artifacts were replaced by `WorkItemTagParser` naming in implementation; tasks were marked complete/superseded.
+- Spec lifecycle status (`Draft`) contradicted task completion claims and has been updated to reconciled partial-completion status.
+
+## Verification evidence
+
+- Build/test verification attempt on 2026-05-17: `dotnet build --no-incremental && dotnet test tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/... --filter "FieldTransform|WorkItemsModuleImport"` failed with 4 compile errors in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/ImportCheckpointServiceTests.cs`.
+- Implementation evidence: `FieldTransformFactory`, `FieldTransformPipeline`, `FieldTransformTool`, `FieldTransformValidator`, and import-stage wiring in `RevisionFolderProcessor`.
+- Documentation evidence: `docs/configuration-reference.md`, `docs/module-development-guide.md`, and `docs/architecture.md` include FieldTransform/tool model updates.
 
 ## Architecture References
 

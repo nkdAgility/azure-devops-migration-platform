@@ -26,16 +26,17 @@ These rules are mandatory for all connector implementations.
 11. TFS connectors run in the `TfsMigrationAgent` (net481, Windows only).
 12. Authentication is Windows Integrated. No PAT-based auth in TFS connectors.
 13. TFS connectors must implement the same capability surface as their ADO equivalents, within the limits of the TFS Object Model API.
+14. Do not encode source-only assumptions or current `net481` feature gaps as a reason for runtime guard clauses. Feature capability on `net481` may be implemented over time.
 
 ## Interface Placement
 
-14. All connector interfaces must be declared in `DevOpsMigrationPlatform.Abstractions`. Concrete implementations live in `DevOpsMigrationPlatform.Infrastructure.*` projects.
+15. All connector interfaces must be declared in `DevOpsMigrationPlatform.Abstractions`. Concrete implementations live in `DevOpsMigrationPlatform.Infrastructure.*` projects.
 
 ## Testing
 
-15. Every connector method must be exercised by at least one test.
-16. `SystemTest_AzureDevOps` tests must use `[TestCategory("SystemTest")]`.
-17. Tests must not use `Assert.IsTrue(count >= 0)` — this asserts nothing about functional output.
+16. Every connector method must be exercised by at least one test.
+17. `SystemTest_AzureDevOps` tests must use `[TestCategory("SystemTest")]`.
+18. Tests must not use `Assert.IsTrue(count >= 0)` — this asserts nothing about functional output.
 
 ## Related
 

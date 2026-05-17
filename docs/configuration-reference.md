@@ -379,7 +379,7 @@ public interface ISourceEndpointInfo
     string ConnectorType { get; } // "AzureDevOpsServices" | "TeamFoundationServer" | "Simulated"
 }
 
-public interface ITargetEndpointInfo  // not registered for TFS (source-only)
+public interface ITargetEndpointInfo
 {
     string Url { get; }
     string Project { get; }

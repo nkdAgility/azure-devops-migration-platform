@@ -74,6 +74,8 @@ If a rule below forces a **clearly worse outcome**: Stop â†’ Cite rule number â†
 
 28. **Capability seams are canonical and singular.** Each concern has one canonical runtime seam and one public reusable contract surface. Modules, orchestrators, extensions, and analysers must consume that seam rather than introducing parallel runtime entry points or duplicate concern engines. Phase/slice policy belongs in thin adapters. See [capability-ethos-rules.md](../core/capability-ethos-rules.md).
 
+29. **Guard clauses are compatibility-only.** Runtime guard clauses in module/orchestrator/service code are permitted only when required to preserve compatibility between `net481` and modern .NET targets (`net9.0`/`net10.0`). Defensive guards for nullable services, optional enablement toggles, or generic fail-fast checks are prohibited as local code guards and must be expressed through canonical validation surfaces instead. Non-compatibility guards discovered during touched-scope refactors must be removed. Current implementation gaps on `net481` are not a valid reason to add non-compatibility guards.
+
 ---
 
 ## Reference

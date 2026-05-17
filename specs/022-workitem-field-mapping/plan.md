@@ -13,6 +13,32 @@ Key technical decisions:
 - **Prepare-time validation**: `validate` method checks field names/types against source+target definitions, executes sample dry-run.
 - **Fail-fast v1**: first transform error halts the revision (future: P4 Operator Interaction).
 
+## Current status
+
+- Implementation artifacts described by this plan are present in `Abstractions.Agent`, `Abstractions`, `Infrastructure.Agent`, and test/doc folders.
+- Reconciliation shows the plan is only partially complete due unresolved verification and polish tasks.
+
+## Remaining incomplete work (IDs)
+
+T016, T024, T030, T038, T046, T054, T065, T071, T079, T085, T092, T093, T094, T095, T096, T097, T098.
+
+## Completed because superseded (IDs + source)
+
+- T056 superseded by `WorkItemTagParser` implementation (`src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/WorkItemTagParser.cs`)
+- T062 superseded by `WorkItemTagParserTests` (`tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Transforms/WorkItemTagParserTests.cs`)
+
+## Contradictions and reconciliation
+
+- Historical task checkmarks asserted full completion, but current repository state fails baseline build/test.
+- Planned tag utility naming diverged to `WorkItemTagParser`; this is reconciled as superseded completion rather than missing work.
+- Verification commands in multiple phases require green build/test evidence that is currently unavailable.
+
+## Verification evidence
+
+- 2026-05-17 command evidence: `dotnet build --no-incremental` fails with 4 compile errors in `ImportCheckpointServiceTests` (missing `ClassificationNodeType` and `SetCreatedNodePathAsync` symbols).
+- Field transform runtime wiring verified in `MigrationAgentServiceExtensions` (`AddFieldTransformToolServices`) and `RevisionFolderProcessor` (Stage B `ApplyTransforms` call).
+- Field transform docs verified in `docs/configuration-reference.md`, `docs/module-development-guide.md`, and `docs/architecture.md`.
+
 ## Technical Context
 
 **Language/Version**: C# 10+, targeting .NET 10  

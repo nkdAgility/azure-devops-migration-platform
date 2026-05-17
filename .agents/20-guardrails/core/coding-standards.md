@@ -65,7 +65,9 @@ Code must be deterministic, testable, maintainable, and aligned with architectur
 ## Error Handling
 
 - Do not swallow exceptions.
-- Fail fast on invalid configuration and invalid contract inputs.
+- Guard clauses are permitted only for runtime compatibility boundaries between `net481` and modern .NET targets (`net9.0`/`net10.0`).
+- Validation of configuration and contracts must be performed by canonical validation surfaces (schema validation, `IValidateOptions<T>`, or phase/module `ValidateAsync`) rather than ad-hoc defensive guard checks in module/orchestrator code.
+- When non-compatibility guards are encountered during refactor or feature work, they must be removed in the touched scope.
 - Use structured logging with explicit failure context.
 
 ## Prohibited Coding Patterns

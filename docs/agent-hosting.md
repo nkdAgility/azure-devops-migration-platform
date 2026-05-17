@@ -175,7 +175,7 @@ The **TFS Migration Agent** (`DevOpsMigrationPlatform.TfsMigrationAgent`) is a s
 
 The TFS agent exists because the TFS Object Model is a .NET Framework 3.x/4.x SOAP library that cannot run in .NET 9/10. Isolating it in a dedicated net481 process is the only way to use the TFS OM while keeping the rest of the platform on .NET 10.
 
-> **TFS is a source-only connector.** Team Foundation Server is always the migration *origin* — never the *destination*. As a consequence, `ITeamTarget`, `IWorkItemImportTarget`, and all other target-side interfaces are not implemented for TFS. This is an explicit architectural decision, not a gap.
+> **Current TFS scope is implementation-defined.** Capability coverage on `net481` can evolve; current gaps are not a justification for introducing non-compatibility runtime guard clauses.
 
 ### Agent Symmetry
 
@@ -190,7 +190,7 @@ The two agents use the same lease protocol, the same abstractions, and the same 
 | Checkpoint | `IStateStore` | `IStateStore` |
 | Module dispatch (export/import) | `IEnumerable<IModule>` | `IEnumerable<IModule>` |
 | Capture dispatch | `captureHandlersByName` (via `BuildCaptureHandlers`) | `captureHandlersByName` (modules only; no `DependencyCapture`) |
-| Supported modes | Export, Prepare, Import, Migrate | Export only (for now) |
+| Supported modes | Export, Prepare, Import, Migrate | Current implementation coverage may differ by release |
 | Container support | Yes | No — Windows process only |
 
 ### IModule Dispatch
@@ -198,9 +198,9 @@ The two agents use the same lease protocol, the same abstractions, and the same 
 `TfsJobAgentWorker` accepts `IEnumerable<IModule>` exactly like `JobAgentWorker`. TFS-specific modules implement the same `IModule` contract:
 
 - `ExportAsync` — performs the full TFS OM export via a TFS `IWorkItemRevisionSource` implementation and `WorkItemExportOrchestrator`.
-- `PrepareAsync` — returns `Task.CompletedTask`. TFS is source-only; Prepare requires a target, which TFS is never used as.
-- `ImportAsync` — returns `Task.CompletedTask`. Not yet implemented; will be populated when TFS import is added to the TFS agent.
-- `ValidateAsync` — returns `Task.CompletedTask`. No-op until TFS import is implemented.
+- `PrepareAsync` — implemented according to current TFS connector/runtime capability.
+- `ImportAsync` — implemented according to current TFS connector/runtime capability.
+- `ValidateAsync` — implemented according to current TFS connector/runtime capability.
 
 ### Capture Dispatch (`TaskKind.Capture`)
 

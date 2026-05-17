@@ -88,7 +88,7 @@ Module (thin wrapper)
 ```mermaid
 flowchart TD
     subgraph Module["Module (thin wrapper ~100-130 lines)"]
-        MGuard["Guard checks\n(enabled? null service?)"]
+    MCompat["Compatibility guard\n(net481 vs net10 only, if needed)"]
         MConfig["Resolve config/endpoints"]
         MDelegate["Delegate to orchestrator"]
     end
@@ -112,7 +112,7 @@ flowchart TD
 
 | Layer | Responsibility | Examples |
 |---|---|---|
-| **Module** | Guard checks (enabled? null service?), resolve config/endpoints, delegate to orchestrator. Contains no business logic. ~100–130 lines. | `NodesModule`, `TeamsModule`, `IdentitiesModule` |
+| **Module** | Compatibility-boundary handling only (net481 vs net10, where required), resolve config/endpoints, delegate to orchestrator. Contains no business logic. ~100–130 lines. | `NodesModule`, `TeamsModule`, `IdentitiesModule` |
 | **Orchestrator** | All cross-cutting orchestration: checkpointing (cursor read/write), progress events (`IProgressSink`), metrics (OTel), CSV/JSON writing, enumeration loops, resume logic. This is the reusable business logic layer. | `INodesOrchestrator`, `ITeamsOrchestrator`, `IIdentitiesOrchestrator` |
 | **Service / Source / Target** | Connector-specific SDK/API calls. One implementation per connector (AzureDevOps, TFS, Simulated). Injected into the orchestrator via method parameters. | `ITeamSource`, `IIdentitySource`, `IClassificationTreeCapture`, `INodeEnsurer` |
 
@@ -135,7 +135,7 @@ Orchestrator *implementations* are `internal sealed` classes in `Infrastructure.
 1. **Reusability** — Orchestrators are the business logic. They can be consumed by Modules today and by Tools or Extensions in the future without duplicating cross-cutting concerns.
 2. **Testability** — Modules are thin and trivial. Orchestrators can be unit-tested with mocked services. Services can be tested against real APIs.
 3. **Consistency** — Every module follows the same structure. New contributors can navigate any module by recognising the pattern.
-4. **Separation of concerns** — Guard checks and config resolution (Module) are separate from enumeration/checkpoint/progress logic (Orchestrator), which is separate from SDK calls (Service).
+4. **Separation of concerns** — Compatibility-boundary handling and config resolution (Module) are separate from enumeration/checkpoint/progress logic (Orchestrator), which is separate from SDK calls (Service).
 
 #### Capability Seam Rule (Tools, Modules, Extensions)
 
@@ -210,7 +210,7 @@ public interface ISourceEndpointInfo
 }
 ```
 
-`ITargetEndpointInfo` has the same shape. It is **not registered for TFS** (TFS is source-only). Registered by each connector's `Add*Services()` extension method.
+`ITargetEndpointInfo` has the same shape. Registration is connector-specific via each connector's `Add*Services()` extension method.
 
 **Why this matters**: Using these interfaces keeps modules connector-agnostic and independently testable. Injecting `AzureDevOpsEndpointOptions` directly into a module would couple it to the ADO connector and prevent unit testing without a full ADO config.
 
@@ -304,7 +304,7 @@ The TFS export path runs inside `DevOpsMigrationPlatform.TfsMigrationAgent` (net
 
 | Component | Role |
 |---|---|
-| `TfsWorkItemsModule` | Implements `IModule`. `ExportAsync` drives the full TFS export; `PrepareAsync`, `ImportAsync`, `ValidateAsync` return `Task.CompletedTask` (TFS is source-only; import not yet implemented). |
+| `TfsWorkItemsModule` | Implements `IModule`. `ExportAsync` drives the TFS export path; phase coverage on `net481` is implementation-driven and should not be enforced via non-compatibility runtime guards. |
 | `TfsWorkItemRevisionSource` | Enumerates work item revisions from the TFS Object Model (`WorkItemStore`). Uses date-windowed iteration, same chronological ordering as the ADO source. |
 | `TfsAttachmentBinarySource` | Downloads attachment binaries from TFS. |
 | `WorkItemExportOrchestrator` | Same orchestrator as ADO — enumerate revisions → write `revision.json` → download attachments → advance cursor. Shared from `DevOpsMigrationPlatform.Infrastructure.Agent`. |
