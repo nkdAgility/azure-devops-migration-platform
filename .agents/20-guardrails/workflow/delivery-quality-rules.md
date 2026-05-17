@@ -37,13 +37,14 @@ Rules for test-first execution quality, verification depth, and completion disci
 - The Definition of Done is the final completion contract.
 - Any failed DoD item blocks completion claims.
 
+## Touched Class Compliance
+
+- When a change touches a class with non-compliance, the same change must remediate that class to guardrail compliance.
+- Required remediation scope includes: non-compatibility guard removal, architecture/seam/boundary compliance, and missing behavioural tests for modified behaviour.
+
 ## Related
 
 - [test-first-workflow.md](../workflow/test-first-workflow.md)
 - [testing-rules.md](../workflow/testing-rules.md)
 - [connector-rules.md](../domains/connector-rules.md)
 - [definition-of-done.md](../workflow/definition-of-done.md)
-
-
-
-

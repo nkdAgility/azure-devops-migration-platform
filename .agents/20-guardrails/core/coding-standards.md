@@ -17,6 +17,12 @@ Code examples: [coding-standards-examples.md](./coding-standards-examples.md).
 
 Code must be deterministic, testable, maintainable, and aligned with architecture guardrails. Architectural drift is a reject condition.
 
+## Touched-Scope Remediation
+
+- When a class is modified, existing non-compliance in that class must be rectified in the same change.
+- This includes non-compatibility guards, architecture boundary/seam violations, and missing behavioural test coverage for changed behaviour.
+- If immediate full remediation would create excessive risk, the change must stop and require explicit human approval of a bounded remediation plan before proceeding.
+
 ## Runtime & Structure
 
 - New code targets modern .NET (`net9.0`/`net10.0`) unless explicitly constrained by TFS Object Model hosting.
@@ -85,7 +91,3 @@ Code must be deterministic, testable, maintainable, and aligned with architectur
 - [migration-rules.md](../domains/migration-rules.md)
 - [module-rules.md](../domains/module-rules.md)
 - [definition-of-done.md](../workflow/definition-of-done.md)
-
-
-
-

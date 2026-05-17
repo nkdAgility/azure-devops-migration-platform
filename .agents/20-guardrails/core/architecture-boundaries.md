@@ -76,12 +76,10 @@ If a rule below forces a **clearly worse outcome**: Stop â†’ Cite rule number â†
 
 29. **Guard clauses are compatibility-only.** Runtime guard clauses in module/orchestrator/service code are permitted only when required to preserve compatibility between `net481` and modern .NET targets (`net9.0`/`net10.0`). Defensive guards for nullable services, optional enablement toggles, or generic fail-fast checks are prohibited as local code guards and must be expressed through canonical validation surfaces instead. Non-compatibility guards discovered during touched-scope refactors must be removed. Current implementation gaps on `net481` are not a valid reason to add non-compatibility guards.
 
+30. **Touched classes must be remediated to compliance.** If a class is changed and contains known non-compliance (guardrail violations, architecture drift, or missing behavioural tests for changed behaviour), that non-compliance must be rectified in the same change. Deferring remediation is allowed only with explicit human approval of a bounded follow-up plan.
+
 ---
 
 ## Reference
 
 Consult [docs/architecture.md](../../../docs/architecture.md). Default: preserve package layout, maintain streaming, write state only through defined interfaces.
-
-
-
-
