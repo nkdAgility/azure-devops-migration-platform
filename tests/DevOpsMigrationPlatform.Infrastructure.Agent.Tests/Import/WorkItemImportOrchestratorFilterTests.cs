@@ -161,6 +161,40 @@ public class WorkItemImportOrchestratorFilterTests
     }
 
     [TestMethod]
+    public async Task ImportAsync_WithFilters_ProcessesFirstFolderBeforeRequestingSecondFolder()
+    {
+        AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
+        AddRevisionFolder(wiId: 2, revIndex: 0, areaPath: @"MyOrg\TeamA");
+
+        var firstFolder = _folders[0];
+        var secondFolder = _folders[1];
+        var firstRevisionProcessed = false;
+
+        _mockTarget.Setup(t => t.UpdateFieldsAsync(
+                    It.IsAny<int>(),
+                    It.IsAny<IReadOnlyList<WorkItemField>>(),
+                    It.IsAny<CancellationToken>()))
+            .Callback(() => firstRevisionProcessed = true)
+            .Returns(Task.CompletedTask);
+
+        _mockPackage.Setup(p => p.EnumerateContentAsync(
+                            It.Is<PackageContentContext>(c =>
+                                c.IsCollectionRequest &&
+                                string.Equals(c.Module, "WorkItems", StringComparison.OrdinalIgnoreCase)),
+                            It.IsAny<CancellationToken>()))
+                    .Returns((PackageContentContext _, CancellationToken ct) =>
+                        GatedFolderSequence(firstFolder, secondFolder, () => firstRevisionProcessed, ct));
+
+        var filters = new List<WorkItemFieldFilterOptions>
+        {
+            new("System.AreaPath", FilterOperator.Regex, @"^MyOrg\\TeamA")
+        };
+
+        var orchestrator = BuildOrchestrator(filters);
+        await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
+    }
+
+    [TestMethod]
     public async Task ImportAsync_WhenCursorStageIsUploadedAttachments_SkipsFolderToAvoidDuplicateWork()
     {
         AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
@@ -287,5 +321,23 @@ public class WorkItemImportOrchestratorFilterTests
             yield return item;
             await Task.Yield();
         }
+    }
+
+    private static async IAsyncEnumerable<string> GatedFolderSequence(
+        string firstFolder,
+        string secondFolder,
+        Func<bool> firstRevisionProcessed,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        yield return firstFolder;
+        await Task.Yield();
+
+        if (!firstRevisionProcessed())
+            throw new InvalidOperationException("Second folder was requested before processing the first folder.");
+
+        ct.ThrowIfCancellationRequested();
+        yield return secondFolder;
+        await Task.Yield();
     }
 }

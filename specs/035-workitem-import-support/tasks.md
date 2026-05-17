@@ -198,7 +198,7 @@ This document defines the complete task decomposition for implementing the Work 
 ### Revision Stream Processing (US3: Scenario 1, FR-009)
 
 - [x] T065 [US3] Create WorkItemRevisionImporter class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemRevisionImporter.cs` with ExecuteAsync method
-- [ ] T066 [US3] [P] Implement lazy enumeration of WorkItems folder via IArtefactStore.EnumerateAsync — process one revision folder at a time without materializing full set
+- [x] T066 [US3] [P] Implement lazy enumeration of WorkItems folder via IArtefactStore.EnumerateAsync — process one revision folder at a time without materializing full set
 - [ ] T067 [US3] [P] Enforce lexicographic ordering — verify revision folders processed in ascending folder-name order
 - [ ] T068 [US3] Implement stage-aware streaming — EnumerateAsync results consumed one revision at a time, never materialized into memory
 

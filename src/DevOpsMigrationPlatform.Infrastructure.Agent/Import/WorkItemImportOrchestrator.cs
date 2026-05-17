@@ -128,18 +128,6 @@ public sealed class WorkItemImportOrchestrator
                 staleMappings.Count);
         }
 
-        // Pre-filter pass: build the set of work item IDs that pass filter predicates.
-        // Enumerates folder names only to find the last revision per WI, then reads one
-        // revision.json per work item. Items not in the set are skipped in the main loop.
-        HashSet<int>? filteredIds = null;
-        if (_filterOptions is { Count: > 0 })
-        {
-            filteredIds = await BuildFilteredIdSetAsync(_filterOptions, ct).ConfigureAwait(false);
-            _logger.LogInformation(
-                "[WorkItems] Import pre-filter pass complete: {Count} work items pass the configured filter(s).",
-                filteredIds.Count);
-        }
-
         int foldersProcessed = 0;
         int workItemsProcessed = 0;
         int lastImportedWorkItemId = 0;
@@ -180,15 +168,22 @@ public sealed class WorkItemImportOrchestrator
                     int.TryParse(revisionSegments.Length >= 2 ? revisionSegments[1] : null, out var wiId);
                     int.TryParse(revisionSegments.Length >= 3 ? revisionSegments[2] : null, out var revIdx);
 
-                    // Skip if the work item did not pass the filter pre-pass.
-                    if (filteredIds != null && !filteredIds.Contains(wiId))
+                    if (_filterOptions is { Count: > 0 })
                     {
-                        _logger.LogInformation(
-                            "[WorkItems] Work item {WorkItemId} skipped by import filter scope.",
-                            wiId);
-                        await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
-                        foldersProcessed++;
-                        continue;
+                        var passesFilters = await RevisionFolderPassesFilterAsync(
+                            wiId,
+                            folderPath,
+                            _filterOptions,
+                            ct).ConfigureAwait(false);
+                        if (!passesFilters)
+                        {
+                            _logger.LogInformation(
+                                "[WorkItems] Work item {WorkItemId} skipped by import filter scope.",
+                                wiId);
+                            await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
+                            foldersProcessed++;
+                            continue;
+                        }
                     }
 
                     // Revision-index watermark: skip folders at or below the last applied revision
@@ -292,72 +287,45 @@ public sealed class WorkItemImportOrchestrator
         }
     }
 
-    /// <summary>
-    /// Pre-filter pass for import: enumerates revision folder names only to locate the last
-    /// revision folder per work item, reads one revision.json per work item, evaluates against
-    /// <paramref name="filterOptions"/>, and returns the set of passing work item IDs.
-    /// </summary>
-    private async Task<HashSet<int>> BuildFilteredIdSetAsync(
+    private async Task<bool> RevisionFolderPassesFilterAsync(
+        int workItemId,
+        string folderPath,
         IReadOnlyList<WorkItemFieldFilterOptions> filterOptions,
         CancellationToken ct)
     {
-        // Pass 1: collect the last folder path for each work item ID (folder names only, no reads).
-        var lastFolderPerWi = new Dictionary<int, string>();
+        var json = await ReadPackageTextAsync($"{folderPath}revision.json", ct).ConfigureAwait(false);
+        if (json is null)
+            return false;
 
-        await foreach (var folderPath in EnumerateWorkItemFoldersAsync(ct).ConfigureAwait(false))
+        WorkItemRevision? revision = null;
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            var folderName = GetFolderName(folderPath);
-            var segs = folderName.Split('-');
-            if (IsCommentFolder(segs)) continue;
-            if (!int.TryParse(segs.Length >= 2 ? segs[1] : null, out var wiId)) continue;
-
-            // Lexicographic order = chronological order; overwriting gives us the latest folder.
-            lastFolderPerWi[wiId] = folderPath;
+            revision = JsonSerializer.Deserialize<WorkItemRevision>(json, _jsonOptions);
+        }
+        catch
+        {
+            return false;
         }
 
-        // Pass 2: read one revision.json per work item, evaluate filters.
-        var passedIds = new HashSet<int>();
+        if (revision is null)
+            return false;
 
-        foreach (var (wiId, folderPath) in lastFolderPerWi)
+        var fields = revision.Fields.ToDictionary(
+            f => f.ReferenceName,
+            f => (object?)f.Value);
+        var fetchedItem = new FetchedWorkItem(workItemId, fields);
+
+        try
         {
-            ct.ThrowIfCancellationRequested();
-
-            var json = await ReadPackageTextAsync($"{folderPath}revision.json", ct).ConfigureAwait(false);
-            if (json is null) continue;
-
-            WorkItemRevision? revision = null;
-            try { revision = JsonSerializer.Deserialize<WorkItemRevision>(json, _jsonOptions); }
-            catch { /* skip unreadable revision */ }
-
-            if (revision is null) continue;
-
-            // Convert WorkItemField list to the FetchedWorkItem fields dictionary.
-            var fields = revision.Fields.ToDictionary(
-                f => f.ReferenceName,
-                f => (object?)f.Value);
-
-            var fetchedItem = new FetchedWorkItem(wiId, fields);
-
-            bool passes;
-            try
-            {
-                passes = WorkItemFieldFilterEvaluator
-                    .PassesFilters(fetchedItem, filterOptions);
-            }
-            catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
-            {
-                _logger.LogWarning(
-                    "[WorkItems] Regex filter timeout evaluating work item {WorkItemId} — treating as non-match.",
-                    wiId);
-                passes = false;
-            }
-
-            if (passes)
-                passedIds.Add(wiId);
+            return WorkItemFieldFilterEvaluator.PassesFilters(fetchedItem, filterOptions);
         }
-
-        return passedIds;
+        catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
+        {
+            _logger.LogWarning(
+                "[WorkItems] Regex filter timeout evaluating work item {WorkItemId} — treating as non-match.",
+                workItemId);
+            return false;
+        }
     }
 
     // --- Comment folder handling ---
