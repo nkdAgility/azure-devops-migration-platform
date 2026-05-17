@@ -640,9 +640,10 @@ public sealed class WorkItemsModule : IModule
             filterOptions: importFilters.Count > 0 ? importFilters : null,
             metrics: _metrics,
             jobId: job.JobId);
+        var revisionImporter = new WorkItemRevisionImporter(orchestrator);
 
         var resumeMode = job.Resume?.Mode ?? ResumeMode.Auto;
-        await orchestrator.ImportAsync(ext, resumeMode, ct).ConfigureAwait(false);
+        await revisionImporter.ExecuteAsync(ext, resumeMode, ct).ConfigureAwait(false);
 
         _logger.LogInformation("[WorkItems] Import complete.");
         return TaskExecutionResult.Completed();
