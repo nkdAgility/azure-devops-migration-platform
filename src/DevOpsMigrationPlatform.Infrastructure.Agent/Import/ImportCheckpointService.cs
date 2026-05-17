@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
@@ -231,6 +232,35 @@ public sealed class ImportCheckpointService : IAsyncDisposable
         }
 
         return keys;
+    }
+
+    public async Task SetCreatedNodePathAsync(
+        ClassificationNodeType nodeType,
+        string nodePath,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        ArgumentException.ThrowIfNullOrWhiteSpace(nodePath);
+
+        var normalizedPath = NormalizeNodePath(nodePath);
+
+        await _idMapWriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
+            await using var command = connection.CreateCommand();
+            command.CommandText = """
+                INSERT OR IGNORE INTO node_creation_map (node_type, node_path)
+                VALUES (@nodeType, @nodePath)
+                """;
+            AddParameter(command, "@nodeType", nodeType.ToString());
+            AddParameter(command, "@nodePath", normalizedPath);
+            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _idMapWriteGate.Release();
+        }
     }
 
     private static string NormalizeNodePath(string nodePath)

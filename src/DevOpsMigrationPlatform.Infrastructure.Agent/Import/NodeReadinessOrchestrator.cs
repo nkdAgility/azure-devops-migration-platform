@@ -139,6 +139,10 @@ public sealed class NodeReadinessOrchestrator
                     if (processed.Add(key))
                     {
                         await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Iteration, targetPath, ct).ConfigureAwait(false);
+                        if (_importCheckpointService is not null)
+                        {
+                            await _importCheckpointService.SetCreatedNodePathAsync(ClassificationNodeType.Iteration, targetPath, ct).ConfigureAwait(false);
+                        }
                     }
 
                     if (iteration.StartDate.HasValue || iteration.FinishDate.HasValue)
@@ -177,6 +181,10 @@ public sealed class NodeReadinessOrchestrator
                 continue;
 
             await _nodeCreator.EnsureExistsAsync(nodeType, targetPath, ct).ConfigureAwait(false);
+            if (_importCheckpointService is not null)
+            {
+                await _importCheckpointService.SetCreatedNodePathAsync(nodeType, targetPath, ct).ConfigureAwait(false);
+            }
         }
     }
 

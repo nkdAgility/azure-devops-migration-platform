@@ -7,6 +7,7 @@ using System.Data.Common;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -171,6 +172,26 @@ public class ImportCheckpointServiceTests
 
         CollectionAssert.AreEquivalent(
             new[] { "Area:Target\\Platform", "Iteration:Target\\Sprint 1" },
+            new List<string>(keys));
+    }
+
+    [TestMethod]
+    public async Task SetCreatedNodePathAsync_ThenGetCreatedNodePathKeysAsync_RoundTripsNormalizedNodeKey()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
+        package
+            .Setup(p => p.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<DbConnection>(connection));
+
+        var sut = new ImportCheckpointService(package.Object);
+
+        await sut.SetCreatedNodePathAsync(ClassificationNodeType.Area, "Target/Platform", CancellationToken.None);
+        await sut.SetCreatedNodePathAsync(ClassificationNodeType.Area, @"\Target\Platform\", CancellationToken.None);
+        var keys = await sut.GetCreatedNodePathKeysAsync(CancellationToken.None);
+
+        CollectionAssert.AreEquivalent(
+            new[] { "Area:Target\\Platform" },
             new List<string>(keys));
     }
 
