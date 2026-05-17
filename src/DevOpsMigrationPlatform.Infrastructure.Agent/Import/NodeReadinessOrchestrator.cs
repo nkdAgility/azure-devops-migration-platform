@@ -72,14 +72,10 @@ public sealed class NodeReadinessOrchestrator
         var processed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (_importCheckpointService is not null)
         {
-            var cursor = await _importCheckpointService.ReadCursorAsync(ct).ConfigureAwait(false);
-            if (cursor is not null)
+            var checkpointedNodes = await _importCheckpointService.GetCreatedNodePathKeysAsync(ct).ConfigureAwait(false);
+            foreach (var checkpointedNode in checkpointedNodes)
             {
-                var checkpointedNodes = await _importCheckpointService.GetCreatedNodePathKeysAsync(ct).ConfigureAwait(false);
-                foreach (var checkpointedNode in checkpointedNodes)
-                {
-                    processed.Add(checkpointedNode);
-                }
+                processed.Add(checkpointedNode);
             }
         }
 

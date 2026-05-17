@@ -380,6 +380,52 @@ public class NodeReadinessOrchestratorTests
     }
 
     [TestMethod]
+    public async Task ExecuteAsync_WhenCursorMissing_StillSkipsCheckpointedNodes()
+    {
+        var referenced = new ReferencedPathsArtifact(
+            AreaPaths: [@"Source\Platform"],
+            IterationPaths: []);
+
+        var packageMock = CreatePackageMock(referencedPaths: referenced);
+        var translationTool = new Mock<INodeTranslationTool>(MockBehavior.Strict);
+        translationTool
+            .Setup(t => t.TranslatePath("System.AreaPath", @"Source\Platform", It.IsAny<ProjectMapping>()))
+            .Returns(new PathTranslation(@"Target\Platform", false, true, false));
+
+        var creator = new Mock<INodeCreator>(MockBehavior.Strict);
+        await using var checkpointConnection = new SqliteConnection("Data Source=:memory:");
+        await checkpointConnection.OpenAsync(CancellationToken.None);
+        await using (var command = checkpointConnection.CreateCommand())
+        {
+            command.CommandText = """
+                CREATE TABLE node_creation_map (
+                    node_type TEXT NOT NULL,
+                    node_path TEXT NOT NULL,
+                    PRIMARY KEY (node_type, node_path)
+                );
+                INSERT INTO node_creation_map (node_type, node_path) VALUES ('Area', 'Target\Platform');
+                """;
+            await command.ExecuteNonQueryAsync(CancellationToken.None);
+        }
+
+        var checkpointPackage = CreateCheckpointPackageMock(checkpointConnection, includeCursor: false);
+        await using var checkpointService = new ImportCheckpointService(checkpointPackage.Object);
+
+        var sut = new NodeReadinessOrchestrator(
+            packageMock.Object,
+            translationTool.Object,
+            creator.Object,
+            NullLogger<NodeReadinessOrchestrator>.Instance,
+            importCheckpointService: checkpointService);
+
+        await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
+
+        creator.Verify(
+            c => c.EnsureExistsAsync(ClassificationNodeType.Area, @"Target\Platform", It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [TestMethod]
     public async Task ExecuteAsync_CreatedNodePaths_ArePersistedAndSkippedOnNextRun()
     {
         var referenced = new ReferencedPathsArtifact(
@@ -475,7 +521,7 @@ public class NodeReadinessOrchestratorTests
             yield return path;
     }
 
-    private static Mock<IPackageAccess> CreateCheckpointPackageMock(DbConnection connection)
+    private static Mock<IPackageAccess> CreateCheckpointPackageMock(DbConnection connection, bool includeCursor = true)
     {
         var cursor = new CursorEntry
         {
@@ -487,7 +533,9 @@ public class NodeReadinessOrchestratorTests
         mock.Setup(p => p.RequestContentAsync(
                 It.Is<PackageContentContext>(c => c.Address != null && string.Equals(c.Address.RelativePath, ".migration/Checkpoints/workitems-import.cursor.json", StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()))
-            .Returns(() => ValueTask.FromResult(CreatePayload(cursor)));
+            .Returns(() => includeCursor
+                ? ValueTask.FromResult(CreatePayload(cursor))
+                : ValueTask.FromResult<PackagePayload?>(null));
         mock.Setup(p => p.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<DbConnection>(connection));
         return mock;
