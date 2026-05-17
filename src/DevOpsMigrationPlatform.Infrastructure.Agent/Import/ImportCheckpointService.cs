@@ -227,11 +227,14 @@ public sealed class ImportCheckpointService : IAsyncDisposable
             if (string.IsNullOrWhiteSpace(nodeType) || string.IsNullOrWhiteSpace(nodePath))
                 continue;
 
-            keys.Add($"{nodeType}:{nodePath}");
+            keys.Add($"{nodeType}:{NormalizeNodePath(nodePath)}");
         }
 
         return keys;
     }
+
+    private static string NormalizeNodePath(string nodePath)
+        => nodePath.Replace('/', '\\').Trim('\\');
 
     private async Task<DbConnection> EnsureIdMapAsync(CancellationToken cancellationToken)
     {
