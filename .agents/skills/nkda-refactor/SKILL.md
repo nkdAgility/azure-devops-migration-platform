@@ -12,7 +12,10 @@ This skill is **strict-gate by default**:
 2. wait for explicit human approval,
 3. only then execute.
 
-Exception:
+Exceptions:
+- When invoked explicitly with automatic metadata such as `nkda-refactor --mode automatic <file>`, this skill runs in **Automatic mode**.
+- In Automatic mode, the explicit `--mode automatic` flag is treated as approval to apply the remediation immediately, but the scope stays limited to one named target file plus tightly coupled files required for compliance.
+- Automatic mode keeps the same compliance-first and test-first requirements, but it does **not** stop for a separate approval prompt.
 - When invoked automatically by the `.specify/extensions.yml` `after_implement` hook with an explicit hook flag such as `nkda-refactor --mode hook`, this skill runs in **Hook mode**.
 - In Hook mode, the user's act of enabling the hook is treated as approval to apply the remediation immediately within the implementation-touched scope.
 - Hook mode keeps the same compliance-first and test-first requirements, but it does **not** stop for a separate approval prompt.
@@ -22,16 +25,19 @@ Exception:
 | Mode | Trigger | Scope source | Approval rule |
 |---|---|---|---|
 | **Manual mode** | User invokes `nkda-refactor` directly | Target file path named by the user | Hard stop for explicit human approval before edits |
+| **Automatic mode** | User invokes `nkda-refactor` with explicit automatic metadata, for example `--mode automatic` | One target file path named by the user, plus tightly coupled files required for compliance | No extra approval prompt; the explicit automatic mode flag is the approval basis |
 | **Hook mode** | Automatic `after_implement` hook from `.specify/extensions.yml` with explicit hook metadata in the command, for example `--mode hook` | Files touched by the implementation session, plus tightly coupled files required for compliance | No extra approval prompt; execute immediately |
 
-Hook-mode detection rule:
-- Do **not** infer Hook mode from ambient conversation state alone.
+Mode detection rules:
+- Do **not** infer Automatic mode or Hook mode from ambient conversation state alone.
+- Enter Automatic mode only when the invocation explicitly carries automatic metadata, for example `--mode automatic`.
 - Enter Hook mode only when the invocation explicitly carries hook metadata, for example `--mode hook`.
-- If that metadata is absent, treat the invocation as Manual mode even if the caller appears to be part of a SpecKit flow.
+- If neither metadata flag is present, treat the invocation as Manual mode even if the caller appears to be part of a SpecKit flow or asks for immediate execution in natural language.
 
 ## Scope
 
 - Manual mode primary input: one target file path from the user request.
+- Automatic mode primary input: one target file path from the explicit invocation.
 - Hook mode primary input: the implementation-touched files detected from the current SpecKit run.
 - Optional scope expansion: tightly coupled files required to complete compliance in touched scope.
 - Do not perform unrelated cleanup.
@@ -61,6 +67,7 @@ Load and follow these existing repository contracts/guardrails:
 
 1. Resolve target scope:
    - Manual mode: parse the target file path from the user request.
+   - Automatic mode: parse the single target file path from the explicit automatic invocation.
    - Hook mode: collect implementation-touched files from the current SpecKit execution context and discard unrelated files.
 2. Load target file + direct consumers/dependencies needed for accurate compliance analysis.
 3. Assess against all six architecture perspectives (Modular Monolith, Clean, Hexagonal, Vertical Slice, Screaming, Architecture Deepening).
@@ -89,7 +96,7 @@ Plan must include:
 
 ## Phase 3 — Approval Gate (Hard Stop)
 
-**Manual mode only. Skip this phase in Hook mode.**
+**Manual mode only. Skip this phase in Automatic mode and Hook mode.**
 
 Before editing code, present:
 - compliance findings summary,
@@ -99,6 +106,8 @@ Before editing code, present:
 - any required class/consent decision.
 
 Then stop and wait for explicit human approval to execute.
+
+If running in Automatic mode, treat the explicit `--mode automatic` flag as approval and continue directly to execution.
 
 If running in Hook mode, treat the enabled `after_implement` hook as implicit approval and continue directly to execution.
 
@@ -130,4 +139,4 @@ For each run, return:
 4. Test-first remediation plan
 5. Expected changes summary
 6. Invocation mode and approval basis
-7. Execution status (planned-only vs executed)
+7. Execution status (planned-only vs executed, with Manual/Automatic/Hook mode stated explicitly)
