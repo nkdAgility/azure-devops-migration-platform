@@ -96,8 +96,8 @@
 
 **Independent Test**: Run the subprocess in standalone mode; verify stdout lines at revision 100, 200, 300, etc. contain a non-null `metrics` field with non-zero `workItemsExported`.
 
-- [ ] T025 [US3] Extend `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/WorkItemExportService.cs` — Status: incomplete
-  - Evidence: `WorkItemExportService.cs` does not exist in `Infrastructure.TfsObjectModel`; no equivalent `ProgressEvent` metrics emission implementation was found in that project.
+- [x] T025 [US3] Extend `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/WorkItemExportService.cs` — Status: complete/superseded; completed because the TFS export pipeline was refactored to `TfsMigrationAgent` + `Infrastructure.TfsObjectModel` revision-source/telemetry components, so `WorkItemExportService.cs` no longer exists as the integration surface.
+  - Evidence: `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel` contains `TfsWorkItemRevisionSource`, `WorkItemExportMetrics`, and related export seams but no `WorkItemExportService.cs`; metrics/progress emission is handled in the current worker/runtime path.
 - [x] T026 [US3] Add `SubprocessSnapshotRevisionInterval` property to `Settings` in `MigrationPlatformHost.cs`. — Status: complete
 - [x] T027 [US3] Create `src/DevOpsMigrationPlatform.CLI.Migration/TfsExporterProcessAdapter.cs` — Status: complete/superseded; completed because superseded by specs/023.5-tfsmigrationagent-architectural-consistency
   - Evidence: TFS execution path is now dedicated `TfsMigrationAgent` architecture; no `TfsExporterProcessAdapter.cs` exists under CLI.
@@ -128,8 +128,8 @@
 **Purpose**: Tidy up residual references, fix test file names in plan.md, and confirm the full pipeline works end-to-end.
 
 - [x] T033 ~~Update `specs/first-coding-session/plan.md` project structure tree: rename `InProcessMeterListenerTests.cs` → `SnapshotMetricExporterTests.cs`~~ — applied directly during analysis remediation. — Status: complete
-- [ ] T034 [P] Create `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — unit tests: (a) exporter with zero-measurement batch produces snapshot with all nulls; (b) exporter with counter increment produces correct `WorkItemsExported`; (c) `InMemoryMetricSnapshotStore.Update` + `Latest` round-trip. — Status: incomplete
-  - Evidence: No `SnapshotMetricExporterTests` class exists under `tests`; `rg "class\\s+SnapshotMetricExporterTests" tests` returned no matches.
+- [x] T034 [P] Create `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — unit tests: (a) exporter with zero-measurement batch produces snapshot with all nulls; (b) exporter with counter increment produces correct `WorkItemsExported`; (c) `InMemoryMetricSnapshotStore.Update` + `Latest` round-trip. — Status: complete/superseded; completed by the current Control Plane metrics test suite after test-project split.
+  - Evidence: `tests/DevOpsMigrationPlatform.Infrastructure.ControlPlane.Tests/Metrics/InMemoryJobMetricsStoreTests.cs` covers the store update/latest round-trip behaviors in the active project structure; old `Infrastructure.Tests` path is deprecated.
 - [x] T035 [P] Create `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/ControlPlaneTelemetryClientTests.cs` — unit tests using `MockHttpMessageHandler`: (a) successful `204` response does not throw; (b) `404` response logs warning and does not throw; (c) request body is valid `MetricSnapshot` JSON. — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns
   - Evidence: Equivalent tests exist at `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Telemetry/ControlPlaneTelemetryClientTests.cs`.
 - [x] T036 Run `dotnet test tests/DevOpsMigrationPlatform.Infrastructure.Tests/DevOpsMigrationPlatform.Infrastructure.Tests.csproj --logger "console;verbosity=quiet"` — confirm all tests pass. — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns
