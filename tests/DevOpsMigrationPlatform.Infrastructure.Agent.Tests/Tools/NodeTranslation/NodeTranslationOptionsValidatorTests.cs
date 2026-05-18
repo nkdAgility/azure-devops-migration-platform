@@ -129,6 +129,21 @@ public class NodeTranslationOptionsValidatorTests
     }
 
     [TestMethod]
+    public void Validate_AreaPathMapping_LookbehindPatternRejectedByRuntimeOptions_Fails()
+    {
+        var opts = new NodeTranslationOptions
+        {
+            AreaPathMappings = [new NodeMapping("(?<=SourceProject\\\\)Team A", "TargetTeam")],
+            IterationPathMappings = []
+        };
+
+        var result = Sut().Validate(null, opts);
+
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(string.Join("|", result.Failures!), "AreaPathMappings[0].Match");
+    }
+
+    [TestMethod]
     public void Validate_MultipleInvalidMappings_ReportsAllErrors()
     {
         var opts = new NodeTranslationOptions
