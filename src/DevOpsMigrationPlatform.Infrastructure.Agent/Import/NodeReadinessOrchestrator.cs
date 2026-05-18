@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -10,9 +9,9 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -35,7 +34,7 @@ public sealed class NodeReadinessOrchestrator
     private readonly ReferencedPathsFromWorkItemsStrategy _referencedPathsFromWorkItemsStrategy;
     private readonly ILogger<NodeReadinessOrchestrator> _logger;
     private readonly NodeTranslationOptions? _nodeTranslationOptions;
-    private readonly ImportCheckpointService? _importCheckpointService;
+    private readonly IImportCreatedNodeStateStore? _importCreatedNodeStateStore;
 
     public NodeReadinessOrchestrator(
         IPackageAccess packageAccess,
@@ -43,14 +42,14 @@ public sealed class NodeReadinessOrchestrator
         INodeCreator nodeCreator,
         ILogger<NodeReadinessOrchestrator> logger,
         IOptions<NodeTranslationOptions>? nodeTranslationOptions = null,
-        ImportCheckpointService? importCheckpointService = null)
+        IImportCreatedNodeStateStore? importCreatedNodeStateStore = null)
     {
         _packageAccess = packageAccess ?? throw new ArgumentNullException(nameof(packageAccess));
         _nodeTranslationTool = nodeTranslationTool ?? throw new ArgumentNullException(nameof(nodeTranslationTool));
         _nodeCreator = nodeCreator ?? throw new ArgumentNullException(nameof(nodeCreator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _nodeTranslationOptions = nodeTranslationOptions?.Value;
-        _importCheckpointService = importCheckpointService;
+        _importCreatedNodeStateStore = importCreatedNodeStateStore;
         _referencedPathsFromWorkItemsStrategy = new ReferencedPathsFromWorkItemsStrategy(_packageAccess, _logger);
     }
 
@@ -59,7 +58,8 @@ public sealed class NodeReadinessOrchestrator
         bool replicateSourceTree,
         CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(context);
+        if (context is null)
+            throw new ArgumentNullException(nameof(context));
 
         using var activity = s_activitySource.StartActivity("nodes.import.readiness");
         activity?.SetTag("replicateSourceTree", replicateSourceTree);
@@ -70,9 +70,9 @@ public sealed class NodeReadinessOrchestrator
             replicateSourceTree);
 
         var processed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (_importCheckpointService is not null)
+        if (_importCreatedNodeStateStore is not null)
         {
-            var checkpointedNodes = await _importCheckpointService.GetCreatedNodePathKeysAsync(ct).ConfigureAwait(false);
+            var checkpointedNodes = await _importCreatedNodeStateStore.GetRecordedCreatedNodeKeysAsync(ct).ConfigureAwait(false);
             foreach (var checkpointedNode in checkpointedNodes)
             {
                 processed.Add(checkpointedNode);
@@ -135,9 +135,9 @@ public sealed class NodeReadinessOrchestrator
                     if (processed.Add(key))
                     {
                         await _nodeCreator.EnsureExistsAsync(ClassificationNodeType.Iteration, targetPath, ct).ConfigureAwait(false);
-                        if (_importCheckpointService is not null)
+                        if (_importCreatedNodeStateStore is not null)
                         {
-                            await _importCheckpointService.SetCreatedNodePathAsync(ClassificationNodeType.Iteration, targetPath, ct).ConfigureAwait(false);
+                            await _importCreatedNodeStateStore.RecordCreatedNodePathAsync(ClassificationNodeType.Iteration, targetPath, ct).ConfigureAwait(false);
                         }
                     }
 
@@ -177,9 +177,9 @@ public sealed class NodeReadinessOrchestrator
                 continue;
 
             await _nodeCreator.EnsureExistsAsync(nodeType, targetPath, ct).ConfigureAwait(false);
-            if (_importCheckpointService is not null)
+            if (_importCreatedNodeStateStore is not null)
             {
-                await _importCheckpointService.SetCreatedNodePathAsync(nodeType, targetPath, ct).ConfigureAwait(false);
+                await _importCreatedNodeStateStore.RecordCreatedNodePathAsync(nodeType, targetPath, ct).ConfigureAwait(false);
             }
         }
     }
@@ -251,8 +251,8 @@ public sealed class NodeReadinessOrchestrator
         if (separatorIndex <= 0 || separatorIndex >= normalizedPath.Length - 1)
             return null;
 
-        var parentPath = normalizedPath[..separatorIndex];
-        var fileName = normalizedPath[(separatorIndex + 1)..];
+        var parentPath = normalizedPath.Substring(0, separatorIndex);
+        var fileName = normalizedPath.Substring(separatorIndex + 1);
 
         await foreach (var enumeratedPath in _packageAccess.EnumerateContentAsync(
                            new PackageContentContext(
@@ -284,7 +284,7 @@ public sealed class NodeReadinessOrchestrator
             payload.Content.Position = 0;
 
         using var reader = new StreamReader(payload.Content);
-        var content = await reader.ReadToEndAsync(ct).ConfigureAwait(false);
+        var content = await reader.ReadToEndAsync().ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(content))
             return default;
 
@@ -299,4 +299,3 @@ public sealed class NodeReadinessOrchestrator
         public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }
-#endif

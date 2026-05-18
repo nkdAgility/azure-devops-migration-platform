@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -64,15 +63,16 @@ internal sealed class ReferencedPathsFromWorkItemsStrategy
 
             foreach (var field in revision.Fields)
             {
-                if (string.Equals(field.ReferenceName, "System.AreaPath", StringComparison.OrdinalIgnoreCase)
-                    && !string.IsNullOrWhiteSpace(field.Value))
+                if (field.Value is not string fieldValue || string.IsNullOrWhiteSpace(fieldValue))
+                    continue;
+
+                if (string.Equals(field.ReferenceName, "System.AreaPath", StringComparison.OrdinalIgnoreCase))
                 {
-                    areaPaths.Add(field.Value);
+                    areaPaths.Add(fieldValue);
                 }
-                else if (string.Equals(field.ReferenceName, "System.IterationPath", StringComparison.OrdinalIgnoreCase)
-                         && !string.IsNullOrWhiteSpace(field.Value))
+                else if (string.Equals(field.ReferenceName, "System.IterationPath", StringComparison.OrdinalIgnoreCase))
                 {
-                    iterationPaths.Add(field.Value);
+                    iterationPaths.Add(fieldValue);
                 }
             }
         }
@@ -106,8 +106,8 @@ internal sealed class ReferencedPathsFromWorkItemsStrategy
         if (payload.Content.CanSeek)
             payload.Content.Position = 0;
 
-        using var reader = new System.IO.StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
-        var content = await reader.ReadToEndAsync(ct).ConfigureAwait(false);
+        using var reader = new System.IO.StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+        var content = await reader.ReadToEndAsync().ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(content))
             return null;
 
@@ -118,7 +118,7 @@ internal sealed class ReferencedPathsFromWorkItemsStrategy
     {
         var trimmed = folderPath.TrimEnd('/');
         var lastSlash = trimmed.LastIndexOf('/');
-        return lastSlash >= 0 ? trimmed[(lastSlash + 1)..] : trimmed;
+        return lastSlash >= 0 ? trimmed.Substring(lastSlash + 1) : trimmed;
     }
 
     private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
@@ -126,4 +126,3 @@ internal sealed class ReferencedPathsFromWorkItemsStrategy
         public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }
-#endif

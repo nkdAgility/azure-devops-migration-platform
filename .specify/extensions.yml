@@ -82,6 +82,13 @@ hooks:
     description: Auto-commit after task generation
     condition: null
   after_implement:
+  - extension: nkda-refactor
+    command: nkda-refactor --mode hook
+    enabled: true
+    optional: false
+    description: Refactor implementation-touched files to guardrail compliance before
+      downstream documentation and completion gates
+    condition: null
   - extension: update-docs
     command: update-docs
     enabled: true

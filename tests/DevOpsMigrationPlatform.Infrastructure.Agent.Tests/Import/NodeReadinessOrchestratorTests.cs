@@ -307,14 +307,14 @@ public class NodeReadinessOrchestratorTests
         }
 
         var checkpointPackage = CreateCheckpointPackageMock(checkpointConnection);
-        await using var checkpointService = new ImportCheckpointService(checkpointPackage.Object);
+        await using var checkpointService = new ImportWorkItemStateStore(checkpointPackage.Object);
 
         var sut = new NodeReadinessOrchestrator(
             packageMock.Object,
             translationTool.Object,
             creator.Object,
             NullLogger<NodeReadinessOrchestrator>.Instance,
-            importCheckpointService: checkpointService);
+            importCreatedNodeStateStore: checkpointService);
 
         await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
 
@@ -360,14 +360,14 @@ public class NodeReadinessOrchestratorTests
         }
 
         var checkpointPackage = CreateCheckpointPackageMock(checkpointConnection);
-        await using var checkpointService = new ImportCheckpointService(checkpointPackage.Object);
+        await using var checkpointService = new ImportWorkItemStateStore(checkpointPackage.Object);
 
         var sut = new NodeReadinessOrchestrator(
             packageMock.Object,
             translationTool.Object,
             creator.Object,
             NullLogger<NodeReadinessOrchestrator>.Instance,
-            importCheckpointService: checkpointService);
+            importCreatedNodeStateStore: checkpointService);
 
         await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
 
@@ -409,14 +409,14 @@ public class NodeReadinessOrchestratorTests
         }
 
         var checkpointPackage = CreateCheckpointPackageMock(checkpointConnection, includeCursor: false);
-        await using var checkpointService = new ImportCheckpointService(checkpointPackage.Object);
+        await using var checkpointService = new ImportWorkItemStateStore(checkpointPackage.Object);
 
         var sut = new NodeReadinessOrchestrator(
             packageMock.Object,
             translationTool.Object,
             creator.Object,
             NullLogger<NodeReadinessOrchestrator>.Instance,
-            importCheckpointService: checkpointService);
+            importCreatedNodeStateStore: checkpointService);
 
         await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
 
@@ -446,18 +446,18 @@ public class NodeReadinessOrchestratorTests
         await using var checkpointConnection = new SqliteConnection("Data Source=:memory:");
         await checkpointConnection.OpenAsync(CancellationToken.None);
         var checkpointPackage = CreateCheckpointPackageMock(checkpointConnection);
-        await using var checkpointService = new ImportCheckpointService(checkpointPackage.Object);
+        await using var checkpointService = new ImportWorkItemStateStore(checkpointPackage.Object);
 
         var sut = new NodeReadinessOrchestrator(
             packageMock.Object,
             translationTool.Object,
             creator.Object,
             NullLogger<NodeReadinessOrchestrator>.Instance,
-            importCheckpointService: checkpointService);
+            importCreatedNodeStateStore: checkpointService);
 
         await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
 
-        var keys = await checkpointService.GetCreatedNodePathKeysAsync(CancellationToken.None);
+        var keys = await checkpointService.GetRecordedCreatedNodeKeysAsync(CancellationToken.None);
         CollectionAssert.Contains(new System.Collections.Generic.List<string>(keys), @"Area:Target\NewArea");
 
         await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);

@@ -7,14 +7,32 @@ description: Refactor a specified code file to full guardrail compliance using s
 
 Use this skill when a specific code file must be brought into compliance with **all active guardrails**.
 
-This skill is **strict-gate**:
+This skill is **strict-gate by default**:
 1. analyse and produce a test-first compliance refactor plan,
 2. wait for explicit human approval,
 3. only then execute.
 
+Exception:
+- When invoked automatically by the `.specify/extensions.yml` `after_implement` hook with an explicit hook flag such as `nkda-refactor --mode hook`, this skill runs in **Hook mode**.
+- In Hook mode, the user's act of enabling the hook is treated as approval to apply the remediation immediately within the implementation-touched scope.
+- Hook mode keeps the same compliance-first and test-first requirements, but it does **not** stop for a separate approval prompt.
+
+## Invocation Modes
+
+| Mode | Trigger | Scope source | Approval rule |
+|---|---|---|---|
+| **Manual mode** | User invokes `nkda-refactor` directly | Target file path named by the user | Hard stop for explicit human approval before edits |
+| **Hook mode** | Automatic `after_implement` hook from `.specify/extensions.yml` with explicit hook metadata in the command, for example `--mode hook` | Files touched by the implementation session, plus tightly coupled files required for compliance | No extra approval prompt; execute immediately |
+
+Hook-mode detection rule:
+- Do **not** infer Hook mode from ambient conversation state alone.
+- Enter Hook mode only when the invocation explicitly carries hook metadata, for example `--mode hook`.
+- If that metadata is absent, treat the invocation as Manual mode even if the caller appears to be part of a SpecKit flow.
+
 ## Scope
 
-- Primary input: one target file path from the user request.
+- Manual mode primary input: one target file path from the user request.
+- Hook mode primary input: the implementation-touched files detected from the current SpecKit run.
 - Optional scope expansion: tightly coupled files required to complete compliance in touched scope.
 - Do not perform unrelated cleanup.
 
@@ -41,7 +59,9 @@ Load and follow these existing repository contracts/guardrails:
 
 ## Phase 1 — Compliance Assessment (No Code Changes)
 
-1. Parse the target file path from the user request.
+1. Resolve target scope:
+   - Manual mode: parse the target file path from the user request.
+   - Hook mode: collect implementation-touched files from the current SpecKit execution context and discard unrelated files.
 2. Load target file + direct consumers/dependencies needed for accurate compliance analysis.
 3. Assess against all six architecture perspectives (Modular Monolith, Clean, Hexagonal, Vertical Slice, Screaming, Architecture Deepening).
 4. Identify all touched-scope non-compliance with concrete evidence (file/line and violated rule).
@@ -68,6 +88,8 @@ Plan must include:
 
 ## Phase 3 — Approval Gate (Hard Stop)
 
+**Manual mode only. Skip this phase in Hook mode.**
+
 Before editing code, present:
 - compliance findings summary,
 - planned remediation sequence,
@@ -75,6 +97,8 @@ Before editing code, present:
 - any required class/consent decision.
 
 Then stop and wait for explicit human approval to execute.
+
+If running in Hook mode, treat the enabled `after_implement` hook as implicit approval and continue directly to execution.
 
 ## Phase 4 — Execution (Only After Approval)
 
@@ -102,4 +126,5 @@ For each run, return:
 2. Compliance findings (by perspective + rule)
 3. Change class decision and consent requirement status
 4. Test-first remediation plan
-5. Execution status (planned-only vs executed)
+5. Invocation mode and approval basis
+6. Execution status (planned-only vs executed)

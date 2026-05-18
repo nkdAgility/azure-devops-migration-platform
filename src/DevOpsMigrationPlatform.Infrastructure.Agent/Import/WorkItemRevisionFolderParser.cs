@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
@@ -37,4 +36,3 @@ internal static class WorkItemRevisionFolderParser
 
 /// <summary>Result of parsing a work item revision folder name.</summary>
 internal sealed record WorkItemRevisionFolderParseResult(long Ticks, int WorkItemId, int RevisionIndex);
-#endif

@@ -36,8 +36,6 @@
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.IO.Compression.FileSystem" />
   </ItemGroup>
-  <ItemGroup Condition="'$(TargetFramework)' != 'net481'">
-  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" />
   </ItemGroup>

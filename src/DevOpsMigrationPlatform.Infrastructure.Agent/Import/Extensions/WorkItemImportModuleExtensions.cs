@@ -40,10 +40,9 @@ public static class WorkItemImportModuleExtensions
         services.AddTransient<IImportFailurePattern, NodePathValidator>();
         services.AddTransient<IImportFailurePattern, WorkItemTypeValidator>();
         services.AddTransient<IImportFailurePattern, IdentityMappingValidator>();
-#if !NET481
-        services.AddSingleton<ImportCheckpointService>();
+        services.AddSingleton<ImportWorkItemStateStore>();
+        services.AddSingleton<IImportCreatedNodeStateStore>(serviceProvider => serviceProvider.GetRequiredService<ImportWorkItemStateStore>());
         services.AddSingleton<NodeReadinessOrchestrator>();
-#endif
 
         return services;
     }

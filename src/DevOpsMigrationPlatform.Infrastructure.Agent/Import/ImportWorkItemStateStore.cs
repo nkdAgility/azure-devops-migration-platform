@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Data;
 using System.Data.Common;
@@ -17,7 +16,7 @@ using DevOpsMigrationPlatform.Abstractions.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 
-public sealed class ImportCheckpointService : IAsyncDisposable
+public sealed class ImportWorkItemStateStore : IAsyncDisposable, IImportCreatedNodeStateStore
 {
     private const string CursorPath = ".migration/Checkpoints/workitems-import.cursor.json";
     private readonly IPackageAccess _package;
@@ -27,7 +26,7 @@ public sealed class ImportCheckpointService : IAsyncDisposable
     private bool _idMapInitialized;
     private bool _disposed;
 
-    public ImportCheckpointService(IPackageAccess package)
+    public ImportWorkItemStateStore(IPackageAccess package)
     {
         _package = package ?? throw new ArgumentNullException(nameof(package));
     }
@@ -44,7 +43,7 @@ public sealed class ImportCheckpointService : IAsyncDisposable
         if (payload.Content.CanSeek)
             payload.Content.Position = 0;
 
-        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
         var json = await reader.ReadToEndAsync().ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(json))
             return null;
@@ -55,7 +54,8 @@ public sealed class ImportCheckpointService : IAsyncDisposable
     public async Task WriteCursorAsync(CursorEntry cursor, CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(cursor);
+        if (cursor is null)
+            throw new ArgumentNullException(nameof(cursor));
 
         var json = JsonSerializer.Serialize(cursor);
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
@@ -65,31 +65,31 @@ public sealed class ImportCheckpointService : IAsyncDisposable
             cancellationToken).ConfigureAwait(false);
     }
 
-    public ResumeDecision ResolveResumeDecision(string folderPath, CursorEntry? cursor)
+    public ImportResumeDecision ResolveWorkItemFolderResumeDecision(string folderPath, CursorEntry? cursor)
     {
         ThrowIfDisposed();
         return ImportResumeDecisionResolver.Resolve(folderPath, cursor);
     }
 
-    public async Task<int?> GetWorkItemMappingAsync(int sourceWorkItemId, CancellationToken cancellationToken)
+    public async Task<int?> GetMappedTargetWorkItemIdAsync(int sourceWorkItemId, CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
-        var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
+        var connection = await EnsureIdMapDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+        using var command = connection.CreateCommand();
         command.CommandText = "SELECT target_id FROM work_item_map WHERE source_id = @sourceId";
         AddParameter(command, "@sourceId", sourceWorkItemId);
         var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
         return result is null or DBNull ? null : Convert.ToInt32(result);
     }
 
-    public async Task SetWorkItemMappingAsync(int sourceWorkItemId, int targetWorkItemId, CancellationToken cancellationToken)
+    public async Task SetMappedTargetWorkItemIdAsync(int sourceWorkItemId, int targetWorkItemId, CancellationToken cancellationToken)
     {
         await _idMapWriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfDisposed();
-            var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
-            await using var command = connection.CreateCommand();
+            var connection = await EnsureIdMapDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+            using var command = connection.CreateCommand();
             command.CommandText = "INSERT OR REPLACE INTO work_item_map (source_id, target_id) VALUES (@sourceId, @targetId)";
             AddParameter(command, "@sourceId", sourceWorkItemId);
             AddParameter(command, "@targetId", targetWorkItemId);
@@ -101,13 +101,14 @@ public sealed class ImportCheckpointService : IAsyncDisposable
         }
     }
 
-    public async Task<string?> GetAttachmentMappingAsync(int sourceWorkItemId, int revisionIndex, string relativePath, CancellationToken cancellationToken)
+    public async Task<string?> GetMappedTargetAttachmentIdAsync(int sourceWorkItemId, int revisionIndex, string relativePath, CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
-        ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
+        if (string.IsNullOrWhiteSpace(relativePath))
+            throw new ArgumentException("Value cannot be null or whitespace.", nameof(relativePath));
 
-        var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
+        var connection = await EnsureIdMapDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+        using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT target_attachment_id FROM attachment_map
             WHERE source_work_item_id = @sourceWorkItemId
@@ -121,7 +122,7 @@ public sealed class ImportCheckpointService : IAsyncDisposable
         return result is null or DBNull ? null : (string)result;
     }
 
-    public async Task SetAttachmentMappingAsync(
+    public async Task SetMappedTargetAttachmentIdAsync(
         int sourceWorkItemId,
         int revisionIndex,
         string relativePath,
@@ -129,14 +130,16 @@ public sealed class ImportCheckpointService : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
-        ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(targetAttachmentId);
+        if (string.IsNullOrWhiteSpace(relativePath))
+            throw new ArgumentException("Value cannot be null or whitespace.", nameof(relativePath));
+        if (string.IsNullOrWhiteSpace(targetAttachmentId))
+            throw new ArgumentException("Value cannot be null or whitespace.", nameof(targetAttachmentId));
 
         await _idMapWriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
-            await using var command = connection.CreateCommand();
+            var connection = await EnsureIdMapDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+            using var command = connection.CreateCommand();
             command.CommandText = """
                 INSERT OR REPLACE INTO attachment_map
                     (source_work_item_id, revision_index, relative_path, target_attachment_id)
@@ -154,13 +157,14 @@ public sealed class ImportCheckpointService : IAsyncDisposable
         }
     }
 
-    public async Task<string?> GetEmbeddedImageMappingAsync(int sourceWorkItemId, int revisionIndex, string relativePath, CancellationToken cancellationToken)
+    public async Task<string?> GetMappedTargetEmbeddedImageIdAsync(int sourceWorkItemId, int revisionIndex, string relativePath, CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
-        ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
+        if (string.IsNullOrWhiteSpace(relativePath))
+            throw new ArgumentException("Value cannot be null or whitespace.", nameof(relativePath));
 
-        var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
+        var connection = await EnsureIdMapDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+        using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT target_image_id FROM embedded_image_map
             WHERE source_work_item_id = @sourceWorkItemId
@@ -174,7 +178,7 @@ public sealed class ImportCheckpointService : IAsyncDisposable
         return result is null or DBNull ? null : (string)result;
     }
 
-    public async Task SetEmbeddedImageMappingAsync(
+    public async Task SetMappedTargetEmbeddedImageIdAsync(
         int sourceWorkItemId,
         int revisionIndex,
         string relativePath,
@@ -182,14 +186,16 @@ public sealed class ImportCheckpointService : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
-        ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(targetImageId);
+        if (string.IsNullOrWhiteSpace(relativePath))
+            throw new ArgumentException("Value cannot be null or whitespace.", nameof(relativePath));
+        if (string.IsNullOrWhiteSpace(targetImageId))
+            throw new ArgumentException("Value cannot be null or whitespace.", nameof(targetImageId));
 
         await _idMapWriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
-            await using var command = connection.CreateCommand();
+            var connection = await EnsureIdMapDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+            using var command = connection.CreateCommand();
             command.CommandText = """
                 INSERT OR REPLACE INTO embedded_image_map
                     (source_work_item_id, revision_index, relative_path, target_image_id)
@@ -207,17 +213,17 @@ public sealed class ImportCheckpointService : IAsyncDisposable
         }
     }
 
-    public async Task<IReadOnlySet<string>> GetCreatedNodePathKeysAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyCollection<string>> GetRecordedCreatedNodeKeysAsync(CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
-        var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
+        var connection = await EnsureIdMapDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+        using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT node_type, node_path FROM node_creation_map
             """;
 
         var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
             if (reader.IsDBNull(0) || reader.IsDBNull(1))
@@ -234,21 +240,22 @@ public sealed class ImportCheckpointService : IAsyncDisposable
         return keys;
     }
 
-    public async Task SetCreatedNodePathAsync(
+    public async Task RecordCreatedNodePathAsync(
         ClassificationNodeType nodeType,
         string nodePath,
         CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
-        ArgumentException.ThrowIfNullOrWhiteSpace(nodePath);
+        if (string.IsNullOrWhiteSpace(nodePath))
+            throw new ArgumentException("Value cannot be null or whitespace.", nameof(nodePath));
 
         var normalizedPath = NormalizeNodePath(nodePath);
 
         await _idMapWriteGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var connection = await EnsureIdMapAsync(cancellationToken).ConfigureAwait(false);
-            await using var command = connection.CreateCommand();
+            var connection = await EnsureIdMapDatabaseReadyAsync(cancellationToken).ConfigureAwait(false);
+            using var command = connection.CreateCommand();
             command.CommandText = """
                 INSERT OR IGNORE INTO node_creation_map (node_type, node_path)
                 VALUES (@nodeType, @nodePath)
@@ -266,7 +273,7 @@ public sealed class ImportCheckpointService : IAsyncDisposable
     private static string NormalizeNodePath(string nodePath)
         => nodePath.Replace('/', '\\').Trim('\\');
 
-    private async Task<DbConnection> EnsureIdMapAsync(CancellationToken cancellationToken)
+    private async Task<DbConnection> EnsureIdMapDatabaseReadyAsync(CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
         if (_idMapInitialized && _idMapConnection is not null)
@@ -285,11 +292,11 @@ public sealed class ImportCheckpointService : IAsyncDisposable
                 if (connection.State != ConnectionState.Open)
                     await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
-                await using var pragmaCommand = connection.CreateCommand();
+                using var pragmaCommand = connection.CreateCommand();
                 pragmaCommand.CommandText = "PRAGMA busy_timeout = 5000;";
                 await pragmaCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
-                await using var command = connection.CreateCommand();
+                using var command = connection.CreateCommand();
                 command.CommandText = """
                     CREATE TABLE IF NOT EXISTS work_item_map (
                         source_id INTEGER PRIMARY KEY,
@@ -367,7 +374,8 @@ public sealed class ImportCheckpointService : IAsyncDisposable
 
     private void ThrowIfDisposed()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_disposed)
+            throw new ObjectDisposedException(GetType().Name);
     }
 
     private static void AddParameter(DbCommand command, string name, object value)
@@ -384,9 +392,8 @@ public sealed class ImportCheckpointService : IAsyncDisposable
     }
 }
 
-public readonly record struct ResumeDecision(bool ShouldSkip, string? ResumeAtStage)
+public readonly record struct ImportResumeDecision(bool ShouldSkip, string? ResumeAtStage)
 {
-    public static ResumeDecision Skip { get; } = new(ShouldSkip: true, ResumeAtStage: null);
-    public static ResumeDecision StartFromBeginning { get; } = new(ShouldSkip: false, ResumeAtStage: null);
+    public static ImportResumeDecision Skip { get; } = new(ShouldSkip: true, ResumeAtStage: null);
+    public static ImportResumeDecision StartFromBeginning { get; } = new(ShouldSkip: false, ResumeAtStage: null);
 }
-#endif

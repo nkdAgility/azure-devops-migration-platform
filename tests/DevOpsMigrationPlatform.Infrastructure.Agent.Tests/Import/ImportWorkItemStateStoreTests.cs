@@ -19,7 +19,7 @@ using Microsoft.Data.Sqlite;
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 
 [TestClass]
-public class ImportCheckpointServiceTests
+public class ImportWorkItemStateStoreTests
 {
     [TestMethod]
     public async Task ReadCursorAsync_WhenCursorExists_ReturnsDeserializedCursor()
@@ -42,7 +42,7 @@ public class ImportCheckpointServiceTests
             .Returns(new ValueTask<PackagePayload?>(new PackagePayload(
                 new MemoryStream(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(expected))), "application/json")));
 
-        var sut = new ImportCheckpointService(package.Object);
+        var sut = new ImportWorkItemStateStore(package.Object);
 
         var actual = await sut.ReadCursorAsync(CancellationToken.None);
 
@@ -83,7 +83,7 @@ public class ImportCheckpointServiceTests
             })
             .Returns(ValueTask.CompletedTask);
 
-        var sut = new ImportCheckpointService(package.Object);
+        var sut = new ImportWorkItemStateStore(package.Object);
 
         await sut.WriteCursorAsync(cursor, CancellationToken.None);
 
@@ -99,10 +99,10 @@ public class ImportCheckpointServiceTests
             .Setup(p => p.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<System.Data.Common.DbConnection>(connection));
 
-        var sut = new ImportCheckpointService(package.Object);
+        var sut = new ImportWorkItemStateStore(package.Object);
 
-        await sut.SetWorkItemMappingAsync(101, 1001, CancellationToken.None);
-        var targetId = await sut.GetWorkItemMappingAsync(101, CancellationToken.None);
+        await sut.SetMappedTargetWorkItemIdAsync(101, 1001, CancellationToken.None);
+        var targetId = await sut.GetMappedTargetWorkItemIdAsync(101, CancellationToken.None);
 
         Assert.AreEqual(1001, targetId);
     }
@@ -116,10 +116,10 @@ public class ImportCheckpointServiceTests
             .Setup(p => p.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<System.Data.Common.DbConnection>(connection));
 
-        var sut = new ImportCheckpointService(package.Object);
+        var sut = new ImportWorkItemStateStore(package.Object);
 
-        await sut.SetAttachmentMappingAsync(42, 7, "attachments/a.bin", "target-attachment-1", CancellationToken.None);
-        var targetAttachment = await sut.GetAttachmentMappingAsync(42, 7, "attachments/a.bin", CancellationToken.None);
+        await sut.SetMappedTargetAttachmentIdAsync(42, 7, "attachments/a.bin", "target-attachment-1", CancellationToken.None);
+        var targetAttachment = await sut.GetMappedTargetAttachmentIdAsync(42, 7, "attachments/a.bin", CancellationToken.None);
 
         Assert.AreEqual("target-attachment-1", targetAttachment);
     }
@@ -133,10 +133,10 @@ public class ImportCheckpointServiceTests
             .Setup(p => p.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<System.Data.Common.DbConnection>(connection));
 
-        var sut = new ImportCheckpointService(package.Object);
+        var sut = new ImportWorkItemStateStore(package.Object);
 
-        await sut.SetEmbeddedImageMappingAsync(42, 8, "images/abc.png", "target-image-1", CancellationToken.None);
-        var targetImage = await sut.GetEmbeddedImageMappingAsync(42, 8, "images/abc.png", CancellationToken.None);
+        await sut.SetMappedTargetEmbeddedImageIdAsync(42, 8, "images/abc.png", "target-image-1", CancellationToken.None);
+        var targetImage = await sut.GetMappedTargetEmbeddedImageIdAsync(42, 8, "images/abc.png", CancellationToken.None);
 
         Assert.AreEqual("target-image-1", targetImage);
     }
@@ -166,9 +166,9 @@ public class ImportCheckpointServiceTests
             .Setup(p => p.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<System.Data.Common.DbConnection>(connection));
 
-        var sut = new ImportCheckpointService(package.Object);
+        var sut = new ImportWorkItemStateStore(package.Object);
 
-        var keys = await sut.GetCreatedNodePathKeysAsync(CancellationToken.None);
+        var keys = await sut.GetRecordedCreatedNodeKeysAsync(CancellationToken.None);
 
         CollectionAssert.AreEquivalent(
             new[] { "Area:Target\\Platform", "Iteration:Target\\Sprint 1" },
@@ -184,11 +184,11 @@ public class ImportCheckpointServiceTests
             .Setup(p => p.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<DbConnection>(connection));
 
-        var sut = new ImportCheckpointService(package.Object);
+        var sut = new ImportWorkItemStateStore(package.Object);
 
-        await sut.SetCreatedNodePathAsync(ClassificationNodeType.Area, "Target/Platform", CancellationToken.None);
-        await sut.SetCreatedNodePathAsync(ClassificationNodeType.Area, @"\Target\Platform\", CancellationToken.None);
-        var keys = await sut.GetCreatedNodePathKeysAsync(CancellationToken.None);
+        await sut.RecordCreatedNodePathAsync(ClassificationNodeType.Area, "Target/Platform", CancellationToken.None);
+        await sut.RecordCreatedNodePathAsync(ClassificationNodeType.Area, @"\Target\Platform\", CancellationToken.None);
+        var keys = await sut.GetRecordedCreatedNodeKeysAsync(CancellationToken.None);
 
         CollectionAssert.AreEquivalent(
             new[] { "Area:Target\\Platform" },
@@ -204,8 +204,8 @@ public class ImportCheckpointServiceTests
             .Setup(p => p.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<DbConnection>(connection));
 
-        var sut = new ImportCheckpointService(package.Object);
-        await sut.SetWorkItemMappingAsync(11, 22, CancellationToken.None);
+        var sut = new ImportWorkItemStateStore(package.Object);
+        await sut.SetMappedTargetWorkItemIdAsync(11, 22, CancellationToken.None);
         Assert.AreEqual(ConnectionState.Open, connection.State);
 
         await sut.DisposeAsync();
@@ -224,23 +224,23 @@ public class ImportCheckpointServiceTests
             .Returns(new ValueTask<DbConnection>(failingConnection))
             .Returns(new ValueTask<DbConnection>(retryConnection));
 
-        var sut = new ImportCheckpointService(package.Object);
+        var sut = new ImportWorkItemStateStore(package.Object);
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
-            sut.SetWorkItemMappingAsync(101, 1001, CancellationToken.None));
+            sut.SetMappedTargetWorkItemIdAsync(101, 1001, CancellationToken.None));
         Assert.IsTrue(failingConnection.WasDisposed);
 
-        await sut.SetWorkItemMappingAsync(101, 1001, CancellationToken.None);
-        var mapped = await sut.GetWorkItemMappingAsync(101, CancellationToken.None);
+        await sut.SetMappedTargetWorkItemIdAsync(101, 1001, CancellationToken.None);
+        var mapped = await sut.GetMappedTargetWorkItemIdAsync(101, CancellationToken.None);
         Assert.AreEqual(1001, mapped);
     }
 
     [TestMethod]
     public void ResolveResumeDecision_WhenNoCursor_StartsFromBeginning()
     {
-        var sut = new ImportCheckpointService(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
+        var sut = new ImportWorkItemStateStore(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
 
-        var decision = sut.ResolveResumeDecision("WorkItems/2026-01-01/638712000000000000-42-1", cursor: null);
+        var decision = sut.ResolveWorkItemFolderResumeDecision("WorkItems/2026-01-01/638712000000000000-42-1", cursor: null);
 
         Assert.IsFalse(decision.ShouldSkip);
         Assert.IsNull(decision.ResumeAtStage);
@@ -249,14 +249,14 @@ public class ImportCheckpointServiceTests
     [TestMethod]
     public void ResolveResumeDecision_WhenFolderPrecedesLastProcessed_SkipsFolder()
     {
-        var sut = new ImportCheckpointService(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
+        var sut = new ImportWorkItemStateStore(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
         var cursor = new CursorEntry
         {
             LastProcessed = "WorkItems/2026-01-01/638712000000000000-42-3",
             Stage = CursorStage.Completed
         };
 
-        var decision = sut.ResolveResumeDecision("WorkItems/2026-01-01/638712000000000000-42-2", cursor);
+        var decision = sut.ResolveWorkItemFolderResumeDecision("WorkItems/2026-01-01/638712000000000000-42-2", cursor);
 
         Assert.IsTrue(decision.ShouldSkip);
         Assert.IsNull(decision.ResumeAtStage);
@@ -265,7 +265,7 @@ public class ImportCheckpointServiceTests
     [TestMethod]
     public void ResolveResumeDecision_WhenCursorIsCreatedOrUpdated_ResumesAtAppliedFields()
     {
-        var sut = new ImportCheckpointService(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
+        var sut = new ImportWorkItemStateStore(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
         var folder = "WorkItems/2026-01-01/638712000000000000-42-3";
         var cursor = new CursorEntry
         {
@@ -273,7 +273,7 @@ public class ImportCheckpointServiceTests
             Stage = CursorStage.CreatedOrUpdated
         };
 
-        var decision = sut.ResolveResumeDecision(folder, cursor);
+        var decision = sut.ResolveWorkItemFolderResumeDecision(folder, cursor);
 
         Assert.IsFalse(decision.ShouldSkip);
         Assert.AreEqual(CursorStage.AppliedFields, decision.ResumeAtStage);
@@ -282,7 +282,7 @@ public class ImportCheckpointServiceTests
     [TestMethod]
     public void ResolveResumeDecision_WhenCursorIsAppliedFields_ResumesAtAppliedLinks()
     {
-        var sut = new ImportCheckpointService(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
+        var sut = new ImportWorkItemStateStore(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
         var folder = "WorkItems/2026-01-01/638712000000000000-42-3";
         var cursor = new CursorEntry
         {
@@ -290,7 +290,7 @@ public class ImportCheckpointServiceTests
             Stage = CursorStage.AppliedFields
         };
 
-        var decision = sut.ResolveResumeDecision(folder, cursor);
+        var decision = sut.ResolveWorkItemFolderResumeDecision(folder, cursor);
 
         Assert.IsFalse(decision.ShouldSkip);
         Assert.AreEqual(CursorStage.AppliedLinks, decision.ResumeAtStage);
@@ -299,7 +299,7 @@ public class ImportCheckpointServiceTests
     [TestMethod]
     public void ResolveResumeDecision_WhenCursorIsAppliedLinks_ResumesAtUploadedAttachments()
     {
-        var sut = new ImportCheckpointService(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
+        var sut = new ImportWorkItemStateStore(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
         var folder = "WorkItems/2026-01-01/638712000000000000-42-3";
         var cursor = new CursorEntry
         {
@@ -307,7 +307,7 @@ public class ImportCheckpointServiceTests
             Stage = CursorStage.AppliedLinks
         };
 
-        var decision = sut.ResolveResumeDecision(folder, cursor);
+        var decision = sut.ResolveWorkItemFolderResumeDecision(folder, cursor);
 
         Assert.IsFalse(decision.ShouldSkip);
         Assert.AreEqual(CursorStage.UploadedAttachments, decision.ResumeAtStage);
@@ -316,7 +316,7 @@ public class ImportCheckpointServiceTests
     [TestMethod]
     public void ResolveResumeDecision_WhenCursorIsUploadedAttachments_SkipsToPreventDuplicateWork()
     {
-        var sut = new ImportCheckpointService(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
+        var sut = new ImportWorkItemStateStore(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
         var folder = "WorkItems/2026-01-01/638712000000000000-42-3";
         var cursor = new CursorEntry
         {
@@ -324,7 +324,7 @@ public class ImportCheckpointServiceTests
             Stage = CursorStage.UploadedAttachments
         };
 
-        var decision = sut.ResolveResumeDecision(folder, cursor);
+        var decision = sut.ResolveWorkItemFolderResumeDecision(folder, cursor);
 
         Assert.IsTrue(decision.ShouldSkip);
         Assert.IsNull(decision.ResumeAtStage);
@@ -333,7 +333,7 @@ public class ImportCheckpointServiceTests
     [TestMethod]
     public void ResolveResumeDecision_WhenCursorIsCompleted_SkipsToPreventDuplicateWork()
     {
-        var sut = new ImportCheckpointService(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
+        var sut = new ImportWorkItemStateStore(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
         var folder = "WorkItems/2026-01-01/638712000000000000-42-3";
         var cursor = new CursorEntry
         {
@@ -341,7 +341,7 @@ public class ImportCheckpointServiceTests
             Stage = CursorStage.Completed
         };
 
-        var decision = sut.ResolveResumeDecision(folder, cursor);
+        var decision = sut.ResolveWorkItemFolderResumeDecision(folder, cursor);
 
         Assert.IsTrue(decision.ShouldSkip);
         Assert.IsNull(decision.ResumeAtStage);
@@ -350,7 +350,7 @@ public class ImportCheckpointServiceTests
     [TestMethod]
     public void ResolveResumeDecision_WhenCursorStageIsUnknown_ThrowsInvalidDataException()
     {
-        var sut = new ImportCheckpointService(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
+        var sut = new ImportWorkItemStateStore(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
         var folder = "WorkItems/2026-01-01/638712000000000000-42-3";
         var cursor = new CursorEntry
         {
@@ -358,7 +358,7 @@ public class ImportCheckpointServiceTests
             Stage = "BadStage"
         };
 
-        Assert.ThrowsExactly<InvalidDataException>(() => sut.ResolveResumeDecision(folder, cursor));
+        Assert.ThrowsExactly<InvalidDataException>(() => sut.ResolveWorkItemFolderResumeDecision(folder, cursor));
     }
 
     private sealed class InitializationFailingDbConnection : DbConnection

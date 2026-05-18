@@ -9,30 +9,30 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 
 internal static class ImportResumeDecisionResolver
 {
-    internal static ResumeDecision Resolve(string folderPath, CursorEntry? cursor)
+    internal static ImportResumeDecision Resolve(string folderPath, CursorEntry? cursor)
     {
         if (string.IsNullOrWhiteSpace(folderPath))
             throw new ArgumentException("Folder path cannot be null or whitespace.", nameof(folderPath));
         var normalizedFolderPath = NormalizeFolderPath(folderPath);
 
         if (cursor is null || string.IsNullOrWhiteSpace(cursor.LastProcessed))
-            return ResumeDecision.StartFromBeginning;
+            return ImportResumeDecision.StartFromBeginning;
 
         var normalizedLastProcessed = NormalizeFolderPath(cursor.LastProcessed);
         var comparison = string.CompareOrdinal(normalizedFolderPath, normalizedLastProcessed);
         if (comparison < 0)
-            return ResumeDecision.Skip;
+            return ImportResumeDecision.Skip;
 
         if (comparison > 0)
-            return ResumeDecision.StartFromBeginning;
+            return ImportResumeDecision.StartFromBeginning;
 
         if (string.Equals(cursor.Stage, CursorStage.Completed, StringComparison.Ordinal))
-            return ResumeDecision.Skip;
+            return ImportResumeDecision.Skip;
 
         var nextStage = GetNextStage(cursor.Stage);
         return nextStage is null || string.Equals(nextStage, CursorStage.Completed, StringComparison.Ordinal)
-            ? ResumeDecision.Skip
-            : new ResumeDecision(false, nextStage);
+            ? ImportResumeDecision.Skip
+            : new ImportResumeDecision(false, nextStage);
     }
 
     private static string NormalizeFolderPath(string path)
