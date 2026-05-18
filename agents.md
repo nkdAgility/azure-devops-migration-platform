@@ -173,3 +173,8 @@ Core authoritative constraints:
 `/.agents/20-guardrails` enforces architecture.
 `agents.md` binds docs, contracts, and guardrails.
 
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+<!-- SPECKIT END -->

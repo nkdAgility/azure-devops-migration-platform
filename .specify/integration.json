@@ -1,13 +1,23 @@
 {
-  "version": "0.8.8.dev0",
+  "version": "0.8.12.dev0",
   "integration_state_schema": 1,
   "installed_integrations": [
-    "copilot"
+    "copilot",
+    "claude",
+    "codex"
   ],
   "integration_settings": {
     "copilot": {
       "script": "ps",
       "invoke_separator": "."
+    },
+    "claude": {
+      "script": "ps",
+      "invoke_separator": "-"
+    },
+    "codex": {
+      "script": "ps",
+      "invoke_separator": "-"
     }
   },
   "integration": "copilot",
