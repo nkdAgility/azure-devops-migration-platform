@@ -6,6 +6,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -36,6 +37,7 @@ public sealed class AttachmentReplayService
         string folderPath,
         int targetWorkItemId,
         Func<string, CancellationToken, Task<Stream?>> readBinaryAsync,
+        ISet<string>? availableBinaryPaths,
         CancellationToken ct)
     {
         if (revision is null)
@@ -49,16 +51,19 @@ public sealed class AttachmentReplayService
 
         foreach (var attachment in revision.Attachments)
         {
+            if (!TryBuildReplayAttachment(folderPath, attachment, availableBinaryPaths, out var replayAttachment))
+                continue;
+
             var existingId = await _idMapStore.GetAttachmentIdAsync(
-                revision.WorkItemId, revision.RevisionIndex, attachment.RelativePath, ct).ConfigureAwait(false);
+                revision.WorkItemId, revision.RevisionIndex, replayAttachment.RelativePath, ct).ConfigureAwait(false);
 
             if (existingId is not null)
             {
-                _logger.LogDebug("[WorkItems] Attachment {File} already uploaded — skipping.", attachment.RelativePath);
+                _logger.LogDebug("[WorkItems] Attachment {File} already uploaded — skipping.", replayAttachment.RelativePath);
                 continue;
             }
 
-            var binaryPath = $"{folderPath}/{attachment.RelativePath}";
+            var binaryPath = replayAttachment.BinaryPath;
             using var stream = await readBinaryAsync(binaryPath, ct).ConfigureAwait(false);
             if (stream is null)
             {
@@ -67,11 +72,58 @@ public sealed class AttachmentReplayService
             }
 
             var targetAttachmentId = await _target.UploadAttachmentAsync(
-                targetWorkItemId, attachment.OriginalName, stream, ct).ConfigureAwait(false);
+                targetWorkItemId, replayAttachment.OriginalName, stream, ct).ConfigureAwait(false);
 
             await _idMapStore.SetAttachmentMappingAsync(
-                revision.WorkItemId, revision.RevisionIndex, attachment.RelativePath, targetAttachmentId, ct)
+                revision.WorkItemId, revision.RevisionIndex, replayAttachment.RelativePath, targetAttachmentId, ct)
                 .ConfigureAwait(false);
         }
     }
+
+    private bool TryBuildReplayAttachment(
+        string folderPath,
+        Abstractions.Agent.Attachments.AttachmentMetadata attachment,
+        ISet<string>? availableBinaryPaths,
+        out ReplayAttachment replayAttachment)
+    {
+        replayAttachment = default;
+
+        if (string.IsNullOrWhiteSpace(attachment.RelativePath))
+        {
+            _logger.LogWarning("[WorkItems] Attachment metadata is missing relativePath — skipping.");
+            return false;
+        }
+
+        var originalName = !string.IsNullOrWhiteSpace(attachment.OriginalName)
+            ? attachment.OriginalName
+            : Path.GetFileName(attachment.RelativePath);
+        if (string.IsNullOrWhiteSpace(originalName))
+        {
+            _logger.LogWarning("[WorkItems] Attachment {Path} has no name metadata — skipping.", attachment.RelativePath);
+            return false;
+        }
+
+        var binaryPath = $"{folderPath}/{attachment.RelativePath}".Replace('\\', '/');
+        var relativeToWorkItems = binaryPath.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase)
+            ? binaryPath.Substring("WorkItems/".Length)
+            : binaryPath;
+        if (availableBinaryPaths is not null &&
+            !availableBinaryPaths.Contains(binaryPath) &&
+            !availableBinaryPaths.Contains(relativeToWorkItems))
+        {
+            _logger.LogWarning("[WorkItems] Attachment binary {Path} was not found in revision enumeration — skipping.", binaryPath);
+            return false;
+        }
+
+        replayAttachment = new ReplayAttachment(
+            attachment.RelativePath,
+            originalName,
+            binaryPath);
+        return true;
+    }
+
+    private readonly record struct ReplayAttachment(
+        string RelativePath,
+        string OriginalName,
+        string BinaryPath);
 }

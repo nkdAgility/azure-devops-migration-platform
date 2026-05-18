@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
@@ -129,8 +130,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
             return;
         }
 
-        var revision = JsonSerializer.Deserialize<WorkItemRevision>(revisionJson, _jsonOptions)
-            ?? throw new InvalidOperationException($"Failed to deserialise revision.json in {folderPath}");
+        var revision = ParseRevision(revisionJson, folderPath);
 
         // Record import-side payload complexity metrics.
         if (_metrics != null)
@@ -262,7 +262,13 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         if (ext.AttachmentsEnabled && ShouldRunStage(CursorStage.UploadedAttachments, resumeAtStage))
         {
             await _attachmentReplayService
-                .ReplayAsync(revision, folderPath, resolvedTargetId, ReadPackageBinaryAsync, ct)
+                .ReplayAsync(
+                    revision,
+                    folderPath,
+                    resolvedTargetId,
+                    ReadPackageBinaryAsync,
+                    await EnumerateAttachmentBinariesAsync(folderPath, ct).ConfigureAwait(false),
+                    ct)
                 .ConfigureAwait(false);
 
             await WriteCursorAsync(folderPath, CursorStage.UploadedAttachments, ct).ConfigureAwait(false);
@@ -445,6 +451,36 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
             ct).ConfigureAwait(false);
     }
 
+    private async Task<ISet<string>?> EnumerateAttachmentBinariesAsync(string folderPath, CancellationToken ct)
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        var binaryPaths = new HashSet<string>(StringComparer.Ordinal);
+        var paths = _package.EnumerateContentAsync(
+            new PackageContentContext(
+                PackageContentKind.Collection,
+                Address: new RelativePathAddress($"{folderPath.Replace('\\', '/').TrimEnd('/')}/"),
+                IsCollectionRequest: true),
+            ct);
+        if (paths is null)
+            return null;
+
+        await foreach (var path in paths.ConfigureAwait(false))
+        {
+            var normalizedPath = path.Replace('\\', '/').TrimEnd('/');
+            if (normalizedPath.EndsWith("/revision.json", StringComparison.OrdinalIgnoreCase) ||
+                normalizedPath.EndsWith("/comment.json", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            binaryPaths.Add(normalizedPath);
+        }
+
+        return binaryPaths.Count == 0 ? null : binaryPaths;
+    }
+
     private PackageContentContext CreateArtefactContext(string path)
     {
         if (path.EndsWith("revision.json", StringComparison.OrdinalIgnoreCase))
@@ -504,5 +540,84 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         foreach (var kvp in dict)
             result.Add(new WorkItemField { ReferenceName = kvp.Key, Value = kvp.Value?.ToString() });
         return result;
+    }
+
+    private static WorkItemRevision ParseRevision(string revisionJson, string folderPath)
+    {
+        var revision = JsonSerializer.Deserialize<WorkItemRevision>(revisionJson, _jsonOptions)
+            ?? throw new InvalidOperationException($"Failed to deserialise revision.json in {folderPath}");
+
+        using var jsonDocument = JsonDocument.Parse(revisionJson);
+        if (!jsonDocument.RootElement.TryGetProperty("Attachments", out var attachmentsElement) ||
+            attachmentsElement.ValueKind != JsonValueKind.Array)
+        {
+            return revision;
+        }
+
+        var parsedAttachments = new List<AttachmentMetadata>(attachmentsElement.GetArrayLength());
+        foreach (var element in attachmentsElement.EnumerateArray())
+        {
+            var relativePath =
+                GetString(element, "relativePath") ??
+                GetString(element, "path") ??
+                GetString(element, "binaryFile") ??
+                string.Empty;
+
+            parsedAttachments.Add(new AttachmentMetadata
+            {
+                SourceId = GetString(element, "id") ?? string.Empty,
+                OriginalName = GetString(element, "name") ?? GetString(element, "originalName") ?? string.Empty,
+                RelativePath = relativePath,
+                Sha256 = GetString(element, "sha256") ?? string.Empty,
+                Size = GetInt64(element, "size"),
+                ContentType = GetString(element, "contentType") ?? string.Empty
+            });
+        }
+
+        return revision with { Attachments = parsedAttachments };
+    }
+
+    private static string? GetString(JsonElement element, string propertyName)
+    {
+        if (!TryGetPropertyIgnoreCase(element, propertyName, out var property) ||
+            property.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        return property.GetString();
+    }
+
+    private static long GetInt64(JsonElement element, string propertyName)
+    {
+        if (!TryGetPropertyIgnoreCase(element, propertyName, out var property))
+            return 0;
+
+        return property.ValueKind switch
+        {
+            JsonValueKind.Number when property.TryGetInt64(out var value) => value,
+            JsonValueKind.String when long.TryParse(property.GetString(), out var parsed) => parsed,
+            _ => 0
+        };
+    }
+
+    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement property)
+    {
+        foreach (var candidate in element.EnumerateObject())
+        {
+            if (string.Equals(candidate.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                property = candidate.Value;
+                return true;
+            }
+        }
+
+        property = default;
+        return false;
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

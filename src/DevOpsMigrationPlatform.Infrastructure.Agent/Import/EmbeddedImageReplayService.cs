@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -18,6 +19,9 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 /// </summary>
 public sealed class EmbeddedImageReplayService
 {
+    private static readonly Regex MarkdownImageRegex = new(@"!\[[^\]]*\]\((?<url>[^)\s]+)[^)]*\)", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex HtmlImageRegex = new(@"<img\b[^>]*\bsrc\s*=\s*[""'](?<url>[^""']+)[""'][^>]*>", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
     private readonly IWorkItemImportTarget _target;
     private readonly ILogger<EmbeddedImageReplayService> _logger;
 
@@ -45,8 +49,9 @@ public sealed class EmbeddedImageReplayService
         if (readBinaryAsync is null)
             throw new ArgumentNullException(nameof(readBinaryAsync));
 
-        var urlMap = new Dictionary<string, string>(images.Count, StringComparer.Ordinal);
-        foreach (var image in images)
+        var replayCandidates = BuildReplayCandidates(fields, images);
+        var urlMap = new Dictionary<string, string>(replayCandidates.Count, StringComparer.Ordinal);
+        foreach (var image in replayCandidates)
         {
             var imagePath = $"{folderPath}/{image.RelativePath}";
             using var imageStream = await readBinaryAsync(imagePath, ct).ConfigureAwait(false);
@@ -66,7 +71,7 @@ public sealed class EmbeddedImageReplayService
         var rewrittenFields = new List<WorkItemField>(fields.Count);
         foreach (var field in fields)
         {
-            if (field.Value is string textValue && textValue.IndexOf("http", StringComparison.OrdinalIgnoreCase) >= 0)
+            if (field.Value is string textValue)
             {
                 var rewrittenText = textValue;
                 foreach (var mapping in urlMap)
@@ -85,5 +90,78 @@ public sealed class EmbeddedImageReplayService
         }
 
         return rewrittenFields;
+    }
+
+    private IReadOnlyList<EmbeddedImageMetadata> BuildReplayCandidates(
+        IReadOnlyList<WorkItemField> fields,
+        IReadOnlyList<EmbeddedImageMetadata> explicitImages)
+    {
+        var candidates = new List<EmbeddedImageMetadata>(explicitImages.Count);
+        var seenOriginalUrls = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var image in explicitImages)
+        {
+            var normalized = NormalizeCandidate(image.OriginalUrl, image.RelativePath);
+            if (normalized is null || !seenOriginalUrls.Add(normalized.OriginalUrl))
+                continue;
+
+            candidates.Add(normalized);
+        }
+
+        foreach (var reference in ParseEmbeddedImageReferences(fields))
+        {
+            if (reference.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                reference.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+                reference.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var inferred = NormalizeCandidate(reference, reference);
+            if (inferred is null || !seenOriginalUrls.Add(inferred.OriginalUrl))
+                continue;
+
+            candidates.Add(inferred);
+        }
+
+        return candidates;
+    }
+
+    private static EmbeddedImageMetadata? NormalizeCandidate(string originalUrl, string relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(originalUrl) || string.IsNullOrWhiteSpace(relativePath))
+            return null;
+
+        return new EmbeddedImageMetadata
+        {
+            OriginalUrl = originalUrl,
+            RelativePath = relativePath.TrimStart('/', '\\'),
+            Extension = string.Empty,
+            Sha256 = string.Empty,
+            Size = 0
+        };
+    }
+
+    private static IEnumerable<string> ParseEmbeddedImageReferences(IReadOnlyList<WorkItemField> fields)
+    {
+        foreach (var field in fields)
+        {
+            if (field.Value is not string textValue || string.IsNullOrWhiteSpace(textValue))
+                continue;
+
+            foreach (Match match in MarkdownImageRegex.Matches(textValue))
+            {
+                var url = match.Groups["url"].Value;
+                if (!string.IsNullOrWhiteSpace(url))
+                    yield return url;
+            }
+
+            foreach (Match match in HtmlImageRegex.Matches(textValue))
+            {
+                var url = match.Groups["url"].Value;
+                if (!string.IsNullOrWhiteSpace(url))
+                    yield return url;
+            }
+        }
     }
 }

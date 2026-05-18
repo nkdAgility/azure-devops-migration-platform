@@ -346,6 +346,41 @@ public class RevisionFolderProcessorTests
         _mockIdMapStore.Verify(s => s.RecordSkippedRevisionAsync(1, "UnresolvablePath", It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [TestMethod]
+    public async Task ProcessAsync_WhenRevisionJsonUsesAttachmentMetadataAliases_ReplaysAttachmentUsingParsedMetadata()
+    {
+        var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"}],"Attachments":[{"id":"att-1","name":"evidence.zip","contentType":"application/zip","size":12,"binaryFile":"attachments/evidence.zip"}],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
+        SetupPackageText($"{Folder}/revision.json", json);
+        SetupPackageText($"{Folder}/comment.json", null);
+        SetupPackageBinary($"{Folder}/attachments/evidence.zip", [1, 2, 3]);
+        _mockPackage
+            .Setup(p => p.EnumerateContentAsync(
+                It.IsAny<PackageContentContext>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(EnumeratePaths($"{Folder}/attachments/evidence.zip"));
+
+        SetupNoMapping();
+        SetupTargetCreate(newTargetId: 10);
+        SetupCursorWrites();
+        SetupResolutionStrategyNoOp();
+        SetupTargetFieldsAndLinks(targetId: 10);
+
+        _mockTarget
+            .Setup(t => t.UploadAttachmentAsync(10, "evidence.zip", It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("simulated://10/evidence.zip");
+        _mockIdMapStore
+            .Setup(s => s.SetAttachmentMappingAsync(1, 0, "attachments/evidence.zip", "simulated://10/evidence.zip", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var sut = CreateSut();
+        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        _mockTarget.Verify(t => t.UploadAttachmentAsync(10, "evidence.zip", It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockIdMapStore.Verify(
+            s => s.SetAttachmentMappingAsync(1, 0, "attachments/evidence.zip", "simulated://10/evidence.zip", It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private void SetupRevisionJson(string? json = null)
@@ -445,5 +480,14 @@ public class RevisionFolderProcessorTests
         _mockResolutionStrategy
             .Setup(s => s.WriteProvenanceAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+    }
+
+    private static async IAsyncEnumerable<string> EnumeratePaths(params string[] paths)
+    {
+        foreach (var path in paths)
+        {
+            yield return path;
+            await Task.Yield();
+        }
     }
 }

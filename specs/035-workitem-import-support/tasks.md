@@ -252,8 +252,8 @@ This document defines the complete task decomposition for implementing the Work 
 ### Attachment Replay Service (US4: Scenario 1, FR-018)
 
 - [X] T088 [US4] Create AttachmentReplayService class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/AttachmentReplayService.cs` with ReplayAsync method — Status: complete
-- [ ] T089 [US4] [P] Implement attachment metadata parsing from revision.json (attachment array with id, name, size, contentType, and binary file reference) — Status: incomplete
-- [ ] T090 [US4] [P] Enumerate attachment binaries in revision folder via IArtefactStore.EnumerateAsync — Status: incomplete
+- [X] T089 [US4] [P] Implement attachment metadata parsing from revision.json (attachment array with id, name, size, contentType, and binary file reference) — Status: complete
+- [X] T090 [US4] [P] Enumerate attachment binaries in revision folder via IArtefactStore.EnumerateAsync — Status: complete
 - [X] T091 [US4] [P] **SIMULATED**: Implement Simulated connector attachment upload — store binary in-memory with metadata linked to work item — Status: complete
 - [X] T092 [US4] [P] **AZURE DEVOPS**: Implement Azure DevOps REST API attachment upload — call POST /attachments endpoint and associate with work item — Status: complete (verified existing implementation)
 - [ ] T093 [US4] [P] **TFS**: Implement TFS OM attachment upload via TfsMigrationAgent — upload attachment via TFS API — Status: blocked (TeamFoundationServer target import is disallowed by configuration validation; source-only connector)
@@ -262,7 +262,7 @@ This document defines the complete task decomposition for implementing the Work 
 ### Embedded Image Replay Service (US4: Scenario 2, FR-020)
 
 - [X] T095 [US4] Create EmbeddedImageReplayService class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/EmbeddedImageReplayService.cs` with ReplayAsync method — Status: complete
-- [ ] T096 [US4] [P] Parse revision field values for embedded image references (e.g., HTML img tags, markdown ![...]) — Status: incomplete
+- [X] T096 [US4] [P] Parse revision field values for embedded image references (e.g., HTML img tags, markdown ![...]) — Status: complete
 - [X] T097 [US4] [P] Extract image binary references from package via IArtefactStore.ReadFileAsync — Status: complete
 - [X] T098 [US4] [P] **SIMULATED**: Implement Simulated connector image upload — store image in-memory and generate target URL references — Status: complete
 - [X] T099 [US4] [P] **AZURE DEVOPS**: Implement Azure DevOps image upload — call appropriate API for image hosting (or attachment-backed URL) — Status: complete (verified existing implementation)

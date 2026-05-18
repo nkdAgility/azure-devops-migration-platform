@@ -53,4 +53,33 @@ public class EmbeddedImageReplayServiceTests
             rewritten[0].Value);
         target.VerifyAll();
     }
+
+    [TestMethod]
+    public async Task RewriteFieldValuesAsync_WhenFieldContainsMarkdownRelativeImage_ParsesAndRewritesReference()
+    {
+        var fields = new List<WorkItemField>
+        {
+            new()
+            {
+                ReferenceName = "System.Description",
+                Value = "![diagram](images/flow.png)"
+            }
+        };
+
+        var target = new Mock<IWorkItemImportTarget>(MockBehavior.Strict);
+        target
+            .Setup(t => t.UploadEmbeddedImageAsync("images/flow.png", It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("https://target.example/images/flow.png");
+
+        var sut = new EmbeddedImageReplayService(target.Object, NullLogger<EmbeddedImageReplayService>.Instance);
+        var rewritten = await sut.RewriteFieldValuesAsync(
+            fields,
+            Array.Empty<EmbeddedImageMetadata>(),
+            "WorkItems/2026-01-01/00000000000000000042-42-3",
+            (_, _) => Task.FromResult<Stream?>(new MemoryStream([1, 2, 3])),
+            CancellationToken.None);
+
+        Assert.AreEqual("![diagram](https://target.example/images/flow.png)", rewritten[0].Value);
+        target.VerifyAll();
+    }
 }

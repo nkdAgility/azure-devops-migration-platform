@@ -50,9 +50,52 @@ public class AttachmentReplayServiceTests
             "WorkItems/2026-01-01/00000000000000000042-42-3",
             101,
             (_, _) => Task.FromResult<Stream?>(new MemoryStream([1, 2, 3])),
+            null,
             CancellationToken.None);
 
         target.VerifyAll();
         idMapStore.VerifyAll();
+    }
+
+    [TestMethod]
+    public async Task ReplayAsync_WhenAttachmentBinaryNotInEnumeratedSet_SkipsUpload()
+    {
+        var target = new Mock<IWorkItemImportTarget>(MockBehavior.Strict);
+        var idMapStore = new Mock<IIdMapStore>(MockBehavior.Strict);
+        var revision = new WorkItemRevision
+        {
+            WorkItemId = 42,
+            RevisionIndex = 3,
+            Attachments =
+            [
+                new AttachmentMetadata
+                {
+                    OriginalName = "sample.bin",
+                    RelativePath = "attachments/sample.bin",
+                    Size = 7,
+                    ContentType = "application/octet-stream"
+                }
+            ]
+        };
+
+        idMapStore
+            .Setup(s => s.GetAttachmentIdAsync(42, 3, "attachments/sample.bin", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+
+        var sut = new AttachmentReplayService(target.Object, idMapStore.Object, NullLogger<AttachmentReplayService>.Instance);
+        await sut.ReplayAsync(
+            revision,
+            "WorkItems/2026-01-01/00000000000000000042-42-3",
+            101,
+            (_, _) => Task.FromResult<Stream?>(new MemoryStream([1, 2, 3])),
+            new HashSet<string>(StringComparer.Ordinal) { "WorkItems/2026-01-01/00000000000000000042-42-3/attachments/other.bin" },
+            CancellationToken.None);
+
+        target.Verify(
+            t => t.UploadAttachmentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        idMapStore.Verify(
+            s => s.SetAttachmentMappingAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }
