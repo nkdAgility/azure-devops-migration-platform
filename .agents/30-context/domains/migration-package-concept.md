@@ -71,16 +71,16 @@ PackageRoot/
       export.identities.cursor.json
 ```
 
-> **Legacy fallback:** Packages created before scoped metadata routing may store cursor files under root `.migration/Checkpoints/` (or legacy `Checkpoints/`). Readers should try project scope, then organisation scope, then migration scope, then legacy root-level checkpoints.
+> **Legacy fallback:** Packages created before scoped metadata routing may store cursor files under root `.migration/Checkpoints/` (or legacy `Checkpoints/`). Readers should try project scope, then org scope, then package scope, then legacy root-level checkpoints.
 
 ### Scope Semantics
 
-- Root `.migration/` is authoritative migration-scoped package state shared across runs.
+- Root `.migration/` is authoritative package-scoped state shared across runs.
 - `/{org}/.migration/` is authoritative organisation-scoped resume state.
 - `/{org}/{project}/.migration/` is authoritative project-scoped resume state.
 - `.migration/runs/<runId>/` is run-scoped audit output only.
 - Cursor identity is action-qualified by design (`<action>.<module>`), so inventory/export/import never collide.
-- Read precedence is project → organisation → migration; writes target the most-specific resolved scope.
+- Read precedence is project → org → package; writes target the most-specific resolved scope.
 
 Run-scoped `job.json`, `plan.json`, and `config.json` are copies of what was executed for that run. They are not the source of truth for later resume or phase-gate decisions.
 

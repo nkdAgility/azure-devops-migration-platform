@@ -41,7 +41,7 @@ Align runtime behavior with the documented scoped package model and the clarifie
 - [x] **Package-First (I):** Design keeps Source → Package → Target only; state authority remains package-resident via `IArtefactStore`/`IStateStore`.  
 - [x] **Streaming (II):** Design preserves one-folder-at-a-time processing and forbids global in-memory sort/materialization.  
 - [x] **WorkItems Layout (III):** WorkItems folder contract remains unchanged; only save/progress cadence and cursor identity semantics change.  
-- [x] **Checkpointing (IV):** Design keeps authoritative resume semantics on scoped action-qualified cursors (`/{org}/{project}/.migration/`, `/{org}/.migration/`, and `/.migration/`) with read precedence project → organisation → migration.  
+- [x] **Checkpointing (IV):** Design keeps authoritative resume semantics on scoped action-qualified cursors (`/{org}/{project}/.migration/`, `/{org}/.migration/`, and `/.migration/`) with read precedence project → org → package.  
 - [x] **Module Isolation (V):** No direct filesystem bypass; state and artefacts remain behind abstractions and identity service conventions.  
 - [x] **Separation of Planes (VI):** No migration logic moved into control plane/CLI/TUI; runtime execution remains in agent path.  
 - [x] **Determinism (VII):** Resume and phase-gate decisions become more deterministic by removing run-scope authority and action-namespace collisions.  

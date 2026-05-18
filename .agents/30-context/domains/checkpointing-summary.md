@@ -19,14 +19,14 @@ Enforced constraints:
 - `/{org}/.migration/` stores organisation-scoped action/module cursors.
 - `/{org}/{project}/.migration/` stores project-scoped action/module cursors.
 - `.migration/runs/<runId>/` is audit-only and never authoritative for resume decisions.
-- Read precedence is project scope, then organisation scope, then migration scope.
+- Read precedence is project scope, then org scope, then package scope.
 
 ## Cursor Contract
 
 Locations:
 - `/{org}/{project}/.migration/{action}.{module}.cursor.json` (project-scoped)
 - `/{org}/.migration/{action}.{module}.cursor.json` (organisation-scoped)
-- `/.migration/{action}.{module}.cursor.json` (migration-scoped)
+- `/.migration/{action}.{module}.cursor.json` (package-scoped)
 
 Shape:
 ```json

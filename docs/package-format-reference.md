@@ -26,12 +26,12 @@ For Azure DevOps Services, the org folder name is the last path segment of the o
 
 The package has four state scopes:
 
-- Root `.migration/` is authoritative migration-scoped orchestration state shared across runs.
+- Root `.migration/` is authoritative package-scoped orchestration state shared across runs.
 - `/{org}/.migration/` is authoritative organisation-scoped resume state.
 - `/{org}/{project}/.migration/` is authoritative project-scoped resume state.
 - `.migration/runs/<runId>/` is run-scoped audit output only.
 - Cursor identity is action-qualified per module (`<action>.<module>.cursor.json`) to prevent cross-phase collisions.
-- Read precedence for state lookups is project → organisation → migration.
+- Read precedence for state lookups is project → org → package.
 - Writes and resets target only the most-specific resolved scope for the active context.
 
 Run-scoped `job.json`, `plan.json`, and `config.json` are copies of what was executed for that run. They are not the source of truth for later resume, phase-gate, or orchestration decisions.
@@ -192,7 +192,7 @@ The manifest is not required for streaming import, but it is required for valida
 
 ## 6. Legacy Fallback
 
-Packages created before scoped metadata routing may store cursor files under root `.migration/Checkpoints/` or legacy `Checkpoints/`. Readers should try state locations in this order: project scope, organisation scope, migration scope, then legacy root-level checkpoint files.
+Packages created before scoped metadata routing may store cursor files under root `.migration/Checkpoints/` or legacy `Checkpoints/`. Readers should try state locations in this order: project scope, org scope, package scope, then legacy root-level checkpoint files.
 
 Packages created before run-scoped logging may have diagnostic files directly under `.migration/Logs/`. Tooling may fall back to that flat layout when no run-scoped folder is present.
 

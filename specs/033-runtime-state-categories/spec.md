@@ -31,7 +31,7 @@ As a migration operator, I need package-level, project-level, and run-level stat
 
 **Why this priority**: If authoritative state boundaries are not enforced, resume and gating can use the wrong files and produce incorrect migration outcomes.
 
-**Independent Test**: Run an interrupted migration and verify that resume and phase-gate decisions use only authoritative project/organisation/migration scoped state, never run-scoped audit copies.
+**Independent Test**: Run an interrupted migration and verify that resume and phase-gate decisions use only authoritative project/org/package scoped state, never run-scoped audit copies.
 
 **Acceptance Scenarios**:
 
@@ -84,12 +84,12 @@ As a migration operator, I need all long-running processing to emit fine-grained
 
 - **FR-001**: The system MUST define four runtime state categories: package-wide orchestration state, project-scoped module resume state, batch-scoped work item iteration state, and run-scoped audit state.
 - **FR-002**: The system MUST treat root `.migration/` as the authoritative package-wide orchestration state for phase planning, completion markers, and package-level coordination artifacts.
-- **FR-003**: The system MUST treat `/{org}/{project}/.migration/` (project scope), `/{org}/.migration/` (organisation scope), and `/.migration/` (migration scope) as the authoritative resume-state hierarchy for module progress.
+- **FR-003**: The system MUST treat `/{org}/{project}/.migration/` (project scope), `/{org}/.migration/` (org scope), and `/.migration/` (package scope) as the authoritative resume-state hierarchy for module progress.
 - **FR-004**: The system MUST treat `.migration/runs/<runId>/` as run-scoped audit output only and MUST NOT use it for resume, phase-gate, or orchestration decisions.
 - **FR-005**: Resume identity for project-scoped module state MUST include both action and module so different actions do not share a cursor namespace.
 - **FR-006**: Work item export and work item import MUST maintain independent action-specific resume identities even when operating on the same project and module family.
 - **FR-007**: Inventory behavior MUST align with the same action-aware resume identity model and MUST NOT rely on inconsistent fallback semantics that conflict with authoritative state rules.
-- **FR-014**: Resume-state reads MUST use precedence order project → organisation → migration, and writes/resets MUST target only the most-specific resolved scope.
+- **FR-014**: Resume-state reads MUST use precedence order project → org → package, and writes/resets MUST target only the most-specific resolved scope.
 - **FR-008**: Processing workflows MUST emit fine-grained progress notifications so operators can follow active work with meaningful in-flight detail.
 - **FR-009**: Processing workflows MUST persist resume state at the finest reasonable cadence for the workload so resumed runs restart near the latest durable checkpoint.
 - **FR-010**: A run restart MUST preserve correctness when interruption occurs at project scope or within batch iteration scope.
