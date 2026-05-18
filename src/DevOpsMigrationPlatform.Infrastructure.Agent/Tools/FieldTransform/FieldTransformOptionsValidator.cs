@@ -16,6 +16,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
 /// </summary>
 internal sealed class FieldTransformOptionsValidator : IValidateOptions<FieldTransformOptions>
 {
+    private static readonly FieldTransformFactory s_factory = new();
+
     public ValidateOptionsResult Validate(string? name, FieldTransformOptions options)
     {
         var errors = new List<string>();
@@ -34,8 +36,14 @@ internal sealed class FieldTransformOptionsValidator : IValidateOptions<FieldTra
                     ? $"TransformGroups[{g}] ('{group.Name}').Transforms[{r}]"
                     : $"TransformGroups[{g}].Transforms[{r}]";
 
+                var groupName = group.Name ?? $"Group{g + 1}";
+                var ordinal = r + 1;
+
                 if (string.IsNullOrWhiteSpace(rule.Type))
+                {
                     errors.Add($"{location}.Type is required.");
+                    continue;
+                }
 
                 if (rule.Pattern is not null)
                 {
@@ -47,6 +55,31 @@ internal sealed class FieldTransformOptionsValidator : IValidateOptions<FieldTra
                     {
                         errors.Add($"{location}.Pattern '{rule.Pattern}' is not a valid regular expression: {ex.Message}");
                     }
+                }
+
+                if (rule.Condition is not null)
+                {
+                    try
+                    {
+                        _ = new Regex(rule.Condition, RegexOptions.None, TimeSpan.FromSeconds(1));
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        errors.Add($"{location}.Condition '{rule.Condition}' is not a valid regular expression: {ex.Message}");
+                    }
+                }
+
+                try
+                {
+                    _ = s_factory.Create(rule, groupName, ordinal);
+                }
+                catch (ArgumentException ex)
+                {
+                    errors.Add($"{location} is invalid: {ex.Message}");
+                }
+                catch (InvalidOperationException ex)
+                {
+                    errors.Add($"{location} is invalid: {ex.Message}");
                 }
             }
         }

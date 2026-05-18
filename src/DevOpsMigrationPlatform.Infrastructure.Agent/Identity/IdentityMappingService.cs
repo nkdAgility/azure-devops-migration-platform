@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
@@ -47,12 +46,13 @@ public sealed class IdentityMappingService : IIdentityMappingService
     {
         _overrides.Clear();
 
-        if (string.IsNullOrWhiteSpace(mappingJson))
+        var json = mappingJson;
+        if (json is null || string.IsNullOrWhiteSpace(json))
             return;
 
         try
         {
-            var raw = JsonSerializer.Deserialize<Dictionary<string, string>>(mappingJson, s_jsonOptions);
+            var raw = JsonSerializer.Deserialize<Dictionary<string, string>>(json, s_jsonOptions);
             if (raw is not null)
             {
                 foreach (var kv in raw)
@@ -87,4 +87,3 @@ public sealed class IdentityMappingService : IIdentityMappingService
         return sourceIdentity;
     }
 }
-#endif

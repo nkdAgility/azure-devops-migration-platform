@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -45,7 +47,7 @@ public class FieldTransformOptionsValidatorTests
     [TestMethod]
     public void Validate_ValidRuleWithValidPattern_Succeeds()
     {
-        var result = Sut().Validate(null, WithRule(new FieldTransformRuleOptions { Type = "RegexReplace", Field = "System.Title", Pattern = @"\bfoo\b", Replacement = "bar" }));
+        var result = Sut().Validate(null, WithRule(new FieldTransformRuleOptions { Type = "RegexField", Field = "System.Title", Pattern = @"\bfoo\b", Replacement = "bar" }));
         Assert.IsTrue(result.Succeeded);
     }
 
@@ -107,7 +109,7 @@ public class FieldTransformOptionsValidatorTests
     [TestMethod]
     public void Validate_RuleWithInvalidPattern_Fails()
     {
-        var result = Sut().Validate(null, WithRule(new FieldTransformRuleOptions { Type = "RegexReplace", Pattern = "(unclosed" }));
+        var result = Sut().Validate(null, WithRule(new FieldTransformRuleOptions { Type = "RegexField", Field = "System.Title", Pattern = "(unclosed", Replacement = "bar" }));
         Assert.IsFalse(result.Succeeded);
         StringAssert.Contains(string.Join("|", result.Failures!), ".Pattern");
         StringAssert.Contains(string.Join("|", result.Failures!), "not a valid regular expression");
@@ -125,7 +127,7 @@ public class FieldTransformOptionsValidatorTests
                     Transforms =
                     [
                         new FieldTransformRuleOptions { Type = "" },
-                        new FieldTransformRuleOptions { Type = "RegexReplace", Pattern = "[bad" }
+                        new FieldTransformRuleOptions { Type = "RegexField", Field = "System.Title", Pattern = "[bad", Replacement = "bar" }
                     ]
                 }
             ]
@@ -135,5 +137,58 @@ public class FieldTransformOptionsValidatorTests
         var failures = string.Join("|", result.Failures!);
         StringAssert.Contains(failures, "Transforms[0]");
         StringAssert.Contains(failures, "Transforms[1]");
+    }
+
+    [TestMethod]
+    public void Validate_UnknownTransformType_Fails()
+    {
+        var result = Sut().Validate(null, WithRule(new FieldTransformRuleOptions { Type = "UnknownTransform" }));
+
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(string.Join("|", result.Failures!), "UnknownTransform");
+    }
+
+    [TestMethod]
+    public void Validate_CopyFieldMissingSourceField_Fails()
+    {
+        var result = Sut().Validate(null, WithRule(new FieldTransformRuleOptions
+        {
+            Type = "CopyField",
+            TargetField = "Custom.Target"
+        }));
+
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(string.Join("|", result.Failures!), "SourceField");
+    }
+
+    [TestMethod]
+    public void Validate_IdentityFieldAsTargetField_Fails()
+    {
+        var result = Sut().Validate(null, WithRule(new FieldTransformRuleOptions
+        {
+            Type = "CopyField",
+            SourceField = "System.Title",
+            TargetField = "System.ChangedBy"
+        }));
+
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(string.Join("|", result.Failures!), "identity field");
+    }
+
+    [TestMethod]
+    public void Validate_ConditionalFieldInvalidConditionRegex_Fails()
+    {
+        var result = Sut().Validate(null, WithRule(new FieldTransformRuleOptions
+        {
+            Type = "ConditionalField",
+            Field = "System.Title",
+            Condition = "(",
+            TrueValue = "Yes"
+        }));
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.IsTrue(result.Failures!.Any(f =>
+            f.Contains("Condition", StringComparison.OrdinalIgnoreCase) ||
+            f.Contains("invalid", StringComparison.OrdinalIgnoreCase)));
     }
 }
