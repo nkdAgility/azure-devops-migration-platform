@@ -53,6 +53,7 @@ public sealed class WorkItemsNodeReadinessOrchestrator : IWorkItemsNodeReadiness
 
         if (_nodesOrchestrator is not null)
         {
+#if !NET481
             _logger.LogWarning("[WorkItems] NodeReadinessOrchestrator is not available — falling back to INodesOrchestrator.EnsureReferencedPathsAsync.");
             await _nodesOrchestrator
                 .EnsureReferencedPathsAsync(
@@ -65,6 +66,10 @@ public sealed class WorkItemsNodeReadinessOrchestrator : IWorkItemsNodeReadiness
                     context.Job.JobId)
                 .ConfigureAwait(false);
             return;
+#else
+            _logger.LogWarning("[WorkItems] NodeReadinessOrchestrator is not available on NET481 fallback path — node readiness dispatch will be skipped.");
+            return;
+#endif
         }
 
         _logger.LogWarning("[WorkItems] No node readiness orchestrator is available — node readiness dispatch will be skipped.");
