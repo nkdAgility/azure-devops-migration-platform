@@ -1,0 +1,98 @@
+---
+name: nkda-refactor
+description: Refactor a specified code file to full guardrail compliance using strict test-first planning and explicit execution approval.
+---
+
+# Skill: NKDA Refactor
+
+Use this skill when a specific code file must be brought into compliance with **all active guardrails**.
+
+This skill is **strict-gate**:
+1. analyse and produce a test-first compliance refactor plan,
+2. wait for explicit human approval,
+3. only then execute.
+
+## Scope
+
+- Primary input: one target file path from the user request.
+- Optional scope expansion: tightly coupled files required to complete compliance in touched scope.
+- Do not perform unrelated cleanup.
+
+## Authoritative Sources (reference, do not duplicate)
+
+Load and follow these existing repository contracts/guardrails:
+
+1. Entrypoint and reading order:
+   - `/.agents/00-entry/manifest.yaml`
+   - `/.agents/00-entry/task-profiles.yaml`
+   - `/.agents/00-entry/reading-order.md`
+2. Contracts:
+   - `/.agents/10-contracts/surface-catalog.yaml`
+   - `/.agents/10-contracts/seam-catalog.yaml`
+   - `/.agents/10-contracts/change-classes.yaml`
+   - `/.agents/10-contracts/consent-policy.yaml`
+3. Guardrails:
+   - all files required by the selected profile(s)
+   - architecture evidence rules in `/.agents/20-guardrails/core/architecture-perspectives-ethos.md`
+4. Workflow rules:
+   - `/.agents/20-guardrails/workflow/test-first-workflow.md`
+   - `/.agents/20-guardrails/workflow/testing-rules.md`
+   - `/.agents/20-guardrails/workflow/definition-of-done.md`
+
+## Phase 1 — Compliance Assessment (No Code Changes)
+
+1. Parse the target file path from the user request.
+2. Load target file + direct consumers/dependencies needed for accurate compliance analysis.
+3. Assess against all six architecture perspectives (Modular Monolith, Clean, Hexagonal, Vertical Slice, Screaming, Architecture Deepening).
+4. Identify all touched-scope non-compliance with concrete evidence (file/line and violated rule).
+5. Determine change class:
+   - If no surface/contract impact: Class A/B as applicable.
+   - If surface/contract change is required: Class C gate applies (consent policy mandatory).
+
+## Phase 2 — Test-First Refactor Plan (No Code Changes)
+
+Produce a **RED → GREEN → REFACTOR** plan that makes compliance remediation the first work in touched files.
+
+Plan must include:
+- compliance findings to remediate first,
+- tests to add/adjust first (failing first),
+- minimal code refactor steps,
+- required DI/seam/boundary updates,
+- documentation updates (only directly related),
+- verification steps aligned to definition of done.
+
+## Phase 3 — Approval Gate (Hard Stop)
+
+Before editing code, present:
+- compliance findings summary,
+- planned remediation sequence,
+- any required class/consent decision.
+
+Then stop and wait for explicit human approval to execute.
+
+## Phase 4 — Execution (Only After Approval)
+
+1. Execute the approved plan using test-first workflow.
+2. Remediation-first ordering is mandatory in touched files.
+3. Keep changes surgical and within approved scope.
+4. Re-check guardrail compliance across all six perspectives for touched scope.
+5. Report outcome with:
+   - fixed violations,
+   - residual risks (if any),
+   - explicit note if any item was deferred with human approval.
+
+## Reject / Escalation Conditions
+
+Stop and escalate when:
+- required consent policy evidence is missing for Class C changes,
+- requested changes conflict with guardrails and no human override exists,
+- the target file cannot be made compliant without widening scope beyond what is safe to do implicitly.
+
+## Output Contract
+
+For each run, return:
+1. Target file and effective scope
+2. Compliance findings (by perspective + rule)
+3. Change class decision and consent requirement status
+4. Test-first remediation plan
+5. Execution status (planned-only vs executed)
