@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -55,4 +54,3 @@ internal sealed class FieldTransformOptionsValidator : IValidateOptions<FieldTra
         return errors.Count > 0 ? ValidateOptionsResult.Fail(errors) : ValidateOptionsResult.Success;
     }
 }
-#endif
