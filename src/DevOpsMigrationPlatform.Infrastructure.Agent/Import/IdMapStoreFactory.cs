@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.IO;
 using DevOpsMigrationPlatform.Abstractions;
@@ -27,7 +26,7 @@ public sealed class IdMapStoreFactory : IIdMapStoreFactory
     {
         string localRoot;
         if (packageUri.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
-            localRoot = packageUri["file:///".Length..].Replace('/', Path.DirectorySeparatorChar);
+            localRoot = packageUri.Substring("file:///".Length).Replace('/', Path.DirectorySeparatorChar);
         else
             localRoot = packageUri;
 
@@ -38,4 +37,3 @@ public sealed class IdMapStoreFactory : IIdMapStoreFactory
         return new SqliteIdMapStore(newPath);
     }
 }
-#endif
