@@ -150,7 +150,7 @@ $isAdmin   = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsId
 $devMode   = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -ErrorAction SilentlyContinue).AllowDevelopmentWithoutDevLicense -eq 1
 $canSymlink = $isAdmin -or $devMode
 
-if (-not $canSymlink) {
+if (-not $canSymlink -and -not $WhatIfPreference) {
     Write-Host ""
     Write-Host "  [ERROR  ] Cannot create symlinks — requires Administrator or Windows Developer Mode." -ForegroundColor Red
     Write-Host "            Enable Developer Mode:  Settings -> Privacy & Security -> For developers" -ForegroundColor Yellow
