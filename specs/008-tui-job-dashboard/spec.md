@@ -2,7 +2,7 @@
 
 **Feature Branch**: `008-tui-job-dashboard`  
 **Created**: 2026-04-09  
-**Status**: Draft  
+**Status**: Reconciled (partially implemented; partially superseded)  
 **Input**: User description: "Id like to build out the TUI. It should show a list of all the jobs. On clicking a job it should show both the metrics and the logs stream for that job in separate windows. The cli should show both the job ID and the url of the ControlPlane when it queues the job. Even in standalone mode I can connect the TUI to the ControlPlane"
 
 ## Architecture References
@@ -13,7 +13,7 @@ Documents read during spec creation:
 |----------|--------|
 | `docs/tui-guide.md` | Confirmed accurate — describes full desired TUI behaviour. Spec implements what is documented. |
 | `docs/cli-guide.md` | Confirmed accurate — job submission output pattern described. |
-| `docs/control-plane.md` | Discrepancy logged — `/jobs/{jobId}/telemetry` referenced in `docs/tui-guide.md` is absent from the API surface table here. |
+| `docs/control-plane.md` | Confirmed accurate — includes `/jobs`, `/jobs/{jobId}/telemetry`, `/progress`, and `/diagnostics` surface entries used by this spec. |
 | `.agents/20-guardrails/core/architecture-boundaries.md` | Guardrails 15, 16, 17, 18 apply directly to this feature. |
 
 ---
@@ -181,7 +181,7 @@ As an operator who already knows their job ID I want to run `devopsmigration tui
 
 ## Current status
 
-Reconciled to repository truth on 2026-05-16. This spec is **partially implemented and partially superseded** by later specs and architectural changes. Core TUI wiring, control-plane job listing, telemetry endpoint docs, and CLI submission output are implemented; several test and behavior tasks remain incomplete.
+Reconciled to repository truth on 2026-05-17. This spec is **partially implemented and partially superseded** by later specs and architectural changes. Core TUI wiring, control-plane job listing, telemetry endpoint docs, and CLI submission output are implemented; several test and behavior tasks remain incomplete.
 
 ## Remaining incomplete work (IDs)
 
@@ -189,9 +189,9 @@ Reconciled to repository truth on 2026-05-16. This spec is **partially implement
 
 ## Completed because superseded (IDs + source)
 
-- `T003`, `T009` → superseded by `specs/021.2-separation-of-concerns` (contract and path moves into `Abstractions/ControlPlaneApi` and `ControlPlane/Jobs`).
-- `T017`, `T018`, `T019`, `T020` → superseded by canonical command surface in `.agents/30-context/domains/cli-commands.md` (`queue`/`prepare` pathways).
-- `T028` → superseded by `specs/028.1-task-bootstrap` and `specs/028.2-job-execution-by-task` (task-bootstrap/task-centric TUI behavior).
+- `T003`, `T009` → superseded by `specs/021.2-separation-of-concerns/tasks.md` (abstraction and path moves into `Abstractions/ControlPlaneApi` and `ControlPlane/Jobs`).
+- `T017`, `T018`, `T019`, `T020` → superseded by `specs/025.1-fold-to-job/tasks.md` (`queue`/`prepare` submission contract).
+- `T028` → superseded by `specs/028.1-task-bootstrap/tasks.md` and `specs/028.2-job-execution-by-task/tasks.md` (task-bootstrap/task-centric TUI behavior).
 
 ## Contradictions and reconciliation
 
@@ -205,5 +205,5 @@ Reconciled to repository truth on 2026-05-16. This spec is **partially implement
 - Control plane evidence: `src/DevOpsMigrationPlatform.ControlPlane/Controllers/JobsController.cs`, `Controllers/AgentLeaseController.cs`, `Controllers/ProgressController.cs`, `Jobs/JobStore.cs`, `Jobs/IJobStore.cs`.
 - CLI submission output evidence: `src/DevOpsMigrationPlatform.CLI.Migration/Commands/ControlPlaneCommandBase.cs`, `Commands/QueueCommand.cs`, `Commands/PrepareCommand.cs`, `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/PrintJobSubmittedTests.cs`.
 - Docs/launch evidence: `docs/control-plane.md`, `.vscode/launch.json`.
-- Validation commands run in this reconciliation: `dotnet clean && dotnet build --no-incremental` (completed), `dotnet test --no-build` (did not complete in-session; marked incomplete evidence for T042).
+- Validation commands run in this reconciliation: `dotnet clean && dotnet build --no-incremental` (completed), `dotnet test --no-build` (failed after clean because test assemblies were missing; marked incomplete evidence for T042).
 

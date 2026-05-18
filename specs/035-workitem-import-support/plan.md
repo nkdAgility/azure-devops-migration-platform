@@ -295,3 +295,14 @@ This plan was validated against:
 
 See [agents.md](../../agents.md) for the mandatory pre-flight guardrail validation workflow.
 
+---
+
+## Reconciliation Status (2026-05-17)
+
+- Implementation evidence confirms substantial delivery for Phases 2-5 and partial delivery for Phases 6-7 using integrated processors/orchestrators.
+- Several planned type names were superseded by existing seams (for example dedicated `AttachmentReplayService`/`FieldTransformOrchestrator` classes replaced by `RevisionFolderProcessor` stage logic).
+- Remaining incomplete work is primarily: TFS import-target parity tasks, explicit identity-mapping seam alignment task (T079), feature/unit/doc completion tasks, and final DoD verification tasks.
+- Contradictions requiring future normalization:
+  - Plan estimated ~15-20 tasks, but `tasks.md` defines 160.
+  - Spec assumption says TFS source-only while plan/tasks still include TFS target parity.
+

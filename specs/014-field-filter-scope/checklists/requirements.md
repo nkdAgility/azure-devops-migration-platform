@@ -31,6 +31,8 @@
 
 ## Notes
 
-Reconciliation update: not ready to close.
+Reconciliation update: not ready to close (2026-05-17).
 
-Open task blockers from `tasks.md`: T010, T013, T016, T018, T023, T025, T027, T029, T030, T032, T033.
+Open task blockers from `tasks.md`: T005, T010, T013, T016, T018, T023, T025, T027, T029, T030, T032, T033.
+
+Supporting reconciliation artifacts: `checklists/reconciliation.md` generated via `/speckit.checklist`; consistency findings validated with `/speckit.analyze`.

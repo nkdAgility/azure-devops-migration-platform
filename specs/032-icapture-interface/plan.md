@@ -16,6 +16,20 @@ with all `ICapture`-only registrations. A `SimulatedDependencyDiscoveryServiceFa
 added to close the Simulated connector coverage gap. No CLI, configuration, or user-facing
 changes.
 
+## Reconciliation Status (2026-05-17)
+
+- **Class**: Class A documentation/status reconciliation (no runtime surface changes in this pass).
+- **Implemented**: unified `ICapture` dispatch, `BuildCaptureHandlers`, `DependencyCapture`, and `IProjectAnalyser` removal are present in source.
+- **Superseded path/name drift**:
+  - `DependencyCapture` implemented at `Infrastructure.Agent/Analysis/DependencyCapture.cs`.
+  - Simulated factory implemented at `Infrastructure.Simulated/Factories/SimulatedDependencyDiscoveryServiceFactory.cs`.
+  - DI extension implemented as `AddDependencyCapture` in `DependencyAnalyserServiceCollectionExtensions.cs`.
+  - CLI progress row change implemented in `CLI.Migration/Commands/QueueCommand.cs`.
+- **Outstanding verification gaps**:
+  - Clean build gate with zero warnings is not currently true (build succeeds with warnings).
+  - No fresh full-solution `dotnet test` evidence in this reconciliation run.
+  - No fresh `.vscode/launch.json` simulated dependency-capture run evidence in this reconciliation run.
+
 ## Technical Context
 
 **Language/Version**: C# 10+, .NET 10  

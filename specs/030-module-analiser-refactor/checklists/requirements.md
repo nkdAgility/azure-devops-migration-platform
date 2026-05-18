@@ -35,3 +35,11 @@
 - Architecture discrepancies logged in `discrepancies.md` — docs must be updated during `speckit.implement`.
 - Ready for `/speckit.plan`.
 
+## Reconciliation Notes (2026-05-17)
+
+- This checklist reflects the original drafting gate and is **not** a current-truth implementation checklist.
+- Current-truth drift confirmed by `/speckit.analyze` and `/speckit.checklist`:
+  - capture-first contract (`ICapture`) supersedes inventory-method wording,
+  - unified `platform.*` metrics supersede dual discovery/migration metric assumptions,
+  - dependencies flow now includes inventory fan-in before dependency analysis.
+

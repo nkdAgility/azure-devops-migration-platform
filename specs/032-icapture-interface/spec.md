@@ -4,6 +4,26 @@
 **Created**: 2026-05-06
 **Status**: Draft
 
+## Reconciliation Status (2026-05-17)
+
+- **Overall**: Partially complete; implementation is largely present, but verification and artifact drift remain.
+- **Remaining incomplete work**:
+  - Full clean build with zero warnings (currently not met).
+  - Fresh full-solution `dotnet test` evidence for this reconciliation run.
+  - Fresh `.vscode/launch.json` simulated dependency capture run evidence.
+- **Superseded implementation mappings**:
+  - `DependencyCapture` implemented under `Infrastructure.Agent/Analysis` instead of planned `Infrastructure.Agent/Capture`.
+  - `SimulatedDependencyDiscoveryServiceFactory` implemented under `Infrastructure.Simulated/Factories` instead of planned `Infrastructure.Simulated/DependencyDiscovery`.
+  - DI extension implemented as `AddDependencyCapture` in `DependencyAnalyserServiceCollectionExtensions` instead of planned `AddDependencyCaptureServices` in `ServiceCollectionExtensions`.
+  - CLI progress row implemented in `CLI.Migration/Commands/QueueCommand.cs` (not MigrationAgent path in this spec).
+- **Contradictions to resolve**:
+  - Spec contract states `Task CaptureAsync(...)`; current code uses `Task<TaskExecutionResult> CaptureAsync(...)`.
+  - TFS erroneous `capture.dependencies.*` behavior language differs between warning/skip text and current executor error-path wording.
+- **Verification evidence captured in reconciliation**:
+  - `dotnet build DevOpsMigrationPlatform.slnx --nologo -v minimal` (success, 250 warnings).
+  - `dotnet test ...Infrastructure.Agent.Tests... --no-build` (959 passed).
+  - `dotnet test ...Infrastructure.Simulated.Tests... --no-build` (46 passed).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — Modules dispatch via ICapture (Priority: P1)

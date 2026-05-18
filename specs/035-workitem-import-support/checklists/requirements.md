@@ -32,3 +32,11 @@
 ## Notes
 
 - Scope is intentionally limited to prepare, mandatory nodes, deterministic work item replay, links, attachments, embedded images, NodeTranslation, identity resolution, and FieldTransform. Comments and other adjacent import enhancements are explicitly deferred.
+
+## Reconciliation Status (2026-05-17)
+
+- Checklist remains historically valid for initial spec quality.
+- New contradictions discovered during reconciliation:
+  - TFS assumption in spec vs TFS parity tasks in plan/tasks.
+  - Task-plan size mismatch (plan estimate vs 160-task decomposition).
+- Current implementation evidence indicates partial completion; see `tasks.md` reconciliation section for canonical status and evidence.

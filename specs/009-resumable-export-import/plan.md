@@ -8,7 +8,7 @@
 Historical implementation plan for resumable export/import.  
 Current implementation has delivered core behavior with architectural evolution (`MigrationJob` → `Job`, command-specific CLI → queue-centric CLI, direct infra pathing → package-manager boundaries).
 
-### Reconciliation Snapshot (2026-05-16)
+### Reconciliation Snapshot (2026-05-17)
 
 - **Current status**: Most planned capabilities are implemented; this plan now serves as historical design intent with reconciled status tracked in `tasks.md`.
 - **Remaining incomplete task IDs**: `T005`, `T015`, `T026`, `T034`.
@@ -17,9 +17,11 @@ Current implementation has delivered core behavior with architectural evolution 
   - References to `MigrationAgentWorker`, `Migration*Command*`, `MigrationJob*` are superseded by `JobAgentWorker`, `QueueCommand*`, and `Job*`.
   - References to direct concrete storage/paths are superseded by `IPackageAccess` and `.migration` state routing.
 - **Verification evidence**:
-  - Build pass: `dotnet build DevOpsMigrationPlatform.slnx --nologo`.
+  - Build pass: `dotnet build DevOpsMigrationPlatform.slnx --nologo` (2026-05-17).
   - Implemented services: `CheckpointingService`, `PhaseTrackingService`, `WorkItemImportOrchestrator`.
   - Implemented CLI: `QueueCommandSettings --force-fresh`, `QueueCommand`.
+  - Known verification gap: full-suite `dotnet test` and launch-profile scenario evidence remain open (`T034`).
+  - Known contradiction: `quickstart.md` force-fresh overwrite wording conflicts with FR-012 non-overwrite requirement.
 
 ## Technical Context
 

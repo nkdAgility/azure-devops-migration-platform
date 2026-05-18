@@ -1,7 +1,7 @@
 # Architecture Discrepancies (Reconciled)
 
 **Feature**: Simulated Data Source for End-to-End Migration Testing  
-**Updated**: 2026-05-16
+**Updated**: 2026-05-17
 
 ## Resolved discrepancies
 
@@ -31,3 +31,8 @@
   - `scenarios/queue-export-workitems-simulated-source.json`
   - `scenarios/roundtrip-simulated.json`
   - `.vscode/launch.json` simulated profiles
+
+### ⚠️ Reconciliation artifact gap (`/speckit.analyze` blocker)
+- **Issue**: `specs/008-simulated-data-source/plan.md` is missing, so `/speckit.analyze` cannot run to completion for this folder.
+- **Evidence**:
+  - `/speckit.analyze` output: missing required artifact `plan.md`; analysis aborted.

@@ -2,7 +2,7 @@
 
 **Feature**: TUI Job Dashboard
 **Flagged by**: speckit.specify
-**Status**: Pending rectification (resolve in speckit.implement)
+**Status**: Reconciled
 
 ## Discrepancies
 

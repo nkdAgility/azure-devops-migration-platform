@@ -14,6 +14,31 @@ Replace the hardcoded sequential `foreach` loops in `JobAgentWorker.OnMigrationJ
 
 **Result**: Export runs 4 modules concurrently. Import runs Identities/Nodes/Teams concurrently, then WorkItems. Plan is durable in the package; crashed agents resume at task granularity. Circular dependency detection is enforced at plan-build time.
 
+## Current status (reconciled 2026-05-17)
+
+- Canonical task status is tracked in `tasks.md` (created during this reconciliation).
+- Plan text below is preserved as historical implementation intent; status truth is `tasks.md`.
+
+### Remaining incomplete work
+
+- T009, T016, T017, T018
+
+### Completed because superseded
+
+- T002 superseded by `specs/034-package-manager-adoption/tasks.md` T042/T043/T045.
+- T005 superseded by `specs/030-module-analiser-refactor/tasks.md` T016.
+
+### Contradictions and reconciliation
+
+- `PackagePaths.PlanFile` path in this plan is stale; runtime now uses `PackageMetaKind.ExecutionPlan` routed to `.migration/plan.json`.
+- `IJobPlanExecutor` signatures in this plan are stale; current contract includes unified `ExecuteTasksAsync` and capture/analyser routing updates from spec 032.
+- Lifetime note in T009 (`singleton`) does not match current registration (`AddScoped`).
+
+### Verification evidence
+
+- Commands: `dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo -v minimal` (succeeded with warnings), targeted `dotnet test` for plan-execution tests (39 passed).
+- Implementation files: `JobAgentWorker.cs`, `JobPlanExecutor.cs`, `JobExecutionPlanBuilder.cs`, `TfsJobAgentWorker.cs`, `CoreAgentServiceExtensions.cs`, `PackagePathRouter.cs`.
+
 ## Technical Context
 
 **Language/Version**: C# 12, .NET 10 (agent + control plane); .NET 4.8 (TFS agent — `Abstractions.Agent` and `PackagePaths` are multi-targeted)

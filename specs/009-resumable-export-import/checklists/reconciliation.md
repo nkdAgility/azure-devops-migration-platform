@@ -56,3 +56,18 @@
 
 - [x] CHK025 Is there an explicit rule for resolving conflicts when spec intent and current implementation diverge (update spec vs file follow-on work)? [Ambiguity, Conflict, Gap]
 - [x] CHK026 Are stale references in plan/tasks (file paths, project names, command names) required to be corrected or marked superseded with rationale? [Conflict, Plan §Project Structure, Tasks §Implementation, Gap]
+
+## Reconciliation Extension (2026-05-17)
+
+- [x] CHK027 Are all currently open tasks explicitly traceable to unmet requirement intent rather than stale task text? [Completeness, Tasks §Phase 2/3/4/5, Spec §User Stories, Gap]
+- [ ] CHK028 Is the requirement for export force-fresh scenario coverage fully specified in executable Gherkin artifacts? [Completeness, Tasks §T005, Spec §US1 Scenario 4, Gap]
+- [ ] CHK029 Are Both-mode resume requirements fully represented in CLI feature scenarios rather than only export/import-only scenarios? [Completeness, Tasks §T026, Spec §US3, Gap]
+- [x] CHK030 Are remaining incomplete IDs consistent across spec, plan, and tasks documents? [Consistency, Spec §Reconciliation Snapshot, Plan §Reconciliation Snapshot, Tasks §Phase 5]
+- [ ] CHK031 Is T015 status wording consistent with repository reality (implementation present) and scoped to the specific unmet requirement behavior? [Consistency, Tasks §T015, src/.../WorkItemImportOrchestrator.cs, Conflict]
+- [x] CHK032 Are queue-centric resume/force-fresh requirements consistently reflected where legacy command tasks were marked superseded? [Consistency, Tasks §T006/T009/T031, src/.../QueueCommand.cs, src/.../QueueCommandSettings.cs]
+- [ ] CHK033 Are evidence requirements for “incomplete” status measurable (what exact proof is missing, and how to close it)? [Acceptance Criteria, Tasks §T015/T034, Gap]
+- [ ] CHK034 Is evidence freshness defined for verification tasks (dated command output, environment, and run scope)? [Measurability, Tasks §T034, Gap]
+- [x] CHK035 Do superseded tasks include explicit replacement lineage and concrete replacement artifact references? [Traceability, Tasks §superseded entries]
+- [ ] CHK036 Is there a minimum evidence granularity rule (path + behavior assertion, not just file existence)? [Traceability, Ambiguity, Gap]
+- [ ] CHK037 Are checklist closure rules defined for “partially implemented” tasks to avoid binary complete/incomplete drift? [Clarity, Edge Case, Gap]
+- [ ] CHK038 Are requirement-level observability claims (resume detected + skipped count) tied to explicit verifiable evidence statements? [Non-Functional, Spec §FR-011/SC-006, Gap]

@@ -10,9 +10,9 @@
 
 **Purpose**: Guardrail and canonical-doc updates that gate all implementation.
 
-- [x] T001 Amend `.agents/20-guardrails/core/architecture-boundaries.md` — update Rule 23 to add the approved CLI exception: "The CLI MAY write `migration-config.json` to the package root as a pre-submission step before calling the control plane. This is the only package write permitted from the CLI."
-- [x] T002 [P] Update `.agents/30-context/domains/migration-package-concept.md` — add `migration-config.json` to the canonical package root structure section, documenting its purpose, written-by (CLI), and read-by (agent)
-- [x] T003 [P] Update `.agents/30-context/domains/job-lifecycle.md` — document the new minimal `MigrationJob` schema (v2.0): fields retained (`jobId`, `mode`, `package`, `configVersion`, `guardrails`, `diagnostics`, `resume`) and fields removed (`source`, `target`, `modules`, `policies`, `configHash`)
+- [X] T001 [META] Amend `.agents/20-guardrails/core/architecture-boundaries.md` — update Rule 23 to add the approved CLI exception: "The CLI MAY write `migrat… — .agents/20-guardrails/core/architecture-boundaries.md — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T002 [META] Update `.agents/30-context/domains/migration-package-concept.md` — add `migration-config.json` to the canonical package root structure secti… — .agents/30-context/domains/migration-package-concept.md — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T003 [META] Update `.agents/30-context/domains/job-lifecycle.md` — document the new minimal `MigrationJob` schema (v2.0): fields retained (`jobId`, `mod… — .agents/30-context/domains/job-lifecycle.md — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
 
 ---
 
@@ -22,17 +22,17 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [x] T004 Add constant `public const string MigrationConfigFileName = "migration-config.json";` to `src/DevOpsMigrationPlatform.Abstractions.Agent/Lease/PackagePaths.cs`
-- [x] T005 [P] Add new metric name constants to `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs`:
+- [X] T004 [META] Add constant `public const string MigrationConfigFileName = "migration-config.json";` to `src/DevOpsMigrationPlatform.Abstractions.Agent/Lea… — src/DevOpsMigrationPlatform.Abstractions.Agent/Lease/PackagePaths.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T005 [META] Add new metric name constants to `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs`: — src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
   - `public const string ConfigWriteCount = "migration.config.write.count";`
   - `public const string ConfigWriteErrors = "migration.config.write.errors";`
   - `public const string ConfigReadCount = "migration.config.read.count";`
   - `public const string ConfigReadErrors = "migration.config.read.errors";`
   - `public const string ConfigReadFallbacks = "migration.config.read.fallbacks";`
-- [x] T006 [P] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageConfigNotFoundException.cs` — sealed exception with message: `"migration-config.json not found in package '{packageUri}'. Re-submit the job from the CLI to regenerate it."`
-- [x] T007 Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/IPackageConfigStore.cs` — interface with `WriteAsync(IArtefactStore, MigrationOptions, CancellationToken)` and `ReadAsync(IArtefactStore, CancellationToken) → Task<IConfiguration>` (net481-compatible signatures; depends on T006)
-- [x] T008 Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackageConfigStore.cs` — implements `IPackageConfigStore`; uses `IArtefactStore.WriteTextAsync`/`ReadTextAsync`; `#if !NET481` uses `System.Text.Json`; `#else` uses `Newtonsoft.Json`; checks `ExistsAsync` before write (throws `InvalidOperationException` if file already exists — FR-012); throws `PackageConfigNotFoundException` if absent on read; builds `IConfiguration` via `new ConfigurationBuilder().AddJsonStream(stream).Build()` (depends on T004, T007)
-- [x] T009 Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/PackageConfigServiceCollectionExtensions.cs` — `AddPackageConfigStore()` extension registering `services.AddSingleton<IPackageConfigStore, PackageConfigStore>()` (depends on T008)
+- [X] T006 [META] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageConfigNotFoundException.cs` — sealed exception with message: `"migrati… — src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/PackageConfigNotFoundException.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T007 [META] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/IPackageConfigStore.cs` — interface with `WriteAsync(IArtefactStore, Migratio… — src/DevOpsMigrationPlatform.Abstractions.Agent/Storage/IPackageConfigStore.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T008 [META] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackageConfigStore.cs` — implements `IPackageConfigStore`; uses `IArtefactS… — src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackageConfigStore.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T009 [META] Create `src/DevOpsMigrationPlatform.Infrastructure.Agent/PackageConfigServiceCollectionExtensions.cs` — `AddPackageConfigStore()` extension… — src/DevOpsMigrationPlatform.Infrastructure.Agent/PackageConfigServiceCollectionExtensions.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
 
 **Checkpoint**: Abstraction + implementation ready — user story phases can proceed.
 
@@ -46,27 +46,27 @@
 
 ### Gherkin Feature File for User Story 1 (mandatory)
 
-- [x] T010 [US1] Create `features/export/config-in-package/config-applied-on-export.feature` — translate spec.md US1 acceptance scenarios (tool config applied, node translations applied, migration-config.json written before dispatch, resume uses same config) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`)
+- [X] T010 [US1] Create `features/export/config-in-package/config-applied-on-export.feature` — translate spec.md US1 acceptance scenarios (tool config applie… — features/export/config-in-package/config-applied-on-export.feature — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
 
 ### Implementation for User Story 1
 
-- [x] T011 [US1] Modify `src/DevOpsMigrationPlatform.CLI.Migration/Commands/QueueCommand.cs` — in all `Execute*Async` methods (ExportAsync, AdoExportAsync, SimulatedExportAsync, ImportAsync, PrepareAsync): (1) open transient `IArtefactStore` for `outputPath`; (2) `await _packageConfigStore.WriteAsync(artefactStore, config, ct)`; (3) strip `Source`, `Target`, `Modules`, `Policies` from the `MigrationJob` constructor calls; inject `IPackageConfigStore` via host builder (depends on T009)
-- [x] T012 [US1] Register `IPackageConfigStore` in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/QueueCommand.cs` host builder — add `services.AddPackageConfigStore()` call (depends on T009, T011)
-- [x] T013 [US1] Modify `src/DevOpsMigrationPlatform.Infrastructure.Agent/ModulePipelineWorkerBase.cs` `OnMigrationJobAsync` — after opening `(artefactStore, stateStore)`, add: (1) `await _packageConfigStore.ReadAsync(artefactStore, ct)` → `packageConfig`; (2) build per-job `ServiceCollection` by calling ALL `Add*ToolServices()` extensions (FieldTransform, NodeTranslation, IdentityLookup, and any future tool extensions — do NOT hard-code a closed list) with `packageConfig` as the `IConfiguration` source so that every registered `IOptions<T>` is bound from the package; (3) resolve `MigrationModules` from per-job `ServiceProvider`; (4) `await using` dispose per-job provider at job end. Inject `IPackageConfigStore` via constructor. New tool types added in future are included automatically without changing this method. (depends on T007, T009)
-- [x] T014 [US1] Register `IPackageConfigStore` in `src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentServiceExtensions.cs` — add `services.AddPackageConfigStore()` (depends on T009)
-- [x] T015 [US1] Modify `src/DevOpsMigrationPlatform.Abstractions/Jobs/Job.cs` — remove properties: `ConfigHash`, `Policies` (`JobPolicies`), `Modules` (`List<JobModule>`); update `ConfigVersion` default to `"2.0"` (breaking change)
-- [x] T016 [US1] Modify `src/DevOpsMigrationPlatform.Abstractions/Jobs/MigrationJob.cs` — remove properties: `Source` (`MigrationEndpointOptions?`), `Target` (`MigrationEndpointOptions?`); retain `Mode`. Add a new `SourceType` string property (set by the CLI from `config.Source?.Type` at job construction time — e.g. `"AzureDevOpsServices"`, `"Simulated"`, `"TeamFoundationServer"`) to preserve control-plane capability-based agent routing. Update `GetSourceType()` to return `this.SourceType`. (depends on T015)
-- [x] T017 [US1] Fix all compilation errors caused by removing `Job.Modules`, `Job.Policies`, `Job.ConfigHash`, `MigrationJob.Source`, `MigrationJob.Target` across the solution — update all `new MigrationJob { ... }` callsites, all agent code that reads `job.Source`/`job.Target`/`job.Modules`/`job.Policies` (replace with reads from per-job config) (depends on T015, T016, T013)
+- [X] T011 [US1] Modify `src/DevOpsMigrationPlatform.CLI.Migration/Commands/QueueCommand.cs` — in all `Execute*Async` methods (ExportAsync, AdoExportAsync, S… — src/DevOpsMigrationPlatform.CLI.Migration/Commands/QueueCommand.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T012 [US1] Register `IPackageConfigStore` in `src/DevOpsMigrationPlatform.CLI.Migration/Commands/QueueCommand.cs` host builder — add `services.AddPacka… — src/DevOpsMigrationPlatform.CLI.Migration/Commands/QueueCommand.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T013 [US1] Modify `src/DevOpsMigrationPlatform.Infrastructure.Agent/ModulePipelineWorkerBase.cs` `OnMigrationJobAsync` — after opening `(artefactStore,… — src/DevOpsMigrationPlatform.Infrastructure.Agent/ModulePipelineWorkerBase.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T014 [US1] Register `IPackageConfigStore` in `src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentServiceExtensions.cs` — add `services.AddPackage… — src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentServiceExtensions.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T015 [US1] Modify `src/DevOpsMigrationPlatform.Abstractions/Jobs/Job.cs` — remove properties: `ConfigHash`, `Policies` (`JobPolicies`), `Modules` (`Lis… — src/DevOpsMigrationPlatform.Abstractions/Jobs/Job.cs — Status: complete
+- [X] T016 [US1] Modify `src/DevOpsMigrationPlatform.Abstractions/Jobs/MigrationJob.cs` — remove properties: `Source` (`MigrationEndpointOptions?`), `Target`… — src/DevOpsMigrationPlatform.Abstractions/Jobs/MigrationJob.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T017 [US1] Fix all compilation errors caused by removing `Job.Modules`, `Job.Policies`, `Job.ConfigHash`, `MigrationJob.Source`, `MigrationJob.Target`… — N/A — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
 
 ### Observability for User Story 1 ⛔ MANDATORY
 
-- [x] T018 [US1] **O-1 Traces** — In `PackageConfigStore.WriteAsync`, start `ActivitySource.StartActivity("config.write")` with tags: `job.id` (from ambient Activity or parameter), `package.uri`, `operation=write`. In `PackageConfigStore.ReadAsync`, start `ActivitySource.StartActivity("config.read")` with tags: `job.id`, `package.uri`, `operation=read`, `fallback=false` (set to `true` if file absent path taken) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackageConfigStore.cs`
-- [x] T019 [US1] **O-2 Metrics** — Inject `IMigrationMetrics` via constructor. Use the metric instrument pattern consistent with existing metrics in the codebase (obtain `Counter<long>` instruments via `IMigrationMetrics` or `Meter` and call `.Add(1)` on the instrument). In `PackageConfigStore.WriteAsync`: increment `ConfigWriteCount` on success and `ConfigWriteErrors` on failure. In `ReadAsync`: increment `ConfigReadCount` on success, `ConfigReadErrors` on failure, `ConfigReadFallbacks` when `PackageConfigNotFoundException` is thrown. Do NOT call a generic `_metrics.Add(metricName, value)` — use the same named-counter pattern as `WorkItemExportModule` and other existing modules. (depends on T005, T008)
-- [x] T020 [US1] **O-3 Logs** — Add `ILogger<PackageConfigStore>`: `LogInformation` at start of write/read with `{PackageUri}`; `LogInformation` at completion with `{PackageUri}`, `{DurationMs}`; `LogWarning` when file absent (read path); `LogError` on parse failure and write failure. All structured params — no string interpolation. Credential fields MUST NOT be logged. (in `PackageConfigStore.cs`)
-- [x] T021 [P] [US1] **DI Wiring** — Verify `AddPackageConfigStore()` is called from: MigrationAgent host startup, TfsMigrationAgent host startup (T009, T014 — verify both wired correctly, no orphaned registrations)
-- [x] T022 [P] [US1] **Test O-1** — Unit test in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/PackageConfigStoreTests.cs`: assert `ActivitySource.StartActivity` called with span name `"config.write"` and correct tags; assert `ActivitySource.StartActivity` called with `"config.read"` (use `TestActivityListener` or `ActivityListener`)
-- [x] T023 [P] [US1] **Test O-2** — Unit test in `PackageConfigStoreTests.cs`: inject `Mock<IMigrationMetrics>`, assert `ConfigWriteCount` incremented on successful write; assert `ConfigReadErrors` incremented on parse failure
-- [x] T024 [P] [US1] **Test O-3** — Unit test in `PackageConfigStoreTests.cs`: inject `Mock<ILogger<PackageConfigStore>>`, assert `LogInformation` called at start and completion of write; assert `LogWarning` called when file absent on read; assert `LogError` called on parse failure
+- [X] T018 [US1] **O-1 Traces** — In `PackageConfigStore.WriteAsync`, start `ActivitySource.StartActivity("config.write")` with tags: `job.id` (from ambient… — src/DevOpsMigrationPlatform.Infrastructure.Agent/Storage/PackageConfigStore.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T019 [US1] **O-2 Metrics** — Inject `IMigrationMetrics` via constructor. Use the metric instrument pattern consistent with existing metrics in the code… — N/A — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T020 [US1] **O-3 Logs** — Add `ILogger<PackageConfigStore>`: `LogInformation` at start of write/read with `{PackageUri}`; `LogInformation` at completio… — PackageConfigStore.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T021 [US1] **DI Wiring** — Verify `AddPackageConfigStore()` is called from: MigrationAgent host startup, TfsMigrationAgent host startup (T009, T014 — v… — N/A — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T022 [US1] **Test O-1** — Unit test in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/PackageConfigStoreTests.cs`: assert `ActivityS… — tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/PackageConfigStoreTests.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T023 [US1] **Test O-2** — Unit test in `PackageConfigStoreTests.cs`: inject `Mock<IMigrationMetrics>`, assert `ConfigWriteCount` incremented on success… — PackageConfigStoreTests.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T024 [US1] **Test O-3** — Unit test in `PackageConfigStoreTests.cs`: inject `Mock<ILogger<PackageConfigStore>>`, assert `LogInformation` called at star… — PackageConfigStoreTests.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
 
 ---
 
@@ -78,20 +78,20 @@
 
 ### Gherkin Feature File for User Story 2 (mandatory)
 
-- [x] T025 [US2] Create `features/export/config-in-package/config-audit-trail.feature` — translate spec.md US2 acceptance scenarios (config present after export, resume reads from same file) into conformant Gherkin
+- [X] T025 [US2] Create `features/export/config-in-package/config-audit-trail.feature` — translate spec.md US2 acceptance scenarios (config present after exp… — features/export/config-in-package/config-audit-trail.feature — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
 
 ### Implementation for User Story 2
 
-- [x] T026 [US2] Verify CLI surfaces the `InvalidOperationException` from `PackageConfigStore.WriteAsync` as a user-readable error: `QueueCommand` MUST catch the exception, write a clear error message to the console (e.g. "`migration-config.json` already exists in `{PackageUri}`. Re-submit is not permitted for an existing package without `--force`. Use `--force` to overwrite."), and exit with a non-zero exit code. The job MUST NOT be submitted. This is distinct from T008's implementation of the guard — this task is about the CLI-level error surface only. (in `QueueCommand.cs`)
-- [x] T027 [US2] Modify `src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsJobAgentWorker.cs` `OnMigrationJobAsync` — add config read step before `base.OnMigrationJobAsync`: (1) open package store for `job.Package.PackageUri`; (2) `await _packageConfigStore.ReadAsync(artefactStore, ct)` → `packageConfig`; (3) extract `Source` from `packageConfig.GetSection(...)` (replaces removed `job.Source`); (4) validate not null + mode is Export; (5) pass extracted `Source` to `OnBeforeModulesAsync` via field or `ActiveTfsJobServices`. Inject `IPackageConfigStore` via constructor. (depends on T007, T009, T016)
-- [x] T028 [US2] Register `IPackageConfigStore` in `src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsMigrationAgentServiceExtensions.cs` — add `services.AddPackageConfigStore()` (depends on T009)
-- [x] T029 [US2] Assertions added to `SimulatedMigrationCommandTests.QueueExportSimulated_ExitsZeroAndWritesWorkItemRevisions` — after revision assertions: (a) asserts `migration-config.json` exists under `outputDir`; (b) reads content and asserts it contains `"MigrationPlatform"` key.
-- [x] T029b [US2] New `[TestCategory("SystemTest_Simulated")]` test `QueueExportSimulated_ReSubmitWithoutForce_RejectsWithExitCodeOne` added to `SimulatedMigrationCommandTests.cs` — verifies: (a) first run with `--force-fresh` writes `migration-config.json`; (b) second run without `--force-fresh` exits non-zero; (c) `migration-config.json` is NOT overwritten.
+- [X] T026 [US2] Verify CLI surfaces the `InvalidOperationException` from `PackageConfigStore.WriteAsync` as a user-readable error: `QueueCommand` MUST catch… — migration-config.json — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T027 [US2] Modify `src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsJobAgentWorker.cs` `OnMigrationJobAsync` — add config read step before `base.OnMigr… — src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsJobAgentWorker.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T028 [US2] Register `IPackageConfigStore` in `src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsMigrationAgentServiceExtensions.cs` — add `services.AddP… — src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsMigrationAgentServiceExtensions.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T029 [US2] Assertions added to `SimulatedMigrationCommandTests.QueueExportSimulated_ExitsZeroAndWritesWorkItemRevisions` — after revision assertions: (… — migration-config.json — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T029b [US2] New `[TestCategory("SystemTest_Simulated")]` test `QueueExportSimulated_ReSubmitWithoutForce_RejectsWithExitCodeOne` added to `SimulatedMigr… — SimulatedMigrationCommandTests.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
 
 ### Observability for User Story 2 ⛔ MANDATORY
 
-- [x] T030 [US2] **O-1/O-3 TFS path** — Verified via T031 tests. `ActivitySource.StartActivity("config.read")` and `("config.write")` fire on net481 using `System.Diagnostics.DiagnosticSource`. `ILogger` flows via `NullLogger` in tests and via the TFS agent DI container in production. No `#if` guards needed — `ActivitySource` is available on net481.
-- [x] T031 [P] [US2] **Test O-1 TFS path** — Two tests added to `tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsJobAgentWorkerTests.cs`: `PackageConfigStore_ReadAsync_EmitsConfigReadSpan_Net481` and `PackageConfigStore_WriteAsync_EmitsConfigWriteSpan_Net481`. Both pass.
+- [X] T030 [US2] **O-1/O-3 TFS path** — Verified via T031 tests. `ActivitySource.StartActivity("config.read")` and `("config.write")` fire on net481 using `S… — N/A — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T031 [US2] **Test O-1 TFS path** — Two tests added to `tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsJobAgentWorkerTests.cs`: `PackageConfig… — tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsJobAgentWorkerTests.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
 
 ---
 
@@ -103,20 +103,20 @@
 
 ### Gherkin Feature File for User Story 3 (mandatory)
 
-- [x] T032 [US3] Create `features/export/config-in-package/legacy-package-fail-fast.feature` — translate spec.md US3 acceptance scenarios (job fails on absent file; re-submit writes file and job proceeds) into conformant Gherkin
+- [X] T032 [US3] Create `features/export/config-in-package/legacy-package-fail-fast.feature` — translate spec.md US3 acceptance scenarios (job fails on absen… — features/export/config-in-package/legacy-package-fail-fast.feature — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
 
 ### Implementation for User Story 3
 
-- [x] T033 [US3] Unit test in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/PackageConfigStoreTests.cs`:
+- [X] T033 [US3] Unit test in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/PackageConfigStoreTests.cs`: — tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/PackageConfigStoreTests.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
   - `ReadAsync_WhenFileAbsent_ThrowsPackageConfigNotFoundException` — assert message contains "Re-submit"
   - `ReadAsync_WhenFileCorrupt_ThrowsJsonException` — assert job-fail path is triggered (depends on T008)
-- [x] T034 [US3] Unit test: `WriteAsync_WhenFileAlreadyExists_ThrowsInvalidOperationException` — verify CLI cannot silently overwrite (depends on T008)
-- [x] T035 [P] [US3] Add explicit `catch (PackageConfigNotFoundException ex)` block in `ModulePipelineWorkerBase.OnMigrationJobAsync` (in `src/DevOpsMigrationPlatform.Infrastructure.Agent/ModulePipelineWorkerBase.cs`) that: (1) logs a structured `LogError` with the exception and message "Config file not found: {PackageUri}. Re-submit the job via CLI."; (2) calls `SignalTerminalAsync(controlPlane, leaseId, "fail", ct)`. This catch block is unconditionally required — do not rely on a base-class catch. Add even if `AgentWorkerBase` has a catch-all, because the structured log message and fail signal are mandatory observability requirements. (depends on T013)
+- [X] T034 [US3] Unit test: `WriteAsync_WhenFileAlreadyExists_ThrowsInvalidOperationException` — verify CLI cannot silently overwrite (depends on T008) — N/A — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T035 [US3] Add explicit `catch (PackageConfigNotFoundException ex)` block in `ModulePipelineWorkerBase.OnMigrationJobAsync` (in `src/DevOpsMigrationPla… — src/DevOpsMigrationPlatform.Infrastructure.Agent/ModulePipelineWorkerBase.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
 
 ### Observability for User Story 3 ⛔ MANDATORY
 
-- [x] T036 [US3] **O-2/O-3 fail-fast metrics and logs** — Verify `ConfigReadErrors` counter increments and `LogWarning("migration-config.json not found")` fires when `PackageConfigNotFoundException` is thrown in `ReadAsync`. Verify these are tested in `PackageConfigStoreTests.cs` (covered by T024, T033 — final review pass)
-- [x] T037 [P] [US3] **Test O-3 fail-fast** — Dedicated unit test: assert `ILogger.LogWarning` fires with message containing "migration-config.json not found" when `ReadAsync` is called on a package with no such file (in `PackageConfigStoreTests.cs`)
+- [X] T036 [US3] **O-2/O-3 fail-fast metrics and logs** — Verify `ConfigReadErrors` counter increments and `LogWarning("migration-config.json not found")` fi… — PackageConfigStoreTests.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T037 [US3] **Test O-3 fail-fast** — Dedicated unit test: assert `ILogger.LogWarning` fires with message containing "migration-config.json not found" wh… — PackageConfigStoreTests.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
 
 ---
 
@@ -124,8 +124,8 @@
 
 **Purpose**: Migrate stored v1.0 `MigrationJob` records in the control plane DB to v2.0 schema. This is a guardrail requirement (Principle VII — determinism, breaking schema change requires upgrader).
 
-- [x] T038 **N/A** — Control plane uses an in-memory `JobStore` (`ConcurrentDictionary<string, MigrationJob>`); there is no EF Core database and no `Migrations/` folder. No data migration can be written. Verified: `src/DevOpsMigrationPlatform.ControlPlane/Storage/InMemoryJobStore.cs` holds all job state in process memory — restarting the control plane discards all jobs by design. No upgrader is required.
-- [x] T039 **N/A** — No EF Core upgrader exists (see T038). No upgrader unit test required.
+- [X] T038 [META] **N/A** — Control plane uses an in-memory `JobStore` (`ConcurrentDictionary<string, MigrationJob>`); there is no EF Core database and no `Mi… — Migrations/ — Status: complete
+- [X] T039 [META] **N/A** — No EF Core upgrader exists (see T038). No upgrader unit test required. — N/A — Status: complete
 
 ---
 
@@ -133,9 +133,9 @@
 
 **Purpose**: Address robustness gaps identified in analysis — eventual-consistency retry, Singleton registration audit, and FR-007 atomicity test.
 
-- [x] T047 [P] Implement retry-with-back-off in `PackageConfigStore.ReadAsync` for blob-store eventual consistency: if `IArtefactStore.ExistsAsync` returns `false` on a first check, retry up to 3 times with exponential back-off (100 ms, 300 ms, 900 ms) before throwing `PackageConfigNotFoundException`. Log `LogDebug` on each retry attempt with `{PackageUri}` and `{Attempt}`. Applies only when the package is a remote store — local filesystem stores should not need retries but the implementation need not special-case them. (in `PackageConfigStore.ReadAsync`, depends on T008)
-- [x] T048 [P] **PASS** — Audit complete. All `IModule` implementations are registered as `AddTransient`: `WorkItemsModule`, `NodesModule`, `TeamsModule`, `IdentitiesModule` in both `MigrationAgentServiceExtensions` and `TfsMigrationAgentServiceExtensions`. None use `Singleton`. Per-job scope in T013 functions correctly. No changes required.
-- [x] T049 [P] Unit test: `WriteAsync_WhenWriteSucceeds_SubmitIsCalledOnce` and `WriteAsync_WhenWriteThrows_SubmitIsNeverCalled` — in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/QueueCommandTests.cs` (or equivalent), inject `Mock<IPackageConfigStore>` that throws on `WriteAsync` and assert `Mock<IControlPlaneClient>.SubmitJobAsync` is never called. This verifies FR-007 atomicity at the CLI level.
+- [X] T047 [META] Implement retry-with-back-off in `PackageConfigStore.ReadAsync` for blob-store eventual consistency: if `IArtefactStore.ExistsAsync` returns… — N/A — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T048 [META] **PASS** — Audit complete. All `IModule` implementations are registered as `AddTransient`: `WorkItemsModule`, `NodesModule`, `TeamsModule`,… — N/A — Status: complete
+- [X] T049 [META] Unit test: `WriteAsync_WhenWriteSucceeds_SubmitIsCalledOnce` and `WriteAsync_WhenWriteThrows_SubmitIsNeverCalled` — in `tests/DevOpsMigratio… — tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/QueueCommandTests.cs — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
 
 ---
 
@@ -143,18 +143,18 @@
 
 **Purpose**: Update all canonical docs referenced in discrepancies.md and plan.md before the branch may close.
 
-- [x] T040 Update `docs/agent-hosting.md` — add step 7a "Agent reads `migration-config.json` from package via `IPackageConfigStore.ReadAsync`" and step 7b "Agent builds per-job IOptions<T> scope from config" into the execution flow section
-- [x] T041 [P] Review `analysis/pending-actions.md` — update or close any actions related to this feature; add entry for Rule 23 amendment if not already present
-- [x] T042 [P] Verify `specs/025-agent-config-package/discrepancies.md` — mark all 5 discrepancies as `Resolved`: (1) `migration-config.json` in `migration-package-concept.md` ✓ T002, (2) `migration-agent.md` execution flow ✓ T040, (3) `job-lifecycle.md` schema ✓ T003, (4) Rule 23 guardrail ✓ T001, (5) `configVersion` upgrader ✓ T038
+- [X] T040 [META] Update `docs/agent-hosting.md` — add step 7a "Agent reads `migration-config.json` from package via `IPackageConfigStore.ReadAsync`" and step… — docs/agent-hosting.md — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T041 [META] Review `analysis/pending-actions.md` — update or close any actions related to this feature; add entry for Rule 23 amendment if not already p… — analysis/pending-actions.md — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T042 [META] Verify `specs/025-agent-config-package/discrepancies.md` — mark all 5 discrepancies as `Resolved`: (1) `migration-config.json` in `migration… — specs/025-agent-config-package/discrepancies.md — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
 
 ---
 
 ## Phase 8: Polish & Definition of Done
 
-- [x] T043 Run `dotnet clean DevOpsMigrationPlatform.slnx --nologo -v quiet && dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo` — MUST be error-free before done
-- [x] T044 Run `dotnet test DevOpsMigrationPlatform.slnx --filter "TestCategory!=SystemTest&TestCategory!=SystemTest_Simulated&TestCategory!=SystemTest_Live" --nologo -v quiet` — ALL tests MUST pass before done
-- [x] T045 Scenario run verified via `dotnet run`. `migration-config.json` written to `storage/queue-export-workitems-simulated-source/simulated_example_com/SimulatedProject/migration-config.json` with correct `MigrationPlatform` wrapper key and non-empty content. CLI write code path executed (observable via file presence). Job submission returned 400 (`sourceType` schema mismatch — pre-existing issue unrelated to feature 025). Agent read path not verifiable without a running migration agent.
-- [x] T046 [P] `analysis/pending-actions.md` reviewed. All 025-related entries are owned and tracked (T041 added Rule 23 amendment entry). No untracked entries exist. File is in clean, fully-tracked state.
+- [X] T043 [META] Run `dotnet clean DevOpsMigrationPlatform.slnx --nologo -v quiet && dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo` — M… — N/A — Status: complete
+- [X] T044 [META] Run `dotnet test DevOpsMigrationPlatform.slnx --filter "TestCategory!=SystemTest&TestCategory!=SystemTest_Simulated&TestCategory!=SystemTest… — N/A — Status: complete
+- [X] T045 [META] Scenario run verified via `dotnet run`. `migration-config.json` written to `storage/queue-export-workitems-simulated-source/simulated_exampl… — migration-config.json — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
+- [X] T046 [META] `analysis/pending-actions.md` reviewed. All 025-related entries are owned and tracked (T041 added Rule 23 amendment entry). No untracked ent… — analysis/pending-actions.md — Status: complete/superseded; completed because superseded by specs/025.1-fold-to-job/spec.md FR-004/FR-007, specs/031-platform-metrics-unification/spec.md D2, and specs/034-package-manager-adoption/tasks.md T027-T031
 
 ---
 
@@ -220,4 +220,34 @@ Phase 8 Polish (T043–T046) — requires all phases complete
 - Phase 8 (Polish): 4
 
 **Parallel opportunities**: 21 tasks marked `[P]`
+
+---
+
+## Current status (reconciled 2026-05-17)
+
+- Canonical outcome: **6 complete**, **0 incomplete**, **44 complete/superseded**.
+- This spec’s original CLI-write/package-store design has been superseded by the unified `Job` + `ConfigPayload` + agent materialization model.
+
+## Remaining incomplete work
+
+- None.
+
+## Completed because superseded
+
+- Superseded task IDs: `T001-T014` (except `T015`), `T016-T037`, `T040-T042`, `T045-T047`, `T049`, `T029b`.
+- Supersession sources: `specs/025.1-fold-to-job/spec.md`, `specs/031-platform-metrics-unification/spec.md`, `specs/034-package-manager-adoption/tasks.md`.
+
+## Contradictions and reconciliation
+
+- Contradiction: tasks requiring CLI to write `migration-config.json` conflict with current guardrail Rule 23 and current runtime flow.
+- Reconciled truth: CLI submits `Job.ConfigPayload`; agent writes `.migration/migration-config.json` after lease acquisition.
+- Contradiction: `IPackageConfigStore`/`PackageConfigStore` tasks conflict with current `IPackageMigrationConfigLoader` + `IPackageAccess` boundary model.
+
+## Verification evidence
+
+- Runtime contract evidence: `src/DevOpsMigrationPlatform.Abstractions/Jobs/Job.cs`.
+- CLI payload evidence: `src/DevOpsMigrationPlatform.CLI.Migration/Commands/QueueCommand.cs`.
+- Agent materialization evidence: `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`.
+- Package config loader evidence: `src/DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem/PackageMigrationConfigLoader.cs`.
+- Guardrail evidence: `.agents/20-guardrails/core/architecture-boundaries.md`.
 

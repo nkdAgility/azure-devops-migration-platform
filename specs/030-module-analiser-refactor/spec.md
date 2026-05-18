@@ -2,8 +2,24 @@
 
 **Feature Branch**: `030-module-analiser-refactor`  
 **Created**: 2026-05-03  
-**Status**: Draft  
+**Status**: Reconciled (partially superseded)  
 **Input**: Refactor `IModule` to expose all five migration phases (`Inventory`, `Export`, `Prepare`, `Import`, `Validate`), eliminate the standalone `InventoryModule`, `InventoryDiscoveryModule`, and `DependencyDiscoveryModule`, and introduce a new `IAnalyser` interface for cross-cutting analysis participants.
+
+## Reconciliation Snapshot (2026-05-17)
+
+- **Authority applied**: `.agents` guardrails → newer specs (`031`-`035`) → this spec → implementation evidence.
+- **Current truth highlights**:
+  - Inventory dispatch is now capture-centric (`ICapture.CaptureAsync`) via spec `032`.
+  - Agent metrics are now unified under `platform.*` and `IPlatformMetrics` via spec `031`.
+  - Dependencies execution now includes capture/analyse fan-in (`analyse.inventory` then dependencies capture/analyse), not analyse-only.
+- **Tasks status summary**:
+  - Complete: all remaining tasks in `tasks.md` are marked `[X]`.
+  - Complete/superseded: `T009`, `T010`, `T012`, `T013`, `T069`, `T079f`, `T080`, `T088` (inline supersession notes in `tasks.md`).
+  - Incomplete: none.
+- **Contradictions retained for traceability** (not silently rewritten):
+  - FR-001/FR-003/FR-004/FR-005 still describe `InventoryAsync` semantics.
+  - FR-013/FR-010 assumptions conflict with current `JobExecutionPlanBuilder` + `DependencyAnalyser` behavior.
+- **Verification evidence**: `/speckit.analyze`, `/speckit.checklist`, and direct source inspection (`IModule.cs`, `ICapture.cs`, `WellKnownAgentMetricNames.cs`, `JobExecutionPlanBuilder.cs`, `JobAgentWorker.cs`).
 
 ---
 

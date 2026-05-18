@@ -15,7 +15,7 @@
 
 ### Remaining Incomplete Work (Task IDs)
 
-- `T010`, `T020`, `T021`, `T024`, `T025`, `T026`, `T027`, `T028`, `T030`, `T031`, `T034`, `T035`, `T036`, `T037`, `T038`, `T039`, `T040`, `T041`, `T042`, `T043`, `T045`, `T046`
+- `T010`, `T020`, `T021`, `T024`, `T025`, `T026`, `T027`, `T028`, `T030`, `T031`, `T034`, `T035`, `T036`, `T037`, `T038`, `T040`, `T041`, `T042`, `T043`, `T045`, `T046`
 
 ### Completed Because Superseded (Task IDs + Source)
 
@@ -27,12 +27,14 @@
 - `FetchAsync` safety-net behavior required by FR-014 (throw `ResumeRejectedException` on mismatch) is not currently enforced.
 - `AzureDevOpsWorkItemFetchService` does not currently register/inject/use `IQueryFingerprintService` in the resumable fetch path as planned.
 - Boundary-cluster semantics in FR-013 are stricter than current resume filtering behavior.
+- `EvaluateResumeDecisionAsync` exists but is not yet wired as shared logic with `FetchAsync` safety-net behavior.
 - Documentation and discrepancy records currently overstate completion; `tasks.md` now records evidence-backed truth.
 
 ### Verification Evidence
 
 - Targeted tests passed: `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests` resumable-focused set (`70/70`).
-- Baseline full build command `dotnet build DevOpsMigrationPlatform.slnx --no-incremental` failed due to locked `testhost` artifacts (MSB3027/MSB3021), not compile errors in reconciled files.
+- Build validation passed: `dotnet clean DevOpsMigrationPlatform.slnx --nologo` + `dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo` (exit 0).
+- Full test validation remains incomplete: `dotnet test DevOpsMigrationPlatform.slnx --no-build --nologo` stalled in `DevOpsMigrationPlatform.ControlPlane.Tests` and was stopped.
 - `/speckit.analyze` and `/speckit.checklist` both reported high-signal drift that is now reflected in reconciled artifacts.
 
 ## Clarifications

@@ -300,7 +300,7 @@ All nine principles re-checked after Phase 1. No new violations introduced. No c
 
 ## Current status
 
-Reconciled on 2026-05-16 against current repository implementation. Significant portions of this plan have been delivered, but the runtime now reflects newer task-bootstrap/task-centric behavior from later specs in addition to this baseline.
+Reconciled on 2026-05-17 against current repository implementation. Significant portions of this plan have been delivered, but the runtime now reflects newer task-bootstrap/task-centric behavior from later specs in addition to this baseline.
 
 ## Remaining incomplete work (IDs)
 
@@ -308,9 +308,9 @@ Reconciled on 2026-05-16 against current repository implementation. Significant 
 
 ## Completed because superseded (IDs + source)
 
-- `T003`, `T009` superseded by `specs/021.2-separation-of-concerns`.
-- `T017`, `T018`, `T019`, `T020` superseded by `.agents/30-context/domains/cli-commands.md`.
-- `T028` superseded by `specs/028.1-task-bootstrap` and `specs/028.2-job-execution-by-task`.
+- `T003`, `T009` superseded by `specs/021.2-separation-of-concerns/tasks.md`.
+- `T017`, `T018`, `T019`, `T020` superseded by `specs/025.1-fold-to-job/tasks.md`.
+- `T028` superseded by `specs/028.1-task-bootstrap/tasks.md` and `specs/028.2-job-execution-by-task/tasks.md`.
 
 ## Contradictions and reconciliation
 
@@ -321,5 +321,5 @@ Reconciled on 2026-05-16 against current repository implementation. Significant 
 ## Verification evidence
 
 - Code evidence set: TUI (`TuiCommand`, `TuiMainView`, `TuiJobListView`, `TuiMetricsView`, `TuiLogView`), Control Plane (`JobsController`, `AgentLeaseController`, `ProgressController`, `JobStore`, `IJobStore`), CLI submission (`ControlPlaneCommandBase`, `QueueCommand`, `PrepareCommand`), tests (`PrintJobSubmittedTests`, `JobStoreStateTests`), docs (`docs/control-plane.md`), launch profile (`.vscode/launch.json`).
-- Commands run: `dotnet clean && dotnet build --no-incremental` (success), `dotnet test --no-build` (non-complete in-session; no all-green evidence captured).
+- Commands run: `dotnet clean && dotnet build --no-incremental` (success), `dotnet test --no-build` (failed after clean because test assemblies were missing; no all-green evidence captured).
 

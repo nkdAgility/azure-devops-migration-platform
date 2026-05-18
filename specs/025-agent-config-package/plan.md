@@ -224,3 +224,31 @@ All design decisions confirmed consistent with constitution:
 - Breaking `MigrationJob` change has upgrader (Principle VII)
 - All agent types covered (Constitution XI)
 
+---
+
+## Current status (reconciled 2026-05-17)
+
+- Plan is **historical** and partially superseded by implemented follow-on specs.
+- Canonical implementation now follows unified `Job`/`ConfigPayload` and package-boundary access patterns.
+
+## Remaining incomplete work
+
+- None under this original plan scope.
+
+## Completed because superseded
+
+- Superseded by: `specs/025.1-fold-to-job/spec.md`, `specs/031-platform-metrics-unification/spec.md`, `specs/034-package-manager-adoption/tasks.md`.
+
+## Contradictions and reconciliation
+
+- Plan steps requiring CLI-side config-file writes and `IPackageConfigStore` no longer represent current architecture.
+- Current architecture uses agent-side payload materialization and `IPackageMigrationConfigLoader` with `IPackageAccess`.
+
+## Verification evidence
+
+- `src/DevOpsMigrationPlatform.Abstractions/Jobs/Job.cs`
+- `src/DevOpsMigrationPlatform.CLI.Migration/Commands/QueueCommand.cs`
+- `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/PackageConfigServiceCollectionExtensions.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem/PackageMigrationConfigLoader.cs`
+

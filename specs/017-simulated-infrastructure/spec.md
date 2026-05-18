@@ -2,7 +2,7 @@
 
 **Feature Branch**: `017-simulated-infrastructure`
 **Created**: 2026-04-18
-**Status**: Draft
+**Status**: Reconciled (Implemented with residual evidence/documentation gaps)
 **Input**: Add Infrastructure.Simulated connector assembly with polymorphic endpoint config, config-driven work item generator, and full boundary cleanup
 
 ## Architecture References
@@ -226,10 +226,13 @@ After this feature, `AzureDevOpsWorkItemImportTargetFactory` no longer contains 
 - Planned factory signatures with `MigrationEndpointOptions` contradict current code (`CreateAsync(CancellationToken ct)`); reconciled as superseded by newer architecture.
 - Planned `Mode: "Both"` contradicts current scenario contract using `Mode: "Migrate"`; reconciled as superseded terminology.
 - Planned fixture `workitems-simulated-small.zip` contradicts current checked-in fixture `workitems-2items-flat.zip`; reconciled as superseded implementation detail.
+- Planned move of `OrganisationEndpoint` from Abstractions contradicts current repository truth (`src/DevOpsMigrationPlatform.Abstractions/Organisations/OrganisationEndpoint.cs`); reconciled as not adopted in current architecture.
+- Historical reference to `analysis/Simulated.md` contradicts repository truth (file absent); reconciled as stale provenance reference.
 
 ## Verification evidence
 
 - Build: `dotnet build DevOpsMigrationPlatform.slnx --no-incremental` (pass).
 - Tests: `dotnet test tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.csproj` (46 passed).
 - Roundtrip coverage exists in `QueueRoundtripSimulated_ExitsZeroAndProducesPackageWithRevisions`.
+- Reconciliation audits executed: `/speckit.analyze` and `/speckit.checklist` (findings incorporated into this status alignment pass).
 

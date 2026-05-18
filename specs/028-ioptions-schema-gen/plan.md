@@ -346,3 +346,27 @@ No constitution violations introduced. No architectural workarounds required.
 | SchemaGenerator as separate project | Adopted | Avoids coupling schema generation to CLI binary; enables independent build-time invocation |
 | `MigrationOptions` retained as bootstrap shim | Retained transiently | `JobAgentWorker` needs to parse `migration-config.json` before building per-job DI; once the agent can bind `IConfiguration` directly from raw JSON, `MigrationOptions` can be deleted |
 | `net481` multi-target for `SchemaOptionsEntry` | Required | `Abstractions` is multi-targeted; `SchemaOptionsEntry` carries only a `Type` and two strings — no platform APIs needed |
+## Current status (Reconciled 2026-05-17)
+
+- Spec 028 is largely implemented in codebase; reconciliation found a small set of task-status mismatches against current repository evidence.
+
+## Remaining incomplete work
+
+- T024, T031a, T047, T048, T062 remain incomplete in `tasks.md`.
+
+## Completed because superseded
+
+- None recorded for this spec at reconciliation time.
+
+## Contradictions and reconciliation
+
+- Earlier 028 artifact notes reported ActiveJobConfigState and MigrationOptions were retained; repository search now shows those source files are removed under src/.
+- CI drift-check requirement (schema diff gate) is still absent in `.github/workflows/main.yml`, so task T024 is now marked incomplete.
+- quickstart.md is not present in specs/028-ioptions-schema-gen; verification commands are captured in existing docs and task evidence sections.
+
+## Verification evidence
+
+- Reviewed implementation and wiring in `src/DevOpsMigrationPlatform.SchemaGenerator`, `src/DevOpsMigrationPlatform.CLI.Migration`, and connector/module service registration files.
+- Reviewed CI workflow at `.github/workflows/main.yml`.
+- Ran baseline validation commands: dotnet clean DevOpsMigrationPlatform.slnx and dotnet build DevOpsMigrationPlatform.slnx --no-incremental.
+

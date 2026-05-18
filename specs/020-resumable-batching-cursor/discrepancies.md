@@ -27,3 +27,10 @@
 - **Suggested update**: Document configuration and operational expectations for caller persistence cadence, duplicate handling strategy, and safe restart behavior.
 - **Status**: Re-opened — section exists but includes mismatch behavior claims not currently reflected in runtime behavior.
 
+### Resume decision safety-net wiring incomplete
+- **Source doc**: `specs/020-resumable-batching-cursor/contracts/resumable-batching-contract.md`
+- **Section**: ResumeDecision delivery and FR-014 safety net
+- **Issue**: `EvaluateResumeDecisionAsync` exists, but `FetchAsync` does not reuse that decision path to enforce `ResumeRejectedException` on mismatch.
+- **Suggested update**: Share decision evaluation logic between `EvaluateResumeDecisionAsync` and `FetchAsync`, then align docs to actual runtime behavior.
+- **Status**: Re-opened — contract and tasks claim a safety-net enforcement path that is not yet implemented.
+

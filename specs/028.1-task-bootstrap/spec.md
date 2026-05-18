@@ -166,3 +166,50 @@ This feature adds no new export or import capability. The `IJobExecutionPlanBuil
 - **SC-006**: All existing tests pass after adding `TaskId?` + `TaskStatus?` to `ProgressEvent` — nullable fields are additive and do not break existing serialisation.
 - **SC-007**: The TFS agent's NDJSON progress events include `taskId` and `taskStatus` fields when a module lifecycle transition occurs.
 
+---
+
+## Current status (reconciled)
+
+- Reconciled on 2026-05-17 against current repository implementation and newer specs (`028.2`, `029`, `030`, `031`, `032`, `033`, `034`, `035`).
+- Execution-plan bootstrap capability is implemented in the codebase and extended by newer specs.
+- Canonical task statuses now live in `specs/028.1-task-bootstrap/tasks.md`.
+
+## Remaining incomplete work
+
+- T011, T014, T017, T018, T022, T023, T024, T027, T028, T029
+
+## Completed because superseded
+
+- None recorded in this spec.
+
+## Contradictions and reconciliation
+
+- Planned `JobTask.Id` shape (`WorkItems/Export`) differs from implemented canonical IDs (`taskkind.module.org.project`).
+- Planned `IJobTaskStore` abstraction is not present; implementation currently uses `InMemoryJobTaskStore`.
+- Planned warning behavior for unknown task IDs is not implemented as written.
+- TFS task-state behavior is implemented through persisted-plan updates, but not through explicit `ProgressEvent.TaskId`/`TaskStatus` NDJSON lifecycle emissions.
+
+## Verification evidence
+
+- Types and API surfaces inspected:
+  - `src/DevOpsMigrationPlatform.Abstractions/ControlPlaneApi/JobTaskStatus.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions/ControlPlaneApi/JobTask.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions/ControlPlaneApi/JobTaskList.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions/Streaming/ProgressEvent.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions/ControlPlaneApi/JobBootstrap.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions/ControlPlaneApi/IControlPlaneTelemetryClient.cs`
+- Runtime/control-plane wiring inspected:
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/ControlPlaneTelemetryClient.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/CoreAgentServiceExtensions.cs`
+  - `src/DevOpsMigrationPlatform.ControlPlane/Controllers/TelemetryController.cs`
+  - `src/DevOpsMigrationPlatform.ControlPlane/Controllers/ProgressController.cs`
+  - `src/DevOpsMigrationPlatform.ControlPlane/Jobs/InMemoryJobTaskStore.cs`
+  - `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`
+  - `src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsJobAgentWorker.cs`
+- Tests/features inspected:
+  - `features/platform/job-execution-plan.feature`
+  - `features/platform/task-attribution.feature`
+  - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobExecutionPlanBuilderTests.cs`
+  - `tests/DevOpsMigrationPlatform.ControlPlane.Tests/Services/InMemoryJobTaskStoreTests.cs`
+  - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobAgentWorkerDispatchTests.cs`
+

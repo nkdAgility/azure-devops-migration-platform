@@ -38,6 +38,13 @@
 - [ ] Documentation and discrepancies are aligned with current code truth
 - [ ] Full build + full test + scenario verification evidence recorded
 
+### Verification Evidence Snapshot (2026-05-17)
+
+- [x] `dotnet clean DevOpsMigrationPlatform.slnx --nologo` + `dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo` succeeded.
+- [ ] `dotnet test DevOpsMigrationPlatform.slnx --no-build --nologo` stalled in `DevOpsMigrationPlatform.ControlPlane.Tests` and was stopped.
+- [ ] Scenario run via `.vscode/launch.json` (`scenarios/queue-export-ado-workitems-single-project.json`) not executed in this reconciliation session.
+- [x] `/speckit.analyze` and `/speckit.checklist` executed and findings reconciled into spec/plan/tasks evidence.
+
 ## Notes
 
 - Spec quality remains mostly valid, but implementation/readiness checks are currently failing.

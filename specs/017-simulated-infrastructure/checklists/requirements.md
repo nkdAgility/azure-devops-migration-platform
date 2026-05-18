@@ -35,8 +35,9 @@ All items pass. Spec is ready for `/speckit.plan`.
 
 ## Reconciliation Status (2026-05-16)
 
-- [x] Tasks file includes explicit end-of-line status markers for every task.
+- [x] Tasks file uses canonical status formatting for every task line (`[X]/[ ]` + `— Status: ...`).
 - [x] Superseded tasks are captured with source and evidence (`T008`, `T009`, `T020a`, `T021`, `T022`, `T026`, `T027`, `T063`, `T069`, `T071`).
 - [ ] Remaining incomplete work tracked (`T076`, `T081`).
 - [ ] `analysis/pending-actions.md` explicitly reconciled for spec 017 (`T076` evidence gap remains).
 - [ ] Manual launch-profile scenario run evidence committed for `queue-export-workitems-simulated-source.json` (`T081` evidence gap remains).
+- [x] Spec/plan contradiction notes updated for signature drift, mode naming drift, fixture drift, and OrganisationEndpoint placement drift.

@@ -16,7 +16,7 @@
 | `docs/architecture.md` | Confirmed accurate — resumability described as a property of the Files layer; no implementation detail |
 | `docs/module-development-guide.md` | Confirmed accurate — `IDataTypeModule.ExportAsync` and `ImportAsync` contracts |
 
-## Reconciliation Snapshot (2026-05-16)
+## Reconciliation Snapshot (2026-05-17)
 
 - **Current status**: Feature capability is implemented in current architecture (`Job`, queue CLI, `IPackageAccess` routing), with legacy naming in this spec folder reconciled via task-level supersession annotations.
 - **Remaining incomplete task IDs**: `T005`, `T015`, `T026`, `T034`.
@@ -26,10 +26,20 @@
   - Legacy command model (`export/import/migrate`) is reconciled to queue-centric CLI (`QueueCommand`, `QueueCommandSettings --force-fresh`).
   - Legacy infra paths (`Infrastructure/*`) are reconciled to current agent assembly layout (`Infrastructure.Agent/*`).
 - **Verification evidence**:
-  - Build: `dotnet build DevOpsMigrationPlatform.slnx --nologo` (pass).
+  - Build: `dotnet build DevOpsMigrationPlatform.slnx --nologo` (pass, 2026-05-17 reconciliation run).
   - Resume model: `src/DevOpsMigrationPlatform.Abstractions/Jobs/Job.cs`, `JobResume.cs`.
-  - Force-fresh handling: `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`.
+  - Queue force-fresh wiring: `src/DevOpsMigrationPlatform.CLI.Migration/Settings/QueueCommandSettings.cs`, `Commands/QueueCommand.cs`.
+  - Force-fresh handling and phase reset: `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`.
   - Cursor/phase services: `src/DevOpsMigrationPlatform.Infrastructure.Agent/Checkpointing/CheckpointingService.cs`, `PhaseTrackingService.cs`.
+  - Known verification gap: full-suite `dotnet test` and launch-profile scenario evidence remain incomplete (task `T034`).
+
+## Remaining Reconciliation Blockers
+
+- `T005`: missing force-fresh export scenario in `features/platform/checkpointing/cursor-resume.feature`.
+- `T015`: resume startup event does not include estimated skipped-count evidence.
+- `T026`: `features/cli/execute/resume-mode.feature` lacks Both-mode-specific scenarios.
+- `T034`: final full-suite and launch-profile verification gate not yet closed.
+- Open contradiction to resolve: quickstart wording says force-fresh export overwrites existing folders, while FR-012 says already-exported package files are not overwritten.
 
 ## User Scenarios & Testing *(mandatory)*
 

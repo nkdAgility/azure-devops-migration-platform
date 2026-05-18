@@ -2,7 +2,7 @@
 
 **Feature Branch**: `018-workitem-otel-metrics`
 **Created**: 2026-04-18
-**Status**: Draft
+**Status**: Reconciled (partially implemented; canonical task formatting normalised 2026-05-17)
 **Input**: User description: "Work item OpenTelemetry metrics for migration observability — execution, payload, correctness, idempotency, in-flight, and throughput metrics using Counter, Histogram, UpDownCounter, and ObservableGauge instruments"
 
 ## Architecture References
@@ -19,13 +19,14 @@
 | `docs/configuration-reference.md` | Discrepancy logged — no telemetry naming convention documented |
 | `.agents/30-context/domains/checkpointing-summary.md` | Confirmed accurate — cursor-based, forward-only |
 
-## Reconciliation Snapshot (2026-05-16)
+## Reconciliation Snapshot (2026-05-17)
 
 ### Current status
 
 - This spec is **partially implemented and partially superseded**.
 - Newer telemetry architecture work in `specs/031-platform-metrics-unification` and `docs/adr/0011-unified-platform-metric-namespace.md` supersedes major contract assumptions in this spec.
 - Task ledger is now reconciled in `tasks.md` with explicit per-task status markers and evidence.
+- Task lines now use canonical status formatting: `[X]/[ ]` + `— Status: complete|incomplete|complete/superseded`.
 
 ### Remaining incomplete work (IDs)
 
@@ -58,6 +59,9 @@
   - `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Telemetry/WorkItemExportMetrics.cs`
   - `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Telemetry/AttachmentDownloadMetrics.cs`
   - Missing: `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs`
+- Reconciliation tooling evidence:
+  - `/speckit.analyze` (completed, produced contradiction + coverage findings)
+  - `/speckit.checklist` (completed dry-run checklist for this spec folder)
 
 ## User Scenarios & Testing *(mandatory)*
 

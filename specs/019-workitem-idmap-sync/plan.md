@@ -1,7 +1,7 @@
 # Implementation Plan: Work Item ID Map — Integrity, Rebuild, and Sync Support (Reconciled)
 
 **Branch**: `019-workitem-idmap-sync`  
-**Date**: 2026-05-16  
+**Date**: 2026-05-17  
 **Spec**: `specs/019-workitem-idmap-sync/spec.md`
 
 ## Current Status
@@ -18,9 +18,9 @@ This artifact was previously a template placeholder. It has been replaced with a
 
 ## Completed/Superseded Work (Task IDs + Source)
 
-- `T011` — superseded by `specs/035-workitem-import-support` (lock ownership moved to package access implementation; adapter retained)
-- `T014` — superseded by `specs/035-workitem-import-support` (RevisionProcessResult promoted to shared abstraction)
-- `T026` — superseded by `specs/035-workitem-import-support` (integrity-check loop encapsulated in `IIdMapStore.CheckIntegrityAsync`)
+- `T011` — superseded by `specs/035-workitem-import-support/tasks.md` (lock ownership moved to package access implementation; adapter retained)
+- `T014` — superseded by `specs/035-workitem-import-support/tasks.md` (RevisionProcessResult promoted to shared abstraction)
+- `T026` — superseded by `specs/035-workitem-import-support/tasks.md` (integrity-check loop encapsulated in `IIdMapStore.CheckIntegrityAsync`)
 
 ## Key Contradictions and Reconciliation Decisions
 
@@ -32,7 +32,7 @@ This artifact was previously a template placeholder. It has been replaced with a
 ## Verification Evidence
 
 - ✅ `dotnet build DevOpsMigrationPlatform.slnx` passed in this reconciliation session.
-- ⚠️ `dotnet test --no-build` did not complete previously (stalled); no full-pass evidence captured yet.
+- ⚠️ `dotnet test DevOpsMigrationPlatform.slnx --no-build` was re-attempted in this reconciliation session and did not complete (stalled); no full-pass evidence captured yet.
 - ⚠️ No debug-profile runtime verification evidence yet for `T039` lock lifecycle/integrity/rerun checks.
 
 ## Notes

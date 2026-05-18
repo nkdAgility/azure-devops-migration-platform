@@ -2,7 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning  
 **Created**: 2026-05-13  
-**Last updated**: 2026-05-13 (post red-team review — all Critical and High findings resolved)  
+**Last updated**: 2026-05-13 and reconciliation pass  
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -46,5 +46,12 @@ Medium and Low findings recorded in red team report for plan/clarify phases.
 
 ## Notes
 
-All items pass. Spec is cleared for `/speckit.plan`.
+Original quality checklist reflected pre-implementation planning readiness. Reconciliation against repository truth now indicates naming/path drift and one remaining incomplete execution-evidence task (`T060`).
+
+## Reconciliation status
+
+- [x] `tasks.md` statuses normalized per task ID with explicit terminal status markers
+- [x] Superseded implementation lineage identified (`NodeStructure` → `NodeTranslation`/`NodesModule`)
+- [ ] Scenario run evidence task completed (`T060`)
+- [x] `spec.md` and `plan.md` updated with reconciliation sections (status, incomplete IDs, superseded IDs, contradictions, evidence)
 

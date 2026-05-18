@@ -164,15 +164,15 @@ A migration engineer is importing a previously exported package. The package was
 
 ## Current status
 
-Reconciled against repository state on 2026-05-16: partially implemented.
+Reconciled against repository state on 2026-05-17: partially implemented.
 
 ## Remaining incomplete work (IDs)
 
-T010, T013, T016, T018, T023, T025, T027, T029, T030, T032, T033.
+T005, T010, T013, T016, T018, T023, T025, T027, T029, T030, T032, T033.
 
 ## Completed because superseded (IDs + source)
 
-- T015 superseded by `specs/025.1-fold-to-job/spec.md` (single `Job` flow removed `InventoryCommand` path; scope mapping now occurs during job materialisation).
+- T015 superseded by `specs/025.1-fold-to-job/tasks.md T006` (single `Job` flow removed `InventoryCommand` path; scope mapping now occurs during job materialisation).
 
 ## Contradictions and reconciliation
 
@@ -180,10 +180,12 @@ T010, T013, T016, T018, T023, T025, T027, T029, T030, T032, T033.
 - `FR-011` logging detail (field/mode/pattern) is not fully implemented in export/import skip logs.
 - `docs/configuration-reference.md` still contains a `wiql`-only scope statement while also documenting filter fields.
 - `discrepancies.md` reports resolved items that still have open evidence (e.g., placeholder comment in `WorkItemFieldFilterOptions`).
+- `checklists/requirements.md` and `checklists/reconciliation.md` are now the canonical reconciliation checklists; open checklist findings align with the incomplete task set.
 
 ## Verification evidence
 
 - Build: `dotnet build .\\DevOpsMigrationPlatform.slnx -v minimal` passed.
 - Tests: targeted scope tests passed (`dotnet test tests\\DevOpsMigrationPlatform.Infrastructure.Agent.Tests\\DevOpsMigrationPlatform.Infrastructure.Agent.Tests.csproj --no-build --filter "FilterScope|WorkItemFieldFilterEvaluator|WorkItemImportOrchestratorFilter|WorkItemExportOrchestratorTests"` → 66 passed).
 - `dotnet clean && dotnet build --no-incremental -v minimal` failed during this reconciliation with lock/copy/compiler errors (`CS2012`, `MSB3021`, `MSB3027`).
-- Full `dotnet test` did not complete successfully in this reconciliation run.
+- Full `dotnet test .\\DevOpsMigrationPlatform.slnx --no-build` did not complete successfully in this reconciliation run (command was stopped after prolonged non-progress).
+- Diagnostic workflow evidence captured: `/speckit.analyze` and `/speckit.checklist` executed for this spec folder.

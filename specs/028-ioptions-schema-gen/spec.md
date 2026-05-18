@@ -280,4 +280,27 @@ None — all connector-specific requirements are captured in Functional Requirem
 - The per-job DI container in the Migration Agent (introduced by feature 025) already provides the correct `IConfiguration` source for all `IOptions<T>` bindings at runtime; this feature targets CLI-side DI cleanup and schema generation only.
 - `ActiveJobConfigState.PackageConfig` (`IConfiguration`) is currently used for polymorphic endpoint-type binding. Once connectors register `ISourceEndpointInfo`/`ITargetEndpointInfo` from their own DI extensions (which already have access to `IConfiguration` at registration time), this bridge is no longer needed and `ActiveJobConfigState` is deleted in full.
 - `ConfigPayload` in the job is already set by reading the raw JSON file bytes directly (`File.ReadAllTextAsync`) — it is never produced by serialising a `MigrationOptions` object. This confirms `MigrationOptions` has no legitimate serialisation role today.
+## Current status (Reconciled 2026-05-17)
+
+- Spec 028 is largely implemented in codebase; reconciliation found a small set of task-status mismatches against current repository evidence.
+
+## Remaining incomplete work
+
+- T024, T031a, T047, T048, T062 remain incomplete in `tasks.md`.
+
+## Completed because superseded
+
+- None recorded for this spec at reconciliation time.
+
+## Contradictions and reconciliation
+
+- Earlier 028 artifact notes reported ActiveJobConfigState and MigrationOptions were retained; repository search now shows those source files are removed under src/.
+- CI drift-check requirement (schema diff gate) is still absent in `.github/workflows/main.yml`, so task T024 is now marked incomplete.
+- quickstart.md is not present in specs/028-ioptions-schema-gen; verification commands are captured in existing docs and task evidence sections.
+
+## Verification evidence
+
+- Reviewed implementation and wiring in `src/DevOpsMigrationPlatform.SchemaGenerator`, `src/DevOpsMigrationPlatform.CLI.Migration`, and connector/module service registration files.
+- Reviewed CI workflow at `.github/workflows/main.yml`.
+- Ran baseline validation commands: dotnet clean DevOpsMigrationPlatform.slnx and dotnet build DevOpsMigrationPlatform.slnx --no-incremental.
 

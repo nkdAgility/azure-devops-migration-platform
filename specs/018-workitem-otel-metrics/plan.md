@@ -9,13 +9,14 @@
 
 Expand the platform's OpenTelemetry instrumentation from 13 export-centric metrics under two meters to 24 instruments under a single consolidated `DevOpsMigrationPlatform.Migration` meter. The new instruments cover execution counters, payload complexity histograms, count-parity correctness metrics (Tier 3 post-flight), in-flight concurrency gauges, and reserved idempotency counters. All metric names are renamed from underscore-separated (`work_item_exported_total`) to dot-separated (`migration.workitems.attempted`) with mandatory `job.id`, `operation`, and `module` dimension tags. The `MetricSnapshot` DTO is expanded to carry all new instrument aggregates, with nullable properties for deferred (mapping-store-dependent) metrics.
 
-## Reconciliation Addendum (2026-05-16)
+## Reconciliation Addendum (2026-05-17)
 
 ### Current status
 
 - This plan reflects an earlier telemetry architecture and is now partially stale.
 - Runtime implementation has moved to the platform metrics contract (`IPlatformMetrics`, `WellKnownAgentMetricNames`, `WellKnownMeterNames.Agent`) per `specs/031-platform-metrics-unification` and ADR 0011.
 - Reconciled task truth is recorded in `tasks.md` with evidence-bearing statuses.
+- Canonical task format has been normalised in `tasks.md` to `[X]/[ ]` plus `— Status: ...`.
 
 ### Remaining incomplete work (IDs)
 
@@ -48,6 +49,9 @@ Superseding source: `specs/031-platform-metrics-unification/spec.md` and `docs/a
 - Incomplete-gap sources:
   - `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Telemetry/WorkItemExportMetrics.cs`
   - `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Telemetry/AttachmentDownloadMetrics.cs`
+- Reconciliation command evidence:
+  - `/speckit.analyze` run against `specs/018-workitem-otel-metrics`
+  - `/speckit.checklist` run (dry-run) against `specs/018-workitem-otel-metrics`
 
 ## Technical Context
 

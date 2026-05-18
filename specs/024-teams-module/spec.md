@@ -2,7 +2,7 @@
 
 **Feature Branch**: `024-teams-module`  
 **Created**: 2026-04-27  
-**Status**: Draft  
+**Status**: ⚠️ Reconciled (2026-05-17): mostly complete, with remaining verification gaps  
 **Input**: User description: "M5: TeamsModule which also uses the Node tool as an expansion. This module should run before work items and be implemented in all three ADO, TFS, Simulated. Include IdentitiesModule as a prerequisite. Promote NodeStructure from tool-embedded data-owning code to a proper module — extract the export/import lifecycle from the existing tool code."
 
 ## Architecture References
@@ -16,6 +16,44 @@
 | `.agents/20-guardrails/domains/module-rules.md` | ✅ Confirmed accurate — full new module checklist applies |
 | `.agents/30-context/domains/migration-package-concept.md` | ⚠️ Discrepancy logged — `Teams/` folder listed in package structure but contents not documented |
 | `analysis/proposed-features.md` (M5, T2) | ✅ Confirmed — TeamsModule uses NodeTranslationTool for iteration path operations |
+
+## Reconciliation Snapshot (2026-05-17)
+
+### Canonical task status source
+
+- `specs/024-teams-module/tasks.md`
+
+### Current status summary
+
+- **Complete**: 109 tasks
+- **Incomplete**: `T084`, `T085`, `T096`
+- **Complete/superseded**: 15 tasks (renamed paths, relocated implementations, or later lifecycle supersession)
+
+### Remaining incomplete work
+
+1. Run and record AzureDevOps connector verification evidence (`T084`).
+2. Run and record TeamFoundationServer connector verification evidence (`T085`).
+3. Run and record at least one scenario debug-profile execution (`T096`).
+
+### Completed because superseded
+
+- NodeStructure task/file naming superseded by later `NodesModule` naming in `specs/030-module-analiser-refactor`.
+- Legacy `CLI.TfsExport` handler paths superseded by `Infrastructure.TfsObjectModel` implementations.
+- Prepare/identity readiness behavior was superseded by later prepare/import readiness orchestration (`specs/035-workitem-import-support`).
+
+### Contradictions and reconciliation
+
+1. This spec still contains historical “no `DependsOn` property” language, but current `IModule` includes `DependsOn` and capture/prepare capabilities.
+2. This spec uses `NodeStructureModule` naming, while current implementation uses `NodesModule`.
+3. Some original prepare-story assumptions were replaced by current lifecycle handling across later specs and runtime orchestration.
+
+### Verification evidence
+
+- `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IModule.cs` (current module contract)
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodesModule.cs` (renamed node module implementation)
+- `src/DevOpsMigrationPlatform.CLI.Migration/Commands/PrepareCommand.cs` (prepare command)
+- `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/TfsIdentitySource.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/TfsTeamSource.cs`
 
 ## Concepts: Extension → Tool → Module Promotion
 

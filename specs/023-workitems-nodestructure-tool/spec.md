@@ -26,6 +26,46 @@ Discrepancies logged in: `specs/023-workitems-nodestructure-tool/discrepancies.m
 
 ---
 
+## Current status
+
+Reconciled against repository truth and newer specs. Core outcomes are implemented, but primarily under the **NodeTranslation + NodesModule** naming/model that later specs adopted.
+
+## Remaining incomplete work (IDs)
+
+- `T060` (debug-profile scenario-run evidence not recorded in this spec folder).
+
+## Completed because superseded (IDs + source)
+
+- `T001`–`T059` are treated as complete/superseded by the later architecture/spec lineage:
+  - `specs/024-teams-module`
+  - `specs/029-import-workitems-attachments-nodes`
+  - `specs/035-workitem-import-support`
+
+## Contradictions and reconciliation
+
+- **Name drift**: `NodeStructure` in this spec vs `NodeTranslation` in implemented code/docs/tests.
+- **Ownership drift**: this spec is tool-centric; implementation is split across `INodeTranslationTool` + `NodesModule/NodesOrchestrator` + `NodeReadinessOrchestrator`.
+- **Path drift**: tasks reference `features/*/nodestructure/*`; implemented suites are under `features/*/nodetranslation/*`.
+
+## Verification evidence
+
+- Implementation evidence:
+  - `src/DevOpsMigrationPlatform.Abstractions/Options/NodeTranslationOptions.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/INodeTranslationTool.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeTranslation/NodeTranslationTool*.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodesModule.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodesOrchestrator.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/NodeReadinessOrchestrator.cs`
+- Tests/features evidence:
+  - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeTranslation/*`
+  - `features/import/workitems/nodetranslation/auto-create-nodes.feature`
+  - `features/platform/validation/nodetranslation-validation.feature`
+- Validation commands:
+  - `dotnet build DevOpsMigrationPlatform.slnx --nologo --verbosity minimal` (passed)
+  - `dotnet test DevOpsMigrationPlatform.slnx --nologo --verbosity minimal` (did not finish in this session; run stalled/terminated before completion).
+
+---
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — Map Area and Iteration Paths Across Projects (Priority: P1)

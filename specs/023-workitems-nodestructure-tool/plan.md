@@ -11,6 +11,36 @@ The NodeStructure Tool adds area/iteration path mapping, node creation, and clas
 
 ---
 
+## Reconciliation status
+
+### Current status
+
+Plan intent is largely implemented but under renamed/superseding surfaces (`NodeTranslation`, `NodesModule`, `NodeReadinessOrchestrator`) rather than `NodeStructure` symbols.
+
+### Remaining incomplete work (IDs)
+
+- `T060` remains incomplete (no recorded `.vscode` debug profile scenario execution evidence in this spec folder).
+
+### Completed because superseded (IDs + source)
+
+- `T001`–`T059` reconciled as complete/superseded by later specs and implementation:
+  - `specs/024-teams-module`
+  - `specs/029-import-workitems-attachments-nodes`
+  - `specs/035-workitem-import-support`
+
+### Contradictions and reconciliation
+
+- `NodeStructureOptions`/`INodeStructureTool` in this plan conflict with current `NodeTranslationOptions`/`INodeTranslationTool`.
+- Planned feature/test paths referencing `nodestructure` conflict with repository `nodetranslation` paths.
+- Tool-only ownership in plan conflicts with current orchestrated ownership split across nodes and work-item import modules.
+
+### Verification evidence
+
+- Build verification: `dotnet build DevOpsMigrationPlatform.slnx --nologo --verbosity minimal` succeeded.
+- Spec analysis tooling: `speckit.analyze` and `speckit.checklist` both reported naming/path/config drift and stale checklist alignment.
+
+---
+
 ## Technical Context
 
 **Language/Version**: C# 10+, .NET 10 (multi-targeting `net481;net10.0` for Abstractions only)

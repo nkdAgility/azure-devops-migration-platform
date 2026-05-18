@@ -152,14 +152,17 @@ A contributor wants to write a `[TestCategory("SystemTest")]` test that executes
 - Spec intent is partially implemented, but mostly through newer follow-on specs and architecture decisions in `specs/017-simulated-infrastructure` and `specs/021.1-simulated-infrastructure`.
 - Current repository implementation uses generator-driven simulated config (`Generator.Projects[*].WorkItemTypes[*]`) rather than this spec's flat `seed/workItemCount/projectCount` model.
 - CLI/system coverage exists for simulated export/import/roundtrip (`tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/SimulatedMigrationCommandTests.cs`), and launch profiles/scenarios exist for simulated flows.
+- `/speckit.analyze` cannot complete for this spec because `specs/008-simulated-data-source/plan.md` is missing.
 
 ## Remaining incomplete work (IDs)
 
 - `T003` (FR-003) — deterministic behavior is implemented, but this spec's `source.seed` contract is not implemented.
+- `T005` (FR-005) — no spec-local evidence artifact proving full schema-conformance gate at the required 25k scale.
 - `T009` (FR-009) — no evidence that simulated source/target progress granularity is proven equal to real connectors.
 - `T010` (FR-010) — no operator-configurable time-limit evidence for full 25k migrate run.
 - `T011` (FR-011) — no evidence of automatic seed selection + manifest persistence of chosen seed.
 - `T013` (FR-013) — no ready-to-run 25,000-item scenario/launch profile matching this spec.
+- `A001` (artifact gap) — missing `plan.md` prevents full cross-artifact analyzer reconciliation.
 
 ## Completed because superseded (IDs + source)
 
@@ -173,6 +176,7 @@ A contributor wants to write a `[TestCategory("SystemTest")]` test that executes
 - This spec assumes endpoint factories accept endpoint options directly; current implementation resolves endpoint info from DI and uses `CreateAsync(CancellationToken)` factories.
 - This spec assumes `MigrationEndpointOptions` abstract base with only `Type`; current code keeps additional virtual members and `ToOrganisationEndpoint()`.
 - This spec's discrepancy list claiming missing Simulated docs is stale; `docs/capabilities-guide.md` and `docs/configuration-reference.md` now document Simulated source/target.
+- Canonical docs still describe `seed/workItemCount` behavior while current implementation is generator-centric; this reconciliation treats flat-contract tasks as incomplete or superseded based on code truth.
 
 ## Verification evidence
 
@@ -187,11 +191,16 @@ A contributor wants to write a `[TestCategory("SystemTest")]` test that executes
   - `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedServiceCollectionExtensions.cs`
   - `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Export/SimulatedWorkItemRevisionSource.cs`
   - `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Import/SimulatedWorkItemImportTarget.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions/Options/SimulatedEndpointOptions.cs`
   - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs`
   - `src/DevOpsMigrationPlatform.Abstractions.Agent/Export/IWorkItemRevisionSourceFactory.cs`
   - `src/DevOpsMigrationPlatform.Abstractions.Agent/Import/IWorkItemImportTargetFactory.cs`
 - Test evidence:
   - `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/SimulatedMigrationCommandTests.cs`
-  - Baseline command run: `dotnet build DevOpsMigrationPlatform.slnx -v minimal` (pass)
-  - Baseline simulated CLI suite run attempted: `dotnet test ... --filter "TestCategory=SystemTest_Simulated"` (hung in this environment; stopped)
+  - `dotnet test tests\DevOpsMigrationPlatform.Infrastructure.Simulated.Tests\DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.csproj -v minimal` (46 passed)
+- Reconciliation-tool evidence:
+  - `/speckit.checklist` executed; reported FAIL with key gaps (contract conflicts, measurability, missing plan artifact).
+  - `/speckit.analyze` executed; aborted because `plan.md` is missing in this spec folder.
+- Build evidence:
+  - `dotnet build DevOpsMigrationPlatform.slnx --no-incremental -v minimal` (pass)
 

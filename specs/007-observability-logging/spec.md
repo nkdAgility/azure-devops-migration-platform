@@ -2,7 +2,7 @@
 
 **Feature Branch**: `007-observability-logging`  
 **Created**: 2026-04-09  
-**Status**: Draft  
+**Status**: Reconciled (Partially Implemented)  
 **Input**: User description: "Three-channel observability: OTel signals (traces, metrics, logs), Event Progress (IProgressSink), and ILogger diagnostics persisted to package and streamed to Control Plane/TUI"
 
 ## Architecture References
@@ -20,11 +20,12 @@
 
 ---
 
-## Reconciliation Status (2026-05-16)
+## Reconciliation Status (2026-05-17)
 
 ### Current status
 
-This specification remains partially implemented. Core diagnostics/progress streaming is present, but package-download diagnostics workflows and some command-cleanup expectations are still open.
+This specification remains partially implemented. Core diagnostics/progress streaming is present, but package-download diagnostics workflows and command cleanup expectations remain open.
+Authority order used for reconciliation: `.agents` guidance → newer specs `018`, `031`, `033`, `034`, `035` → this spec folder → current code/test evidence.
 
 ### Remaining incomplete work (tasks.md IDs)
 
@@ -35,24 +36,23 @@ This specification remains partially implemented. Core diagnostics/progress stre
 
 ### Completed because superseded (tasks.md IDs)
 
-- T004, T008, T012, T026, T028, T029, T050 superseded by queue-command and package-manager evolution (`specs/028.1-task-bootstrap`, `specs/028.2-job-execution-by-task`, `specs/034-package-manager-adoption`)
-- T009, T014, T020 superseded by consolidated core DI wiring in `CoreAgentServiceExtensions`
-- T021, T025 superseded by current deployed defaults/contracts (`DiagnosticLogStoreOptions`, `JobDiagnostics`)
-- T034, T036 superseded by inline command settings pattern
-- T039 superseded by current `ControlPlaneClient` surface (no remaining `ILogsClient`)
-- T045, T046 superseded by integrated `TuiLogView` diagnostics streaming path
+- T004, T008, T009, T012, T014, T020 superseded by package-boundary and core-wiring migration (`specs/034-package-manager-adoption/tasks.md`)
+- T006, T021, T025, T026, T028, T029, T034, T036, T039, T045, T046, T050 superseded by queue/task-bootstrap contract evolution (`specs/028.2-job-execution-by-task/tasks.md`)
 
 ### Contradictions and reconciliation
 
 - Legacy spec references `Logs/progress.jsonl` / `Logs/agent.jsonl` and direct `IArtefactStore.AppendAsync`; implementation now writes run-scoped `.migration/runs/<runId>/logs/{progress,diagnostics}.ndjson` via `IPackageAccess.AppendLogAsync`.
 - Legacy `export` command assumptions are superseded by queue-based execution (`queue --follow --level`).
 - `manage diagnostics` acceptance intent requires package download, but current command is guidance-only and does not download/parse NDJSON.
+- FR-016 (`/jobs/{jobId}/logs/download`) remains in tension with current control-plane/data-sovereignty guardrails that prohibit control-plane package read/write behavior.
 
 ### Verification evidence
 
 - `PackageProgressSink` and `PackageLoggerProvider` write via package boundary append APIs.
 - `DiagnosticsController` and `ProgressController` endpoints exist and are wired.
-- `dotnet clean && dotnet build --no-incremental` passes; `dotnet test --no-build` did not complete in this session (stalled/stopped).
+- `/speckit.analyze` and `/speckit.checklist` executed for this spec folder.
+- Baseline validation: `dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo` passed.
+- Baseline tests: `dotnet test DevOpsMigrationPlatform.slnx --no-build --nologo` stalled; run was stopped after extended no-progress output.
 
 ---
 

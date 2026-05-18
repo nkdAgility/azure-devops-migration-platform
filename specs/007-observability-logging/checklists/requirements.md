@@ -4,7 +4,7 @@
 **Created**: 2026-04-09
 **Feature**: [spec.md](../spec.md)
 
-## Reconciliation Alignment Checklist (2026-05-16)
+## Reconciliation Alignment Checklist (2026-05-17)
 
 ### Spec-to-code truth alignment
 
@@ -13,15 +13,18 @@
 - [x] Incomplete work is explicitly marked `incomplete` with concrete evidence notes
 - [x] `spec.md` now records current status, contradictions, and evidence
 - [x] `plan.md` now records current status, contradictions, and evidence
+- [x] `/speckit.analyze` was run for this spec folder and findings were folded into reconciliation text
+- [x] `/speckit.checklist` was run for this spec folder and checklist findings were incorporated
 
 ### Open gaps confirmed (must remain unchecked until implemented)
 
 - [ ] `manage diagnostics` downloads and filters package diagnostics NDJSON (T033, T043)
 - [ ] Deprecated `manage logs` command registration removed (T037)
 - [ ] Control-plane package log download endpoint exists and is wired (T041)
+- [ ] `/jobs/{jobId}/logs/download` approach is reconciled with control-plane package-I/O guardrails before implementation
 - [ ] CLI client download methods for diagnostics/progress exist (T042)
 - [ ] System test verifies `manage diagnostics` NDJSON download behavior (T051)
-- [ ] Full `dotnet test` pass evidence captured for this reconciliation run (T054)
+- [ ] Full `dotnet test` pass evidence captured for this reconciliation run (T054; latest full run stalled and was stopped)
 - [ ] Scenario execution evidence captured for current queue-era scenario config (T055)
 
 ### Notes

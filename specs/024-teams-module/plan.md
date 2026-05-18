@@ -17,6 +17,16 @@ Plus two module extensions:
 
 All three connectors (Simulated, AzureDevOpsServices, TeamFoundationServer) must be fully implemented.
 
+## Reconciliation Status (2026-05-17)
+
+- Task truth is now canonical in `tasks.md` with normalized statuses.
+- Remaining incomplete execution evidence: `T084`, `T085`, `T096`.
+- Part of this plan is historically superseded by later specs:
+  - `specs/030-module-analiser-refactor` (Nodes naming and module lifecycle evolution)
+  - `specs/032-icapture-interface` (capture contract terminology)
+  - `specs/035-workitem-import-support` (prepare/import readiness orchestration details)
+- Legacy path references to `DevOpsMigrationPlatform.CLI.TfsExport` are reconciled to `Infrastructure.TfsObjectModel` implementations in current code.
+
 ## Technical Context
 
 **Language/Version**: C# 10+, .NET 10 (TFS subprocess: .NET 4.8)

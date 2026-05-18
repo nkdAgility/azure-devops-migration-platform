@@ -224,6 +224,37 @@ traces
 | project timestamp, message, customDimensions
 ```
 
+---
+
+## Current status (reconciled 2026-05-17)
+
+- Status: **Superseded by newer implemented specs**.
+- This spec captures an intermediate design that no longer matches repository truth.
+
+## Remaining incomplete work
+
+- None in this spec scope; open work has moved to newer specs.
+
+## Completed because superseded
+
+- Core transport and guard behavior superseded by `specs/025.1-fold-to-job/spec.md`.
+- Package-boundary behavior superseded by `specs/034-package-manager-adoption/*`.
+- Metric naming superseded by `specs/031-platform-metrics-unification/spec.md`.
+
+## Contradictions and reconciliation
+
+- Original assumption: CLI writes `migration-config.json` pre-submit.
+- Current truth: CLI submits `Job.ConfigPayload`; agent writes `.migration/migration-config.json` after lease.
+- Original abstraction references (`IPackageConfigStore`) are replaced by current package-boundary loader/access patterns.
+
+## Verification evidence
+
+- `src/DevOpsMigrationPlatform.Abstractions/Jobs/Job.cs`
+- `src/DevOpsMigrationPlatform.CLI.Migration/Commands/QueueCommand.cs`
+- `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem/PackageMigrationConfigLoader.cs`
+- `.agents/20-guardrails/core/architecture-boundaries.md`
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements

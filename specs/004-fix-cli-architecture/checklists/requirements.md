@@ -39,9 +39,12 @@
 - Edge cases cover configuration and error handling scenarios
 - Assumptions document dependencies on existing patterns and technologies
 
-## Reconciliation Status (2026-05-16)
+## Reconciliation Status (2026-05-17)
 
 - [ ] Task truth aligned with implementation (see `tasks.md` statuses and evidence)
 - [ ] Program.cs minimal-bootstrap requirement satisfied (`Program.cs` is currently not minimal)
 - [ ] CommandAppTester-based command suite implemented for all targeted commands
 - [ ] CLI architecture docs and runtime behavior are fully consistent
+- [ ] T027 end-to-end options-pattern integration is complete (runtime still contains direct JSON reads in `QueueCommand`)
+- [ ] Superseded task sources consistently reference `specs/<...>/tasks.md` with source IDs/steps
+- [x] `/speckit.analyze` and `/speckit.checklist` were executed for reconciliation evidence

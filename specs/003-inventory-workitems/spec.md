@@ -2,7 +2,7 @@
 
 **Feature Branch**: `003-inventory-workitems`  
 **Created**: 2026-04-04  
-**Status**: Draft  
+**Status**: Reconciled (historical; largely superseded)  
 **Input**: User description: "Flesh out the inventory command for Work Items discovery supporting both AzureDevOps and TfsObjectModel with progressive timespan reduction to stay under the 20k work item query limit"
 
 ## Architecture References
@@ -334,11 +334,11 @@ The `accessToken` field value is resolved in this order (highest precedence firs
 
 ## Current status
 
-This spec is **implemented in part and largely superseded**. The repository now runs inventory through the queue/control-plane/agent path (`JobKind.Inventory`) rather than a direct `devopsmigration discovery inventory` command.
+This spec is **historical and largely superseded**. The repository now runs inventory through the queue/control-plane/agent path (`JobKind.Inventory`) rather than a direct `devopsmigration discovery inventory` command.
 
 ## Remaining incomplete work (IDs)
 
-None. `tasks.md` reconciliation marks no tasks as `Status: incomplete`.
+None. `tasks.md` reconciliation marks no task as `— Status: incomplete`.
 
 ## Completed because superseded (IDs + source)
 
@@ -347,6 +347,8 @@ None. `tasks.md` reconciliation marks no tasks as `Status: incomplete`.
 - `specs/025.1-fold-to-job` (single `Job`, queue/control-plane dispatch)
 - `specs/028.2-job-execution-by-task` (agent execution plan ownership)
 - `specs/033-runtime-state-categories` (inventory runtime state/output alignment)
+- `specs/025-agent-config-package` (config/auth model consolidation)
+- `specs/020-resumable-batching-cursor` (windowing/resume behavior evolution)
 
 ## Contradictions and reconciliation
 

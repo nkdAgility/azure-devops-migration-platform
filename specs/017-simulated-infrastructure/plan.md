@@ -235,6 +235,7 @@ All items confirmed passing. No violations introduced by Phase 1 design decision
 
 - Implementation largely complete; status metadata has been reconciled against repository truth.
 - Reconciliation scope is documentation only (Class A).
+- Speckit reconciliation audits (`/speckit.analyze`, `/speckit.checklist`) were executed for this pass.
 
 ## Remaining incomplete work (IDs)
 
@@ -253,6 +254,8 @@ All items confirmed passing. No violations introduced by Phase 1 design decision
 - Earlier plan assumed factory signatures accepted endpoint options; runtime now resolves endpoints via injected endpoint info and `CreateAsync(CancellationToken)`.
 - Earlier task expected `Mode: "Both"`; current contract uses `Mode: "Migrate"`.
 - Earlier task expected `workitems-simulated-small.zip`; current scenario uses `workitems-2items-flat.zip`.
+- Earlier plan expected `OrganisationEndpoint` to move inward; current repository truth keeps `OrganisationEndpoint` in Abstractions.
+- Earlier references cite `analysis/Simulated.md`; that file is absent and remains a stale historical reference.
 
 ## Verification evidence
 

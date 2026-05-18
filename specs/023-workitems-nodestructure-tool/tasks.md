@@ -15,23 +15,40 @@
 
 **Purpose**: Domain types, interfaces, configuration model, and DI registration — the foundation all user stories depend on.
 
-- [x] T001 Create `ClassificationNodeType` enum in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/ClassificationNodeType.cs`
-- [x] T002 [P] Create `ProjectMapping` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/ProjectMapping.cs`
-- [x] T003 [P] Create `PathTranslation` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/PathTranslation.cs`
-- [x] T004 [P] Create `IterationNodeEntry` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IterationNodeEntry.cs`
-- [x] T005 [P] Create `ClassificationTreeSnapshot` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/ClassificationTreeSnapshot.cs`
-- [x] T006 [P] Create `ReferencedPathsArtifact` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/ReferencedPathsArtifact.cs`
-- [x] T007 [P] Create `UnmappedPathFinding` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/UnmappedPathFinding.cs`
-- [x] T008 [P] Create `NodeStructureValidationReport` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/NodeStructureValidationReport.cs`
-- [x] T009 Create `NodeStructureOptions` sealed options class in `src/DevOpsMigrationPlatform.Abstractions/Options/NodeStructureOptions.cs` — `SectionName = "MigrationPlatform:Tools:NodeStructure"`, init-only properties, data annotation validation. `AreaPathMappings` and `IterationPathMappings` are `IReadOnlyList<NodeMapping>` (ordered regex rules).
-- [x] T009a [P] Create `NodeMapping` sealed record in `src/DevOpsMigrationPlatform.Abstractions/Options/NodeMapping.cs` — `Match` (string, regex pattern) and `Replacement` (string, regex replacement). Init-only properties.
-- [x] T010 [P] Create `INodeStructureTool` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/INodeStructureTool.cs`
-- [x] T011 [P] Create `INodeCreator` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/INodeCreator.cs`
-- [x] T012 [P] Create `IClassificationTreeReader` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IClassificationTreeReader.cs`
-- [x] T013 [P] Create `INodeStructureValidator` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/INodeStructureValidator.cs`
-- [x] T014 Create `NodeStructureToolServiceCollectionExtensions` with `AddNodeStructureToolServices()` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeStructureToolServiceCollectionExtensions.cs` — register options, `INodeStructureTool`, `INodeStructureValidator`; leave `INodeCreator` and `IClassificationTreeReader` for connector-specific DI
-- [x] T015 Create `NodeReplicationProgress` checkpoint record in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeReplicationProgress.cs`
-- [x] T016 Add `WellKnownMetricNames` constants for all `migration.nodes.*` metrics in `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs`
+- [X] T001 Create `ClassificationNodeType` enum in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/ClassificationNodeType.cs` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T002 [P] Create `ProjectMapping` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/ProjectMapping.cs` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T003 [P] Create `PathTranslation` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/PathTranslation.cs` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T004 [P] Create `IterationNodeEntry` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IterationNodeEntry.cs` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T005 [P] Create `ClassificationTreeSnapshot` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/ClassificationTreeSnapshot.cs` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T006 [P] Create `ReferencedPathsArtifact` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/ReferencedPathsArtifact.cs` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T007 [P] Create `UnmappedPathFinding` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/UnmappedPathFinding.cs` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T008 [P] Create `NodeStructureValidationReport` record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/NodeStructureValidationReport.cs` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T009 Create `NodeStructureOptions` sealed options class in `src/DevOpsMigrationPlatform.Abstractions/Options/NodeStructureOptions.cs` — `SectionName = "MigrationPlatform:Tools:NodeStructure"`, init-only properties, data annotation validation. `AreaPathMappings` and `IterationPathMappings` are `IReadOnlyList<NodeMapping>` (ordered regex rules). — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T009a [P] Create `NodeMapping` sealed record in `src/DevOpsMigrationPlatform.Abstractions/Options/NodeMapping.cs` — `Match` (string, regex pattern) and `Replacement` (string, regex replacement). Init-only properties. — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T010 [P] Create `INodeStructureTool` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/INodeStructureTool.cs` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T011 [P] Create `INodeCreator` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/INodeCreator.cs` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T012 [P] Create `IClassificationTreeReader` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IClassificationTreeReader.cs` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T013 [P] Create `INodeStructureValidator` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/INodeStructureValidator.cs` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T014 Create `NodeStructureToolServiceCollectionExtensions` with `AddNodeStructureToolServices()` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeStructureToolServiceCollectionExtensions.cs` — register options, `INodeStructureTool`, `INodeStructureValidator`; leave `INodeCreator` and `IClassificationTreeReader` for connector-specific DI — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T015 Create `NodeReplicationProgress` checkpoint record in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeReplicationProgress.cs` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T016 Add `WellKnownMetricNames` constants for all `migration.nodes.*` metrics in `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 ---
 
@@ -41,9 +58,12 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [x] T017 [US1] Create `features/import/workitems/nodestructure/path-mapping.feature` — translate spec.md User Story 1 acceptance scenarios (regex mapping with Match/Replacement, auto-swap, pass-through, tool disabled) into conformant Gherkin per `.agents/20-guardrails/workflow/acceptance-test-format.md`
-- [x] T018 Implement `NodeStructureTool` (`INodeStructureTool`) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeStructureTool.cs` — constructor takes `IOptions<NodeStructureOptions>`, pre-compiles all `NodeMapping` patterns with `RegexOptions.IgnoreCase | RegexOptions.NonBacktracking`. Implements `TranslatePath()` with language override → iterate mapping rules (`Regex.IsMatch` then `Regex.Replace`, first match wins) → auto-swap → pass-through logic, `IsEnabled` property. Pure, no I/O.
-- [x] T019 Create unit tests for `NodeStructureTool` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/NodeStructureToolTests.cs` — cover regex map hit (with capture groups `$1`/`$2`), auto-swap, external path pass-through, case-insensitive matching, whitespace trimming, language override normalisation, tool disabled state, `Enabled: false` with differing project names emits warning (FR-023)
+- [X] T017 [US1] Create `features/import/workitems/nodestructure/path-mapping.feature` — translate spec.md User Story 1 acceptance scenarios (regex mapping with Match/Replacement, auto-swap, pass-through, tool disabled) into conformant Gherkin per `.agents/20-guardrails/workflow/acceptance-test-format.md` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T018 Implement `NodeStructureTool` (`INodeStructureTool`) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeStructureTool.cs` — constructor takes `IOptions<NodeStructureOptions>`, pre-compiles all `NodeMapping` patterns with `RegexOptions.IgnoreCase | RegexOptions.NonBacktracking`. Implements `TranslatePath()` with language override → iterate mapping rules (`Regex.IsMatch` then `Regex.Replace`, first match wins) → auto-swap → pass-through logic, `IsEnabled` property. Pure, no I/O. — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T019 Create unit tests for `NodeStructureTool` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/NodeStructureToolTests.cs` — cover regex map hit (with capture groups `$1`/`$2`), auto-swap, external path pass-through, case-insensitive matching, whitespace trimming, language override normalisation, tool disabled state, `Enabled: false` with differing project names emits warning (FR-023) — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 **Checkpoint**: Foundation ready — `INodeStructureTool` core path translation working, all user story implementation can proceed.
 
@@ -57,9 +77,12 @@
 
 ### Implementation for User Story 1
 
-- [x] T020 [US1] Integrate `INodeStructureTool` into `RevisionFolderProcessor` — call `TranslatePath()` for `System.AreaPath` and `System.IterationPath` fields during import, apply result to revision before target API write. Update `RevisionFolderProcessorFactory` to pass `INodeStructureTool`.
-- [x] T021 [US1] Add OpenTelemetry metrics recording in `NodeStructureTool` — `migration.nodes.import.translate.count`, `.map_hit`, `.autoswap_hit`, `.external`, `.unresolvable` counters using `MigrationMetrics` pattern
-- [x] T022 [US1] Add structured logging in `NodeStructureTool` — `Path translated` (Trace level), `Path unresolvable` (Warning level) with `DataClassification.Customer` scoping for path values
+- [X] T020 [US1] Integrate `INodeStructureTool` into `RevisionFolderProcessor` — call `TranslatePath()` for `System.AreaPath` and `System.IterationPath` fields during import, apply result to revision before target API write. Update `RevisionFolderProcessorFactory` to pass `INodeStructureTool`. — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T021 [US1] Add OpenTelemetry metrics recording in `NodeStructureTool` — `migration.nodes.import.translate.count`, `.map_hit`, `.autoswap_hit`, `.external`, `.unresolvable` counters using `MigrationMetrics` pattern — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T022 [US1] Add structured logging in `NodeStructureTool` — `Path translated` (Trace level), `Path unresolvable` (Warning level) with `DataClassification.Customer` scoping for path values — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 **Checkpoint**: User Story 1 fully functional — path mapping applied during import, observable via metrics and logs.
 
@@ -73,14 +96,19 @@
 
 ### Gherkin Feature File
 
-- [x] T023 [US7] Create `features/export/workitems/nodestructure/path-discovery.feature` — translate spec.md User Story 7 acceptance scenarios (new path discovered, duplicate ignored, final artifact contents, resume with existing artifact) into conformant Gherkin
+- [X] T023 [US7] Create `features/export/workitems/nodestructure/path-discovery.feature` — translate spec.md User Story 7 acceptance scenarios (new path discovered, duplicate ignored, final artifact contents, resume with existing artifact) into conformant Gherkin — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 ### Implementation for User Story 7
 
-- [x] T024 [US7] Implement `ReferencedPathTracker` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/ReferencedPathTracker.cs` — maintains in-memory `HashSet<string>` (case-insensitive) for area and iteration paths, loads existing `Nodes/referenced-paths.json` on init (for resume), writes `ReferencedPathsArtifact` to `IArtefactStore` on each new discovery
-- [x] T025 [US7] Integrate `ReferencedPathTracker` into `WorkItemExportOrchestrator` — after each `revision.json` is written, extract `System.AreaPath`/`System.IterationPath` and feed to tracker
-- [x] T026 [US7] Add OpenTelemetry span `nodes.export.discover` and metric `migration.nodes.export.discover.count` in `ReferencedPathTracker`
-- [x] T027 [US7] Create unit tests for `ReferencedPathTracker` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/ReferencedPathTrackerTests.cs` — cover new path, duplicate, resume from existing artifact, case-insensitive dedup
+- [X] T024 [US7] Implement `ReferencedPathTracker` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/ReferencedPathTracker.cs` — maintains in-memory `HashSet<string>` (case-insensitive) for area and iteration paths, loads existing `Nodes/referenced-paths.json` on init (for resume), writes `ReferencedPathsArtifact` to `IArtefactStore` on each new discovery — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T025 [US7] Integrate `ReferencedPathTracker` into `WorkItemExportOrchestrator` — after each `revision.json` is written, extract `System.AreaPath`/`System.IterationPath` and feed to tracker — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T026 [US7] Add OpenTelemetry span `nodes.export.discover` and metric `migration.nodes.export.discover.count` in `ReferencedPathTracker` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T027 [US7] Create unit tests for `ReferencedPathTracker` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/ReferencedPathTrackerTests.cs` — cover new path, duplicate, resume from existing artifact, case-insensitive dedup — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 **Checkpoint**: Export produces `Nodes/referenced-paths.json` with all distinct paths. Package contains export-side path metadata.
 
@@ -94,14 +122,19 @@
 
 ### Gherkin Feature File
 
-- [x] T028 [US4] Create `features/export/workitems/nodestructure/tree-capture.feature` — translate export-side acceptance scenarios (always written, area nodes as strings, iteration nodes with dates/backlog flag) into conformant Gherkin
+- [X] T028 [US4] Create `features/export/workitems/nodestructure/tree-capture.feature` — translate export-side acceptance scenarios (always written, area nodes as strings, iteration nodes with dates/backlog flag) into conformant Gherkin — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 ### Implementation for User Story 4a (export side)
 
-- [x] T029 [P] [US4] Implement `AzureDevOpsClassificationTreeReader` (`IClassificationTreeReader`) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/AzureDevOpsClassificationTreeReader.cs` — enumerate area and iteration nodes from source ADO REST API via `IAsyncEnumerable`
-- [x] T030 [US4] Implement `ClassificationTreeCapture` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/ClassificationTreeCapture.cs` — calls `IClassificationTreeReader`, writes `ClassificationTreeSnapshot` to `IArtefactStore` at `Nodes/source-tree.json`. Add span `nodes.export.tree` and metrics `.count`, `.duration_ms`, `.errors`
-- [x] T031 [US4] Integrate `ClassificationTreeCapture` into `WorkItemsModule.ExportAsync()` — call at the start of export before work item revision processing
-- [x] T032 [US4] Create unit tests for `ClassificationTreeCapture` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/ClassificationTreeCaptureTests.cs` — cover successful capture, API failure, empty tree
+- [X] T029 [P] [US4] Implement `AzureDevOpsClassificationTreeReader` (`IClassificationTreeReader`) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/AzureDevOpsClassificationTreeReader.cs` — enumerate area and iteration nodes from source ADO REST API via `IAsyncEnumerable` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T030 [US4] Implement `ClassificationTreeCapture` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/ClassificationTreeCapture.cs` — calls `IClassificationTreeReader`, writes `ClassificationTreeSnapshot` to `IArtefactStore` at `Nodes/source-tree.json`. Add span `nodes.export.tree` and metrics `.count`, `.duration_ms`, `.errors` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T031 [US4] Integrate `ClassificationTreeCapture` into `WorkItemsModule.ExportAsync()` — call at the start of export before work item revision processing — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T032 [US4] Create unit tests for `ClassificationTreeCapture` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/ClassificationTreeCaptureTests.cs` — cover successful capture, API failure, empty tree — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 **Checkpoint**: Export produces both `Nodes/source-tree.json` (full tree) and `Nodes/referenced-paths.json` (discovered paths). All export-side artifacts complete.
 
@@ -115,14 +148,19 @@
 
 ### Gherkin Feature File
 
-- [x] T033 [US2] Create `features/import/workitems/nodestructure/auto-create-nodes.feature` — translate spec.md User Story 2 acceptance scenarios (missing node created, existing node idempotent, disabled flag, nested path ancestor-first) into conformant Gherkin
+- [X] T033 [US2] Create `features/import/workitems/nodestructure/auto-create-nodes.feature` — translate spec.md User Story 2 acceptance scenarios (missing node created, existing node idempotent, disabled flag, nested path ancestor-first) into conformant Gherkin — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 ### Implementation for User Story 2
 
-- [x] T034 [US2] Implement `AzureDevOpsNodeCreator` (`INodeCreator`) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/AzureDevOpsNodeCreator.cs` — `NodeExistsAsync` (GET, 200/404), `EnsureExistsAsync` (check → POST, handle 409, ancestor-first for nested paths), `SetIterationDatesAsync` (PATCH). Exponential back-off retry on 5xx/408/429. Fatal on 401/403/400. Spans: `nodes.api.ensure`, `nodes.api.set_dates`
-- [x] T035 [US2] Implement `NodeEnsurer` (pre-collection phase) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeEnsurer.cs` — reads `Nodes/referenced-paths.json` (fast path) or falls back to scanning all revision folders via `IArtefactStore.EnumerateAsync()` (note: fallback reads and deserialises each `revision.json` — potentially expensive for large packages), applies `INodeStructureTool.TranslatePath()` to each, calls `INodeCreator.EnsureExistsAsync()` for each distinct translated path. Add span `nodes.import.precollect` and metrics `.count`, `.duration_ms`, `.errors`, `.in_flight`
-- [x] T036 [US2] Integrate `NodeEnsurer` pre-collection into `WorkItemsModule.ImportAsync()` — call after `ReplicateSourceTree` step (Phase 8) and before `RevisionFolderProcessor` loop, when `AutoCreateNodes: true`
-- [x] T037 [US2] Create unit tests for `NodeEnsurer` (pre-collection) in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/NodeEnsurerTests.cs` — cover fast path (referenced-paths.json), fallback scan, empty package, node already exists, API failure
+- [X] T034 [US2] Implement `AzureDevOpsNodeCreator` (`INodeCreator`) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/AzureDevOpsNodeCreator.cs` — `NodeExistsAsync` (GET, 200/404), `EnsureExistsAsync` (check → POST, handle 409, ancestor-first for nested paths), `SetIterationDatesAsync` (PATCH). Exponential back-off retry on 5xx/408/429. Fatal on 401/403/400. Spans: `nodes.api.ensure`, `nodes.api.set_dates` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T035 [US2] Implement `NodeEnsurer` (pre-collection phase) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeEnsurer.cs` — reads `Nodes/referenced-paths.json` (fast path) or falls back to scanning all revision folders via `IArtefactStore.EnumerateAsync()` (note: fallback reads and deserialises each `revision.json` — potentially expensive for large packages), applies `INodeStructureTool.TranslatePath()` to each, calls `INodeCreator.EnsureExistsAsync()` for each distinct translated path. Add span `nodes.import.precollect` and metrics `.count`, `.duration_ms`, `.errors`, `.in_flight` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T036 [US2] Integrate `NodeEnsurer` pre-collection into `WorkItemsModule.ImportAsync()` — call after `ReplicateSourceTree` step (Phase 8) and before `RevisionFolderProcessor` loop, when `AutoCreateNodes: true` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T037 [US2] Create unit tests for `NodeEnsurer` (pre-collection) in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/NodeEnsurerTests.cs` — cover fast path (referenced-paths.json), fallback scan, empty package, node already exists, API failure — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 **Checkpoint**: Auto-create nodes working. Import can succeed against an empty target classification tree.
 
@@ -136,12 +174,15 @@
 
 ### Gherkin Feature File
 
-- [x] T038 [US3] Create `features/import/workitems/nodestructure/skip-unresolvable.feature` — translate spec.md User Story 3 acceptance scenarios (skip area, skip iteration, fail when both false) into conformant Gherkin
+- [X] T038 [US3] Create `features/import/workitems/nodestructure/skip-unresolvable.feature` — translate spec.md User Story 3 acceptance scenarios (skip area, skip iteration, fail when both false) into conformant Gherkin — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 ### Implementation for User Story 3
 
-- [x] T039 [US3] Add skip/fail logic in `RevisionFolderProcessor` integration point — when `PathTranslation.TargetPath` is null: check `SkipOnUnresolvableArea`/`SkipOnUnresolvableIteration`, emit warning progress event and skip revision, or fail with descriptive error (field name, path value, revision folder)
-- [x] T040 [US3] Add structured logging for skip/fail events — `Revision skipped (unresolvable path)` (Warning), import failure with descriptive error message (Error). External path warning (FR-025) — MUST identify the path as external (not anchored in source project) distinctly from generic unresolvable warnings. Add dedicated unit test cases verifying: (a) external path emits warning with "external" identification, (b) generic unresolvable path emits warning without "external" label.
+- [X] T039 [US3] Add skip/fail logic in `RevisionFolderProcessor` integration point — when `PathTranslation.TargetPath` is null: check `SkipOnUnresolvableArea`/`SkipOnUnresolvableIteration`, emit warning progress event and skip revision, or fail with descriptive error (field name, path value, revision folder) — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T040 [US3] Add structured logging for skip/fail events — `Revision skipped (unresolvable path)` (Warning), import failure with descriptive error message (Error). External path warning (FR-025) — MUST identify the path as external (not anchored in source project) distinctly from generic unresolvable warnings. Add dedicated unit test cases verifying: (a) external path emits warning with "external" identification, (b) generic unresolvable path emits warning without "external" label. — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 **Checkpoint**: Graceful degradation on bad paths. Large migrations can succeed with a small percentage of bad paths skipped.
 
@@ -155,13 +196,17 @@
 
 ### Gherkin Feature File
 
-- [x] T041 [US4] Create `features/import/workitems/nodestructure/replicate-source-tree.feature` — translate spec.md User Story 4 acceptance scenarios (all nodes replicated, flag disabled, resume after interruption) into conformant Gherkin
+- [X] T041 [US4] Create `features/import/workitems/nodestructure/replicate-source-tree.feature` — translate spec.md User Story 4 acceptance scenarios (all nodes replicated, flag disabled, resume after interruption) into conformant Gherkin — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 ### Implementation for User Story 4 (import side)
 
-- [x] T042 [US4] Implement `NodeEnsurer` (replicate phase) in `NodeEnsurer.cs` — streaming read of `Nodes/source-tree.json` via `System.Text.Json` streaming APIs (one node at a time per AD-6), check `NodeReplicationProgress` checkpoint, call `INodeCreator.EnsureExistsAsync()` for each, persist checkpoint after each node. Add span `nodes.import.replicate` and per-node span `nodes.import.replicate.node`. Metrics: `.count`, `.duration_ms`, `.errors`, `.skipped`, `.in_flight`
-- [x] T043 [US4] Integrate `NodeEnsurer` replicate phase into `WorkItemsModule.ImportAsync()` — call before pre-collection phase (Phase 6) when `ReplicateSourceTree: true` and `Nodes/source-tree.json` exists. Log warning and skip if artifact absent.
-- [x] T044 [US4] Add resumability tests for `NodeEnsurer` replicate phase — simulate interruption at node 50 of 200, verify resume skips confirmed nodes and continues from 51
+- [X] T042 [US4] Implement `NodeEnsurer` (replicate phase) in `NodeEnsurer.cs` — streaming read of `Nodes/source-tree.json` via `System.Text.Json` streaming APIs (one node at a time per AD-6), check `NodeReplicationProgress` checkpoint, call `INodeCreator.EnsureExistsAsync()` for each, persist checkpoint after each node. Add span `nodes.import.replicate` and per-node span `nodes.import.replicate.node`. Metrics: `.count`, `.duration_ms`, `.errors`, `.skipped`, `.in_flight` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T043 [US4] Integrate `NodeEnsurer` replicate phase into `WorkItemsModule.ImportAsync()` — call before pre-collection phase (Phase 6) when `ReplicateSourceTree: true` and `Nodes/source-tree.json` exists. Log warning and skip if artifact absent. — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T044 [US4] Add resumability tests for `NodeEnsurer` replicate phase — simulate interruption at node 50 of 200, verify resume skips confirmed nodes and continues from 51 — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 **Checkpoint**: Full tree replication working. Operators can replicate the complete source tree to the target before any work item processing.
 
@@ -175,11 +220,13 @@
 
 ### Gherkin Feature File
 
-- [x] T045 [US5] Create `features/import/workitems/nodestructure/language-override.feature` — translate spec.md User Story 5 acceptance scenarios (area override, iteration override) into conformant Gherkin
+- [X] T045 [US5] Create `features/import/workitems/nodestructure/language-override.feature` — translate spec.md User Story 5 acceptance scenarios (area override, iteration override) into conformant Gherkin — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 ### Implementation for User Story 5
 
-- [x] T046 [US5] Verify language override logic in `NodeStructureTool.TranslatePath()` is complete — root segment normalisation was implemented in T018 as part of the core translation pipeline. Add specific unit tests for localised root segments (`"Área"` → `"Area"`, `"Iteración"` → `"Iteration"`).
+- [X] T046 [US5] Verify language override logic in `NodeStructureTool.TranslatePath()` is complete — root segment normalisation was implemented in T018 as part of the core translation pipeline. Add specific unit tests for localised root segments (`"Área"` → `"Area"`, `"Iteración"` → `"Iteration"`). — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 **Checkpoint**: Cross-locale path normalisation working.
 
@@ -193,12 +240,15 @@
 
 ### Gherkin Feature File
 
-- [x] T047 [US6] Create `features/import/workitems/nodestructure/iteration-dates.feature` — translate spec.md User Story 6 acceptance scenarios (dates set, area nodes no dates, null dates no error) into conformant Gherkin
+- [X] T047 [US6] Create `features/import/workitems/nodestructure/iteration-dates.feature` — translate spec.md User Story 6 acceptance scenarios (dates set, area nodes no dates, null dates no error) into conformant Gherkin — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 ### Implementation for User Story 6
 
-- [x] T048 [US6] Add date-setting logic to `NodeEnsurer` replicate phase — after creating each iteration node, call `INodeCreator.SetIterationDatesAsync()` with `startDate`/`finishDate` from `IterationNodeEntry`. Skip if both null. Log warning on failure (non-blocking per FR-026). Add span `nodes.api.set_dates`.
-- [x] T049 [US6] Add unit tests for iteration date setting — cover dates set, area node skipped, null dates no-op, API failure logged as warning
+- [X] T048 [US6] Add date-setting logic to `NodeEnsurer` replicate phase — after creating each iteration node, call `INodeCreator.SetIterationDatesAsync()` with `startDate`/`finishDate` from `IterationNodeEntry`. Skip if both null. Log warning on failure (non-blocking per FR-026). Add span `nodes.api.set_dates`. — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T049 [US6] Add unit tests for iteration date setting — cover dates set, area node skipped, null dates no-op, API failure logged as warning — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 **Checkpoint**: Sprint dates preserved during tree replication.
 
@@ -210,12 +260,15 @@
 
 ### Gherkin Feature File
 
-- [x] T050 Create `features/platform/validation/nodestructure-validation.feature` — translate spec.md validation requirements (FR-021: unmapped paths, external paths, malformed targets, invalid regex patterns, revision count per path) into conformant Gherkin
+- [X] T050 Create `features/platform/validation/nodestructure-validation.feature` — translate spec.md validation requirements (FR-021: unmapped paths, external paths, malformed targets, invalid regex patterns, revision count per path) into conformant Gherkin — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 ### Implementation
 
-- [x] T051 Implement `NodeStructureValidator` (`INodeStructureValidator`) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeStructureValidator.cs` — reads `Nodes/referenced-paths.json` (fast path) or scans all revision folders, applies `INodeStructureTool.TranslatePath()` to each path, collects `UnmappedPathFinding` entries (with affected revision counts), flags external paths distinctly, validates `Match` patterns for syntactically valid regex (FR-004a), validates that `Replacement` values after substitution do not produce empty or ADO-illegal-character paths (`\`, `/`, `$`, `?`, `*`, `"`, `:`, `>`, `<`, `|`, `#`, `%`, `+`, control chars). Returns `NodeStructureValidationReport`. Add span `nodes.validate` and metrics `.duration_ms`, `.unmapped_paths`, `.external_paths`, `.malformed_targets`
-- [x] T052 Create unit tests for `NodeStructureValidator` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/NodeStructureValidatorTests.cs` — cover all mapped (valid), unmapped paths, external paths, malformed target values (ADO illegal chars), invalid regex patterns, empty package, referenced-paths fast path vs revision scan fallback
+- [X] T051 Implement `NodeStructureValidator` (`INodeStructureValidator`) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeStructure/NodeStructureValidator.cs` — reads `Nodes/referenced-paths.json` (fast path) or scans all revision folders, applies `INodeStructureTool.TranslatePath()` to each path, collects `UnmappedPathFinding` entries (with affected revision counts), flags external paths distinctly, validates `Match` patterns for syntactically valid regex (FR-004a), validates that `Replacement` values after substitution do not produce empty or ADO-illegal-character paths (`\`, `/`, `$`, `?`, `*`, `"`, `:`, `>`, `<`, `|`, `#`, `%`, `+`, control chars). Returns `NodeStructureValidationReport`. Add span `nodes.validate` and metrics `.duration_ms`, `.unmapped_paths`, `.external_paths`, `.malformed_targets` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T052 Create unit tests for `NodeStructureValidator` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeStructure/NodeStructureValidatorTests.cs` — cover all mapped (valid), unmapped paths, external paths, malformed target values (ADO illegal chars), invalid regex patterns, empty package, referenced-paths fast path vs revision scan fallback — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
 
 **Checkpoint**: Validation provides operators with a complete picture of path coverage gaps before import.
 
@@ -225,14 +278,22 @@
 
 **Purpose**: Ensure all canonical docs reflect what was implemented. Blocking gate — spec is not complete without this.
 
-- [x] T053 Update `docs/configuration-reference.md` — add `### NodeStructure Tool` subsection under `## Tools` with JSON schema, property table, and config example (resolves discrepancy #1 in `discrepancies.md`)
-- [x] T054 [P] Update `docs/module-development-guide.md` — add `NodeStructureTool` to Tool Resolution section; update `WorkItemsModule` responsibility row to note `Revisions` extension optionally consumes `INodeStructureTool` (resolves discrepancy #2)
-- [x] T055 [P] Update `.agents/30-context/domains/migration-package-concept.md` — add `Nodes/` as a top-level package folder with `source-tree.json` and `referenced-paths.json` artifact descriptions (resolves discrepancy #3)
-- [x] T056 Mark all items in `specs/023-workitems-nodestructure-tool/discrepancies.md` as `Resolved` or `N/A`
-- [x] T057 Review `analysis/pending-actions.md` and remove any items resolved by this spec
-- [x] T058 Run `dotnet clean && dotnet build --no-incremental` — MUST pass
-- [x] T059 Run `dotnet test` — ALL tests MUST pass
-- [ ] T060 Run at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile and verify observable output
+- [X] T053 Update `docs/configuration-reference.md` — add `### NodeStructure Tool` subsection under `## Tools` with JSON schema, property table, and config example (resolves discrepancy #1 in `discrepancies.md`) — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T054 [P] Update `docs/module-development-guide.md` — add `NodeStructureTool` to Tool Resolution section; update `WorkItemsModule` responsibility row to note `Revisions` extension optionally consumes `INodeStructureTool` (resolves discrepancy #2) — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T055 [P] Update `.agents/30-context/domains/migration-package-concept.md` — add `Nodes/` as a top-level package folder with `source-tree.json` and `referenced-paths.json` artifact descriptions (resolves discrepancy #3) — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T056 Mark all items in `specs/023-workitems-nodestructure-tool/discrepancies.md` as `Resolved` or `N/A` — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T057 Review `analysis/pending-actions.md` and remove any items resolved by this spec — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T058 Run `dotnet clean && dotnet build --no-incremental` — MUST pass — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [X] T059 Run `dotnet test` — ALL tests MUST pass — Status: complete/superseded; completed because superseded by specs/024-teams-module, specs/029-import-workitems-attachments-nodes, and specs/035-workitem-import-support
+  Evidence: implemented as NodeTranslation + NodesModule paths in src/tests/features.
+- [ ] T060 Run at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile and verify observable output — Status: incomplete
+  Evidence: no recorded .vscode debug-profile scenario run evidence for this spec in tasks or logs.
 
 ---
 

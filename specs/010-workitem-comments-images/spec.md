@@ -2,7 +2,7 @@
 
 **Feature Branch**: `010-workitem-comments-images`  
 **Created**: 2026-04-10  
-**Status**: Draft  
+**Status**: Reconciled (partially implemented)  
 **Input**: User description: "Export work item comments (separate API) and download embedded images from HTML and Markdown fields in all work item revisions and comments"
 
 ## Architecture References
@@ -14,8 +14,8 @@ The following documents were read during specification authoring:
 | `agents.md` | Confirmed accurate |
 | `docs/module-development-guide.md` | Confirmed accurate — module contract applies |
 | `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — attachments-beside-revision rule, streaming, IArtefactStore rules all apply |
-| `.agents/30-context/domains/workitems-format-summary.md` | **Discrepancy** — does not yet describe comments or embedded-image sub-folders; logged in `discrepancies.md` |
-| `.agents/30-context/domains/migration-package-concept.md` | **Discrepancy** — does not yet describe comment sub-folders or embedded-image files beside documents; logged in `discrepancies.md` |
+| `.agents/30-context/domains/workitems-format-summary.md` | Confirmed accurate — includes comment folders and embedded-image placement summary |
+| `.agents/30-context/domains/migration-package-concept.md` | Confirmed accurate — includes comment folder and embedded-image package layout |
 | Azure DevOps REST API — Comments (7.1-preview.4) | External reference — confirmed via live API docs fetch. Comments live at `/wit/workItems/{id}/comments` — a **separate paginated endpoint** from revisions. Supports HTML and Markdown formats with embedded images. |
 
 ## User Scenarios & Testing *(mandatory)*
@@ -138,6 +138,7 @@ Work item fields and comments can use Markdown format. Markdown allows image emb
 
 - Reconciled against current codebase and newer related specs.
 - Tasks are no longer all complete; several are incomplete or superseded by later architecture/spec evolution.
+- Canonical task status counts in `tasks.md`: 9 complete, 14 incomplete, 20 complete/superseded (43 total task lines).
 
 ### Remaining incomplete work (IDs)
 
@@ -158,7 +159,7 @@ Work item fields and comments can use Markdown format. Markdown allows image emb
 
 - Code evidence: `src/DevOpsMigrationPlatform.Infrastructure.Agent/Export/WorkItemExportOrchestrator.cs`, `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Export/AzureDevOpsWorkItemCommentSource.cs`, `src/DevOpsMigrationPlatform.Infrastructure.Agent/Export/EmbeddedImageExportService.cs`, `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ExportServiceCollectionExtensions.cs`.
 - Test/spec evidence: `features/export/work-items/comments/export-comments.feature`, `features/export/work-items/embedded-images/export-embedded-images.feature`, `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/MigrationExportCommandTests.cs`.
-- Command evidence: `dotnet build DevOpsMigrationPlatform.slnx -nologo -v minimal` (succeeds with warnings), targeted test pass in `DevOpsMigrationPlatform.Infrastructure.Agent.Tests` filter for export comments/images.
+- Command evidence: `dotnet build DevOpsMigrationPlatform.slnx -nologo -v minimal` succeeds; full `dotnet test DevOpsMigrationPlatform.slnx -nologo -v minimal` did not complete in-session (long-running GenerateReqnroll target), so full-suite verification remains incomplete.
 
 ## Assumptions
 

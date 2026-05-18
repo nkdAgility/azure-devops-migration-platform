@@ -47,6 +47,9 @@
 
 - **Source doc**: `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IModule.cs`
 - **Section**: Interface declaration
-- **Issue**: `IModule` currently declares only `ExportAsync`, `ImportAsync`, and `ValidateAsync`. `PrepareAsync(PrepareContext context, CancellationToken ct)` is described in `docs/module-development-guide.md` but is absent from the actual C# interface. `PrepareContext` does not exist as a type. All module `PrepareAsync` implementations described in FR-P02 through FR-P09 cannot be built until this foundation is in place.
-- **Severity**: **Blocking for FR-P01 through FR-P09** — no Prepare phase FRs can be implemented without this interface extension.
-- **Suggested fix**: Add `Task PrepareAsync(PrepareContext context, CancellationToken ct)` to `IModule`. Create `PrepareContext` in `DevOpsMigrationPlatform.Abstractions.Agent.Context` (mirroring `ImportContext` / `ValidationContext` — should carry `IArtefactStore`, `Job`, `ITargetEndpointInfo`). Update all existing module implementations to provide a default `return Task.CompletedTask` body so they remain non-breaking. Add `SupportsPrepare` bool property to `IModule` (defaulting to `false`) following the pattern of `SupportsExport` / `SupportsImport`.
+- **Issue**: **Resolved in current repository state.** `IModule` now includes `PrepareAsync`, `SupportsPrepare`, and `PrepareContext` exists.
+- **Severity**: **Resolved**
+- **Verification evidence**:
+  - `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IModule.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/PrepareContext.cs`
+- **Follow-up**: Keep FR-P02 through FR-P09 reconciliation focused on implementation completeness, not missing surface contracts.

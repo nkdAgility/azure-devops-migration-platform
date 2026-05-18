@@ -27,6 +27,10 @@ The following documents were read before drafting this spec:
 This feature is **partially implemented and partially superseded** in the live codebase.  
 The authoritative task-by-task status is in `tasks.md` (T001–T037 now carry final status markers and evidence notes).
 
+### Newer Related Specs Reviewed
+
+`009-resumable-export-import`, `010-workitem-comments-images`, `011-inline-comment-fetching`, `013-ado-workitems-import`, `014-field-filter-scope`, `015-work-item-scoped-fetch`, `018-workitem-otel-metrics`, `019-workitem-idmap-sync`, `020-resumable-batching-cursor`, `022-workitem-field-mapping`, `029-import-workitems-attachments-nodes`, `031-platform-metrics-unification`, `035-workitem-import-support`
+
 ### Remaining Incomplete Work
 
 `T001, T005, T010, T017, T019, T026, T027, T028, T029, T031, T035, T036, T037`
@@ -42,6 +46,8 @@ The authoritative task-by-task status is in `tasks.md` (T001–T037 now carry fi
 - Attachment export seam is `IAttachmentBinarySource`/`IStreamingAttachmentBinarySource` (not `IAttachmentDownloader`).
 - Retry implementation is Polly-based (`AddHttpClient(...).AddPolicyHandler(...)`), not `Microsoft.Extensions.Resilience`.
 - Factory contract is `IWorkItemRevisionSourceFactory.CreateAsync(CancellationToken)` with endpoint info resolved via DI.
+- Several remaining incomplete tasks still use pre-refactor file paths (`Infrastructure.Tests` / `Infrastructure` / `Abstractions` legacy paths) and require retargeting to current `Infrastructure.Agent`/`Abstractions.Agent` layout.
+- Constitution-alignment debt remains open in this legacy spec set (connector-coverage wording and `IOptions<T>` references are stale vs current guardrails).
 
 ### Verification Evidence
 

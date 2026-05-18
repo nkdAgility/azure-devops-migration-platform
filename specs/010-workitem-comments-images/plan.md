@@ -12,14 +12,15 @@ This feature adds two focused sub-services to the existing `WorkItemsModule`:
 1. **`WorkItemCommentExportService`** — streams every comment version for a work item from the Comments API and writes one `comment.json` per version into a `<ticks>-<workItemId>-c<commentId>/` sub-folder, placed chronologically alongside revision sub-folders inside `WorkItems/yyyy-MM-dd/`.
 2. **`EmbeddedImageExportService`** — scans HTML (`<img src>`) and Markdown (`![](url)`) field values and comment text fields, downloads each ADO-hosted image via an authenticated HTTP client with Polly back-off, writes the bytes named `<sha256>.<ext>` beside the parent document, and rewrites field values to relative local paths.
 
-Both services use `IArtefactStore` exclusively for all package I/O and integrate cursor-based checkpointing for resumability.
+Both services were originally planned around `IArtefactStore` and dedicated comment cursoring. Current runtime implementation has evolved to `IPackageAccess`, inline comment fetching in `WorkItemExportOrchestrator`, and shared export checkpointing.
 
 ## Reconciliation (Repository Truth)
 
 ### Current status
 
-- Original plan assumptions are partially stale relative to current repository architecture.
-- Agent-layer paths and extension-driven configuration replaced several planned file paths and service seams.
+- This plan is partially historical; implementation diverged from the original service/cursor design.
+- Current repository status is tracked in `tasks.md` with canonical statuses (9 complete, 14 incomplete, 20 complete/superseded).
+- `/speckit.analyze` and `/speckit.checklist` were run in reconciliation; checklist items were appended to `checklists/requirements.md`.
 
 ### Remaining incomplete work (IDs)
 
@@ -40,7 +41,7 @@ Both services use `IArtefactStore` exclusively for all package I/O and integrate
 
 - Source review: `WorkItemExportOrchestrator.cs`, `AzureDevOpsWorkItemCommentSource.cs`, `EmbeddedImageExportService.cs`, `ExportServiceCollectionExtensions.cs`, `WorkItemsModuleExtensions.cs`.
 - Feature/test review: export comment and embedded-image feature files; CLI migration export system test presence.
-- Runtime verification: baseline build succeeded with warnings; targeted comment/image export tests passed.
+- Runtime verification: repository build command succeeded; full-suite test command did not complete in-session, so full verification evidence remains pending.
 
 ## Technical Context
 

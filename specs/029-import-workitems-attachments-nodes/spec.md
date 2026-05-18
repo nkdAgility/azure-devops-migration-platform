@@ -2,7 +2,7 @@
 
 **Feature Branch**: `029-import-workitems-attachments-nodes`  
 **Created**: 2026-05-02  
-**Status**: Draft  
+**Status**: Reconciled (implementation tracked in `specs/035-workitem-import-support/tasks.md`)  
 **Input**: Ensure the import of WorkItems, Attachments, and Nodes
 
 ## Architecture References
@@ -18,6 +18,12 @@
 | `analysis/proposed-features.md` | Reference for M2 (NodeTranslationTool — referred to as `NodeStructureTool` in proposed-features.md; canonical code name is `NodeTranslationTool`), M4 (WorkItemsModule missing options including `Attachments.maxSizeBytes`), T7 (WorkItemResolutionTool), P1 (Checkpoint Reconciliation) |
 
 > **No conflicts found** between user intent and documented architecture. The implementation patterns (`WorkItemImportOrchestrator`, `RevisionFolderProcessor`, `NodesModule`) already exist. This spec formalises the acceptance criteria, connector coverage requirements, and observable test assertions that are currently absent or incomplete.
+
+## Reconciliation Snapshot (2026-05-17)
+
+- `tasks.md` and `plan.md` were added to this folder to reflect current repository truth.
+- Task execution authority for detailed implementation sequencing is superseded by `specs/035-workitem-import-support/tasks.md`.
+- This spec remains the requirement baseline; backlog status now lives in reconciled task artifacts.
 
 ## Clarifications
 

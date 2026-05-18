@@ -230,15 +230,15 @@ scenarios/
 | Tests | Medium | Multiple extension points |
 ## Current status
 
-Reconciled against current repository implementation on 2026-05-16: partially complete with open gaps.
+Reconciled against current repository implementation on 2026-05-17: partially complete with open gaps.
 
 ## Remaining incomplete work (IDs)
 
-T010, T013, T016, T018, T023, T025, T027, T029, T030, T032, T033.
+T005, T010, T013, T016, T018, T023, T025, T027, T029, T030, T032, T033.
 
 ## Completed because superseded (IDs + source)
 
-- T015 superseded by `specs/025.1-fold-to-job/spec.md` (job materialisation replaced legacy `InventoryCommand` scope mapping path).
+- T015 superseded by `specs/025.1-fold-to-job/tasks.md T006` (job materialisation replaced legacy `InventoryCommand` scope mapping path).
 
 ## Contradictions and reconciliation
 
@@ -246,10 +246,12 @@ T010, T013, T016, T018, T023, T025, T027, T029, T030, T032, T033.
 - Export/import skip logging is implemented but does not yet satisfy FR-011 field/mode/pattern detail expectations.
 - Inventory connector parity is incomplete for this feature (`SimulatedWorkItemDiscoveryService` accepts but ignores filter scope).
 - Configuration docs remain internally inconsistent on WorkItems scope shapes and organisation-level scopes.
+- A stale placeholder comment remains in `WorkItemFieldFilterOptions`, so T005 remains incomplete despite evaluator changes.
 
 ## Verification evidence
 
 - Build success: `dotnet build .\\DevOpsMigrationPlatform.slnx -v minimal`.
 - Targeted tests success: 66 filter-scope-related tests passed in `DevOpsMigrationPlatform.Infrastructure.Agent.Tests`.
 - Required task command `dotnet clean && dotnet build --no-incremental` currently fails in this environment due file lock/copy/compiler errors.
-- Full `dotnet test` currently lacks a successful completion record from this reconciliation session.
+- Full `dotnet test .\\DevOpsMigrationPlatform.slnx --no-build` currently lacks a successful completion record from this reconciliation session (stopped after prolonged non-progress).
+- Spec diagnostic artifacts were generated in this reconciliation cycle via `/speckit.analyze` and `/speckit.checklist`.

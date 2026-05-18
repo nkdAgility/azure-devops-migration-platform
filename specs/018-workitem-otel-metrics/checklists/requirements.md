@@ -29,14 +29,16 @@
 - [x] Feature meets measurable outcomes defined in Success Criteria
 - [x] No implementation details leak into specification
 
-## Reconciliation Status (2026-05-16)
+## Reconciliation Status (2026-05-17)
 
-- [ ] Task ledger matches repository implementation (multiple tasks marked complete while code/tests are missing or changed).
+- [x] Task ledger now uses canonical task-line status format (`[X]/[ ]` + `— Status: ...`) in `tasks.md`.
+- [ ] Task ledger fully matches repository implementation (incomplete tasks still remain and are evidenced in `tasks.md`).
 - [ ] Metric namespace and meter contract align with repository truth (`platform.*` + `DevOpsMigrationPlatform.Agent`).
 - [ ] Runtime telemetry seam names align with repository truth (`IPlatformMetrics`/`PlatformMetrics` vs `IMigrationMetrics`/`MigrationMetrics` in this spec).
 - [ ] Validation correctness metrics are wired in WorkItems validation flow (`RecordRevisionSourceCount/TargetCount/Delta` currently not called from `ValidateAsync`).
-- [ ] Queue depth metric producer exists (`WellKnownAgentMetricNames.QueueDepth` is consumed downstream, but no ObservableGauge producer is registered).
+- [ ] Queue depth metric producer exists (`WellKnownAgentMetricNames.QueueDepth` is consumed downstream, but no matching queue-depth ObservableGauge producer is registered in `PlatformMetrics`).
 - [ ] Snapshot metric exporter test coverage exists (named `SnapshotMetricExporterTests` file is absent).
+- [x] `/speckit.analyze` and `/speckit.checklist` were executed for this spec folder during reconciliation.
 
 ## Notes
 

@@ -149,7 +149,7 @@ Plan implementation is **historical and mostly superseded** by the queue/control
 
 ## Remaining incomplete work (IDs)
 
-None. After reconciliation, no task is marked `Status: incomplete`.
+None. After reconciliation, no task is marked `— Status: incomplete`.
 
 ## Completed because superseded (IDs + source)
 
@@ -157,9 +157,11 @@ Superseded task set: `T003, T006-T008, T010-T038, T041`.
 
 Primary supersession sources:
 
-- `specs/025.1-fold-to-job`
-- `specs/028.2-job-execution-by-task`
-- `specs/033-runtime-state-categories`
+- `specs/025.1-fold-to-job/tasks.md` (queue/control-plane dispatch)
+- `specs/028.2-job-execution-by-task/tasks.md` (agent task-plan ownership)
+- `specs/033-runtime-state-categories/tasks.md` (inventory runtime outputs/cadence)
+- `specs/025-agent-config-package/tasks.md` (configuration/auth model consolidation)
+- `specs/020-resumable-batching-cursor/tasks.md` (windowing/resume behavioral evolution)
 
 ## Contradictions and reconciliation
 

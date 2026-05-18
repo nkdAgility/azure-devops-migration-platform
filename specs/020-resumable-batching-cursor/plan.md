@@ -19,7 +19,7 @@ The implementation extends three existing abstractions (`ICheckpointingService`,
 
 ### Remaining Incomplete Work (Task IDs)
 
-- `T010`, `T020`, `T021`, `T024`, `T025`, `T026`, `T027`, `T028`, `T030`, `T031`, `T034`, `T035`, `T036`, `T037`, `T038`, `T039`, `T040`, `T041`, `T042`, `T043`, `T045`, `T046`
+- `T010`, `T020`, `T021`, `T024`, `T025`, `T026`, `T027`, `T028`, `T030`, `T031`, `T034`, `T035`, `T036`, `T037`, `T038`, `T040`, `T041`, `T042`, `T043`, `T045`, `T046`
 
 ### Completed Because Superseded (Task IDs + Source)
 
@@ -29,6 +29,7 @@ The implementation extends three existing abstractions (`ICheckpointingService`,
 ### Contradictions and Reconciliation
 
 - Finding 1 planned `FetchAsync` mismatch rejection safety net; implementation currently exposes decision pre-check but does not consistently enforce rejection in `FetchAsync`.
+- `EvaluateResumeDecisionAsync` is implemented but not yet shared with `FetchAsync` to enforce the safety net in one path.
 - Finding 2 planned constructor injection of `IQueryFingerprintService` into fetch service; implementation does not currently wire that dependency through resumable fetch flow.
 - Finding 3 planned warning logs (null writer, stale token); these warnings are not fully present in the implementation.
 - Planned FR-013 tuple-boundary behavior is stricter than current first-window filtering.
@@ -37,7 +38,8 @@ The implementation extends three existing abstractions (`ICheckpointingService`,
 
 - `speckit.analyze` and `speckit.checklist` both report high-severity spec/plan/tasks-to-code drift.
 - Targeted resumable tests in `Infrastructure.Agent.Tests` pass.
-- Full build validation remains incomplete due baseline locked-artifact failure (MSB3027/MSB3021 on `testhost` copy).
+- Build validation passed: `dotnet clean DevOpsMigrationPlatform.slnx --nologo` and `dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo` exited 0.
+- Full test validation remains incomplete: `dotnet test DevOpsMigrationPlatform.slnx --no-build --nologo` stalled in `DevOpsMigrationPlatform.ControlPlane.Tests` and was stopped.
 
 ## Technical Context
 

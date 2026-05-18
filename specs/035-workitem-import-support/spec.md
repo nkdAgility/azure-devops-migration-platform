@@ -187,3 +187,10 @@ As a migration operator, I want declarative field transformation rules to run du
 - Revisions, links, attachments, and embedded images are in scope for this spec increment because they are part of the minimum viable import slice.
 - Comment replay, migration audit comments, and revision-history attachments remain out of scope for this spec increment and may be covered by later work.
 - Existing package conventions, phase gates, and checkpoint semantics remain unchanged; this feature uses those contracts rather than replacing them.
+
+## Reconciliation Status (2026-05-17)
+
+- Current implementation is **partially aligned**: prepare/readiness, node readiness, and most revision replay plumbing exist.
+- Major remaining gaps are concentrated in connector parity and completion gates (notably TFS import target parity and final verification/test/doc tasks).
+- Contradiction tracked: this spec says TFS is source-only for this increment, while existing plan/tasks include TFS import-target parity tasks.
+- Verification evidence used: import orchestration classes under `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/`, connector import targets under `Infrastructure.Simulated` and `Infrastructure.AzureDevOps`, and current task/checklist analysis outputs.

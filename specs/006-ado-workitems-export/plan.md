@@ -7,7 +7,7 @@
 
 Export all work item revisions from an Azure DevOps project via the REST API, writing each revision as `revision.json` in the canonical `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/` package layout. Attachment binaries are streamed beside their revision, SHA-256 verified, and delta-deduplicated. The export is resumable via cursor-based checkpointing. Progress flows via `IProgressSink` to the TUI and control plane.
 
-The implementation extends the existing `WorkItemExportOrchestrator` (streaming loop + cursor) by wiring in an abstract `IAttachmentDownloader`, an ADO-specific `AzureDevOpsWorkItemRevisionSource`, and a binary-write extension to `IArtefactStore`. A new `WorkItemsModule` wraps the orchestrator behind `IDataTypeModule`, making the ADO export path a first-class export module.
+The implementation now follows current repository seams: `WorkItemExportOrchestrator` + `IWorkItemRevisionSourceFactory` + `IAttachmentBinarySource`/`IStreamingAttachmentBinarySource`, with `WorkItemsModule` implemented as `IModule` in `Infrastructure.Agent`.
 
 ## Current Status (Reconciliation)
 
@@ -21,6 +21,10 @@ This plan reflects a **historical design snapshot** and is now partially stale a
 
 `T003, T004, T006, T007, T008, T009, T011, T012, T013, T014, T015, T016, T018, T020, T021, T022, T023, T024, T025, T030, T032`
 
+### Newer Related Specs Reviewed
+
+`009-resumable-export-import`, `010-workitem-comments-images`, `011-inline-comment-fetching`, `013-ado-workitems-import`, `014-field-filter-scope`, `015-work-item-scoped-fetch`, `018-workitem-otel-metrics`, `019-workitem-idmap-sync`, `020-resumable-batching-cursor`, `022-workitem-field-mapping`, `029-import-workitems-attachments-nodes`, `031-platform-metrics-unification`, `035-workitem-import-support`
+
 ### Contradictions and Reconciliation
 
 - `WorkItemsModule` is implemented as `IModule` in `Infrastructure.Agent`, not `IDataTypeModule` in `Infrastructure`.
@@ -28,6 +32,8 @@ This plan reflects a **historical design snapshot** and is now partially stale a
 - `IWorkItemRevisionSourceFactory` exists but with async `CreateAsync(CancellationToken)` and DI-resolved endpoint context.
 - Retry policy is implemented with Polly HTTP handlers rather than `Microsoft.Extensions.Resilience`.
 - Progress contract now uses `ProgressEvent.Metrics` (`JobMetrics`) rather than added scalar fields.
+- Several remaining incomplete tasks still point to pre-refactor file paths and need retargeting to current `Infrastructure.Agent`/`Abstractions.Agent` locations.
+- Constitution-alignment debt remains open in this legacy plan text (connector-coverage wording and `IOptions<T>` references need explicit modernization if this spec is revived for implementation).
 
 ### Verification Evidence
 
@@ -42,7 +48,7 @@ This plan reflects a **historical design snapshot** and is now partially stale a
 ## Technical Context
 
 **Language/Version**: C# 12 / .NET 10.0 (multi-targeted `net481;net10.0` for `Abstractions` and `Infrastructure` only; `Infrastructure.AzureDevOps` targets `net10.0` only)  
-**Primary Dependencies**: `Microsoft.TeamFoundationServer.Client` 20.256.2 (ADO SDK); `Microsoft.Extensions.DependencyInjection`; `Microsoft.Extensions.Http.Resilience` (retry pipeline); `OpenTelemetry.Api`  
+**Primary Dependencies**: `Microsoft.TeamFoundationServer.Client` 20.256.2 (ADO SDK); `Microsoft.Extensions.DependencyInjection`; `Microsoft.Extensions.Http.Polly` (retry policy wiring); `OpenTelemetry.Api`  
 **Storage**: On-disk package via `IArtefactStore` (FileSystemArtefactStore for local; AzureBlobArtefactStore for cloud)  
 **Testing**: MSTest 3 + Reqnroll 2 (BDD); Moq 4 (mocking); existing Infrastructure.Tests project  
 **Target Platform**: Linux/Windows server (.NET 10); also net481 for shared Abstractions/Infrastructure types  

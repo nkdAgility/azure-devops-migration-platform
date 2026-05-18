@@ -37,5 +37,32 @@
 
 ## Notes
 
-All items pass. Spec is ready for `/speckit.plan`.
+Original checklist pass state is historical and no longer reflects repository truth.
+
+---
+
+## Current status (reconciled 2026-05-17)
+
+- Checklist verdict: **Superseded / stale**.
+- The implementation model in-repo differs from this checklist’s assumptions.
+
+## Remaining incomplete work
+
+- None in this original checklist scope.
+
+## Completed because superseded
+
+- Superseded by: `specs/025.1-fold-to-job/spec.md`, `specs/031-platform-metrics-unification/spec.md`, `specs/034-package-manager-adoption/tasks.md`.
+
+## Contradictions and reconciliation
+
+- “No implementation details” and “technology-agnostic” are no longer true for this spec set.
+- Current architecture uses `Job.ConfigPayload` and agent-side materialization, not CLI-side config-file write semantics.
+
+## Verification evidence
+
+- `src/DevOpsMigrationPlatform.Abstractions/Jobs/Job.cs`
+- `src/DevOpsMigrationPlatform.CLI.Migration/Commands/QueueCommand.cs`
+- `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`
+- `.agents/20-guardrails/core/architecture-boundaries.md`
 

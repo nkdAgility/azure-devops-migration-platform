@@ -4,6 +4,16 @@
 **Flagged by**: speckit.specify
 **Status**: Resolved
 
+## Reconciliation Addendum (2026-05-17)
+
+Later specs and implementation evolution introduced new drift outside the original discrepancy set:
+
+- `specs/032-icapture-interface` moved inventory execution terminology to `ICapture.CaptureAsync`.
+- `specs/031-platform-metrics-unification` replaced discovery/migration metric split with unified `platform.*` + `IPlatformMetrics`.
+- Current dependency execution includes `analyse.inventory` fan-in plus `capture.dependencies.*` before `analyse.dependencies`.
+
+Verification evidence: `/speckit.analyze`, `/speckit.checklist`, and direct code inspection in `IModule.cs`, `ICapture.cs`, `WellKnownAgentMetricNames.cs`, `JobExecutionPlanBuilder.cs`, and `JobAgentWorker.cs`.
+
 ## Discrepancies
 
 ### IModule contract missing InventoryAsync and PrepareAsync

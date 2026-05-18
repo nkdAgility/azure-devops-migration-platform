@@ -7,6 +7,22 @@
 
 Align runtime behavior with the documented three-scope package model and the clarified save/progress cadence model. The implementation introduces explicit category boundaries for (1) package-wide orchestration state, (2) project-scoped module resume state, (3) fine-grained processing save/progress state (including work-item-batch saves and work-item-level progress), and (4) run-scoped audit state. The plan updates path contracts, checkpoint semantics, and observability/progress behavior so resume correctness, operator visibility, and deterministic replay remain consistent across Inventory/Export/Import.
 
+## Reconciliation Status (2026-05-17)
+
+- **Overall**: Partially implemented; task file reconciled to mixed complete/incomplete/superseded state.
+- **Incomplete implementation gaps**:
+  - Project-scoped authoritative cursor routing is not fully aligned with FR-003 (current `PackagePathRouter` cursor routes remain root-scoped).
+  - Planned O-1 span names `state.paths.resolve`, `state.workitems.batch.save`, and `state.progress.emit` are not present in current source.
+  - Commit-discipline tasks T076-T078 are not evidenced by actual commits.
+- **Superseded references**:
+  - Multiple planned file locations were superseded by later architecture moves from specs/034-package-manager-adoption and specs/035-workitem-import-support.
+- **Contradictions recorded**:
+  - Plan wording references a three-scope model while the spec requires four runtime categories.
+- **Verification evidence**:
+  - `/speckit.analyze` result: stale task paths + contradiction findings.
+  - `/speckit.checklist` result: PASS/FAIL matrix with key FR-003 and observability gaps.
+  - Targeted runtime-state test execution recorded in checklist output.
+
 ## Technical Context
 
 **Language/Version**: C# 12 / .NET 10 (plus net481 support where already present in shared abstractions)  

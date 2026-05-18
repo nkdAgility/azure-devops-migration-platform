@@ -2,8 +2,24 @@
 
 **Feature Branch**: `[033-runtime-state-categories]`  
 **Created**: 2026-05-07  
-**Status**: Draft  
+**Status**: Reconciled (Partially Implemented)  
 **Input**: User description: "Align runtime package-state behavior with the documented multi-scope model and formalize distinct orchestration, project-resume, batch-iteration, and run-audit state categories."
+
+## Reconciliation Update (2026-05-17)
+
+- **Authority order applied**: `.agents` guidance → specs/034 + specs/035 → this spec → implementation evidence → tests.
+- **Current contradictions**:
+  - FR-003 requires project-scoped authoritative resume state, but current routing still writes cursor metadata under root `.migration/` (`src/DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem/PackagePathRouter.cs`).
+  - This spec expects four state categories while older wording in plan still references a three-scope model.
+- **Superseded implementation references**:
+  - Path references to `Infrastructure.Agent/Context/PackagePaths.cs` and `Infrastructure.Agent/WorkItems/*` are superseded by spec 034/035 refactors into `Infrastructure.Storage.FileSystem/*`, `Infrastructure.Agent/Export/*`, and `Infrastructure.Agent/Import/*`.
+- **Remaining incomplete work**:
+  - Project-scoped authoritative cursor/continuation routing (FR-003 alignment).
+  - Explicit O-1 spans for `state.paths.resolve`, `state.workitems.batch.save`, and `state.progress.emit`.
+  - Commit-evidence tasks recorded in `tasks.md` (T076-T078) remain incomplete.
+- **Verification evidence**:
+  - `/speckit.analyze` and `/speckit.checklist` executed for this folder.
+  - Targeted runtime-state tests: `dotnet test tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests.csproj --filter "RuntimeState|RunScope|Cursor|Cadence|Checkpoint"` (pass in checklist run output).
 
 ## Clarifications
 
