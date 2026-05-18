@@ -37,12 +37,13 @@
 ## Phase 3: User Story 1 - Enforce Authoritative State Scopes (Priority: P1) 🎯 MVP
 
 **Goal**: Ensure root/project/run state scopes are enforced with correct authority semantics.  
-**Independent Test**: Interrupt and resume a migration; confirm only root `.migration/` and `/{org}/{project}/.migration/` drive orchestration/resume, and `.migration/runs/<runId>/` is ignored for authority.
+**Independent Test**: Interrupt and resume a migration; confirm only scoped authoritative state (`/{org}/{project}/.migration/`, then `/{org}/.migration/`, then `/.migration/`) drives orchestration/resume, and `.migration/runs/<runId>/` is ignored for authority.
 
 ### Implementation for User Story 1
 
 - [X] T012 [US1] Update authoritative path contract methods in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/PackagePaths.cs` — Status: complete/superseded; completed because superseded by replaced by `src/DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem/PackagePathRouter.cs` under specs/034-package-manager-adoption
-- [ ] T013 [US1] Enforce authoritative-scope selection during checkpoint read/write in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/CheckpointingService.cs` (incomplete evidence: cursor routing still resolves to root `.migration/{action}.{module}.cursor.json` in `PackagePathRouter.cs` lines 13-35, 173-178; FR-003 requires project-scoped authority) — Status: incomplete
+- [X] T013 [US1] Enforce authoritative-scope selection during checkpoint read/write in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/CheckpointingService.cs` — Status: complete
+  - Evidence: `CheckpointingService` now resolves reads with precedence project → org → migration and writes/resets to the most-specific scope; `PackagePathRouter` now routes state cursor/token files by `PackageMetaContext` scope in `src/DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem/PackagePathRouter.cs` and `src/DevOpsMigrationPlatform.Infrastructure.Agent/Checkpointing/CheckpointingService.cs`.
 - [X] T014 [US1] Enforce run-scope audit-only behavior during phase-gate evaluation in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobExecutionPlanBuilder.cs` — Status: complete
 - [X] T015 [US1] Apply run-scope authority guard in worker orchestration flow at `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs` — Status: complete
 - [X] T016 [P] [US1] Add unit coverage for authoritative path resolution in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/PackagePathsTests.cs` — Status: complete/superseded; completed because superseded by coverage moved to package-boundary tests introduced by specs/034-package-manager-adoption, e.g. `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Storage/Package/PackagePathRouterTests.cs`

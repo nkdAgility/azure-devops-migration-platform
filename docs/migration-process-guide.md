@@ -18,7 +18,7 @@ See [docs/cli-guide.md](cli-guide.md) for how the CLI routes a job to the Job En
 7a. **Record metrics** — After each work item processing step, record OTel metrics via `IMigrationMetrics` (execution counters, payload histograms, duration).
 8. **Fail fast on module failure** — A non-recoverable error in any module halts the run. Cursor state allows resume.
 
-Authoritative runtime state comes only from root `.migration/` and project-local `/{org}/{project}/.migration/`. Run folders under `.migration/runs/<runId>/` are audit-only snapshots and must never be read as authoritative phase-gate or resume state.
+Authoritative runtime state comes from migration scope (`/.migration/`), organisation scope (`/{org}/.migration/`), and project scope (`/{org}/{project}/.migration/`), with read precedence project → organisation → migration. Run folders under `.migration/runs/<runId>/` are audit-only snapshots and must never be read as authoritative phase-gate or resume state.
 
 ### Task Plan Structure
 

@@ -32,7 +32,6 @@
 ## Notes
 
 - Reconciled on 2026-05-17 against implementation and newer specs 034/035.
-- Remaining contradiction: FR-003 project-scoped authority vs current root-scoped cursor routing in `PackagePathRouter`.
 - Superseded file-path references in `tasks.md` were retained as complete/superseded with source notes (specs/034 and 035).
-- Incomplete tasks include T013, T018, T050, and T076-T078 (see `tasks.md` evidence notes).
+- Incomplete tasks include T018, T050, and T076-T078 (see `tasks.md` evidence notes).
 - Verification evidence used: `/speckit.analyze`, `/speckit.checklist`, and targeted runtime-state test run documented in checklist output.

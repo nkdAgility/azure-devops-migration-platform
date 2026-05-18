@@ -46,17 +46,31 @@ public class CheckpointingService : ICheckpointingService
         using var activity = ActivitySource.StartActivity("state.cursor.update");
         activity?.SetTag("operation", "read");
         activity?.SetTag("checkpoint.identity", checkpointIdentity);
-        var context = ResolveCursorContext(checkpointIdentity);
-        activity?.SetTag("cursor.action", context.Action);
-        activity?.SetTag("cursor.module", context.Module);
-        _logger?.LogDebug("Reading cursor for {Action}.{Module}.", context.Action, context.Module);
+        var contexts = ResolveCursorReadContexts(checkpointIdentity);
+        if (contexts.Count > 0)
+        {
+            activity?.SetTag("cursor.action", contexts[0].Action);
+            activity?.SetTag("cursor.module", contexts[0].Module);
+        }
 
-        var result = await ResolvePackage().RequestMetaAsync(context, cancellationToken).ConfigureAwait(false);
-        if (result.Payload is null)
-            return null;
+        foreach (var context in contexts)
+        {
+            _logger?.LogDebug(
+                "Reading cursor for {Action}.{Module} at scope org='{Org}' project='{Project}'.",
+                context.Action,
+                context.Module,
+                context.Organisation ?? "<migration>",
+                context.Project ?? "<none>");
 
-        var json = await ReadUtf8Async(result.Payload.Content, cancellationToken).ConfigureAwait(false);
-        return JsonSerializer.Deserialize<CursorEntry>(json);
+            var result = await ResolvePackage().RequestMetaAsync(context, cancellationToken).ConfigureAwait(false);
+            if (result.Payload is null)
+                continue;
+
+            var json = await ReadUtf8Async(result.Payload.Content, cancellationToken).ConfigureAwait(false);
+            return JsonSerializer.Deserialize<CursorEntry>(json);
+        }
+
+        return null;
     }
 
     public async Task WriteCursorAsync(string checkpointIdentity, CursorEntry cursor, CancellationToken cancellationToken)
@@ -64,7 +78,7 @@ public class CheckpointingService : ICheckpointingService
         using var activity = ActivitySource.StartActivity("state.cursor.update");
         activity?.SetTag("operation", "write");
         activity?.SetTag("checkpoint.identity", checkpointIdentity);
-        var context = ResolveCursorContext(checkpointIdentity);
+        var context = ResolveCursorWriteContext(checkpointIdentity);
         activity?.SetTag("cursor.action", context.Action);
         activity?.SetTag("cursor.module", context.Module);
         _logger?.LogDebug("Writing cursor for {Action}.{Module}.", context.Action, context.Module);
@@ -76,11 +90,11 @@ public class CheckpointingService : ICheckpointingService
 
     public async Task DeleteCursorAsync(string checkpointIdentity, CancellationToken cancellationToken)
     {
-        foreach (var context in ResolveCursorDeleteContexts(checkpointIdentity))
-        {
-            _logger?.LogDebug("Deleting cursor for {Action}.{Module}.", context.Action, context.Module);
-            await ResolvePackage().ResetMetaAsync(context, cancellationToken).ConfigureAwait(false);
-        }
+        if (!TryResolveCursorDeleteContext(checkpointIdentity, out var context))
+            return;
+
+        _logger?.LogDebug("Deleting cursor for {Action}.{Module}.", context.Action, context.Module);
+        await ResolvePackage().ResetMetaAsync(context, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<BatchContinuationToken?> ReadContinuationTokenAsync(string checkpointIdentity, CancellationToken cancellationToken)
@@ -88,16 +102,24 @@ public class CheckpointingService : ICheckpointingService
         using var activity = ActivitySource.StartActivity("state.continuation.update");
         activity?.SetTag("operation", "read");
         activity?.SetTag("checkpoint.identity", checkpointIdentity);
-        var context = ResolveContinuationContext(checkpointIdentity);
-        activity?.SetTag("continuation.action", context.Action);
-        activity?.SetTag("continuation.module", context.Module);
+        var contexts = ResolveContinuationReadContexts(checkpointIdentity);
+        if (contexts.Count > 0)
+        {
+            activity?.SetTag("continuation.action", contexts[0].Action);
+            activity?.SetTag("continuation.module", contexts[0].Module);
+        }
 
-        var result = await ResolvePackage().RequestMetaAsync(context, cancellationToken).ConfigureAwait(false);
-        if (result.Payload is null)
-            return null;
+        foreach (var context in contexts)
+        {
+            var result = await ResolvePackage().RequestMetaAsync(context, cancellationToken).ConfigureAwait(false);
+            if (result.Payload is null)
+                continue;
 
-        var json = await ReadUtf8Async(result.Payload.Content, cancellationToken).ConfigureAwait(false);
-        return JsonSerializer.Deserialize<BatchContinuationToken>(json);
+            var json = await ReadUtf8Async(result.Payload.Content, cancellationToken).ConfigureAwait(false);
+            return JsonSerializer.Deserialize<BatchContinuationToken>(json);
+        }
+
+        return null;
     }
 
     public async Task WriteContinuationTokenAsync(string checkpointIdentity, BatchContinuationToken token, CancellationToken cancellationToken)
@@ -105,7 +127,7 @@ public class CheckpointingService : ICheckpointingService
         using var activity = ActivitySource.StartActivity("state.continuation.update");
         activity?.SetTag("operation", "write");
         activity?.SetTag("checkpoint.identity", checkpointIdentity);
-        var context = ResolveContinuationContext(checkpointIdentity);
+        var context = ResolveContinuationWriteContext(checkpointIdentity);
         activity?.SetTag("continuation.action", context.Action);
         activity?.SetTag("continuation.module", context.Module);
 
@@ -116,155 +138,217 @@ public class CheckpointingService : ICheckpointingService
 
     public async Task DeleteContinuationTokenAsync(string checkpointIdentity, CancellationToken cancellationToken)
     {
-        foreach (var context in ResolveContinuationDeleteContexts(checkpointIdentity))
-        {
-            await ResolvePackage().ResetMetaAsync(context, cancellationToken).ConfigureAwait(false);
-        }
+        if (!TryResolveContinuationDeleteContext(checkpointIdentity, out var context))
+            return;
+
+        await ResolvePackage().ResetMetaAsync(context, cancellationToken).ConfigureAwait(false);
     }
 
-    private IEnumerable<PackageMetaContext> ResolveCursorDeleteContexts(string checkpointIdentity)
-        => ResolveDeleteContexts(checkpointIdentity, ResolveCursorContext, PackageMetaKind.CheckpointCursor);
+    private IReadOnlyList<PackageMetaContext> ResolveCursorReadContexts(string checkpointIdentity)
+        => ResolveReadContexts(PackageMetaKind.CheckpointCursor, checkpointIdentity);
 
-    private IEnumerable<PackageMetaContext> ResolveContinuationDeleteContexts(string checkpointIdentity)
-        => ResolveDeleteContexts(checkpointIdentity, ResolveContinuationContext, PackageMetaKind.ContinuationToken);
+    private IReadOnlyList<PackageMetaContext> ResolveContinuationReadContexts(string checkpointIdentity)
+        => ResolveReadContexts(PackageMetaKind.ContinuationToken, checkpointIdentity);
 
-    private IEnumerable<PackageMetaContext> ResolveDeleteContexts(
-        string checkpointIdentity,
-        Func<string, PackageMetaContext> directResolver,
-        PackageMetaKind kind)
+    private PackageMetaContext ResolveCursorWriteContext(string checkpointIdentity)
+        => ResolveWriteContext(PackageMetaKind.CheckpointCursor, checkpointIdentity);
+
+    private PackageMetaContext ResolveContinuationWriteContext(string checkpointIdentity)
+        => ResolveWriteContext(PackageMetaKind.ContinuationToken, checkpointIdentity);
+
+    private bool TryResolveCursorDeleteContext(string checkpointIdentity, out PackageMetaContext context)
+        => TryResolveDeleteContext(PackageMetaKind.CheckpointCursor, checkpointIdentity, out context);
+
+    private bool TryResolveContinuationDeleteContext(string checkpointIdentity, out PackageMetaContext context)
+        => TryResolveDeleteContext(PackageMetaKind.ContinuationToken, checkpointIdentity, out context);
+
+    private IReadOnlyList<PackageMetaContext> ResolveReadContexts(PackageMetaKind kind, string checkpointIdentity)
     {
-        try
-        {
-            return [directResolver(checkpointIdentity)];
-        }
-        catch (InvalidOperationException)
-        {
-            if (TryResolveActionAndScopeName(checkpointIdentity, out var action, out var scopeName) &&
-                TryResolveConfiguredProjectScopes(out var configuredScopes))
-            {
-                return configuredScopes
-                    .Select(_ => new PackageMetaContext(kind, Action: action, Module: scopeName))
-                    .Distinct()
-                    .ToArray();
-            }
-
-            return Array.Empty<PackageMetaContext>();
-        }
+        var (action, module) = ResolveActionAndModuleOrThrow(checkpointIdentity);
+        var scopes = ResolveReadScopes();
+        return scopes
+            .Select(scope => BuildMetaContext(kind, action, module, scope))
+            .ToArray();
     }
 
-    private PackageMetaContext ResolveCursorContext(string checkpointIdentity)
+    private PackageMetaContext ResolveWriteContext(PackageMetaKind kind, string checkpointIdentity)
     {
-        if (StateCursorIdentity.TryParse(checkpointIdentity, out var parsedAction, out var parsedScopeName) &&
-            TryResolveLiveEndpointScope(out _, out _, out _))
+        var (action, module) = ResolveActionAndModuleOrThrow(checkpointIdentity);
+        var scope = ResolveWriteScope();
+        return BuildMetaContext(kind, action, module, scope);
+    }
+
+    private bool TryResolveDeleteContext(PackageMetaKind kind, string checkpointIdentity, out PackageMetaContext context)
+    {
+        if (!TryResolveActionAndModule(checkpointIdentity, out var action, out var module))
         {
-            return new PackageMetaContext(PackageMetaKind.CheckpointCursor, Action: parsedAction, Module: parsedScopeName);
+            context = null!;
+            return false;
         }
 
-        if (TryResolveActionFromConfig(out var configAction) &&
-            TryResolveLiveEndpointScope(out _, out _, out _))
-        {
-            return new PackageMetaContext(PackageMetaKind.CheckpointCursor, Action: configAction, Module: checkpointIdentity);
-        }
+        var scope = ResolveWriteScope();
+        context = BuildMetaContext(kind, action, module, scope);
+        return true;
+    }
 
-        if (TryResolveActionAndScopeName(checkpointIdentity, out var action, out var scopeName) &&
-            TryResolveSingleConfiguredProjectScope(out _))
-        {
-            return new PackageMetaContext(PackageMetaKind.CheckpointCursor, Action: action, Module: scopeName);
-        }
+    private (string Action, string Module) ResolveActionAndModuleOrThrow(string checkpointIdentity)
+    {
+        if (TryResolveActionAndModule(checkpointIdentity, out var action, out var module))
+            return (action, module);
 
         throw new InvalidOperationException(
-            $"Checkpoint scope could not be resolved for cursor '{checkpointIdentity}'. Project-scoped checkpoint operations require both action and endpoint context. {BuildScopeDiagnosticMessage()}");
+            $"Checkpoint identity '{checkpointIdentity}' does not include an action and no action could be resolved from package config. {BuildScopeDiagnosticMessage()}");
     }
 
-    private PackageMetaContext ResolveContinuationContext(string checkpointIdentity)
+    private bool TryResolveActionAndModule(string checkpointIdentity, out string action, out string module)
     {
-        if (StateCursorIdentity.TryParse(checkpointIdentity, out var parsedAction, out var parsedScopeName) &&
-            TryResolveLiveEndpointScope(out _, out _, out _))
+        if (StateCursorIdentity.TryParse(checkpointIdentity, out var parsedAction, out var parsedModule))
         {
-            return new PackageMetaContext(PackageMetaKind.ContinuationToken, Action: parsedAction, Module: parsedScopeName);
-        }
-
-        if (TryResolveActionFromConfig(out var configAction) &&
-            TryResolveLiveEndpointScope(out _, out _, out _))
-        {
-            return new PackageMetaContext(PackageMetaKind.ContinuationToken, Action: configAction, Module: checkpointIdentity);
-        }
-
-        if (TryResolveActionAndScopeName(checkpointIdentity, out var action, out var scopeName) &&
-            TryResolveSingleConfiguredProjectScope(out _))
-        {
-            return new PackageMetaContext(PackageMetaKind.ContinuationToken, Action: action, Module: scopeName);
-        }
-
-        throw new InvalidOperationException(
-            $"Checkpoint scope could not be resolved for continuation token '{checkpointIdentity}'. Project-scoped checkpoint operations require both action and endpoint context.");
-    }
-
-    private bool TryResolveLiveEndpointScope(out string endpointUrl, out string orgFolder, out string projectName)
-    {
-        if (TryResolveLiveEndpointScope(_currentJobEndpointAccessor?.Source, out endpointUrl, out orgFolder, out projectName))
-        {
+            action = parsedAction;
+            module = parsedModule;
             return true;
         }
 
-        if (TryResolveLiveEndpointScope(_currentJobEndpointAccessor?.Target, out endpointUrl, out orgFolder, out projectName))
+        if (TryResolveActionFromConfig(out var configAction))
         {
+            action = configAction;
+            module = checkpointIdentity;
             return true;
         }
 
-        endpointUrl = string.Empty;
-        orgFolder = string.Empty;
-        projectName = string.Empty;
+        action = string.Empty;
+        module = string.Empty;
         return false;
     }
 
-    private static bool TryResolveLiveEndpointScope(
-        ISourceEndpointInfo? endpoint,
-        out string endpointUrl,
-        out string orgFolder,
-        out string projectName)
-        => TryResolveLiveEndpointScope(
-            endpoint?.Url,
-            endpoint?.ConnectorType,
-            endpoint?.Project,
-            out endpointUrl,
-            out orgFolder,
-            out projectName);
+    private PackageMetaContext BuildMetaContext(
+        PackageMetaKind kind,
+        string action,
+        string module,
+        ScopeResolution scope)
+        => new(
+            kind,
+            Organisation: scope.Organisation,
+            Project: scope.Project,
+            Action: action,
+            Module: module);
 
-    private static bool TryResolveLiveEndpointScope(
-        ITargetEndpointInfo? endpoint,
-        out string endpointUrl,
-        out string orgFolder,
-        out string projectName)
-        => TryResolveLiveEndpointScope(
-            endpoint?.Url,
-            endpoint?.ConnectorType,
-            endpoint?.Project,
-            out endpointUrl,
-            out orgFolder,
-            out projectName);
+    private IReadOnlyList<ScopeResolution> ResolveReadScopes()
+    {
+        var resolved = new List<ScopeResolution>();
 
-    private static bool TryResolveLiveEndpointScope(
-        string? endpointUrlValue,
-        string? connectorType,
-        string? project,
-        out string endpointUrl,
-        out string orgFolder,
-        out string projectName)
+        if (TryResolveLiveProjectScope(out var liveProject))
+        {
+            resolved.Add(liveProject);
+            resolved.Add(new ScopeResolution(liveProject.Organisation, null));
+            resolved.Add(ScopeResolution.Migration);
+            return DistinctScopes(resolved);
+        }
+
+        if (TryResolveLiveOrgScope(out var liveOrg))
+        {
+            resolved.Add(liveOrg);
+            resolved.Add(ScopeResolution.Migration);
+            return DistinctScopes(resolved);
+        }
+
+        if (TryResolveSingleConfiguredProjectScope(out var configuredProject))
+        {
+            resolved.Add(new ScopeResolution(configuredProject.OrgFolder, configuredProject.ProjectName));
+            resolved.Add(new ScopeResolution(configuredProject.OrgFolder, null));
+            resolved.Add(ScopeResolution.Migration);
+            return DistinctScopes(resolved);
+        }
+
+        if (TryResolveConfiguredOrgScope(out var configuredOrg))
+        {
+            resolved.Add(configuredOrg);
+            resolved.Add(ScopeResolution.Migration);
+            return DistinctScopes(resolved);
+        }
+
+        return [ScopeResolution.Migration];
+    }
+
+    private ScopeResolution ResolveWriteScope()
+    {
+        if (TryResolveLiveProjectScope(out var liveProject))
+            return liveProject;
+
+        if (TryResolveLiveOrgScope(out var liveOrg))
+            return liveOrg;
+
+        if (TryResolveSingleConfiguredProjectScope(out var configuredProject))
+            return new ScopeResolution(configuredProject.OrgFolder, configuredProject.ProjectName);
+
+        if (TryResolveConfiguredOrgScope(out var configuredOrg))
+            return configuredOrg;
+
+        return ScopeResolution.Migration;
+    }
+
+    private static IReadOnlyList<ScopeResolution> DistinctScopes(IEnumerable<ScopeResolution> scopes)
+        => scopes.Distinct().ToArray();
+
+    private bool TryResolveLiveProjectScope(out ScopeResolution scope)
+    {
+        if (TryResolveLiveProjectScope(_currentJobEndpointAccessor?.Source, out scope))
+            return true;
+
+        return TryResolveLiveProjectScope(_currentJobEndpointAccessor?.Target, out scope);
+    }
+
+    private static bool TryResolveLiveProjectScope(ISourceEndpointInfo? endpoint, out ScopeResolution scope)
+        => TryResolveLiveProjectScope(endpoint?.Url, endpoint?.ConnectorType, endpoint?.Project, out scope);
+
+    private static bool TryResolveLiveProjectScope(ITargetEndpointInfo? endpoint, out ScopeResolution scope)
+        => TryResolveLiveProjectScope(endpoint?.Url, endpoint?.ConnectorType, endpoint?.Project, out scope);
+
+    private static bool TryResolveLiveProjectScope(string? endpointUrlValue, string? connectorType, string? project, out ScopeResolution scope)
     {
         if (!string.IsNullOrWhiteSpace(project))
         {
-            endpointUrl = endpointUrlValue ?? string.Empty;
-            projectName = project!;
-            orgFolder = string.IsNullOrWhiteSpace(endpointUrl)
+            var endpointUrl = endpointUrlValue ?? string.Empty;
+            var orgFolder = string.IsNullOrWhiteSpace(endpointUrl)
                 ? PackagePathResolver.Sanitise((connectorType ?? "Unknown").ToLowerInvariant())
                 : PackagePathResolver.ExtractOrgFolderName(endpointUrl);
+            scope = new ScopeResolution(orgFolder, project);
             return true;
         }
 
-        endpointUrl = string.Empty;
-        orgFolder = string.Empty;
-        projectName = string.Empty;
+        scope = default;
+        return false;
+    }
+
+    private bool TryResolveLiveOrgScope(out ScopeResolution scope)
+    {
+        if (TryResolveLiveOrgScope(_currentJobEndpointAccessor?.Source, out scope))
+            return true;
+
+        return TryResolveLiveOrgScope(_currentJobEndpointAccessor?.Target, out scope);
+    }
+
+    private static bool TryResolveLiveOrgScope(ISourceEndpointInfo? endpoint, out ScopeResolution scope)
+        => TryResolveLiveOrgScope(endpoint?.Url, endpoint?.ConnectorType, out scope);
+
+    private static bool TryResolveLiveOrgScope(ITargetEndpointInfo? endpoint, out ScopeResolution scope)
+        => TryResolveLiveOrgScope(endpoint?.Url, endpoint?.ConnectorType, out scope);
+
+    private static bool TryResolveLiveOrgScope(string? endpointUrlValue, string? connectorType, out ScopeResolution scope)
+    {
+        if (!string.IsNullOrWhiteSpace(endpointUrlValue))
+        {
+            scope = new ScopeResolution(PackagePathResolver.ExtractOrgFolderName(endpointUrlValue!), null);
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(connectorType))
+        {
+            scope = new ScopeResolution(PackagePathResolver.Sanitise(connectorType!.ToLowerInvariant()), null);
+            return true;
+        }
+
+        scope = default;
         return false;
     }
 
@@ -357,6 +441,43 @@ public class CheckpointingService : ICheckpointingService
         return resolved.Count > 0;
     }
 
+    private bool TryResolveConfiguredOrgScope(out ScopeResolution scope)
+    {
+        var config = _currentPackageConfigAccessor?.Current;
+        if (config is null)
+        {
+            scope = default;
+            return false;
+        }
+
+        var orgFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var configuredOrganisations = config.GetSection("MigrationPlatform:Organisations").GetChildren().ToList();
+        foreach (var organisation in configuredOrganisations)
+        {
+            var enabled = organisation["Enabled"];
+            if (enabled?.Equals("false", StringComparison.OrdinalIgnoreCase) == true)
+                continue;
+
+            var endpointUrl = organisation["Url"] ?? organisation["Collection"] ?? string.Empty;
+            var orgType = organisation["Type"] ?? "Unknown";
+            var orgFolder = string.IsNullOrWhiteSpace(endpointUrl)
+                ? PackagePathResolver.Sanitise(orgType.ToLowerInvariant())
+                : PackagePathResolver.ExtractOrgFolderName(endpointUrl);
+            orgFolders.Add(orgFolder);
+        }
+
+        if (orgFolders.Count == 1)
+        {
+            scope = new ScopeResolution(orgFolders.Single(), null);
+            return true;
+        }
+
+        if (TryResolveConfiguredEndpointOrgScope(config, "MigrationPlatform:Source", out scope))
+            return true;
+
+        return TryResolveConfiguredEndpointOrgScope(config, "MigrationPlatform:Target", out scope);
+    }
+
     private bool TryResolveConfiguredModeProjectScope(IConfiguration config, out ConfiguredProjectScope scope)
     {
         if (TryResolveActionFromConfig(out var action))
@@ -410,6 +531,27 @@ public class CheckpointingService : ICheckpointingService
         return true;
     }
 
+    private static bool TryResolveConfiguredEndpointOrgScope(
+        IConfiguration config,
+        string sectionPath,
+        out ScopeResolution scope)
+    {
+        var endpointUrl = config[$"{sectionPath}:Url"] ?? config[$"{sectionPath}:Collection"] ?? string.Empty;
+        var endpointType = config[$"{sectionPath}:Type"] ?? "Unknown";
+        if (string.IsNullOrWhiteSpace(endpointUrl) && string.IsNullOrWhiteSpace(endpointType))
+        {
+            scope = default;
+            return false;
+        }
+
+        var orgFolder = string.IsNullOrWhiteSpace(endpointUrl)
+            ? PackagePathResolver.Sanitise(endpointType.ToLowerInvariant())
+            : PackagePathResolver.ExtractOrgFolderName(endpointUrl);
+
+        scope = new ScopeResolution(orgFolder, null);
+        return true;
+    }
+
     private bool TryResolveSingleConfiguredProjectScope(out ConfiguredProjectScope scope)
     {
         if (TryResolveConfiguredProjectScopes(out var scopes) && scopes.Count == 1)
@@ -438,6 +580,11 @@ public class CheckpointingService : ICheckpointingService
 
     private IPackageAccess ResolvePackage()
         => _package ?? throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for checkpoint state operations.");
+
+    private readonly record struct ScopeResolution(string? Organisation, string? Project)
+    {
+        public static ScopeResolution Migration { get; } = new(null, null);
+    }
 
     private sealed record ConfiguredProjectScope(string EndpointUrl, string OrgFolder, string ProjectName);
 

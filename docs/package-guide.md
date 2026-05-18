@@ -33,6 +33,8 @@ The migration package is the intermediary between source and target. It is a dir
           progress.ndjson
           diagnostics.ndjson
   <org>/
+    .migration/
+      export.identities.cursor.json   # org-scoped cursor state
     <project>/
       manifest.json             # project manifest (version, timestamps, modules run)
       .migration/
@@ -62,7 +64,9 @@ The migration package is the intermediary between source and target. It is a dir
 
 ## How Package Data Supports Resume
 
-Each project-local `.migration/` folder holds cursor files for that org/project/action/module combination. Each cursor records the last successfully processed item for that project scope. Root `.migration/` holds package-level orchestration state and phase completion markers.
+Project-local `.migration/` folders hold cursor files for org/project/action/module combinations. Organisation-local `/{org}/.migration/` folders hold cursor files for org-scoped modules. Root `.migration/` holds migration-scoped orchestration state and phase completion markers.
+
+When reading resume metadata, the runtime checks project scope first, then organisation scope, then migration scope. Writes and resets target only the most-specific resolved scope.
 
 The `.migration/runs/<runId>/` folder is different: it is run-scoped audit data for one execution only. It keeps copies of the job, plan, and config that were executed, plus that run's logs. Later runs do not depend on those files to resume.
 

@@ -16,13 +16,17 @@ Enforced constraints:
 
 - Resume state is package-backed, never in-memory.
 - Root `.migration/` stores package-wide orchestration markers.
+- `/{org}/.migration/` stores organisation-scoped action/module cursors.
 - `/{org}/{project}/.migration/` stores project-scoped action/module cursors.
 - `.migration/runs/<runId>/` is audit-only and never authoritative for resume decisions.
+- Read precedence is project scope, then organisation scope, then migration scope.
 
 ## Cursor Contract
 
-Location:
-`/{org}/{project}/.migration/{action}.{module}.cursor.json`
+Locations:
+- `/{org}/{project}/.migration/{action}.{module}.cursor.json` (project-scoped)
+- `/{org}/.migration/{action}.{module}.cursor.json` (organisation-scoped)
+- `/.migration/{action}.{module}.cursor.json` (migration-scoped)
 
 Shape:
 ```json

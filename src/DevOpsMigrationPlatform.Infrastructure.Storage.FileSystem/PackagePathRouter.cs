@@ -31,8 +31,11 @@ internal sealed class PackagePathRouter
     private static string RunAuditConfigFile(string runId) => $"{RunAuditFolder(runId)}/migration-config.json";
     private static string RunJobFile(string runId) => $"{RunFolder(runId)}/job.json";
     private static string RunConfigFile(string runId) => $"{RunFolder(runId)}/config.json";
-    private static string CursorFile(string action, string module) => $"{SystemRoot}/{action.ToLowerInvariant()}.{module.ToLowerInvariant()}.cursor.json";
-    private static string ContinuationFile(string action, string module) => $"{SystemRoot}/{action.ToLowerInvariant()}.{module.ToLowerInvariant()}.continuation.json";
+    private static string CursorFile(PackageMetaContext context, string action, string module)
+        => $"{ResolveSystemScopePrefix(context)}/{action.ToLowerInvariant()}.{module.ToLowerInvariant()}.cursor.json";
+
+    private static string ContinuationFile(PackageMetaContext context, string action, string module)
+        => $"{ResolveSystemScopePrefix(context)}/{action.ToLowerInvariant()}.{module.ToLowerInvariant()}.continuation.json";
 
     public string ResolveContentPath(PackageContentContext context)
     {
@@ -150,6 +153,23 @@ internal sealed class PackagePathRouter
     private static string EnsureTrailingSlash(string path)
         => string.IsNullOrEmpty(path) || path.EndsWith("/", StringComparison.Ordinal) ? path : $"{path}/";
 
+    private static string ResolveSystemScopePrefix(PackageMetaContext context)
+    {
+        var segments = new List<string>(capacity: 3);
+        AddSegment(segments, context.Organisation);
+
+        if (!string.IsNullOrWhiteSpace(context.Project) && string.IsNullOrWhiteSpace(context.Organisation))
+        {
+            throw new PackageValidationException(
+                "PKG_META_SCOPE_INVALID",
+                "Project-scoped metadata routing requires an organisation scope.");
+        }
+
+        AddSegment(segments, context.Project);
+        segments.Add(SystemRoot);
+        return string.Join("/", segments);
+    }
+
     public string ResolveMetaPath(PackageMetaContext context, string? runId = null, bool runAudit = false)
     {
         if (context is null)
@@ -171,10 +191,10 @@ internal sealed class PackagePathRouter
                 ? RunJobFile(runId!)
                 : JobDescriptorPath,
             PackageMetaKind.CheckpointCursor => !string.IsNullOrWhiteSpace(context.Action) && !string.IsNullOrWhiteSpace(context.Module)
-                ? CursorFile(context.Action!, context.Module!)
+                ? CursorFile(context, context.Action!, context.Module!)
                 : throw new PackageOperationException("PKG_META_KIND_CONTEXT_REQUIRED", "Checkpoint cursor routing requires action and module on the context."),
             PackageMetaKind.ContinuationToken => !string.IsNullOrWhiteSpace(context.Action) && !string.IsNullOrWhiteSpace(context.Module)
-                ? ContinuationFile(context.Action!, context.Module!)
+                ? ContinuationFile(context, context.Action!, context.Module!)
                 : throw new PackageOperationException("PKG_META_KIND_CONTEXT_REQUIRED", "Continuation token routing requires action and module on the context."),
             PackageMetaKind.RunConfigSnapshot => !string.IsNullOrWhiteSpace(runId)
                 ? RunConfigFile(runId!)

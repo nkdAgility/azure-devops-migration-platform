@@ -35,9 +35,9 @@ These rules are mandatory for all code that reads or writes the migration packag
 
 ## Hidden State
 
-1. No migration state may be stored outside root `.migration/` (authoritative package state), project `/{org}/{project}/.migration/` (project-scoped cursors), or `.migration/runs/<runId>/` (run-scoped audit copies and logs). No hidden state in other locations.
+1. No migration state may be stored outside root `.migration/` (migration-scoped authoritative state), org `/{org}/.migration/` (organisation-scoped cursors), project `/{org}/{project}/.migration/` (project-scoped cursors), or `.migration/runs/<runId>/` (run-scoped audit copies and logs). No hidden state in other locations.
 2. No external databases or service-side state stores may be used as the authoritative resume mechanism.
-3. Files under `.migration/runs/<runId>/` are audit artefacts only. Resume, phase gates, and orchestration MUST use root `.migration/` and project `/{org}/{project}/.migration/`, never run-scoped copies.
+3. Files under `.migration/runs/<runId>/` are audit artefacts only. Resume, phase gates, and orchestration MUST use scoped authoritative metadata (`/{org}/{project}/.migration/`, then `/{org}/.migration/`, then root `.migration/`) and never run-scoped copies.
 4. Current run-log stream filenames are fixed as `.migration/runs/<runId>/logs/progress.ndjson` and `.migration/runs/<runId>/logs/diagnostics.ndjson` unless an ADR explicitly changes the contract.
 
 ## Attachment Placement
