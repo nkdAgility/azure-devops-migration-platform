@@ -255,9 +255,9 @@ This document defines the complete task decomposition for implementing the Work 
 - [ ] T089 [US4] [P] Implement attachment metadata parsing from revision.json (attachment array with id, name, size, contentType, and binary file reference) — Status: incomplete
 - [ ] T090 [US4] [P] Enumerate attachment binaries in revision folder via IArtefactStore.EnumerateAsync — Status: incomplete
 - [X] T091 [US4] [P] **SIMULATED**: Implement Simulated connector attachment upload — store binary in-memory with metadata linked to work item — Status: complete
-- [ ] T092 [US4] [P] **AZURE DEVOPS**: Implement Azure DevOps REST API attachment upload — call POST /attachments endpoint and associate with work item — Status: incomplete
-- [ ] T093 [US4] [P] **TFS**: Implement TFS OM attachment upload via TfsMigrationAgent — upload attachment via TFS API — Status: incomplete
-- [ ] T094 [US4] [P] Record source→target attachment ID mapping in idmap.db during UploadedAttachments stage — Status: incomplete
+- [X] T092 [US4] [P] **AZURE DEVOPS**: Implement Azure DevOps REST API attachment upload — call POST /attachments endpoint and associate with work item — Status: complete (verified existing implementation)
+- [ ] T093 [US4] [P] **TFS**: Implement TFS OM attachment upload via TfsMigrationAgent — upload attachment via TFS API — Status: blocked (TeamFoundationServer target import is disallowed by configuration validation; source-only connector)
+- [X] T094 [US4] [P] Record source→target attachment ID mapping in idmap.db during UploadedAttachments stage — Status: complete
 
 ### Embedded Image Replay Service (US4: Scenario 2, FR-020)
 
@@ -265,26 +265,26 @@ This document defines the complete task decomposition for implementing the Work 
 - [ ] T096 [US4] [P] Parse revision field values for embedded image references (e.g., HTML img tags, markdown ![...]) — Status: incomplete
 - [X] T097 [US4] [P] Extract image binary references from package via IArtefactStore.ReadFileAsync — Status: complete
 - [X] T098 [US4] [P] **SIMULATED**: Implement Simulated connector image upload — store image in-memory and generate target URL references — Status: complete
-- [ ] T099 [US4] [P] **AZURE DEVOPS**: Implement Azure DevOps image upload — call appropriate API for image hosting (or attachment-backed URL) — Status: incomplete
-- [ ] T100 [US4] [P] **TFS**: Implement TFS image upload via TfsMigrationAgent — upload image and generate target references — Status: incomplete
-- [ ] T101 [US4] [P] Update field values to reference target image locations instead of source package references — Status: incomplete
+- [X] T099 [US4] [P] **AZURE DEVOPS**: Implement Azure DevOps image upload — call appropriate API for image hosting (or attachment-backed URL) — Status: complete (verified existing implementation)
+- [ ] T100 [US4] [P] **TFS**: Implement TFS image upload via TfsMigrationAgent — upload image and generate target references — Status: blocked (TeamFoundationServer target import is disallowed by configuration validation; source-only connector)
+- [X] T101 [US4] [P] Update field values to reference target image locations instead of source package references — Status: complete
 
 ### Attachment Replay Lever Control (US4: Scenario 3, FR-019)
 
 - [ ] T102 [US4] [P] Check WorkItemImportOptions.AttachmentReplay lever before executing AttachmentReplayService — Status: incomplete
-- [ ] T103 [US4] [P] When disabled: Skip attachment replay stage but preserve checkpoint stage progression (Completed still reached deterministically) — Status: incomplete
+- [X] T103 [US4] [P] When disabled: Skip attachment replay stage but preserve checkpoint stage progression (Completed still reached deterministically) — Status: complete
 - [ ] T104 [US4] [P] Record attachment skip reason in progress sink for operator visibility — Status: incomplete
 
 ### Embedded Image Replay Lever Control (US4: Scenario 4, FR-021)
 
 - [ ] T105 [US4] [P] Check WorkItemImportOptions.EmbeddedImageReplay lever before executing EmbeddedImageReplayService — Status: incomplete
-- [ ] T106 [US4] [P] When disabled: Skip embedded image replay stage but preserve checkpoint stage progression — Status: incomplete
+- [X] T106 [US4] [P] When disabled: Skip embedded image replay stage but preserve checkpoint stage progression — Status: complete
 - [ ] T107 [US4] [P] Record image skip reason in progress sink for operator visibility — Status: incomplete
 
 ### Revision Continuation After Artefact Skip (US4: Scenarios 3-4)
 
-- [ ] T108 [US4] [P] When attachment or image replay is disabled, verify next revision can start without errors — Status: incomplete
-- [ ] T109 [US4] [P] Ensure skipped artefacts do not block deterministic checkpoint progression — Status: incomplete
+- [X] T108 [US4] [P] When attachment or image replay is disabled, verify next revision can start without errors — Status: complete (verified existing implementation)
+- [X] T109 [US4] [P] Ensure skipped artefacts do not block deterministic checkpoint progression — Status: complete (verified existing implementation)
 
 **Independent Test Criteria**:
 - Enabled attachment/image replay uploads binaries to target and records mapping
