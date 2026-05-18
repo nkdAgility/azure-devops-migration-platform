@@ -103,13 +103,13 @@ As a migration operator, I want declarative field transformation rules to run du
 ### Edge Cases
 
 - What happens when the package is missing node artefacts needed for node readiness? The prepare pass must record a blocking failure and import must not start.
-- What happens when a translated node path still cannot be resolved on the target? The run must follow the configured skip-or-halt policy, and the outcome must be visible in package reports and progress output.
+- What happens when a translated node path still cannot be resolved on the target? The run must follow the configured skip-or-halt policy through the canonical import policy path, and the outcome must be visible in package reports and progress output. This must not be implemented as ad hoc local guard clauses in replay code.
 - What happens when a work item type in the package does not exist on the target? The prepare pass must treat it as blocking so the operator corrects the target or mapping before import.
 - What happens when an operator resumes after a mid-run interruption? The import must continue from the recorded folder and stage without duplicating already-completed node creation or work item replay.
 - What happens when a field transform depends on a value that was changed by NodeTranslation? The transformed value must be based on the translated path, not the original exported path.
-- What happens when no explicit identity mapping exists for a person referenced by a revision? The prepare pass must surface the unresolved identity for review and the import behaviour must remain deterministic.
+- What happens when no explicit identity mapping exists for a person referenced by a revision? The prepare pass must surface the unresolved identity for review and the import behaviour must remain deterministic. Resolution outcomes must flow through explicit mapping decisions, not nullable-service or null-result guard branches.
 - What happens when attachments or embedded images are disabled for a run? The revision replay must remain deterministic, skip only the disabled artefact categories, and record that those categories were intentionally not replayed.
-- What happens when a package references an attachment or embedded image binary that is missing? The run must follow the configured skip-or-halt policy for that artefact type and keep the outcome visible to the operator.
+- What happens when a package references an attachment or embedded image binary that is missing? The run must follow the configured skip-or-halt policy for that artefact type through the canonical import policy path and keep the outcome visible to the operator. This must not be implemented as ad hoc local guard clauses in replay code.
 - What happens when a revision folder referenced by a work item does not exist in the package? The prepare phase must record this as a blocking finding so the operator can verify export completeness.
 - What happens when attachment metadata references binaries that do not exist in the package? The prepare phase must record missing attachment artefacts as blocking when attachment replay is enabled.
 - What happens when embedded image metadata references binaries that do not exist in the package? The prepare phase must record missing embedded image artefacts as blocking when embedded image replay is enabled.
@@ -144,7 +144,7 @@ As a migration operator, I want declarative field transformation rules to run du
 - **FR-019**: When attachment replay is disabled, the import MUST skip attachment replay while preserving deterministic checkpoint behaviour for the revision.
 - **FR-020**: When embedded image replay is enabled, the import MUST replay embedded image binaries from the package and update written work item content so it references the target-side image locations.
 - **FR-021**: When embedded image replay is disabled, the import MUST skip embedded image replay while preserving deterministic checkpoint behaviour for the revision.
-- **FR-022**: Work item import MUST support an optional FieldTransform capability that applies configured transform groups during import after NodeTranslation and before the target update is sent.
+- **FR-022**: Work item import MUST support the canonical FieldTransform capability seam, with application controlled by an explicit run lever. When enabled, configured transform groups are applied during import after NodeTranslation and before the target update is sent.
 - **FR-023**: When FieldTransform is disabled for the run, the import MUST skip declarative field transforms and continue with the translated revision values.
 - **FR-024**: A FieldTransform failure during import MUST halt the run with a clear error outcome rather than continuing with partially transformed data.
 - **FR-025**: The import flow MUST remain package-driven and must not consult the source system during prepare or import.

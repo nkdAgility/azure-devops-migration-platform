@@ -129,7 +129,7 @@ public sealed record ImportReadinessReport
     public required string ToolVersion { get; init; }
 
     /// <summary>
-    /// True if all blocking findings have been resolved (none remain) or explicitly skipped by operator.
+    /// True if all blocking findings have been resolved (none remain) or converted into explicit operator-approved policy outcomes captured by the readiness model.
     /// </summary>
     public required bool IsReadyForImport { get; init; }
 

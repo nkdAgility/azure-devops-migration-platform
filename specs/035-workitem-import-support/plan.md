@@ -96,7 +96,7 @@ The feature is **package-driven** (no source system consultation during import),
 ### Principle XI: Full Connector Coverage ⚠️ **REQUIRED**
 - **Simulated**: Full import in-memory, all features.
 - **AzureDevOpsServices**: Full import via REST API, all features.
-- **TeamFoundationServer**: Full import via TFS OM (in .NET 4.8 agent), all features (NOOP with graceful skip if TFS OM does not expose capability).
+- **TeamFoundationServer**: Full import via TFS OM (in .NET 4.8 agent), all features. If a TFS OM API boundary does not expose an equivalent capability, the design must model that as an explicit connector capability outcome with observable status and tests; do not implement silent NOOP or local runtime guard exits.
 - **Plan MUST allocate tasks for all three connectors.** No stubs, no `NotImplementedException`.
 
 ### Principle XII: Capability Seam Governance ✅ **PASS**

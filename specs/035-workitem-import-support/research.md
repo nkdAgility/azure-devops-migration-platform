@@ -46,7 +46,7 @@ This document captures research findings and design decisions that inform the im
 
 - **Service Contract**: `IIdentityMappingService`
   - Provides method: `ResolveIdentity(sourceId, entityType) → TargetIdentity?`
-  - Returns null if no mapping exists (operator choice: block or skip).
+  - If no mapping exists, the unresolved outcome must be routed through explicit operator decision handling (block/use-default/skip). Do not treat this as justification for ad hoc null-guard branching in module or orchestrator code.
   - No module implements its own identity resolution.
 
 - **Mapping Source**: Pre-computed mapping artefacts stored in package (output of IdentitiesModule prepare phase).
