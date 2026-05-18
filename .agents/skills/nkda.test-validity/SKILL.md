@@ -1,5 +1,7 @@
+---
 name: nkda.test-validity
 description: Scores every test in the target scope for intrinsic value across five dimensions. Tests classified as WASTE are deleted immediately. Runs before nkda.test-promotion so that only valuable tests enter the promotion pipeline.
+---
 
 # Skill: Test Validity
 
