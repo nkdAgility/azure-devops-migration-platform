@@ -14,6 +14,7 @@ Reject any change that:
 - Renames, adds, or removes a guardrail or context file without updating the pre-flight list in **both** `agents.md` and `.github/copilot-instructions.md` atomically — the two lists must stay identical
 - Adds an inline rule to `agents.md` or `copilot-instructions.md` when that rule already exists in a guardrail — reference the guardrail instead
 - Leaves an enforceable rule only in `agents.md` or `copilot-instructions.md` — move it to the appropriate guardrail first, then replace with a reference
+- Adds index, README, manifest, or entrypoint wording that implies one guardrail is more mandatory, more authoritative, or more optional than another. Discovery and scope-loading docs may explain when a guardrail applies, but they must not create a priority hierarchy among guardrails beyond the existing documentation authority model.
 - Places content that answers *must/must not/reject* anywhere other than `.agents/20-guardrails/` (see PLACEMENT-RULES.md for the full test)
 - Places long-form tutorials, walkthroughs, or operator guidance in `.agents/30-context/domains/`
 - Places operator guidance or how-to content in `.agents/20-guardrails/`
@@ -25,6 +26,9 @@ Reject any change that:
 - Allows an agent context file to exceed 1 000 words without reducing it (see TOKEN-BUDGETS.md)
 - Allows `agents.md` or `copilot-instructions.md` to exceed 400 lines without trimming inline content to guardrail references (see TOKEN-BUDGETS.md)
 - Uses a non-standard file suffix that does not match the naming conventions in PLACEMENT-RULES.md
+
+
+
 
 
 

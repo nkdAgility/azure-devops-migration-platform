@@ -45,7 +45,10 @@ Load and follow these existing repository contracts/guardrails:
 2. Load target file + direct consumers/dependencies needed for accurate compliance analysis.
 3. Assess against all six architecture perspectives (Modular Monolith, Clean, Hexagonal, Vertical Slice, Screaming, Architecture Deepening).
 4. Identify all touched-scope non-compliance with concrete evidence (file/line and violated rule).
-5. Determine change class:
+5. Run a mandatory runtime-compatibility duplication-risk check in touched scope:
+   - detect class-level cross-TFM duplication (`*.net481.*` / `*.net10.*`) where logic differs only by language/API compatibility details,
+   - require smallest-seam decomposition plan (micro-interface/adapter/partial) when duplication is detected.
+6. Determine change class:
    - If no surface/contract impact: Class A/B as applicable.
    - If surface/contract change is required: Class C gate applies (consent policy mandatory).
 
@@ -58,6 +61,8 @@ Plan must include:
 - tests to add/adjust first (failing first),
 - minimal code refactor steps,
 - required DI/seam/boundary updates,
+- single-source logic statement (what remains shared vs target-specific),
+- runtime-delta seam map proving smallest practical boundary per delta,
 - documentation updates (only directly related),
 - verification steps aligned to definition of done.
 
@@ -66,6 +71,7 @@ Plan must include:
 Before editing code, present:
 - compliance findings summary,
 - planned remediation sequence,
+- duplication-risk verdict and smallest-seam decision,
 - any required class/consent decision.
 
 Then stop and wait for explicit human approval to execute.
@@ -86,7 +92,8 @@ Then stop and wait for explicit human approval to execute.
 Stop and escalate when:
 - required consent policy evidence is missing for Class C changes,
 - requested changes conflict with guardrails and no human override exists,
-- the target file cannot be made compliant without widening scope beyond what is safe to do implicitly.
+- the target file cannot be made compliant without widening scope beyond what is safe to do implicitly,
+- the proposed remediation keeps large class-level cross-TFM duplication without material dependency-boundary justification.
 
 ## Output Contract
 
