@@ -20,6 +20,7 @@ Code must be deterministic, testable, maintainable, and aligned with architectur
 ## Touched-Scope Remediation
 
 - When a class is modified, existing non-compliance in that class must be rectified in the same change.
+- **Refactor-first sequencing is mandatory:** if a touched file is non-compliant with any active guardrail, remediation is the first task in that file. Feature/behavior work may proceed only after the touched scope is compliant.
 - This includes non-compatibility guards, architecture boundary/seam violations, and missing behavioural test coverage for changed behaviour.
 - If immediate full remediation would create excessive risk, the change must stop and require explicit human approval of a bounded remediation plan before proceeding.
 
@@ -28,6 +29,7 @@ Code must be deterministic, testable, maintainable, and aligned with architectur
 - New code targets modern .NET (`net9.0`/`net10.0`) unless explicitly constrained by TFS Object Model hosting.
 - .NET Framework use is isolated to `DevOpsMigrationPlatform.TfsMigrationAgent` and `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel`.
 - `DevOpsMigrationPlatform.TfsMigrationAgent` must not be referenced from .NET 10 projects.
+- Shared runtime strategy and degradation rules are defined in [runtime-compatibility-net10-net481.md](./runtime-compatibility-net10-net481.md).
 - Credentials must travel via job configuration payloads, never CLI arguments.
 
 ## UI Boundaries
@@ -71,9 +73,10 @@ Code must be deterministic, testable, maintainable, and aligned with architectur
 ## Error Handling
 
 - Do not swallow exceptions.
-- Guard clauses are permitted only for runtime compatibility boundaries between `net481` and modern .NET targets (`net9.0`/`net10.0`).
+- Guard clauses are permitted only for runtime crash-prevention or unsupported runtime execution boundaries between `net481` and modern .NET targets; all other usage is prohibited.
 - Validation of configuration and contracts must be performed by canonical validation surfaces (schema validation, `IValidateOptions<T>`, or phase/module `ValidateAsync`) rather than ad-hoc defensive guard checks in module/orchestrator code.
 - When non-compatibility guards are encountered during refactor or feature work, they must be removed in the touched scope.
+- Framework-specific behavior must not alter orchestration flow; it must remain behind stable abstractions and target-specific implementations.
 - Use structured logging with explicit failure context.
 
 ## Prohibited Coding Patterns
@@ -88,6 +91,7 @@ Code must be deterministic, testable, maintainable, and aligned with architectur
 ## Related
 
 - [architecture-boundaries.md](../core/architecture-boundaries.md)
+- [runtime-compatibility-net10-net481.md](./runtime-compatibility-net10-net481.md)
 - [migration-rules.md](../domains/migration-rules.md)
 - [module-rules.md](../domains/module-rules.md)
 - [definition-of-done.md](../workflow/definition-of-done.md)

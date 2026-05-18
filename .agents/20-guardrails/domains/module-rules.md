@@ -36,7 +36,7 @@ Module (thin wrapper: ~100–130 lines)
 ### Module Layer (thin wrapper)
 - Implements `IModule`.
 - Properties: `Name`, `DependsOn` (explicit module dependencies), `SupportsInventory`, `SupportsExport`, `SupportsPrepare`, `SupportsImport`.
-- Compatibility guards are permitted only where `net481` and modern .NET runtime boundaries require conditional behavior.
+- Compatibility guards are permitted only where `net481` and modern .NET runtime boundaries require runtime crash-prevention or explicit unsupported-runtime protection; use the hierarchy in `core/runtime-compatibility-net10-net481.md`.
 - Resolves config and endpoints, then delegates to the orchestrator.
 - Contains **no business logic** — only configuration/endpoints resolution and delegation.
 - Constructor-injected: `IOptions<T>`, `ILogger<T>`, `ISourceEndpointInfo`, `ITargetEndpointInfo`, orchestrator interface, connector services.

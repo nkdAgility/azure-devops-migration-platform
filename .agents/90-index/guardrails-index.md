@@ -7,6 +7,7 @@
 - `.agents/20-guardrails/core/capability-ethos-rules.md`
 - `.agents/20-guardrails/core/coding-standards.md`
 - `.agents/20-guardrails/core/coding-standards-examples.md`
+- `.agents/20-guardrails/core/runtime-compatibility-net10-net481.md`
 - `.agents/20-guardrails/core/surface-usage.md`
 - `.agents/20-guardrails/core/change-governance.md`
 
