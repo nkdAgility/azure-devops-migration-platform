@@ -19,6 +19,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 public sealed class ImportWorkItemStateStore : IAsyncDisposable, IImportCreatedNodeStateStore
 {
     private const string CursorPath = ".migration/Checkpoints/workitems-import.cursor.json";
+    private static readonly TimeSpan CursorWriteSla = TimeSpan.FromMilliseconds(500);
     private readonly IPackageAccess _package;
     private readonly SemaphoreSlim _idMapInitializeGate = new(initialCount: 1, maxCount: 1);
     private readonly SemaphoreSlim _idMapWriteGate = new(initialCount: 1, maxCount: 1);
@@ -59,10 +60,21 @@ public sealed class ImportWorkItemStateStore : IAsyncDisposable, IImportCreatedN
 
         var json = JsonSerializer.Serialize(cursor);
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
-        await _package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(CursorPath)),
-            new PackagePayload(stream, "application/json"),
-            cancellationToken).ConfigureAwait(false);
+        using var timeoutTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutTokenSource.CancelAfter(CursorWriteSla);
+        try
+        {
+            await _package.PersistContentAsync(
+                new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(CursorPath)),
+                new PackagePayload(stream, "application/json"),
+                timeoutTokenSource.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException(
+                $"Writing import cursor exceeded the {CursorWriteSla.TotalMilliseconds:0}ms SLA.",
+                ex);
+        }
     }
 
     public ImportResumeDecision ResolveWorkItemFolderResumeDecision(string folderPath, CursorEntry? cursor)

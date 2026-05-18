@@ -91,6 +91,32 @@ public class ImportWorkItemStateStoreTests
     }
 
     [TestMethod]
+    public async Task WriteCursorAsync_WhenPersistExceedsSla_ThrowsTimeoutException()
+    {
+        var cursor = new CursorEntry
+        {
+            LastProcessed = "WorkItems/2026-01-01/638712000000000000-42-2",
+            Stage = CursorStage.Completed,
+            UpdatedAt = new DateTimeOffset(2026, 01, 01, 10, 11, 13, TimeSpan.Zero)
+        };
+
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
+        package
+            .Setup(p => p.PersistContentAsync(
+                It.IsAny<PackageContentContext>(),
+                It.IsAny<PackagePayload>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(async (PackageContentContext _, PackagePayload _, CancellationToken token) =>
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(750), token);
+            });
+
+        var sut = new ImportWorkItemStateStore(package.Object);
+
+        await Assert.ThrowsExactlyAsync<TimeoutException>(() => sut.WriteCursorAsync(cursor, CancellationToken.None));
+    }
+
+    [TestMethod]
     public async Task SetWorkItemMappingAsync_ThenGetWorkItemMappingAsync_RoundTripsValue()
     {
         await using var connection = new SqliteConnection("Data Source=:memory:");

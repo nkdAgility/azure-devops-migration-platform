@@ -200,41 +200,41 @@ This document defines the complete task decomposition for implementing the Work 
 - [X] T065 [US3] Create WorkItemRevisionImporter class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemRevisionImporter.cs` with ExecuteAsync method — Status: complete
 - [X] T066 [US3] [P] Implement lazy enumeration of WorkItems folder via IArtefactStore.EnumerateAsync — process one revision folder at a time without materializing full set — Status: complete
 - [X] T067 [US3] [P] Enforce lexicographic ordering — verify revision folders processed in ascending folder-name order — Status: complete
-- [ ] T068 [US3] Implement stage-aware streaming — EnumerateAsync results consumed one revision at a time, never materialized into memory — Status: incomplete
+- [X] T068 [US3] Implement stage-aware streaming — EnumerateAsync results consumed one revision at a time, never materialized into memory — Status: complete (verified existing implementation)
 
 ### First Revision Creation & Mapping (US3: Scenario 2, FR-010)
 
 - [ ] T069 [US3] [P] **SIMULATED**: Implement Simulated connector work item creation — create new work item with initial field values in in-memory collection — Status: incomplete
 - [ ] T070 [US3] [P] **AZURE DEVOPS**: Implement Azure DevOps REST API work item creation — call POST /workitems endpoint to create work item — Status: incomplete
 - [ ] T071 [US3] [P] **TFS**: Implement TFS OM work item creation via TfsMigrationAgent — create work item via TFS OM API — Status: incomplete
-- [ ] T072 [US3] [P] Record source→target work item ID mapping in idmap.db upon first revision creation — Status: incomplete
-- [ ] T073 [US3] Implement mapping cache to reuse target ID for later revisions of same source item — Status: incomplete
+- [X] T072 [US3] [P] Record source→target work item ID mapping in idmap.db upon first revision creation — Status: complete (verified existing implementation)
+- [X] T073 [US3] Implement mapping cache to reuse target ID for later revisions of same source item — Status: complete (verified existing implementation)
 
 ### Later Revision Updates (US3: Scenario 3, FR-010)
 
-- [ ] T074 [US3] [P] Check idmap.db for existing mapping before creating new work item — Status: incomplete
-- [ ] T075 [US3] [P] If mapping exists, use existing target ID for update instead of creation — Status: incomplete
+- [X] T074 [US3] [P] Check idmap.db for existing mapping before creating new work item — Status: complete (verified existing implementation)
+- [X] T075 [US3] [P] If mapping exists, use existing target ID for update instead of creation — Status: complete (verified existing implementation)
 - [ ] T076 [US3] [P] **SIMULATED**: Implement update for existing in-memory work items — Status: incomplete
 - [ ] T077 [US3] [P] **AZURE DEVOPS**: Implement update via PATCH /workitems/{id} endpoint — Status: incomplete
 - [ ] T078 [US3] [P] **TFS**: Implement update via TFS OM for existing items — Status: incomplete
 
 ### Identity Resolution Before Field Application (US3: Scenario 5, FR-012)
 
-- [ ] T079 [US3] [P] Before applying fields to target, resolve all identity-backed field values from IIdentityMappingService — Status: incomplete
-- [ ] T080 [US3] [P] Cache resolved identities in WorkItemImportContext to avoid duplicate lookups within single revision — Status: incomplete
-- [ ] T081 [US3] [P] Use resolved identity values when populating field values for target write — Status: incomplete
+- [X] T079 [US3] [P] Before applying fields to target, resolve all identity-backed field values from IIdentityMappingService — Status: complete (verified existing implementation)
+- [X] T080 [US3] [P] Cache resolved identities in WorkItemImportContext to avoid duplicate lookups within single revision — Status: complete (verified existing implementation)
+- [X] T081 [US3] [P] Use resolved identity values when populating field values for target write — Status: complete (verified existing implementation)
 
 ### Checkpoint Persistence (US3: Scenario 4, FR-011)
 
-- [ ] T082 [US3] [P] After each stage completion for a revision, write checkpoint to `.migration/Checkpoints/workitems-import.cursor.json` with lastProcessed = current revision folder path and stage = completed stage — Status: incomplete
-- [ ] T083 [US3] [P] Ensure checkpoint writes are atomic (<500ms target per specification) — Status: incomplete
-- [ ] T084 [US3] [P] On resume, read checkpoint and continue from next incomplete stage for that revision (no replay of completed stages) — Status: incomplete
+- [X] T082 [US3] [P] After each stage completion for a revision, write checkpoint to `.migration/Checkpoints/workitems-import.cursor.json` with lastProcessed = current revision folder path and stage = completed stage — Status: complete (verified existing implementation)
+- [X] T083 [US3] [P] Ensure checkpoint writes are atomic (<500ms target per specification) — Status: complete
+- [X] T084 [US3] [P] On resume, read checkpoint and continue from next incomplete stage for that revision (no replay of completed stages) — Status: complete (verified existing implementation)
 
 ### Resume & Continuation (US3: Scenario 4, FR-011)
 
-- [ ] T085 [US3] [P] Implement resume logic — read ImportCheckpoint, identify next revision folder after lastProcessed — Status: incomplete
-- [ ] T086 [US3] [P] For the resumed revision, start from stage after recorded stage (skip CreatedOrUpdated if already completed, etc.) — Status: incomplete
-- [ ] T087 [US3] [P] Verify idmap.db contains existing mappings to prevent duplicate work item creation on resume — Status: incomplete
+- [X] T085 [US3] [P] Implement resume logic — read ImportCheckpoint, identify next revision folder after lastProcessed — Status: complete (verified existing implementation)
+- [X] T086 [US3] [P] For the resumed revision, start from stage after recorded stage (skip CreatedOrUpdated if already completed, etc.) — Status: complete (verified existing implementation)
+- [X] T087 [US3] [P] Verify idmap.db contains existing mappings to prevent duplicate work item creation on resume — Status: complete (verified existing implementation)
 
 **Independent Test Criteria**:
 - Revisions processed in deterministic package order (folder names in ascending sequence)
