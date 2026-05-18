@@ -25,6 +25,9 @@ src/DevOpsMigrationPlatform.CLI.Migration/migration.schema.json
 *.user
 *.suo
 
+# Claude Code local settings (personal overrides, not for sharing)
+.claude/settings.local.json
+
 # NuGet
 *.nupkg
 packages/
