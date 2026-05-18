@@ -5,7 +5,6 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -341,4 +340,3 @@ public sealed class WorkItemsModuleExtensions
         return (includeFilters, excludeFilters);
     }
 }
-#endif

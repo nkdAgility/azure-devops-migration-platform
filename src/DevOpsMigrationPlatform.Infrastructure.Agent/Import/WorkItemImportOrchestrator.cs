@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -11,6 +10,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
@@ -132,6 +133,7 @@ public sealed class WorkItemImportOrchestrator
         int workItemsProcessed = 0;
         int lastImportedWorkItemId = 0;
         int revisionsForCurrentWorkItem = 0;
+        HashSet<int>? filteredWorkItemIds = null;
 
         var importTags = MetricsTagList.Create(_jobId ?? "not-set", "import", "workitems");
         var workItemStopwatch = Stopwatch.StartNew();
@@ -139,6 +141,11 @@ public sealed class WorkItemImportOrchestrator
 
         try
         {
+            if (_filterOptions is { Count: > 0 })
+            {
+                filteredWorkItemIds = await BuildFilteredWorkItemIdSetAsync(_filterOptions, ct).ConfigureAwait(false);
+            }
+
             await foreach (var folderPath in EnumerateWorkItemFoldersAsync(ct).ConfigureAwait(false))
             {
                 ct.ThrowIfCancellationRequested();
@@ -164,26 +171,16 @@ public sealed class WorkItemImportOrchestrator
                 else if (ext.RevisionsEnabled)
                 {
                     // Revision folder — parse work item ID and revision index
-                    var revisionSegments = folderName.Split('-');
-                    int.TryParse(revisionSegments.Length >= 2 ? revisionSegments[1] : null, out var wiId);
-                    int.TryParse(revisionSegments.Length >= 3 ? revisionSegments[2] : null, out var revIdx);
+                    ParseRevisionFolder(folderName, out var wiId, out var revIdx);
 
-                    if (_filterOptions is { Count: > 0 })
+                    if (filteredWorkItemIds is not null && !filteredWorkItemIds.Contains(wiId))
                     {
-                        var passesFilters = await RevisionFolderPassesFilterAsync(
-                            wiId,
-                            folderPath,
-                            _filterOptions,
-                            ct).ConfigureAwait(false);
-                        if (!passesFilters)
-                        {
-                            _logger.LogInformation(
-                                "[WorkItems] Work item {WorkItemId} skipped by import filter scope.",
-                                wiId);
-                            await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
-                            foldersProcessed++;
-                            continue;
-                        }
+                        _logger.LogInformation(
+                            "[WorkItems] Work item {WorkItemId} skipped by import filter scope.",
+                            wiId);
+                        await WriteCompletedCursorAsync(folderPath, ct).ConfigureAwait(false);
+                        foldersProcessed++;
+                        continue;
                     }
 
                     // Revision-index watermark: skip folders at or below the last applied revision
@@ -287,6 +284,39 @@ public sealed class WorkItemImportOrchestrator
         }
     }
 
+    private async Task<HashSet<int>> BuildFilteredWorkItemIdSetAsync(
+        IReadOnlyList<WorkItemFieldFilterOptions> filterOptions,
+        CancellationToken ct)
+    {
+        var lastRevisionFolderByWorkItem = new Dictionary<int, string>();
+        await foreach (var folderPath in EnumerateWorkItemFoldersAsync(ct).ConfigureAwait(false))
+        {
+            ct.ThrowIfCancellationRequested();
+            var folderName = GetFolderName(folderPath);
+            var segments = folderName.Split('-');
+            if (IsCommentFolder(segments))
+                continue;
+
+            ParseRevisionFolder(folderName, out var workItemId, out _);
+            if (workItemId <= 0)
+                continue;
+
+            lastRevisionFolderByWorkItem[workItemId] = folderPath;
+        }
+
+        var includedIds = new HashSet<int>();
+        foreach (var entry in lastRevisionFolderByWorkItem)
+        {
+            ct.ThrowIfCancellationRequested();
+            var workItemId = entry.Key;
+            var folderPath = entry.Value;
+            if (await RevisionFolderPassesFilterAsync(workItemId, folderPath, filterOptions, ct).ConfigureAwait(false))
+                includedIds.Add(workItemId);
+        }
+
+        return includedIds;
+    }
+
     private async Task<bool> RevisionFolderPassesFilterAsync(
         int workItemId,
         string folderPath,
@@ -326,6 +356,13 @@ public sealed class WorkItemImportOrchestrator
                 workItemId);
             return false;
         }
+    }
+
+    private static void ParseRevisionFolder(string folderName, out int workItemId, out int revisionIndex)
+    {
+        var segments = folderName.Split('-');
+        int.TryParse(segments.Length >= 2 ? segments[1] : null, out workItemId);
+        int.TryParse(segments.Length >= 3 ? segments[2] : null, out revisionIndex);
     }
 
     // --- Comment folder handling ---
@@ -397,8 +434,18 @@ public sealed class WorkItemImportOrchestrator
         if (paths is null)
             yield break;
 
+        string? previousPath = null;
         await foreach (var path in paths.ConfigureAwait(false))
+        {
+            if (previousPath is not null && string.CompareOrdinal(path, previousPath) < 0)
+            {
+                throw new InvalidOperationException(
+                    $"WorkItems package enumeration must be lexicographic ascending. Previous='{previousPath}', Current='{path}'.");
+            }
+
+            previousPath = path;
             yield return path;
+        }
     }
 
     private async Task<string?> ReadPackageTextAsync(string path, CancellationToken ct)
@@ -411,7 +458,7 @@ public sealed class WorkItemImportOrchestrator
 
         if (payload.Content.CanSeek)
             payload.Content.Position = 0;
-        using var reader = new System.IO.StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+        using var reader = new System.IO.StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
         return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
@@ -439,24 +486,24 @@ public sealed class WorkItemImportOrchestrator
     {
         var normalized = path.Replace('\\', '/').TrimEnd('/');
         if (normalized.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase))
-            normalized = normalized["WorkItems/".Length..];
+            normalized = normalized.Substring("WorkItems/".Length);
 
         var lastSlash = normalized.LastIndexOf('/');
-        return lastSlash >= 0 ? normalized[..lastSlash] : normalized;
+        return lastSlash >= 0 ? normalized.Substring(0, lastSlash) : normalized;
     }
 
     private static string GetFileName(string path)
     {
         var normalized = path.Replace('\\', '/').TrimEnd('/');
         var lastSlash = normalized.LastIndexOf('/');
-        return lastSlash >= 0 ? normalized[(lastSlash + 1)..] : normalized;
+        return lastSlash >= 0 ? normalized.Substring(lastSlash + 1) : normalized;
     }
 
     private static string GetFolderName(string folderPath)
     {
         var trimmed = folderPath.TrimEnd('/');
         var lastSlash = trimmed.LastIndexOf('/');
-        return lastSlash >= 0 ? trimmed[(lastSlash + 1)..] : trimmed;
+        return lastSlash >= 0 ? trimmed.Substring(lastSlash + 1) : trimmed;
     }
 
     /// <summary>
@@ -474,5 +521,4 @@ public sealed class WorkItemImportOrchestrator
             UpdatedAt = DateTimeOffset.UtcNow
         }, ct);
 }
-#endif
 

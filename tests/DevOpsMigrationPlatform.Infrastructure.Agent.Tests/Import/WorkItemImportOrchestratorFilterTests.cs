@@ -142,10 +142,11 @@ public class WorkItemImportOrchestratorFilterTests
     [TestMethod]
     public async Task ImportAsync_FilterEvaluatesLastRevisionOnly()
     {
-        // Add early revision with State=Closed, then latest with State=Active
-        // Filter includes Active — should import the item
-        AddRevisionFolderWithState(wiId: 1, revIndex: 0, state: "Closed");
-        AddRevisionFolderWithState(wiId: 1, revIndex: 1, state: "Active");
+        // Filter decisions are made from the latest revision only.
+        // If latest is Active, all revisions for that work item must be imported.
+        AddRevisionFolderWithState(wiId: 1, revIndex: 0, state: "Active");
+        AddRevisionFolderWithState(wiId: 1, revIndex: 1, state: "Closed");
+        AddRevisionFolderWithState(wiId: 1, revIndex: 2, state: "Active");
 
         var filters = new List<WorkItemFieldFilterOptions>
         {
@@ -157,33 +158,22 @@ public class WorkItemImportOrchestratorFilterTests
 
         _mockTarget.Verify(
             t => t.UpdateFieldsAsync(1, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
-            Times.AtLeastOnce, "Work item 1 should be imported based on its latest revision.");
+            Times.Exactly(3), "All revisions should import when the latest revision matches the filter.");
     }
 
     [TestMethod]
-    public async Task ImportAsync_WithFilters_ProcessesFirstFolderBeforeRequestingSecondFolder()
+    public async Task ImportAsync_WithFilters_ProcessesRevisionsInDeterministicOrder()
     {
         AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
         AddRevisionFolder(wiId: 2, revIndex: 0, areaPath: @"MyOrg\TeamA");
-
-        var firstFolder = _folders[0];
-        var secondFolder = _folders[1];
-        var firstRevisionProcessed = false;
+        var processedOrder = new List<int>();
 
         _mockTarget.Setup(t => t.UpdateFieldsAsync(
                     It.IsAny<int>(),
                     It.IsAny<IReadOnlyList<WorkItemField>>(),
                     It.IsAny<CancellationToken>()))
-            .Callback(() => firstRevisionProcessed = true)
+            .Callback<int, IReadOnlyList<WorkItemField>, CancellationToken>((id, _, _) => processedOrder.Add(id))
             .Returns(Task.CompletedTask);
-
-        _mockPackage.Setup(p => p.EnumerateContentAsync(
-                            It.Is<PackageContentContext>(c =>
-                                c.IsCollectionRequest &&
-                                string.Equals(c.Module, "WorkItems", StringComparison.OrdinalIgnoreCase)),
-                            It.IsAny<CancellationToken>()))
-                    .Returns((PackageContentContext _, CancellationToken ct) =>
-                        GatedFolderSequence(firstFolder, secondFolder, () => firstRevisionProcessed, ct));
 
         var filters = new List<WorkItemFieldFilterOptions>
         {
@@ -192,6 +182,11 @@ public class WorkItemImportOrchestratorFilterTests
 
         var orchestrator = BuildOrchestrator(filters);
         await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
+
+        CollectionAssert.AreEqual(
+            new[] { 1, 2 },
+            processedOrder,
+            "Revisions should be processed in deterministic package enumeration order.");
     }
 
     [TestMethod]
@@ -214,6 +209,21 @@ public class WorkItemImportOrchestratorFilterTests
             t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
             Times.Never,
             "UploadedAttachments cursor stage should advance to Completed and skip duplicate reprocessing.");
+    }
+
+    [TestMethod]
+    public async Task ImportAsync_WhenFoldersAreNotLexicographicallyAscending_ThrowsInvalidOperationException()
+    {
+        AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
+        AddRevisionFolder(wiId: 2, revIndex: 0, areaPath: @"MyOrg\TeamA");
+
+        // Force a descending sequence from the artefact store.
+        _folders.Reverse();
+
+        var orchestrator = BuildOrchestrator();
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None));
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
@@ -323,21 +333,4 @@ public class WorkItemImportOrchestratorFilterTests
         }
     }
 
-    private static async IAsyncEnumerable<string> GatedFolderSequence(
-        string firstFolder,
-        string secondFolder,
-        Func<bool> firstRevisionProcessed,
-        [EnumeratorCancellation] CancellationToken ct)
-    {
-        ct.ThrowIfCancellationRequested();
-        yield return firstFolder;
-        await Task.Yield();
-
-        if (!firstRevisionProcessed())
-            throw new InvalidOperationException("Second folder was requested before processing the first folder.");
-
-        ct.ThrowIfCancellationRequested();
-        yield return secondFolder;
-        await Task.Yield();
-    }
 }

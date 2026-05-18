@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 
@@ -27,4 +27,3 @@ public sealed class WorkItemRevisionImporter
         CancellationToken ct)
         => _orchestrator.ImportAsync(ext, resumeMode, ct);
 }
-#endif

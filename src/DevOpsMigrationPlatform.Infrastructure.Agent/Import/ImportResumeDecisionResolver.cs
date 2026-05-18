@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
+using System;
 using System.IO;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 
@@ -11,7 +11,8 @@ internal static class ImportResumeDecisionResolver
 {
     internal static ResumeDecision Resolve(string folderPath, CursorEntry? cursor)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(folderPath);
+        if (string.IsNullOrWhiteSpace(folderPath))
+            throw new ArgumentException("Folder path cannot be null or whitespace.", nameof(folderPath));
         var normalizedFolderPath = NormalizeFolderPath(folderPath);
 
         if (cursor is null || string.IsNullOrWhiteSpace(cursor.LastProcessed))
@@ -31,7 +32,7 @@ internal static class ImportResumeDecisionResolver
         var nextStage = GetNextStage(cursor.Stage);
         return nextStage is null || string.Equals(nextStage, CursorStage.Completed, StringComparison.Ordinal)
             ? ResumeDecision.Skip
-            : new ResumeDecision(ShouldSkip: false, ResumeAtStage: nextStage);
+            : new ResumeDecision(false, nextStage);
     }
 
     private static string NormalizeFolderPath(string path)
@@ -47,4 +48,3 @@ internal static class ImportResumeDecisionResolver
         _ => throw new InvalidDataException($"Unsupported cursor stage '{currentStage}'.")
     };
 }
-#endif
