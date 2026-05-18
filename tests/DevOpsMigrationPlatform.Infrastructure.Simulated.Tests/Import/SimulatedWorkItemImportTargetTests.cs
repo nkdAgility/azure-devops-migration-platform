@@ -55,6 +55,27 @@ public sealed class SimulatedWorkItemImportTargetTests
     }
 
     [TestMethod]
+    public async Task UpdateFieldsAsync_UnknownWorkItem_ThrowsInvalidOperationException()
+    {
+        var target = new SimulatedWorkItemImportTarget();
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => target.UpdateFieldsAsync(42, Array.Empty<WorkItemField>(), CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task WorkItemExistsAsync_ReturnsFalseBeforeCreate_ThenTrueAfterCreate()
+    {
+        var target = new SimulatedWorkItemImportTarget();
+
+        var existsBefore = await target.WorkItemExistsAsync(1, CancellationToken.None);
+        var created = await target.CreateWorkItemAsync("Bug", Array.Empty<WorkItemField>(), CancellationToken.None);
+        var existsAfter = await target.WorkItemExistsAsync(created.TargetWorkItemId, CancellationToken.None);
+
+        Assert.IsFalse(existsBefore);
+        Assert.IsTrue(existsAfter);
+    }
+
+    [TestMethod]
     public async Task UploadAttachmentAsync_ReturnsDeterministicFakeId()
     {
         var target = new SimulatedWorkItemImportTarget();

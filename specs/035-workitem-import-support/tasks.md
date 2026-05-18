@@ -204,9 +204,9 @@ This document defines the complete task decomposition for implementing the Work 
 
 ### First Revision Creation & Mapping (US3: Scenario 2, FR-010)
 
-- [ ] T069 [US3] [P] **SIMULATED**: Implement Simulated connector work item creation — create new work item with initial field values in in-memory collection — Status: incomplete
-- [ ] T070 [US3] [P] **AZURE DEVOPS**: Implement Azure DevOps REST API work item creation — call POST /workitems endpoint to create work item — Status: incomplete
-- [ ] T071 [US3] [P] **TFS**: Implement TFS OM work item creation via TfsMigrationAgent — create work item via TFS OM API — Status: incomplete
+- [X] T069 [US3] [P] **SIMULATED**: Implement Simulated connector work item creation — create new work item with initial field values in in-memory collection — Status: complete
+- [X] T070 [US3] [P] **AZURE DEVOPS**: Implement Azure DevOps REST API work item creation — call POST /workitems endpoint to create work item — Status: complete (verified existing implementation)
+- [ ] T071 [US3] [P] **TFS**: Implement TFS OM work item creation via TfsMigrationAgent — create work item via TFS OM API — Status: blocked (TeamFoundationServer target import is disallowed by configuration validation; source-only connector)
 - [X] T072 [US3] [P] Record source→target work item ID mapping in idmap.db upon first revision creation — Status: complete (verified existing implementation)
 - [X] T073 [US3] Implement mapping cache to reuse target ID for later revisions of same source item — Status: complete (verified existing implementation)
 
@@ -214,9 +214,9 @@ This document defines the complete task decomposition for implementing the Work 
 
 - [X] T074 [US3] [P] Check idmap.db for existing mapping before creating new work item — Status: complete (verified existing implementation)
 - [X] T075 [US3] [P] If mapping exists, use existing target ID for update instead of creation — Status: complete (verified existing implementation)
-- [ ] T076 [US3] [P] **SIMULATED**: Implement update for existing in-memory work items — Status: incomplete
-- [ ] T077 [US3] [P] **AZURE DEVOPS**: Implement update via PATCH /workitems/{id} endpoint — Status: incomplete
-- [ ] T078 [US3] [P] **TFS**: Implement update via TFS OM for existing items — Status: incomplete
+- [X] T076 [US3] [P] **SIMULATED**: Implement update for existing in-memory work items — Status: complete
+- [X] T077 [US3] [P] **AZURE DEVOPS**: Implement update via PATCH /workitems/{id} endpoint — Status: complete (verified existing implementation)
+- [ ] T078 [US3] [P] **TFS**: Implement update via TFS OM for existing items — Status: blocked (TeamFoundationServer target import is disallowed by configuration validation; source-only connector)
 
 ### Identity Resolution Before Field Application (US3: Scenario 5, FR-012)
 

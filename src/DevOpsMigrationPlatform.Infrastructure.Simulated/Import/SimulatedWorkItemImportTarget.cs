@@ -31,6 +31,7 @@ public sealed class SimulatedWorkItemImportTarget : IWorkItemImportTarget
     private int _nextId = 1;
     private readonly object _lock = new();
     private readonly HashSet<string> _knownWorkItemTypes;
+    private readonly Dictionary<int, Dictionary<string, object?>> _workItems = new();
 
     public SimulatedWorkItemImportTarget()
         : this(DefaultKnownWorkItemTypes)
@@ -63,7 +64,21 @@ public sealed class SimulatedWorkItemImportTarget : IWorkItemImportTarget
 
         int assignedId;
         lock (_lock)
+        {
             assignedId = _nextId++;
+            var fieldState = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            foreach (var field in fields)
+            {
+                if (string.IsNullOrWhiteSpace(field.ReferenceName))
+                {
+                    continue;
+                }
+
+                fieldState[field.ReferenceName] = field.Value;
+            }
+
+            _workItems[assignedId] = fieldState;
+        }
 
         return Task.FromResult(new ImportedWorkItemResult
         {
@@ -80,6 +95,23 @@ public sealed class SimulatedWorkItemImportTarget : IWorkItemImportTarget
     {
         if (targetWorkItemId <= 0)
             throw new ArgumentOutOfRangeException(nameof(targetWorkItemId));
+        lock (_lock)
+        {
+            if (!_workItems.TryGetValue(targetWorkItemId, out var fieldState))
+            {
+                throw new InvalidOperationException($"Simulated target work item {targetWorkItemId} does not exist.");
+            }
+
+            foreach (var field in fields)
+            {
+                if (string.IsNullOrWhiteSpace(field.ReferenceName))
+                {
+                    continue;
+                }
+
+                fieldState[field.ReferenceName] = field.Value;
+            }
+        }
         return Task.CompletedTask;
     }
 
@@ -156,5 +188,15 @@ public sealed class SimulatedWorkItemImportTarget : IWorkItemImportTarget
 
     /// <inheritdoc/>
     public Task<bool> WorkItemExistsAsync(int targetWorkItemId, CancellationToken ct)
-        => Task.FromResult(true); // Simulated: all created IDs always "exist"
+    {
+        if (targetWorkItemId <= 0)
+        {
+            return Task.FromResult(false);
+        }
+
+        lock (_lock)
+        {
+            return Task.FromResult(_workItems.ContainsKey(targetWorkItemId));
+        }
+    }
 }
