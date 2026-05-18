@@ -5,6 +5,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
@@ -15,6 +16,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 
@@ -59,6 +61,14 @@ public static class ModuleServiceCollectionExtensions
         services.AddSchemaEntry<WorkItemImportOptions>("Work item import replay lever configuration");
 #endif
         services.RegisterWorkItemImportServices(configuration);
+        services.AddSingleton<IWorkItemsImportCapabilityValidator, WorkItemsImportCapabilityValidator>();
+        services.AddSingleton<IWorkItemsNodeReadinessOrchestrator>(sp =>
+            new WorkItemsNodeReadinessOrchestrator(
+                sp.GetService<NodeReadinessOrchestrator>(),
+                sp.GetService<INodesOrchestrator>(),
+                sp.GetService<IPlatformMetrics>(),
+                sp.GetRequiredService<ILogger<WorkItemsModule>>()));
+        services.AddSingleton<IWorkItemsImportOrchestrator, WorkItemsImportOrchestrator>();
         services.AddTransient<IModule, WorkItemsModule>();
         return services;
     }

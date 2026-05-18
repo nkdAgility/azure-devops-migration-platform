@@ -82,11 +82,12 @@ public sealed class WorkItemsModule : IModule
     private readonly ILogger<WorkItemsModule> _logger;
 #if !NET481
     private readonly ILogger<WorkItemImportOrchestrator> _orchestratorLogger;
+    private readonly IWorkItemsImportOrchestrator _workItemsImportOrchestrator;
 #endif
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IInventoryOrchestrator? _inventoryOrchestrator;
     private readonly IPlatformMetrics? _metrics;
-    private readonly IPlatformMetrics? _PlatformMetrics;
+    
     private readonly IWorkItemDiscoveryService? _discoveryService;
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
 #if !NET481
@@ -95,16 +96,15 @@ public sealed class WorkItemsModule : IModule
     private readonly NodeReadinessOrchestrator? _nodeReadinessOrchestrator;
     private readonly IOptions<NodesModuleOptions>? _nodesModuleOptions;
 #endif
-    private readonly IPackageAccess? _package;
     private readonly IOptions<WorkItemsModuleOptions> _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
     private readonly IRepoDiscoveryService? _repoDiscoveryService;
     private readonly ImportPreparer _importPreparer;
 #if !NET481
     private readonly ITargetEndpointInfo _targetEndpointInfo;
-    private readonly IIdentityMappingService? _identityMappingService;
-    private readonly INodeTranslationTool? _nodeTranslationTool;
-    private readonly IFieldTransformTool? _fieldTransformTool;
+    private readonly IIdentityMappingService _identityMappingService;
+    private readonly INodeTranslationTool _nodeTranslationTool;
+    private readonly IFieldTransformTool _fieldTransformTool;
     private readonly IOptions<WorkItemImportOptions>? _workItemImportOptions;
 #endif
 
@@ -138,15 +138,17 @@ public sealed class WorkItemsModule : IModule
         NodeReadinessOrchestrator? nodeReadinessOrchestrator = null,
         IOptions<NodesModuleOptions>? nodesModuleOptions = null,
 #endif
+#if !NET481
         IIdentityMappingService? identityMappingService = null,
         INodeTranslationTool? nodeTranslationTool = null,
         IFieldTransformTool? fieldTransformTool = null,
         IOptions<WorkItemImportOptions>? workItemImportOptions = null,
+        IWorkItemsImportOrchestrator? workItemsImportOrchestrator = null,
+#endif
         IIdentityLookupTool? identityLookupTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
         IEnumerable<IImportFailurePattern>? importFailurePatterns = null,
-        ImportPreparer? importPreparer = null,
-        IPackageAccess? package = null)
+        ImportPreparer? importPreparer = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -165,8 +167,7 @@ public sealed class WorkItemsModule : IModule
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
         _fetchService = fetchService;
         _inventoryOrchestrator = inventoryOrchestrator;
-        _metrics = metrics;
-        _PlatformMetrics = PlatformMetrics;
+        _metrics = metrics ?? PlatformMetrics;
         _discoveryService = discoveryService;
         _exportProgressStoreFactory = exportProgressStoreFactory;
 #if !NET481
@@ -174,10 +175,28 @@ public sealed class WorkItemsModule : IModule
         _nodesOrchestrator = nodesOrchestrator;
         _nodeReadinessOrchestrator = nodeReadinessOrchestrator;
         _nodesModuleOptions = nodesModuleOptions;
-        _identityMappingService = identityMappingService;
-        _nodeTranslationTool = nodeTranslationTool;
-        _fieldTransformTool = fieldTransformTool;
+        _identityMappingService = identityMappingService ?? throw new ArgumentNullException(nameof(identityMappingService));
+        _nodeTranslationTool = nodeTranslationTool ?? throw new ArgumentNullException(nameof(nodeTranslationTool));
+        _fieldTransformTool = fieldTransformTool ?? throw new ArgumentNullException(nameof(fieldTransformTool));
         _workItemImportOptions = workItemImportOptions;
+        _workItemsImportOrchestrator = workItemsImportOrchestrator
+            ?? new WorkItemsImportOrchestrator(
+                _importTargetFactory,
+                _resolutionStrategyFactory,
+                _checkpointingFactory,
+                _idMapStoreFactory,
+                _processorFactory,
+                _identityLookupTool,
+                new WorkItemsImportCapabilityValidator(_fieldTransformTool),
+                new WorkItemsNodeReadinessOrchestrator(_nodeReadinessOrchestrator, _nodesOrchestrator, _metrics, _logger),
+                _metrics,
+                _orchestratorLogger,
+                _logger,
+                _sourceEndpointInfo,
+                _targetEndpointInfo,
+                _options,
+                _workItemImportOptions,
+                _nodesModuleOptions);
 #endif
         _identityLookupTool = identityLookupTool;
         _repoDiscoveryService = repoDiscoveryService;
@@ -186,7 +205,6 @@ public sealed class WorkItemsModule : IModule
             ? resolvedFailurePatterns
             : CreateDefaultImportFailurePatterns().ToArray();
         _importPreparer = importPreparer ?? new ImportPreparer(_options, resolvedFailurePatterns);
-        _package = package;
     }
 
     public async Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
@@ -342,12 +360,12 @@ public sealed class WorkItemsModule : IModule
         }
 
         var tags = new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } };
-        _PlatformMetrics?.RecordInventoryWorkItems(totalWorkItems, tags);
+        _metrics?.RecordInventoryWorkItems(totalWorkItems, tags);
         var durationMs = sw.Elapsed.TotalMilliseconds;
-        _PlatformMetrics?.RecordInventoryWorkItemsDuration(durationMs, tags);
+        _metrics?.RecordInventoryWorkItemsDuration(durationMs, tags);
         if (totalWorkItems == 0)
         {
-            _PlatformMetrics?.RecordInventoryWorkItemsErrors(tags);
+            _metrics?.RecordInventoryWorkItemsErrors(tags);
             _logger.LogWarning("Zero items inventoried for {Module} in {Project}", Name, project);
         }
         _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", Name, totalWorkItems, durationMs);
@@ -557,100 +575,7 @@ public sealed class WorkItemsModule : IModule
         await Task.CompletedTask.ConfigureAwait(false);
         return TaskExecutionResult.Skipped("WorkItems import is not supported on net481.");
 #else
-
-        var job = context.Job;
-        _ = _identityMappingService ?? throw new InvalidOperationException(
-            "IIdentityMappingService is not registered. Register identity mapping services before running WorkItems import.");
-        _ = _nodeTranslationTool ?? throw new InvalidOperationException(
-            "INodeTranslationTool is not registered. Register node translation tool services before running WorkItems import.");
-        _ = _fieldTransformTool ?? throw new InvalidOperationException(
-            "IFieldTransformTool is not registered. Register field transform tool services before running WorkItems import.");
-        if (!_fieldTransformTool.IsEnabledForPhase(FieldTransformPhase.Import))
-            throw new InvalidOperationException(
-                "FieldTransform is not configured for Import phase. Configure MigrationPlatform:Tools:FieldTransform with at least one enabled Import/Both transform rule before running WorkItems import.");
-
-        var orgUrl = _targetEndpointInfo.Url;
-        var project = _targetEndpointInfo.Project;
-
-        var ext = ApplyImportReplayLevers(WorkItemsModuleExtensions.FromOptions(_options.Value));
-
-        using (_logger.BeginDataScope(DataClassification.Customer))
-        {
-            _logger.LogInformation(
-                "[WorkItems] Importing into {OrgUrl}/{Project} (revisions={Revisions}, links={Links}, attachments={Attachments}, comments={Comments})",
-                orgUrl, project, ext.RevisionsEnabled, ext.LinksEnabled, ext.AttachmentsEnabled, ext.Comments.Enabled);
-        }
-
-        // NOTE: Connectors now resolve their own credentials from DI; no need to pass endpoint options.
-        var target = await _importTargetFactory.CreateAsync(ct).ConfigureAwait(false);
-        var checkpointingService = _checkpointingFactory.Create(context.Package);
-
-        // Resolve the strategy at execution time — the factory creates the correct implementation
-        // based on the module config and target connection parameters.
-        // TODO T051+: IWorkItemResolutionStrategyFactory and ITeamTarget still require MigrationEndpointOptions
-        // These interfaces need IOptions<TargetEndpointOptions> injection or to be split into Info + Options
-        var resolutionStrategy = await _resolutionStrategyFactory
-            .CreateAsync(ext.ResolutionStrategy, target, null!, ct)
-            .ConfigureAwait(false);
-
-        var package = _package ?? throw new InvalidOperationException("IPackageAccess is required for native database access.");
-        var idMapConnection = await package.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, ct).ConfigureAwait(false);
-        var idMapStore = _idMapStoreFactory.Create(idMapConnection);
-
-        var sourceProjectName = _sourceEndpointInfo.Project;
-        var nodeReadinessContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectName, project);
-        var replicateSourceTree = _nodesModuleOptions?.Value.ReplicateSourceTree ?? false;
-        if (_nodeReadinessOrchestrator is not null)
-        {
-            await _nodeReadinessOrchestrator
-                .ExecuteAsync(nodeReadinessContext, replicateSourceTree, ct)
-                .ConfigureAwait(false);
-        }
-        else if (_nodesOrchestrator is not null)
-        {
-            _logger.LogWarning("[WorkItems] NodeReadinessOrchestrator is not available — falling back to INodesOrchestrator.EnsureReferencedPathsAsync.");
-            await _nodesOrchestrator
-                .EnsureReferencedPathsAsync(nodeReadinessContext, _package, _sourceEndpointInfo.Url, sourceProjectName, ct, _metrics, job.JobId)
-                .ConfigureAwait(false);
-        }
-        else
-        {
-            _logger.LogWarning("[WorkItems] No node readiness orchestrator is available — node readiness dispatch will be skipped.");
-        }
-
-        // Build processor — use NodeTranslation-aware overload when available.
-        IRevisionFolderProcessor processor;
-        var sourceProjectNameForProcessor = _sourceEndpointInfo.Project;
-        var nodeStructureContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectNameForProcessor, project);
-
-        processor = _processorFactory.Create(
-            target, idMapStore, checkpointingService, _identityLookupTool, _sourceEndpointInfo.Url, sourceProjectNameForProcessor,
-            nodeStructureContext);
-
-        // Build combined filter options for import (include as Regex + exclude as NotRegex).
-        var importFilters = ext.IncludeFilters.Concat(ext.ExcludeFilters).ToList();
-
-        var orchestrator = new WorkItemImportOrchestrator(
-            _package,
-            _sourceEndpointInfo.Url,
-            sourceProjectName,
-            checkpointingService,
-            context.ProgressSink,
-            resolutionStrategy,
-            idMapStore,
-            processor,
-            target,
-            _orchestratorLogger,
-            filterOptions: importFilters.Count > 0 ? importFilters : null,
-            metrics: _metrics,
-            jobId: job.JobId);
-        var revisionImporter = new WorkItemRevisionImporter(orchestrator);
-
-        var resumeMode = job.Resume?.Mode ?? ResumeMode.Auto;
-        await revisionImporter.ExecuteAsync(ext, resumeMode, ct).ConfigureAwait(false);
-
-        _logger.LogInformation("[WorkItems] Import complete.");
-        return TaskExecutionResult.Completed();
+        return await _workItemsImportOrchestrator.ExecuteAsync(context, ct).ConfigureAwait(false);
 #endif
     }
 

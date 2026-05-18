@@ -12,8 +12,10 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
@@ -271,6 +273,9 @@ public sealed class WorkItemsModulePrepareTests
             Mock.Of<IIdMapStoreFactory>(),
             Mock.Of<IRevisionFolderProcessorFactory>(),
             targetEndpoint.Object,
+            identityMappingService: Mock.Of<IIdentityMappingService>(),
+            nodeTranslationTool: Mock.Of<INodeTranslationTool>(),
+            fieldTransformTool: Mock.Of<IFieldTransformTool>(),
             importFailurePatterns: importFailurePatterns);
     }
 

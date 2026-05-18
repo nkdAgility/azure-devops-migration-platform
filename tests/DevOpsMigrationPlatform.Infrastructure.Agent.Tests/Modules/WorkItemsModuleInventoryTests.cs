@@ -9,9 +9,11 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
@@ -146,6 +148,9 @@ public sealed class WorkItemsModuleInventoryTests
             Mock.Of<IIdMapStoreFactory>(),
             Mock.Of<IRevisionFolderProcessorFactory>(),
             targetEndpoint.Object,
+            identityMappingService: Mock.Of<IIdentityMappingService>(),
+            nodeTranslationTool: Mock.Of<INodeTranslationTool>(),
+            fieldTransformTool: Mock.Of<IFieldTransformTool>(),
             fetchService: null,
             inventoryOrchestrator: orchestrator.Object,
             PlatformMetrics: PlatformMetrics,

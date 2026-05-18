@@ -35,7 +35,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules;
 public sealed class WorkItemsModuleImportTests
 {
     [TestMethod]
-    public async Task ImportAsync_WhenIdentityMappingServiceMissing_ThrowsInvalidOperationException()
+    public void Constructor_WhenIdentityMappingServiceMissing_ThrowsArgumentNullException()
     {
         var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
         sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
@@ -47,12 +47,7 @@ public sealed class WorkItemsModuleImportTests
         targetEndpoint.SetupGet(s => s.Url).Returns("https://target.example");
         targetEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
 
-        var fieldTransformTool = new Mock<IFieldTransformTool>(MockBehavior.Strict);
-        fieldTransformTool
-            .Setup(t => t.IsEnabledForPhase(FieldTransformPhase.Import))
-            .Returns(true);
-
-        var module = new WorkItemsModule(
+        var ex = Assert.ThrowsExactly<ArgumentNullException>(() => new WorkItemsModule(
             Mock.Of<IWorkItemRevisionSourceFactory>(),
             NullLogger<WorkItemsModule>.Instance,
             Options.Create(new WorkItemsModuleOptions()),
@@ -64,27 +59,15 @@ public sealed class WorkItemsModuleImportTests
             Mock.Of<IIdMapStoreFactory>(),
             Mock.Of<IRevisionFolderProcessorFactory>(),
             targetEndpoint.Object,
-            package: Mock.Of<IPackageAccess>());
+            identityMappingService: null!,
+            nodeTranslationTool: Mock.Of<INodeTranslationTool>(),
+            fieldTransformTool: Mock.Of<IFieldTransformTool>()));
 
-        var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => module.ImportAsync(
-            new ImportContext
-            {
-                Job = new Job
-                {
-                    JobId = "job-import-missing-identity",
-                    Kind = JobKind.Import,
-                    Package = new JobPackage { PackageUri = "file:///package" },
-                    Resume = new JobResume { Mode = ResumeMode.Auto }
-                },
-                ProgressSink = Mock.Of<IProgressSink>()
-            },
-            CancellationToken.None));
-
-        StringAssert.Contains(ex.Message, "IIdentityMappingService");
+        Assert.AreEqual("identityMappingService", ex.ParamName);
     }
 
     [TestMethod]
-    public async Task ImportAsync_WhenNodeTranslationToolMissing_ThrowsInvalidOperationException()
+    public void Constructor_WhenNodeTranslationToolMissing_ThrowsArgumentNullException()
     {
         var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
         sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
@@ -96,12 +79,7 @@ public sealed class WorkItemsModuleImportTests
         targetEndpoint.SetupGet(s => s.Url).Returns("https://target.example");
         targetEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
 
-        var fieldTransformTool = new Mock<IFieldTransformTool>(MockBehavior.Strict);
-        fieldTransformTool
-            .Setup(t => t.IsEnabledForPhase(FieldTransformPhase.Import))
-            .Returns(true);
-
-        var module = new WorkItemsModule(
+        var ex = Assert.ThrowsExactly<ArgumentNullException>(() => new WorkItemsModule(
             Mock.Of<IWorkItemRevisionSourceFactory>(),
             NullLogger<WorkItemsModule>.Instance,
             Options.Create(new WorkItemsModuleOptions()),
@@ -114,27 +92,14 @@ public sealed class WorkItemsModuleImportTests
             Mock.Of<IRevisionFolderProcessorFactory>(),
             targetEndpoint.Object,
             identityMappingService: Mock.Of<IIdentityMappingService>(),
-            package: Mock.Of<IPackageAccess>());
+            nodeTranslationTool: null!,
+            fieldTransformTool: Mock.Of<IFieldTransformTool>()));
 
-        var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => module.ImportAsync(
-            new ImportContext
-            {
-                Job = new Job
-                {
-                    JobId = "job-import-missing-node-translation",
-                    Kind = JobKind.Import,
-                    Package = new JobPackage { PackageUri = "file:///package" },
-                    Resume = new JobResume { Mode = ResumeMode.Auto }
-                },
-                ProgressSink = Mock.Of<IProgressSink>()
-            },
-            CancellationToken.None));
-
-        StringAssert.Contains(ex.Message, "INodeTranslationTool");
+        Assert.AreEqual("nodeTranslationTool", ex.ParamName);
     }
 
     [TestMethod]
-    public async Task ImportAsync_WhenFieldTransformToolMissing_ThrowsInvalidOperationException()
+    public void Constructor_WhenFieldTransformToolMissing_ThrowsArgumentNullException()
     {
         var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
         sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
@@ -146,12 +111,7 @@ public sealed class WorkItemsModuleImportTests
         targetEndpoint.SetupGet(s => s.Url).Returns("https://target.example");
         targetEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
 
-        var fieldTransformTool = new Mock<IFieldTransformTool>(MockBehavior.Strict);
-        fieldTransformTool
-            .Setup(t => t.IsEnabledForPhase(FieldTransformPhase.Import))
-            .Returns(true);
-
-        var module = new WorkItemsModule(
+        var ex = Assert.ThrowsExactly<ArgumentNullException>(() => new WorkItemsModule(
             Mock.Of<IWorkItemRevisionSourceFactory>(),
             NullLogger<WorkItemsModule>.Instance,
             Options.Create(new WorkItemsModuleOptions()),
@@ -165,23 +125,9 @@ public sealed class WorkItemsModuleImportTests
             targetEndpoint.Object,
             identityMappingService: Mock.Of<IIdentityMappingService>(),
             nodeTranslationTool: Mock.Of<INodeTranslationTool>(),
-            package: Mock.Of<IPackageAccess>());
+            fieldTransformTool: null!));
 
-        var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => module.ImportAsync(
-            new ImportContext
-            {
-                Job = new Job
-                {
-                    JobId = "job-import-missing-field-transform",
-                    Kind = JobKind.Import,
-                    Package = new JobPackage { PackageUri = "file:///package" },
-                    Resume = new JobResume { Mode = ResumeMode.Auto }
-                },
-                ProgressSink = Mock.Of<IProgressSink>()
-            },
-            CancellationToken.None));
-
-        StringAssert.Contains(ex.Message, "IFieldTransformTool");
+        Assert.AreEqual("fieldTransformTool", ex.ParamName);
     }
 
     [TestMethod]
@@ -216,8 +162,7 @@ public sealed class WorkItemsModuleImportTests
             targetEndpoint.Object,
             identityMappingService: Mock.Of<IIdentityMappingService>(),
             nodeTranslationTool: Mock.Of<INodeTranslationTool>(),
-            fieldTransformTool: fieldTransformTool.Object,
-            package: Mock.Of<IPackageAccess>());
+            fieldTransformTool: fieldTransformTool.Object);
 
         var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => module.ImportAsync(
             new ImportContext
@@ -229,6 +174,7 @@ public sealed class WorkItemsModuleImportTests
                     Package = new JobPackage { PackageUri = "file:///package" },
                     Resume = new JobResume { Mode = ResumeMode.Auto }
                 },
+                Package = Mock.Of<IPackageAccess>(),
                 ProgressSink = Mock.Of<IProgressSink>()
             },
             CancellationToken.None));
@@ -392,8 +338,7 @@ public sealed class WorkItemsModuleImportTests
             identityMappingService: Mock.Of<IIdentityMappingService>(),
             nodeTranslationTool: nodeTranslationTool.Object,
             fieldTransformTool: fieldTransformTool.Object,
-            nodeReadinessOrchestrator: nodeReadiness,
-            package: package.Object);
+            nodeReadinessOrchestrator: nodeReadiness);
 
         await module.ImportAsync(
             new ImportContext
@@ -405,6 +350,7 @@ public sealed class WorkItemsModuleImportTests
                     Package = new JobPackage { PackageUri = "file:///package" },
                     Resume = new JobResume { Mode = ResumeMode.Auto }
                 },
+                Package = package.Object,
                 ProgressSink = Mock.Of<IProgressSink>()
             },
             CancellationToken.None);
@@ -566,8 +512,7 @@ public sealed class WorkItemsModuleImportTests
             nodeTranslationTool: nodeTranslationTool.Object,
             fieldTransformTool: fieldTransformTool.Object,
             nodeReadinessOrchestrator: nodeReadiness,
-            nodesModuleOptions: Options.Create(new NodesModuleOptions { ReplicateSourceTree = true }),
-            package: package.Object);
+            nodesModuleOptions: Options.Create(new NodesModuleOptions { ReplicateSourceTree = true }));
 
         await module.ImportAsync(
             new ImportContext
@@ -579,6 +524,7 @@ public sealed class WorkItemsModuleImportTests
                     Package = new JobPackage { PackageUri = "file:///package" },
                     Resume = new JobResume { Mode = ResumeMode.Auto }
                 },
+                Package = package.Object,
                 ProgressSink = Mock.Of<IProgressSink>()
             },
             CancellationToken.None);
@@ -731,8 +677,7 @@ public sealed class WorkItemsModuleImportTests
             identityMappingService: Mock.Of<IIdentityMappingService>(),
             nodeTranslationTool: Mock.Of<INodeTranslationTool>(),
             fieldTransformTool: fieldTransformTool.Object,
-            workItemImportOptions: Options.Create(replayLevers),
-            package: package.Object);
+            workItemImportOptions: Options.Create(replayLevers));
 
         await module.ImportAsync(
             new ImportContext
@@ -744,6 +689,7 @@ public sealed class WorkItemsModuleImportTests
                     Package = new JobPackage { PackageUri = "file:///package" },
                     Resume = new JobResume { Mode = ResumeMode.Auto }
                 },
+                Package = package.Object,
                 ProgressSink = Mock.Of<IProgressSink>()
             },
             CancellationToken.None);
