@@ -3,7 +3,7 @@
 > This document defines architectural intent and is the primary human reference.
 > In any conflict between this document and `/.agents/20-guardrails/*.md` guardrails, **the guardrails win**.
 > See [.agents/20-guardrails/core/architecture-boundaries.md](../.agents/20-guardrails/core/architecture-boundaries.md) for the enforced rules.
-> See [agents.md](../agents.md) for the agent entry point that binds docs to guardrails.
+> See [agents.md](../.agents/agents.md) for the agent entry point that binds docs to guardrails.
 
 ## 1. System Purpose
 

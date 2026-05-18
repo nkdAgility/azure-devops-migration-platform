@@ -1,6 +1,6 @@
 # Copilot Instructions
 
-**Follow [agents.md](../agents.md) for all guardrails, technology stack, and architectural constraints.**
+**Follow [agents.md](../.agents/agents.md) for all guardrails, technology stack, and architectural constraints.**
 
 For structured workflows, use SpecKit agents.
 For ad-hoc tasks, follow the mandatory guardrails validation in `agents.md`.
@@ -89,5 +89,5 @@ All work must satisfy the constraints in:
 - `/.agents/20-guardrails/domains/*`
 - `/.agents/20-guardrails/workflow/*`
 
-See [agents.md](../agents.md) for full protocol and reject conditions.
+See [agents.md](../.agents/agents.md) for full protocol and reject conditions.
 

@@ -293,7 +293,7 @@ This plan was validated against:
 - `.agents/10-contracts/seam-catalog.yaml` — seam ownership and prohibited parallel entrypoints.
 - `.specify/memory/constitution.md` — Principles I–XII fully respected.
 
-See [agents.md](../../agents.md) for the mandatory pre-flight guardrail validation workflow.
+See [agents.md](../../.agents/agents.md) for the mandatory pre-flight guardrail validation workflow.
 
 ---
 

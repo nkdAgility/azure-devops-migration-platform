@@ -23,7 +23,7 @@ If an existing pattern does not fit your use case:
 3. Ensure the new abstraction is used by at least two independent modules (no single-use abstractions).
 4. Get explicit approval from the architecture team before implementing.
 
-Guardrail-level rejection conditions are defined in [.agents/20-guardrails/core/architecture-boundaries.md](../.agents/20-guardrails/core/architecture-boundaries.md), [.agents/20-guardrails/domains/workitems-rules.md](../.agents/20-guardrails/domains/workitems-rules.md), and [agents.md](../agents.md).
+Guardrail-level rejection conditions are defined in [.agents/20-guardrails/core/architecture-boundaries.md](../.agents/20-guardrails/core/architecture-boundaries.md), [.agents/20-guardrails/domains/workitems-rules.md](../.agents/20-guardrails/domains/workitems-rules.md), and [agents.md](../.agents/agents.md).
 
 ---
 

@@ -1,6 +1,6 @@
 # System Architecture — Hard Guardrails
 
-Non-negotiable rules distilled from [docs/](../../../docs/). These rules override `/docs` in any conflict. Binding entry point: [agents.md](../../../agents.md).
+Non-negotiable rules distilled from [docs/](../../../docs/). These rules override `/docs` in any conflict. Binding entry point: [agents.md](../../agents.md).
 
 ## Guardrail Challenge Protocol
 
