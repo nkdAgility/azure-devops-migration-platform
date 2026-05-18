@@ -120,10 +120,11 @@ function Ensure-Symlink {
     if (Test-Path -LiteralPath $link) {
         $item = Get-Item -LiteralPath $link -Force
         if ($item.LinkType -eq 'SymbolicLink') {
-            # Resolve both to absolute for comparison
-            $resolvedTarget = (Resolve-Path -LiteralPath $targetAbsolute).Path.TrimEnd('\')
-            $resolvedLink   = (Resolve-Path -LiteralPath $item.Target -ErrorAction SilentlyContinue)
-            if ($resolvedLink -and $resolvedLink.Path.TrimEnd('\') -eq $resolvedTarget) {
+            # Resolve both to absolute for comparison.
+            # $item.Target is relative to the link's parent directory.
+            $resolvedTarget    = $targetAbsolute.TrimEnd('\')
+            $existingAbsolute  = [System.IO.Path]::GetFullPath((Join-Path $linkParent $item.Target))
+            if ($existingAbsolute.TrimEnd('\') -eq $resolvedTarget) {
                 Write-Status OK      "$LinkPath  ->  $TargetRelative  (symlink already correct)"
                 return
             }
@@ -143,6 +144,20 @@ function Ensure-Symlink {
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
+# Check symlink privileges (required for all symlink operations)
+$isAdmin   = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+$devMode   = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -ErrorAction SilentlyContinue).AllowDevelopmentWithoutDevLicense -eq 1
+$canSymlink = $isAdmin -or $devMode
+
+if (-not $canSymlink) {
+    Write-Host ""
+    Write-Host "  [ERROR  ] Cannot create symlinks — requires Administrator or Windows Developer Mode." -ForegroundColor Red
+    Write-Host "            Enable Developer Mode:  Settings -> Privacy & Security -> For developers" -ForegroundColor Yellow
+    Write-Host "            Or re-run as Administrator." -ForegroundColor Yellow
+    Write-Host ""
+    exit 1
+}
 
 Write-Host ""
 Write-Host "Configuring agent links" -ForegroundColor White
