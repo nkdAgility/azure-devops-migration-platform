@@ -29,7 +29,7 @@
     <PackageReference Include="System.Threading.Channels" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="System.Net.Http.Json" />
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" VersionOverride="10.0.5" />
     <PackageReference Include="System.Diagnostics.DiagnosticSource" />
     <PackageReference Include="System.Text.Json" VersionOverride="10.0.0" />
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" />

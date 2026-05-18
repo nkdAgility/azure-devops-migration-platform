@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -263,7 +262,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
                 }
 
                 var binaryPath = $"{folderPath}/{attachment.RelativePath}";
-                await using var stream = await ReadPackageBinaryAsync(binaryPath, ct).ConfigureAwait(false);
+                using var stream = await ReadPackageBinaryAsync(binaryPath, ct).ConfigureAwait(false);
                 if (stream is null)
                 {
                     _logger.LogWarning("[WorkItems] Attachment binary {Path} not found — skipping.", binaryPath);
@@ -425,7 +424,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         foreach (var img in images)
         {
             var imgPath = $"{folderPath}/{img.RelativePath}";
-            await using var imgStream = await ReadPackageBinaryAsync(imgPath, ct).ConfigureAwait(false);
+            using var imgStream = await ReadPackageBinaryAsync(imgPath, ct).ConfigureAwait(false);
             if (imgStream is null)
             {
                 _logger.LogWarning("[WorkItems] Embedded image {Path} not found — skipping URL rewrite.", imgPath);
@@ -440,11 +439,11 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         var result = new List<WorkItemField>(fields.Count);
         foreach (var field in fields)
         {
-            if (field.Value is string html && html.Contains("http", StringComparison.OrdinalIgnoreCase))
+            if (field.Value is string html && html.IndexOf("http", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 var rewritten = html;
-                foreach (var (original, target) in urlMap)
-                    rewritten = rewritten.Replace(original, target, StringComparison.Ordinal);
+                foreach (var entry in urlMap)
+                    rewritten = rewritten.Replace(entry.Key, entry.Value);
                 result.Add(new WorkItemField { ReferenceName = field.ReferenceName, Value = rewritten });
             }
             else
@@ -484,7 +483,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
 
         if (payload.Content.CanSeek)
             payload.Content.Position = 0;
-        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
         return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
@@ -522,17 +521,17 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     {
         var normalized = path.Replace('\\', '/').TrimEnd('/');
         if (normalized.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase))
-            normalized = normalized["WorkItems/".Length..];
+            normalized = normalized.Substring("WorkItems/".Length);
 
         var lastSlash = normalized.LastIndexOf('/');
-        return lastSlash >= 0 ? normalized[..lastSlash] : normalized;
+        return lastSlash >= 0 ? normalized.Substring(0, lastSlash) : normalized;
     }
 
     private static string GetFileName(string path)
     {
         var normalized = path.Replace('\\', '/').TrimEnd('/');
         var lastSlash = normalized.LastIndexOf('/');
-        return lastSlash >= 0 ? normalized[(lastSlash + 1)..] : normalized;
+        return lastSlash >= 0 ? normalized.Substring(lastSlash + 1) : normalized;
     }
 
     private Task WriteCursorAsync(string folderPath, string stage, CancellationToken ct)
@@ -559,5 +558,3 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         return result;
     }
 }
-#endif
-

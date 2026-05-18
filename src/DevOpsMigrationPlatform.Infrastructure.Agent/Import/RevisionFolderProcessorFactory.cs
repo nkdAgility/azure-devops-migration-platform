@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -74,4 +73,3 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
             nodeStructureOptions: _nodeStructureOptions,
             package: _package);
 }
-#endif
