@@ -32,6 +32,8 @@ public sealed class SimulatedWorkItemImportTarget : IWorkItemImportTarget
     private readonly object _lock = new();
     private readonly HashSet<string> _knownWorkItemTypes;
     private readonly Dictionary<int, Dictionary<string, object?>> _workItems = new();
+    private readonly Dictionary<int, List<SimulatedAttachment>> _attachmentsByWorkItem = new();
+    private readonly Dictionary<string, byte[]> _embeddedImages = new(StringComparer.OrdinalIgnoreCase);
 
     public SimulatedWorkItemImportTarget()
         : this(DefaultKnownWorkItemTypes)
@@ -139,6 +141,26 @@ public sealed class SimulatedWorkItemImportTarget : IWorkItemImportTarget
             throw new ArgumentOutOfRangeException(nameof(targetWorkItemId));
         if (string.IsNullOrWhiteSpace(fileName))
             throw new ArgumentException("fileName must not be empty.", nameof(fileName));
+        if (content is null)
+            throw new ArgumentNullException(nameof(content));
+
+        var attachmentBytes = ReadAllBytes(content);
+
+        lock (_lock)
+        {
+            if (!_workItems.ContainsKey(targetWorkItemId))
+            {
+                throw new InvalidOperationException($"Simulated target work item {targetWorkItemId} does not exist.");
+            }
+
+            if (!_attachmentsByWorkItem.TryGetValue(targetWorkItemId, out var attachments))
+            {
+                attachments = new List<SimulatedAttachment>();
+                _attachmentsByWorkItem[targetWorkItemId] = attachments;
+            }
+
+            attachments.Add(new SimulatedAttachment(fileName, attachmentBytes));
+        }
 
         // Deterministic fake attachment ID: simulated://<wid>/<fileName>
         var fakeId = $"simulated://{targetWorkItemId}/{Uri.EscapeDataString(fileName)}";
@@ -153,8 +175,17 @@ public sealed class SimulatedWorkItemImportTarget : IWorkItemImportTarget
     {
         if (string.IsNullOrWhiteSpace(fileName))
             throw new ArgumentException("fileName must not be empty.", nameof(fileName));
+        if (content is null)
+            throw new ArgumentNullException(nameof(content));
 
-        var fakeUrl = $"https://simulated.dev.azure.com/attachments/{Uri.EscapeDataString(fileName)}";
+        var imageBytes = ReadAllBytes(content);
+        var escapedFileName = Uri.EscapeDataString(fileName);
+        lock (_lock)
+        {
+            _embeddedImages[escapedFileName] = imageBytes;
+        }
+
+        var fakeUrl = $"https://simulated.dev.azure.com/attachments/{escapedFileName}";
         return Task.FromResult(fakeUrl);
     }
 
@@ -199,4 +230,35 @@ public sealed class SimulatedWorkItemImportTarget : IWorkItemImportTarget
             return Task.FromResult(_workItems.ContainsKey(targetWorkItemId));
         }
     }
+
+    private static byte[] ReadAllBytes(Stream content)
+    {
+        long originalPosition = 0;
+        var canRestorePosition = content.CanSeek;
+        if (canRestorePosition)
+        {
+            originalPosition = content.Position;
+        }
+
+        try
+        {
+            if (content is MemoryStream memoryStream)
+            {
+                return memoryStream.ToArray();
+            }
+
+            using var copied = new MemoryStream();
+            content.CopyTo(copied);
+            return copied.ToArray();
+        }
+        finally
+        {
+            if (canRestorePosition)
+            {
+                content.Position = originalPosition;
+            }
+        }
+    }
+
+    private sealed record SimulatedAttachment(string FileName, byte[] Content);
 }
