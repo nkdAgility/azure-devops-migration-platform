@@ -31,26 +31,12 @@ $repoRoot  = Split-Path $agentsDir -Parent
 
 function Write-Status {
     param(
-        [ValidateSet('OK','CREATED','SKIPPED','WARN','ERROR')]
+        [ValidateSet('OK','CREATED','WARN','ERROR')]
         [string]$Status,
         [string]$Message
     )
-    $colors = @{ OK='Green'; CREATED='Cyan'; SKIPPED='DarkGray'; WARN='Yellow'; ERROR='Red' }
+    $colors = @{ OK='Green'; CREATED='Cyan'; WARN='Yellow'; ERROR='Red' }
     Write-Host ("  [{0,-7}] {1}" -f $Status, $Message) -ForegroundColor $colors[$Status]
-}
-
-function Get-FileNodeId {
-    param([string]$Path)
-    $fs = [System.IO.FileStream]::new($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
-    $handle = $fs.SafeFileHandle
-    $info = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(52)
-    try {
-        # Use GetFileInformationByHandle via P/Invoke would be ideal, but
-        # comparing hashes is sufficient for our purposes.
-        return (Get-FileHash -Path $Path -Algorithm SHA256).Hash
-    } finally {
-        $fs.Dispose()
-    }
 }
 
 function Ensure-HardLink {
@@ -59,6 +45,7 @@ function Ensure-HardLink {
         Creates a hardlink at $LinkPath pointing to the same inode as $TargetPath.
         Both paths are relative to the repo root.
     #>
+    [CmdletBinding(SupportsShouldProcess)]
     param(
         [string]$LinkPath,
         [string]$TargetPath
@@ -75,10 +62,10 @@ function Ensure-HardLink {
     if (Test-Path $link) {
         $item = Get-Item -LiteralPath $link -Force
         if ($item.LinkType -eq 'HardLink') {
-            $linkHash   = (Get-FileHash $link -Algorithm SHA256).Hash
+            $linkHash   = (Get-FileHash $link   -Algorithm SHA256).Hash
             $targetHash = (Get-FileHash $target -Algorithm SHA256).Hash
             if ($linkHash -eq $targetHash) {
-                Write-Status OK      "$LinkPath  (hardlink, content matches)"
+                Write-Status OK "$LinkPath  (hardlink, content matches)"
                 return
             }
             Write-Status WARN "$LinkPath is a hardlink but content differs — recreating"
@@ -99,18 +86,18 @@ function Ensure-Symlink {
     .DESCRIPTION
         Creates a directory symlink at $LinkPath pointing to $TargetRelative.
         $LinkPath is relative to repo root.
-        $TargetRelative is the relative path used as the symlink value (e.g. "..\.agents\skills").
+        $TargetRelative is the relative symlink value (e.g. "..\.agents\skills"), interpreted
+        relative to the link's parent directory — exactly as the OS would resolve it.
     #>
+    [CmdletBinding(SupportsShouldProcess)]
     param(
         [string]$LinkPath,
         [string]$TargetRelative
     )
 
-    $link        = Join-Path $repoRoot $LinkPath
-    $linkParent  = Split-Path $link -Parent
-    # Resolve the symlink target relative to the link's parent directory (as the OS would)
-    $targetAbsolute = Join-Path $linkParent $TargetRelative
-    $targetAbsolute = [System.IO.Path]::GetFullPath($targetAbsolute)
+    $link           = Join-Path $repoRoot $LinkPath
+    $linkParent     = Split-Path $link -Parent
+    $targetAbsolute = [System.IO.Path]::GetFullPath((Join-Path $linkParent $TargetRelative))
 
     if (-not (Test-Path $targetAbsolute)) {
         Write-Status ERROR "Target not found: $TargetRelative"
@@ -120,12 +107,9 @@ function Ensure-Symlink {
     if (Test-Path -LiteralPath $link) {
         $item = Get-Item -LiteralPath $link -Force
         if ($item.LinkType -eq 'SymbolicLink') {
-            # Resolve both to absolute for comparison.
-            # $item.Target is relative to the link's parent directory.
-            $resolvedTarget    = $targetAbsolute.TrimEnd('\')
-            $existingAbsolute  = [System.IO.Path]::GetFullPath((Join-Path $linkParent $item.Target))
-            if ($existingAbsolute.TrimEnd('\') -eq $resolvedTarget) {
-                Write-Status OK      "$LinkPath  ->  $TargetRelative  (symlink already correct)"
+            $existingAbsolute = [System.IO.Path]::GetFullPath((Join-Path $linkParent $item.Target))
+            if ($existingAbsolute.TrimEnd('\') -eq $targetAbsolute.TrimEnd('\')) {
+                Write-Status OK "$LinkPath  ->  $TargetRelative  (symlink already correct)"
                 return
             }
             Write-Status WARN "$LinkPath symlink points elsewhere — recreating"
@@ -146,8 +130,8 @@ function Ensure-Symlink {
 # ---------------------------------------------------------------------------
 
 # Check symlink privileges (required for all symlink operations)
-$isAdmin   = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-$devMode   = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -ErrorAction SilentlyContinue).AllowDevelopmentWithoutDevLicense -eq 1
+$isAdmin    = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+$devMode    = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -ErrorAction SilentlyContinue).AllowDevelopmentWithoutDevLicense -eq 1
 $canSymlink = $isAdmin -or $devMode
 
 if (-not $canSymlink -and -not $WhatIfPreference) {
