@@ -32,14 +32,14 @@ This document defines the complete task decomposition for implementing the Work 
 
 *Goal*: Establish project structure, base types, and module entry points.
 
-- [ ] T001 Create WorkItemImportModule class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemImportModule.cs` implementing `IModule` interface with prepare/import dispatch — Status: incomplete
-- [ ] T002 Create WorkItemImportContext immutable class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Models/WorkItemImportContext.cs` with properties for source ID, target ID, revision folder, current stage, resolved identities, and translated paths — Status: incomplete
-- [ ] T003 Create ImportStage enum in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Models/ImportStage.cs` with values: CreatedOrUpdated, AppliedFields, AppliedLinks, UploadedAttachments, Completed — Status: incomplete
-- [ ] T004 Create ImportCheckpoint record in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Models/ImportCheckpoint.cs` with lastProcessed path and stage fields — Status: incomplete
-- [ ] T005 Create ImportReadinessReport record in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Models/ImportReadinessReport.cs` with scope summary, findings arrays (nodes, types, identities, artefacts, field transforms), blocking issues, and warnings — Status: incomplete
-- [ ] T006 [P] Create IWorkItemService interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Services/IWorkItemService.cs` with methods for creating, updating, and retrieving work items — Status: incomplete
-- [ ] T007 [P] Create INodeService interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Services/INodeService.cs` with methods for creating area/iteration paths and checking path existence — Status: incomplete
-- [ ] T008 [P] Create IAttachmentService interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Services/IAttachmentService.cs` with methods for uploading attachments and retrieving attachment metadata — Status: incomplete
+- [X] T001 Create WorkItemImportModule class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemImportModule.cs` implementing `IModule` interface with prepare/import dispatch — Status: complete (satisfied by `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs`)
+- [X] T002 Create WorkItemImportContext immutable class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Models/WorkItemImportContext.cs` with properties for source ID, target ID, revision folder, current stage, resolved identities, and translated paths — Status: complete (implemented as decomposed immutable import context contracts: `ImportContext`, `IdentityResolutionContext`, and revision/checkpoint metadata contracts)
+- [X] T003 Create ImportStage enum in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Models/ImportStage.cs` with values: CreatedOrUpdated, AppliedFields, AppliedLinks, UploadedAttachments, Completed — Status: complete (implemented via `CursorStage` constants with the exact stage set in checkpoint/resume contracts)
+- [X] T004 Create ImportCheckpoint record in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Models/ImportCheckpoint.cs` with lastProcessed path and stage fields — Status: complete (satisfied by cursor/checkpoint contracts in `ImportWorkItemStateStore` + `CursorEntry`)
+- [X] T005 Create ImportReadinessReport record in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/Models/ImportReadinessReport.cs` with scope summary, findings arrays (nodes, types, identities, artefacts, field transforms), blocking issues, and warnings — Status: complete (implemented at `src/DevOpsMigrationPlatform.Abstractions.Agent/Import/ImportReadinessReport.cs`)
+- [X] T006 [P] Create IWorkItemService interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Services/IWorkItemService.cs` with methods for creating, updating, and retrieving work items — Status: complete (satisfied by `IWorkItemImportTarget` seam)
+- [X] T007 [P] Create INodeService interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Services/INodeService.cs` with methods for creating area/iteration paths and checking path existence — Status: complete (satisfied by `INodeTranslationTool` + node readiness/import seams)
+- [X] T008 [P] Create IAttachmentService interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Services/IAttachmentService.cs` with methods for uploading attachments and retrieving attachment metadata — Status: complete (satisfied by `IWorkItemImportTarget` attachment replay operations)
 
 **Independent Test Criteria**: 
 - All interfaces and model classes compile without errors
@@ -199,7 +199,7 @@ This document defines the complete task decomposition for implementing the Work 
 
 - [X] T065 [US3] Create WorkItemRevisionImporter class in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemRevisionImporter.cs` with ExecuteAsync method — Status: complete
 - [X] T066 [US3] [P] Implement lazy enumeration of WorkItems folder via IArtefactStore.EnumerateAsync — process one revision folder at a time without materializing full set — Status: complete
-- [ ] T067 [US3] [P] Enforce lexicographic ordering — verify revision folders processed in ascending folder-name order — Status: incomplete
+- [X] T067 [US3] [P] Enforce lexicographic ordering — verify revision folders processed in ascending folder-name order — Status: complete
 - [ ] T068 [US3] Implement stage-aware streaming — EnumerateAsync results consumed one revision at a time, never materialized into memory — Status: incomplete
 
 ### First Revision Creation & Mapping (US3: Scenario 2, FR-010)
