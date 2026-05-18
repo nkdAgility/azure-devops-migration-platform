@@ -12,11 +12,14 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 
 /// <summary>
 /// Validates <see cref="NodeTranslationOptions"/> at host startup via <c>ValidateOnStart()</c>.
-/// Rejects invalid regex patterns in <see cref="NodeTranslationOptions.AreaPathMappings"/>
-/// and <see cref="NodeTranslationOptions.IterationPathMappings"/> before any migration work begins.
+/// Rejects mapping expressions that the runtime <see cref="NodeTranslationTool"/> cannot compile
+/// for <see cref="NodeTranslationOptions.AreaPathMappings"/> and
+/// <see cref="NodeTranslationOptions.IterationPathMappings"/> before any migration work begins.
 /// </summary>
 internal sealed class NodeTranslationOptionsValidator : IValidateOptions<NodeTranslationOptions>
 {
+    private const RegexOptions RuntimeRegexOptions = RegexOptions.IgnoreCase | RegexOptions.NonBacktracking | RegexOptions.Compiled;
+
     public ValidateOptionsResult Validate(string? name, NodeTranslationOptions options)
     {
         var errors = new List<string>();
@@ -41,9 +44,9 @@ internal sealed class NodeTranslationOptionsValidator : IValidateOptions<NodeTra
 
             try
             {
-                _ = new Regex(mapping.Match, RegexOptions.None, TimeSpan.FromSeconds(1));
+                _ = new Regex(mapping.Match, RuntimeRegexOptions, TimeSpan.FromSeconds(5));
             }
-            catch (ArgumentException ex)
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
             {
                 errors.Add($"{fieldName}[{i}].Match '{mapping.Match}' is not a valid regular expression: {ex.Message}");
             }

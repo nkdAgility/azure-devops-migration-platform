@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System.Text.Json.Serialization;
-#endif
 
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
@@ -29,8 +27,6 @@ public sealed class EndpointAuthenticationOptions
     /// Returns <c>null</c> when <see cref="AccessToken"/> is null or empty.
     /// Not serialised — the raw <see cref="AccessToken"/> reference is transmitted instead.
     /// </summary>
-#if !NET481
     [JsonIgnore]
-#endif
     public string? ResolvedAccessToken => ConfigTokenResolver.Resolve(AccessToken);
 }
