@@ -124,7 +124,7 @@ Orchestrator interfaces are declared in `DevOpsMigrationPlatform.Abstractions.Ag
 |---|---|---|
 | `INodesOrchestrator` | `Abstractions.Agent/Modules/` | Classification-tree export, import, and validation |
 | `IIdentitiesOrchestrator` | `Abstractions.Agent/Modules/` | Identity descriptor export, import (lookup/resolution), and validation |
-| `ITeamsOrchestrator` | `Abstractions.Agent/Modules/` | Team export, import, and validation (net10.0 only) |
+| `ITeamsOrchestrator` | `Abstractions.Agent/Modules/` | Team export and validation on both runtimes; team import on net10.0 |
 | `IDependencyOrchestrator` | `Abstractions.Agent/Modules/` | Dependency analysis orchestration (`DependencyAnalyser`) |
 | `IInventoryOrchestrator` | `Abstractions.Agent/Discovery/` | Inventory collection orchestration (retained, now injected into `WorkItemsModule.CaptureAsync`) |
 
@@ -149,7 +149,7 @@ Extensions are policy adapters: they decide when/how to apply the seam, skip/fai
 |---|---|---|
 | `NodesModule` | `INodesOrchestrator` | `IClassificationTreeCapture`, `INodeEnsurer` |
 | `IdentitiesModule` | `IIdentitiesOrchestrator` | `IIdentitySource`, `IIdentityLookupTool` |
-| `TeamsModule` | `ITeamsOrchestrator` | `ITeamSource`, `ITeamTarget`, `TeamExportOrchestrator`, `TeamImportOrchestrator` |
+| `TeamsModule` | `ITeamsOrchestrator` | `ITeamSource`, `TeamExportOrchestrator`, plus `ITeamTarget` and `TeamImportOrchestrator` on net10.0 |
 | `WorkItemsModule` | `WorkItemExportOrchestrator`, `WorkItemImportOrchestrator` | `IWorkItemRevisionSource`, `IAttachmentBinarySource` |
 | `WorkItemsModule` (inventory phase) | `IInventoryOrchestrator` | `IInventoryService` |
 | `DependencyCapture` | `IDependencyOrchestrator` | `IDependencyDiscoveryServiceFactory`, `IDependencyOrchestrator` — pure `ICapture` (not IModule) |
@@ -497,7 +497,7 @@ Orchestrators are registered as singletons (they hold only an `ILogger` and opti
 ```csharp
 services.AddSingleton<INodesOrchestrator, NodesOrchestrator>();
 services.AddSingleton<IIdentitiesOrchestrator, IdentitiesOrchestrator>();
-services.AddSingleton<ITeamsOrchestrator, TeamsOrchestrator>();       // net10.0 only
+services.AddSingleton<ITeamsOrchestrator, TeamsOrchestrator>();
 services.AddSingleton<IDependencyOrchestrator, DependencyOrchestrator>();
 services.AddSingleton<IInventoryOrchestrator, InventoryOrchestrator>();
 ```

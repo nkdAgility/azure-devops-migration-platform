@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
@@ -29,6 +28,7 @@ public interface ITeamsOrchestrator
         TeamsModuleOptions options,
         CancellationToken ct);
 
+#if !NET481
     Task ImportAsync(
         ImportContext context,
         ISourceEndpointInfo sourceEndpointInfo,
@@ -36,6 +36,7 @@ public interface ITeamsOrchestrator
         ICheckpointingServiceFactory? checkpointingFactory,
         TeamsModuleOptions options,
         CancellationToken ct);
+#endif
 
     Task ValidateAsync(
         IPackageAccess package,
@@ -44,4 +45,3 @@ public interface ITeamsOrchestrator
         ValidationContext context,
         CancellationToken ct);
 }
-#endif

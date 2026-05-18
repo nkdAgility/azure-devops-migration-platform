@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -16,7 +16,9 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
+#if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+#endif
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
@@ -35,7 +37,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// <summary>
 /// Orchestrates team export, import, and validation operations.
 /// Handles the enumeration loop, checkpointing, progress events, and metrics — delegates
-/// per-team operations to <see cref="TeamExportOrchestrator"/> and <see cref="TeamImportOrchestrator"/>.
+/// per-team operations to <see cref="TeamExportOrchestrator"/> and, on net10, <see cref="TeamImportOrchestrator"/>.
 /// </summary>
 internal sealed class TeamsOrchestrator : ITeamsOrchestrator
 {
@@ -53,7 +55,9 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
     private readonly ILogger _logger;
     private readonly IPlatformMetrics? _PlatformMetrics;
     private readonly TeamExportOrchestrator? _exportOrchestrator;
+#if !NET481
     private readonly TeamImportOrchestrator? _importOrchestrator;
+#endif
     private readonly TeamSlugGenerator? _slugGenerator;
     private readonly IPackageAccess? _package;
 
@@ -61,17 +65,29 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         ILogger<TeamsOrchestrator> logger,
         IPlatformMetrics? PlatformMetrics = null,
         TeamExportOrchestrator? exportOrchestrator = null,
-        TeamImportOrchestrator? importOrchestrator = null,
         TeamSlugGenerator? slugGenerator = null,
         IPackageAccess? package = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _PlatformMetrics = PlatformMetrics;
         _exportOrchestrator = exportOrchestrator;
-        _importOrchestrator = importOrchestrator;
         _slugGenerator = slugGenerator;
         _package = package;
     }
+
+#if !NET481
+    public TeamsOrchestrator(
+        ILogger<TeamsOrchestrator> logger,
+        IPlatformMetrics? PlatformMetrics = null,
+        TeamExportOrchestrator? exportOrchestrator = null,
+        TeamImportOrchestrator? importOrchestrator = null,
+        TeamSlugGenerator? slugGenerator = null,
+        IPackageAccess? package = null)
+        : this(logger, PlatformMetrics, exportOrchestrator, slugGenerator, package)
+    {
+        _importOrchestrator = importOrchestrator;
+    }
+#endif
 
     /// <summary>
     /// Exports all teams from the source project: enumerates, filters, writes team.json files
@@ -214,6 +230,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
     /// deserialises, and delegates per-team import to <paramref name="importOrchestrator"/>.
     /// Writes checkpoint on completion.
     /// </summary>
+#if !NET481
     public async Task ImportAsync(
         ImportContext context,
         ISourceEndpointInfo sourceEndpointInfo,
@@ -328,6 +345,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             }, ct).ConfigureAwait(false);
         }
     }
+#endif
 
     /// <summary>
     /// Validates that team.json files exist under Teams/ and are well-formed with a
@@ -436,7 +454,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
 
         if (payload.Content.CanSeek)
             payload.Content.Position = 0;
-        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, true, 1024, false);
         return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
@@ -462,13 +480,12 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
     {
         var normalized = relativePath.Replace('\\', '/').Trim('/');
         if (normalized.StartsWith("Teams/", StringComparison.OrdinalIgnoreCase))
-            normalized = normalized["Teams/".Length..];
+            normalized = normalized.Substring("Teams/".Length);
 
         var suffix = "/team.json";
         return normalized.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)
-            ? normalized[..^suffix.Length]
+            ? normalized.Substring(0, normalized.Length - suffix.Length)
             : normalized;
     }
 }
-#endif
 

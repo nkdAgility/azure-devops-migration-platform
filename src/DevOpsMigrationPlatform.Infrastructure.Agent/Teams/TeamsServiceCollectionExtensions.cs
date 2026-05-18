@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -52,10 +51,11 @@ public static class TeamsServiceCollectionExtensions
         }
 
         services.AddTransient<TeamExportOrchestrator>();
+#if !NET481
         services.AddTransient<TeamImportOrchestrator>();
+#endif
         services.AddSingleton<TeamSlugGenerator>();
 
         return services;
     }
 }
-#endif

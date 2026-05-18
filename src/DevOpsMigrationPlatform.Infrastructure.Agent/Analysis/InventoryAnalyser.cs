@@ -34,15 +34,13 @@ public sealed class InventoryAnalyser : IAnalyser
 
     public string Name => "Inventory";
 
-    // --- InventoryAnalyser depends on all inventory-capable modules (net481 has no TeamsModule) ---
+    // --- InventoryAnalyser depends on all inventory-capable modules, including Teams on net481 export paths. ---
     public IReadOnlyList<ModuleDependency> DependsOn => new[]
     {
         new ModuleDependency(typeof(WorkItemsModule), DependencyPhase.Inventory),
         new ModuleDependency(typeof(IdentitiesModule), DependencyPhase.Inventory),
         new ModuleDependency(typeof(NodesModule), DependencyPhase.Inventory),
-#if !NET481
         new ModuleDependency(typeof(TeamsModule), DependencyPhase.Inventory)
-#endif
     };
 
     public async Task<TaskExecutionResult> AnalyseAsync(AnalyseContext context, CancellationToken ct)

@@ -18,6 +18,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Export;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import;
@@ -64,9 +65,10 @@ public static class TfsMigrationAgentServiceExtensions
         // Export progress store — SQLite-backed fast-forward resume (now supported on net481).
         services.AddSingleton<IExportProgressStoreFactory, ExportProgressStoreFactory>();
 
-        // Register IModule pipeline (export-only on net481).
+        // Register IModule pipeline (export-only on net481 for Teams/WorkItems/Nodes/Identities).
         services.AddIdentitiesModule(configuration);
         services.AddNodesModule(configuration);
+        services.AddTeamsModule(configuration);
         services.AddWorkItemsModule(configuration);
 
         // NOTE (spec 032, D-007): AddDependencyCapture() is intentionally NOT called here.

@@ -12,9 +12,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Configuration;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
-#if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
-#endif
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -31,7 +29,7 @@ public static class ModuleServiceCollectionExtensions
     /// Convenience method that registers all agent modules and their orchestrators.
     /// Calls <see cref="AddWorkItemsModule"/>, <see cref="AddInventoryModule"/>,
     /// <see cref="AddDependenciesModule"/>, <see cref="AddNodesModule"/>,
-    /// <see cref="AddIdentitiesModule"/>, and (on net10.0+) <see cref="TeamsServiceCollectionExtensions.AddTeamsModule"/>.
+    /// <see cref="AddIdentitiesModule"/>, and <see cref="TeamsServiceCollectionExtensions.AddTeamsModule"/>.
     /// </summary>
     public static IServiceCollection AddAllAgentModules(
         this IServiceCollection services,
@@ -43,9 +41,7 @@ public static class ModuleServiceCollectionExtensions
         services.AddDependencyAnalyserServices();
         services.AddNodesModule(configuration);
         services.AddIdentitiesModule(configuration);
-#if !NET481
         services.AddTeamsModule(configuration);
-#endif
         return services;
     }
 
