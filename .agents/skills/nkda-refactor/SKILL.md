@@ -83,6 +83,7 @@ Plan must include:
 - required DI/seam/boundary updates,
 - single-source logic statement (what remains shared vs target-specific),
 - runtime-delta seam map proving smallest practical boundary per delta,
+- end-of-assessment expected changes summary: a concise bullet list of the concrete file, test, seam, DI, and documentation changes the execution phase is expected to make,
 - documentation updates (only directly related),
 - verification steps aligned to definition of done.
 
@@ -93,6 +94,7 @@ Plan must include:
 Before editing code, present:
 - compliance findings summary,
 - planned remediation sequence,
+- expected changes summary,
 - duplication-risk verdict and smallest-seam decision,
 - any required class/consent decision.
 
@@ -126,5 +128,6 @@ For each run, return:
 2. Compliance findings (by perspective + rule)
 3. Change class decision and consent requirement status
 4. Test-first remediation plan
-5. Invocation mode and approval basis
-6. Execution status (planned-only vs executed)
+5. Expected changes summary
+6. Invocation mode and approval basis
+7. Execution status (planned-only vs executed)
