@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -54,4 +53,3 @@ public sealed class PolymorphicEndpointOptionsConverter : JsonConverter<Migratio
         JsonSerializer.Serialize(writer, value, value.GetType(), options);
     }
 }
-#endif

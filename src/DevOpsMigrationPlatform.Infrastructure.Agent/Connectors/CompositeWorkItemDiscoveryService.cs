@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -44,9 +43,10 @@ public sealed class CompositeWorkItemDiscoveryService : IWorkItemDiscoveryServic
         if (string.IsNullOrWhiteSpace(typeKey))
             throw new InvalidOperationException("ISourceEndpointInfo has no ConnectorType.");
 
-        if (!_serviceTypes.TryGetValue(typeKey, out var serviceType))
+        var resolvedTypeKey = typeKey!;
+        if (!_serviceTypes.TryGetValue(resolvedTypeKey, out var serviceType))
             throw new InvalidOperationException(
-                $"No IWorkItemDiscoveryService is registered for endpoint type '{typeKey}'. " +
+                $"No IWorkItemDiscoveryService is registered for endpoint type '{resolvedTypeKey}'. " +
                 "Register one with AddWorkItemDiscoveryService(key, implementation).");
 
         return (IWorkItemDiscoveryService)_serviceProvider.GetRequiredService(serviceType);
@@ -79,4 +79,3 @@ public sealed class CompositeWorkItemDiscoveryService : IWorkItemDiscoveryServic
 
 /// <summary>Registration descriptor for a keyed <see cref="IWorkItemDiscoveryService"/>.</summary>
 public sealed record KeyedWorkItemDiscoveryService(string Key, Type ServiceType);
-#endif

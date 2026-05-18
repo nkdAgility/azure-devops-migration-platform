@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
@@ -194,4 +193,3 @@ public static class FactoryRegistrationExtensions
         return services;
     }
 }
-#endif

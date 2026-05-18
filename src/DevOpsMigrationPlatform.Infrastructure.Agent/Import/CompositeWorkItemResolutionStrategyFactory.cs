@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -32,7 +31,8 @@ public sealed class CompositeWorkItemResolutionStrategyFactory : IWorkItemResolu
         MigrationEndpointOptions endpoint,
         CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(target);
+        if (target is null)
+            throw new ArgumentNullException(nameof(target));
 
         foreach (var reg in _factories)
         {
@@ -49,4 +49,3 @@ public sealed class CompositeWorkItemResolutionStrategyFactory : IWorkItemResolu
 public sealed record KeyedWorkItemResolutionStrategyFactory(
     Func<IWorkItemImportTarget, bool> CanHandle,
     IWorkItemResolutionStrategyFactory Factory);
-#endif

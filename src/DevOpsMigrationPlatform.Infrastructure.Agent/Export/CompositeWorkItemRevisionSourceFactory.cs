@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -57,4 +56,3 @@ public sealed class CompositeWorkItemRevisionSourceFactory : IWorkItemRevisionSo
 
 /// <summary>Registration descriptor for a keyed <see cref="IWorkItemRevisionSourceFactory"/>.</summary>
 public sealed record KeyedWorkItemRevisionSourceFactory(string Key, Type FactoryType);
-#endif

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Storage;
@@ -23,4 +22,3 @@ public interface IReferencedPathTracker
     /// <summary>Records a discovered iteration path. If new, persists the artifact.</summary>
     Task RecordIterationPathAsync(string path, IPackageAccess package, string organisation, string project, CancellationToken ct);
 }
-#endif

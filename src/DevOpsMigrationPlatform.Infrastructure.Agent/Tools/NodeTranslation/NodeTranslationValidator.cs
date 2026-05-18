@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
@@ -150,4 +149,3 @@ public sealed class NodeTranslationValidator : INodeTranslationValidator
         public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }
-#endif

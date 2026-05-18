@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -58,7 +57,7 @@ public sealed class ReferencedPathTracker : IReferencedPathTracker
 
             if (payload.Content.CanSeek)
                 payload.Content.Position = 0;
-            using var reader = new System.IO.StreamReader(payload.Content, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+            using var reader = new System.IO.StreamReader(payload.Content, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
             var json = await reader.ReadToEndAsync().ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(json)) return;
 
@@ -149,9 +148,8 @@ public sealed class ReferencedPathTracker : IReferencedPathTracker
             Address: new ReferencedPathsAddress());
 
     /// <summary>Returns current area paths (for testing).</summary>
-    public IReadOnlySet<string> AreaPaths => _areaPaths;
+    public IReadOnlyCollection<string> AreaPaths => _areaPaths;
 
     /// <summary>Returns current iteration paths (for testing).</summary>
-    public IReadOnlySet<string> IterationPaths => _iterationPaths;
+    public IReadOnlyCollection<string> IterationPaths => _iterationPaths;
 }
-#endif

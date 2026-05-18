@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Diagnostics;
 using System.Threading;
@@ -161,15 +160,17 @@ public sealed class TeamImportOrchestrator
         // 6. Capacity
         if (extensions.TeamCapacity && teamPackage.CapacityByIteration.Count > 0)
         {
-            foreach (var (iterationId, capacity) in teamPackage.CapacityByIteration)
+            foreach (var capacityByIteration in teamPackage.CapacityByIteration)
             {
+                var iterationId = capacityByIteration.Key;
+                var capacity = capacityByIteration.Value;
                 try
                 {
                     await _teamTarget.SetCapacityAsync(
                         null!, projectName, targetTeamId, iterationId, capacity, ct).ConfigureAwait(false);
                 }
-                catch (Exception ex) when (ex.Message.Contains("not supported", StringComparison.OrdinalIgnoreCase)
-                    || ex.Message.Contains("NotImplemented", StringComparison.OrdinalIgnoreCase))
+                catch (Exception ex) when (ex.Message.IndexOf("not supported", StringComparison.OrdinalIgnoreCase) >= 0
+                    || ex.Message.IndexOf("NotImplemented", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     _logger.LogInformation(
                         "[Teams] Capacity not supported on target for iteration '{IterationId}' — skipping.", iterationId);
@@ -194,8 +195,7 @@ public sealed class TeamImportOrchestrator
         if (_NodeTransformTool is null || !_NodeTransformTool.IsEnabled)
             return sourcePath; // pass through if tool disabled
 
-        var result = _NodeTransformTool.TranslatePath(fieldName, sourcePath, projectMapping);
+        var result = _NodeTransformTool.TranslatePath(fieldName, sourcePath!, projectMapping);
         return result.TargetPath ?? sourcePath;
     }
 }
-#endif

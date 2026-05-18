@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
@@ -72,4 +71,3 @@ public sealed class ActiveJobAgentJobContext(ICurrentAgentJobContextAccessor acc
     public string ConfigVersion
         => accessor.Current?.ConfigVersion ?? string.Empty;
 }
-#endif

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -53,4 +52,3 @@ public sealed class CompositeWorkItemImportTargetFactory : IWorkItemImportTarget
 
 /// <summary>Registration wrapper for a keyed <see cref="IWorkItemImportTargetFactory"/>.</summary>
 public sealed record KeyedWorkItemImportTargetFactory(string Key, IWorkItemImportTargetFactory Factory);
-#endif

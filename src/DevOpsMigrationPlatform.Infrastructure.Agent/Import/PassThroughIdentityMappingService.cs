@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using DevOpsMigrationPlatform.Abstractions;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
@@ -19,4 +18,3 @@ public sealed class PassThroughIdentityMappingService : IIdentityMappingService
     /// <inheritdoc/>
     public void LoadMappingOverrides(string? mappingJson) { }
 }
-#endif

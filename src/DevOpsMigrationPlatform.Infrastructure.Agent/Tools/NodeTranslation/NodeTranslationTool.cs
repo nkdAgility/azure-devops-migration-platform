@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -24,6 +24,11 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 public sealed class NodeTranslationTool : INodeTranslationTool
 {
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
+#if NET7_0_OR_GREATER
+    private const RegexOptions RuntimeRegexOptions = RegexOptions.IgnoreCase | RegexOptions.NonBacktracking | RegexOptions.Compiled;
+#else
+    private const RegexOptions RuntimeRegexOptions = RegexOptions.IgnoreCase | RegexOptions.Compiled;
+#endif
 
     private readonly NodeTranslationOptions _options;
     private readonly IReadOnlyList<(Regex Pattern, string Replacement)> _areaRules;
@@ -50,9 +55,12 @@ public sealed class NodeTranslationTool : INodeTranslationTool
         string sourcePathValue,
         ProjectMapping context)
     {
-        ArgumentNullException.ThrowIfNull(fieldName);
-        ArgumentNullException.ThrowIfNull(sourcePathValue);
-        ArgumentNullException.ThrowIfNull(context);
+        if (fieldName is null)
+            throw new ArgumentNullException(nameof(fieldName));
+        if (sourcePathValue is null)
+            throw new ArgumentNullException(nameof(sourcePathValue));
+        if (context is null)
+            throw new ArgumentNullException(nameof(context));
 
         var path = sourcePathValue.Trim();
         var cacheKey = BuildCacheKey(fieldName, path, context);
@@ -103,7 +111,7 @@ public sealed class NodeTranslationTool : INodeTranslationTool
         if (path.StartsWith(context.SourceProjectName + "\\", StringComparison.OrdinalIgnoreCase)
             || string.Equals(path, context.SourceProjectName, StringComparison.OrdinalIgnoreCase))
         {
-            var swapped = context.TargetProjectName + path[context.SourceProjectName.Length..];
+            var swapped = context.TargetProjectName + path.Substring(context.SourceProjectName.Length);
             using (DataClassificationScope.Begin(DataClassification.Customer))
                 _logger.LogTrace("[NodeTranslation] Path translated via auto-swap: {Source} → {Target}", path, swapped);
             _PlatformMetrics?.RecordNodeTranslateAutoSwapHit(tags);
@@ -144,7 +152,7 @@ public sealed class NodeTranslationTool : INodeTranslationTool
         {
             var regex = new Regex(
                 m.Match,
-                RegexOptions.IgnoreCase | RegexOptions.NonBacktracking | RegexOptions.Compiled,
+                RuntimeRegexOptions,
                 TimeSpan.FromSeconds(5));
             result.Add((regex, m.Replacement));
         }
@@ -168,11 +176,10 @@ public sealed class NodeTranslationTool : INodeTranslationTool
         }
 
         // Replace root segment with normalised value
-        return languageOverride + path[firstSep..];
+        return languageOverride + path.Substring(firstSep);
     }
 
     private static bool IsAreaField(string fieldName)
         => string.Equals(fieldName, "System.AreaPath", StringComparison.OrdinalIgnoreCase);
 }
-#endif
 

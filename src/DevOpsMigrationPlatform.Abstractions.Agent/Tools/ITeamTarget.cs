@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
@@ -32,4 +31,3 @@ public interface ITeamTarget
     /// <summary>Assigns area paths to a team.</summary>
     Task SetAreaPathsAsync(MigrationEndpointOptions endpoint, string projectName, string teamId, TeamAreaPaths areaPaths, CancellationToken ct);
 }
-#endif

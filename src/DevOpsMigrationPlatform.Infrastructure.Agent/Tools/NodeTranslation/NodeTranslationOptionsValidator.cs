@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -18,7 +17,11 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 /// </summary>
 internal sealed class NodeTranslationOptionsValidator : IValidateOptions<NodeTranslationOptions>
 {
+#if NET7_0_OR_GREATER
     private const RegexOptions RuntimeRegexOptions = RegexOptions.IgnoreCase | RegexOptions.NonBacktracking | RegexOptions.Compiled;
+#else
+    private const RegexOptions RuntimeRegexOptions = RegexOptions.IgnoreCase | RegexOptions.Compiled;
+#endif
 
     public ValidateOptionsResult Validate(string? name, NodeTranslationOptions options)
     {
@@ -53,4 +56,3 @@ internal sealed class NodeTranslationOptionsValidator : IValidateOptions<NodeTra
         }
     }
 }
-#endif

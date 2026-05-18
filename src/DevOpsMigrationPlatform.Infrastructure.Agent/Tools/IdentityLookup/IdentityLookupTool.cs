@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -65,7 +64,7 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
 
         if (descriptorsContent is not null)
         {
-            foreach (var line in descriptorsContent.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            foreach (var line in descriptorsContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 if (string.IsNullOrWhiteSpace(line)) continue;
                 try
@@ -76,7 +75,10 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
                         : root.TryGetProperty("UniqueName", out var unU) ? unU.GetString()
                         : null;
                     if (!string.IsNullOrWhiteSpace(uniqueName))
-                        allUniqueNames.Add(uniqueName);
+                    {
+                        var resolvedUniqueName = uniqueName!;
+                        allUniqueNames.Add(resolvedUniqueName);
+                    }
                 }
                 catch (JsonException) { }
             }
@@ -90,7 +92,8 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
         {
             try
             {
-                var raw = JsonSerializer.Deserialize<Dictionary<string, string>>(mappingContent, s_jsonOptions);
+                var mappingJson = mappingContent!;
+                var raw = JsonSerializer.Deserialize<Dictionary<string, string>>(mappingJson, s_jsonOptions);
                 if (raw is not null)
                 {
                     foreach (var kv in raw)
@@ -124,7 +127,7 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
             return mapped;
 
         if (!string.IsNullOrWhiteSpace(_options.DefaultIdentity))
-            return _options.DefaultIdentity;
+            return _options.DefaultIdentity ?? sourceIdentity;
 
         return sourceIdentity;
     }
@@ -177,4 +180,3 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
         public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }
-#endif

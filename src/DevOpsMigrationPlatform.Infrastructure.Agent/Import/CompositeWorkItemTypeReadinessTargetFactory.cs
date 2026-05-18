@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -58,4 +57,3 @@ public sealed class CompositeWorkItemTypeReadinessTargetFactory : IWorkItemTypeR
 public sealed record KeyedWorkItemTypeReadinessTargetFactory(
     string Key,
     IWorkItemTypeReadinessTargetFactory Factory);
-#endif
