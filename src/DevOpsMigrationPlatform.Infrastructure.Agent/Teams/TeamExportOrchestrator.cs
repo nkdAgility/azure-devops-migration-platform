@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -36,7 +35,7 @@ public sealed class TeamExportOrchestrator
     };
 
     private readonly ITeamSource _teamSource;
-    private readonly IReferencedPathTracker? _referencedPathTracker;
+    private readonly object? _referencedPathTracker;
     private readonly ILogger<TeamExportOrchestrator> _logger;
     private readonly ISourceEndpointInfo _endpointInfo;
 
@@ -44,7 +43,7 @@ public sealed class TeamExportOrchestrator
         ITeamSource teamSource,
         ILogger<TeamExportOrchestrator> logger,
         ISourceEndpointInfo endpointInfo,
-        IReferencedPathTracker? referencedPathTracker = null)
+        object? referencedPathTracker = null)
     {
         _teamSource = teamSource ?? throw new ArgumentNullException(nameof(teamSource));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -83,7 +82,7 @@ public sealed class TeamExportOrchestrator
                 // Record iteration paths for NodeTranslation extension
                 if (extensions.NodeTranslation && _referencedPathTracker is not null)
                 {
-                    await _referencedPathTracker.RecordIterationPathAsync(
+                    await RecordIterationPathAsync(
                         iteration.Path, package, organisation, projectName, ct).ConfigureAwait(false);
                 }
             }
@@ -105,12 +104,12 @@ public sealed class TeamExportOrchestrator
             if (_referencedPathTracker is not null && areaPaths is not null)
             {
                 if (!string.IsNullOrEmpty(areaPaths.DefaultAreaPath))
-                    await _referencedPathTracker.RecordAreaPathAsync(areaPaths.DefaultAreaPath, package, organisation, projectName, ct).ConfigureAwait(false);
+                    await RecordAreaPathAsync(areaPaths.DefaultAreaPath, package, organisation, projectName, ct).ConfigureAwait(false);
 
                 foreach (var path in areaPaths.IncludedAreaPaths)
                 {
                     if (string.IsNullOrEmpty(path)) continue;
-                    await _referencedPathTracker.RecordAreaPathAsync(path, package, organisation, projectName, ct).ConfigureAwait(false);
+                    await RecordAreaPathAsync(path, package, organisation, projectName, ct).ConfigureAwait(false);
                 }
             }
         }
@@ -164,9 +163,37 @@ public sealed class TeamExportOrchestrator
     }
 
     private static bool IsCapacityNotSupportedException(Exception ex)
-        => ex.Message.Contains("capacity", StringComparison.OrdinalIgnoreCase)
-        || ex.Message.Contains("not supported", StringComparison.OrdinalIgnoreCase)
-        || ex.Message.Contains("NotImplemented", StringComparison.OrdinalIgnoreCase);
+        => ex.Message.IndexOf("capacity", StringComparison.OrdinalIgnoreCase) >= 0
+        || ex.Message.IndexOf("not supported", StringComparison.OrdinalIgnoreCase) >= 0
+        || ex.Message.IndexOf("NotImplemented", StringComparison.OrdinalIgnoreCase) >= 0;
+
+    private Task RecordAreaPathAsync(
+        string path,
+        IPackageAccess package,
+        string organisation,
+        string project,
+        CancellationToken ct)
+    {
+#if !NET481
+        if (_referencedPathTracker is DevOpsMigrationPlatform.Abstractions.Agent.Tools.IReferencedPathTracker tracker)
+            return tracker.RecordAreaPathAsync(path, package, organisation, project, ct);
+#endif
+        return Task.CompletedTask;
+    }
+
+    private Task RecordIterationPathAsync(
+        string path,
+        IPackageAccess package,
+        string organisation,
+        string project,
+        CancellationToken ct)
+    {
+#if !NET481
+        if (_referencedPathTracker is DevOpsMigrationPlatform.Abstractions.Agent.Tools.IReferencedPathTracker tracker)
+            return tracker.RecordIterationPathAsync(path, package, organisation, project, ct);
+#endif
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>Package model for a single team — serialised to Teams/{slug}/team.json.</summary>
@@ -179,4 +206,3 @@ public sealed class TeamPackage
     public TeamAreaPaths? AreaPaths { get; init; }
     public Dictionary<string, TeamCapacityEntry[]> CapacityByIteration { get; init; } = new();
 }
-#endif
