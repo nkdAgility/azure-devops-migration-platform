@@ -17,6 +17,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
@@ -45,6 +46,8 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     private readonly string? _jobId;
     private readonly IFieldTransformTool? _fieldTransformTool;
     private readonly INodeTranslationTool? _nodeStructureTool;
+    private readonly AttachmentReplayService _attachmentReplayService;
+    private readonly EmbeddedImageReplayService _embeddedImageReplayService;
     private readonly ProjectMapping? _nodeTranslationContext;
     private readonly NodeTranslationOptions? _nodeStructureOptions;
     private readonly IPackageAccess? _package;
@@ -70,7 +73,9 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         INodeTranslationTool? nodeStructureTool = null,
         ProjectMapping? nodeStructureContext = null,
         NodeTranslationOptions? nodeStructureOptions = null,
-        IPackageAccess? package = null)
+        IPackageAccess? package = null,
+        AttachmentReplayService? attachmentReplayService = null,
+        EmbeddedImageReplayService? embeddedImageReplayService = null)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));
@@ -83,6 +88,10 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         _jobId = jobId;
         _fieldTransformTool = fieldTransformTool;
         _nodeStructureTool = nodeStructureTool;
+        _attachmentReplayService = attachmentReplayService
+            ?? new AttachmentReplayService(target, idMapStore, NullLogger<AttachmentReplayService>.Instance);
+        _embeddedImageReplayService = embeddedImageReplayService
+            ?? new EmbeddedImageReplayService(target, NullLogger<EmbeddedImageReplayService>.Instance);
         _nodeTranslationContext = nodeStructureContext;
         _nodeStructureOptions = nodeStructureOptions;
         _package = package;
@@ -196,7 +205,9 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
             // Embedded images — upload and rewrite URLs if extension enabled
             if (ext.EmbeddedImages.Enabled && revision.EmbeddedImages.Count > 0)
             {
-                fields = await RewriteEmbeddedImageUrlsAsync(fields, revision.EmbeddedImages, folderPath, ct).ConfigureAwait(false);
+                fields = await _embeddedImageReplayService
+                    .RewriteFieldValuesAsync(fields, revision.EmbeddedImages, folderPath, ReadPackageBinaryAsync, ct)
+                    .ConfigureAwait(false);
             }
 
             // Field transforms — apply if tool is registered and enabled for Import phase
@@ -250,32 +261,9 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         // Stage D — UploadedAttachments
         if (ext.AttachmentsEnabled && ShouldRunStage(CursorStage.UploadedAttachments, resumeAtStage))
         {
-            foreach (var attachment in revision.Attachments)
-            {
-                var existingId = await _idMapStore.GetAttachmentIdAsync(
-                    revision.WorkItemId, revision.RevisionIndex, attachment.RelativePath, ct).ConfigureAwait(false);
-
-                if (existingId is not null)
-                {
-                    _logger.LogDebug("[WorkItems] Attachment {File} already uploaded — skipping.", attachment.RelativePath);
-                    continue;
-                }
-
-                var binaryPath = $"{folderPath}/{attachment.RelativePath}";
-                using var stream = await ReadPackageBinaryAsync(binaryPath, ct).ConfigureAwait(false);
-                if (stream is null)
-                {
-                    _logger.LogWarning("[WorkItems] Attachment binary {Path} not found — skipping.", binaryPath);
-                    continue;
-                }
-
-                var targetAttachmentId = await _target.UploadAttachmentAsync(
-                    resolvedTargetId, attachment.OriginalName, stream, ct).ConfigureAwait(false);
-
-                await _idMapStore.SetAttachmentMappingAsync(
-                    revision.WorkItemId, revision.RevisionIndex, attachment.RelativePath, targetAttachmentId, ct)
-                    .ConfigureAwait(false);
-            }
+            await _attachmentReplayService
+                .ReplayAsync(revision, folderPath, resolvedTargetId, ReadPackageBinaryAsync, ct)
+                .ConfigureAwait(false);
 
             await WriteCursorAsync(folderPath, CursorStage.UploadedAttachments, ct).ConfigureAwait(false);
         }
@@ -413,46 +401,6 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
 
     private string ResolveIdentity(string identity)
         => _identityLookupTool?.IsEnabled == true ? _identityLookupTool.Resolve(identity) : identity;
-
-    private async Task<IReadOnlyList<WorkItemField>> RewriteEmbeddedImageUrlsAsync(
-        IReadOnlyList<WorkItemField> fields,
-        IReadOnlyList<EmbeddedImageMetadata> images,
-        string folderPath,
-        CancellationToken ct)
-    {
-        var urlMap = new Dictionary<string, string>(images.Count, StringComparer.Ordinal);
-        foreach (var img in images)
-        {
-            var imgPath = $"{folderPath}/{img.RelativePath}";
-            using var imgStream = await ReadPackageBinaryAsync(imgPath, ct).ConfigureAwait(false);
-            if (imgStream is null)
-            {
-                _logger.LogWarning("[WorkItems] Embedded image {Path} not found — skipping URL rewrite.", imgPath);
-                continue;
-            }
-            var targetUrl = await _target.UploadEmbeddedImageAsync(img.RelativePath, imgStream, ct).ConfigureAwait(false);
-            urlMap[img.OriginalUrl] = targetUrl;
-        }
-
-        if (urlMap.Count == 0) return fields;
-
-        var result = new List<WorkItemField>(fields.Count);
-        foreach (var field in fields)
-        {
-            if (field.Value is string html && html.IndexOf("http", StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                var rewritten = html;
-                foreach (var entry in urlMap)
-                    rewritten = rewritten.Replace(entry.Key, entry.Value);
-                result.Add(new WorkItemField { ReferenceName = field.ReferenceName, Value = rewritten });
-            }
-            else
-            {
-                result.Add(field);
-            }
-        }
-        return result;
-    }
 
     private async Task ProcessInlineCommentsAsync(int targetWorkItemId, string folderPath, CancellationToken ct)
     {
