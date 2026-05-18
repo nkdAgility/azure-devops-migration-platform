@@ -271,15 +271,15 @@ This document defines the complete task decomposition for implementing the Work 
 
 ### Attachment Replay Lever Control (US4: Scenario 3, FR-019)
 
-- [ ] T102 [US4] [P] Check WorkItemImportOptions.AttachmentReplay lever before executing AttachmentReplayService — Status: incomplete
+- [X] T102 [US4] [P] Check WorkItemImportOptions.AttachmentReplay lever before executing AttachmentReplayService — Status: complete
 - [X] T103 [US4] [P] When disabled: Skip attachment replay stage but preserve checkpoint stage progression (Completed still reached deterministically) — Status: complete
-- [ ] T104 [US4] [P] Record attachment skip reason in progress sink for operator visibility — Status: incomplete
+- [X] T104 [US4] [P] Record attachment skip reason in progress sink for operator visibility — Status: complete
 
 ### Embedded Image Replay Lever Control (US4: Scenario 4, FR-021)
 
-- [ ] T105 [US4] [P] Check WorkItemImportOptions.EmbeddedImageReplay lever before executing EmbeddedImageReplayService — Status: incomplete
+- [X] T105 [US4] [P] Check WorkItemImportOptions.EmbeddedImageReplay lever before executing EmbeddedImageReplayService — Status: complete
 - [X] T106 [US4] [P] When disabled: Skip embedded image replay stage but preserve checkpoint stage progression — Status: complete
-- [ ] T107 [US4] [P] Record image skip reason in progress sink for operator visibility — Status: incomplete
+- [X] T107 [US4] [P] Record image skip reason in progress sink for operator visibility — Status: complete
 
 ### Revision Continuation After Artefact Skip (US4: Scenarios 3-4)
 

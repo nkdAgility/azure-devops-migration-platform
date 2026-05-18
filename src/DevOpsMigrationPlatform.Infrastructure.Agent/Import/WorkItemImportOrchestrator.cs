@@ -229,6 +229,8 @@ public sealed class WorkItemImportOrchestrator
                     revisionActivity?.SetTag("workitem.id", wiId);
                     revisionActivity?.SetTag("revision.index", revIdx);
 
+                    EmitReplaySkipVisibilityEvents(ext, resumeAtStage);
+
                     await _processor.ProcessAsync(folderPath, ext, resumeAtStage, _resolutionStrategy, ct)
                         .ConfigureAwait(false);
 
@@ -512,6 +514,43 @@ public sealed class WorkItemImportOrchestrator
     /// </summary>
     private static bool IsCommentFolder(string[] segments)
         => segments.Length >= 3 && segments[2].StartsWith("c", StringComparison.OrdinalIgnoreCase);
+
+    private void EmitReplaySkipVisibilityEvents(WorkItemsModuleExtensions ext, string? resumeAtStage)
+    {
+        if (!ext.EmbeddedImages.Enabled && ShouldRunStage(CursorStage.AppliedFields, resumeAtStage))
+        {
+            _progressSink.Emit(new ProgressEvent
+            {
+                Module = "WorkItems",
+                Stage = CursorStage.AppliedFields,
+                Message = "Embedded image replay skipped because the replay lever is disabled.",
+                Timestamp = DateTimeOffset.UtcNow,
+                LastCheckpointAt = DateTimeOffset.UtcNow,
+                NextCheckpointDueAt = null
+            });
+        }
+
+        if (!ext.AttachmentsEnabled && ShouldRunStage(CursorStage.UploadedAttachments, resumeAtStage))
+        {
+            _progressSink.Emit(new ProgressEvent
+            {
+                Module = "WorkItems",
+                Stage = CursorStage.UploadedAttachments,
+                Message = "Attachment replay skipped because the replay lever is disabled.",
+                Timestamp = DateTimeOffset.UtcNow,
+                LastCheckpointAt = DateTimeOffset.UtcNow,
+                NextCheckpointDueAt = null
+            });
+        }
+    }
+
+    private static bool ShouldRunStage(string stage, string? resumeAtStage)
+    {
+        if (resumeAtStage is null)
+            return true;
+
+        return string.CompareOrdinal(stage, resumeAtStage) >= 0;
+    }
 
     private Task WriteCompletedCursorAsync(string folderPath, CancellationToken ct)
         => _checkpointing.WriteCursorAsync("import.workitems", new CursorEntry

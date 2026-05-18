@@ -20,6 +20,7 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Configuration;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -585,6 +586,173 @@ public sealed class WorkItemsModuleImportTests
         Assert.IsTrue(nodeReadinessDispatched);
         revisionProcessor.VerifyAll();
         nodeCreator.VerifyAll();
+    }
+
+    [TestMethod]
+    public async Task ImportAsync_WhenReplayLeversDisableAttachmentsAndImages_PassesDisabledExtensionsToProcessor()
+    {
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
+        package
+            .Setup(p => p.EnumerateContentAsync(
+                It.Is<PackageContentContext>(c => c.IsCollectionRequest && string.Equals(c.Module, "WorkItems", StringComparison.Ordinal)),
+                It.IsAny<CancellationToken>()))
+            .Returns(EnumerateFolderAsync("WorkItems/2026-05-13/638827200000000000-42-0/"));
+        package
+            .Setup(p => p.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<System.Data.Common.DbConnection>(new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:")));
+
+        var target = new Mock<IWorkItemImportTarget>(MockBehavior.Strict);
+        target
+            .Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var importTargetFactory = new Mock<IWorkItemImportTargetFactory>(MockBehavior.Strict);
+        importTargetFactory
+            .Setup(f => f.CreateAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(target.Object);
+
+        var checkpointing = new Mock<ICheckpointingService>(MockBehavior.Strict);
+        checkpointing
+            .Setup(c => c.ReadCursorAsync("import.workitems", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CursorEntry?)null);
+
+        var checkpointFactory = new Mock<ICheckpointingServiceFactory>(MockBehavior.Strict);
+        checkpointFactory
+            .Setup(f => f.Create(It.IsAny<IPackageAccess>()))
+            .Returns(checkpointing.Object);
+
+        var resolutionStrategy = new Mock<IWorkItemResolutionStrategy>(MockBehavior.Strict);
+        resolutionStrategy
+            .Setup(s => s.SeedAsync(It.IsAny<IIdMapStore>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var resolutionStrategyFactory = new Mock<IWorkItemResolutionStrategyFactory>(MockBehavior.Strict);
+        resolutionStrategyFactory
+            .Setup(f => f.CreateAsync(
+                It.IsAny<WorkItemResolutionStrategyOptions>(),
+                It.IsAny<IWorkItemImportTarget>(),
+                It.IsAny<MigrationEndpointOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resolutionStrategy.Object);
+
+        var idMapStore = new Mock<IIdMapStore>(MockBehavior.Strict);
+        idMapStore
+            .Setup(s => s.InitializeAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        idMapStore
+            .Setup(s => s.CheckIntegrityAsync(It.IsAny<System.Func<int, CancellationToken, Task<bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        idMapStore
+            .Setup(s => s.GetLastRevisionIndexAsync(42, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int?)null);
+        idMapStore
+            .Setup(s => s.UpdateLastRevisionIndexAsync(42, 0, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        idMapStore
+            .Setup(s => s.DisposeAsync())
+            .Returns(ValueTask.CompletedTask);
+
+        var idMapStoreFactory = new Mock<IIdMapStoreFactory>(MockBehavior.Strict);
+        idMapStoreFactory
+            .Setup(f => f.Create(It.IsAny<System.Data.Common.DbConnection>()))
+            .Returns(idMapStore.Object);
+
+        var revisionProcessor = new Mock<IRevisionFolderProcessor>(MockBehavior.Strict);
+        WorkItemsModuleExtensions? capturedExtensions = null;
+        revisionProcessor
+            .Setup(p => p.ProcessAsync(
+                "WorkItems/2026-05-13/638827200000000000-42-0/",
+                It.IsAny<WorkItemsModuleExtensions>(),
+                It.IsAny<string?>(),
+                It.IsAny<IWorkItemResolutionStrategy>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<string, WorkItemsModuleExtensions, string?, IWorkItemResolutionStrategy, CancellationToken>((_, ext, _, _, _) => capturedExtensions = ext)
+            .Returns(Task.CompletedTask);
+
+        var processorFactory = new Mock<IRevisionFolderProcessorFactory>(MockBehavior.Strict);
+        processorFactory
+            .Setup(f => f.Create(
+                It.IsAny<IWorkItemImportTarget>(),
+                idMapStore.Object,
+                checkpointing.Object,
+                It.IsAny<IIdentityLookupTool?>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<ProjectMapping?>()))
+            .Returns(revisionProcessor.Object);
+
+        var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
+        sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
+        sourceEndpoint.SetupGet(s => s.Url).Returns("https://source.example");
+        sourceEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
+
+        var targetEndpoint = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
+        targetEndpoint.SetupGet(s => s.Project).Returns("TargetProject");
+        targetEndpoint.SetupGet(s => s.Url).Returns("https://target.example");
+        targetEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
+
+        var fieldTransformTool = new Mock<IFieldTransformTool>(MockBehavior.Strict);
+        fieldTransformTool
+            .Setup(t => t.IsEnabledForPhase(FieldTransformPhase.Import))
+            .Returns(true);
+
+        var moduleOptions = new WorkItemsModuleOptions
+        {
+            Extensions = new WorkItemsExtensionsOptions
+            {
+                Revisions = new EnabledExtensionOptions { Enabled = true },
+                Links = new EnabledExtensionOptions { Enabled = true },
+                Attachments = new EnabledExtensionOptions { Enabled = true },
+                EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig { Enabled = true, DownloadTimeoutSeconds = 30 }
+            }
+        };
+
+        var replayLevers = new WorkItemImportOptions
+        {
+            RevisionReplay = true,
+            LinkReplay = false,
+            AttachmentReplay = false,
+            EmbeddedImageReplay = false,
+            FieldTransform = true
+        };
+
+        var module = new WorkItemsModule(
+            Mock.Of<IWorkItemRevisionSourceFactory>(),
+            NullLogger<WorkItemsModule>.Instance,
+            Options.Create(moduleOptions),
+            sourceEndpoint.Object,
+            NullLogger<WorkItemImportOrchestrator>.Instance,
+            importTargetFactory.Object,
+            resolutionStrategyFactory.Object,
+            checkpointFactory.Object,
+            idMapStoreFactory.Object,
+            processorFactory.Object,
+            targetEndpoint.Object,
+            identityMappingService: Mock.Of<IIdentityMappingService>(),
+            nodeTranslationTool: Mock.Of<INodeTranslationTool>(),
+            fieldTransformTool: fieldTransformTool.Object,
+            workItemImportOptions: Options.Create(replayLevers),
+            package: package.Object);
+
+        await module.ImportAsync(
+            new ImportContext
+            {
+                Job = new Job
+                {
+                    JobId = "job-import-levers-1",
+                    Kind = JobKind.Import,
+                    Package = new JobPackage { PackageUri = "file:///package" },
+                    Resume = new JobResume { Mode = ResumeMode.Auto }
+                },
+                ProgressSink = Mock.Of<IProgressSink>()
+            },
+            CancellationToken.None);
+
+        Assert.IsNotNull(capturedExtensions);
+        Assert.IsFalse(capturedExtensions!.LinksEnabled);
+        Assert.IsFalse(capturedExtensions!.AttachmentsEnabled);
+        Assert.IsFalse(capturedExtensions.EmbeddedImages.Enabled);
+        revisionProcessor.VerifyAll();
     }
 
     private static PackagePayload CreatePayload<T>(T value)

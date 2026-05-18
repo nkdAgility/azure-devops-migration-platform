@@ -25,6 +25,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Configuration;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import.FailurePatterns;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
@@ -104,6 +105,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IIdentityMappingService? _identityMappingService;
     private readonly INodeTranslationTool? _nodeTranslationTool;
     private readonly IFieldTransformTool? _fieldTransformTool;
+    private readonly IOptions<WorkItemImportOptions>? _workItemImportOptions;
 #endif
 
     public WorkItemsModule(
@@ -139,6 +141,7 @@ public sealed class WorkItemsModule : IModule
         IIdentityMappingService? identityMappingService = null,
         INodeTranslationTool? nodeTranslationTool = null,
         IFieldTransformTool? fieldTransformTool = null,
+        IOptions<WorkItemImportOptions>? workItemImportOptions = null,
         IIdentityLookupTool? identityLookupTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
         IEnumerable<IImportFailurePattern>? importFailurePatterns = null,
@@ -174,6 +177,7 @@ public sealed class WorkItemsModule : IModule
         _identityMappingService = identityMappingService;
         _nodeTranslationTool = nodeTranslationTool;
         _fieldTransformTool = fieldTransformTool;
+        _workItemImportOptions = workItemImportOptions;
 #endif
         _identityLookupTool = identityLookupTool;
         _repoDiscoveryService = repoDiscoveryService;
@@ -568,7 +572,7 @@ public sealed class WorkItemsModule : IModule
         var orgUrl = _targetEndpointInfo.Url;
         var project = _targetEndpointInfo.Project;
 
-        var ext = WorkItemsModuleExtensions.FromOptions(_options.Value);
+        var ext = ApplyImportReplayLevers(WorkItemsModuleExtensions.FromOptions(_options.Value));
 
         using (_logger.BeginDataScope(DataClassification.Customer))
         {
@@ -649,6 +653,50 @@ public sealed class WorkItemsModule : IModule
         return TaskExecutionResult.Completed();
 #endif
     }
+
+#if !NET481
+    private WorkItemsModuleExtensions ApplyImportReplayLevers(WorkItemsModuleExtensions ext)
+    {
+        if (_workItemImportOptions is null)
+            return ext;
+
+        var replayOptions = _workItemImportOptions.Value;
+        var hasExplicitLeverConfig =
+            replayOptions.RevisionReplay ||
+            replayOptions.LinkReplay ||
+            replayOptions.AttachmentReplay ||
+            replayOptions.EmbeddedImageReplay ||
+            replayOptions.FieldTransform;
+
+        // Preserve current defaults when WorkItemImport options are not explicitly configured.
+        if (!hasExplicitLeverConfig)
+            return ext;
+
+        var attachmentsEnabled = ext.AttachmentsEnabled &&
+                                 (!replayOptions.RevisionReplay || replayOptions.AttachmentReplay);
+        var linksEnabled = ext.LinksEnabled &&
+                           (!replayOptions.RevisionReplay || replayOptions.LinkReplay);
+        var embeddedImagesEnabled = ext.EmbeddedImages.Enabled &&
+                                    (!replayOptions.RevisionReplay || replayOptions.EmbeddedImageReplay);
+
+        return new WorkItemsModuleExtensions
+        {
+            Query = ext.Query,
+            RevisionsEnabled = ext.RevisionsEnabled,
+            LinksEnabled = linksEnabled,
+            AttachmentsEnabled = attachmentsEnabled,
+            Comments = ext.Comments,
+            EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig
+            {
+                Enabled = embeddedImagesEnabled,
+                DownloadTimeoutSeconds = ext.EmbeddedImages.DownloadTimeoutSeconds
+            },
+            ResolutionStrategy = ext.ResolutionStrategy,
+            IncludeFilters = ext.IncludeFilters,
+            ExcludeFilters = ext.ExcludeFilters
+        };
+    }
+#endif
 
 
     public async Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct)

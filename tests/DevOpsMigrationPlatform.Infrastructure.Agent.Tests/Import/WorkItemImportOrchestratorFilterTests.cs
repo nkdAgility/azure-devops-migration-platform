@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
@@ -224,6 +225,51 @@ public class WorkItemImportOrchestratorFilterTests
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task ImportAsync_WhenAttachmentReplayDisabled_EmitsSkipReasonEvent()
+    {
+        AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
+
+        var orchestrator = BuildOrchestrator();
+        await orchestrator.ImportAsync(
+            new WorkItemsModuleExtensions { AttachmentsEnabled = false },
+            ResumeMode.Auto,
+            CancellationToken.None);
+
+        _mockProgress.Verify(
+            p => p.Emit(It.Is<ProgressEvent>(e =>
+                e.Stage == CursorStage.UploadedAttachments &&
+                e.Message != null &&
+                e.Message.Contains("Attachment replay skipped", StringComparison.OrdinalIgnoreCase))),
+            Times.AtLeastOnce);
+    }
+
+    [TestMethod]
+    public async Task ImportAsync_WhenEmbeddedImageReplayDisabled_EmitsSkipReasonEvent()
+    {
+        AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
+
+        var orchestrator = BuildOrchestrator();
+        await orchestrator.ImportAsync(
+            new WorkItemsModuleExtensions
+            {
+                EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig
+                {
+                    Enabled = false,
+                    DownloadTimeoutSeconds = 30
+                }
+            },
+            ResumeMode.Auto,
+            CancellationToken.None);
+
+        _mockProgress.Verify(
+            p => p.Emit(It.Is<ProgressEvent>(e =>
+                e.Stage == CursorStage.AppliedFields &&
+                e.Message != null &&
+                e.Message.Contains("Embedded image replay skipped", StringComparison.OrdinalIgnoreCase))),
+            Times.AtLeastOnce);
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
