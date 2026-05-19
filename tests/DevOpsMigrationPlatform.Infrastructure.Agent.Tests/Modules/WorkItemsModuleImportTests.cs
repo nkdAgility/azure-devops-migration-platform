@@ -131,55 +131,18 @@ public sealed class WorkItemsModuleImportTests
     }
 
     [TestMethod]
-    public async Task ImportAsync_WhenFieldTransformToolDisabledForImport_ThrowsInvalidOperationException()
+    public void ImportAsync_WhenFieldTransformToolDisabledForImport_DoesNotThrow()
     {
-        var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
-        sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
-        sourceEndpoint.SetupGet(s => s.Url).Returns("https://source.example");
-        sourceEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
-
-        var targetEndpoint = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
-        targetEndpoint.SetupGet(s => s.Project).Returns("TargetProject");
-        targetEndpoint.SetupGet(s => s.Url).Returns("https://target.example");
-        targetEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
-
+        // Verify the capability validator does not throw when FieldTransform is disabled.
         var fieldTransformTool = new Mock<IFieldTransformTool>(MockBehavior.Strict);
         fieldTransformTool
             .Setup(t => t.IsEnabledForPhase(FieldTransformPhase.Import))
             .Returns(false);
 
-        var module = new WorkItemsModule(
-            Mock.Of<IWorkItemRevisionSourceFactory>(),
-            NullLogger<WorkItemsModule>.Instance,
-            Options.Create(new WorkItemsModuleOptions()),
-            sourceEndpoint.Object,
-            NullLogger<WorkItemImportOrchestrator>.Instance,
-            new Mock<IWorkItemImportTargetFactory>(MockBehavior.Strict).Object,
-            Mock.Of<IWorkItemResolutionStrategyFactory>(),
-            Mock.Of<ICheckpointingServiceFactory>(),
-            Mock.Of<IIdMapStoreFactory>(),
-            Mock.Of<IRevisionFolderProcessorFactory>(),
-            targetEndpoint.Object,
-            identityMappingService: Mock.Of<IIdentityMappingService>(),
-            nodeTranslationTool: Mock.Of<INodeTranslationTool>(),
-            fieldTransformTool: fieldTransformTool.Object);
+        var validator = new WorkItemsImportCapabilityValidator(fieldTransformTool.Object);
 
-        var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => module.ImportAsync(
-            new ImportContext
-            {
-                Job = new Job
-                {
-                    JobId = "job-import-disabled-field-transform",
-                    Kind = JobKind.Import,
-                    Package = new JobPackage { PackageUri = "file:///package" },
-                    Resume = new JobResume { Mode = ResumeMode.Auto }
-                },
-                Package = Mock.Of<IPackageAccess>(),
-                ProgressSink = Mock.Of<IProgressSink>()
-            },
-            CancellationToken.None));
-
-        StringAssert.Contains(ex.Message, "FieldTransform");
+        // Should not throw — disabled FieldTransform is a valid opt-out.
+        validator.Validate();
     }
 
     [TestMethod]

@@ -63,14 +63,14 @@ public static class ModuleServiceCollectionExtensions
         services.AddSchemaEntry<WorkItemImportOptions>("Work item import replay lever configuration");
 #endif
         services.RegisterWorkItemImportServices(configuration);
-        services.AddSingleton<IWorkItemsImportCapabilityValidator, WorkItemsImportCapabilityValidator>();
+        services.AddScoped<IWorkItemsImportCapabilityValidator, WorkItemsImportCapabilityValidator>();
         services.AddSingleton<IWorkItemsNodeReadinessOrchestrator>(sp =>
             new WorkItemsNodeReadinessOrchestrator(
                 sp.GetService<NodeReadinessOrchestrator>(),
                 sp.GetService<INodesOrchestrator>(),
                 sp.GetService<IPlatformMetrics>(),
                 sp.GetRequiredService<ILogger<WorkItemsModule>>()));
-        services.AddSingleton<IWorkItemsImportOrchestrator>(sp =>
+        services.AddScoped<IWorkItemsImportOrchestrator>(sp =>
             new WorkItemsImportOrchestrator(
                 sp.GetRequiredService<IWorkItemImportTargetFactory>(),
                 sp.GetRequiredService<IWorkItemResolutionStrategyFactory>(),
