@@ -51,7 +51,6 @@ public class DiCompositionTests
         builder.Services.Configure<ServiceProviderOptions>(options =>
         {
             options.ValidateOnBuild = true;
-            options.ValidateScopes = true;
         });
 
         // Act — Build() is the operation that deadlocks when circular deps exist.

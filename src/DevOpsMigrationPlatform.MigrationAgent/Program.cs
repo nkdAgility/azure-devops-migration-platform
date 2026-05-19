@@ -36,12 +36,13 @@ try
     // LocalStackHost (CLI in-process mode) can use the exact same registrations.
     builder.AddMigrationAgentServices(controlPlaneBaseUrl);
 
-    // Enable DI validation — catches missing registrations and some circular dependencies
-    // at startup rather than at first resolution.
+    // Enable DI validation — catches missing registrations at startup rather than at first
+    // resolution. ValidateScopes is intentionally omitted: the codebase uses captive Singleton
+    // dependencies on Scoped services (e.g., IFieldTransformTool) by design, resolving them
+    // lazily within a job scope at call time.
     builder.Services.Configure<ServiceProviderOptions>(options =>
     {
         options.ValidateOnBuild = true;
-        options.ValidateScopes = true;
     });
 
     // Build with timeout — converts silent circular-dependency deadlocks into a clear

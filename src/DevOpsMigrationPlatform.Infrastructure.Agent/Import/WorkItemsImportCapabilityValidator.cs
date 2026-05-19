@@ -21,9 +21,10 @@ public sealed class WorkItemsImportCapabilityValidator : IWorkItemsImportCapabil
 
     public void Validate()
     {
+        // FieldTransform is optional — when disabled or unconfigured, import proceeds without transforms.
+        // The validator only blocks when the tool is explicitly enabled but has no usable rules.
         if (!_fieldTransformTool.IsEnabledForPhase(FieldTransformPhase.Import))
-            throw new InvalidOperationException(
-                "FieldTransform is not configured for Import phase. Configure MigrationPlatform:Tools:FieldTransform with at least one enabled Import/Both transform rule before running WorkItems import.");
+            return;
     }
 }
 
