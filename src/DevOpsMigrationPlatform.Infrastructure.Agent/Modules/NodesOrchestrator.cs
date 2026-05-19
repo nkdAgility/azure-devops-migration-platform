@@ -115,7 +115,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
             var checkpointing = checkpointingFactory.Create(context.Package);
             var cursor = await checkpointing.ReadCursorAsync("export.nodes", ct).ConfigureAwait(false);
             if (cursor?.Stage == CursorStage.Completed
-                && await ContentExistsAsync(context.Package, sourceEndpointInfo.Url, sourceEndpointInfo.Project, SourceTreePath, ct).ConfigureAwait(false))
+                && await ContentExistsAsync(context.Package, sourceEndpointInfo.OrganisationSlug, sourceEndpointInfo.Project, SourceTreePath, ct).ConfigureAwait(false))
             {
                 _logger.LogInformation("[Nodes] Already exported (cursor found) — skipping re-export.");
                 return;
@@ -124,7 +124,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
 
         var nodeCount = await capture.CaptureAsync(
             context.Package,
-            sourceEndpointInfo.Url,
+            sourceEndpointInfo.OrganisationSlug,
             sourceEndpointInfo.Project,
             ct,
 #if !NET481
@@ -195,7 +195,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
             await ReplicateSourceTreeAsync(
                 mapping,
                 context.Package,
-                sourceEndpointInfo.Url,
+                sourceEndpointInfo.OrganisationSlug,
                 sourceProject,
                 ct,
                 _PlatformMetrics,

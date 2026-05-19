@@ -229,6 +229,7 @@ internal sealed class SourceEndpointInfo : ISourceEndpointInfo
     public string Url { get; init; } = string.Empty;
     public string Project { get; init; } = string.Empty;
     public string ConnectorType { get; init; } = string.Empty;
+    public string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
 
     // TFS uses its own SDK for auth — return a minimal endpoint for compatibility.
     public OrganisationEndpoint ToOrganisationEndpoint() =>

@@ -28,6 +28,9 @@ public sealed class ActiveJobSourceEndpointInfo : ISourceEndpointInfo
     public string ConnectorType
         => _accessor.Source?.ConnectorType ?? string.Empty;
 
+    public string OrganisationSlug
+        => EndpointSlugHelper.ExtractSlug(Url);
+
     public OrganisationEndpoint ToOrganisationEndpoint()
         => _accessor.Source?.ToOrganisationEndpoint() ?? new OrganisationEndpoint();
 }
@@ -50,6 +53,9 @@ public sealed class ActiveJobTargetEndpointInfo : ITargetEndpointInfo
 
     public string ConnectorType
         => _accessor.Target?.ConnectorType ?? string.Empty;
+
+    public string OrganisationSlug
+        => EndpointSlugHelper.ExtractSlug(Url);
 
     public OrganisationEndpoint ToOrganisationEndpoint()
         => _accessor.Target?.ToOrganisationEndpoint() ?? new OrganisationEndpoint();

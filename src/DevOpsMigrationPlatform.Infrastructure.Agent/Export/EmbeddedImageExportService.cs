@@ -151,7 +151,7 @@ public class EmbeddedImageExportService : IEmbeddedImageExportService
         await _package.PersistContentStreamAsync(
             new PackageContentContext(
                 PackageContentKind.Artefact,
-                Organisation: _sourceEndpointInfo.Url,
+                Organisation: _sourceEndpointInfo.OrganisationSlug,
                 Project: _sourceEndpointInfo.Project,
                 Module: "WorkItems",
                 Address: new WorkItemEmbeddedImageAddress(imagePath)),

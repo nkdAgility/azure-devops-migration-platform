@@ -475,6 +475,7 @@ public sealed class WorkItemsModule : IModule
         var job = context.Job;
 
         var orgUrl = _sourceEndpointInfo.Url;
+        var orgSlug = _sourceEndpointInfo.OrganisationSlug;
         var project = _sourceEndpointInfo.Project;
 
 #if !NET481
@@ -516,7 +517,7 @@ public sealed class WorkItemsModule : IModule
             _logger.LogWarning("[WorkItems] IReferencedPathTracker is not available — referenced path tracking will be skipped.");
 
         if (_referencedPathTracker is not null)
-            await _referencedPathTracker.InitializeAsync(context.Package, orgUrl, project, ct).ConfigureAwait(false);
+            await _referencedPathTracker.InitializeAsync(context.Package, orgSlug, project, ct).ConfigureAwait(false);
 #endif
 
         var checkpointingService = _checkpointingFactory.Create(context.Package);
@@ -530,7 +531,7 @@ public sealed class WorkItemsModule : IModule
 
         var orchestrator = new WorkItemExportOrchestrator(
             context.Package,
-            orgUrl,
+            orgSlug,
             project,
             checkpointingService,
 #if !NET481

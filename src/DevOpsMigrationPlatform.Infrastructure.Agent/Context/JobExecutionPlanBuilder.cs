@@ -1249,6 +1249,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         public string Url { get; } = url;
         public string Project { get; } = project;
         public string ConnectorType { get; } = connectorType;
+        public string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
         public OrganisationEndpoint ToOrganisationEndpoint() => new() { ResolvedUrl = Url, Type = ConnectorType };
     }
 
@@ -1257,6 +1258,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         public string Url { get; } = url;
         public string Project { get; } = project;
         public string ConnectorType { get; } = connectorType;
+        public string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
         public OrganisationEndpoint ToOrganisationEndpoint() => new() { ResolvedUrl = Url, Type = ConnectorType };
     }
 

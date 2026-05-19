@@ -112,6 +112,8 @@ public static class TfsMigrationAgentServiceExtensions
     /// </summary>
     private sealed record TfsSourceEndpointInfo(string Url, string Project, string ConnectorType) : ISourceEndpointInfo
     {
+        public string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
+
         // TFS uses its own SDK for auth — return a minimal endpoint for compatibility.
         public OrganisationEndpoint ToOrganisationEndpoint() =>
             new OrganisationEndpoint { ResolvedUrl = Url, Type = ConnectorType };

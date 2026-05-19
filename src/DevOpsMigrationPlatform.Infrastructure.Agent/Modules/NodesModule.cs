@@ -243,7 +243,7 @@ public sealed class NodesModule : IModule
     {
         await _orchestrator.ValidateAsync(
             context.Package,
-            _sourceEndpointInfo.Url,
+            _sourceEndpointInfo.OrganisationSlug,
             _sourceEndpointInfo.Project,
             context,
             ct).ConfigureAwait(false);

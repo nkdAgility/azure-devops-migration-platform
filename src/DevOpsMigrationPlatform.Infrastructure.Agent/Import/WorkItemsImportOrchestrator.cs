@@ -113,7 +113,7 @@ public sealed class WorkItemsImportOrchestrator : IWorkItemsImportOrchestrator
         var nodeReadinessContext = new ProjectMapping(sourceProjectName, project);
         var replicateSourceTree = _nodesModuleOptions?.Value.ReplicateSourceTree ?? false;
         await _nodeReadinessOrchestrator
-            .EnsureReadyAsync(nodeReadinessContext, replicateSourceTree, context, _sourceEndpointInfo.Url, sourceProjectName, ct)
+            .EnsureReadyAsync(nodeReadinessContext, replicateSourceTree, context, _sourceEndpointInfo.OrganisationSlug, sourceProjectName, ct)
             .ConfigureAwait(false);
 
         var nodeStructureContext = new ProjectMapping(sourceProjectName, project);
@@ -122,14 +122,14 @@ public sealed class WorkItemsImportOrchestrator : IWorkItemsImportOrchestrator
             idMapStore,
             checkpointingService,
             _identityLookupTool,
-            _sourceEndpointInfo.Url,
+            _sourceEndpointInfo.OrganisationSlug,
             sourceProjectName,
             nodeStructureContext);
 
         var importFilters = ext.IncludeFilters.Concat(ext.ExcludeFilters).ToList();
         var orchestrator = new WorkItemImportOrchestrator(
             context.Package,
-            _sourceEndpointInfo.Url,
+            _sourceEndpointInfo.OrganisationSlug,
             sourceProjectName,
             checkpointingService,
             context.ProgressSink,

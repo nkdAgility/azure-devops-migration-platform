@@ -151,7 +151,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             var artifactPath = $"Teams/{slug}/team.json";
 
             if (!options.AlwaysExport
-                && await TeamDefinitionExistsAsync(sourceEndpointInfo.Url, sourceEndpointInfo.Project, artifactPath, ct).ConfigureAwait(false))
+                && await TeamDefinitionExistsAsync(sourceEndpointInfo.OrganisationSlug, sourceEndpointInfo.Project, artifactPath, ct).ConfigureAwait(false))
             {
                 _logger.LogWarning("[Teams] Skipping already-exported team '{Name}' ({Path}) — use AlwaysExport: true to force re-export.",
                     team.Name, artifactPath);
@@ -169,7 +169,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             try
             {
                 await _exportOrchestrator.ExportTeamAsync(
-                    sourceEndpointInfo.Url, projectName, team, slug, _package!, options.Extensions, ct).ConfigureAwait(false);
+                    sourceEndpointInfo.OrganisationSlug, projectName, team, slug, _package!, options.Extensions, ct).ConfigureAwait(false);
 
                 count++;
                 _PlatformMetrics?.RecordTeamExportCount(exportTags);
@@ -261,12 +261,12 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         });
 
         var count = 0;
-        await foreach (var teamPath in EnumeratePackageContentAsync(context.Package, sourceEndpointInfo.Url, sourceProjectName, ct).ConfigureAwait(false))
+        await foreach (var teamPath in EnumeratePackageContentAsync(context.Package, sourceEndpointInfo.OrganisationSlug, sourceProjectName, ct).ConfigureAwait(false))
         {
             if (!teamPath.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            var json = await ReadPackageContentAsync(context.Package, sourceEndpointInfo.Url, sourceProjectName, teamPath, ct).ConfigureAwait(false);
+            var json = await ReadPackageContentAsync(context.Package, sourceEndpointInfo.OrganisationSlug, sourceProjectName, teamPath, ct).ConfigureAwait(false);
             if (json is null)
             {
                 _logger.LogWarning("[Teams] Could not read team file '{Path}' — skipping.", teamPath);

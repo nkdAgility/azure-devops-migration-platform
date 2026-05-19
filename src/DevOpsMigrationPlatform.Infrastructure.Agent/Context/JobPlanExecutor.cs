@@ -1181,6 +1181,8 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         AuthenticationType AuthenticationType,
         string? AccessToken) : ISourceEndpointInfo
     {
+        public string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
+
         public OrganisationEndpoint ToOrganisationEndpoint() => new()
         {
             ResolvedUrl = Url,
@@ -1202,6 +1204,8 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         AuthenticationType AuthenticationType,
         string? AccessToken) : ITargetEndpointInfo
     {
+        public string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
+
         public OrganisationEndpoint ToOrganisationEndpoint() => new()
         {
             ResolvedUrl = Url,
