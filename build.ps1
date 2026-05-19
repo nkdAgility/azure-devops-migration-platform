@@ -122,6 +122,13 @@ param(
     [switch]$Fast
 )
 
+# Guard against GNU-style flags (for example: --Fast) being consumed as
+# positional values (most commonly Version) instead of real PowerShell switches.
+if ($PSBoundParameters.ContainsKey('Version') -and $Version -match '^--?[A-Za-z]') {
+    Write-Error "Unsupported argument '$Version'. Use PowerShell parameter syntax with a single dash (for example: -Fast)."
+    exit 1
+}
+
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 

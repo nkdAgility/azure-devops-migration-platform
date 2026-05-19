@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.CLI.Commands;
+using DevOpsMigrationPlatform.CLI.Commands.Agent;
 using DevOpsMigrationPlatform.CLI.Commands.ControlPlane;
 using DevOpsMigrationPlatform.CLI.Commands.Manage;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
@@ -123,7 +124,19 @@ internal class Program
 
                 branch.AddCommand<ControlPlaneStartCommand>("start")
                     .WithDescription("Start the bundled Control Plane host in the current terminal. Only available in the packaged (zip) distribution.")
-                    .WithExample("controlplane", "start");
+                    .WithExample("controlplane", "start")
+                    .WithExample("controlplane", "start", "--url", "http://localhost:5100");
+            });
+
+            // ── Agent management ─────────────────────────────────────────────────────
+            config.AddBranch("agent", branch =>
+            {
+                branch.SetDescription("Manage the local Migration Agent process.");
+
+                branch.AddCommand<AgentStartCommand>("start")
+                    .WithDescription("Start the local Migration Agent process.")
+                    .WithExample("agent", "start")
+                    .WithExample("agent", "start", "--url", "http://localhost:5100");
             });
 
             // ── Terminal UI ───────────────────────────────────────────────────────────

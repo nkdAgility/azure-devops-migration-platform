@@ -10,31 +10,26 @@ using System.Threading.Tasks;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
-namespace DevOpsMigrationPlatform.CLI.Commands.ControlPlane;
+namespace DevOpsMigrationPlatform.CLI.Commands.Agent;
 
 /// <summary>
-/// Starts the bundled Control Plane host process in the current terminal.
+/// Starts the bundled Migration Agent process in the current terminal.
 ///
-/// Resolves <c>ControlPlane/DevOpsMigrationPlatform.ControlPlaneHost[.exe]</c>
-/// relative to the CLI binary location — the layout that the distributable zip
-/// produces. When running from a dev/source build this directory does not exist
-/// and the command prints an informative error instead of crashing.
+/// Resolves the agent executable via <see cref="ChildProcessHost.ResolveExecutablePath"/>
+/// so it works in installed and development layouts.
 ///
-/// The port is passed to the child process via the <c>ASPNETCORE_URLS</c>
-/// environment variable — the standard ASP.NET Core override mechanism.
-///
-/// Usage: <c>devopsmigration controlplane start [--url &lt;baseUrl&gt;]</c>
+/// Usage: <c>devopsmigration agent start [--url &lt;baseUrl&gt;]</c>
 /// </summary>
-public sealed class ControlPlaneStartCommand : AsyncCommand<ControlPlaneStartCommand.Settings>
+public sealed class AgentStartCommand : AsyncCommand<AgentStartCommand.Settings>
 {
     public sealed class Settings : CommandSettings
     {
         [CommandOption("--url")]
-        [Description("Control Plane base URL. Default: http://localhost:5100")]
+        [Description("Control Plane base URL the agent will connect to. Default: http://localhost:5100")]
         public string? Url { get; init; }
 
         [CommandOption("--port")]
-        [Description("Legacy alias for the URL port. Ignored when --url is provided. Default: 5100.")]
+        [Description("Legacy alias for the control plane URL port. Ignored when --url is provided. Default: 5100.")]
         [DefaultValue(5100)]
         public int Port { get; init; } = 5100;
     }
@@ -51,16 +46,15 @@ public sealed class ControlPlaneStartCommand : AsyncCommand<ControlPlaneStartCom
         }
         var resolvedBaseUrl = baseUrl!;
 
-        var exePath = ChildProcessHost.ResolveExecutablePath("ControlPlane", "DevOpsMigrationPlatform.ControlPlaneHost");
-
+        var exePath = ChildProcessHost.ResolveExecutablePath("MigrationAgent", "DevOpsMigrationPlatform.MigrationAgent");
         if (string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
         {
-            AnsiConsole.MarkupLine("[red]✗ Control Plane binary not found.[/]");
+            AnsiConsole.MarkupLine("[red]✗ Migration Agent binary not found.[/]");
             AnsiConsole.MarkupLine("[grey]Expected one of:[/]");
-            AnsiConsole.MarkupLine("[grey]  - Installed layout: ControlPlane/DevOpsMigrationPlatform.ControlPlaneHost[/]");
-            AnsiConsole.MarkupLine("[grey]  - Dev build output under src/DevOpsMigrationPlatform.ControlPlaneHost/bin[/]");
-            AnsiConsole.MarkupLine("[grey]When running from a source build, start the Control Plane directly:[/]");
-            AnsiConsole.MarkupLine($"[grey]  dotnet run --project src/DevOpsMigrationPlatform.ControlPlaneHost --urls {Markup.Escape(resolvedBaseUrl)}[/]");
+            AnsiConsole.MarkupLine("[grey]  - Installed layout: MigrationAgent/DevOpsMigrationPlatform.MigrationAgent[/]");
+            AnsiConsole.MarkupLine("[grey]  - Dev build output under src/DevOpsMigrationPlatform.MigrationAgent/bin[/]");
+            AnsiConsole.MarkupLine("[grey]When running from a source build, start the agent directly:[/]");
+            AnsiConsole.MarkupLine($"[grey]  dotnet run --project src/DevOpsMigrationPlatform.MigrationAgent -- --ControlPlane:BaseUrl={Markup.Escape(resolvedBaseUrl)}[/]");
             return 1;
         }
 
@@ -73,16 +67,18 @@ public sealed class ControlPlaneStartCommand : AsyncCommand<ControlPlaneStartCom
             RedirectStandardOutput = false,
             RedirectStandardError = false,
         };
-        psi.Environment["ASPNETCORE_URLS"] = resolvedBaseUrl;
-        psi.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
-        psi.Environment["AgentLifecycle__AutoSpawn"] = "true";
+
+        psi.ArgumentList.Add($"--ControlPlane:BaseUrl={resolvedBaseUrl}");
+        psi.Environment["ControlPlane__BaseUrl"] = resolvedBaseUrl;
         psi.Environment["MigrationPlatform__Environment__Type"] = "Standalone";
         psi.Environment["MigrationPlatform__Environment__ControlPlane__BaseUrl"] = resolvedBaseUrl;
+        psi.Environment["DOTNET_ENVIRONMENT"] = "Production";
+        psi.Environment["ASPNETCORE_ENVIRONMENT"] = "Production";
 
         using var process = Process.Start(psi)
-            ?? throw new InvalidOperationException("Failed to start the Control Plane process.");
+            ?? throw new InvalidOperationException("Failed to start the Migration Agent process.");
 
-        AnsiConsole.MarkupLine($"[green]✓[/] Control Plane started (PID {process.Id})  [dim]{Markup.Escape(resolvedBaseUrl)}[/]");
+        AnsiConsole.MarkupLine($"[green]✓[/] Migration Agent started (PID {process.Id})  [dim]{Markup.Escape(resolvedBaseUrl)}[/]");
         AnsiConsole.MarkupLine("[grey]Press Ctrl+C to stop.[/]");
 
         await using var registration = cancellationToken.Register(() =>
@@ -92,7 +88,7 @@ public sealed class ControlPlaneStartCommand : AsyncCommand<ControlPlaneStartCom
                 if (!process.HasExited)
                     process.Kill(entireProcessTree: true);
             }
-            catch (InvalidOperationException) { /* already exited */ }
+            catch (InvalidOperationException) { }
         });
 
         await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
