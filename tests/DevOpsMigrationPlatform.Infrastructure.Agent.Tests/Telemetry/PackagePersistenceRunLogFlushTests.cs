@@ -9,6 +9,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -20,6 +21,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Telemetry;
 [TestClass]
 public class PackagePersistenceRunLogFlushTests
 {
+    private static IServiceProvider BuildServiceProvider(IPackageAccess package)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(package);
+        return services.BuildServiceProvider();
+    }
     [TestMethod]
     public async Task PackageProgressSink_FlushAfterPackageStateClear_WritesToOriginalRunLogFolder()
     {
@@ -91,10 +98,7 @@ public class PackagePersistenceRunLogFlushTests
             CurrentJob = new Job { JobId = "job-logger", Kind = JobKind.Import }
         };
         var expectedRunId = state.CurrentRunId;
-        using var provider = new PackageLoggerProvider(
-            state,
-            Options.Create(new DiagnosticLogOptions { MaxLogFileSizeMB = 50 }),
-            mockPackage.Object);
+        using var provider = new PackageLoggerProvider(state, Options.Create(new DiagnosticLogOptions { MaxLogFileSizeMB = 50 }), BuildServiceProvider(mockPackage.Object));
         var logger = provider.CreateLogger("Test");
 
         logger.LogInformation("imported");
@@ -121,10 +125,7 @@ public class PackagePersistenceRunLogFlushTests
         {
             CurrentJob = new Job { JobId = "job-logger", Kind = JobKind.Import }
         };
-        using var provider = new PackageLoggerProvider(
-            state,
-            Options.Create(new DiagnosticLogOptions { MaxLogFileSizeMB = 50 }),
-            mockPackage.Object);
+        using var provider = new PackageLoggerProvider(state, Options.Create(new DiagnosticLogOptions { MaxLogFileSizeMB = 50 }), BuildServiceProvider(mockPackage.Object));
         var logger = provider.CreateLogger("Test");
 
         logger.LogInformation("imported");

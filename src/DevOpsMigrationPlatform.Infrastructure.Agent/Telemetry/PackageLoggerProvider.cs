@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -33,7 +34,7 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
 {
     private readonly Channel<DiagnosticLogRecord> _channel;
     private readonly ActivePackageState _packageState;
-    private readonly IPackageAccess _package;
+    private readonly IServiceProvider _serviceProvider;
     private readonly LogLevel _minimumLevel;
     private readonly int _flushBatchSize;
     private readonly TimeSpan _flushInterval;
@@ -45,13 +46,17 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
     // Rotation state — only accessed from the drain loop (single-threaded).
     private long _currentSegmentBytes;
 
+    // Lazily resolved to break circular dependency:
+    // PackageLoggerProvider (ILoggerProvider) -> IPackageAccess -> ILogger<T> -> ILoggerProvider
+    private IPackageAccess? _package;
+
     public PackageLoggerProvider(
         ActivePackageState packageState,
         IOptions<DiagnosticLogOptions> options,
-        IPackageAccess package)
+        IServiceProvider serviceProvider)
     {
         _packageState = packageState;
-        _package = package ?? throw new ArgumentNullException(nameof(package));
+        _serviceProvider = serviceProvider;
         var opts = options.Value;
         _minimumLevel = Enum.TryParse<LogLevel>(opts.MinimumLevel, ignoreCase: true, out var level) ? level : LogLevel.Information;
         _flushBatchSize = opts.FlushBatchSize;
@@ -63,6 +68,8 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
         _channel = Channel.CreateBounded<DiagnosticLogRecord>(
             new BoundedChannelOptions(opts.ChannelCapacity) { FullMode = BoundedChannelFullMode.DropOldest });
     }
+
+    private IPackageAccess Package => _package ??= _serviceProvider.GetRequiredService<IPackageAccess>();
 
     /// <summary>
     /// Returns the current run-scoped diagnostics stream path.
@@ -205,7 +212,7 @@ public sealed class PackageLoggerProvider : BackgroundService, ILoggerProvider, 
             }
 
             using var stream = new MemoryStream(Encoding.UTF8.GetBytes(payload), writable: false);
-            await _package.AppendLogAsync(
+            await Package.AppendLogAsync(
                 new PackageLogContext(runId!, PackageLogStream.Diagnostics),
                 new PackageLogPayload(stream),
                 cancellationToken).ConfigureAwait(false);

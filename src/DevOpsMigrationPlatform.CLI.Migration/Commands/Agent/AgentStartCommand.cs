@@ -74,11 +74,25 @@ public sealed class AgentStartCommand : AsyncCommand<AgentStartCommand.Settings>
         psi.Environment["MigrationPlatform__Environment__ControlPlane__BaseUrl"] = resolvedBaseUrl;
         psi.Environment["DOTNET_ENVIRONMENT"] = "Production";
         psi.Environment["ASPNETCORE_ENVIRONMENT"] = "Production";
+        psi.Environment["Logging__LogLevel__Default"] = "Information";
+        psi.Environment["Logging__LogLevel__DevOpsMigrationPlatform"] = "Information";
+        psi.Environment["Logging__Console__LogLevel__Default"] = "Information";
+        psi.Environment["Telemetry__DetailedDiagnostics"] = "true";
+
+        var diagnosticsPath = Environment.GetEnvironmentVariable("Telemetry__DiagnosticsPath");
+        if (string.IsNullOrWhiteSpace(diagnosticsPath))
+        {
+            diagnosticsPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), ".otel-diagnostics"));
+            Environment.SetEnvironmentVariable("Telemetry__DiagnosticsPath", diagnosticsPath);
+        }
+        psi.Environment["Telemetry__DiagnosticsPath"] = diagnosticsPath;
 
         using var process = Process.Start(psi)
             ?? throw new InvalidOperationException("Failed to start the Migration Agent process.");
 
         AnsiConsole.MarkupLine($"[green]✓[/] Migration Agent started (PID {process.Id})  [dim]{Markup.Escape(resolvedBaseUrl)}[/]");
+        AnsiConsole.MarkupLine($"[blue]ℹ[/] AgentExe: [dim]{Markup.Escape(exePath)}[/]");
+        AnsiConsole.MarkupLine($"[blue]ℹ[/] DiagnosticsPath: [dim]{Markup.Escape(diagnosticsPath)}[/]");
         AnsiConsole.MarkupLine("[grey]Press Ctrl+C to stop.[/]");
 
         await using var registration = cancellationToken.Register(() =>

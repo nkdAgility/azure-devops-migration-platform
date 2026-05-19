@@ -66,3 +66,7 @@ test_results.txt
 
 %DEVOPS_MIGRATION_TEST_STORAGE%/**
 .output/
+.otel-diagnostics/stderr.txt
+.otel-diagnostics/stdout.txt
+.otel-diagnostics/test-run5/stderr.txt
+.otel-diagnostics/test-run5/stdout.txt

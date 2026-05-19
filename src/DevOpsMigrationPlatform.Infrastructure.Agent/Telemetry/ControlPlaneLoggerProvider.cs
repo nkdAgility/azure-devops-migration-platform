@@ -12,6 +12,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -35,19 +36,23 @@ public sealed class ControlPlaneLoggerProvider : BackgroundService, ILoggerProvi
     };
 
     private readonly Channel<DiagnosticLogRecord> _channel;
-    private readonly IHttpClientFactory _httpFactory;
+    private readonly IServiceProvider _serviceProvider;
     private readonly ActiveLeaseState _leaseState;
     private readonly LogLevel _minimumLevel;
     private readonly int _flushBatchSize;
     private readonly TimeSpan _flushInterval;
     private long _droppedCount;
 
+    // Lazily resolved to break circular dependency:
+    // ControlPlaneLoggerProvider (ILoggerProvider) -> IHttpClientFactory -> (resilience ILogger) -> ILoggerFactory -> ILoggerProvider
+    private IHttpClientFactory? _httpFactory;
+
     public ControlPlaneLoggerProvider(
-        IHttpClientFactory httpFactory,
+        IServiceProvider serviceProvider,
         ActiveLeaseState leaseState,
         IOptions<DiagnosticLogOptions> options)
     {
-        _httpFactory = httpFactory;
+        _serviceProvider = serviceProvider;
         _leaseState = leaseState;
 
         var opts = options.Value;
@@ -63,6 +68,8 @@ public sealed class ControlPlaneLoggerProvider : BackgroundService, ILoggerProvi
                 FullMode = BoundedChannelFullMode.DropOldest
             });
     }
+
+    private IHttpClientFactory HttpFactory => _httpFactory ??= _serviceProvider.GetRequiredService<IHttpClientFactory>();
 
     public ILogger CreateLogger(string categoryName)
         => new ControlPlaneLogger(this, categoryName);
@@ -138,7 +145,7 @@ public sealed class ControlPlaneLoggerProvider : BackgroundService, ILoggerProvi
 
         try
         {
-            using var http = _httpFactory.CreateClient(HttpClientName);
+            using var http = HttpFactory.CreateClient(HttpClientName);
             var response = await http.PostAsJsonAsync(
                 $"/agents/lease/{Uri.EscapeDataString(leaseId)}/diagnostics",
                 batch,

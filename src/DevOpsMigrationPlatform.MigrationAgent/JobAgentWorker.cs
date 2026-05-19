@@ -90,6 +90,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         _currentJobEndpointAccessor = currentJobEndpointAccessor;
         _telemetryClient = telemetryClient;
         _logger = logger;
+        _logger.LogWarning(
+            "JobAgentWorker started. Waiting for lease from Control Plane at {ControlPlaneUrl}.",
+            httpClientFactory.CreateClient().BaseAddress);
     }
 
     protected override ConnectorType[] Capabilities => new[] { ConnectorType.AzureDevOps, ConnectorType.Simulated };
@@ -105,6 +108,12 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     protected override async Task OnJobAsync(
         Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
+        _logger.LogWarning(
+            "JobAgentWorker acquired lease {LeaseId} for job {JobId} ({JobKind}).",
+            leaseId,
+            job.JobId,
+            job.Kind);
+
         // ── Shared preamble: package stores, config write, config load ────────
         await InitializeJobPackageAsync(job, ct).ConfigureAwait(false);
 

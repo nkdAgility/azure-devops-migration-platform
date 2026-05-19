@@ -4,6 +4,7 @@
 #if !NETFRAMEWORK
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -17,6 +18,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Telemetry;
 [TestClass]
 public class PackageLoggerProviderRotationTests
 {
+    private static IServiceProvider BuildServiceProvider(IPackageAccess package)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(package);
+        return services.BuildServiceProvider();
+    }
     /// <summary>
     /// Verifies that when log output stays under the segment size limit,
     /// diagnostics are appended through the package boundary.
@@ -40,7 +47,7 @@ public class PackageLoggerProviderRotationTests
         };
         var opts = Options.Create(new DiagnosticLogOptions { MaxLogFileSizeMB = 50 });
 
-        var provider = new PackageLoggerProvider(state, opts, mockPackage.Object);
+        var provider = new PackageLoggerProvider(state, opts, BuildServiceProvider(mockPackage.Object));
         var logger = provider.CreateLogger("Test");
 
         // Act — log 5 messages, then stop.
@@ -95,7 +102,7 @@ public class PackageLoggerProviderRotationTests
             FlushIntervalMs = 50
         });
 
-        var provider = new PackageLoggerProvider(state, opts, mockPackage.Object);
+        var provider = new PackageLoggerProvider(state, opts, BuildServiceProvider(mockPackage.Object));
         var logger = provider.CreateLogger("Test");
 
         // Act — log enough large messages to exceed 1 MB.
@@ -145,7 +152,7 @@ public class PackageLoggerProviderRotationTests
             FlushIntervalMs = 50
         });
 
-        var provider = new PackageLoggerProvider(state, opts, mockPackage.Object);
+        var provider = new PackageLoggerProvider(state, opts, BuildServiceProvider(mockPackage.Object));
         var logger = provider.CreateLogger("Test");
 
         // Act — log many large messages.
@@ -175,7 +182,7 @@ public class PackageLoggerProviderRotationTests
         var state = new ActivePackageState();
         var opts = Options.Create(new DiagnosticLogOptions());
         var mockPackage = new Mock<IPackageAccess>(MockBehavior.Loose);
-        using var provider = new PackageLoggerProvider(state, opts, mockPackage.Object);
+        using var provider = new PackageLoggerProvider(state, opts, BuildServiceProvider(mockPackage.Object));
 
         Assert.AreEqual($"{PackagePathTestHelper.Logs}/diagnostics.ndjson", provider.CurrentLogPath);
     }
