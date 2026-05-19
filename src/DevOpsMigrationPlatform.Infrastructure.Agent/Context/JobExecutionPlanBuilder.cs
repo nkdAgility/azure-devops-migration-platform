@@ -250,7 +250,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         var needed = ResolveNeededExportModules(config, exportModules);
 
         // Resolve org/project for task IDs from the Source config section.
-        var sourceUrl = config["MigrationPlatform:Source:Url"] ?? string.Empty;
+        var sourceUrl = ConfigTokenResolver.Resolve(config["MigrationPlatform:Source:Url"]) ?? string.Empty;
         var sourceType = config["MigrationPlatform:Source:Type"] ?? "Unknown";
         var orgSlug = string.IsNullOrWhiteSpace(sourceUrl)
             ? PackagePathResolver.Sanitise(sourceType.ToLowerInvariant())
@@ -502,7 +502,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         bool importAlreadyDone = false;
 
         // Resolve org/project for task IDs (import jobs target Target, not Source).
-        var targetUrl = config["MigrationPlatform:Target:Url"] ?? string.Empty;
+        var targetUrl = ConfigTokenResolver.Resolve(config["MigrationPlatform:Target:Url"]) ?? string.Empty;
         var targetType = config["MigrationPlatform:Target:Type"] ?? "Unknown";
         var orgSlug = string.IsNullOrWhiteSpace(targetUrl)
             ? PackagePathResolver.Sanitise(targetType.ToLowerInvariant())
@@ -911,7 +911,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         if (configured.Count == 0)
         {
             // Single-org fallback from Source section.
-            var sourceUrl = config["MigrationPlatform:Source:Url"] ?? string.Empty;
+            var sourceUrl = ConfigTokenResolver.Resolve(config["MigrationPlatform:Source:Url"]) ?? string.Empty;
             var sourceProject = config["MigrationPlatform:Source:Project"] ?? string.Empty;
             var generatorProjects = config
                 .GetSection("MigrationPlatform:Source:Generator:Projects")
