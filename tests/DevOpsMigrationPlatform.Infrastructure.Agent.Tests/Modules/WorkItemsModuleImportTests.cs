@@ -40,6 +40,7 @@ public sealed class WorkItemsModuleImportTests
         var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
         sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
         sourceEndpoint.SetupGet(s => s.Url).Returns("https://source.example");
+        sourceEndpoint.SetupGet(s => s.OrganisationSlug).Returns("source.example");
         sourceEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
 
         var targetEndpoint = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
@@ -72,6 +73,7 @@ public sealed class WorkItemsModuleImportTests
         var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
         sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
         sourceEndpoint.SetupGet(s => s.Url).Returns("https://source.example");
+        sourceEndpoint.SetupGet(s => s.OrganisationSlug).Returns("source.example");
         sourceEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
 
         var targetEndpoint = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
@@ -104,6 +106,7 @@ public sealed class WorkItemsModuleImportTests
         var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
         sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
         sourceEndpoint.SetupGet(s => s.Url).Returns("https://source.example");
+        sourceEndpoint.SetupGet(s => s.OrganisationSlug).Returns("source.example");
         sourceEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
 
         var targetEndpoint = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
@@ -275,6 +278,7 @@ public sealed class WorkItemsModuleImportTests
         var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
         sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
         sourceEndpoint.SetupGet(s => s.Url).Returns("https://source.example");
+        sourceEndpoint.SetupGet(s => s.OrganisationSlug).Returns("source.example");
         sourceEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
 
         var targetEndpoint = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
@@ -447,6 +451,7 @@ public sealed class WorkItemsModuleImportTests
         var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
         sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
         sourceEndpoint.SetupGet(s => s.Url).Returns("https://source.example");
+        sourceEndpoint.SetupGet(s => s.OrganisationSlug).Returns("source.example");
         sourceEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
 
         var targetEndpoint = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
@@ -593,6 +598,7 @@ public sealed class WorkItemsModuleImportTests
         var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
         sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
         sourceEndpoint.SetupGet(s => s.Url).Returns("https://source.example");
+        sourceEndpoint.SetupGet(s => s.OrganisationSlug).Returns("source.example");
         sourceEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
 
         var targetEndpoint = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
