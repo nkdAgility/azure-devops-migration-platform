@@ -778,6 +778,14 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     }
                     if (update is JobTerminated jt)
                     {
+                        // On fast jobs the SSE stream ends before the bootstrap HTTP call
+                        // completes — drain pending updates so the final summary is accurate.
+                        try { await bootstrapTask.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
+                        catch (OperationCanceledException) { }
+                        catch (Exception) { /* best-effort */ }
+                        while (updates.Reader.TryRead(out var pending))
+                            state = Apply(state, pending);
+
                         if (jt.Failed)
                         {
                             jobFailed = true;
@@ -823,6 +831,18 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                                 ctx.UpdateTarget(BuildProgressDisplay(state));
                             if (update is JobTerminated jt)
                             {
+                                // On fast jobs the SSE stream ends before the bootstrap HTTP
+                                // call completes. Await bootstrap then drain pending updates
+                                // so the final render shows completed tasks, not the spinner.
+                                try { await bootstrapTask.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
+                                catch (OperationCanceledException) { }
+                                catch (Exception) { /* best-effort */ }
+                                while (updates.Reader.TryRead(out var pending))
+                                    state = Apply(state, pending);
+
+                                if (state.Tasks is not null)
+                                    ctx.UpdateTarget(BuildProgressDisplay(state));
+
                                 if (jt.Failed)
                                 {
                                     jobFailed = true;
