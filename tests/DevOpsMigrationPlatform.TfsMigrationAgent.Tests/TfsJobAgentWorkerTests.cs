@@ -104,7 +104,7 @@ public class TfsJobAgentWorkerTests
         _flushables = new IFlushable[]
         {
             new PackageProgressSink(_packageState, NullLogger<PackageProgressSink>.Instance, _package.Object),
-            new PackageLoggerProvider(_packageState, Options.Create(new DiagnosticLogOptions()), _package.Object),
+            new PackageLoggerProvider(_packageState, Options.Create(new DiagnosticLogOptions()), new ServiceCollection().AddSingleton(_package.Object).BuildServiceProvider()),
         };
 
         _checkpointingFactory

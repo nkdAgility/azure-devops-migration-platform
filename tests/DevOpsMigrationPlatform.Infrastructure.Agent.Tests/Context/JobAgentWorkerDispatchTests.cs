@@ -211,7 +211,7 @@ public sealed class JobAgentWorkerDispatchTests
         _flushables =
         [
             new PackageProgressSink(_packageState, NullLogger<PackageProgressSink>.Instance, _package.Object),
-            new PackageLoggerProvider(_packageState, Options.Create(new DiagnosticLogOptions()), _package.Object),
+            new PackageLoggerProvider(_packageState, Options.Create(new DiagnosticLogOptions()), new ServiceCollection().AddSingleton(_package.Object).BuildServiceProvider()),
         ];
 
         var services = new ServiceCollection();
