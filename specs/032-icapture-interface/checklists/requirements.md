@@ -2,7 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-05-06
-**Updated**: 2026-05-06 (after Red Team Review, Observability Contract, Connector Coverage Check)
+**Updated**: 2026-05-17 (reconciliation against repository truth)
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -71,4 +71,13 @@
 - This feature grows from 11 FRs to 16 FRs after the three hooks. All additions are substantive and address real implementation risks.
 - The most significant red team finding was the `JobAgentWorker` absence from all FRs — the wiring site for `captureHandlersByName` — which would have caused the refactor to compile but not work end-to-end.
 - The most significant connector finding was the missing Simulated `IDependencyDiscoveryServiceFactory` — pre-existing gap surfaced and closed within this spec.
+
+## Reconciliation Delta (Current State)
+
+- [x] Core architecture landed: `ICapture`, `IModule : ICapture`, unified `captureHandlersByName`, and `IProjectAnalyser` removal are present in source.
+- [x] Simulated dependency factory exists and is DI-registered.
+- [ ] Full clean build (zero warnings) currently fails this checklist expectation (`dotnet build ...` succeeds with warnings in baseline).
+- [ ] Fresh full-solution `dotnet test` evidence is not recorded in this reconciliation run.
+- [ ] Fresh `.vscode/launch.json` simulated dependency-capture scenario evidence is not recorded in this reconciliation run.
+- [ ] Spec/task artifact drift exists and should be retained as explicit supersession notes (path/name changes and `CaptureAsync` return-type drift).
 

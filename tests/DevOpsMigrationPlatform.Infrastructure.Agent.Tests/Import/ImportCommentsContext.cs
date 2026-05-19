@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -17,12 +18,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 /// </summary>
 public class ImportCommentsContext
 {
-    public Mock<IArtefactStore> MockArtefactStore { get; } = new(MockBehavior.Strict);
     public Mock<ICheckpointingService> MockCheckpointing { get; } = new(MockBehavior.Strict);
     public Mock<IProgressSink> MockProgressSink { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
+    internal Mock<ITestArtefactStore> MockArtefactStore { get; } = new(MockBehavior.Loose);
     public Mock<IPackageAccess> MockPackage { get; }
 
     public WorkItemsModuleExtensions Extensions { get; set; } = new WorkItemsModuleExtensions();
@@ -41,19 +42,21 @@ public class ImportCommentsContext
             MockIdMapStore.Object,
             MockCheckpointing.Object,
             (IIdentityLookupTool?)null,
-            MockArtefactStore.Object,
             NullLogger<RevisionFolderProcessor>.Instance,
+            "https://dev.azure.com/contoso",
+            "Shop",
             package: MockPackage.Object);
 
         return new WorkItemImportOrchestrator(
-            MockArtefactStore.Object,
+            MockPackage.Object,
+            "https://dev.azure.com/contoso",
+            "Shop",
             MockCheckpointing.Object,
             MockProgressSink.Object,
             MockResolutionStrategy.Object,
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemImportOrchestrator>.Instance,
-            package: MockPackage.Object);
+            NullLogger<WorkItemImportOrchestrator>.Instance);
     }
 }

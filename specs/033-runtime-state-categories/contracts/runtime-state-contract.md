@@ -9,9 +9,12 @@ Define the authoritative state boundaries and progress/save cadence contract for
 1. **Authoritative package orchestration state**
    - Root `.migration/` is authoritative for package-wide orchestration decisions only.
 
-2. **Authoritative project resume state**
+2. **Authoritative scoped resume state**
    - `/{org}/{project}/.migration/` is authoritative for project-scoped module resume.
+   - `/{org}/.migration/` is authoritative for organisation-scoped module resume.
+   - `/.migration/` is authoritative for package-scoped module resume.
    - Cursor identity must include action and module.
+   - Reads use precedence project → org → package; writes/resets target the most-specific resolved scope.
 
 3. **Run-scoped audit-only state**
    - `.migration/runs/<runId>/` contains audit snapshots and logs only.

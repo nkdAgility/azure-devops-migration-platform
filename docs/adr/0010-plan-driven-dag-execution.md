@@ -54,5 +54,6 @@ The Agent builds an execution plan from `IModule.DependsOn` declarations, persis
 
 - [ADR-0003](0003-cursor-based-checkpointing.md) — item-level resume (complementary to plan-level)
 - [docs/architecture.md](../architecture.md) — agent execution model
-- [.agents/context/job-lifecycle.md](../../.agents/context/job-lifecycle.md) — job lifecycle
+- [.agents/30-context/domains/job-lifecycle.md](../../.agents/30-context/domains/job-lifecycle.md) — job lifecycle
 - Driving specs: `specs/028.1-task-bootstrap/spec.md`, `specs/028.2-job-execution-by-task/spec.md`
+

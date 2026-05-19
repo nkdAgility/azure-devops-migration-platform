@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
@@ -8,7 +9,6 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -30,17 +30,12 @@ public sealed class RuntimeStateTracingTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        _ = PackagePaths.CursorFile("export", "workitems", "https://dev.azure.com/contoso", "Shop");
-
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
         var endpoints = CreateEndpointAccessor();
         var sut = new CheckpointingService(
-            stateStore.Object,
             endpoints.Object,
-            package: PackageTestFactory.CreateStateDelegatingMock(stateStore.Object).Object);
+            package: PackageTestFactory.CreateLooseMock().Object);
         await sut.WriteCursorAsync("export.workitems", new CursorEntry { LastProcessed = "X", Stage = CursorStage.Completed }, CancellationToken.None);
 
-        CollectionAssert.Contains(spans, "state.paths.resolve");
         CollectionAssert.Contains(spans, "state.cursor.update");
     }
 

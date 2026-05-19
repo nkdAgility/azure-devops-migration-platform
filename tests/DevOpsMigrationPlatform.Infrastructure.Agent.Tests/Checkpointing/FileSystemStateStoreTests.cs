@@ -4,7 +4,7 @@
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Checkpointing;

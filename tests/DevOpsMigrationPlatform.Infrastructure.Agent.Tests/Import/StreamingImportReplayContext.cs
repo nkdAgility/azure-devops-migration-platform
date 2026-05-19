@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -19,12 +20,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 /// </summary>
 public class StreamingImportReplayContext
 {
-    public Mock<IArtefactStore> MockArtefactStore { get; } = new(MockBehavior.Strict);
     public Mock<ICheckpointingService> MockCheckpointing { get; } = new(MockBehavior.Strict);
     public Mock<IProgressSink> MockProgressSink { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
+    internal Mock<ITestArtefactStore> MockArtefactStore { get; } = new(MockBehavior.Loose);
     public Mock<IPackageAccess> MockPackage { get; }
 
     public WorkItemsModuleExtensions Extensions { get; set; } = new WorkItemsModuleExtensions();
@@ -51,24 +52,26 @@ public class StreamingImportReplayContext
             MockIdMapStore.Object,
             MockCheckpointing.Object,
             (IIdentityLookupTool?)null,
-            MockArtefactStore.Object,
             processorLogger,
+            "https://dev.azure.com/contoso",
+            "Shop",
             package: MockPackage.Object);
 
         return new WorkItemImportOrchestrator(
-            MockArtefactStore.Object,
+            MockPackage.Object,
+            "https://dev.azure.com/contoso",
+            "Shop",
             MockCheckpointing.Object,
             MockProgressSink.Object,
             MockResolutionStrategy.Object,
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemImportOrchestrator>.Instance,
-            package: MockPackage.Object);
+            NullLogger<WorkItemImportOrchestrator>.Instance);
     }
 
     /// <summary>
-    /// Sets up the artefact store mock to enumerate <see cref="FolderPaths"/> and return
+    /// Sets up the package mock to enumerate <see cref="FolderPaths"/> and return
     /// a minimal revision.json for each revision folder.
     /// Uses suffix-based matchers instead of per-path setup calls to keep mock registration
     /// O(1) regardless of how many revision folders are in the scenario.
@@ -81,13 +84,11 @@ public class StreamingImportReplayContext
             .Setup(s => s.EnumerateAsync("WorkItems/", It.IsAny<CancellationToken>()))
             .Returns((string _, CancellationToken ct) => ToAsyncEnumerable(FolderPaths, ct));
 
-        // Single suffix-based setup covers all paths — avoids O(n) Moq registration cost
-        // that would otherwise make large-count scenarios (e.g. 50 000 folders) unusably slow.
         MockArtefactStore
-            .Setup(s => s.ReadAsync(It.Is<string>(p => p.EndsWith("/revision.json")), It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(It.Is<string>(p => p.EndsWith("revision.json")), It.IsAny<CancellationToken>()))
             .ReturnsAsync(json);
         MockArtefactStore
-            .Setup(s => s.ReadAsync(It.Is<string>(p => p.EndsWith("/comment.json")), It.IsAny<CancellationToken>()))
+            .Setup(s => s.ReadAsync(It.Is<string>(p => p.EndsWith("comment.json")), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
     }
 

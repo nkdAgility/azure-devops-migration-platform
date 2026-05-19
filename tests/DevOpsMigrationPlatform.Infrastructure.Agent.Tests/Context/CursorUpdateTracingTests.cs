@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -29,12 +30,13 @@ public sealed class CursorUpdateTracingTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
         var endpoints = CreateEndpointAccessor();
+        var package = PackageTestFactory.CreateLooseMock();
         var sut = new CheckpointingService(
-            stateStore.Object,
             endpoints.Object,
-            package: PackageTestFactory.CreateStateDelegatingMock(stateStore.Object).Object);
+            null,
+            null,
+            package.Object);
         await sut.WriteCursorAsync("import.workitems", new CursorEntry { LastProcessed = "P", Stage = CursorStage.Completed }, CancellationToken.None);
         CollectionAssert.Contains(names, "state.cursor.update");
     }

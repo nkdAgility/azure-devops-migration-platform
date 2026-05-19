@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
@@ -18,6 +18,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -108,8 +109,7 @@ public sealed class NodesModuleInventoryTests
         return new InventoryContext
         {
             Job = new Job { JobId = "job-1", Kind = JobKind.Inventory },
-            ArtefactStore = Mock.Of<IArtefactStore>(),
-            StateStore = Mock.Of<IStateStore>(),
+            Package = PackageTestFactory.CreateLooseMock().Object,
             ProgressSink = progressSink,
             Project = "ProjectA"
         };

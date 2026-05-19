@@ -42,7 +42,7 @@ The control plane does **not** run the Job Engine, call source or target APIs, o
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/jobs` | Submit a new job. Body is a job definition (see [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md)). Returns `jobId`. |
+| `POST` | `/jobs` | Submit a new job. Body is a job definition (see [.agents/30-context/domains/job-lifecycle.md](../.agents/30-context/domains/job-lifecycle.md)). Returns `jobId`. |
 | `GET` | `/jobs` | List jobs visible to the caller. Filtered server-side by auth context. Accepts `?tenantId=` (admins only) and `?state=` filters. |
 | `GET` | `/jobs/{jobId}` | Get job status and metadata. Returns 403 if the caller lacks visibility. |
 | `GET` | `/jobs/{jobId}/progress` | Get per-module, per-stage progress as last reported by the Migration Agent. |
@@ -173,7 +173,7 @@ The control plane accepts two authentication schemes. The scheme active in a giv
 | **Entra ID (OIDC / Bearer)** | Cloud deployments and any Entra-joined environment. The CLI/TUI acquires a token scoped to the control plane's Entra App Registration. | `tid` (tenant GUID), `oid` (user object ID), `upn` (email address) |
 | **Windows Integrated Auth (Negotiate)** | On-premises Active Directory deployments. No extra login step; the OS forwards the Kerberos/NTLM token. | `domain` (AD domain FQDN used as `tenant_id`), `sid` (used as `submitted_by_oid`), `samAccountName` (used as `submitted_by_upn`) |
 
-> ⛔ **There is no local-only mode without a control plane.** All topologies — including a developer laptop or dedicated server — run `ControlPlaneHost` via Aspire. The CLI always submits jobs via `ControlPlaneClient` over HTTP. A `LocalJobRunner` or any in-process job executor is **not permitted** and must not be implemented. See guardrail rule #20 in `.agents/guardrails/architecture-boundaries.md`.
+> ⛔ **There is no local-only mode without a control plane.** All topologies — including a developer laptop or dedicated server — run `ControlPlaneHost` via Aspire. The CLI always submits jobs via `ControlPlaneClient` over HTTP. A `LocalJobRunner` or any in-process job executor is **not permitted** and must not be implemented. See guardrail rule #20 in `.agents/20-guardrails/core/architecture-boundaries.md`.
 
 ### Login
 
@@ -281,7 +281,7 @@ The connection string value is:
 | Environment | Source |
 |---|---|
 | Local | Aspire generates it from the portable PostgreSQL binary endpoint and injects it automatically |
-| Cloud | Azure Container Apps reads it from Key Vault via a managed identity secret reference (see [docs/development-setup.md](control-plane-rules.md)) |
+| Cloud | Azure Container Apps reads it from Key Vault via a managed identity secret reference (see [docs/development-setup.md](development-setup.md)) |
 
 ### Table Schema
 
@@ -370,3 +370,4 @@ Tenancy is enforced from the first job submission. There is no single-tenant pha
 - The nkdAgility-hosted cloud deployment isolates all customer tenants from each other. nkdAgility staff who are members of the `Auth:AdminGroupId` group in the `nkdagility.com` Entra tenant can view all jobs across all customer tenants for support purposes.
 
 See [docs/architecture.md](architecture.md) for the overall system context.
+

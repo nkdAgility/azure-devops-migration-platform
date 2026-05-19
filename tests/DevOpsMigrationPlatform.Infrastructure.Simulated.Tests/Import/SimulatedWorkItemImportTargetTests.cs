@@ -55,14 +55,65 @@ public sealed class SimulatedWorkItemImportTargetTests
     }
 
     [TestMethod]
+    public async Task UpdateFieldsAsync_UnknownWorkItem_ThrowsInvalidOperationException()
+    {
+        var target = new SimulatedWorkItemImportTarget();
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => target.UpdateFieldsAsync(42, Array.Empty<WorkItemField>(), CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task WorkItemExistsAsync_ReturnsFalseBeforeCreate_ThenTrueAfterCreate()
+    {
+        var target = new SimulatedWorkItemImportTarget();
+
+        var existsBefore = await target.WorkItemExistsAsync(1, CancellationToken.None);
+        var created = await target.CreateWorkItemAsync("Bug", Array.Empty<WorkItemField>(), CancellationToken.None);
+        var existsAfter = await target.WorkItemExistsAsync(created.TargetWorkItemId, CancellationToken.None);
+
+        Assert.IsFalse(existsBefore);
+        Assert.IsTrue(existsAfter);
+    }
+
+    [TestMethod]
     public async Task UploadAttachmentAsync_ReturnsDeterministicFakeId()
     {
         var target = new SimulatedWorkItemImportTarget();
+        var created = await target.CreateWorkItemAsync("Bug", Array.Empty<WorkItemField>(), CancellationToken.None);
         var id = await target.UploadAttachmentAsync(
-            42, "test.pdf", Stream.Null, CancellationToken.None);
+            created.TargetWorkItemId, "test.pdf", Stream.Null, CancellationToken.None);
 
-        Assert.IsTrue(id.StartsWith("simulated://42/"), $"Expected simulated:// URL, got: {id}");
+        Assert.IsTrue(id.StartsWith($"simulated://{created.TargetWorkItemId}/"), $"Expected simulated:// URL, got: {id}");
         StringAssert.Contains(id, "test.pdf");
+    }
+
+    [TestMethod]
+    public async Task UploadAttachmentAsync_UnknownWorkItem_ThrowsInvalidOperationException()
+    {
+        var target = new SimulatedWorkItemImportTarget();
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => target.UploadAttachmentAsync(42, "test.pdf", Stream.Null, CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task WorkItemTypeExistsAsync_ReturnsTrue_ForKnownType()
+    {
+        var target = new SimulatedWorkItemImportTarget();
+
+        var exists = await target.WorkItemTypeExistsAsync("Bug", CancellationToken.None);
+
+        Assert.IsTrue(exists);
+    }
+
+    [TestMethod]
+    public async Task WorkItemTypeExistsAsync_ReturnsFalse_ForUnknownType()
+    {
+        var target = new SimulatedWorkItemImportTarget();
+
+        var exists = await target.WorkItemTypeExistsAsync("NotAType", CancellationToken.None);
+
+        Assert.IsFalse(exists);
     }
 
 }

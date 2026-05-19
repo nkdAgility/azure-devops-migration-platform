@@ -10,13 +10,11 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Moq;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 
@@ -40,19 +38,13 @@ public sealed class PackageBoundaryErrorObservabilityTests
         meterListener.Start();
 
         var logger = new TestLogger<ActivePackageAccess>();
-        var failingStore = new Mock<IArtefactStore>(MockBehavior.Strict);
-        failingStore.Setup(s => s.WriteAsync("WorkItems/42.json", It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new IOException("disk full"));
-        var active = new ActivePackageState
-        {
-            CurrentStore = failingStore.Object,
-            CurrentJob = new Job { JobId = "job-fail", Kind = JobKind.Export }
-        };
+        var root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        await File.WriteAllTextAsync(root, "not-a-directory", CancellationToken.None);
+        var (sut, active) = ActivePackageTestFactory.Create(root, "job-fail", JobKind.Export, logger);
         var runId = active.CurrentRunId!;
-        var sut = new ActivePackageAccess(active, new PackagePathRouter(), logger);
 
-        await Assert.ThrowsExactlyAsync<IOException>(() => sut.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, RouteSegments: ["WorkItems", "42.json"]),
+        await Assert.ThrowsAsync<IOException>(() => sut.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("WorkItems/42.json")),
             new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("{\"id\":42}"))),
             CancellationToken.None).AsTask());
 

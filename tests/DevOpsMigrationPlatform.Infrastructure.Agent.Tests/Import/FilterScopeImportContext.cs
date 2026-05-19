@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -19,7 +20,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 /// </summary>
 public class FilterScopeImportContext
 {
-    public Mock<IArtefactStore> MockArtefactStore { get; } = new(MockBehavior.Strict);
     public Mock<ICheckpointingService> MockCheckpointing { get; } = new(MockBehavior.Strict);
     public Mock<IProgressSink> MockProgressSink { get; } = new(MockBehavior.Loose);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
@@ -38,7 +38,7 @@ public class FilterScopeImportContext
 
     public FilterScopeImportContext()
     {
-        MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
+        MockPackage = PackageTestFactory.CreateLooseMock();
     }
 
     public WorkItemImportOrchestrator BuildOrchestrator()
@@ -49,12 +49,15 @@ public class FilterScopeImportContext
             MockIdMapStore.Object,
             MockCheckpointing.Object,
             (IIdentityLookupTool?)null,
-            MockArtefactStore.Object,
             processorLogger,
+            "https://dev.azure.com/contoso",
+            "Shop",
             package: MockPackage.Object);
 
         return new WorkItemImportOrchestrator(
-            MockArtefactStore.Object,
+            MockPackage.Object,
+            "https://dev.azure.com/contoso",
+            "Shop",
             MockCheckpointing.Object,
             MockProgressSink.Object,
             MockResolutionStrategy.Object,
@@ -62,8 +65,7 @@ public class FilterScopeImportContext
             processor,
             MockTarget.Object,
             NullLogger<WorkItemImportOrchestrator>.Instance,
-            filterOptions: FilterOptions.Count > 0 ? FilterOptions : null,
-            package: MockPackage.Object);
+            filterOptions: FilterOptions.Count > 0 ? FilterOptions : null);
     }
 
     public static async IAsyncEnumerable<string> ToAsyncEnumerable(

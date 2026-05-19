@@ -104,8 +104,20 @@ tests/
 3. Remove package-facing runtime bypasses by migrating checkpointing, plan persistence, package config, progress/diagnostics logging, and worker flows to `IPackageAccess`.
 4. Keep unavoidable string-path compatibility isolated in `LegacyPackagePathShim` and treat every remaining shim call site as migration debt to be audited and reduced.
 5. Add or refresh tests for route validation, explicit content API behavior, resume and phase semantics, package-config hardening, Simulated/AzureDevOps/TFS parity, and the required representative scenario validation gate.
-6. Update `.agents/context` and `/docs` references so the package boundary is documented as `IPackageAccess` only, with no package-facing store bypasses in runtime code.
+6. Update `.agents/30-context` and `/docs` references so the package boundary is documented as `IPackageAccess` only, with no package-facing store bypasses in runtime code.
 
 ## Complexity Tracking
 
 No constitution violations requiring justification.
+
+## Reconciliation Update (2026-05-17)
+
+- Current implementation alignment: partial.
+- Remaining incomplete work from `tasks.md`: T034, T035, T047, T048, T061, T063, T070, T075.
+- Items confirmed complete during reconciliation: T046, T049, T062, T064, T065, T066, T067, T068, T069.
+- Superseded items: none identified.
+- Verification evidence:
+  - Build: `dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo` (success).
+  - Focused package-boundary tests: `dotnet test tests\DevOpsMigrationPlatform.Infrastructure.Agent.Tests\DevOpsMigrationPlatform.Infrastructure.Agent.Tests.csproj --filter "FullyQualifiedName~PackageBoundary"` (33/33 passing).
+  - Full solution test command was attempted (`dotnet test DevOpsMigrationPlatform.slnx --nologo`) but did not complete in-session; reconciliation evidence therefore relies on focused boundary test coverage plus build success.
+

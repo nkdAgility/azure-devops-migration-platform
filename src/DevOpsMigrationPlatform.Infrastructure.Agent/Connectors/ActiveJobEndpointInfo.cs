@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
@@ -29,6 +28,9 @@ public sealed class ActiveJobSourceEndpointInfo : ISourceEndpointInfo
     public string ConnectorType
         => _accessor.Source?.ConnectorType ?? string.Empty;
 
+    public string OrganisationSlug
+        => EndpointSlugHelper.ExtractSlug(Url);
+
     public OrganisationEndpoint ToOrganisationEndpoint()
         => _accessor.Source?.ToOrganisationEndpoint() ?? new OrganisationEndpoint();
 }
@@ -52,6 +54,9 @@ public sealed class ActiveJobTargetEndpointInfo : ITargetEndpointInfo
     public string ConnectorType
         => _accessor.Target?.ConnectorType ?? string.Empty;
 
+    public string OrganisationSlug
+        => EndpointSlugHelper.ExtractSlug(Url);
+
     public OrganisationEndpoint ToOrganisationEndpoint()
         => _accessor.Target?.ToOrganisationEndpoint() ?? new OrganisationEndpoint();
 }
@@ -72,4 +77,3 @@ public sealed class ActiveJobAgentJobContext(ICurrentAgentJobContextAccessor acc
     public string ConfigVersion
         => accessor.Current?.ConfigVersion ?? string.Empty;
 }
-#endif

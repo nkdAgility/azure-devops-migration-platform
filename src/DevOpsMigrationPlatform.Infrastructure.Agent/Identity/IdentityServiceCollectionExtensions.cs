@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -45,8 +46,8 @@ public static class IdentityServiceCollectionExtensions
         }
 
 #if !NET481
-        // Register the IdentityLookupTool — replaces the old IdentityMappingService
-        // when the IdentitiesModule is active.
+        services.AddSingleton<IIdentityMappingService, IdentityMappingService>();
+        // Register the IdentityLookupTool seam used by module import/export paths.
         services.AddIdentityLookupToolServices();
 #endif
 

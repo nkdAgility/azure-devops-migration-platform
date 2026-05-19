@@ -18,7 +18,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
@@ -73,13 +73,10 @@ internal static class TfsJobAgentWorkerTestHelper
 [TestCategory("NET481")]
 public class TfsJobAgentWorkerTests
 {
-    private Mock<IPackageStoreFactory> _packageStoreFactory = null!;
     private Mock<IProgressSink> _progressSink = null!;
     private Mock<ICheckpointingServiceFactory> _checkpointingFactory = null!;
     private Mock<IPhaseTrackingServiceFactory> _phaseTrackingFactory = null!;
     private Mock<ITfsJobServiceFactory> _tfsServiceFactory = null!;
-    private Mock<IArtefactStore> _artefactStore = null!;
-    private Mock<IStateStore> _stateStore = null!;
     private Mock<IPackageAccess> _package = null!;
     private Mock<ICheckpointingService> _checkpointer = null!;
     private Mock<IPackageMigrationConfigLoader> _packageMigrationConfigLoader = null!;
@@ -94,13 +91,10 @@ public class TfsJobAgentWorkerTests
     [TestInitialize]
     public void Setup()
     {
-        _packageStoreFactory = new Mock<IPackageStoreFactory>();
         _progressSink = new Mock<IProgressSink>();
         _checkpointingFactory = new Mock<ICheckpointingServiceFactory>();
         _phaseTrackingFactory = new Mock<IPhaseTrackingServiceFactory>();
         _tfsServiceFactory = new Mock<ITfsJobServiceFactory>();
-        _artefactStore = new Mock<IArtefactStore>();
-        _stateStore = new Mock<IStateStore>();
         _package = new Mock<IPackageAccess>(MockBehavior.Loose);
         _checkpointer = new Mock<ICheckpointingService>();
         _leaseState = new ActiveLeaseState();
@@ -110,16 +104,16 @@ public class TfsJobAgentWorkerTests
         _flushables = new IFlushable[]
         {
             new PackageProgressSink(_packageState, NullLogger<PackageProgressSink>.Instance, _package.Object),
-            new PackageLoggerProvider(_packageState, Options.Create(new DiagnosticLogOptions()), _package.Object),
+            new PackageLoggerProvider(_packageState, Options.Create(new DiagnosticLogOptions()), new ServiceCollection().AddSingleton(_package.Object).BuildServiceProvider()),
         };
 
-        _packageStoreFactory
-            .Setup(f => f.Create(It.IsAny<string>()))
-            .Returns((_artefactStore.Object, _stateStore.Object));
-
         _checkpointingFactory
-            .Setup(f => f.Create(It.IsAny<IStateStore>()))
+            .Setup(f => f.Create(It.IsAny<IPackageAccess>()))
             .Returns(_checkpointer.Object);
+
+        _phaseTrackingFactory
+            .Setup(f => f.Create(It.IsAny<IPackageAccess>()))
+            .Returns(Mock.Of<IPhaseTrackingService>());
 
         _checkpointer
             .Setup(c => c.ReadCursorAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -162,7 +156,6 @@ public class TfsJobAgentWorkerTests
         var sp = sc.BuildServiceProvider();
 
         return new(
-            _packageStoreFactory.Object,
             _progressSink.Object,
             _leaseState,
             _packageState,
@@ -177,7 +170,7 @@ public class TfsJobAgentWorkerTests
             _tfsServiceFactory.Object,
             new DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.ActiveTfsJobServices(),
             _logger,
-            package);
+            package ?? _package.Object);
     }
 
     private HttpClient CreateControlPlaneClient() =>
@@ -287,10 +280,6 @@ public class TfsJobAgentWorkerTests
             .Setup(f => f.CreateForEndpoint(It.IsAny<MigrationEndpointOptions>()))
             .Returns(tfsServices);
 
-        _artefactStore
-            .Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
         var worker = CreateWorker();
 
         // Act
@@ -356,7 +345,7 @@ public class TfsJobAgentWorkerTests
             .Setup(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes(planJson)), "application/json"));
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/plan.json", new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes(planJson)), "application/json"))));
         package
             .Setup(p => p.PersistMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
@@ -375,7 +364,6 @@ public class TfsJobAgentWorkerTests
             It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
             It.IsAny<PackageMetaPayload>(),
             It.IsAny<CancellationToken>()), Times.AtLeastOnce);
-        _stateStore.Verify(s => s.ReadAsync(PackagePaths.PlanFile, It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [TestMethod]
@@ -421,17 +409,12 @@ public class TfsJobAgentWorkerTests
             .Setup(f => f.CreateForEndpoint(It.IsAny<MigrationEndpointOptions>()))
             .Returns(tfsServices);
 
-        var planJson = "{\"Tasks\":[{\"Id\":\"export.workitems\",\"Name\":\"Work Items Export\",\"TaskKind\":1,\"Order\":0,\"Status\":0}],\"Phases\":[],\"ForKind\":2}";
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((PackageMetaPayload?)null);
-
-        _stateStore
-            .Setup(s => s.ReadAsync(PackagePaths.PlanFile, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(planJson);
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/plan.json", null)));
 
         var worker = CreateWorker(package: package.Object);
         await TfsJobAgentWorkerTestHelper.InvokeMigrationJobAsync(
@@ -444,8 +427,6 @@ public class TfsJobAgentWorkerTests
             It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
             It.IsAny<PackageMetaPayload>(),
             It.IsAny<CancellationToken>()), Times.Never);
-        _stateStore.Verify(s => s.ReadAsync(PackagePaths.PlanFile, It.IsAny<CancellationToken>()), Times.Never);
-        _stateStore.Verify(s => s.WriteAsync(PackagePaths.PlanFile, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [TestMethod]
@@ -483,10 +464,6 @@ public class TfsJobAgentWorkerTests
         _tfsServiceFactory
             .Setup(f => f.CreateForEndpoint(It.IsAny<MigrationEndpointOptions>()))
             .Returns(tfsServices);
-
-        _artefactStore
-            .Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
 
         _checkpointer
             .Setup(c => c.DeleteCursorAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -648,11 +625,11 @@ public class TfsJobAgentWorkerTests
         package.Setup(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.MigrationConfig),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("{\"MigrationPlatform\":{\"Mode\":\"Export\"}}"))));
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("{\"MigrationPlatform\":{\"Mode\":\"Export\"}}"))))));
 
         var metrics = new Mock<IPlatformMetrics>(MockBehavior.Loose);
-        var sut = new DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageMigrationConfigLoader(
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.Storage.PackageMigrationConfigLoader>.Instance,
+        var sut = new DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem.PackageMigrationConfigLoader(
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem.PackageMigrationConfigLoader>.Instance,
             package.Object,
             metrics.Object);
 
@@ -726,8 +703,10 @@ internal static class TestTfsJobServicesFactory
 
         return new TfsJobServices(
             collection,
+            null!,
             revisionSource,
             attachmentSource,
+            new Mock<INodeCreator>().Object,
             classificationTreeReader,
             discoveryService,
             null!,

@@ -1,34 +1,24 @@
-# Specification Quality Checklist: Discovery Dependency Analysis
+# Reconciliation Checklist: Discovery Dependency Analysis
 
-**Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-04-14
-**Feature**: [spec.md](../spec.md)
+**Feature**: `012-discovery-dependencies`  
+**Purpose**: Track reconciliation truth against current repository implementation
 
-## Content Quality
+## Task Reconciliation
 
-- [x] No implementation details (languages, frameworks, APIs)
-- [x] Focused on user value and business needs
-- [x] Written for non-technical stakeholders
-- [x] All mandatory sections completed
+- [x] Every task line in `tasks.md` has one terminal status marker (`Status: ...`)
+- [x] Checkbox state aligns with task status (`complete`/`complete/superseded` => `[X]`, `incomplete` => `[ ]`)
+- [x] Every `incomplete` task includes an `Evidence` note
+- [x] Every `complete/superseded` task includes supersession source + evidence note
+- [x] Task order, IDs, story labels, and phase structure preserved
 
-## Requirement Completeness
+## Current Truth Summary
 
-- [x] No [NEEDS CLARIFICATION] markers remain
-- [x] Requirements are testable and unambiguous
-- [x] Success criteria are measurable
-- [x] Success criteria are technology-agnostic (no implementation details)
-- [x] All acceptance scenarios are defined
-- [x] Edge cases are identified
-- [x] Scope is clearly bounded
-- [x] Dependencies and assumptions identified
-
-## Feature Readiness
-
-- [x] All functional requirements have clear acceptance criteria
-- [x] User scenarios cover primary flows
-- [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] No implementation details leak into specification
+- [x] Core dependency analysis runtime exists in Agent pipeline (`DependencyCapture`, `DependencyAnalyser`, `DependencyOrchestrator`, `AzureDevOpsDependencyAnalysisService`)
+- [x] Queue-based Dependencies mode is canonical (`Program.cs` exposes `queue`; no `discovery dependencies` command)
+- [ ] Dedicated `DependencyCommand` implementation + tests exist as originally specified
+- [ ] TFS subprocess dependency adapter path is fully implemented in CLI command model
+- [ ] Full `dotnet test DevOpsMigrationPlatform.slnx` evidence captured in this reconciliation session
 
 ## Notes
 
-All items pass. Spec is ready for `/speckit.plan`.
+This checklist supersedes the earlier spec-readiness checklist for active reconciliation. Legacy checklist assertions about plan-readiness are now historical.

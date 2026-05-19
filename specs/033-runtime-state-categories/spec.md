@@ -2,8 +2,20 @@
 
 **Feature Branch**: `[033-runtime-state-categories]`  
 **Created**: 2026-05-07  
-**Status**: Draft  
+**Status**: Reconciled (Partially Implemented)  
 **Input**: User description: "Align runtime package-state behavior with the documented multi-scope model and formalize distinct orchestration, project-resume, batch-iteration, and run-audit state categories."
+
+## Reconciliation Update (2026-05-17)
+
+- **Authority order applied**: `.agents` guidance → specs/034 + specs/035 → this spec → implementation evidence → tests.
+- **Superseded implementation references**:
+  - Path references to `Infrastructure.Agent/Context/PackagePaths.cs` and `Infrastructure.Agent/WorkItems/*` are superseded by spec 034/035 refactors into `Infrastructure.Storage.FileSystem/*`, `Infrastructure.Agent/Export/*`, and `Infrastructure.Agent/Import/*`.
+- **Remaining incomplete work**:
+  - Explicit O-1 spans for `state.paths.resolve`, `state.workitems.batch.save`, and `state.progress.emit`.
+  - Commit-evidence tasks recorded in `tasks.md` (T076-T078) remain incomplete.
+- **Verification evidence**:
+  - `/speckit.analyze` and `/speckit.checklist` executed for this folder.
+  - Targeted runtime-state tests: `dotnet test tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests.csproj --filter "RuntimeState|RunScope|Cursor|Cadence|Checkpoint"` (pass in checklist run output).
 
 ## Clarifications
 
@@ -19,7 +31,7 @@ As a migration operator, I need package-level, project-level, and run-level stat
 
 **Why this priority**: If authoritative state boundaries are not enforced, resume and gating can use the wrong files and produce incorrect migration outcomes.
 
-**Independent Test**: Run an interrupted migration and verify that resume and phase-gate decisions use only authoritative package-level and project-level state, never run-scoped audit copies.
+**Independent Test**: Run an interrupted migration and verify that resume and phase-gate decisions use only authoritative project/org/package scoped state, never run-scoped audit copies.
 
 **Acceptance Scenarios**:
 
@@ -72,11 +84,12 @@ As a migration operator, I need all long-running processing to emit fine-grained
 
 - **FR-001**: The system MUST define four runtime state categories: package-wide orchestration state, project-scoped module resume state, batch-scoped work item iteration state, and run-scoped audit state.
 - **FR-002**: The system MUST treat root `.migration/` as the authoritative package-wide orchestration state for phase planning, completion markers, and package-level coordination artifacts.
-- **FR-003**: The system MUST treat `/{org}/{project}/.migration/` as the authoritative project-scoped resume state for module progress.
+- **FR-003**: The system MUST treat `/{org}/{project}/.migration/` (project scope), `/{org}/.migration/` (org scope), and `/.migration/` (package scope) as the authoritative resume-state hierarchy for module progress.
 - **FR-004**: The system MUST treat `.migration/runs/<runId>/` as run-scoped audit output only and MUST NOT use it for resume, phase-gate, or orchestration decisions.
 - **FR-005**: Resume identity for project-scoped module state MUST include both action and module so different actions do not share a cursor namespace.
 - **FR-006**: Work item export and work item import MUST maintain independent action-specific resume identities even when operating on the same project and module family.
 - **FR-007**: Inventory behavior MUST align with the same action-aware resume identity model and MUST NOT rely on inconsistent fallback semantics that conflict with authoritative state rules.
+- **FR-014**: Resume-state reads MUST use precedence order project → org → package, and writes/resets MUST target only the most-specific resolved scope.
 - **FR-008**: Processing workflows MUST emit fine-grained progress notifications so operators can follow active work with meaningful in-flight detail.
 - **FR-009**: Processing workflows MUST persist resume state at the finest reasonable cadence for the workload so resumed runs restart near the latest durable checkpoint.
 - **FR-010**: A run restart MUST preserve correctness when interruption occurs at project scope or within batch iteration scope.

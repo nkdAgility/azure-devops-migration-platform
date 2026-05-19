@@ -8,9 +8,10 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Reqnroll;
@@ -48,19 +49,34 @@ public class ExportAttachmentsSteps
     {
         _ctx.PackageRoot = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(_ctx.PackageRoot);
-        _ctx.RealArtefactStore = new FileSystemArtefactStore(_ctx.PackageRoot);
+
+        var packageState = new ActivePackageState
+        {
+            CurrentJob = new Job
+            {
+                JobId = "export-attachments-test",
+                Kind = JobKind.Export,
+                Package = new JobPackage
+                {
+                    PackageUri = $"file:///{_ctx.PackageRoot.Replace(Path.DirectorySeparatorChar, '/')}"
+                }
+            }
+        };
+
+        _ctx.Package = new ActivePackageAccess(packageState, new PackagePathRouter(), NullLogger<ActivePackageAccess>.Instance);
         _ctx.Sut = new WorkItemExportOrchestrator(
-            _ctx.RealArtefactStore,
+            _ctx.Package,
+            string.Empty,
+            string.Empty,
             _ctx.MockCheckpointingService.Object,
-            _ctx.AttachmentSource,
-            package: PackageTestFactory.CreateDelegatingMock(_ctx.RealArtefactStore).Object);
+            _ctx.AttachmentSource);
     }
 
     private string FolderPath(WorkItemRevision rev)
         => WorkItemExportOrchestrator.BuildFolderPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate);
 
     private string AbsoluteFolderPath(WorkItemRevision rev)
-        => Path.Combine(_ctx.PackageRoot!, FolderPath(rev).Replace('/', Path.DirectorySeparatorChar));
+        => Path.Combine(_ctx.PackageRoot!, "WorkItems", FolderPath(rev).Replace('/', Path.DirectorySeparatorChar));
 
     // ── Background ────────────────────────────────────────────────────────────
 

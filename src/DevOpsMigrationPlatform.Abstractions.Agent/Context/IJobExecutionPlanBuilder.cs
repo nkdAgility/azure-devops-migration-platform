@@ -3,7 +3,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using Microsoft.Extensions.Configuration;
@@ -24,26 +24,25 @@ public interface IJobExecutionPlanBuilder
     /// </summary>
     /// <param name="packageConfig">Per-job configuration read from <c>migration-config.json</c>.</param>
     /// <param name="kind">The job kind (<see cref="JobKind"/>); determines which phases appear.</param>
-    /// <param name="artefactStore">Package artefact store for the current job.</param>
-    /// <param name="stateStore">Package state store for checkpointing / phase records.</param>
+    /// <param name="artefactStore">Package package access for the current job.</param>
+    /// <param name="stateStore">Package </param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The ordered <see cref="JobTaskList"/> ready to be pushed to the Control Plane.</returns>
     Task<JobTaskList> BuildPlanAsync(
         IConfiguration packageConfig,
         JobKind kind,
-        IArtefactStore artefactStore,
-        IStateStore stateStore,
+        IPackageAccess packageAccess,
         CancellationToken ct);
 
     /// <summary>
     /// Loads the persisted plan from the package (resume path) or builds a fresh plan, then
-    /// persists it to <see cref="PackagePaths.PlanFile"/> via <paramref name="stateStore"/>.
+    /// persists it to <c>.migration/plan.json</c> via the package boundary.
     /// Both migration and discovery job paths must call this method so the plan is always
     /// written to the package in a consistent way.
     /// </summary>
     /// <param name="packageConfig">Per-job configuration read from <c>migration-config.json</c>.</param>
     /// <param name="kind">The job kind; determines which phases appear in the plan.</param>
-    /// <param name="artefactStore">Package artefact store for the current job.</param>
+    /// <param name="artefactStore">Package package access for the current job.</param>
     /// <param name="stateStore">Package state store used to load and persist the plan.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>
@@ -53,7 +52,6 @@ public interface IJobExecutionPlanBuilder
     Task<JobTaskList> BuildAndSaveAsync(
         IConfiguration packageConfig,
         JobKind kind,
-        IArtefactStore artefactStore,
-        IStateStore stateStore,
+        IPackageAccess packageAccess,
         CancellationToken ct);
 }

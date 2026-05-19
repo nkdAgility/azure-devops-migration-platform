@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Context;
@@ -22,6 +23,16 @@ public interface ITargetEndpointInfo
     /// Connector type identifier: "AzureDevOpsServices" | "Simulated".
     /// </summary>
     string ConnectorType { get; }
+
+    /// <summary>
+    /// Filesystem-safe organisation identifier derived from <see cref="Url"/>.
+    /// Used as a route segment in package content paths.
+    /// </summary>
+#if !NET481
+    string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
+#else
+    string OrganisationSlug { get; }
+#endif
 
     /// <summary>
     /// Returns the full <see cref="OrganisationEndpoint"/> for this endpoint, including authentication.

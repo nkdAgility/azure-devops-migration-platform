@@ -197,3 +197,36 @@ An operator opens the TUI with `migrate tui --job <jobId>`. The TUI progress pan
 - The `.NET 4.8` subprocess (`CLI.TfsMigration`) has direct OTel instrumentation via `System.Diagnostics.Metrics` and `OpenTelemetry` NuGet packages. Metrics and traces are exported to Azure Monitor (via `Telemetry:AzureMonitorConnectionString` in `appsettings.json`) and optionally to an OTLP collector (via `OTEL_EXPORTER_OTLP_ENDPOINT`). The `MetricSnapshot`-in-NDJSON bridge remains as a secondary progress reporting path to the .NET 10 host.
 - The number of concurrent SSE subscribers per job is not limited in v1. This is a known operational constraint — high subscriber counts on a single job will increase memory and CPU on the Control Plane host.
 - `ControlPlaneProgressSink` POSTs events individually (no batching). For very high-frequency export jobs, the bounded background `Channel` in the sink provides natural flow control; excess events are dropped before reaching the network.
+
+---
+
+## Current status (reconciled 2026-05-16)
+
+Partially implemented with documented drift from original wording. Core runtime pieces exist (`ControlPlaneProgressSink`, `CompositeProgressSink`, `JobProgressStore`, `ProgressController`, CLI OTel wiring), but the canonical endpoint/command surface has shifted to `/jobs/{jobId}/progress` plus `manage progress`/`manage diagnostics` conventions.
+
+## Remaining incomplete work (IDs)
+
+None in `tasks.md` after reconciliation; all task IDs are now marked either complete or complete/superseded.
+
+## Completed because superseded (IDs + source)
+
+- T005, T006 — superseded by CLI composition-root and command-base telemetry refactors (`src/DevOpsMigrationPlatform.CLI.Migration/MigrationPlatformHost.cs`, `Commands/CommandBase.cs`).
+- T010, T014, T020, T023, T025 — superseded by later endpoint/command normalization from `specs/007-observability-logging` and current runtime routes (`/jobs/{jobId}/progress`).
+
+## Contradictions and reconciliation
+
+- This spec still references `/jobs/{jobId}/logs`; implementation exposes `/jobs/{jobId}/progress` for progress snapshot/SSE.
+- This spec treats top-level `migrate logs` as canonical; current CLI favors `manage progress` and `manage diagnostics`, with `manage logs` retained as deprecated/preview.
+- TUI requirements (FR-018..FR-020) remain in this spec, but implementation emphasis moved to command/control-plane channel separation in newer guidance.
+
+## Verification evidence
+
+- `src/DevOpsMigrationPlatform.ControlPlane/Controllers/ProgressController.cs`
+- `src/DevOpsMigrationPlatform.ControlPlane/Jobs/JobProgressStore.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/ControlPlaneProgressSink.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/CompositeProgressSink.cs`
+- `src/DevOpsMigrationPlatform.CLI.Migration/MigrationPlatformHost.cs`
+- `src/DevOpsMigrationPlatform.CLI.Migration/JobRunners/ControlPlaneClient.cs`
+- `src/DevOpsMigrationPlatform.CLI.Migration/Program.cs`
+- `tests/DevOpsMigrationPlatform.ControlPlane.Tests/Progress/*`
+- `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Telemetry/ControlPlaneProgressSinkSteps.cs`

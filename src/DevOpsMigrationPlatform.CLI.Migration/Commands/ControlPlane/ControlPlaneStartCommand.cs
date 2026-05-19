@@ -5,7 +5,6 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Spectre.Console;
@@ -24,14 +23,18 @@ namespace DevOpsMigrationPlatform.CLI.Commands.ControlPlane;
 /// The port is passed to the child process via the <c>ASPNETCORE_URLS</c>
 /// environment variable — the standard ASP.NET Core override mechanism.
 ///
-/// Usage: <c>devopsmigration controlplane start [--port &lt;port&gt;]</c>
+/// Usage: <c>devopsmigration controlplane start [--url &lt;baseUrl&gt;]</c>
 /// </summary>
 public sealed class ControlPlaneStartCommand : AsyncCommand<ControlPlaneStartCommand.Settings>
 {
     public sealed class Settings : CommandSettings
     {
+        [CommandOption("--url")]
+        [Description("Control Plane base URL. Default: http://localhost:5100")]
+        public string? Url { get; init; }
+
         [CommandOption("--port")]
-        [Description("Port the Control Plane host will listen on. Default: 5100.")]
+        [Description("Legacy alias for the URL port. Ignored when --url is provided. Default: 5100.")]
         [DefaultValue(5100)]
         public int Port { get; init; } = 5100;
     }
@@ -41,26 +44,25 @@ public sealed class ControlPlaneStartCommand : AsyncCommand<ControlPlaneStartCom
         Settings settings,
         CancellationToken cancellationToken = default)
     {
-        var exeName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? "DevOpsMigrationPlatform.ControlPlaneHost.exe"
-            : "DevOpsMigrationPlatform.ControlPlaneHost";
-
-        var exePath = Path.Combine(
-            AppContext.BaseDirectory,
-            "ControlPlane",
-            exeName);
-
-        if (!File.Exists(exePath))
+        if (!TryResolveBaseUrl(settings.Url, settings.Port, out var baseUrl, out var validationError))
         {
-            AnsiConsole.MarkupLine("[red]✗ Control Plane binary not found.[/]");
-            AnsiConsole.MarkupLine($"  Expected: [dim]{Markup.Escape(exePath)}[/]");
-            AnsiConsole.MarkupLine("[grey]This command is only available in the packaged (zip) distribution.[/]");
-            AnsiConsole.MarkupLine("[grey]When running from a source build, start the Control Plane directly:[/]");
-            AnsiConsole.MarkupLine($"[grey]  dotnet run --project src/DevOpsMigrationPlatform.ControlPlaneHost --urls http://localhost:{settings.Port}[/]");
+            AnsiConsole.MarkupLine($"[red]✗ {Markup.Escape(validationError!)}[/]");
             return 1;
         }
+        var resolvedBaseUrl = baseUrl!;
 
-        var url = $"http://localhost:{settings.Port}";
+        var exePath = ChildProcessHost.ResolveExecutablePath("ControlPlane", "DevOpsMigrationPlatform.ControlPlaneHost");
+
+        if (string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
+        {
+            AnsiConsole.MarkupLine("[red]✗ Control Plane binary not found.[/]");
+            AnsiConsole.MarkupLine("[grey]Expected one of:[/]");
+            AnsiConsole.MarkupLine("[grey]  - Installed layout: ControlPlane/DevOpsMigrationPlatform.ControlPlaneHost[/]");
+            AnsiConsole.MarkupLine("[grey]  - Dev build output under src/DevOpsMigrationPlatform.ControlPlaneHost/bin[/]");
+            AnsiConsole.MarkupLine("[grey]When running from a source build, start the Control Plane directly:[/]");
+            AnsiConsole.MarkupLine($"[grey]  dotnet run --project src/DevOpsMigrationPlatform.ControlPlaneHost --urls {Markup.Escape(resolvedBaseUrl)}[/]");
+            return 1;
+        }
 
         var psi = new ProcessStartInfo
         {
@@ -71,12 +73,16 @@ public sealed class ControlPlaneStartCommand : AsyncCommand<ControlPlaneStartCom
             RedirectStandardOutput = false,
             RedirectStandardError = false,
         };
-        psi.Environment["ASPNETCORE_URLS"] = url;
+        psi.Environment["ASPNETCORE_URLS"] = resolvedBaseUrl;
+        psi.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
+        psi.Environment["AgentLifecycle__AutoSpawn"] = "true";
+        psi.Environment["MigrationPlatform__Environment__Type"] = "Standalone";
+        psi.Environment["MigrationPlatform__Environment__ControlPlane__BaseUrl"] = resolvedBaseUrl;
 
         using var process = Process.Start(psi)
             ?? throw new InvalidOperationException("Failed to start the Control Plane process.");
 
-        AnsiConsole.MarkupLine($"[green]✓[/] Control Plane started (PID {process.Id})  [dim]{Markup.Escape(url)}[/]");
+        AnsiConsole.MarkupLine($"[green]✓[/] Control Plane started (PID {process.Id})  [dim]{Markup.Escape(resolvedBaseUrl)}[/]");
         AnsiConsole.MarkupLine("[grey]Press Ctrl+C to stop.[/]");
 
         await using var registration = cancellationToken.Register(() =>
@@ -91,5 +97,31 @@ public sealed class ControlPlaneStartCommand : AsyncCommand<ControlPlaneStartCom
 
         await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
         return process.ExitCode;
+    }
+
+    private static bool TryResolveBaseUrl(string? rawUrl, int port, out string? baseUrl, out string? error)
+    {
+        baseUrl = null;
+        error = null;
+
+        var candidate = string.IsNullOrWhiteSpace(rawUrl)
+            ? $"http://localhost:{port}"
+            : rawUrl.Trim();
+
+        if (!Uri.TryCreate(candidate, UriKind.Absolute, out var parsed))
+        {
+            error = "Invalid URL format. Provide an absolute URL, for example: http://localhost:5100";
+            return false;
+        }
+
+        if (!string.Equals(parsed.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(parsed.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            error = "Unsupported URL scheme. Only http and https are supported.";
+            return false;
+        }
+
+        baseUrl = parsed.GetLeftPart(UriPartial.Authority).TrimEnd('/');
+        return true;
     }
 }

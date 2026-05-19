@@ -43,11 +43,11 @@ The legacy `nkd-tdd-assessment` skill remains in place and is not modified by th
 - relevant subsystem test files
 - relevant subsystem documentation
 - repository guardrails, especially:
-  - `.agents/guardrails/testing-rules.md`
-  - `.agents/guardrails/coding-standards.md`
-  - `.agents/guardrails/architecture-boundaries.md`
-  - `.agents/guardrails/observability-requirements.md`
-  - `.agents/guardrails/definition-of-done.md`
+  - `.agents/20-guardrails/workflow/testing-rules.md`
+  - `.agents/20-guardrails/core/coding-standards.md`
+  - `.agents/20-guardrails/core/architecture-boundaries.md`
+  - `.agents/20-guardrails/domains/observability-requirements.md`
+  - `.agents/20-guardrails/workflow/definition-of-done.md`
 
 If any required document is missing, continue with available evidence and record a partial-analysis warning.
 

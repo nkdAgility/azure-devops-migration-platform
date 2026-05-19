@@ -3,10 +3,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Validation;
 
@@ -25,11 +28,11 @@ public class PackageValidator : IPackageValidator
         "fields", "externalLinks", "relatedLinks", "hyperlinks", "attachments"
     };
 
-    private readonly IArtefactStore _store;
+    private readonly IPackageAccess _package;
 
-    public PackageValidator(IArtefactStore store)
+    public PackageValidator(IPackageAccess package)
     {
-        _store = store ?? throw new ArgumentNullException(nameof(store));
+        _package = package ?? throw new ArgumentNullException(nameof(package));
     }
 
     public async Task<ValidationResult> ValidateAsync(CancellationToken cancellationToken)
@@ -38,7 +41,7 @@ public class PackageValidator : IPackageValidator
 
         errors.AddRange(await ValidateManifestAsync(cancellationToken).ConfigureAwait(false));
 
-        await foreach (var path in _store.EnumerateAsync("WorkItems/", cancellationToken))
+        await foreach (var path in EnumeratePackageContentAsync("WorkItems/", cancellationToken))
         {
             if (!path.EndsWith("revision.json", StringComparison.OrdinalIgnoreCase)) continue;
             var err = await ValidateRevisionAsync(path, cancellationToken).ConfigureAwait(false);
@@ -51,7 +54,7 @@ public class PackageValidator : IPackageValidator
     private async Task<IReadOnlyList<ValidationError>> ValidateManifestAsync(CancellationToken cancellationToken)
     {
         var errors = new List<ValidationError>();
-        var raw = await _store.ReadAsync("manifest.json", cancellationToken).ConfigureAwait(false);
+        var raw = await ReadPackageTextAsync("manifest.json", cancellationToken).ConfigureAwait(false);
 
         if (raw == null)
         {
@@ -86,7 +89,7 @@ public class PackageValidator : IPackageValidator
 
     private async Task<ValidationError?> ValidateRevisionAsync(string path, CancellationToken cancellationToken)
     {
-        var raw = await _store.ReadAsync(path, cancellationToken).ConfigureAwait(false);
+        var raw = await ReadPackageTextAsync(path, cancellationToken).ConfigureAwait(false);
         if (raw == null)
             return new ValidationError { Path = path, Message = "File not found." };
 
@@ -105,5 +108,41 @@ public class PackageValidator : IPackageValidator
         }
 
         return null;
+    }
+
+    private async IAsyncEnumerable<string> EnumeratePackageContentAsync(
+        string relativePath,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var paths = _package.EnumerateContentAsync(
+            new PackageContentContext(
+                PackageContentKind.Collection,
+                Address: new RelativePathAddress(relativePath),
+                IsCollectionRequest: true),
+            cancellationToken);
+        if (paths is null)
+            yield break;
+
+        await foreach (var path in paths.ConfigureAwait(false))
+            yield return path;
+    }
+
+    private async Task<string?> ReadPackageTextAsync(string relativePath, CancellationToken cancellationToken)
+    {
+        var payload = await _package.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
+            cancellationToken).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

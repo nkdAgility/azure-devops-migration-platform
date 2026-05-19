@@ -26,12 +26,20 @@
 
 - [x] All functional requirements have clear acceptance criteria
 - [x] User scenarios cover primary flows
-- [x] Feature meets measurable outcomes defined in Success Criteria
+- [ ] Feature meets measurable outcomes defined in Success Criteria (live connector verification still pending: T084, T085)
 - [x] No implementation details leak into specification
+
+## Reconciliation Readiness (2026-05-17)
+
+- [x] Every task line in `tasks.md` uses canonical status formatting
+- [x] Superseded tasks include explicit source/evidence notes
+- [x] Contradictions with current repo truth are explicitly documented in `spec.md`
+- [ ] Live AzureDevOps and TeamFoundationServer connector verification evidence is recorded
+- [ ] Scenario launch-profile verification evidence is recorded (T096)
 
 ## Notes
 
-- All items pass. Specification is ready for `/speckit.clarify` or `/speckit.plan`.
+- Reconciliation is mostly complete; readiness is blocked only by missing live verification evidence (`T084`, `T085`, `T096`).
 - Five user stories cover all four extensions (TeamSettings, TeamIterations, TeamMembers, TeamCapacity) plus area path assignments.
 - NodeStructureTool dependency is well-documented for iteration and area path resolution.
 - Three connector requirement (Simulated, AzureDevOpsServices, TeamFoundationServer) is explicitly stated in FR-012.

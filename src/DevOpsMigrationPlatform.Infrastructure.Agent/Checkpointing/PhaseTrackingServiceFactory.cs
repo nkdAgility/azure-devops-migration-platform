@@ -3,7 +3,7 @@
 
 using System;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 
@@ -20,6 +20,6 @@ public sealed class PhaseTrackingServiceFactory : IPhaseTrackingServiceFactory
     }
 
     /// <inheritdoc/>
-    public IPhaseTrackingService Create(IStateStore stateStore)
-        => new PhaseTrackingService(stateStore, _package);
+    public IPhaseTrackingService Create(IPackageAccess packageAccess)
+        => new PhaseTrackingService(packageAccess ?? throw new ArgumentNullException(nameof(packageAccess)));
 }

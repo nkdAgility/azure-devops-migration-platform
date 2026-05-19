@@ -5,7 +5,7 @@ using System;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 
@@ -47,7 +47,7 @@ internal static class ProjectInventoryFile
     /// applies the supplied delta fields, and writes the result back.
     /// </summary>
     public static async Task MergeAsync(
-        IArtefactStore store,
+        IPackageAccess package,
         string path,
         string? orgUrl = null,
         string? project = null,
@@ -61,7 +61,7 @@ internal static class ProjectInventoryFile
         string? error = null,
         CancellationToken ct = default)
     {
-        var existing = await ReadAsync(store, path, ct).ConfigureAwait(false);
+        var existing = await ReadAsync(package, path, ct).ConfigureAwait(false);
 
         var updated = existing with
         {
@@ -78,18 +78,26 @@ internal static class ProjectInventoryFile
             Error = error ?? existing.Error,
         };
 
-        await store.WriteAsync(path, JsonSerializer.Serialize(updated, s_writeOpts), ct)
-            .ConfigureAwait(false);
+        using var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(updated, s_writeOpts)), writable: false);
+        await package.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(path)),
+            new PackagePayload(stream, "application/json"),
+            ct).ConfigureAwait(false);
     }
 
     public static async Task<ProjectInventoryData> ReadAsync(
-        IArtefactStore store,
+        IPackageAccess package,
         string path,
         CancellationToken ct)
     {
-        var json = await store.ReadAsync(path, ct).ConfigureAwait(false);
-        if (json is null)
+        var payload = await package.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(path)),
+            ct).ConfigureAwait(false);
+        if (payload is null)
             return new ProjectInventoryData { GeneratedAt = DateTimeOffset.UtcNow };
+
+        using var reader = new System.IO.StreamReader(payload.Content, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+        var json = await reader.ReadToEndAsync().ConfigureAwait(false);
         try
         {
             return JsonSerializer.Deserialize<ProjectInventoryData>(json, s_opts)
@@ -99,5 +107,10 @@ internal static class ProjectInventoryFile
         {
             return new ProjectInventoryData { GeneratedAt = DateTimeOffset.UtcNow };
         }
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

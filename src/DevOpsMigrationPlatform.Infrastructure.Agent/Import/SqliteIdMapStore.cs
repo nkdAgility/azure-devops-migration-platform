@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
@@ -41,25 +41,32 @@ public sealed class SqliteIdMapStore : IIdMapStore
         _dbFilePath = dbFilePath;
     }
 
+    public SqliteIdMapStore(DbConnection connection)
+    {
+        _connection = (SqliteConnection)(connection ?? throw new ArgumentNullException(nameof(connection)));
+        _dbFilePath = _connection.DataSource;
+    }
+
     /// <inheritdoc/>
     public async Task InitializeAsync(CancellationToken ct)
     {
         var dir = Path.GetDirectoryName(_dbFilePath);
-        if (dir is not null && !Directory.Exists(dir))
+        if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir))
             Directory.CreateDirectory(dir); // Permitted: SQLite requires real file-system path (see class remarks)
 
-        _connection = new SqliteConnection($"Data Source={GetSqliteConnectionPath(_dbFilePath)}");
-        await _connection.OpenAsync(ct).ConfigureAwait(false);
+        _connection ??= new SqliteConnection($"Data Source={GetSqliteConnectionPath(_dbFilePath)}");
+        if (_connection.State != System.Data.ConnectionState.Open)
+            await _connection.OpenAsync(ct).ConfigureAwait(false);
 
         // Use memory journal to avoid creating <filename>-journal files whose path
         // may exceed MAX_PATH (260 chars) on Windows when LongPathsEnabled=0.
         // The ID-map store is rebuilt from the source on re-import, so no
         // crash-durable journal is required.
-        await using var pragmaCmd = _connection.CreateCommand();
+        using var pragmaCmd = _connection.CreateCommand();
         pragmaCmd.CommandText = "PRAGMA journal_mode=MEMORY;";
         await pragmaCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
 
-        await using var cmd = _connection.CreateCommand();
+        using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             CREATE TABLE IF NOT EXISTS work_item_map (
                 source_id INTEGER PRIMARY KEY,
@@ -90,7 +97,7 @@ public sealed class SqliteIdMapStore : IIdMapStore
     public async Task<int?> GetTargetWorkItemIdAsync(int sourceId, CancellationToken ct)
     {
         EnsureInitialized();
-        await using var cmd = _connection!.CreateCommand();
+        using var cmd = _connection!.CreateCommand();
         cmd.CommandText = "SELECT target_id FROM work_item_map WHERE source_id = @sid";
         cmd.Parameters.AddWithValue("@sid", sourceId);
         var result = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
@@ -101,7 +108,7 @@ public sealed class SqliteIdMapStore : IIdMapStore
     public async Task SetWorkItemMappingAsync(int sourceId, int targetId, CancellationToken ct)
     {
         EnsureInitialized();
-        await using var cmd = _connection!.CreateCommand();
+        using var cmd = _connection!.CreateCommand();
         cmd.CommandText = "INSERT OR REPLACE INTO work_item_map (source_id, target_id) VALUES (@sid, @tid)";
         cmd.Parameters.AddWithValue("@sid", sourceId);
         cmd.Parameters.AddWithValue("@tid", targetId);
@@ -112,7 +119,7 @@ public sealed class SqliteIdMapStore : IIdMapStore
     public async Task<string?> GetAttachmentIdAsync(int sourceWorkItemId, int revisionIndex, string relativePath, CancellationToken ct)
     {
         EnsureInitialized();
-        await using var cmd = _connection!.CreateCommand();
+        using var cmd = _connection!.CreateCommand();
         cmd.CommandText = """
             SELECT target_attachment_id FROM attachment_map
             WHERE source_work_item_id = @wid AND revision_index = @rev AND relative_path = @path
@@ -128,7 +135,7 @@ public sealed class SqliteIdMapStore : IIdMapStore
     public async Task SetAttachmentMappingAsync(int sourceWorkItemId, int revisionIndex, string relativePath, string targetAttachmentId, CancellationToken ct)
     {
         EnsureInitialized();
-        await using var cmd = _connection!.CreateCommand();
+        using var cmd = _connection!.CreateCommand();
         cmd.CommandText = """
             INSERT OR REPLACE INTO attachment_map
                 (source_work_item_id, revision_index, relative_path, target_attachment_id)
@@ -145,8 +152,8 @@ public sealed class SqliteIdMapStore : IIdMapStore
     public async Task SeedWorkItemMappingsAsync(IAsyncEnumerable<IdMapEntry> entries, CancellationToken ct)
     {
         EnsureInitialized();
-        await using var tx = await _connection!.BeginTransactionAsync(ct).ConfigureAwait(false);
-        await using var cmd = _connection.CreateCommand();
+        using var tx = _connection!.BeginTransaction();
+        using var cmd = _connection.CreateCommand();
         cmd.Transaction = (SqliteTransaction)tx;
         cmd.CommandText = "INSERT OR IGNORE INTO work_item_map (source_id, target_id) VALUES (@sid, @tid)";
         var pSid = cmd.Parameters.Add("@sid", SqliteType.Integer);
@@ -159,14 +166,14 @@ public sealed class SqliteIdMapStore : IIdMapStore
             await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         }
 
-        await tx.CommitAsync(ct).ConfigureAwait(false);
+        tx.Commit();
     }
 
     /// <inheritdoc/>
     public async Task<int?> GetLastRevisionIndexAsync(int sourceId, CancellationToken ct)
     {
         EnsureInitialized();
-        await using var cmd = _connection!.CreateCommand();
+        using var cmd = _connection!.CreateCommand();
         cmd.CommandText = "SELECT revision_index FROM last_revision_index WHERE source_id = @sid";
         cmd.Parameters.AddWithValue("@sid", sourceId);
         var result = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
@@ -177,7 +184,7 @@ public sealed class SqliteIdMapStore : IIdMapStore
     public async Task UpdateLastRevisionIndexAsync(int sourceId, int revisionIndex, CancellationToken ct)
     {
         EnsureInitialized();
-        await using var cmd = _connection!.CreateCommand();
+        using var cmd = _connection!.CreateCommand();
         // MAX semantics: only update if new value is greater than existing value
         cmd.CommandText = """
             INSERT INTO last_revision_index (source_id, revision_index) VALUES (@sid, @rev)
@@ -196,9 +203,9 @@ public sealed class SqliteIdMapStore : IIdMapStore
         EnsureInitialized();
         var stale = new List<IdMapEntry>();
 
-        await using var cmd = _connection!.CreateCommand();
+        using var cmd = _connection!.CreateCommand();
         cmd.CommandText = "SELECT source_id, target_id FROM work_item_map";
-        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
 
         var entries = new List<IdMapEntry>();
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
@@ -225,7 +232,7 @@ public sealed class SqliteIdMapStore : IIdMapStore
     public async Task RecordSkippedRevisionAsync(int sourceId, string reason, CancellationToken ct)
     {
         EnsureInitialized();
-        await using var cmd = _connection!.CreateCommand();
+        using var cmd = _connection!.CreateCommand();
         cmd.CommandText = """
             INSERT OR REPLACE INTO skipped_revisions (source_id, reason)
             VALUES (@sid, @reason)
@@ -236,13 +243,14 @@ public sealed class SqliteIdMapStore : IIdMapStore
     }
 
     /// <inheritdoc/>
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         if (_connection is not null)
         {
-            await _connection.DisposeAsync().ConfigureAwait(false);
+            _connection.Dispose();
             _connection = null;
         }
+        return default;
     }
 
     private void EnsureInitialized()
@@ -265,4 +273,3 @@ public sealed class SqliteIdMapStore : IIdMapStore
             : $@"\\?\{fullPath}";
     }
 }
-#endif

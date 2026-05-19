@@ -1,37 +1,38 @@
-# Architecture Discrepancies
+# Architecture Discrepancies (Reconciled)
 
-**Feature**: Simulated Data Source for End-to-End Migration Testing
-**Flagged by**: speckit.specify
-**Status**: Pending rectification (resolve in speckit.implement)
+**Feature**: Simulated Data Source for End-to-End Migration Testing  
+**Updated**: 2026-05-17
 
-## Discrepancies
+## Resolved discrepancies
 
-### `source.type` enumeration missing `Simulated`
-- **Source doc**: `docs/capabilities-guide.md`
-- **Section**: Section 9 — Source Types (top-level intro and schema examples)
-- **Issue**: The spec introduces `source.type: Simulated` as a valid source type. `docs/capabilities-guide.md` currently enumerates only `AzureDevOpsServices` and `TeamFoundationServer`. The `Simulated` type has distinct behaviour (no network, deterministic generation) and must be documented alongside the existing types.
-- **Suggested update**: Add a `### Simulated` subsection in `docs/capabilities-guide.md` describing the type, its configuration fields (`seed`, `workItemCount`, `projectCount`, etc.), and its constraint that it is for testing/development only. Update any "Known Limitations" note if the mixed-mode restriction applies.
+### ✅ `source.type` / `target.type` missing `Simulated`
+- **Resolution evidence**:
+  - `docs/capabilities-guide.md` includes Simulated source and target sections.
+  - `docs/configuration-reference.md` includes Simulated in `Source.Type` and `Target.Type`.
 
-### `target.type` enumeration missing `Simulated`
-- **Source doc**: `docs/capabilities-guide.md`, `docs/configuration-reference.md`
-- **Section**: `docs/configuration-reference.md` — Full Schema (`target.type`); `docs/capabilities-guide.md` covers source types only and currently has no target-type reference
-- **Issue**: The spec introduces `target.type: Simulated`. Neither `docs/capabilities-guide.md` nor `docs/configuration-reference.md` documents a simulated target. The config schema and documentation must be updated to reflect this new value and its semantics.
-- **Suggested update**: In `docs/configuration-reference.md`, update the `target.type` field description to include `Simulated`. Add a note that the simulated target accepts imports without writing to any external system and is intended for testing only. Consider whether `docs/capabilities-guide.md` should be renamed or extended to cover target types, or whether a new section in `docs/configuration-reference.md` is the right home.
+## Remaining discrepancies
 
-### `SimulatedSourceConfiguration` fields not in config schema
-- **Source doc**: `docs/configuration-reference.md`
-- **Section**: Full Schema — `source` block
-- **Issue**: The spec defines new optional fields under `source` when `source.type: Simulated`: `seed`, `workItemCount`, `projectCount`, `workItemTypeDistribution`, `avgRevisionsPerItem`, `includeAttachments`, `includeLinks`. These are not in the documented config schema.
-- **Suggested update**: Add a conditional sub-section to the `source` schema in `docs/configuration-reference.md` documenting these fields with their types, defaults, and constraints, gated on `source.type: Simulated`.
+### ⚠️ Spec contract vs implemented config model
+- **Issue**: This spec's flat model (`source.seed`, `source.workItemCount`, `projectCount`, `avgRevisionsPerItem`, etc.) does not match current implemented generator model (`source.generator.projects[*].workItemTypes[*]...`).
+- **Evidence**:
+  - `scenarios/queue-export-workitems-simulated-source.json`
+  - `src/DevOpsMigrationPlatform.Abstractions/Options/SimulatedEndpointOptions.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Export/SimulatedWorkItemRevisionSource.cs`
 
-### `SimulatedTargetConfiguration` fields not in config schema
-- **Source doc**: `docs/configuration-reference.md`
-- **Section**: Full Schema — `target` block
-- **Issue**: The spec defines new optional fields under `target` when `target.type: Simulated`: `validateOnWrite`, `failOnFirstError`. These are not in the documented config schema.
-- **Suggested update**: Add a conditional sub-section to the `target` schema in `docs/configuration-reference.md` documenting these fields.
+### ⚠️ Spec command surface is stale
+- **Issue**: Spec user stories reference `discovery inventory`, while current canonical behavior is `queue` with `Mode: Inventory`.
+- **Evidence**:
+  - `.agents/30-context/domains/cli-commands.md`
+  - `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/SimulatedMigrationCommandTests.cs` (inventory scenario uses `queue`)
 
-### Scenario config file and launch profile not yet documented
-- **Source doc**: `docs/configuration-reference.md`
-- **Section**: Scenario Configs table
-- **Issue**: The spec requires a new scenario config file under `/scenarios/` targeting the simulated source/target (FR-013). The `docs/configuration-reference.md` scenario table does not include it.
-- **Suggested update**: Add a row to the scenario configs table in `docs/configuration-reference.md` for the simulated scenario file (e.g. `migrate-simulated-25k.json`) with a description.
+### ⚠️ Spec performance/default scenario mismatch
+- **Issue**: Spec requires a ready default 25k simulated scenario/profile, but checked-in scenarios are currently small datasets.
+- **Evidence**:
+  - `scenarios/queue-export-workitems-simulated-source.json`
+  - `scenarios/roundtrip-simulated.json`
+  - `.vscode/launch.json` simulated profiles
+
+### ⚠️ Reconciliation artifact gap (`/speckit.analyze` blocker)
+- **Issue**: `specs/008-simulated-data-source/plan.md` is missing, so `/speckit.analyze` cannot run to completion for this folder.
+- **Evidence**:
+  - `/speckit.analyze` output: missing required artifact `plan.md`; analysis aborted.

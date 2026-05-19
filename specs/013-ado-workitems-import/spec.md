@@ -15,13 +15,13 @@
 | `docs/configuration-reference.md` | Confirmed accurate — target block documented for Import/Both modes |
 | `docs/validation.md` | Confirmed accurate — Tiers 2 and 3 defined for import |
 | `docs/work-item-iteration-guide.md` | Confirmed accurate — import enumeration via IArtefactStore.EnumerateAsync documented |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — streaming, cursor, and IArtefactStore rules enforced |
-| `.agents/context/migration-package-concept.md` | Confirmed accurate — WorkItems layout canonical |
-| `.agents/context/import-streaming.md` | Confirmed accurate — staged import semantics (A→B→C→D) fully specified |
-| `.agents/context/workitems-format-summary.md` | Confirmed accurate — revision.json and comment.json schemas documented |
-| `.agents/context/checkpointing-summary.md` | Confirmed accurate — cursor schema and resume logic specified |
-| `.agents/context/identity-and-mapping.md` | Confirmed accurate — ID map and identity resolution documented |
-| `.agents/context/job-lifecycle.md` | Confirmed accurate — MigrationJob with target block documented |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — streaming, cursor, and IArtefactStore rules enforced |
+| `.agents/30-context/domains/migration-package-concept.md` | Confirmed accurate — WorkItems layout canonical |
+| `.agents/30-context/domains/import-streaming.md` | Confirmed accurate — staged import semantics (A→B→C→D) fully specified |
+| `.agents/30-context/domains/workitems-format-summary.md` | Confirmed accurate — revision.json and comment.json schemas documented |
+| `.agents/30-context/domains/checkpointing-summary.md` | Confirmed accurate — cursor schema and resume logic specified |
+| `.agents/30-context/domains/identity-and-mapping.md` | Confirmed accurate — ID map and identity resolution documented |
+| `.agents/30-context/domains/job-lifecycle.md` | Confirmed accurate — MigrationJob with target block documented |
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -190,7 +190,7 @@ As a migration operator, I want embedded images in field values and comments to 
 ## Assumptions
 
 - The target Azure DevOps project already exists and has the required work item types and area/iteration paths configured. The import does not create projects, types, or classification nodes.
-- The export package was produced by this platform and conforms to the canonical `WorkItems/` layout documented in `.agents/context/migration-package-concept.md` and `.agents/context/workitems-format-summary.md`.
+- The export package was produced by this platform and conforms to the canonical `WorkItems/` layout documented in `.agents/30-context/domains/migration-package-concept.md` and `.agents/30-context/domains/workitems-format-summary.md`.
 - The `IdentitiesModule` completes its import phase before `WorkItemsModule.ImportAsync` begins (enforced by the `DependsOn` declaration).
 - The target Azure DevOps REST API version is 7.1 or compatible.
 - The Azure DevOps SDK (`Microsoft.TeamFoundationServer.Client` v20.x) provides the required APIs for work item creation, field updates, link management, attachment upload, and comment creation.
@@ -198,3 +198,34 @@ As a migration operator, I want embedded images in field values and comments to 
 - All architecture docs listed in the Architecture References table above were read and confirmed. No gaps were found that would block import implementation.
 - The existing `MigrationAgentWorker` already handles calling `ImportAsync` on modules — no changes needed to the agent orchestration.
 - `FileSystemArtefactStore.EnumerateAsync` already returns results in lexicographic order — no changes needed to the store.
+
+## Current status
+
+- Reconciled against repository implementation on 2026-05-16.
+- Core import architecture is implemented (`WorkItemsModule.ImportAsync`, `WorkItemImportOrchestrator`, `RevisionFolderProcessor`, SQLite `idmap.db`, resolution strategies, simulated + Azure DevOps target implementations).
+- `tasks.md` statuses are now explicit per task line with evidence-backed exceptions.
+
+## Remaining incomplete work (IDs)
+
+- T043 — `docs/configuration-reference.md` still missing `WorkItemResolutionStrategy` in WorkItems extension table.
+- T046 — `discrepancies.md` items are not individually marked `Resolved`/`N/A`.
+- T049 — fresh full-solution `dotnet test` completion evidence is missing for this reconciliation pass.
+- T050 — fresh scenario-run evidence for `scenarios/import-ado-workitems-single-project.json` is missing for this reconciliation pass.
+- T051 — `ValidateAsync` currently performs Tier 2 checks only; Tier 3 checks from task text are not implemented.
+
+## Completed because superseded (IDs + source)
+
+- T016 — superseded by `features/import/work-items/revisions/import-work-item-revisions.feature` (renamed canonical feature file containing the story coverage).
+
+## Contradictions and reconciliation
+
+- Historical task/doc paths in this spec (for example `Infrastructure/...`) differ from current repository layout (`Infrastructure.Agent/...`, `Abstractions.Agent/...`, `Abstractions.Storage/...`) after later architectural restructuring.
+- The spec narrative mentions `devopsmigration import`, while current runtime flow uses `queue` with `Mode: Import`.
+- This reconciliation keeps original intent but records truth in `tasks.md` statuses and evidence notes.
+
+## Verification evidence
+
+- Build succeeded: `dotnet build DevOpsMigrationPlatform.slnx --no-incremental`.
+- Targeted import tests passed: `dotnet test tests\\DevOpsMigrationPlatform.Infrastructure.Agent.Tests\\DevOpsMigrationPlatform.Infrastructure.Agent.Tests.csproj --no-build -v minimal --filter "FullyQualifiedName~WorkItemsModuleImportTests|FullyQualifiedName~WorkItemImportOrchestrator"` (12 passed).
+- Full-solution test run did not complete in this reconciliation session (recorded under T049 as incomplete evidence).
+

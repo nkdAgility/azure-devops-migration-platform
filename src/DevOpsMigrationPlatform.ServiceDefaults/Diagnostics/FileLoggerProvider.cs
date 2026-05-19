@@ -9,6 +9,7 @@ namespace DevOpsMigrationPlatform.Diagnostics;
 /// A minimal <see cref="ILoggerProvider"/> that writes structured log entries to a file.
 /// Used for diagnostic purposes only — not intended as a production log sink.
 /// </summary>
+[ProviderAlias("FileDiagnostics")]
 internal sealed class FileLoggerProvider : ILoggerProvider
 {
     private readonly StreamWriter _writer;

@@ -41,6 +41,29 @@ public sealed class ToolOptionsConfigurationTests
     }
 
     [TestMethod]
+    public void FieldTransformToolServices_RegisterFieldTransformOptionsValidator()
+    {
+        var services = new ServiceCollection();
+        services.AddFieldTransformToolServices();
+
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        var validators = scope.ServiceProvider.GetServices<IValidateOptions<FieldTransformOptions>>();
+        var found = false;
+        foreach (var validator in validators)
+        {
+            if (validator is FieldTransformOptionsValidator)
+            {
+                found = true;
+                break;
+            }
+        }
+
+        Assert.IsTrue(found, "Expected FieldTransformOptionsValidator to be registered in DI.");
+    }
+
+    [TestMethod]
     public void IdentityLookupToolServices_BindOptions_FromCurrentPackageConfigAccessor()
     {
         var config = BuildConfig(new Dictionary<string, string?>

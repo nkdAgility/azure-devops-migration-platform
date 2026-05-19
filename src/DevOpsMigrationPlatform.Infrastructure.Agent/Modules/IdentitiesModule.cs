@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
@@ -116,7 +120,7 @@ public sealed class IdentitiesModule : IModule
 
                 var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
                 await ProjectInventoryFile.MergeAsync(
-                    context.ArtefactStore, projectPath,
+                    context.Package, projectPath,
                     orgUrl: orgUrl, project: project,
                     identities: count, ct: ct).ConfigureAwait(false);
             }
@@ -186,7 +190,7 @@ public sealed class IdentitiesModule : IModule
         _PlatformMetrics?.RecordPrepareIdentitiesResolved(report.ResolvedCount, tags);
         _PlatformMetrics?.RecordPrepareIdentitiesUnresolved(report.UnresolvedCount, tags);
 
-        await context.ArtefactStore.WriteAsync("Identities/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
+        await PersistPackageTextAsync(context.Package, "Identities/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
 
         _logger.LogInformation(
             "Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms",
@@ -254,9 +258,26 @@ public sealed class IdentitiesModule : IModule
     public async Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct)
     {
         await _orchestrator.ValidateAsync(
-            context.ArtefactStore, context,
+            context.Package,
+            _sourceEndpointInfo.Url,
+            _sourceEndpointInfo.Project,
+            context,
             ct).ConfigureAwait(false);
 
         return TaskExecutionResult.Completed();
+    }
+
+    private static async Task PersistPackageTextAsync(IPackageAccess package, string relativePath, string content, CancellationToken ct)
+    {
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
+        await package.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
+            new PackagePayload(stream, "application/json"),
+            ct).ConfigureAwait(false);
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

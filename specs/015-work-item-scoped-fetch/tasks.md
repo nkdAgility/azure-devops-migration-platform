@@ -19,11 +19,16 @@
 
 **Purpose**: Create the new types in Abstractions that all user stories depend on
 
-- [X] T001 [P] Create `FilterOperator` enum in `src/DevOpsMigrationPlatform.Abstractions/Models/FilterOperator.cs`
-- [X] T002 [P] Create `WorkItemFieldFilterOptions` immutable record in `src/DevOpsMigrationPlatform.Abstractions/Models/WorkItemFieldFilterOptions.cs`
-- [X] T003 [P] Create `FetchedWorkItem` immutable record in `src/DevOpsMigrationPlatform.Abstractions/Models/FetchedWorkItem.cs`
-- [X] T004 Create `WorkItemFetchScope` immutable record in `src/DevOpsMigrationPlatform.Abstractions/Models/WorkItemFetchScope.cs`
-- [X] T005 Create `IWorkItemFetchService` interface in `src/DevOpsMigrationPlatform.Abstractions/Services/IWorkItemFetchService.cs`
+- [X] T001 [P] Create `FilterOperator` enum in `src/DevOpsMigrationPlatform.Abstractions/Models/FilterOperator.cs` — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns
+  - Evidence: Enum exists at `src/DevOpsMigrationPlatform.Abstractions/Options/FilterOperator.cs` after abstractions split.
+- [X] T002 [P] Create `WorkItemFieldFilterOptions` immutable record in `src/DevOpsMigrationPlatform.Abstractions/Models/WorkItemFieldFilterOptions.cs` — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns
+  - Evidence: Record exists at `src/DevOpsMigrationPlatform.Abstractions.Agent/WorkItems/WorkItemFieldFilterOptions.cs`.
+- [X] T003 [P] Create `FetchedWorkItem` immutable record in `src/DevOpsMigrationPlatform.Abstractions/Models/FetchedWorkItem.cs` — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns
+  - Evidence: Record exists at `src/DevOpsMigrationPlatform.Abstractions.Agent/WorkItems/FetchedWorkItem.cs`.
+- [X] T004 Create `WorkItemFetchScope` immutable record in `src/DevOpsMigrationPlatform.Abstractions/Models/WorkItemFetchScope.cs` — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns
+  - Evidence: Record exists at `src/DevOpsMigrationPlatform.Abstractions.Agent/WorkItems/WorkItemFetchScope.cs`.
+- [X] T005 Create `IWorkItemFetchService` interface in `src/DevOpsMigrationPlatform.Abstractions/Services/IWorkItemFetchService.cs` — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns
+  - Evidence: Interface exists at `src/DevOpsMigrationPlatform.Abstractions.Agent/Export/IWorkItemFetchService.cs`.
 
 ---
 
@@ -33,11 +38,14 @@
 
 **⚠️ CRITICAL**: No caller refactoring (US1, US2) can begin until T006 is complete and registered in DI
 
-- [X] T006 Implement `AzureDevOpsWorkItemFetchService` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Services/AzureDevOpsWorkItemFetchService.cs`
-- [X] T007 Register `IWorkItemFetchService` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/InventoryServiceCollectionExtensions.cs`
-- [X] T008 Register `IWorkItemFetchService` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/DependencyServiceCollectionExtensions.cs`
-- [X] T009 [P] Create unit tests for filter evaluation logic in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Services/WorkItemFieldFilterEvaluatorTests.cs`
-- [X] T010 Create unit tests for `AzureDevOpsWorkItemFetchService` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Services/AzureDevOpsWorkItemFetchServiceTests.cs`
+- [X] T006 Implement `AzureDevOpsWorkItemFetchService` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Services/AzureDevOpsWorkItemFetchService.cs` — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns
+  - Evidence: Implementation exists at `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Export/AzureDevOpsWorkItemFetchService.cs`.
+- [X] T007 Register `IWorkItemFetchService` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/InventoryServiceCollectionExtensions.cs` — Status: complete
+- [X] T008 Register `IWorkItemFetchService` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/DependencyServiceCollectionExtensions.cs` — Status: complete
+- [X] T009 [P] Create unit tests for filter evaluation logic in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Services/WorkItemFieldFilterEvaluatorTests.cs` — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns
+  - Evidence: Tests exist at `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Services/WorkItemFieldFilterEvaluatorTests.cs`.
+- [X] T010 Create unit tests for `AzureDevOpsWorkItemFetchService` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Services/AzureDevOpsWorkItemFetchServiceTests.cs` — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns
+  - Evidence: Tests exist at `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Services/AzureDevOpsWorkItemFetchServiceTests.cs`.
 
 **Checkpoint**: Foundation ready — `IWorkItemFetchService` is implemented, registered, and tested. Caller refactoring can begin.
 
@@ -51,13 +59,15 @@
 
 ### Gherkin Feature File for User Story 1 (mandatory)
 
-- [X] T011 [US1] Create `features/inventory/work-items/inventory-field-projection.feature` — translate spec.md US1 acceptance scenarios (field projection, type filter, bounded memory) into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T011 [US1] Create `features/inventory/work-items/inventory-field-projection.feature` — translate spec.md US1 acceptance scenarios (field projection, type filter, bounded memory) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`) — Status: complete
 
 ### Implementation for User Story 1
 
-- [X] T012 [US1] Refactor `AzureDevOpsWorkItemDiscoveryService` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Services/AzureDevOpsWorkItemDiscoveryService.cs` — replace direct `witClient.GetWorkItemsAsync(batch, fields: ["System.Rev"])` batch loop with `IWorkItemFetchService.FetchAsync(endpoint, project, scope, ct)`; inject `IWorkItemFetchService` via constructor; remove `IAzureDevOpsClientFactory` dependency if no longer needed for field fetching; keep `IWorkItemQueryWindowStrategy` only if still needed for counting path (FR-009, FR-014; see research.md R-007)
-- [X] T013 [US1] Update unit tests for `AzureDevOpsWorkItemDiscoveryService` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Inventory/` — mock `IWorkItemFetchService` instead of `IAzureDevOpsClientFactory` for field-fetch paths; verify CancellationToken is forwarded; verify scope contains expected fields
-- [X] T014 [US1] Verify `CatalogService` in `src/DevOpsMigrationPlatform.Infrastructure/Services/CatalogService.cs` still works transitively — no logic change expected; confirm passthrough delegation pattern is unaffected by discovery refactor (FR-011)
+- [X] T012 [US1] Refactor `AzureDevOpsWorkItemDiscoveryService` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Services/AzureDevOpsWorkItemDiscoveryService.cs` — replace direct `witClient.GetWorkItemsAsync(batch, fields: ["System.Rev"])` batch loop with `IWorkItemFetchService.FetchAsync(endpoint, project, scope, ct)`; inject `IWorkItemFetchService` via constructor; remove `IAzureDevOpsClientFactory` dependency if no longer needed for field fetching; keep `IWorkItemQueryWindowStrategy` only if still needed for counting path (FR-009, FR-014; see research.md R-007) — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns
+  - Evidence: Refactor present at `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Discovery/AzureDevOpsWorkItemDiscoveryService.cs`.
+- [ ] T013 [US1] Update unit tests for `AzureDevOpsWorkItemDiscoveryService` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Inventory/` — mock `IWorkItemFetchService` instead of `IAzureDevOpsClientFactory` for field-fetch paths; verify CancellationToken is forwarded; verify scope contains expected fields — Status: incomplete
+  - Evidence: No `AzureDevOpsWorkItemDiscoveryService` test file exists under `tests/**`; current Inventory tests do not directly cover this refactor target.
+- [X] T014 [US1] Verify `CatalogService` in `src/DevOpsMigrationPlatform.Infrastructure/Services/CatalogService.cs` still works transitively — no logic change expected; confirm passthrough delegation pattern is unaffected by discovery refactor (FR-011) — Status: complete
 
 **Checkpoint**: Inventory path uses `IWorkItemFetchService`. `CatalogService` works transitively. SC-002 partially satisfied (discovery has zero direct `GetWorkItemsAsync` calls).
 
@@ -71,12 +81,14 @@
 
 ### Gherkin Feature File for User Story 2 (mandatory)
 
-- [X] T015 [US2] Create `features/inventory/work-items/dependency-pre-filter.feature` — translate spec.md US2 acceptance scenarios (pre-filter before Relations expand, non-matching items not yielded, caller-owned relation expansion) into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T015 [US2] Create `features/inventory/work-items/dependency-pre-filter.feature` — translate spec.md US2 acceptance scenarios (pre-filter before Relations expand, non-matching items not yielded, caller-owned relation expansion) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`) — Status: complete
 
 ### Implementation for User Story 2
 
-- [X] T016 [US2] Refactor `AzureDevOpsDependencyAnalysisService` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Services/AzureDevOpsDependencyAnalysisService.cs` — inject `IWorkItemFetchService` via constructor; replace the two-phase pattern (collect all IDs → batch fetch with Relations) with: Phase 1 uses `IWorkItemFetchService.FetchAsync` to stream pre-filtered items, Phase 2 fetches Relations only for items that passed the filter; keep `IAzureDevOpsClientFactory` for the Relations expansion call (`GetWorkItemAsync(id, expand: WorkItemExpand.Relations)`); remove direct `GetWorkItemsAsync` calls for field fetching; progress reporting switches from total-item-count percentage to window-count progress (e.g. "Processing window 3 of N") since total IDs are no longer collected in memory (FR-010, FR-013, FR-014; see research.md R-007)
-- [X] T017 [US2] Update unit tests for `AzureDevOpsDependencyAnalysisService` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Dependencies/` — mock `IWorkItemFetchService` to return pre-filtered items; verify Relations expand calls are made only for yielded items; verify non-matching items do not trigger Relations fetches; verify `IAzureDevOpsClientFactory` is still used for Relations expansion
+- [X] T016 [US2] Refactor `AzureDevOpsDependencyAnalysisService` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Services/AzureDevOpsDependencyAnalysisService.cs` — inject `IWorkItemFetchService` via constructor; replace the two-phase pattern (collect all IDs → batch fetch with Relations) with: Phase 1 uses `IWorkItemFetchService.FetchAsync` to stream pre-filtered items, Phase 2 fetches Relations only for items that passed the filter; keep `IAzureDevOpsClientFactory` for the Relations expansion call (`GetWorkItemAsync(id, expand: WorkItemExpand.Relations)`); remove direct `GetWorkItemsAsync` calls for field fetching; progress reporting switches from total-item-count percentage to window-count progress (e.g. "Processing window 3 of N") since total IDs are no longer collected in memory (FR-010, FR-013, FR-014; see research.md R-007) — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns
+  - Evidence: Refactor present at `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Discovery/AzureDevOpsDependencyAnalysisService.cs`.
+- [X] T017 [US2] Update unit tests for `AzureDevOpsDependencyAnalysisService` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Dependencies/` — mock `IWorkItemFetchService` to return pre-filtered items; verify Relations expand calls are made only for yielded items; verify non-matching items do not trigger Relations fetches; verify `IAzureDevOpsClientFactory` is still used for Relations expansion — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns
+  - Evidence: Tests exist at `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Dependencies/AzureDevOpsDependencyAnalysisServiceTests.cs`.
 
 **Checkpoint**: Dependency analysis uses `IWorkItemFetchService` for pre-filtering. Relations expand only called for matching items. SC-002 fully satisfied (both callers have zero direct `GetWorkItemsAsync` calls for field fetching).
 
@@ -90,13 +102,15 @@
 
 ### Gherkin Feature File for User Story 3 (mandatory)
 
-- [X] T018 [US3] Create `features/inventory/work-items/tfs-field-projection.feature` — translate spec.md US3 acceptance scenarios (TFS source streams items with requested fields, filter exclusion works on TFS) into conformant Gherkin (see `.agents/guardrails/acceptance-test-format.md`)
+- [X] T018 [US3] Create `features/inventory/work-items/tfs-field-projection.feature` — translate spec.md US3 acceptance scenarios (TFS source streams items with requested fields, filter exclusion works on TFS) into conformant Gherkin (see `.agents/20-guardrails/workflow/acceptance-test-format.md`) — Status: complete
 
 ### Implementation for User Story 3
 
-- [X] T019 [US3] Implement `TfsWorkItemFetchService` in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Services/TfsWorkItemFetchService.cs` — net481-only project (TFS Object Model types cannot compile under net10.0); functional implementation using TFS Object Model `WorkItemStore.Query()` with field-projected WIQL SELECT; evaluates `FilterOptions` in-process (same AND semantics as ADO implementation); streams results via `IAsyncEnumerable<FetchedWorkItem>`; validates `scope.Fields` not empty (ArgumentException); must NOT throw `NotImplementedException` (FR-008; see research.md R-008)
-- [X] T020 [US3] Register `TfsWorkItemFetchService` in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/MigrationPlatformHost.cs` — conditional registration matching the pattern used for ADO services (depends on T019)
-- [X] T021 [US3] TFS filter logic covered by ADO WorkItemFieldFilterEvaluatorTests (identical implementation); net481 test project deferred — net481-only test project; test field projection via mock WorkItemStore; test filter evaluation; test empty fields throws ArgumentException; test empty query returns empty sequence (MSTest [TestClass]/[TestMethod], Moq MockBehavior.Strict)
+- [X] T019 [US3] Implement `TfsWorkItemFetchService` in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Services/TfsWorkItemFetchService.cs` — net481-only project (TFS Object Model types cannot compile under net10.0); functional implementation using TFS Object Model `WorkItemStore.Query()` with field-projected WIQL SELECT; evaluates `FilterOptions` in-process (same AND semantics as ADO implementation); streams results via `IAsyncEnumerable<FetchedWorkItem>`; validates `scope.Fields` not empty (ArgumentException); must NOT throw `NotImplementedException` (FR-008; see research.md R-008) — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns
+  - Evidence: Implementation exists at `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Export/TfsWorkItemFetchService.cs`.
+- [X] T020 [US3] Register `TfsWorkItemFetchService` in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/MigrationPlatformHost.cs` — conditional registration matching the pattern used for ADO services (depends on T019) — Status: complete
+- [ ] T021 [US3] TFS filter logic covered by ADO WorkItemFieldFilterEvaluatorTests (identical implementation); net481 test project deferred — net481-only test project; test field projection via mock WorkItemStore; test filter evaluation; test empty fields throws ArgumentException; test empty query returns empty sequence (MSTest [TestClass]/[TestMethod], Moq MockBehavior.Strict) — Status: incomplete
+  - Evidence: No dedicated `TfsWorkItemFetchService` test file or net481 test project exists under `tests/**`.
 
 **Checkpoint**: TFS implementation is functional and tested. SC-005 satisfied (both ADO and TFS exercise the same `IWorkItemFetchService` interface contract).
 
@@ -106,14 +120,16 @@
 
 **Purpose**: Ensure all canonical docs reflect what was implemented in this spec. Resolves all discrepancies from `discrepancies.md`.
 
-- [X] T022 Update `docs/work-item-iteration-guide.md` — add rule 6 under "Mandatory Reuse Principle" section: "Use `IWorkItemFetchService` for field-projected, filtered work item fetching in inventory, dependency analysis, and catalog operations. Do not call `GetWorkItemsAsync` directly from these callers." Also add `IWorkItemFetchService` and `FetchedWorkItem` to the Overview section abstractions list (resolves D-001)
-- [X] T023 [P] Update `docs/module-development-guide.md` — add note to Module Responsibilities section referencing `IWorkItemFetchService` for inventory/dependency modules (resolves D-002)
-- [X] T024 [P] Update `docs/architecture.md` — add `IWorkItemFetchService` to the OrganisationEndpoint section as a consumer of `OrganisationEndpoint` as connection context (resolves D-003)
-- [X] T025 Mark all items in `specs/015-work-item-scoped-fetch/discrepancies.md` as Resolved or N/A — D-001 (Resolved by T022), D-002 (Resolved by T023), D-003 (Resolved by T024), D-004 (N/A — deferred to future feature)
-- [X] T026 Review `analysis/pending-actions.md` — no items resolved by this spec
-- [X] T027 Run `dotnet clean && dotnet build --no-incremental` — PASSED
-- [X] T028 Run `dotnet test` — 453 passed, 12 skipped, 2 failed (pre-existing credential-based system tests)
-- [X] T029 Run simulated export scenario — exit code 0, 12 work items / 56 revisions exported
+- [X] T022 Update `docs/work-item-iteration-guide.md` — add rule 6 under "Mandatory Reuse Principle" section: "Use `IWorkItemFetchService` for field-projected, filtered work item fetching in inventory, dependency analysis, and catalog operations. Do not call `GetWorkItemsAsync` directly from these callers." Also add `IWorkItemFetchService` and `FetchedWorkItem` to the Overview section abstractions list (resolves D-001) — Status: complete
+- [X] T023 [P] Update `docs/module-development-guide.md` — add note to Module Responsibilities section referencing `IWorkItemFetchService` for inventory/dependency modules (resolves D-002) — Status: complete
+- [X] T024 [P] Update `docs/architecture.md` — add `IWorkItemFetchService` to the OrganisationEndpoint section as a consumer of `OrganisationEndpoint` as connection context (resolves D-003) — Status: complete
+- [X] T025 Mark all items in `specs/015-work-item-scoped-fetch/discrepancies.md` as Resolved or N/A — D-001 (Resolved by T022), D-002 (Resolved by T023), D-003 (Resolved by T024), D-004 (N/A — deferred to future feature) — Status: complete
+- [X] T026 Review `analysis/pending-actions.md` — no items resolved by this spec — Status: complete
+- [X] T027 Run `dotnet clean && dotnet build --no-incremental` — PASSED — Status: complete
+- [ ] T028 Run `dotnet test` — 453 passed, 12 skipped, 2 failed (pre-existing credential-based system tests) — Status: incomplete
+  - Evidence: Task evidence itself records non-green full-suite result; no subsequent full-suite all-green evidence is present in this spec folder.
+- [ ] T029 Run simulated export scenario — exit code 0, 12 work items / 56 revisions exported — Status: incomplete
+  - Evidence: No preserved command output or artifact link in this spec folder to verify this run in current repository state.
 
 ---
 
@@ -121,8 +137,9 @@
 
 **Purpose**: Post-delivery improvements
 
-- [X] T030 [P] Extracted shared `WorkItemFieldFilterEvaluator` into `Abstractions/Models/` — both ADO and TFS delegate to it — DRY principle; only if duplication is observed after US3 implementation
-- [X] T031 [P] XML doc-comments already present on all new public types from Phase 1
+- [X] T030 [P] Extracted shared `WorkItemFieldFilterEvaluator` into `Abstractions/Models/` — both ADO and TFS delegate to it — DRY principle; only if duplication is observed after US3 implementation — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns
+  - Evidence: Shared evaluator exists at `src/DevOpsMigrationPlatform.Abstractions.Agent/WorkItems/WorkItemFieldFilterEvaluator.cs`.
+- [X] T031 [P] XML doc-comments already present on all new public types from Phase 1 — Status: complete
 
 ---
 
@@ -191,3 +208,4 @@ Developer C: T018 → T019 → T020 → T021  (US3: TFS implementation)
 4. Add US3 → TFS implementation → validate with TFS source
 5. Documentation Sync → all discrepancies resolved
 6. Each story adds value without breaking previous stories
+

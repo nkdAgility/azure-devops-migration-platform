@@ -3,10 +3,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 
@@ -19,17 +22,17 @@ public class FileSystemIdentityMappingService : IIdentityMappingService
 {
     private readonly IReadOnlyDictionary<string, string> _mappings;
     private readonly string _fallbackIdentity;
-    private readonly IArtefactStore _store;
+    private readonly IPackageAccess _package;
     private readonly List<string> _unmapped = new();
 
     public FileSystemIdentityMappingService(
         IReadOnlyDictionary<string, string> mappings,
         string fallbackIdentity,
-        IArtefactStore store)
+        IPackageAccess package)
     {
         _mappings = mappings ?? throw new ArgumentNullException(nameof(mappings));
         _fallbackIdentity = fallbackIdentity ?? throw new ArgumentNullException(nameof(fallbackIdentity));
-        _store = store ?? throw new ArgumentNullException(nameof(store));
+        _package = package ?? throw new ArgumentNullException(nameof(package));
     }
 
     /// <inheritdoc/>
@@ -54,17 +57,25 @@ public class FileSystemIdentityMappingService : IIdentityMappingService
     public IReadOnlyList<string> UnmappedIdentities => _unmapped.ToList();
 
     /// <summary>
-    /// Writes one warning log entry per unmapped identity to <c>Logs/</c> via
-    /// <see cref="IArtefactStore"/> and clears the unmapped list.
+    /// Writes one warning log entry per unmapped identity to <c>.migration/identity-warnings/</c>
+    /// via <see cref="IPackageAccess"/> and clears the unmapped list.
     /// </summary>
     public async Task FlushWarningsAsync(CancellationToken cancellationToken)
     {
         foreach (var identity in _unmapped)
         {
-            var msg = $"WARN: No identity mapping for '{identity}'. Fell back to '{_fallbackIdentity}'.";
-            var key = PackagePaths.IdentityWarning(identity);
-            await _store.WriteAsync(key, msg, cancellationToken).ConfigureAwait(false);
+            var ctx = new PackageContentContext(
+                PackageContentKind.Artefact,
+                Address: new RelativePathAddress($".migration/identity-warnings/{Uri.EscapeDataString(identity)}.log"));
+            var bytes = Encoding.UTF8.GetBytes($"WARN: No identity mapping for '{identity}'. Fell back to '{_fallbackIdentity}'.");
+            using var stream = new MemoryStream(bytes, writable: false);
+            await _package.PersistContentAsync(ctx, new PackagePayload(stream, "text/plain"), cancellationToken).ConfigureAwait(false);
         }
         _unmapped.Clear();
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

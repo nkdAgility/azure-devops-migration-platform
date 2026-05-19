@@ -24,10 +24,10 @@ Add system test framework to validate inventory command functionality against li
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 > **Mandatory context loading:** Before completing this gate, confirm that ALL files in
-> `/.agents/guardrails/`, ALL files in `/.agents/context/`, and relevant `/docs/` files
+> `/.agents/20-guardrails/`, ALL files in `/.agents/30-context/`, and relevant `/docs/` files
 > have been read. Skipping either `.agents/` subdirectory is a constitution violation.
 
-✅ **Architecture files read**: `docs/cli-guide.md`, `.agents/guardrails/architecture-boundaries.md`, `.agents/guardrails/testing-rules.md`, `.agents/guardrails/acceptance-test-format.md`
+✅ **Architecture files read**: `docs/cli-guide.md`, `.agents/20-guardrails/core/architecture-boundaries.md`, `.agents/20-guardrails/workflow/testing-rules.md`, `.agents/20-guardrails/workflow/acceptance-test-format.md`
 
 - [x] **Package-First (I):** ✅ N/A - This is test code that validates CLI behavior, does not involve migration package operations
 - [x] **Streaming (II):** ✅ N/A - This is test code, does not involve WorkItems processing or import logic
@@ -177,3 +177,40 @@ Execute: `/speckit.tasks` - Generate actionable task breakdown for implementatio
 
 ## Implementation Readiness
 The system test framework design is ready for task generation and implementation. All research questions resolved, design artifacts complete, and architectural compliance verified.
+
+---
+
+## Current status
+
+Reconciled against repository truth: this plan is stale in key execution details. The repository no longer has `Commands/Discovery/InventoryCommandTests.cs`; live and simulated system coverage is now centered on `queue` command test classes and split documentation guides.
+
+## Remaining incomplete work (IDs)
+
+T001, T013, T014, T015, T017, T022, T023, T024, T026, T027, T035, T036, T038, T040, T041, T042.
+
+## Completed because superseded (IDs + source)
+
+- T018 superseded by `CliRunner` output-folder cleanup pattern.
+- T020 superseded by `.github/workflows/main.yml` system-test stages.
+- T021 superseded by queue-command-centric live system tests.
+- T025, T028-T034, T039 superseded by `docs/contributor-guide.md` + `docs/testing-guide.md` + `docs/live-system-testing-guide.md`.
+- T037 superseded by existing diagnostics capture and documentation.
+
+## Contradictions and reconciliation
+
+1. **Path contradiction**: planned InventoryCommand test file path no longer exists; reconciled to queue-command test architecture.
+2. **Doc contradiction**: planned `docs/contributors.md` target is stale; reconciled to `docs/contributor-guide.md` and testing guides.
+3. **Behavior contradiction**: plan/spec assumed inconclusive environment gating, but current live-test policy discourages committed self-skipping tests; reconciled as unresolved for this spec and tracked as incomplete tasks.
+
+## Verification evidence
+
+- `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/QueueCommandTests.cs`
+- `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/MigrationExportCommandTests.cs`
+- `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/PrepareCommandTests.cs`
+- `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/SimulatedMigrationCommandTests.cs`
+- `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TestUtilities/SystemTestConfiguration.cs`
+- `.github/workflows/main.yml`
+- `docs/contributor-guide.md`
+- `docs/testing-guide.md`
+- `docs/live-system-testing-guide.md`
+

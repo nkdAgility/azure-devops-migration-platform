@@ -1,7 +1,7 @@
 # Implementation Plan: Telemetry Pipeline — Cloud Export + TUI Live Feed
 
-**Branch**: `first-coding-session` | **Date**: 2026-04-02 | **Spec**: user request (no spec.md)
-**Input**: Direct user request: "send telemetry to a cloud provider and intercept for TUI via AgentJobService → ControlPlaneService → HTTP → TUI"
+**Branch**: `first-coding-session` (historical) | **Date**: 2026-04-02 | **Spec**: reconciled in `specs/001-let-there-be-light/spec.md`
+**Input**: Historical user request: "send telemetry to a cloud provider and intercept for TUI via AgentJobService → ControlPlaneService → HTTP → TUI"
 
 ## Summary
 
@@ -119,3 +119,40 @@ features/platform/
 ## Complexity Tracking
 
 *No constitution violations. No additional complexity beyond what the architecture already prescribes.*
+
+---
+
+## Reconciliation status (2026-05-16)
+
+### Current status
+
+This plan captures an early telemetry design and is now partly superseded by later specifications (`002`, `007`, `008`, `018`, `031`) and current runtime wiring.
+
+### Remaining incomplete work (IDs)
+
+- `T025`
+- `T034`
+
+### Completed because superseded (IDs + source)
+
+- Superseded by `specs/031-platform-metrics-unification`: `T001, T004, T005, T007, T008, T010, T012, T013, T014, T020, T021, T022, T023, T037, T039`
+- Superseded by `specs/021.2-separation-of-concerns`: `T016, T017, T035, T036, T038`
+- Superseded by `specs/023.5-tfsmigrationagent-architectural-consistency`: `T027`
+- Superseded by `specs/008-tui-job-dashboard`: `T032`
+
+### Contradictions and reconciliation
+
+- `MetricSnapshot`/`POST .../telemetry` assumptions were reconciled to current `JobMetrics`/`JobSnapshot` with `POST .../metrics` + `POST .../snapshot`.
+- `ControlPlane/Program.cs` assumptions were reconciled to `ControlPlaneHost/Program.cs` and extension-based registration.
+- CLI-specific TFS adapter assumptions were reconciled to dedicated TFS agent topology.
+- Legacy references to `specs/first-coding-session` are historical and no longer canonical.
+
+### Verification evidence
+
+- Build succeeded: `dotnet build DevOpsMigrationPlatform.slnx -v minimal`.
+- Tests succeeded: `dotnet test tests\DevOpsMigrationPlatform.Infrastructure.Agent.Tests\DevOpsMigrationPlatform.Infrastructure.Agent.Tests.csproj --logger "console;verbosity=minimal"`.
+- Code evidence:
+  - `src/DevOpsMigrationPlatform.ControlPlane/Controllers/TelemetryController.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions/Streaming/ProgressEvent.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions/ControlPlaneApi/JobMetrics.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/ControlPlaneTelemetryTimer.cs`

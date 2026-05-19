@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Moq;
 
@@ -20,7 +21,7 @@ public class CursorResumeContext
     public const string CursorIdentity = "import.workitems";
 
     /// <summary>Strict mock for the state store — modules must not call this directly.</summary>
-    public Mock<IStateStore> MockStateStore { get; } = new Mock<IStateStore>(MockBehavior.Strict);
+    internal Mock<ITestStateStore> MockStateStore { get; } = new Mock<ITestStateStore>(MockBehavior.Strict);
 
     public Mock<ICurrentJobEndpointAccessor> MockEndpointAccessor { get; } = new(MockBehavior.Strict);
     public Mock<IPackageAccess> MockPackage { get; }
@@ -69,8 +70,9 @@ public class CursorResumeContext
         MockEndpointAccessor.SetupGet(a => a.Target).Returns(target.Object);
 
         Sut = new CheckpointingService(
-            MockStateStore.Object,
             MockEndpointAccessor.Object,
-            package: MockPackage.Object);
+            null,
+            null,
+            MockPackage.Object);
     }
 }

@@ -3,10 +3,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -23,7 +26,6 @@ public class RevisionFolderProcessorTests
 
     private const string Folder = "WorkItems/2024-01-01/00000638000000000001-1-0";
 
-    private Mock<IArtefactStore> _mockArtefactStore = null!;
     private Mock<ICheckpointingService> _mockCheckpointing = null!;
     private Mock<IWorkItemImportTarget> _mockTarget = null!;
     private Mock<IIdMapStore> _mockIdMapStore = null!;
@@ -34,13 +36,12 @@ public class RevisionFolderProcessorTests
     [TestInitialize]
     public void Setup()
     {
-        _mockArtefactStore = new Mock<IArtefactStore>(MockBehavior.Strict);
         _mockCheckpointing = new Mock<ICheckpointingService>(MockBehavior.Strict);
         _mockTarget = new Mock<IWorkItemImportTarget>(MockBehavior.Strict);
         _mockIdMapStore = new Mock<IIdMapStore>(MockBehavior.Strict);
         _mockIdentityMapping = new Mock<IIdentityLookupTool>(MockBehavior.Loose);
         _mockResolutionStrategy = new Mock<IWorkItemResolutionStrategy>(MockBehavior.Strict);
-        _mockPackage = PackageTestFactory.CreateDelegatingMock(_mockArtefactStore.Object);
+        _mockPackage = PackageTestFactory.CreateLooseMock();
 
         // Default identity pass-through
         _mockIdentityMapping
@@ -57,8 +58,9 @@ public class RevisionFolderProcessorTests
             _mockIdMapStore.Object,
             _mockCheckpointing.Object,
             _mockIdentityMapping.Object,
-            _mockArtefactStore.Object,
             NullLogger<RevisionFolderProcessor>.Instance,
+            "https://dev.azure.com/contoso",
+            "Shop",
             package: _mockPackage.Object);
 
     // ── ProcessAsync_WhenRevisionJsonMissing_SkipsFolder ──────────────────────
@@ -66,9 +68,7 @@ public class RevisionFolderProcessorTests
     [TestMethod]
     public async Task ProcessAsync_WhenRevisionJsonMissing_SkipsFolder()
     {
-        _mockArtefactStore
-            .Setup(s => s.ReadAsync($"{Folder}/revision.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
+        SetupPackageText($"{Folder}/revision.json", null);
 
         var sut = CreateSut();
         await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
@@ -176,7 +176,7 @@ public class RevisionFolderProcessorTests
         await sut.ProcessAsync(Folder, ext, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.UploadAttachmentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()), Times.Never);
-        _mockArtefactStore.Verify(s => s.ReadBinaryAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockPackage.Verify(p => p.RequestContentBinaryAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── ProcessAsync_WhenResumingFromAppliedFields_SkipsStagesAandB ──────────
@@ -210,13 +210,9 @@ public class RevisionFolderProcessorTests
     public async Task ProcessAsync_WhenIdentityFieldPresent_ResolvesViaIdentityMappingService()
     {
         var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"},{"ReferenceName":"System.AssignedTo","Value":"source@example.com"}],"Attachments":[],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
-        _mockArtefactStore
-            .Setup(s => s.ReadAsync($"{Folder}/revision.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(json);
+        SetupPackageText($"{Folder}/revision.json", json);
         // Comments stage always runs (Enabled=true by default); return null so no comments are posted.
-        _mockArtefactStore
-            .Setup(s => s.ReadAsync($"{Folder}/comment.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
+        SetupPackageText($"{Folder}/comment.json", null);
 
         _mockIdentityMapping
             .Setup(s => s.Resolve("source@example.com"))
@@ -252,16 +248,185 @@ public class RevisionFolderProcessorTests
         Assert.AreEqual("target@example.com", assignedTo!.Value);
     }
 
+    [TestMethod]
+    public async Task ProcessAsync_WhenIdentityValueAppearsInMultipleFields_ResolvesOnlyOncePerRevision()
+    {
+        var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"},{"ReferenceName":"System.AssignedTo","Value":"source@example.com"},{"ReferenceName":"System.ChangedBy","Value":"source@example.com"},{"ReferenceName":"System.CreatedBy","Value":"source@example.com"}],"Attachments":[],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
+        SetupPackageText($"{Folder}/revision.json", json);
+        SetupPackageText($"{Folder}/comment.json", null);
+
+        _mockIdentityMapping
+            .Setup(s => s.Resolve("source@example.com"))
+            .Returns("target@example.com");
+
+        SetupNoMapping();
+        SetupTargetCreate(newTargetId: 10);
+        SetupCursorWrites();
+        SetupResolutionStrategyNoOp();
+
+        IReadOnlyList<WorkItemField>? capturedFields = null;
+        _mockTarget
+            .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
+            .Callback<int, IReadOnlyList<WorkItemField>, CancellationToken>((_, fields, _) => capturedFields = fields)
+            .Returns(Task.CompletedTask);
+        _mockIdMapStore
+            .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(10);
+        _mockTarget
+            .Setup(t => t.WorkItemExistsAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _mockTarget
+            .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var sut = CreateSut();
+        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        _mockIdentityMapping.Verify(s => s.Resolve("source@example.com"), Times.Once);
+        Assert.IsNotNull(capturedFields);
+        Assert.AreEqual("target@example.com", capturedFields!.Single(f => f.ReferenceName == "System.AssignedTo").Value);
+        Assert.AreEqual("target@example.com", capturedFields.Single(f => f.ReferenceName == "System.ChangedBy").Value);
+        Assert.AreEqual("target@example.com", capturedFields.Single(f => f.ReferenceName == "System.CreatedBy").Value);
+    }
+
+    [TestMethod]
+    public async Task ProcessAsync_WhenAreaPathIsExternalAndSkipEnabled_SkipsRevisionBeforeFieldReplay()
+    {
+        var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"},{"ReferenceName":"System.AreaPath","Value":"External\\Area"}],"Attachments":[],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
+        _mockPackage
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath.EndsWith("/revision.json", StringComparison.OrdinalIgnoreCase)),
+                It.IsAny<CancellationToken>()))
+            .Returns(() => ToPayload(json));
+        _mockPackage
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address!.RelativePath.EndsWith("/comment.json", StringComparison.OrdinalIgnoreCase)),
+                It.IsAny<CancellationToken>()))
+            .Returns(() => ToPayload(null));
+
+        _mockIdMapStore
+            .SetupSequence(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int?)null)
+            .ReturnsAsync(10);
+        _mockIdMapStore
+            .Setup(s => s.SetWorkItemMappingAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockIdMapStore
+            .Setup(s => s.RecordSkippedRevisionAsync(1, "UnresolvablePath", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        SetupCursorWrites();
+        SetupResolutionStrategyNoOp();
+        SetupTargetCreate(newTargetId: 10);
+
+        var nodeTranslationTool = new Mock<INodeTranslationTool>(MockBehavior.Strict);
+        nodeTranslationTool
+            .Setup(t => t.IsEnabled)
+            .Returns(true);
+        nodeTranslationTool
+            .Setup(t => t.TranslatePath("System.AreaPath", @"External\Area", It.IsAny<ProjectMapping>()))
+            .Returns(new PathTranslation(@"External\Area", false, false, true));
+
+        var sut = new RevisionFolderProcessor(
+            _mockTarget.Object,
+            _mockIdMapStore.Object,
+            _mockCheckpointing.Object,
+            _mockIdentityMapping.Object,
+            NullLogger<RevisionFolderProcessor>.Instance,
+            "https://dev.azure.com/contoso",
+            "Shop",
+            nodeStructureTool: nodeTranslationTool.Object,
+            nodeStructureContext: new ProjectMapping("Source", "Target"),
+            nodeStructureOptions: new NodeTranslationOptions { SkipOnUnresolvableArea = true },
+            package: _mockPackage.Object);
+
+        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        _mockTarget.Verify(t => t.CreateWorkItemAsync("Task", It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockTarget.Verify(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockIdMapStore.Verify(s => s.RecordSkippedRevisionAsync(1, "UnresolvablePath", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [TestMethod]
+    public async Task ProcessAsync_WhenRevisionJsonUsesAttachmentMetadataAliases_ReplaysAttachmentUsingParsedMetadata()
+    {
+        var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"}],"Attachments":[{"id":"att-1","name":"evidence.zip","contentType":"application/zip","size":12,"binaryFile":"attachments/evidence.zip"}],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
+        SetupPackageText($"{Folder}/revision.json", json);
+        SetupPackageText($"{Folder}/comment.json", null);
+        SetupPackageBinary($"{Folder}/attachments/evidence.zip", [1, 2, 3]);
+        _mockPackage
+            .Setup(p => p.EnumerateContentAsync(
+                It.IsAny<PackageContentContext>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(EnumeratePaths($"{Folder}/attachments/evidence.zip"));
+
+        SetupNoMapping();
+        SetupTargetCreate(newTargetId: 10);
+        SetupCursorWrites();
+        SetupResolutionStrategyNoOp();
+        SetupTargetFieldsAndLinks(targetId: 10);
+
+        _mockTarget
+            .Setup(t => t.UploadAttachmentAsync(10, "evidence.zip", It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("simulated://10/evidence.zip");
+        _mockIdMapStore
+            .Setup(s => s.SetAttachmentMappingAsync(1, 0, "attachments/evidence.zip", "simulated://10/evidence.zip", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var sut = CreateSut();
+        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        _mockTarget.Verify(t => t.UploadAttachmentAsync(10, "evidence.zip", It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockIdMapStore.Verify(
+            s => s.SetAttachmentMappingAsync(1, 0, "attachments/evidence.zip", "simulated://10/evidence.zip", It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private void SetupRevisionJson(string? json = null)
     {
-        _mockArtefactStore
-            .Setup(s => s.ReadAsync($"{Folder}/revision.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(json ?? _minimalRevisionJson);
-        _mockArtefactStore
-            .Setup(s => s.ReadAsync($"{Folder}/comment.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
+        SetupPackageText($"{Folder}/revision.json", json ?? _minimalRevisionJson);
+        SetupPackageText($"{Folder}/comment.json", null);
+    }
+
+    private void SetupPackageText(string path, string? content)
+    {
+        _mockPackage
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => MatchesContextPath(c, path)), It.IsAny<CancellationToken>()))
+            .Returns(() => ToPayload(content));
+    }
+
+    private void SetupPackageBinary(string path, byte[] content)
+    {
+        _mockPackage
+            .Setup(p => p.RequestContentBinaryAsync(It.Is<PackageContentContext>(c => MatchesContextPath(c, path)), It.IsAny<CancellationToken>()))
+            .Returns(() => ValueTask.FromResult<System.IO.Stream?>(new System.IO.MemoryStream(content, writable: false)));
+    }
+
+    private static bool MatchesContextPath(PackageContentContext context, string expectedPath)
+    {
+        var actual = context.Address?.RelativePath;
+        if (string.IsNullOrWhiteSpace(actual))
+            return false;
+
+        if (string.Equals(actual, expectedPath, StringComparison.Ordinal))
+            return true;
+
+        var normalizedExpected = expectedPath.Replace('\\', '/');
+        var suffix = normalizedExpected.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase)
+            ? normalizedExpected["WorkItems/".Length..]
+            : normalizedExpected;
+
+        return string.Equals(actual, suffix, StringComparison.Ordinal);
+    }
+
+    private static ValueTask<PackagePayload?> ToPayload(string? content)
+    {
+        if (content is null)
+            return ValueTask.FromResult<PackagePayload?>(null);
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(content);
+        return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(bytes, writable: false), "application/json"));
     }
 
     private void SetupNoMapping()
@@ -315,5 +480,14 @@ public class RevisionFolderProcessorTests
         _mockResolutionStrategy
             .Setup(s => s.WriteProvenanceAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+    }
+
+    private static async IAsyncEnumerable<string> EnumeratePaths(params string[] paths)
+    {
+        foreach (var path in paths)
+        {
+            yield return path;
+            await Task.Yield();
+        }
     }
 }

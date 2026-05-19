@@ -96,7 +96,7 @@ public static class MigrationAgentServiceExtensions
         builder.Services.AddTeamsModule(builder.Configuration);
         builder.Services.AddAzureDevOpsWorkItemExport();
         builder.Services.AddAzureDevOpsWorkItemImport();
-        builder.Services.AddWorkItemsModule();
+        builder.Services.AddWorkItemsModule(builder.Configuration);
 
         // Simulated connector — required for offline tests and CI scenarios.
         builder.Services.AddSimulatedServices();

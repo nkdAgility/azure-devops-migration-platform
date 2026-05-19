@@ -3,13 +3,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
@@ -23,12 +24,10 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Export;
 /// TFS Object Model implementation of <see cref="IClassificationTreeCapture"/>.
 /// Reads from the active job's <see cref="IClassificationTreeReader"/> via
 /// <see cref="ActiveTfsJobServices"/> and writes <c>Nodes/source-tree.json</c>
-/// to the package via <see cref="IArtefactStore"/>.
+/// to the package via <see cref="IPackageAccess"/>.
 /// </summary>
 public sealed class TfsClassificationTreeCapture : IClassificationTreeCapture
 {
-    private const string ArtifactPath = "Nodes/source-tree.json";
-
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -49,7 +48,9 @@ public sealed class TfsClassificationTreeCapture : IClassificationTreeCapture
 
     /// <inheritdoc/>
     public async Task<int> CaptureAsync(
-        IArtefactStore artefactStore,
+        IPackageAccess package,
+        string organisation,
+        string project,
         CancellationToken ct,
         IPlatformMetrics? metrics = null,
         string? jobId = null,
@@ -79,7 +80,17 @@ public sealed class TfsClassificationTreeCapture : IClassificationTreeCapture
 
         var snapshot = new { areaNodes, iterationNodes };
         var json = JsonSerializer.Serialize(snapshot, s_jsonOptions);
-        await artefactStore.WriteAsync(ArtifactPath, json, ct).ConfigureAwait(false);
+        var bytes = Encoding.UTF8.GetBytes(json);
+        using var stream = new System.IO.MemoryStream(bytes, writable: false);
+        await package.PersistContentAsync(
+            new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: organisation,
+                Project: project,
+                Module: moduleName,
+                Address: new SourceTreeAddress()),
+            new PackagePayload(stream, "application/json"),
+            ct).ConfigureAwait(false);
 
         var total = areaNodes.Count + iterationNodes.Count;
         metrics?.RecordNodeExportTreeCount(total, tags);
@@ -89,6 +100,11 @@ public sealed class TfsClassificationTreeCapture : IClassificationTreeCapture
             areaNodes.Count, iterationNodes.Count);
 
         return total;
+    }
+
+    private sealed class SourceTreeAddress : IPackageContentAddress
+    {
+        public string RelativePath => "source-tree.json";
     }
 }
 

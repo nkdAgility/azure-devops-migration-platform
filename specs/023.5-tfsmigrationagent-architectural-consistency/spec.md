@@ -1,9 +1,50 @@
 # TfsMigrationAgent: Architectural Consistency Analysis
 
-> **Status**: Draft — iterating  
+> **Status**: Reconciled 2026-05-17 — partially implemented  
 > **Date**: 2026-04-26  
 > **Decision**: Convert `DevOpsMigrationPlatform.CLI.TfsMigration` into a first-class `TfsMigrationAgent` that communicates with the Control Plane via HTTP, symmetric with `MigrationAgent`.  
 > **Rationale**: Architectural consistency. One agent model, one communication pattern, one lifecycle model. The TFS agent has permanent topology constraints (Windows-only, process-only) but those are caveats, not reasons to have a different architecture.
+
+---
+
+## Current status
+
+- The core architectural direction is implemented: `DevOpsMigrationPlatform.TfsMigrationAgent` exists, capability-based lease routing is active, CLI subprocess bridge code is removed, and packaging/launch assets now target `TfsMigrationAgent`.
+- This spec is no longer aligned to repository truth in several details (notably lifecycle spawning, routing model details, and documentation references).
+- Change class for this reconciliation pass: **Class A (docs/spec alignment only)**.
+
+## Remaining incomplete work
+
+1. Implement or explicitly defer `AgentLifecycleService` multi-agent spawning (current code still auto-spawns only `MigrationAgent`).
+2. Reconcile docs claiming automatic TFS agent lifecycle management with actual runtime behavior.
+3. Replace stale/absent documentation references (`docs/tfs-exporter.md`) with current canonical sources.
+
+## Completed because superseded
+
+1. `jobs.source_type` denormalized-column routing design is superseded by connector capability routing on `Job.Connectors`.
+2. Dedicated net481 `TfsControlPlaneClient`/`TfsControlPlaneProgressSink` design is superseded by shared agent control-plane plumbing reused by `TfsJobAgentWorker`.
+3. Discovery routing change via adding `source` to `DiscoveryJob` is superseded by the unified `Job` contract and connector capability matching.
+
+## Contradictions and reconciliation
+
+- **Contradiction:** Spec says `AgentLifecycleService` spawns both agents. **Truth:** it currently resolves only `../MigrationAgent/...` and spawns one process.
+  - **Reconciliation:** mark this as incomplete and track in `tasks.md`.
+- **Contradiction:** Spec caveats claim no net481 host model / no `IHttpClientFactory`. **Truth:** `TfsMigrationAgent` uses `Host.CreateDefaultBuilder` and DI with shared core agent registrations.
+  - **Reconciliation:** treat these caveats as historical and superseded.
+- **Contradiction:** Spec references `docs/tfs-exporter.md`. **Truth:** file is absent in current repo.
+  - **Reconciliation:** mark documentation update as incomplete.
+
+## Verification evidence
+
+- `src/DevOpsMigrationPlatform.TfsMigrationAgent/Program.cs`
+- `src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsJobAgentWorker.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/AgentWorkerBase.cs` (`/agents/lease?capabilities=...`)
+- `src/DevOpsMigrationPlatform.ControlPlane/Controllers/AgentLeaseController.cs`
+- `src/DevOpsMigrationPlatform.ControlPlane/Jobs/JobStore.cs`
+- `src/DevOpsMigrationPlatform.CLI.Migration/Commands/QueueCommand.cs`
+- `build.ps1` (`TfsMigrationAgent` packaging)
+- `.vscode/tasks.json` (`build-tfs-agent`)
+- Baseline validation: `./build.ps1 -Mode Build` and `./build.ps1 -Mode Test` succeeded before reconciliation edits
 
 ---
 
@@ -447,9 +488,9 @@ The entire project is replaced by `TfsMigrationAgent`. All reusable code (TFS OM
 | `docs/architecture.md` | Update TFS Export Agent description |
 | `docs/control-plane.md` | Add capability routing, multi-agent lifecycle |
 | `docs/agent-hosting.md` | Note TFS agent as a peer |
-| `.agents/guardrails/architecture-boundaries.md` | Update TFS isolation rules |
-| `.agents/guardrails/coding-standards.md` | Update subprocess references |
-| `.agents/context/job-lifecycle.md` | Add `source` to `DiscoveryJob` |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Update TFS isolation rules |
+| `.agents/20-guardrails/core/coding-standards.md` | Update subprocess references |
+| `.agents/30-context/domains/job-lifecycle.md` | Add `source` to `DiscoveryJob` |
 
 ---
 
@@ -490,3 +531,4 @@ The entire project is replaced by `TfsMigrationAgent`. All reusable code (TFS OM
 3. **`Microsoft.Extensions.Hosting` on net481** — .NET Framework 4.8.1 can consume `Microsoft.Extensions.Hosting` via NuGet (targets .NET Standard 2.0). This would give `BackgroundService`, `IHostedService`, `IHost`, and `IConfiguration` on net481 — making the TFS agent structurally identical to the MigrationAgent. Worth evaluating vs. a plain console loop. If it works cleanly, it significantly reduces the code divergence.
 
 4. **Cancellation model** — the current subprocess uses a sentinel file for cancellation. The agent model can use `POST /agents/lease/{leaseId}/heartbeat` response to signal pause/cancel (the MigrationAgent reads a signal from the heartbeat response). The sentinel file mechanism is deleted.
+

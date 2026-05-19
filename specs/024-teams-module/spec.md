@@ -2,7 +2,7 @@
 
 **Feature Branch**: `024-teams-module`  
 **Created**: 2026-04-27  
-**Status**: Draft  
+**Status**: ⚠️ Reconciled (2026-05-17): mostly complete, with remaining verification gaps  
 **Input**: User description: "M5: TeamsModule which also uses the Node tool as an expansion. This module should run before work items and be implemented in all three ADO, TFS, Simulated. Include IdentitiesModule as a prerequisite. Promote NodeStructure from tool-embedded data-owning code to a proper module — extract the export/import lifecycle from the existing tool code."
 
 ## Architecture References
@@ -12,10 +12,48 @@
 | `docs/architecture.md` | ✅ Confirmed accurate — TeamsModule listed in Module Responsibilities table |
 | `docs/module-development-guide.md` | ⚠️ Discrepancy logged — TeamsModule listed but has no detailed section; config schema not documented |
 | `docs/configuration-reference.md` | ⚠️ Discrepancy logged — no `Teams` module entry in the `modules` config schema example |
-| `.agents/guardrails/architecture-boundaries.md` | ✅ Confirmed accurate — all rules apply (streaming, IArtefactStore, IStateStore, cursor-based checkpoints, identity mapping via IIdentityMappingService) |
-| `.agents/guardrails/module-rules.md` | ✅ Confirmed accurate — full new module checklist applies |
-| `.agents/context/migration-package-concept.md` | ⚠️ Discrepancy logged — `Teams/` folder listed in package structure but contents not documented |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | ✅ Confirmed accurate — all rules apply (streaming, IArtefactStore, IStateStore, cursor-based checkpoints, identity mapping via IIdentityMappingService) |
+| `.agents/20-guardrails/domains/module-rules.md` | ✅ Confirmed accurate — full new module checklist applies |
+| `.agents/30-context/domains/migration-package-concept.md` | ⚠️ Discrepancy logged — `Teams/` folder listed in package structure but contents not documented |
 | `analysis/proposed-features.md` (M5, T2) | ✅ Confirmed — TeamsModule uses NodeTranslationTool for iteration path operations |
+
+## Reconciliation Snapshot (2026-05-17)
+
+### Canonical task status source
+
+- `specs/024-teams-module/tasks.md`
+
+### Current status summary
+
+- **Complete**: 109 tasks
+- **Incomplete**: `T084`, `T085`, `T096`
+- **Complete/superseded**: 15 tasks (renamed paths, relocated implementations, or later lifecycle supersession)
+
+### Remaining incomplete work
+
+1. Run and record AzureDevOps connector verification evidence (`T084`).
+2. Run and record TeamFoundationServer connector verification evidence (`T085`).
+3. Run and record at least one scenario debug-profile execution (`T096`).
+
+### Completed because superseded
+
+- NodeStructure task/file naming superseded by later `NodesModule` naming in `specs/030-module-analiser-refactor`.
+- Legacy `CLI.TfsExport` handler paths superseded by `Infrastructure.TfsObjectModel` implementations.
+- Prepare/identity readiness behavior was superseded by later prepare/import readiness orchestration (`specs/035-workitem-import-support`).
+
+### Contradictions and reconciliation
+
+1. This spec still contains historical “no `DependsOn` property” language, but current `IModule` includes `DependsOn` and capture/prepare capabilities.
+2. This spec uses `NodeStructureModule` naming, while current implementation uses `NodesModule`.
+3. Some original prepare-story assumptions were replaced by current lifecycle handling across later specs and runtime orchestration.
+
+### Verification evidence
+
+- `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IModule.cs` (current module contract)
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodesModule.cs` (renamed node module implementation)
+- `src/DevOpsMigrationPlatform.CLI.Migration/Commands/PrepareCommand.cs` (prepare command)
+- `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/TfsIdentitySource.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/TfsTeamSource.cs`
 
 ## Concepts: Extension → Tool → Module Promotion
 
@@ -623,7 +661,7 @@ This lifecycle ensures the operator has full visibility into potential issues (u
 
 - The `IdentitiesModule` is included in this spec (see User Story 0 and FR-I01 through FR-I12). It is a hard prerequisite for TeamsModule and all downstream modules.
 - `IIdentityMappingService` is an existing interface in the codebase (in `Abstractions.Agent`). The IdentitiesModule provides the concrete implementation that builds the resolution index from package data.
-- The `Identities/` folder layout is defined by `.agents/context/identity-and-mapping.md` — this spec implements that specification.
+- The `Identities/` folder layout is defined by `.agents/30-context/domains/identity-and-mapping.md` — this spec implements that specification.
 - The `NodeTranslationTool` is already implemented and supports both area and iteration path resolution/creation — no new tool development is needed. It is integrated into TeamsModule as the `NodeStructure` extension.
 - The `Teams/` folder in the package format is reserved (already listed in `migration-package-concept.md`) but its internal structure is to be defined by this module.
 - Team capacity import for past (closed) iterations is attempted for all iterations. Past iteration paths are translated via `NodeTranslationTool.TranslatePath()`. If the target rejects a capacity update (e.g., for closed iterations), the module logs a warning and skips that entry. If a past iteration path cannot be resolved, the module logs a warning and skips that capacity entry.
@@ -631,7 +669,7 @@ This lifecycle ensures the operator has full visibility into potential issues (u
 - The module does not migrate team project-level permissions — that is the responsibility of `PermissionsModule`.
 - Module execution order is determined by operator configuration. The ordering mechanism is defined by the platform orchestration layer (see `docs/migration-process-guide.md`). The operator controls which modules run and in what order.
 - Every ADO project has a default team that cannot be deleted. The module handles this by detecting and mapping the default team by role rather than by name.
-- Architecture documents read: `agents.md`, `docs/architecture.md`, `docs/module-development-guide.md`, `docs/configuration-reference.md`, `.agents/guardrails/architecture-boundaries.md`, `.agents/guardrails/module-rules.md`, `.agents/context/migration-package-concept.md`, `analysis/proposed-features.md` (M5 and T2 sections), `.agents/context/identity-and-mapping.md`.
+- Architecture documents read: `agents.md`, `docs/architecture.md`, `docs/module-development-guide.md`, `docs/configuration-reference.md`, `.agents/20-guardrails/core/architecture-boundaries.md`, `.agents/20-guardrails/domains/module-rules.md`, `.agents/30-context/domains/migration-package-concept.md`, `analysis/proposed-features.md` (M5 and T2 sections), `.agents/30-context/domains/identity-and-mapping.md`.
 
 ## Connector Coverage
 
@@ -725,3 +763,4 @@ None. All features have complete connector coverage in the specification.
 ### Verdict
 
 **PASS** — All features have complete connector coverage in the specification. One TFS exemption is documented with specific API limitation rationale and graceful degradation behaviour.
+

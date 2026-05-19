@@ -56,6 +56,7 @@ A simulated system test that only asserts `Assert.IsNotNull(result)` or `Assert.
 
 ## Related
 
-- [.agents/guardrails/connector-rules.md](../../.agents/guardrails/connector-rules.md) — connector implementation requirements
+- [.agents/20-guardrails/domains/connector-rules.md](../../.agents/20-guardrails/domains/connector-rules.md) — connector implementation requirements
 - [docs/architecture.md](../architecture.md) — connector model
 - Driving specs: `specs/017-simulated-infrastructure/spec.md`, `specs/021.1-simulated-infrastructure/spec.md`
+

@@ -16,12 +16,38 @@
 | `docs/architecture.md` | Confirmed — no conflicts |
 | `docs/module-development-guide.md` | **Applies directly** — `IModule.DependsOn` documents the dependency graph contract; this spec realises it |
 | `docs/migration-process-guide.md` | **Has gap** — does not describe plan-driven execution or per-phase parallelism; needs updating after implementation |
-| `.agents/guardrails/architecture-boundaries.md` | Rules 7 (IStateStore only), 12 (stateless agent/durable state in package), 17 (all state in checkpoints), 21 (mandatory reuse of existing architecture) apply |
-| `.agents/guardrails/coding-standards.md` | Rule 8 (no `.Result`/`.Wait()`), rule 14 (resilience) apply |
-| `.agents/context/job-lifecycle.md` | Confirmed — `Job.Resume.Mode == ForceFresh` must trigger plan deletion + rebuild |
-| `.agents/context/package-manager.md` | Confirmed — plan persistence uses `IStateStore`, not `IArtefactStore` |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Rules 7 (IStateStore only), 12 (stateless agent/durable state in package), 17 (all state in checkpoints), 21 (mandatory reuse of existing architecture) apply |
+| `.agents/20-guardrails/core/coding-standards.md` | Rule 8 (no `.Result`/`.Wait()`), rule 14 (resilience) apply |
+| `.agents/30-context/domains/job-lifecycle.md` | Confirmed — `Job.Resume.Mode == ForceFresh` must trigger plan deletion + rebuild |
+| `.agents/30-context/domains/package-manager.md` | Confirmed — plan persistence uses `IStateStore`, not `IArtefactStore` |
 
 ---
+
+## Current status (reconciled 2026-05-17)
+
+- Change class: **A** (documentation/status reconciliation only; no runtime surface change).
+- Applicable guardrails: architecture boundaries, change governance, surface usage, testing rules, documentation rules.
+- Guardrail-rejected approach: restoring legacy `.migration/Checkpoints/plan.json` + `PackagePaths.PlanFile` as a parallel plan surface was rejected; current canonical runtime path is `.migration/plan.json` via `PackageMetaKind.ExecutionPlan` and `IPackageAccess`.
+
+### Remaining incomplete work
+
+- T009, T016, T017, T018
+
+### Completed because superseded
+
+- T002 → superseded by `specs/034-package-manager-adoption/tasks.md` T042/T043/T045 (plan persistence moved to `IPackageAccess` + `PackageMetaKind.ExecutionPlan`).
+- T005 → superseded by `specs/030-module-analiser-refactor/tasks.md` T016 (phase-aware dependency graph; export dependencies are no longer forced empty).
+
+### Contradictions and reconciliation
+
+- FR-004/plan Phase 1 references `.migration/Checkpoints/plan.json` and a non-existent `Abstractions.Agent/Lease/PackagePaths.cs`; implementation uses `.migration/plan.json` routed by `PackagePathRouter` + `PackageMetaKind.ExecutionPlan`.
+- FR-005 interface shape is stale versus current `IJobPlanExecutor` (unified `ExecuteTasksAsync` + capture/analyser routing from spec 032).
+
+### Verification evidence
+
+- Runtime wiring: `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`, `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobPlanExecutor.cs`, `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobExecutionPlanBuilder.cs`.
+- Path contract: `src/DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem/PackagePathRouter.cs`, `src/DevOpsMigrationPlatform.Abstractions.Storage/PackageMetaKind.cs`.
+- Tests: `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Context/JobPlanExecutorTests.cs`, `.../JobExecutionPlanBuilderDependsOnTests.cs`, `.../Platform/PlanDrivenExecutionSteps.cs`, `.../ParallelModuleExecutionSteps.cs`.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -181,3 +207,4 @@ The plan executor emits `ProgressEvent` with `TaskId` and `TaskStatus` on every 
 4. A simulated crash-and-resume (delete the plan file entry from state, re-run without `ForceFresh`) causes completed modules to not be re-executed; the resumed run completes successfully.
 5. `dotnet clean && dotnet build --no-incremental` — 0 errors.
 6. All tests pass: `dotnet test DevOpsMigrationPlatform.slnx`.
+

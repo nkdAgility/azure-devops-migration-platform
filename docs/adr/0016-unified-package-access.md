@@ -83,4 +83,4 @@ The boundary does not include delete. Cleanup, force-fresh removal, and other ma
 - [0008-configuration-travels-in-package.md](0008-configuration-travels-in-package.md)
 - [../package-boundary-reference.md](../package-boundary-reference.md)
 - [../package-format-reference.md](../package-format-reference.md)
-- [../../.agents/context/package-manager.md](../../.agents/context/package-manager.md)
+- [../../.agents/30-context/domains/package-manager.md](../../.agents/30-context/domains/package-manager.md)

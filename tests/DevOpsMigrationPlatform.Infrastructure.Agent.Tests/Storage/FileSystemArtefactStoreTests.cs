@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Storage;

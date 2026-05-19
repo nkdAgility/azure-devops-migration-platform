@@ -5,7 +5,7 @@ description: Validates that a completed unit of work meets every criterion in th
 
 # Skill: Definition of Done Validation
 
-Validate that a completed unit of work satisfies every criterion defined in `.agents/guardrails/definition-of-done.md`. This skill is deterministic and idempotent — running it twice on the same input produces the same output.
+Validate that a completed unit of work satisfies every criterion defined in `.agents/20-guardrails/workflow/definition-of-done.md`. This skill is deterministic and idempotent — running it twice on the same input produces the same output.
 
 **Invocation modes:**
 
@@ -36,10 +36,10 @@ When this skill is active, inspect the target for compliance with every Definiti
 
 Before executing, read the following context files:
 
-- `.agents/guardrails/definition-of-done.md` — The canonical criteria
-- `.agents/guardrails/coding-standards.md` — Code quality rules and validation checklist
-- `.agents/guardrails/testing-rules.md` — Test framework rules
-- `.agents/guardrails/architecture-boundaries.md` — Architecture constraints
+- `.agents/20-guardrails/workflow/definition-of-done.md` — The canonical criteria
+- `.agents/20-guardrails/core/coding-standards.md` — Code quality rules and validation checklist
+- `.agents/20-guardrails/workflow/testing-rules.md` — Test framework rules
+- `.agents/20-guardrails/core/architecture-boundaries.md` — Architecture constraints
 
 These files establish the redlines that must not be crossed.
 
@@ -119,7 +119,7 @@ Record all auto-fixes in the report under:
 **Document mode:**
 
 1. Check if the document mentions build status or contains a build checklist.
-2. If a tasks.md, check whether the build task is marked `[X]`.
+2. If a tasks.md, check whether the build task is marked `[x]`.
 3. Record status as **Documented/Verified**, **Documented/Unverified**, or **Not mentioned**.
 
 ### Step 2 — Gate 2: Tests
@@ -212,8 +212,8 @@ For each violation found, record: file, line number, violation type, and the off
 
 **Codebase mode:**
 
-1. If a `tasks.md` exists in the feature directory, identify all doc-tasks (tasks referencing `docs/` or `.agents/context/` files).
-2. For each doc-task marked `[X]`, verify the referenced file was actually modified (check git diff or file timestamps).
+1. If a `tasks.md` exists in the feature directory, identify all doc-tasks (tasks referencing `docs/` or `.agents/30-context/` files).
+2. For each doc-task marked `[x]`, verify the referenced file was actually modified (check git diff or file timestamps).
 3. Check if the feature adds/changes a CLI command → verify `.vscode/launch.json` has a matching entry.
 4. Check if the feature adds/changes a deployable Host → verify `build.ps1` covers it.
 5. If a CLI-exposed feature was added → verify a `[TestCategory("SystemTest")]` test exists.
@@ -229,7 +229,7 @@ For each violation found, record: file, line number, violation type, and the off
 
 **Codebase mode:**
 
-1. Identify the `docs/` and `.agents/context/` files relevant to the changes.
+1. Identify the `docs/` and `.agents/30-context/` files relevant to the changes.
 2. For each relevant doc file, compare the implementation against what the doc specifies:
    - Does the implementation match the documented behaviour?
    - Does it add any undocumented parameters, options, commands, or behaviour?
@@ -423,3 +423,4 @@ Legend: ✅ = Pass, ❌ = Fail, ⬜ = Not yet verified
 - [ ] No source files were modified without explicit user instruction (manual mode) or outside the auto-fix list (hook mode).
 
 The skill is not complete until all criteria are checked. Any unchecked criterion is a failure.
+

@@ -89,5 +89,5 @@ All connector interfaces must be defined in `DevOpsMigrationPlatform.Abstraction
 ## Further Reading
 
 - [client-integration-guide.md](client-integration-guide.md) — SDK usage patterns
-- [.agents/guardrails/architecture-boundaries.md](../.agents/guardrails/architecture-boundaries.md) — boundary rules
+- [.agents/20-guardrails/core/architecture-boundaries.md](../.agents/20-guardrails/core/architecture-boundaries.md) — boundary rules
 - [module-development-guide.md](module-development-guide.md) — how modules consume connectors

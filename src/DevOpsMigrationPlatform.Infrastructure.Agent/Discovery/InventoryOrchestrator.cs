@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
@@ -74,12 +77,11 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         CancellationToken ct = default)
     {
         var job = context.Job;
-        var store = context.ArtefactStore;
-        var state = context.StateStore;
+        var package = context.Package;
         var sink = context.ProgressSink ?? NullProgressSink.Instance;
         var metricsStore = context.MetricsStore;
         var snapshotStore = context.SnapshotStore;
-        var checkpointing = _checkpointingFactory.Create(state);
+        var checkpointing = _checkpointingFactory.Create(package);
         var cursorIdentity = StateCursorIdentity.Build("inventory", moduleName);
 
         var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(context.SourceEndpoint?.ResolvedUrl ?? "unknown");
@@ -115,7 +117,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         // Reload completed projects from existing CSV for resume support.
         if (isResuming)
         {
-            var existingCsv = await store.ReadAsync(csvOutputPath, ct).ConfigureAwait(false);
+            var existingCsv = await ReadPackageTextAsync(package, csvOutputPath, ct).ConfigureAwait(false);
             if (existingCsv is not null)
             {
                 var lines = existingCsv.Split('\n');
@@ -218,8 +220,8 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
                 // Flush CSV to disk at the checkpoint interval even mid-project.
                 if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
                 {
-                    await store.WriteAsync(csvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
-                    await WriteInventoryJsonAsync(store, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
+                    await WritePackageTextAsync(package, csvOutputPath, csvBuilder.ToString(), "text/csv", ct).ConfigureAwait(false);
+                    await WriteInventoryJsonAsync(package, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
                     lastCheckpoint = DateTime.UtcNow;
                     _logger.LogDebug("Inventory mid-project flush at checkpoint interval.");
                 }
@@ -270,7 +272,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             var evtOrgSlug = PackagePathResolver.DeriveInventoryOrgSlug(evt.Url);
             var projectPath = PackagePathResolver.ProjectInventoryPath(evtOrgSlug, evt.ProjectName);
             await ProjectInventoryFile.MergeAsync(
-                store, projectPath,
+                package, projectPath,
                 orgUrl: evt.Url,
                 project: evt.ProjectName,
                 workItems: evt.WorkItemsCount,
@@ -326,8 +328,8 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             });
 
             // Flush CSV and JSON after every completed project.
-            await store.WriteAsync(csvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
-            await WriteInventoryJsonAsync(store, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
+            await WritePackageTextAsync(package, csvOutputPath, csvBuilder.ToString(), "text/csv", ct).ConfigureAwait(false);
+            await WriteInventoryJsonAsync(package, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
             lastCompletedProjectKey = projectKey;
             lastCompletedProjectUrl = evt.Url;
             lastCompletedProjectName = evt.ProjectName;
@@ -373,9 +375,9 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         }
 
         // Final write — per-org CSV/JSON and rolling aggregate.
-        await store.WriteAsync(csvOutputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
-        await WriteInventoryJsonAsync(store, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
-        await MergeAndWriteAggregateAsync(store, aggregateJsonPath, orgProjectData, ct).ConfigureAwait(false);
+        await WritePackageTextAsync(package, csvOutputPath, csvBuilder.ToString(), "text/csv", ct).ConfigureAwait(false);
+        await WriteInventoryJsonAsync(package, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
+        await MergeAndWriteAggregateAsync(package, aggregateJsonPath, orgProjectData, ct).ConfigureAwait(false);
 
         if (!string.IsNullOrWhiteSpace(lastCompletedProjectKey) &&
             !string.IsNullOrWhiteSpace(lastCompletedProjectUrl) &&
@@ -417,15 +419,13 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     /// service can skip them entirely — zero API calls for already-counted projects.
     /// </summary>
     public static async Task<HashSet<string>?> LoadCompletedKeysAsync(
-        IArtefactStore store,
-        IStateStore state,
+        IPackageAccess package,
         string moduleName,
         CancellationToken ct)
     {
-        _ = state;
         _ = moduleName;
 
-        var existingCsv = await store.ReadAsync(CsvOutputPath, ct).ConfigureAwait(false);
+        var existingCsv = await ReadPackageTextAsync(package, CsvOutputPath, ct).ConfigureAwait(false);
         if (existingCsv is null)
             return null;
 
@@ -448,7 +448,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     }
 
     private static async Task WriteInventoryJsonAsync(
-        IArtefactStore store,
+        IPackageAccess package,
         string jsonOutputPath,
         Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> orgProjectData,
         CancellationToken ct)
@@ -497,7 +497,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             WriteIndented = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
-        await store.WriteAsync(jsonOutputPath, json, ct).ConfigureAwait(false);
+        await WritePackageTextAsync(package, jsonOutputPath, json, "application/json", ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -507,7 +507,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     /// the orchestrator is called once per org.
     /// </summary>
     private static async Task MergeAndWriteAggregateAsync(
-        IArtefactStore store,
+        IPackageAccess package,
         string aggregatePath,
         Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> currentOrgData,
         CancellationToken ct)
@@ -515,7 +515,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         var mergedData = new Dictionary<string, List<(string, long, long, int, bool, string?)>>(StringComparer.OrdinalIgnoreCase);
 
         // Load previously-written orgs so they are preserved in the aggregate.
-        var existingJson = await store.ReadAsync(aggregatePath, ct).ConfigureAwait(false);
+        var existingJson = await ReadPackageTextAsync(package, aggregatePath, ct).ConfigureAwait(false);
         if (existingJson is not null)
         {
             try
@@ -589,7 +589,40 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             WriteIndented = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
-        await store.WriteAsync(aggregatePath, json, ct).ConfigureAwait(false);
+        await WritePackageTextAsync(package, aggregatePath, json, "application/json", ct).ConfigureAwait(false);
+    }
+
+    private static async Task<string?> ReadPackageTextAsync(IPackageAccess package, string relativePath, CancellationToken ct)
+    {
+        var payload = await package.RequestContentAsync(
+            CreatePackageContentContext(relativePath),
+            ct).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
+    }
+
+    private static async Task WritePackageTextAsync(IPackageAccess package, string relativePath, string content, string contentType, CancellationToken ct)
+    {
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
+        await package.PersistContentAsync(
+            CreatePackageContentContext(relativePath),
+            new PackagePayload(stream, contentType),
+            ct).ConfigureAwait(false);
+    }
+
+    private static PackageContentContext CreatePackageContentContext(string relativePath)
+        => new(
+            PackageContentKind.Artefact,
+            Address: new RelativePathAddress(relativePath));
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 
     private static IReadOnlyList<ScopedOrganisationEndpoint> BuildScopedOrganisations(

@@ -11,9 +11,9 @@ This specification is grounded in the following documentation:
 
 - **docs/architecture.md**: Confirmed accurate - defines CLI as thin shell, commands submit jobs via ControlPlaneClient
 - **docs/cli-guide.md**: Confirmed accurate - specifies CLI technology (Spectre.Console) and command structure  
-- **.agents/guardrails/architecture-boundaries.md**: Confirmed accurate - Rule 16: "CLI must not contain migration logic"
-- **.agents/guardrails/coding-standards.md**: Confirmed accurate - C# 10+, .NET 9/10 standards
-- **.agents/guardrails/testing-rules.md**: Confirmed accurate - MSTest + Reqnroll framework requirements
+- **.agents/20-guardrails/core/architecture-boundaries.md**: Confirmed accurate - Rule 16: "CLI must not contain migration logic"
+- **.agents/20-guardrails/core/coding-standards.md**: Confirmed accurate - C# 10+, .NET 9/10 standards
+- **.agents/20-guardrails/workflow/testing-rules.md**: Confirmed accurate - MSTest + Reqnroll framework requirements
 
 **Discrepancy**: Current Program.cs implementation violates the "thin shell" principle by aggregating all DI setup and configuration logic. The reference implementation in azure-devops-migration-tools demonstrates the correct pattern where commands manage their own hosting lifecycle through a host builder.
 
@@ -168,3 +168,42 @@ As a platform developer, I need the CLI architecture to follow proper separation
 
 - Q: Test isolation strategy for CLI commands? → A: Use in-memory test doubles for all external dependencies (config, HTTP, file system)
 - Q: CommandBase implementation pattern for host management? → A: CommandBase<T> with IHostApplicationLifetime + IServiceProvider for full host control (Pattern 2 from azure-devops-migration-tools)
+
+## Current status
+
+- Reconciled against repository truth on 2026-05-17.
+- Core host-builder and CommandBase infrastructure exists.
+- Significant task drift exists between this spec and current CLI architecture/command set.
+
+## Remaining incomplete work (IDs)
+
+`T010, T013, T021, T024, T027, T028, T029, T030, T032, T035, T039, T040, T041, T042, T043, T044, T046`
+
+## Completed because superseded (IDs + source)
+
+- `T012, T014, T016, T018` superseded by `specs/025.1-fold-to-job/tasks.md` (`T001-T004`) where queue + `JobKind` submission replaces legacy per-command flows.
+- `T017, T020` superseded by `specs/021.2-separation-of-concerns/tasks.md` (`Step 1.6`) and current `ControlPlaneCommandBase` layering.
+
+## Contradictions and reconciliation
+
+- This spec expects minimal Program.cs bootstrapping, but current Program.cs still owns command routing/composition.
+- This spec expects dedicated `TfsExportCommand`/`InventoryCommand` test flow, but current implementation routes through `queue` modes.
+- Documentation (`docs/cli-guide.md`) reflects host-builder patterns more strongly than runtime Program.cs currently does.
+- Task T027 expected full options-pattern integration, but runtime still includes direct JSON file reads in `QueueCommand`.
+
+## Verification evidence
+
+- `src\DevOpsMigrationPlatform.CLI.Migration\MigrationPlatformHost.cs`
+- `src\DevOpsMigrationPlatform.CLI.Migration\Commands\CommandBase.cs`
+- `src\DevOpsMigrationPlatform.CLI.Migration\Commands\LogsCommand.cs`
+- `src\DevOpsMigrationPlatform.CLI.Migration\Commands\QueueCommand.cs`
+- `src\DevOpsMigrationPlatform.CLI.Migration\Program.cs`
+- `tests\DevOpsMigrationPlatform.CLI.Migration.Tests\MigrationPlatformHostTests.cs`
+- `tests\DevOpsMigrationPlatform.CLI.Migration.Tests\Commands\CommandBaseTests.cs`
+- `features\cli\execute\commands-execute-successfully.feature`
+- `features\cli\execute\configuration-flow.feature`
+- `features\cli\execute\host-builder-architecture.feature`
+- `specs/025.1-fold-to-job/tasks.md`
+- `specs/021.2-separation-of-concerns/tasks.md`
+- `/speckit.analyze` output (session evidence, 2026-05-17)
+- `/speckit.checklist` output (session evidence, 2026-05-17)

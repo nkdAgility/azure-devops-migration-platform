@@ -3,7 +3,7 @@
 
 using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
@@ -19,11 +19,8 @@ public class ExportContext
     /// <summary>The job definition.</summary>
     public Job Job { get; init; } = null!;
 
-    /// <summary>Artefact store for writing export output (WorkItems/, Nodes/, etc.).</summary>
-    public IArtefactStore ArtefactStore { get; init; } = null!;
-
-    /// <summary>State store for cursor-based checkpointing. Persists progress across restarts.</summary>
-    public IStateStore StateStore { get; init; } = null!;
+    /// <summary>Package access boundary for all package reads and writes.</summary>
+    public IPackageAccess Package { get; init; } = null!;
 
     /// <summary>Progress event sink. Emits structured events to the control plane ring buffer and package log.</summary>
     public IProgressSink ProgressSink { get; init; } = null!;

@@ -200,7 +200,7 @@ The Migration Agent tests must verify:
 
 ## References
 
-- [Architecture: Migration Agent](./migration-agent.md#lease-protocol)
-- [Storage Abstraction](../src/DevOpsMigrationPlatform.Abstractions/Storage/IArtefactStore.cs)
+- [Architecture: Migration Agent](./agent-hosting.md)
+- [Storage Abstraction](../src/DevOpsMigrationPlatform.Abstractions.Storage/IArtefactStore.cs)
 - [Control Plane: Lease Service](../docs/control-plane.md#lease-management)
 - [Data Integrity Best Practices](./validation.md#tier-1---pre-flight-validation)

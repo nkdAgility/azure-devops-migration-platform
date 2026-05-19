@@ -79,7 +79,7 @@ public class AutoCreateNodesSteps
 
         var orchestrator = _ctx.BuildOrchestrator();
         var context = new ProjectMapping("SourceProject", "TargetProject");
-        await orchestrator.EnsureReferencedPathsAsync(context, _ctx.ArtefactStoreMock.Object, CancellationToken.None);
+        await orchestrator.EnsureReferencedPathsAsync(context, _ctx.PackageMock.Object, string.Empty, string.Empty, CancellationToken.None);
     }
 
     [Then(@"the area node ""(.*)"" is created in the target")]

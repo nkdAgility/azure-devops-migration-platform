@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
@@ -9,7 +8,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Options;
@@ -40,7 +39,7 @@ public sealed class NodeTranslationValidator : INodeTranslationValidator
 
     /// <inheritdoc/>
     public async Task<NodeTranslationValidationReport> ValidateAsync(
-        IArtefactStore artefactStore,
+        IPackageAccess package,
         ProjectMapping context,
         CancellationToken ct)
     {
@@ -60,7 +59,20 @@ public sealed class NodeTranslationValidator : INodeTranslationValidator
                 MalformedTargetPaths: malformed);
         }
 
-        var json = await artefactStore.ReadAsync("Nodes/referenced-paths.json", ct).ConfigureAwait(false);
+        var payload = await package.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress("Nodes/referenced-paths.json")),
+            ct).ConfigureAwait(false);
+        if (payload is null)
+        {
+            return new NodeTranslationValidationReport(
+                IsValid: true,
+                UnmappedPaths: [],
+                UnanchoredPaths: [],
+                MalformedTargetPaths: []);
+        }
+
+        using var reader = new System.IO.StreamReader(payload.Content, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+        var json = await reader.ReadToEndAsync().ConfigureAwait(false);
         if (json is null)
         {
             return new NodeTranslationValidationReport(
@@ -131,5 +143,9 @@ public sealed class NodeTranslationValidator : INodeTranslationValidator
             }
         }
     }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+    }
 }
-#endif

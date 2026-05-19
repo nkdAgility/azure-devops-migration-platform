@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
@@ -29,6 +28,7 @@ public interface ITeamsOrchestrator
         TeamsModuleOptions options,
         CancellationToken ct);
 
+#if !NET481
     Task ImportAsync(
         ImportContext context,
         ISourceEndpointInfo sourceEndpointInfo,
@@ -36,10 +36,12 @@ public interface ITeamsOrchestrator
         ICheckpointingServiceFactory? checkpointingFactory,
         TeamsModuleOptions options,
         CancellationToken ct);
+#endif
 
     Task ValidateAsync(
-        IArtefactStore artefactStore,
+        IPackageAccess package,
+        string organisation,
+        string project,
         ValidationContext context,
         CancellationToken ct);
 }
-#endif

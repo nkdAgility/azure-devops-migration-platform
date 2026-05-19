@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -15,15 +16,13 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
-using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -101,8 +100,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     public async Task<JobTaskList> BuildPlanAsync(
         IConfiguration packageConfig,
         JobKind kind,
-        IArtefactStore artefactStore,
-        IStateStore stateStore,
+        IPackageAccess packageAccess,
         CancellationToken ct)
     {
         var tasks = new List<JobTask>();
@@ -129,7 +127,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
         if (includeImport)
         {
-            var importTasks = await BuildImportTasksAsync(packageConfig, artefactStore, order, ct).ConfigureAwait(false);
+            var importTasks = await BuildImportTasksAsync(packageConfig, order, ct).ConfigureAwait(false);
             tasks.AddRange(importTasks);
             order += importTasks.Count;
         }
@@ -151,17 +149,16 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
     public async Task<JobTaskList> BuildAndSaveAsync(
         IConfiguration packageConfig,
         JobKind kind,
-        IArtefactStore artefactStore,
-        IStateStore stateStore,
+        IPackageAccess packageAccess,
         CancellationToken ct)
     {
         using var guardActivity = ActivitySource.StartActivity("state.runscope.guard", ActivityKind.Internal);
         guardActivity?.SetTag("operation", "plan.authority");
         guardActivity?.SetTag("module.name", "JobExecutionPlanBuilder");
-        RunScopeAuthorityGuard.EnsureAuthoritativePath(PackagePaths.PlanFile, "execution-plan");
+        RunScopeAuthorityGuard.EnsureAuthoritativePath(".migration/plan.json", "execution-plan");
 
         // Resume: load persisted plan if present.
-        var loadedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, ct, _package).ConfigureAwait(false);
+        var loadedPlan = await JobPlanExecutor.LoadOrResetAsync(_package ?? packageAccess, ct).ConfigureAwait(false);
         if (loadedPlan is not null)
         {
             bool isComplete = loadedPlan.Tasks.Count > 0 &&
@@ -188,10 +185,8 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
                 _logger.LogInformation(
                     "Job kind changed from {OldKind} to {NewKind}. Deleting incompatible active plan and building fresh.",
                     loadedPlan.ForKind!.Value, kind);
-                if (_package is null)
-                {
-                    await stateStore.DeleteAsync(PackagePaths.PlanFile, ct).ConfigureAwait(false);
-                }
+                var package = _package ?? throw new InvalidOperationException("JobExecutionPlanBuilder requires IPackageAccess for plan persistence.");
+                await package.ResetMetaAsync(new PackageMetaContext(PackageMetaKind.ExecutionPlan), ct).ConfigureAwait(false);
                 loadedPlan = null;
             }
         }
@@ -207,7 +202,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         }
 
         // No persisted plan (or stale plan deleted) — build fresh.
-        var freshPlan = await BuildPlanAsync(packageConfig, kind, artefactStore, stateStore, ct)
+        var freshPlan = await BuildPlanAsync(packageConfig, kind, packageAccess, ct)
             .ConfigureAwait(false);
 
         // Stamp the job kind so future resume can detect mode switches.
@@ -231,7 +226,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         {
             _logger.LogWarning(ex,
                 "Failed to persist execution plan to {Path}. Job will continue, but resume may be incomplete.",
-                PackagePaths.PlanFile);
+                ".migration/plan.json");
         }
 
         return freshPlan;
@@ -255,7 +250,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         var needed = ResolveNeededExportModules(config, exportModules);
 
         // Resolve org/project for task IDs from the Source config section.
-        var sourceUrl = config["MigrationPlatform:Source:Url"] ?? string.Empty;
+        var sourceUrl = ConfigTokenResolver.Resolve(config["MigrationPlatform:Source:Url"]) ?? string.Empty;
         var sourceType = config["MigrationPlatform:Source:Type"] ?? "Unknown";
         var orgSlug = string.IsNullOrWhiteSpace(sourceUrl)
             ? PackagePathResolver.Sanitise(sourceType.ToLowerInvariant())
@@ -501,19 +496,18 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
     private async Task<List<JobTask>> BuildImportTasksAsync(
         IConfiguration config,
-        IArtefactStore artefactStore,
         int order,
         CancellationToken ct)
     {
         bool importAlreadyDone = false;
 
         // Resolve org/project for task IDs (import jobs target Target, not Source).
-        var targetUrl = config["MigrationPlatform:Target:Url"] ?? string.Empty;
+        var targetUrl = ConfigTokenResolver.Resolve(config["MigrationPlatform:Target:Url"]) ?? string.Empty;
         var targetType = config["MigrationPlatform:Target:Type"] ?? "Unknown";
         var orgSlug = string.IsNullOrWhiteSpace(targetUrl)
             ? PackagePathResolver.Sanitise(targetType.ToLowerInvariant())
             : PackagePathResolver.DeriveInventoryOrgSlug(targetUrl);
-        var targetProjects = await GetConfiguredTargetProjectsAsync(config, artefactStore, _package, ct).ConfigureAwait(false);
+        var targetProjects = await GetConfiguredTargetProjectsAsync(config, _package, ct).ConfigureAwait(false);
 
         var tasks = new List<JobTask>();
 
@@ -566,7 +560,6 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
 
     private static async Task<List<string>> GetConfiguredTargetProjectsAsync(
         IConfiguration config,
-        IArtefactStore artefactStore,
         IPackageAccess? package,
         CancellationToken ct)
     {
@@ -582,12 +575,11 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             return sourceProjects.Where(project => !string.IsNullOrWhiteSpace(project)).ToList();
         }
 
-        var packagedProjects = await DiscoverPackagedProjectNamesAsync(artefactStore, package, ct).ConfigureAwait(false);
+        var packagedProjects = await DiscoverPackagedProjectNamesAsync(package, ct).ConfigureAwait(false);
         return packagedProjects.Count > 0 ? packagedProjects : [string.Empty];
     }
 
     private static async Task<List<string>> DiscoverPackagedProjectNamesAsync(
-        IArtefactStore artefactStore,
         IPackageAccess? package,
         CancellationToken ct)
     {
@@ -597,7 +589,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             await foreach (var path in package.EnumerateContentAsync(
                 new PackageContentContext(
                     PackageContentKind.Collection,
-                    Array.Empty<string>(),
+                    Address: new RelativePathAddress(string.Empty),
                     IsCollectionRequest: true),
                 ct).ConfigureAwait(false))
             {
@@ -614,15 +606,6 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             }
         }
 
-        if (packagedProjects.Count == 0 && artefactStore is FileSystemArtefactStore fileSystemArtefactStore)
-        {
-            var rootName = new DirectoryInfo(fileSystemArtefactStore.RootPath).Name;
-            if (!string.IsNullOrWhiteSpace(rootName))
-            {
-                packagedProjects.Add(rootName);
-            }
-        }
-
         return packagedProjects.OrderBy(project => project, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
@@ -632,8 +615,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         IAnalyser analyser,
         Job job,
         IConfiguration packageConfig,
-        IArtefactStore artefactStore,
-        IStateStore stateStore,
+        IPackageAccess packageAccess,
         IProgressSink? progressSink)
     {
         if (analyser is IEndpointPairAnalyser)
@@ -641,8 +623,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             return new EndpointPairAnalyseContext
             {
                 Job = job,
-                ArtefactStore = artefactStore,
-                StateStore = stateStore,
+                Package = packageAccess,
                 ProgressSink = progressSink,
                 SourceEndpoint = BuildSourceEndpointInfo(packageConfig),
                 TargetEndpoint = BuildTargetEndpointInfo(packageConfig)
@@ -654,8 +635,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             return new OrganisationsAnalyseContext
             {
                 Job = job,
-                ArtefactStore = artefactStore,
-                StateStore = stateStore,
+                Package = packageAccess,
                 ProgressSink = progressSink,
                 Organisations = BuildOrganisationEndpoints(packageConfig)
             };
@@ -664,8 +644,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         return new AnalyseContext
         {
             Job = job,
-            ArtefactStore = artefactStore,
-            StateStore = stateStore,
+            Package = packageAccess,
             ProgressSink = progressSink
         };
     }
@@ -932,7 +911,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         if (configured.Count == 0)
         {
             // Single-org fallback from Source section.
-            var sourceUrl = config["MigrationPlatform:Source:Url"] ?? string.Empty;
+            var sourceUrl = ConfigTokenResolver.Resolve(config["MigrationPlatform:Source:Url"]) ?? string.Empty;
             var sourceProject = config["MigrationPlatform:Source:Project"] ?? string.Empty;
             var generatorProjects = config
                 .GetSection("MigrationPlatform:Source:Generator:Projects")
@@ -1260,11 +1239,17 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             packageConfig["MigrationPlatform:Target:Project"] ?? string.Empty,
             packageConfig["MigrationPlatform:Target:Type"] ?? string.Empty);
 
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+    }
+
     private sealed class ConfigSourceEndpointInfo(string url, string project, string connectorType) : ISourceEndpointInfo
     {
         public string Url { get; } = url;
         public string Project { get; } = project;
         public string ConnectorType { get; } = connectorType;
+        public string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
         public OrganisationEndpoint ToOrganisationEndpoint() => new() { ResolvedUrl = Url, Type = ConnectorType };
     }
 
@@ -1273,6 +1258,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         public string Url { get; } = url;
         public string Project { get; } = project;
         public string ConnectorType { get; } = connectorType;
+        public string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
         public OrganisationEndpoint ToOrganisationEndpoint() => new() { ResolvedUrl = Url, Type = ConnectorType };
     }
 

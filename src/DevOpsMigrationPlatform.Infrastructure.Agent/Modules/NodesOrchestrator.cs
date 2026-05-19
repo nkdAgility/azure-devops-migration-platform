@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -14,7 +15,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
@@ -41,6 +42,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
 {
     private const string SourceTreePath = "Nodes/source-tree.json";
     private const string ReferencedPathsPath = "Nodes/referenced-paths.json";
+    private const string ReplicationProgressPath = "Nodes/replication-progress.json";
     private const string ModuleName = "Nodes";
 
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
@@ -110,10 +112,10 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         // Idempotency: skip if already completed.
         if (checkpointingFactory is not null)
         {
-            var checkpointing = checkpointingFactory.Create(context.StateStore);
+            var checkpointing = checkpointingFactory.Create(context.Package);
             var cursor = await checkpointing.ReadCursorAsync("export.nodes", ct).ConfigureAwait(false);
             if (cursor?.Stage == CursorStage.Completed
-                && await ContentExistsAsync(SourceTreePath, ct).ConfigureAwait(false))
+                && await ContentExistsAsync(context.Package, sourceEndpointInfo.OrganisationSlug, sourceEndpointInfo.Project, SourceTreePath, ct).ConfigureAwait(false))
             {
                 _logger.LogInformation("[Nodes] Already exported (cursor found) — skipping re-export.");
                 return;
@@ -121,7 +123,10 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         }
 
         var nodeCount = await capture.CaptureAsync(
-            context.ArtefactStore, ct,
+            context.Package,
+            sourceEndpointInfo.OrganisationSlug,
+            sourceEndpointInfo.Project,
+            ct,
 #if !NET481
             _PlatformMetrics,
 #else
@@ -147,7 +152,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         // Write cursor after successful export.
         if (checkpointingFactory is not null)
         {
-            var checkpointing = checkpointingFactory.Create(context.StateStore);
+            var checkpointing = checkpointingFactory.Create(context.Package);
             await checkpointing.WriteCursorAsync("export.nodes", new CursorEntry
             {
                 LastProcessed = SourceTreePath,
@@ -189,8 +194,12 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
             _logger.LogInformation("[Nodes] Replicating source tree.");
             await ReplicateSourceTreeAsync(
                 mapping,
-                context.ArtefactStore, context.StateStore,
-                ct, _PlatformMetrics, context.Job.JobId).ConfigureAwait(false);
+                context.Package,
+                sourceEndpointInfo.OrganisationSlug,
+                sourceProject,
+                ct,
+                _PlatformMetrics,
+                context.Job.JobId).ConfigureAwait(false);
             importSink?.Emit(new ProgressEvent
             {
                 Module = ModuleName,
@@ -206,7 +215,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         // Write cursor after successful import.
         if (checkpointingFactory is not null)
         {
-            var checkpointing = checkpointingFactory.Create(context.StateStore);
+            var checkpointing = checkpointingFactory.Create(context.Package);
             await checkpointing.WriteCursorAsync("import.nodes", new CursorEntry
             {
                 LastProcessed = "Nodes/import",
@@ -223,7 +232,9 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
     /// </summary>
     public async Task EnsureReferencedPathsAsync(
         ProjectMapping context,
-        IArtefactStore artefactStore,
+        IPackageAccess package,
+        string organisation,
+        string project,
         CancellationToken ct,
         IPlatformMetrics? metrics = null,
         string? jobId = null)
@@ -235,7 +246,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
             return;
         }
 
-        var json = await ReadPackageContentAsync(ReferencedPathsPath, ct).ConfigureAwait(false);
+        var json = await ReadPackageContentAsync(package, organisation, project, ReferencedPathsPath, ct).ConfigureAwait(false);
         if (json is null)
         {
             _logger.LogDebug("[NodeTranslation] {Path} not found — skipping pre-collection.", ReferencedPathsPath);
@@ -308,13 +319,14 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
     /// </summary>
     private async Task ReplicateSourceTreeAsync(
         ProjectMapping context,
-        IArtefactStore artefactStore,
-        IStateStore progressStore,
+        IPackageAccess package,
+        string organisation,
+        string project,
         CancellationToken ct,
         IPlatformMetrics? metrics = null,
         string? jobId = null)
     {
-        var json = await ReadPackageContentAsync(SourceTreePath, ct).ConfigureAwait(false);
+        var json = await ReadPackageContentAsync(package, organisation, project, SourceTreePath, ct).ConfigureAwait(false);
         if (json is null)
         {
             _logger.LogWarning("[NodeTranslation] {Path} not found in package — skipping ReplicateSourceTree.", SourceTreePath);
@@ -328,7 +340,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
             return;
         }
 
-        var progress = await LoadProgressAsync(progressStore, ct).ConfigureAwait(false);
+        var progress = await LoadProgressAsync(package, organisation, project, ct).ConfigureAwait(false);
 
         using var activity = s_activitySource.StartActivity("nodes.import.replicate");
         var sw = Stopwatch.StartNew();
@@ -364,7 +376,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
 
                 progress.ReplicatedPaths.Add(targetPath);
                 progress.UpdatedAt = DateTimeOffset.UtcNow;
-                await SaveProgressAsync(progressStore, progress, ct).ConfigureAwait(false);
+                await SaveProgressAsync(package, organisation, project, progress, ct).ConfigureAwait(false);
                 count++;
                 metrics?.RecordNodeImportReplicateCount(tags);
                 metrics?.RecordNodeImportReplicateAreaCount(tags);
@@ -410,7 +422,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
 
                 progress.ReplicatedPaths.Add(targetPath);
                 progress.UpdatedAt = DateTimeOffset.UtcNow;
-                await SaveProgressAsync(progressStore, progress, ct).ConfigureAwait(false);
+                await SaveProgressAsync(package, organisation, project, progress, ct).ConfigureAwait(false);
                 count++;
                 metrics?.RecordNodeImportReplicateCount(tags);
                 metrics?.RecordNodeImportReplicateIterationCount(tags);
@@ -431,26 +443,30 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
             count, skipped, sw.ElapsedMilliseconds);
     }
 
-    private async Task<NodeReplicationProgress> LoadProgressAsync(IStateStore progressStore, CancellationToken ct)
+    private async Task<NodeReplicationProgress> LoadProgressAsync(IPackageAccess package, string organisation, string project, CancellationToken ct)
     {
-        var json = await progressStore.ReadAsync(NodeReplicationProgress.StateKey, ct).ConfigureAwait(false);
+        var json = await ReadPackageContentAsync(package, organisation, project, ReplicationProgressPath, ct).ConfigureAwait(false);
         if (json is null) return new NodeReplicationProgress();
         return JsonSerializer.Deserialize<NodeReplicationProgress>(json, s_jsonOptions) ?? new NodeReplicationProgress();
     }
 
-    private async Task SaveProgressAsync(IStateStore progressStore, NodeReplicationProgress progress, CancellationToken ct)
+    private async Task SaveProgressAsync(IPackageAccess package, string organisation, string project, NodeReplicationProgress progress, CancellationToken ct)
     {
         var json = JsonSerializer.Serialize(progress, s_jsonOptions);
-        await progressStore.WriteAsync(NodeReplicationProgress.StateKey, json, ct).ConfigureAwait(false);
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
+        await package.PersistContentAsync(
+            CreatePackageContentContext(organisation, project, ReplicationProgressPath),
+            new PackagePayload(stream, "application/json"),
+            ct).ConfigureAwait(false);
     }
 #endif
 
     /// <summary>
     /// Validates that the source-tree artefact exists and is valid JSON.
     /// </summary>
-    public async Task ValidateAsync(IArtefactStore artefactStore, ValidationContext context, CancellationToken ct)
+    public async Task ValidateAsync(IPackageAccess package, string organisation, string project, ValidationContext context, CancellationToken ct)
     {
-        var content = await ReadPackageContentAsync(SourceTreePath, ct).ConfigureAwait(false);
+        var content = await ReadPackageContentAsync(package, organisation, project, SourceTreePath, ct).ConfigureAwait(false);
         if (content is null)
         {
             context.Errors.Add(new ValidationError
@@ -475,13 +491,10 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         }
     }
 
-    private async Task<string?> ReadPackageContentAsync(string relativePath, CancellationToken ct)
+    private static async Task<string?> ReadPackageContentAsync(IPackageAccess package, string organisation, string project, string relativePath, CancellationToken ct)
     {
-        if (_package is null)
-            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
-
-        var payload = await _package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+        var payload = await package.RequestContentAsync(
+            CreatePackageContentContext(organisation, project, relativePath),
             ct).ConfigureAwait(false);
         if (payload is null)
             return null;
@@ -492,18 +505,47 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
-    private async Task<bool> ContentExistsAsync(string relativePath, CancellationToken ct)
-    {
-        if (_package is null)
-            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
-
-        return await _package.ContentExistsAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+    private static async Task<bool> ContentExistsAsync(IPackageAccess package, string organisation, string project, string relativePath, CancellationToken ct)
+        => await package.ContentExistsAsync(
+            CreatePackageContentContext(organisation, project, relativePath),
             ct).ConfigureAwait(false);
+
+    private static PackageContentContext CreatePackageContentContext(string organisation, string project, string relativePath)
+        => relativePath switch
+        {
+            SourceTreePath => new(
+                PackageContentKind.Artefact,
+                Organisation: organisation,
+                Project: project,
+                Module: ModuleName,
+                Address: new NodeSourceTreeAddress()),
+            ReferencedPathsPath => new(
+                PackageContentKind.Artefact,
+                Organisation: organisation,
+                Project: project,
+                Module: ModuleName,
+                Address: new ReferencedPathsContentAddress()),
+            ReplicationProgressPath => new(
+                PackageContentKind.Artefact,
+                Organisation: organisation,
+                Project: project,
+                Module: ModuleName,
+                Address: new ReplicationProgressAddress()),
+            _ => new(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath))
+        };
+
+    private sealed class ReferencedPathsContentAddress : IPackageContentAddress
+    {
+        public string RelativePath => "referenced-paths.json";
     }
 
-    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
-        => relativePath
-            .Replace('\\', '/')
-            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+    private sealed class ReplicationProgressAddress : IPackageContentAddress
+    {
+        public string RelativePath => "replication-progress.json";
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+    }
 }

@@ -7,6 +7,9 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Tools.NodeTranslation;
 
@@ -115,6 +118,42 @@ public class NodeTransformToolTests
         Assert.IsFalse(result.MatchedByMap);
         Assert.IsFalse(result.MatchedByProjectSwap);
         Assert.IsTrue(result.IsExternalPath);
+    }
+
+    [TestMethod]
+    public void TranslatePath_WhenCalledWithSameInput_ReturnsMemoizedResultInstance()
+    {
+        var sut = CreateTool(DefaultOptions());
+
+        var first = sut.TranslatePath("System.AreaPath", @"SourceProject\Team B", DefaultMapping);
+        var second = sut.TranslatePath("System.AreaPath", @"SourceProject\Team B", DefaultMapping);
+
+        Assert.AreSame(first, second);
+    }
+
+    [TestMethod]
+    public async Task TranslatePath_WhenCalledConcurrentlyWithSameInput_ReturnsSameMemoizedInstance()
+    {
+        var sut = CreateTool(DefaultOptions());
+        const int callerCount = 64;
+        using var startGate = new ManualResetEventSlim(false);
+        var tasks = Enumerable.Range(0, callerCount)
+            .Select(_ => Task.Run(() =>
+            {
+                startGate.Wait();
+                return sut.TranslatePath("System.AreaPath", @"SourceProject\Team B", DefaultMapping);
+            }))
+            .ToArray();
+
+        startGate.Set();
+        var results = await Task.WhenAll(tasks);
+        var distinctReferences = new HashSet<PathTranslation>(ReferenceEqualityComparer.Instance);
+        foreach (var result in results)
+        {
+            distinctReferences.Add(result);
+        }
+
+        Assert.AreEqual(1, distinctReferences.Count, "Concurrent callers should observe a single memoized PathTranslation instance.");
     }
 
     // --- Whitespace trimming ---

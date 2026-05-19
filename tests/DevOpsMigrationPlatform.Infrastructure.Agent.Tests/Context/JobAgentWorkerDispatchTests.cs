@@ -15,7 +15,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
@@ -55,14 +55,11 @@ internal static class JobAgentWorkerTestHelper
 [TestClass]
 public sealed class JobAgentWorkerDispatchTests
 {
-    private Mock<IPackageStoreFactory> _packageStoreFactory = null!;
     private Mock<IPackagePreparer> _packagePreparer = null!;
     private Mock<IPackageAccess> _package = null!;
     private Mock<IProgressSink> _progressSink = null!;
     private Mock<ICheckpointingServiceFactory> _checkpointingFactory = null!;
     private Mock<IPhaseTrackingServiceFactory> _phaseTrackingFactory = null!;
-    private Mock<IArtefactStore> _artefactStore = null!;
-    private Mock<IStateStore> _stateStore = null!;
     private Mock<ICheckpointingService> _checkpointer = null!;
     private Mock<IPhaseTrackingService> _phaseTracker = null!;
     private Mock<IPackageMigrationConfigLoader> _packageMigrationConfigLoader = null!;
@@ -87,14 +84,11 @@ public sealed class JobAgentWorkerDispatchTests
     [TestInitialize]
     public void Setup()
     {
-        _packageStoreFactory = new Mock<IPackageStoreFactory>();
         _packagePreparer = new Mock<IPackagePreparer>();
         _package = new Mock<IPackageAccess>();
         _progressSink = new Mock<IProgressSink>();
         _checkpointingFactory = new Mock<ICheckpointingServiceFactory>();
         _phaseTrackingFactory = new Mock<IPhaseTrackingServiceFactory>();
-        _artefactStore = new Mock<IArtefactStore>();
-        _stateStore = new Mock<IStateStore>();
         _checkpointer = new Mock<ICheckpointingService>();
         _phaseTracker = new Mock<IPhaseTrackingService>();
         _packageMigrationConfigLoader = new Mock<IPackageMigrationConfigLoader>();
@@ -143,16 +137,12 @@ public sealed class JobAgentWorkerDispatchTests
             }.AsReadOnly()
         };
 
-        _packageStoreFactory
-            .Setup(factory => factory.Create(It.IsAny<string>()))
-            .Returns((_artefactStore.Object, _stateStore.Object));
-
         _packagePreparer
-            .Setup(preparer => preparer.PrepareForImportAsync(It.IsAny<IArtefactStore>(), It.IsAny<IConfiguration>(), It.IsAny<CancellationToken>()))
+            .Setup(preparer => preparer.PrepareForImportAsync(It.IsAny<IPackageAccess>(), It.IsAny<IConfiguration>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         _checkpointingFactory
-            .Setup(factory => factory.Create(It.IsAny<IStateStore>()))
+            .Setup(factory => factory.Create(It.IsAny<IPackageAccess>()))
             .Returns(_checkpointer.Object);
 
         _checkpointer
@@ -164,7 +154,7 @@ public sealed class JobAgentWorkerDispatchTests
             .Returns(Task.CompletedTask);
 
         _phaseTrackingFactory
-            .Setup(factory => factory.Create(It.IsAny<IStateStore>()))
+            .Setup(factory => factory.Create(It.IsAny<IPackageAccess>()))
             .Returns(_phaseTracker.Object);
 
         _phaseTracker
@@ -179,8 +169,7 @@ public sealed class JobAgentWorkerDispatchTests
             .Setup(builder => builder.BuildAndSaveAsync(
                 It.IsAny<IConfiguration>(),
                 It.IsAny<JobKind>(),
-                It.IsAny<IArtefactStore>(),
-                It.IsAny<IStateStore>(),
+                It.IsAny<IPackageAccess>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(_plan);
 
@@ -192,7 +181,6 @@ public sealed class JobAgentWorkerDispatchTests
                 It.IsAny<InventoryContext?>(),
                 It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
                 It.IsAny<ExportContext>(),
-                It.IsAny<IStateStore>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
@@ -201,7 +189,6 @@ public sealed class JobAgentWorkerDispatchTests
                 It.IsAny<JobTaskList>(),
                 It.IsAny<IReadOnlyDictionary<string, IModule>>(),
                 It.IsAny<ImportContext>(),
-                It.IsAny<IStateStore>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
@@ -214,7 +201,6 @@ public sealed class JobAgentWorkerDispatchTests
                 It.IsAny<ExportContext?>(),
                 It.IsAny<ImportContext?>(),
                 It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
-                It.IsAny<IStateStore>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
@@ -225,7 +211,7 @@ public sealed class JobAgentWorkerDispatchTests
         _flushables =
         [
             new PackageProgressSink(_packageState, NullLogger<PackageProgressSink>.Instance, _package.Object),
-            new PackageLoggerProvider(_packageState, Options.Create(new DiagnosticLogOptions()), _package.Object),
+            new PackageLoggerProvider(_packageState, Options.Create(new DiagnosticLogOptions()), new ServiceCollection().AddSingleton(_package.Object).BuildServiceProvider()),
         ];
 
         var services = new ServiceCollection();
@@ -258,7 +244,6 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<InventoryContext?>(),
             It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
             It.IsAny<ExportContext>(),
-            It.IsAny<IStateStore>(),
             It.IsAny<CancellationToken>()), Times.Once);
         _planExecutor.Verify(executor => executor.ExecuteTasksAsync(
             It.IsAny<JobTaskList>(),
@@ -268,7 +253,6 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<ExportContext?>(),
             It.IsAny<ImportContext?>(),
             It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
-            It.IsAny<IStateStore>(),
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -302,10 +286,9 @@ public sealed class JobAgentWorkerDispatchTests
                 It.IsAny<InventoryContext?>(),
                 It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
                 It.IsAny<ExportContext>(),
-                It.IsAny<IStateStore>(),
                 It.IsAny<CancellationToken>()))
-            .Callback<JobTaskList, IReadOnlyDictionary<string, IModule>, IReadOnlyDictionary<string, IAnalyser>, InventoryContext?, IReadOnlyDictionary<string, OrganisationEndpoint>?, ExportContext, IStateStore, CancellationToken>(
-                (_, _, _, _, endpoints, _, _, _) => capturedEndpoints = endpoints)
+            .Callback<JobTaskList, IReadOnlyDictionary<string, IModule>, IReadOnlyDictionary<string, IAnalyser>, InventoryContext?, IReadOnlyDictionary<string, OrganisationEndpoint>?, ExportContext, CancellationToken>(
+                (_, _, _, _, endpoints, _, _) => capturedEndpoints = endpoints)
             .ReturnsAsync(true);
 
         var worker = CreateWorker();
@@ -344,7 +327,6 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<ExportContext?>(),
             It.IsAny<ImportContext?>(),
             It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
-            It.IsAny<IStateStore>(),
             It.IsAny<CancellationToken>()), Times.Once);
         _planExecutor.Verify(executor => executor.ExecuteExportPhaseAsync(
             It.IsAny<JobTaskList>(),
@@ -353,7 +335,6 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<InventoryContext?>(),
             It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
             It.IsAny<ExportContext>(),
-            It.IsAny<IStateStore>(),
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -414,11 +395,6 @@ public sealed class JobAgentWorkerDispatchTests
         _checkpointer.Verify(
             checkpointer => checkpointer.DeleteContinuationTokenAsync("Dependencies", It.IsAny<CancellationToken>()),
             Times.Once);
-
-        _stateStore.Verify(
-            store => store.DeleteAsync(PackagePaths.CursorFile("Dependencies"), It.IsAny<CancellationToken>()),
-            Times.Never,
-            "Discovery ForceFresh must not delete legacy root cursor paths directly.");
     }
 
     [TestMethod]
@@ -479,8 +455,7 @@ public sealed class JobAgentWorkerDispatchTests
             .Setup(builder => builder.BuildAndSaveAsync(
                 It.IsAny<IConfiguration>(),
                 It.IsAny<JobKind>(),
-                It.IsAny<IArtefactStore>(),
-                It.IsAny<IStateStore>(),
+                It.IsAny<IPackageAccess>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(_plan);
 
@@ -540,8 +515,7 @@ public sealed class JobAgentWorkerDispatchTests
             .Setup(builder => builder.BuildAndSaveAsync(
                 It.IsAny<IConfiguration>(),
                 It.IsAny<JobKind>(),
-                It.IsAny<IArtefactStore>(),
-                It.IsAny<IStateStore>(),
+                It.IsAny<IPackageAccess>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(_plan);
 
@@ -553,7 +527,6 @@ public sealed class JobAgentWorkerDispatchTests
                 It.IsAny<InventoryContext?>(),
                 It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
                 It.IsAny<ExportContext>(),
-                It.IsAny<IStateStore>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
@@ -596,7 +569,6 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<InventoryContext?>(),
             It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
             It.IsAny<ExportContext>(),
-            It.IsAny<IStateStore>(),
             It.IsAny<CancellationToken>()), Times.Never);
         _planExecutor.Verify(executor => executor.ExecuteTasksAsync(
             It.IsAny<JobTaskList>(),
@@ -606,7 +578,6 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<ExportContext?>(),
             It.IsAny<ImportContext?>(),
             It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
-            It.IsAny<IStateStore>(),
             It.IsAny<CancellationToken>()), Times.Never);
         Assert.IsTrue(_httpHandler.RequestLog.Exists(request =>
             request.Method == HttpMethod.Post &&
@@ -624,7 +595,6 @@ public sealed class JobAgentWorkerDispatchTests
                 It.IsAny<InventoryContext?>(),
                 It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
                 It.IsAny<ExportContext>(),
-                It.IsAny<IStateStore>(),
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("simulated export failure"));
 
@@ -708,10 +678,6 @@ public sealed class JobAgentWorkerDispatchTests
             CreateControlPlaneClient(),
             "lease-forcefresh",
             CancellationToken.None);
-
-        _stateStore.Verify(
-            store => store.DeleteAsync(PackagePaths.InventoryCompleteFile, It.IsAny<CancellationToken>()),
-            Times.Once);
     }
 
     private JobAgentWorker CreateWorker(IReadOnlyList<IModule>? migrationModules = null)
@@ -731,8 +697,7 @@ public sealed class JobAgentWorkerDispatchTests
         }
 
         return new JobAgentWorker(
-            packageStoreFactory: _packageStoreFactory.Object,
-            packagePreparer: _packagePreparer.Object,
+                        packagePreparer: _packagePreparer.Object,
             package: _package.Object,
             progressSink: _progressSink.Object,
             leaseState: _leaseState,

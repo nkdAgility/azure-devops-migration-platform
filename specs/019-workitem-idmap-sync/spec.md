@@ -2,7 +2,7 @@
 
 **Feature Branch**: `019-workitem-idmap-sync`
 **Created**: 2026-04-19
-**Status**: Draft
+**Status**: Reconciled (implementation drift remains)
 **Input**: User description: "Prevent duplicate work items, enable resume and sync by maintaining a SQLite lookup table in the migration package that maps source to target work items. Support rebuild from provenance markers (ReflectedWorkItemId via field or hyperlink). Rerun for additional revisions affects both export and import. For fresh migration reruns (e.g., offline TFS re-export + fresh job), the lookup table must be rebuildable from the target."
 
 ## Architecture References
@@ -13,12 +13,12 @@
 | `docs/module-development-guide.md` | Confirmed accurate — IModule contract, WorkItemsModule with extensions |
 | `docs/configuration-reference.md` | Confirmed accurate — WorkItemResolutionStrategy extension documented (TargetField, TargetHyperlink) |
 | `docs/work-item-iteration-guide.md` | Confirmed accurate — mandatory reuse of WorkItemExportOrchestrator, ICheckpointingService |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — streaming, cursor, IArtefactStore rules enforced; rule 4 (cursor-based checkpoints); rule 12 (agents stateless, all durable state in package) |
-| `.agents/context/migration-package-concept.md` | Confirmed accurate — Checkpoints/idmap.db documented |
-| `.agents/context/import-streaming.md` | Confirmed accurate — staged import (A→B→C→D), idempotency via idmap.db |
-| `.agents/context/checkpointing-summary.md` | Confirmed accurate — idmap.db documented as source-to-target mapping store |
-| `.agents/context/identity-and-mapping.md` | Discrepancy logged — idmap.db described as PostgreSQL Portable but implementation is SQLite; discrepancy in `discrepancies.md` |
-| `docs/cli-guide.md` | Needs review — no rebuild-idmap command documented yet |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — streaming, cursor, IArtefactStore rules enforced; rule 4 (cursor-based checkpoints); rule 12 (agents stateless, all durable state in package) |
+| `.agents/30-context/domains/migration-package-concept.md` | Confirmed accurate — Checkpoints/idmap.db documented |
+| `.agents/30-context/domains/import-streaming.md` | Confirmed accurate — staged import (A→B→C→D), idempotency via idmap.db |
+| `.agents/30-context/domains/checkpointing-summary.md` | Partially reconciled — idmap exists, but revision-watermark and lock-lifecycle notes required by this spec are still open (`T032`) |
+| `.agents/30-context/domains/identity-and-mapping.md` | Reconciled — idmap is documented as SQLite package-local storage |
+| `docs/cli-guide.md` | Needs reconciliation update — implicit idmap rebuild/integrity startup behavior note still missing (`T034`) |
 
 ## Clarifications
 
@@ -170,4 +170,40 @@ As a migration operator, I want the ID map to track the last successfully migrat
 - The `idmap.db` file is package-local (inside `Checkpoints/`) and travels with the package. It is not a control-plane database.
 - Revision-level tracking (FR-009) requires a schema addition to the existing `work_item_map` table (adding a `last_revision_index` column).
 - The integrity check (FR-010) requires network access to the target system to verify work item existence.
-- Architecture docs read: `agents.md`, `docs/architecture.md`, `docs/module-development-guide.md`, `docs/configuration-reference.md`, `docs/work-item-iteration-guide.md`, `.agents/guardrails/architecture-boundaries.md`, `.agents/context/migration-package-concept.md`, `.agents/context/import-streaming.md`, `.agents/context/checkpointing-summary.md`, `.agents/context/identity-and-mapping.md`.
+- Architecture docs read: `agents.md`, `docs/architecture.md`, `docs/module-development-guide.md`, `docs/configuration-reference.md`, `docs/work-item-iteration-guide.md`, `.agents/20-guardrails/core/architecture-boundaries.md`, `.agents/30-context/domains/migration-package-concept.md`, `.agents/30-context/domains/import-streaming.md`, `.agents/30-context/domains/checkpointing-summary.md`, `.agents/30-context/domains/identity-and-mapping.md`.
+
+## Reconciliation Status (2026-05-17)
+
+### Current Status
+
+- `tasks.md` reconciled against current implementation evidence (`src/`, `features/`, `tests/`) and latest SpecKit diagnostics (`speckit.analyze`, `speckit.checklist`).
+- Completion summary: **16 complete**, **23 incomplete**, **3 complete/superseded**.
+- This spec remains partially implemented and contains known spec-vs-code contract divergences.
+
+### Remaining Incomplete Work
+
+Open tasks are tracked in `tasks.md` with evidence notes, concentrated in:
+- idmap abstraction/schema alignment (`T001–T008` subset)
+- package-lock wiring and control-plane status plumbing (`T012`, `T016`, `T040–T042`)
+- revision-watermark contract conformance (`T029–T030`)
+- documentation and verification closure (`T032–T039`)
+
+### Completed/Superseded Work
+
+Superseded tasks recorded in `tasks.md`:
+- `T011`, `T014`, `T026` superseded by architecture and contract updates represented in `specs/035-workitem-import-support/tasks.md` and current implementation surfaces.
+
+### Contradictions and Reconciliation Notes
+
+- Spec expects `work_item_map.last_revision_index`; implementation uses separate `last_revision_index` table in `SqliteIdMapStore`.
+- Spec expects private orchestrator integrity loop; implementation encapsulates integrity checks in `IIdMapStore.CheckIntegrityAsync`.
+- Spec expects lock acquisition in `JobAgentWorker` via `IPackageLockService`; implementation lock ownership is currently in package-access infrastructure.
+- Legacy dependency narrative in `tasks.md` required T011 while T011 is superseded; dependencies were updated to reflect supersession truth.
+
+### Verification Evidence
+
+- Build evidence captured: `dotnet build DevOpsMigrationPlatform.slnx` passed.
+- `dotnet test DevOpsMigrationPlatform.slnx --no-build` was attempted but did not complete in this session (stalled); full test-pass evidence remains open (`T038`).
+- Runtime scenario verification remains open (`T039`).
+
+

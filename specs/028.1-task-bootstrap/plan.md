@@ -6,6 +6,37 @@
 
 Introduce `JobTask`, `JobTaskStatus`, `JobTaskList` in `Abstractions`. Add `TaskId?` + `TaskStatus?` to `ProgressEvent` (nullable — no breaking change). Add `Tasks?` to `JobBootstrap`. Build `IJobExecutionPlanBuilder` in `Abstractions.Agent` + `Infrastructure.Agent`. Add `PushTaskListAsync` to `IControlPlaneTelemetryClient`. Add `POST /agents/lease/{leaseId}/tasks` to `TelemetryController`. Update `ProgressController` to drive task state from ProgressEvent `TaskId`/`TaskStatus`. Update `JobAgentWorker` and `TfsJobAgentWorker` to build and push the plan and emit `TaskId` on every module lifecycle event.
 
+## Current status (reconciled)
+
+- Reconciled on 2026-05-17.
+- This plan has partial drift versus implementation due follow-on specs (`028.2`, `030`, `032`, `033`, `034`).
+- Canonical completion state is tracked in `tasks.md` in this folder.
+
+## Remaining incomplete work
+
+- T011, T014, T017, T018, T022, T023, T024, T027, T028, T029.
+
+## Completed because superseded
+
+- None recorded in this plan reconciliation.
+
+## Contradictions and reconciliation
+
+- Execution now includes plan persistence and broader task taxonomy (`capture`, `analyse`) beyond the initial bootstrap-only intent.
+- `IJobExecutionPlanBuilder` shape and call flow differ from initial draft (`BuildAndSaveAsync` and package-boundary usage are present).
+- Control-plane task storage uses `InMemoryJobTaskStore` directly instead of planned `IJobTaskStore` interface.
+
+## Verification evidence
+
+- Verified runtime and API wiring in:
+  - `src/DevOpsMigrationPlatform.ControlPlane/Controllers/TelemetryController.cs`
+  - `src/DevOpsMigrationPlatform.ControlPlane/Controllers/ProgressController.cs`
+  - `src/DevOpsMigrationPlatform.ControlPlane/Jobs/InMemoryJobTaskStore.cs`
+  - `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`
+  - `src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsJobAgentWorker.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobExecutionPlanBuilder.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/ControlPlaneTelemetryClient.cs`
+
 ## Technical Context
 
 **Language/Version**: C# 12, .NET 10 (CLI + agent + control plane); .NET 4.8 (TFS agent — `Abstractions.Agent` is multi-targeted)

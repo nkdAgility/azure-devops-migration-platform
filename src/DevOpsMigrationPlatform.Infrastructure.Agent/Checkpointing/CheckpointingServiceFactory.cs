@@ -4,7 +4,7 @@
 using System;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 
@@ -28,10 +28,9 @@ public sealed class CheckpointingServiceFactory : ICheckpointingServiceFactory
     }
 
     /// <inheritdoc/>
-    public ICheckpointingService Create(IStateStore stateStore)
+    public ICheckpointingService Create(IPackageAccess packageAccess)
         => new CheckpointingService(
-            stateStore,
             _currentJobEndpointAccessor,
             _currentPackageConfigAccessor,
-            package: _package);
+            package: packageAccess ?? throw new ArgumentNullException(nameof(packageAccess)));
 }

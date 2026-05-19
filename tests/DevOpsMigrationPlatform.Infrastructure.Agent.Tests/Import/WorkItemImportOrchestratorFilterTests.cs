@@ -9,6 +9,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -20,7 +22,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 [TestClass]
 public class WorkItemImportOrchestratorFilterTests
 {
-    private Mock<IArtefactStore> _mockStore = null!;
     private Mock<ICheckpointingService> _mockCps = null!;
     private Mock<IProgressSink> _mockProgress = null!;
     private Mock<IWorkItemResolutionStrategy> _mockStrategy = null!;
@@ -32,13 +33,12 @@ public class WorkItemImportOrchestratorFilterTests
     [TestInitialize]
     public void Setup()
     {
-        _mockStore = new Mock<IArtefactStore>(MockBehavior.Loose);
         _mockCps = new Mock<ICheckpointingService>(MockBehavior.Loose);
         _mockProgress = new Mock<IProgressSink>(MockBehavior.Loose);
         _mockStrategy = new Mock<IWorkItemResolutionStrategy>(MockBehavior.Loose);
         _mockIdMap = new Mock<IIdMapStore>(MockBehavior.Loose);
         _mockTarget = new Mock<IWorkItemImportTarget>(MockBehavior.Loose);
-        _mockPackage = PackageTestFactory.CreateDelegatingMock(_mockStore.Object);
+        _mockPackage = PackageTestFactory.CreateLooseMock();
         _folders = new List<string>();
 
         _mockCps.Setup(s => s.ReadCursorAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -65,11 +65,15 @@ public class WorkItemImportOrchestratorFilterTests
         _mockTarget.Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
                    .ReturnsAsync(true);
 
-        _mockStore.Setup(s => s.EnumerateAsync("WorkItems/", It.IsAny<CancellationToken>()))
-                  .Returns((string _, CancellationToken ct) => ToAsyncEnumerable(_folders, ct));
+        _mockPackage.Setup(p => p.EnumerateContentAsync(
+                            It.Is<PackageContentContext>(c =>
+                                c.IsCollectionRequest &&
+                                string.Equals(c.Module, "WorkItems", StringComparison.OrdinalIgnoreCase)),
+                            It.IsAny<CancellationToken>()))
+                    .Returns((PackageContentContext _, CancellationToken ct) => ToAsyncEnumerable(_folders, ct));
 
-        _mockStore.Setup(s => s.ReadAsync(It.Is<string>(p => p.EndsWith("revision.json")), It.IsAny<CancellationToken>()))
-                  .ReturnsAsync((string path, CancellationToken _) => DefaultRevisionJson(path));
+        _mockPackage.Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.EndsWith("revision.json", StringComparison.OrdinalIgnoreCase)), It.IsAny<CancellationToken>()))
+                    .Returns((PackageContentContext context, CancellationToken _) => ToPayload(DefaultRevisionJson(context.Address?.RelativePath ?? string.Empty)));
     }
 
     // ── filter pre-pass ───────────────────────────────────────────────────────
@@ -139,10 +143,11 @@ public class WorkItemImportOrchestratorFilterTests
     [TestMethod]
     public async Task ImportAsync_FilterEvaluatesLastRevisionOnly()
     {
-        // Add early revision with State=Closed, then latest with State=Active
-        // Filter includes Active — should import the item
-        AddRevisionFolderWithState(wiId: 1, revIndex: 0, state: "Closed");
-        AddRevisionFolderWithState(wiId: 1, revIndex: 1, state: "Active");
+        // Filter decisions are made from the latest revision only.
+        // If latest is Active, all revisions for that work item must be imported.
+        AddRevisionFolderWithState(wiId: 1, revIndex: 0, state: "Active");
+        AddRevisionFolderWithState(wiId: 1, revIndex: 1, state: "Closed");
+        AddRevisionFolderWithState(wiId: 1, revIndex: 2, state: "Active");
 
         var filters = new List<WorkItemFieldFilterOptions>
         {
@@ -154,7 +159,117 @@ public class WorkItemImportOrchestratorFilterTests
 
         _mockTarget.Verify(
             t => t.UpdateFieldsAsync(1, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
-            Times.AtLeastOnce, "Work item 1 should be imported based on its latest revision.");
+            Times.Exactly(3), "All revisions should import when the latest revision matches the filter.");
+    }
+
+    [TestMethod]
+    public async Task ImportAsync_WithFilters_ProcessesRevisionsInDeterministicOrder()
+    {
+        AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
+        AddRevisionFolder(wiId: 2, revIndex: 0, areaPath: @"MyOrg\TeamA");
+        var processedOrder = new List<int>();
+
+        _mockTarget.Setup(t => t.UpdateFieldsAsync(
+                    It.IsAny<int>(),
+                    It.IsAny<IReadOnlyList<WorkItemField>>(),
+                    It.IsAny<CancellationToken>()))
+            .Callback<int, IReadOnlyList<WorkItemField>, CancellationToken>((id, _, _) => processedOrder.Add(id))
+            .Returns(Task.CompletedTask);
+
+        var filters = new List<WorkItemFieldFilterOptions>
+        {
+            new("System.AreaPath", FilterOperator.Regex, @"^MyOrg\\TeamA")
+        };
+
+        var orchestrator = BuildOrchestrator(filters);
+        await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
+
+        CollectionAssert.AreEqual(
+            new[] { 1, 2 },
+            processedOrder,
+            "Revisions should be processed in deterministic package enumeration order.");
+    }
+
+    [TestMethod]
+    public async Task ImportAsync_WhenCursorStageIsUploadedAttachments_SkipsFolderToAvoidDuplicateWork()
+    {
+        AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
+        var folderPath = _folders[0].TrimEnd('/');
+
+        _mockCps.Setup(s => s.ReadCursorAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new CursorEntry
+                {
+                    LastProcessed = folderPath,
+                    Stage = CursorStage.UploadedAttachments
+                });
+
+        var orchestrator = BuildOrchestrator();
+        await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
+
+        _mockTarget.Verify(
+            t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "UploadedAttachments cursor stage should advance to Completed and skip duplicate reprocessing.");
+    }
+
+    [TestMethod]
+    public async Task ImportAsync_WhenFoldersAreNotLexicographicallyAscending_ThrowsInvalidOperationException()
+    {
+        AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
+        AddRevisionFolder(wiId: 2, revIndex: 0, areaPath: @"MyOrg\TeamA");
+
+        // Force a descending sequence from the artefact store.
+        _folders.Reverse();
+
+        var orchestrator = BuildOrchestrator();
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task ImportAsync_WhenAttachmentReplayDisabled_EmitsSkipReasonEvent()
+    {
+        AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
+
+        var orchestrator = BuildOrchestrator();
+        await orchestrator.ImportAsync(
+            new WorkItemsModuleExtensions { AttachmentsEnabled = false },
+            ResumeMode.Auto,
+            CancellationToken.None);
+
+        _mockProgress.Verify(
+            p => p.Emit(It.Is<ProgressEvent>(e =>
+                e.Stage == CursorStage.UploadedAttachments &&
+                e.Message != null &&
+                e.Message.Contains("Attachment replay skipped", StringComparison.OrdinalIgnoreCase))),
+            Times.AtLeastOnce);
+    }
+
+    [TestMethod]
+    public async Task ImportAsync_WhenEmbeddedImageReplayDisabled_EmitsSkipReasonEvent()
+    {
+        AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
+
+        var orchestrator = BuildOrchestrator();
+        await orchestrator.ImportAsync(
+            new WorkItemsModuleExtensions
+            {
+                EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig
+                {
+                    Enabled = false,
+                    DownloadTimeoutSeconds = 30
+                }
+            },
+            ResumeMode.Auto,
+            CancellationToken.None);
+
+        _mockProgress.Verify(
+            p => p.Emit(It.Is<ProgressEvent>(e =>
+                e.Stage == CursorStage.AppliedFields &&
+                e.Message != null &&
+                e.Message.Contains("Embedded image replay skipped", StringComparison.OrdinalIgnoreCase))),
+            Times.AtLeastOnce);
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
@@ -167,12 +282,15 @@ public class WorkItemImportOrchestratorFilterTests
             _mockIdMap.Object,
             _mockCps.Object,
             (IIdentityLookupTool?)null,
-            _mockStore.Object,
             NullLogger<RevisionFolderProcessor>.Instance,
+            "https://dev.azure.com/contoso",
+            "Shop",
             package: _mockPackage.Object);
 
         return new WorkItemImportOrchestrator(
-            _mockStore.Object,
+            _mockPackage.Object,
+            "https://dev.azure.com/contoso",
+            "Shop",
             _mockCps.Object,
             _mockProgress.Object,
             _mockStrategy.Object,
@@ -180,8 +298,7 @@ public class WorkItemImportOrchestratorFilterTests
             processor,
             _mockTarget.Object,
             NullLogger<WorkItemImportOrchestrator>.Instance,
-            filterOptions: filterOptions,
-            package: _mockPackage.Object);
+            filterOptions: filterOptions);
     }
 
     private void AddRevisionFolder(int wiId, int revIndex, string areaPath)
@@ -196,10 +313,10 @@ public class WorkItemImportOrchestratorFilterTests
             new WorkItemField { ReferenceName = "System.WorkItemType", Value = "Task" },
             new WorkItemField { ReferenceName = "System.AreaPath", Value = areaPath }
         });
-        _mockStore.Setup(s => s.ReadAsync(
-                It.Is<string>(p => p.Contains($"{ticks}-{wiId}-{revIndex}") && p.EndsWith("revision.json")),
+        _mockPackage.Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.Contains($"{ticks}-{wiId}-{revIndex}", StringComparison.Ordinal) && c.Address.RelativePath.EndsWith("revision.json", StringComparison.OrdinalIgnoreCase)),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(json);
+            .Returns(() => ToPayload(json));
     }
 
     private void AddRevisionFolderWithState(int wiId, int revIndex, string state)
@@ -214,10 +331,10 @@ public class WorkItemImportOrchestratorFilterTests
             new WorkItemField { ReferenceName = "System.WorkItemType", Value = "Task" },
             new WorkItemField { ReferenceName = "System.State", Value = state }
         });
-        _mockStore.Setup(s => s.ReadAsync(
-                It.Is<string>(p => p.Contains($"{ticks}-{wiId}-{revIndex}") && p.EndsWith("revision.json")),
+        _mockPackage.Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.Contains($"{ticks}-{wiId}-{revIndex}", StringComparison.Ordinal) && c.Address.RelativePath.EndsWith("revision.json", StringComparison.OrdinalIgnoreCase)),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(json);
+            .Returns(() => ToPayload(json));
     }
 
     private static string? DefaultRevisionJson(string path)
@@ -241,6 +358,15 @@ public class WorkItemImportOrchestratorFilterTests
         return $"{{\"WorkItemId\":{wiId},\"RevisionIndex\":{revIndex},\"Fields\":{fieldsJson},\"Attachments\":[],\"RelatedLinks\":[],\"ExternalLinks\":[],\"Hyperlinks\":[],\"EmbeddedImages\":[]}}";
     }
 
+    private static ValueTask<PackagePayload?> ToPayload(string? content)
+    {
+        if (content is null)
+            return ValueTask.FromResult<PackagePayload?>(null);
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(content);
+        return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(bytes, writable: false), "application/json"));
+    }
+
     private static async IAsyncEnumerable<string> ToAsyncEnumerable(
         IEnumerable<string> items,
         [EnumeratorCancellation] CancellationToken ct)
@@ -252,4 +378,5 @@ public class WorkItemImportOrchestratorFilterTests
             await Task.Yield();
         }
     }
+
 }

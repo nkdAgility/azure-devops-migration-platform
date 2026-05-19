@@ -6,7 +6,7 @@ Validate planning artifacts for resumable batching before implementation begins.
 ## Prerequisites
 - Feature spec exists at `specs/020-resumable-batching-cursor/spec.md`.
 - Planning artifacts in this folder are present.
-- Guardrails in `agents.md` and `/.agents/guardrails/*` were read in current session.
+- Guardrails in `agents.md` and `/.agents/20-guardrails/*` were read in current session.
 
 ## Steps
 1. Confirm the contract assumptions:
@@ -29,3 +29,4 @@ Validate planning artifacts for resumable batching before implementation begins.
 ## Handoff to Task Generation
 - Run `/speckit.tasks` for this feature after planning approval.
 - Keep one ATDD session per scenario during implementation.
+

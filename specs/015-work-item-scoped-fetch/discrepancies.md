@@ -32,8 +32,9 @@
 
 ### D-004: `IWorkItemQueryWindowStrategy` still accepts `MigrationEndpointOptions` — not yet aligned with `OrganisationEndpoint`
 
-- **Source doc**: `.agents/guardrails/architecture-boundaries.md` (rule 21 — mandatory reuse), `docs/architecture.md` (OrganisationEndpoint section)
+- **Source doc**: `.agents/20-guardrails/core/architecture-boundaries.md` (rule 21 — mandatory reuse), `docs/architecture.md` (OrganisationEndpoint section)
 - **Section**: Interface signatures
 - **Issue**: The existing `IWorkItemQueryWindowStrategy.EnumerateWindowsAsync()` originally accepted `MigrationEndpointOptions` (a config-layer type). The new `IWorkItemFetchService.FetchAsync()` accepts `OrganisationEndpoint` (the resolved connection type).
 - **Suggested update**: Align `IWorkItemQueryWindowStrategy` signature to accept `OrganisationEndpoint`.
 - **Status**: ✓ Resolved — `IWorkItemQueryWindowStrategy.EnumerateWindowsAsync` was updated to accept `OrganisationEndpoint` directly. Adapter classes (`AzureDevOpsEndpointOptionsAdapter`, `TfsMigrationEndpointOptionsAdapter`) were deleted. `MigrationEndpointOptions` now has an abstract `ToOrganisationEndpoint()` method that each concrete type implements.
+

@@ -63,6 +63,24 @@ Baseline: [N] tests, [M] passing, [K] failing
 
 If the baseline has unexpected failures, **STOP** and report them before proceeding.
 
+### Known-Fail Queue Gate (Mandatory)
+
+When baseline or targeted runs contain failures, create a **known-fail queue** and enforce this order:
+
+1. run only failing test(s) from the queue
+2. fix until each failing test is green
+3. remove green tests from the queue
+4. repeat until queue is empty
+
+Do **not** run broad slices or the full suite while the queue is non-empty.
+
+Only after the queue is empty:
+
+1. run the nearest relevant test slice
+2. run the full suite
+
+If new failures appear in slice/full runs, add them to the queue and return to single-test mode.
+
 4. For each task, note its test target (file, assertion, verification command)
    as declared in `tasks.md`. These are your RED-phase targets — do not invent
    new test locations unless the plan specifies a reason.
@@ -123,6 +141,7 @@ Before starting:
 After completing:
 - [ ] Saw the test FAIL before writing production code
 - [ ] Wrote the MINIMUM code to pass
+- [ ] Known-fail queue is empty before any broad/full run
 - [ ] Full test suite passes (no regressions)
 - [ ] Committed the green state
 

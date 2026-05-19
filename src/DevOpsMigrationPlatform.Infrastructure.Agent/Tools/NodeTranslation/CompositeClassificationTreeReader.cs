@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -70,4 +69,3 @@ public sealed class CompositeClassificationTreeReader : IClassificationTreeReade
 
 /// <summary>Registration descriptor for a keyed <see cref="IClassificationTreeReader"/>.</summary>
 public sealed record KeyedClassificationTreeReader(string Key, IClassificationTreeReader Reader);
-#endif

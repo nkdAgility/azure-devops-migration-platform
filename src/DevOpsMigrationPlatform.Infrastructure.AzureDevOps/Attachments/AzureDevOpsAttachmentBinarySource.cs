@@ -9,9 +9,19 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Attachments;
+
+/// <summary>Resolves the relative package path for a single work item attachment.</summary>
+file sealed class AttachmentAddress : IPackageContentAddress
+{
+    public AttachmentAddress(string revisionFolderPath, string fileName)
+        => RelativePath = $"{revisionFolderPath}/{fileName}";
+
+    public string RelativePath { get; }
+}
 
 /// <summary>
 /// Azure DevOps REST implementation of <see cref="IAttachmentBinarySource"/>.
@@ -79,8 +89,10 @@ internal sealed class AzureDevOpsAttachmentBinarySource : IStreamingAttachmentBi
         int workItemId,
         int revisionIndex,
         AttachmentMetadata attachment,
-        IArtefactStore store,
-        string targetPath,
+        IPackageAccess package,
+        string organisation,
+        string project,
+        string revisionFolderPath,
         CancellationToken cancellationToken)
     {
         var url = _registry.GetDownloadUrl(workItemId, revisionIndex, attachment.OriginalName);
@@ -103,7 +115,16 @@ internal sealed class AzureDevOpsAttachmentBinarySource : IStreamingAttachmentBi
             using var countingStream = new CountingStream(networkStream);
             using var cryptoStream = new CryptoStream(countingStream, sha256, CryptoStreamMode.Read);
 
-            await store.WriteStreamAsync(targetPath, cryptoStream, cancellationToken).ConfigureAwait(false);
+            await package.PersistContentStreamAsync(
+                new PackageContentContext(
+                    PackageContentKind.Artefact,
+                    Organisation: organisation,
+                    Project: project,
+                    Module: "WorkItems",
+                    Address: new AttachmentAddress(revisionFolderPath, attachment.RelativePath)),
+                cryptoStream,
+                null,
+                cancellationToken).ConfigureAwait(false);
 
             // CryptoStream must be fully consumed and finalized before reading the hash.
             // WriteStreamAsync copies the full stream, so the hash is now complete.

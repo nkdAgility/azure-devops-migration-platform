@@ -2,17 +2,23 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Configuration;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
-#if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
-#endif
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 
@@ -27,21 +33,19 @@ public static class ModuleServiceCollectionExtensions
     /// Convenience method that registers all agent modules and their orchestrators.
     /// Calls <see cref="AddWorkItemsModule"/>, <see cref="AddInventoryModule"/>,
     /// <see cref="AddDependenciesModule"/>, <see cref="AddNodesModule"/>,
-    /// <see cref="AddIdentitiesModule"/>, and (on net10.0+) <see cref="TeamsServiceCollectionExtensions.AddTeamsModule"/>.
+    /// <see cref="AddIdentitiesModule"/>, and <see cref="TeamsServiceCollectionExtensions.AddTeamsModule"/>.
     /// </summary>
     public static IServiceCollection AddAllAgentModules(
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddWorkItemsModule();
+        services.AddWorkItemsModule(configuration);
         services.AddInventoryOrchestratorServices();
         services.AddInventoryAnalyserServices();
         services.AddDependencyAnalyserServices();
         services.AddNodesModule(configuration);
         services.AddIdentitiesModule(configuration);
-#if !NET481
         services.AddTeamsModule(configuration);
-#endif
         return services;
     }
 
@@ -49,13 +53,41 @@ public static class ModuleServiceCollectionExtensions
     /// Registers <see cref="WorkItemsModule"/> as the <see cref="IModule"/> implementation
     /// for work item export/import operations.
     /// </summary>
-    public static IServiceCollection AddWorkItemsModule(this IServiceCollection services)
+    public static IServiceCollection AddWorkItemsModule(
+        this IServiceCollection services,
+        IConfiguration? configuration = null)
     {
 #if NET7_0_OR_GREATER
         // Register schema entry for migration.schema.json generation
         services.AddSchemaEntry<WorkItemsModuleOptions>("Work items export/import module configuration");
+        services.AddSchemaEntry<WorkItemImportOptions>("Work item import replay lever configuration");
 #endif
-
+        services.RegisterWorkItemImportServices(configuration);
+        services.AddScoped<IWorkItemsImportCapabilityValidator, WorkItemsImportCapabilityValidator>();
+        services.AddSingleton<IWorkItemsNodeReadinessOrchestrator>(sp =>
+            new WorkItemsNodeReadinessOrchestrator(
+                sp.GetService<NodeReadinessOrchestrator>(),
+                sp.GetService<INodesOrchestrator>(),
+                sp.GetService<IPlatformMetrics>(),
+                sp.GetRequiredService<ILogger<WorkItemsModule>>()));
+        services.AddScoped<IWorkItemsImportOrchestrator>(sp =>
+            new WorkItemsImportOrchestrator(
+                sp.GetRequiredService<IWorkItemImportTargetFactory>(),
+                sp.GetRequiredService<IWorkItemResolutionStrategyFactory>(),
+                sp.GetRequiredService<ICheckpointingServiceFactory>(),
+                sp.GetRequiredService<IIdMapStoreFactory>(),
+                sp.GetRequiredService<IRevisionFolderProcessorFactory>(),
+                sp.GetService<IIdentityLookupTool>(),
+                sp.GetRequiredService<IWorkItemsImportCapabilityValidator>(),
+                sp.GetRequiredService<IWorkItemsNodeReadinessOrchestrator>(),
+                sp.GetService<IPlatformMetrics>(),
+                sp.GetRequiredService<ILogger<WorkItemImportOrchestrator>>(),
+                sp.GetRequiredService<ILogger<WorkItemsModule>>(),
+                sp.GetRequiredService<ISourceEndpointInfo>(),
+                sp.GetRequiredService<ITargetEndpointInfo>(),
+                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<WorkItemsModuleOptions>>(),
+                sp.GetService<Microsoft.Extensions.Options.IOptions<WorkItemImportOptions>>(),
+                sp.GetService<Microsoft.Extensions.Options.IOptions<NodesModuleOptions>>()));
         services.AddTransient<IModule, WorkItemsModule>();
         return services;
     }

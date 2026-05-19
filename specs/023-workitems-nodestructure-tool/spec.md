@@ -16,13 +16,53 @@ The following canonical documents were read before drafting this specification:
 | `agents.md` | Confirmed accurate |
 | `docs/module-development-guide.md` | Confirmed accurate — Tool Resolution section referenced; `NodeStructureTool` not yet described → **discrepancy logged** |
 | `docs/configuration-reference.md` | Confirmed accurate — `Tools` section documents `FieldTransform`; `NodeStructure` tool not yet documented → **discrepancy logged** |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate |
-| `.agents/guardrails/workitems-rules.md` | Confirmed accurate |
-| `.agents/guardrails/migration-rules.md` | Confirmed accurate |
-| `.agents/context/workitems-format-summary.md` | Confirmed accurate |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate |
+| `.agents/20-guardrails/domains/workitems-rules.md` | Confirmed accurate |
+| `.agents/20-guardrails/domains/migration-rules.md` | Confirmed accurate |
+| `.agents/30-context/domains/workitems-format-summary.md` | Confirmed accurate |
 | `azure-devops-migration-tools` — `TfsNodeStructureTool.cs` | Cross-referenced for behavioural completeness — iteration dates, auto project-name swap, unanchored paths, bulk pre-collection |
 
 Discrepancies logged in: `specs/023-workitems-nodestructure-tool/discrepancies.md`
+
+---
+
+## Current status
+
+Reconciled against repository truth and newer specs. Core outcomes are implemented, but primarily under the **NodeTranslation + NodesModule** naming/model that later specs adopted.
+
+## Remaining incomplete work (IDs)
+
+- `T060` (debug-profile scenario-run evidence not recorded in this spec folder).
+
+## Completed because superseded (IDs + source)
+
+- `T001`–`T059` are treated as complete/superseded by the later architecture/spec lineage:
+  - `specs/024-teams-module`
+  - `specs/029-import-workitems-attachments-nodes`
+  - `specs/035-workitem-import-support`
+
+## Contradictions and reconciliation
+
+- **Name drift**: `NodeStructure` in this spec vs `NodeTranslation` in implemented code/docs/tests.
+- **Ownership drift**: this spec is tool-centric; implementation is split across `INodeTranslationTool` + `NodesModule/NodesOrchestrator` + `NodeReadinessOrchestrator`.
+- **Path drift**: tasks reference `features/*/nodestructure/*`; implemented suites are under `features/*/nodetranslation/*`.
+
+## Verification evidence
+
+- Implementation evidence:
+  - `src/DevOpsMigrationPlatform.Abstractions/Options/NodeTranslationOptions.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/INodeTranslationTool.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/NodeTranslation/NodeTranslationTool*.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodesModule.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodesOrchestrator.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/NodeReadinessOrchestrator.cs`
+- Tests/features evidence:
+  - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/NodeTranslation/*`
+  - `features/import/workitems/nodetranslation/auto-create-nodes.feature`
+  - `features/platform/validation/nodetranslation-validation.feature`
+- Validation commands:
+  - `dotnet build DevOpsMigrationPlatform.slnx --nologo --verbosity minimal` (passed)
+  - `dotnet test DevOpsMigrationPlatform.slnx --nologo --verbosity minimal` (did not finish in this session; run stalled/terminated before completion).
 
 ---
 
@@ -535,3 +575,4 @@ traces
 - Iteration node start/finish dates and `isBacklogIteration` flag from the source are preserved in `Nodes/source-tree.json` and applied when creating nodes via `ReplicateSourceTree`. Dates are NOT available for on-demand `AutoCreateNodes` creation (the source is not queried at import time).
 - Schema versioning and a config upgrader for the new `NodeStructure` tool type and the new `Nodes/` package artifacts are required per system-architecture guardrail rule 9, and will be addressed in the plan/implementation phases.
 - Architecture sources: `analysis/proposed-features.md` M2 and T2 entries, cross-validated against `azure-devops-migration-tools` `TfsNodeStructureTool` implementation, and all guardrail and context files listed in the Architecture References section.
+

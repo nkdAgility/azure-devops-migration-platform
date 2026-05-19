@@ -1,29 +1,29 @@
 # Work Item Iteration Pattern
 
-> **MANDATORY**: All implementations that process work items MUST use the patterns documented here.
-> Do not create alternative approaches. Reuse existing abstractions and augment them where necessary.
+> This guide describes the canonical implementation pattern for work item processing.
+> Enforcement for divergence and rejection conditions lives in `.agents/20-guardrails/core/architecture-boundaries.md` and `.agents/20-guardrails/domains/workitems-rules.md`.
 
-## Mandatory Reuse Principle
+## Reuse Principle
 
-**New implementations MUST use existing architecture before building new infrastructure.**
+New implementations are expected to extend existing architecture before introducing new infrastructure.
 
 This pattern has been proven to handle 20,000+ work items with bounded memory. Every implementation that touches work item export/import must:
 
 1. Use `WorkItemExportOrchestrator` for export streaming.
 2. Use `IWorkItemRevisionSource` as the source abstraction.
 3. Use `ICheckpointingService` for cursor-based progress tracking.
-4. Use `IArtefactStore.EnumerateAsync()` (in lexicographic order) for import enumeration.
+4. Use the package-boundary import enumeration path (lexicographic order preserved by boundary/store contracts), not custom in-memory ordering loops.
 5. Stream attachment binaries directly — never buffer in memory.
 6. Use `IWorkItemFetchService` for field-projected, filtered work item fetching in inventory, dependency analysis, and catalog operations. Do not call `GetWorkItemsAsync` directly from these callers.
 
-If an existing pattern does not fit your use case, you MUST:
+If an existing pattern does not fit your use case:
 
 1. Document why the existing pattern cannot be reused or extended.
 2. Propose a new abstraction (in `DevOpsMigrationPlatform.Abstractions` or module-private).
 3. Ensure the new abstraction is used by at least two independent modules (no single-use abstractions).
 4. Get explicit approval from the architecture team before implementing.
 
-**Violations of the mandatory reuse principle are rejection triggers.** See [.agents/guardrails/architecture-boundaries.md](../.agents/guardrails/architecture-boundaries.md) rule 21 and [agents.md](../agents.md) reject conditions.
+Guardrail-level rejection conditions are defined in [.agents/20-guardrails/core/architecture-boundaries.md](../.agents/20-guardrails/core/architecture-boundaries.md), [.agents/20-guardrails/domains/workitems-rules.md](../.agents/20-guardrails/domains/workitems-rules.md), and [agents.md](../.agents/agents.md).
 
 ---
 
@@ -400,7 +400,7 @@ The pattern is memory-safe because:
 | `IWorkItemRevisionSource.GetRevisionsAsync()` | Yields one revision at a time via `async yield return` |
 | `WorkItemExportOrchestrator.ExportAsync()` | Processes via `await foreach` (no buffering) |
 | `IAttachmentBinarySource.GetBinariesAsync()` | Streams content directly; no byte array accumulation |
-| `IArtefactStore.EnumerateAsync()` | Lexicographic order on each call; no pre-loading |
+| Package-boundary enumeration (`IPackageAccess` over artefact store) | Lexicographic order on each call; no pre-loading |
 | `IProgressSink.Emit()` | Async write to remote sink (non-blocking) |
 | Cursor checkpoint | Single `Cursor` object in memory (constant size, ~100 bytes) |
 
@@ -415,10 +415,10 @@ The pattern is memory-safe because:
 | Load all revisions into `List<WorkItemRevision>` before processing | Breaks memory safety for 20k+ items |
 | Sort enumerated paths in memory | Defeats the chronological ordering guarantee |
 | Implement a custom export loop instead of using `WorkItemExportOrchestrator` | Duplicates logic, introduces bugs, misses resume/checkpoint semantics |
-| Write attachment binaries to a temporary file list, then upload | Holds all attachments in memory; use `IArtefactStore.WriteBinaryAsync` directly |
-| Use watermark tables or in-memory dictionaries for progress tracking | Use `ICheckpointingService` via `IStateStore` (cursor-based) |
+| Write attachment binaries to a temporary file list, then upload | Holds all attachments in memory; use package-boundary streaming/binary paths directly |
+| Use watermark tables or in-memory dictionaries for progress tracking | Use cursor-based checkpointing through package state intents (`IPackageAccess`) |
 | Bypass `IWorkItemRevisionSource` and call the source API directly from module code | Couples modules to specific source systems; breaks multi-source flexibility |
-| Write files outside `IArtefactStore` | Breaks cloud deployment (local filesystem is not portable to blob storage) |
+| Write files outside the package boundary (`IPackageAccess`) | Breaks portability and bypasses boundary routing/state contracts |
 
 ---
 
@@ -561,5 +561,6 @@ Non-resume callers retain the existing traversal behavior.
 - `DevOpsMigrationPlatform.Infrastructure.Modules.WorkItemsModule` — the module that uses the orchestrator
 - `DevOpsMigrationPlatform.Abstractions.Services.IWorkItemRevisionSource` — the source interface
 - [docs/module-development-guide.md](module-development-guide.md) — module architecture and module contract
-- [.agents/context/workitems-format-summary.md](../.agents/context/workitems-format-summary.md) — on-disk format specification
-- [.agents/context/import-streaming.md](../.agents/context/import-streaming.md) — import streaming semantics (future)
+- [.agents/30-context/domains/workitems-format-summary.md](../.agents/30-context/domains/workitems-format-summary.md) — on-disk format specification
+- [.agents/30-context/domains/import-streaming.md](../.agents/30-context/domains/import-streaming.md) — import streaming semantics (future)
+

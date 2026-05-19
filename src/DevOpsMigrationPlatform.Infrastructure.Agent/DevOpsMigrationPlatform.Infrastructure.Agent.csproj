@@ -11,7 +11,9 @@
   <ItemGroup>
     <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.Agent\DevOpsMigrationPlatform.Abstractions.Agent.csproj" />
+    <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.Storage\DevOpsMigrationPlatform.Abstractions.Storage.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
+    <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem\DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
@@ -27,14 +29,12 @@
     <PackageReference Include="System.Threading.Channels" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="System.Net.Http.Json" />
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" VersionOverride="10.0.5" />
     <PackageReference Include="System.Diagnostics.DiagnosticSource" />
     <PackageReference Include="System.Text.Json" VersionOverride="10.0.0" />
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" />
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.IO.Compression.FileSystem" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(TargetFramework)' != 'net481'">
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" />

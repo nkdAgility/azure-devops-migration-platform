@@ -230,3 +230,35 @@ finally { _startLock.Release(); }
 - [x] No SQLite lock collisions across parallel simulated tests
 - [x] ControlPlaneHost startup race does not occur when Progress and Diagnostics tests run concurrently
 - [x] `.\build.ps1 -Mode Stats` outputs test summary and timings without invoking GitVersion
+
+---
+
+## Current status (reconciled 2026-05-17)
+
+- Overall: **partially implemented with drift and supersession**.
+- Canonical task status now lives in `specs/025.1-fold-to-job/tasks.md`.
+- Several original retrospective claims are now stale due newer architecture work in specs 028.2, 033, and 034.
+
+## Remaining incomplete work
+
+- **T007** — FR-007 strict re-submission guard no longer matches implementation (`JobAgentWorker` now allows compatible overwrite).
+- **T008** — FR-008 requires flush-before-signal on every terminal path; some fail paths still signal without explicit pre-signal flush.
+- **T014** — DoD evidence counts are stale and no longer reflect current suite composition.
+
+## Completed because superseded
+
+- **T005** — config materialization semantics completed but path contract superseded by package metadata routing (`.migration/migration-config.json`) under newer package boundary/runtime-state contracts.
+- **T012** — `progress.jsonl`/`agent.jsonl` naming superseded by `progress.ndjson`/`diagnostics.ndjson`.
+- **T013** — original dispatch expectation superseded by task-plan execution architecture (spec 028.2).
+
+## Contradictions and reconciliation
+
+1. FR-007 says “always fail if config exists unless `ForceFresh`”; implementation permits compatible resume overwrite after source/target identity check.
+2. Scenario 1 says `Inventory` dispatches to discovery path; current worker routes `Inventory` through migration execution path and reserves discovery path for `Dependencies`.
+3. NFR/DoD references `progress.jsonl`/`agent.jsonl`; current package log streams are `.ndjson`.
+
+## Verification evidence
+
+- Specs reviewed: `028-ioptions-schema-gen`, `028.1-task-bootstrap`, `028.2-job-execution-by-task`, `029-import-workitems-attachments-nodes`, `030-module-analiser-refactor`, `031-platform-metrics-unification`, `032-icapture-interface`, `033-runtime-state-categories`, `034-package-manager-adoption`, `035-workitem-import-support`.
+- Key implementation files inspected: `Job.cs`, `JobAgentWorker.cs`, `TfsJobAgentWorker.cs`, `ProgressEvent.cs`, `JobExecutionPlanBuilder.cs`, `JobPlanExecutor.cs`, `TelemetryController.cs`, `ProgressController.cs`, `QueueCommand.cs`, `ControlPlaneHostRunner.cs`.
+- Commands run: `dotnet build DevOpsMigrationPlatform.slnx -nologo -v minimal`; `./build.ps1 -Mode Test`; targeted `rg` inspections across `src`, `tests`, and `scenarios`.

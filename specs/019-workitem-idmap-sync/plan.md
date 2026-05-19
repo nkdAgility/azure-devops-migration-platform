@@ -1,116 +1,41 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan: Work Item ID Map — Integrity, Rebuild, and Sync Support (Reconciled)
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
+**Branch**: `019-workitem-idmap-sync`  
+**Date**: 2026-05-17  
+**Spec**: `specs/019-workitem-idmap-sync/spec.md`
 
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
+## Current Status
 
-## Summary
+This artifact was previously a template placeholder. It has been replaced with a reconciliation snapshot based on current repository evidence.
 
-[Extract from feature spec: primary requirement + technical approach from research]
+- **Task status summary**: 16 complete, 23 incomplete, 3 complete/superseded
+- **Primary completed capability areas**: target existence checks, seed/rebuild flow, integrity check invocation, feature/spec artifacts for package lock and idmap scenarios
+- **Primary open capability areas**: idmap schema/contract alignment, package-lock integration into worker startup, control-plane status endpoint, documentation sync closure, final verification tasks
 
-## Technical Context
+## Remaining Incomplete Work (Task IDs)
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
+`T001, T002, T004, T006, T007, T008, T012, T013, T016, T019, T029, T030, T032, T033, T034, T035, T036, T037, T038, T039, T040, T041, T042`
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+## Completed/Superseded Work (Task IDs + Source)
 
-## Constitution Check
+- `T011` — superseded by `specs/035-workitem-import-support/tasks.md` (lock ownership moved to package access implementation; adapter retained)
+- `T014` — superseded by `specs/035-workitem-import-support/tasks.md` (RevisionProcessResult promoted to shared abstraction)
+- `T026` — superseded by `specs/035-workitem-import-support/tasks.md` (integrity-check loop encapsulated in `IIdMapStore.CheckIntegrityAsync`)
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+## Key Contradictions and Reconciliation Decisions
 
-> **Mandatory context loading:** Before completing this gate, confirm that ALL files in
-> `/.agents/guardrails/`, ALL files in `/.agents/context/`, and relevant `/docs/` files
-> have been read. Skipping either `.agents/` subdirectory is a constitution violation.
+1. **IIdMapStore contract divergence**: spec expects new enumeration/skip signatures; implementation uses a different shape and central integrity API.
+2. **Schema divergence**: spec expects `last_revision_index` column on `work_item_map`; implementation stores revision watermark in a dedicated table.
+3. **Package lock architecture divergence**: spec expects direct lock service wiring in worker; implementation routes lock semantics through `IPackageAccess` and an adapter service.
+4. **Control-plane endpoint gap**: model/adapter references exist, but `/agents/{agentInstanceId}/status` endpoint is not implemented in controller surface.
 
-- [ ] **Package-First (I):** No direct source-to-target migration. All reads/writes go via the on-disk package through `IArtefactStore`.
-- [ ] **Streaming (II):** Import processes one revision folder at a time. No in-memory list/array of all revisions. No in-memory sort of `EnumerateAsync` results.
-- [ ] **WorkItems Layout (III):** Folder structure `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/` is preserved. No attachments root. No renaming or flattening.
-- [ ] **Checkpointing (IV):** Module uses a cursor file under `Checkpoints/`. No watermark tables or in-memory progress counters.
-- [ ] **Module Isolation (V):** All persistence through `IArtefactStore`/`IStateStore`. No concrete store references in module code. Identity via `IIdentityMappingService`.
-- [ ] **Separation of Planes (VI):** Control plane has no migration logic. Job Engine has no UI coupling. TUI has no migration logic. TFS exporter only via subprocess adapter.
-- [ ] **Determinism (VII):** Same inputs produce stable package layout. All breaking schema changes include an upgrader.
-- [ ] **ATDD-First (VIII):** Every user story in `spec.md` has at least one Given/When/Then acceptance scenario. Each scenario will be implemented via the ATDD inner loop (Specification → Test Gen → Implementation → Review) — one scenario per session per commit.
-- [ ] **SOLID & DI (IX):** All new services and modules receive dependencies via constructor injection only. Configuration is bound via `IOptions<T>` with a sealed options class and `SectionName` constant. No raw `IConfiguration` access inside services. Interfaces are defined in `DevOpsMigrationPlatform.Abstractions`. Registration lives in a dedicated `Add*Services` extension method.
+## Verification Evidence
 
-## Project Structure
+- ✅ `dotnet build DevOpsMigrationPlatform.slnx` passed in this reconciliation session.
+- ⚠️ `dotnet test DevOpsMigrationPlatform.slnx --no-build` was re-attempted in this reconciliation session and did not complete (stalled); no full-pass evidence captured yet.
+- ⚠️ No debug-profile runtime verification evidence yet for `T039` lock lifecycle/integrity/rerun checks.
 
-### Documentation (this feature)
+## Notes
 
-```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
-```
+This plan now reflects a reconciliation baseline, not a forward implementation design. Use `tasks.md` as the operational source of truth for per-task completion status and evidence notes.
 
-### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
-
-```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
-
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
-```
-
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
-
-## Complexity Tracking
-
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |

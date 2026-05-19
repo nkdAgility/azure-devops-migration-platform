@@ -7,7 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Validation;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -16,7 +16,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Platform;
 [TestClass]
 public class PackageValidatorTests
 {
-    private InMemoryArtefactStore _store = null!;
+    private InMemoryPackageAccess _store = null!;
     private PackageValidator _sut = null!;
 
     private const string ValidManifest = """{"schemaVersion":"1.0"}""";
@@ -25,7 +25,7 @@ public class PackageValidatorTests
     [TestInitialize]
     public void Setup()
     {
-        _store = new InMemoryArtefactStore();
+        _store = new InMemoryPackageAccess();
         _sut = new PackageValidator(_store);
     }
 
@@ -168,10 +168,12 @@ public class PackageValidatorTests
         Assert.AreEqual(0, _store.AppendCalls, "Validator must not append package logs or state.");
     }
 
-    private sealed class InMemoryArtefactStore : IArtefactStore
+    private sealed class InMemoryPackageAccess : IPackageAccess
     {
         private readonly Dictionary<string, string> _files = new(StringComparer.OrdinalIgnoreCase);
         private readonly SortedSet<string> _extraEnumeratedPaths = new(StringComparer.OrdinalIgnoreCase);
+
+        private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
 
         public int WriteCalls { get; private set; }
         public int WriteBinaryCalls { get; private set; }
@@ -190,32 +192,22 @@ public class PackageValidatorTests
             AppendCalls = 0;
         }
 
-        public Task<string?> ReadAsync(string path, CancellationToken cancellationToken)
-            => Task.FromResult(_files.TryGetValue(path, out var content) ? content : null);
-
-        public Task WriteAsync(string path, string content, CancellationToken cancellationToken)
+        public ValueTask<PackagePayload?> RequestContentAsync(PackageContentContext context, CancellationToken cancellationToken)
         {
-            WriteCalls++;
-            _files[path] = content;
-            return Task.CompletedTask;
+            var path = context.Address?.RelativePath ?? string.Empty;
+            if (!_files.TryGetValue(path, out var content))
+                return ValueTask.FromResult<PackagePayload?>(null);
+            return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(content))));
         }
 
-        public Task<bool> ExistsAsync(string path, CancellationToken cancellationToken)
-            => Task.FromResult(_files.ContainsKey(path));
+        public ValueTask<bool> ContentExistsAsync(PackageContentContext context, CancellationToken cancellationToken)
+            => ValueTask.FromResult(_files.ContainsKey(context.Address?.RelativePath ?? string.Empty));
 
-        public Task WriteBinaryAsync(string path, byte[] content, CancellationToken cancellationToken)
-        {
-            WriteBinaryCalls++;
-            return Task.CompletedTask;
-        }
-
-        public Task<Stream?> ReadBinaryAsync(string path, CancellationToken cancellationToken)
-            => Task.FromResult<Stream?>(null);
-
-        public async IAsyncEnumerable<string> EnumerateAsync(
-            string prefix,
+        public async IAsyncEnumerable<string> EnumerateContentAsync(
+            PackageContentContext context,
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
         {
+            var prefix = context.Address?.RelativePath ?? string.Empty;
             foreach (var path in _files.Keys
                 .Concat(_extraEnumeratedPaths)
                 .Where(path => path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
@@ -227,16 +219,46 @@ public class PackageValidatorTests
             }
         }
 
-        public Task WriteStreamAsync(string path, Stream content, CancellationToken cancellationToken)
+        public ValueTask<System.IO.Stream?> RequestContentBinaryAsync(PackageContentContext context, CancellationToken cancellationToken)
+            => ValueTask.FromResult<System.IO.Stream?>(null);
+
+        public ValueTask PersistContentAsync(PackageContentContext context, PackagePayload payload, CancellationToken cancellationToken)
         {
-            WriteStreamCalls++;
-            return Task.CompletedTask;
+            WriteCalls++;
+            using var reader = new StreamReader(payload.Content, leaveOpen: true);
+            payload.Content.Position = 0;
+            _files[context.Address?.RelativePath ?? string.Empty] = reader.ReadToEnd();
+            return ValueTask.CompletedTask;
         }
 
-        public Task AppendAsync(string path, string content, CancellationToken cancellationToken)
+        public ValueTask PersistContentStreamAsync(PackageContentContext context, Stream payload, string? contentType, CancellationToken cancellationToken)
+        {
+            WriteStreamCalls++;
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask AppendContentAsync(PackageContentContext context, PackagePayload payload, CancellationToken cancellationToken)
         {
             AppendCalls++;
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
+
+        public ValueTask<PackageMetaResult> RequestMetaAsync(PackageMetaContext context, CancellationToken cancellationToken)
+            => ValueTask.FromResult(new PackageMetaResult(string.Empty, null));
+
+        public ValueTask PersistMetaAsync(PackageMetaContext context, PackageMetaPayload payload, CancellationToken cancellationToken)
+            => ValueTask.CompletedTask;
+
+        public ValueTask ResetMetaAsync(PackageMetaContext context, CancellationToken cancellationToken)
+            => ValueTask.CompletedTask;
+
+        public ValueTask AppendLogAsync(PackageLogContext context, PackageLogPayload payload, CancellationToken cancellationToken)
+            => ValueTask.CompletedTask;
+
+        public ValueTask<System.Data.Common.DbConnection> OpenNativeDatabaseAsync(PackageMetaKind kind, CancellationToken cancellationToken)
+            => ValueTask.FromResult<System.Data.Common.DbConnection>(new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:"));
+
+        public ValueTask<IDisposable> AcquireLockAsync(string lockName, CancellationToken cancellationToken)
+            => ValueTask.FromResult<IDisposable>(new MemoryStream());
     }
 }

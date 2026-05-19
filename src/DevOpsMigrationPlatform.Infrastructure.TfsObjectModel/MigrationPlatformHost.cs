@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System;
 using System.IO;
 using Microsoft.Extensions.Configuration;
@@ -13,8 +14,9 @@ using Microsoft.TeamFoundation.WorkItemTracking.Proxy;
 using Microsoft.VisualStudio.Services.Client;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
+using DevOpsMigrationPlatform.Abstractions.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Export;
@@ -122,11 +124,19 @@ public static class MigrationPlatformHost
             var azureMonitorConnectionString = ctx.Configuration["Telemetry:AzureMonitorConnectionString"];
             var hasAzureMonitor = !string.IsNullOrWhiteSpace(azureMonitorConnectionString);
 
-            // Filesystem-backed artefact and state stores rooted at the output folder
-            services.AddSingleton<IArtefactStore>(_ =>
-                new FileSystemArtefactStore(settings.OutputFolder));
-            services.AddSingleton<IStateStore>(_ =>
-                new FileSystemStateStore(settings.OutputFolder));
+            // Package boundary — pre-initialize ActivePackageState with the output folder
+            // so that ActivePackageAccess can resolve the local root for this subprocess.
+            services.AddSingleton(_ =>
+            {
+                var state = new ActivePackageState();
+                state.CurrentJob = new Job
+                {
+                    JobId = "tfs-subprocess",
+                    Package = new JobPackage { PackageUri = settings.OutputFolder }
+                };
+                return state;
+            });
+            services.AddPackageBoundaryServices();
             services.AddSingleton<ICheckpointingService, CheckpointingService>();
 
             // TFS connection

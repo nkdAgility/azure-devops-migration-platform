@@ -19,12 +19,12 @@
 
 **Purpose**: Rename metric constants, create the new consolidated meter, define the unified metrics interface, expand MetricSnapshot, and create the tag helper — all without changing runtime behaviour.
 
-- [X] T001 Update `WellKnownMetricNames` constants from underscore-separated to dot-separated naming convention in `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs` (FR-001, FR-002, FR-003)
-- [X] T002 [P] Update `WellKnownMeterNames` — add `Migration` constant, mark `WorkItemExport` and `AttachmentDownload` as `[Obsolete]` in `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMeterNames.cs` (FR-035)
-- [X] T003 [P] Create `MigrationTagList` helper in `src/DevOpsMigrationPlatform.Abstractions/Telemetry/MigrationTagList.cs` — static factory methods for building `TagList` with mandatory `job.id`, `operation`, `module` tags plus optional `source.type` (FR-004, FR-005)
-- [X] T004 Create `IMigrationMetrics` interface in `src/DevOpsMigrationPlatform.Abstractions/Telemetry/IMigrationMetrics.cs` — unified recording contract for all 28 instruments per data-model.md section 4.1 (FR-007 through FR-031)
-- [X] T005 Create `MigrationMetrics` concrete implementation in `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/MigrationMetrics.cs` — registers all instruments under the `DevOpsMigrationPlatform.Migration` meter (FR-035, FR-036)
-- [X] T006 Expand `MetricSnapshot` record in `src/DevOpsMigrationPlatform.Abstractions/Models/MetricSnapshot.cs` — replace legacy properties with execution counters, payload means, correctness counters/means, in-flight gauges, and nullable deferred idempotency properties per data-model.md section 4.3; remove legacy properties outright (system is pre-production, no backward-compatibility transition needed) (FR-032, FR-033)
+- [X] T001 Update `WellKnownMetricNames` constants from underscore-separated to dot-separated naming convention in `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs` (FR-001, FR-002, FR-003) — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T002 [P] Update `WellKnownMeterNames` — add `Migration` constant, mark `WorkItemExport` and `AttachmentDownload` as `[Obsolete]` in `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMeterNames.cs` (FR-035) — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T003 [P] Create `MigrationTagList` helper in `src/DevOpsMigrationPlatform.Abstractions/Telemetry/MigrationTagList.cs` — static factory methods for building `TagList` with mandatory `job.id`, `operation`, `module` tags plus optional `source.type` (FR-004, FR-005) — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T004 Create `IMigrationMetrics` interface in `src/DevOpsMigrationPlatform.Abstractions/Telemetry/IMigrationMetrics.cs` — unified recording contract for all 28 instruments per data-model.md section 4.1 (FR-007 through FR-031) — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T005 Create `MigrationMetrics` concrete implementation in `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/MigrationMetrics.cs` — registers all instruments under the `DevOpsMigrationPlatform.Migration` meter (FR-035, FR-036) — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T006 Expand `MetricSnapshot` record in `src/DevOpsMigrationPlatform.Abstractions/Models/MetricSnapshot.cs` — replace legacy properties with execution counters, payload means, correctness counters/means, in-flight gauges, and nullable deferred idempotency properties per data-model.md section 4.3; remove legacy properties outright (system is pre-production, no backward-compatibility transition needed) (FR-032, FR-033) — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
 
 ---
 
@@ -34,14 +34,14 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [X] T007 Update `SnapshotMetricExporter` in `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/SnapshotMetricExporter.cs` — extend `switch` block to handle all new `WellKnownMetricNames` constants, add `ReadGaugeLatest()` helper for ObservableGauge, map all new instruments to expanded `MetricSnapshot` properties (FR-034)
-- [X] T008 Update `TelemetryServiceExtensions.AddTelemetryServices()` in `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/TelemetryServiceExtensions.cs` — register `IMigrationMetrics`/`MigrationMetrics` as singleton, add new meter to MeterProvider
-- [X] T009 Update meter registration in `src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentServiceExtensions.cs` — add `WellKnownMeterNames.Migration` to `.AddMeter()` calls, retain deprecated meter names for transition
-- [X] T010 [P] Update `WorkItemExportMetrics` in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Telemetry/WorkItemExportMetrics.cs` — delegate to injected `IMigrationMetrics` using new metric names and standardised tags
-- [X] T011 [P] Update `AttachmentDownloadMetrics` in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Telemetry/AttachmentDownloadMetrics.cs` — delegate to injected `IMigrationMetrics` using new metric names and standardised tags
-- [X] T012 [P] Update existing `SnapshotMetricExporterTests` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — fix assertions for renamed metric names, add test cases for new instrument types (UpDownCounter, ObservableGauge)
-- [X] T013 [P] Create `MetricSnapshotSerializationTests` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MetricSnapshotSerializationTests.cs` — verify JSON round-trip with all new properties populated, null deferred properties serialize correctly, camelCase property names (SC-003)
-- [X] T014 [P] Create `WellKnownMetricNamesTests` in `tests/DevOpsMigrationPlatform.Abstractions.Tests/Telemetry/WellKnownMetricNamesTests.cs` — validate all constants start with `migration.`, use dot-separated hierarchy separators, no underscores as hierarchy separators (underscores are permitted within leaf segments, e.g. `in_flight`) (SC-006)
+- [X] T007 Update `SnapshotMetricExporter` in `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/SnapshotMetricExporter.cs` — extend `switch` block to handle all new `WellKnownMetricNames` constants, add `ReadGaugeLatest()` helper for ObservableGauge, map all new instruments to expanded `MetricSnapshot` properties (FR-034) — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T008 Update `TelemetryServiceExtensions.AddTelemetryServices()` in `src/DevOpsMigrationPlatform.Infrastructure/Telemetry/TelemetryServiceExtensions.cs` — register `IMigrationMetrics`/`MigrationMetrics` as singleton, add new meter to MeterProvider — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T009 Update meter registration in `src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentServiceExtensions.cs` — add `WellKnownMeterNames.Migration` to `.AddMeter()` calls, retain deprecated meter names for transition — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [ ] T010 [P] Update `WorkItemExportMetrics` in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Telemetry/WorkItemExportMetrics.cs` — delegate to injected `IMigrationMetrics` using new metric names and standardised tags — Status: incomplete
+- [ ] T011 [P] Update `AttachmentDownloadMetrics` in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Telemetry/AttachmentDownloadMetrics.cs` — delegate to injected `IMigrationMetrics` using new metric names and standardised tags — Status: incomplete
+- [ ] T012 [P] Update existing `SnapshotMetricExporterTests` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — fix assertions for renamed metric names, add test cases for new instrument types (UpDownCounter, ObservableGauge) — Status: incomplete
+- [X] T013 [P] Create `MetricSnapshotSerializationTests` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MetricSnapshotSerializationTests.cs` — verify JSON round-trip with all new properties populated, null deferred properties serialize correctly, camelCase property names (SC-003) — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T014 [P] Create `WellKnownMetricNamesTests` in `tests/DevOpsMigrationPlatform.Abstractions.Tests/Telemetry/WellKnownMetricNamesTests.cs` — validate all constants start with `migration.`, use dot-separated hierarchy separators, no underscores as hierarchy separators (underscores are permitted within leaf segments, e.g. `in_flight`) (SC-006) — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
 
 **Checkpoint**: Foundation ready — all metric constants renamed, new interface wired, SnapshotMetricExporter handles expanded instrument set, existing tests pass with new names.
 
@@ -55,14 +55,14 @@
 
 ### Gherkin Feature File for User Story 1 (mandatory)
 
-- [X] T015 [US1] Create `features/export/work-items/export-execution-metrics.feature` — translate spec.md US1 acceptance scenarios (50 work items → attempted/completed/failed counters, retry scenario, duration histogram P50/P95) into conformant Gherkin per `.agents/guardrails/acceptance-test-format.md`
+- [X] T015 [US1] Create `features/export/work-items/export-execution-metrics.feature` — translate spec.md US1 acceptance scenarios (50 work items → attempted/completed/failed counters, retry scenario, duration histogram P50/P95) into conformant Gherkin per `.agents/20-guardrails/workflow/acceptance-test-format.md` — Status: complete
 
 ### Implementation for User Story 1
 
-- [X] T016 [US1] Create `MigrationMetricsTests` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MigrationMetricsTests.cs` — unit tests for `MigrationMetrics.RecordWorkItemAttempted`, `RecordWorkItemCompleted`, `RecordWorkItemFailed`, `RecordWorkItemRetried`, `RecordWorkItemDuration` verifying instruments emit with correct names and tags
-- [X] T017 [US1] Wire execution metric recording into the work item export processing path in `src/DevOpsMigrationPlatform.Infrastructure/Export/WorkItemExportOrchestrator.cs` (`ExportAsync`) — call `IMigrationMetrics.RecordWorkItemAttempted` at processing start, `RecordWorkItemCompleted`/`RecordWorkItemFailed` at end, `RecordWorkItemRetried` on retry, `RecordWorkItemDuration` with elapsed milliseconds
-- [X] T018 [US1] Wire execution metric recording into the work item import processing path in `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemImportOrchestrator.cs` (`ImportAsync`) — same calls as T017 but with `operation=import` tag
-- [X] T019 [US1] Verify all execution metrics carry mandatory `job.id`, `operation`, `module` dimension tags (FR-004, SC-007) — add assertion in `MigrationMetricsTests` that tags are present
+- [X] T016 [US1] Create `MigrationMetricsTests` in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MigrationMetricsTests.cs` — unit tests for `MigrationMetrics.RecordWorkItemAttempted`, `RecordWorkItemCompleted`, `RecordWorkItemFailed`, `RecordWorkItemRetried`, `RecordWorkItemDuration` verifying instruments emit with correct names and tags — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T017 [US1] Wire execution metric recording into the work item export processing path in `src/DevOpsMigrationPlatform.Infrastructure/Export/WorkItemExportOrchestrator.cs` (`ExportAsync`) — call `IMigrationMetrics.RecordWorkItemAttempted` at processing start, `RecordWorkItemCompleted`/`RecordWorkItemFailed` at end, `RecordWorkItemRetried` on retry, `RecordWorkItemDuration` with elapsed milliseconds — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T018 [US1] Wire execution metric recording into the work item import processing path in `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemImportOrchestrator.cs` (`ImportAsync`) — same calls as T017 but with `operation=import` tag — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T019 [US1] Verify all execution metrics carry mandatory `job.id`, `operation`, `module` dimension tags (FR-004, SC-007) — add assertion in `MigrationMetricsTests` that tags are present — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
 
 **Checkpoint**: User Story 1 fully functional — execution counters and duration histogram emit correctly for both export and import operations.
 
@@ -76,13 +76,13 @@
 
 ### Gherkin Feature File for User Story 2 (mandatory)
 
-- [X] T020 [US2] Create `features/export/work-items/export-payload-metrics.feature` — translate spec.md US2 acceptance scenarios (15 revisions/3 attachments/8 links → histogram values, batch mean values in MetricSnapshot) into conformant Gherkin
+- [X] T020 [US2] Create `features/export/work-items/export-payload-metrics.feature` — translate spec.md US2 acceptance scenarios (15 revisions/3 attachments/8 links → histogram values, batch mean values in MetricSnapshot) into conformant Gherkin — Status: complete
 
 ### Implementation for User Story 2
 
-- [X] T021 [P] [US2] Add unit tests for payload metrics in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MigrationMetricsTests.cs` — test `RecordFieldCount`, `RecordAttachmentCount`, `RecordLinkCount`, `RecordRevisionCount`, `RecordPayloadBytes` with varying values
-- [X] T022 [US2] Wire payload metric recording into work item processing paths in `src/DevOpsMigrationPlatform.Infrastructure/Export/WorkItemExportOrchestrator.cs` and `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemImportOrchestrator.cs` — after each work item is processed, call `IMigrationMetrics.RecordFieldCount`, `RecordAttachmentCount`, `RecordLinkCount`, `RecordRevisionCount`, `RecordPayloadBytes` with values extracted from the work item data
-- [X] T023 [US2] Add `SnapshotMetricExporter` test cases for payload histogram means in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — verify `FieldCountMean`, `AttachmentCountMean`, `LinkCountMean`, `RevisionCountMean`, `PayloadBytesMean` populate correctly
+- [X] T021 [P] [US2] Add unit tests for payload metrics in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MigrationMetricsTests.cs` — test `RecordFieldCount`, `RecordAttachmentCount`, `RecordLinkCount`, `RecordRevisionCount`, `RecordPayloadBytes` with varying values — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [ ] T022 [US2] Wire payload metric recording into work item processing paths in `src/DevOpsMigrationPlatform.Infrastructure/Export/WorkItemExportOrchestrator.cs` and `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemImportOrchestrator.cs` — after each work item is processed, call `IMigrationMetrics.RecordFieldCount`, `RecordAttachmentCount`, `RecordLinkCount`, `RecordRevisionCount`, `RecordPayloadBytes` with values extracted from the work item data — Status: incomplete
+- [ ] T023 [US2] Add `SnapshotMetricExporter` test cases for payload histogram means in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — verify `FieldCountMean`, `AttachmentCountMean`, `LinkCountMean`, `RevisionCountMean`, `PayloadBytesMean` populate correctly — Status: incomplete
 
 **Checkpoint**: User Stories 1 AND 2 work independently — execution tracking plus payload complexity analysis.
 
@@ -96,14 +96,14 @@
 
 ### Gherkin Feature File for User Story 3 (mandatory)
 
-- [X] T024 [US3] Create `features/platform/validation/post-flight-correctness-metrics.feature` — translate spec.md US3 acceptance scenarios (matching revision counts → missing=0 and delta=0; 2 items with fewer target revisions → missing=2 and negative deltas; broken links detection) and sampleRate=0 edge case into conformant Gherkin
+- [X] T024 [US3] Create `features/platform/validation/post-flight-correctness-metrics.feature` — translate spec.md US3 acceptance scenarios (matching revision counts → missing=0 and delta=0; 2 items with fewer target revisions → missing=2 and negative deltas; broken links detection) and sampleRate=0 edge case into conformant Gherkin — Status: complete
 
 ### Implementation for User Story 3
 
-- [X] T025 [P] [US3] Add unit tests for correctness metrics in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MigrationMetricsTests.cs` — test `RecordRevisionSourceCount`, `RecordRevisionTargetCount`, `RecordRevisionDelta`, `RecordRevisionsMissing`, `RecordRevisionOrderError`, `RecordBrokenLink`, `RecordMissingWorkItem`
-- [X] T026 [US3] Wire correctness metric recording into Tier 3 post-flight validation pass in `src/DevOpsMigrationPlatform.Infrastructure/Modules/WorkItemsModule.cs` (`ValidateAsync`) — for each sampled work item, call source/target count recording, compute and record delta, increment missing/broken counters as applicable (FR-017 through FR-024)
-- [X] T027 [US3] Verify correctness metrics respect `sampleRate` gating — at `sampleRate=0` no correctness metrics are emitted, at `sampleRate=1.0` all items are checked (FR-024, SC-005)
-- [X] T028 [US3] Add `SnapshotMetricExporter` test cases for correctness metrics in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — verify `RevisionSourceCountMean`, `RevisionTargetCountMean`, `RevisionDeltaMean`, `RevisionsMissing`, `RevisionOrderErrors`, `BrokenLinks`, `MissingWorkItems` populate correctly
+- [X] T025 [P] [US3] Add unit tests for correctness metrics in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MigrationMetricsTests.cs` — test `RecordRevisionSourceCount`, `RecordRevisionTargetCount`, `RecordRevisionDelta`, `RecordRevisionsMissing`, `RecordRevisionOrderError`, `RecordBrokenLink`, `RecordMissingWorkItem` — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [ ] T026 [US3] Wire correctness metric recording into Tier 3 post-flight validation pass in `src/DevOpsMigrationPlatform.Infrastructure/Modules/WorkItemsModule.cs` (`ValidateAsync`) — for each sampled work item, call source/target count recording, compute and record delta, increment missing/broken counters as applicable (FR-017 through FR-024) — Status: incomplete
+- [ ] T027 [US3] Verify correctness metrics respect `sampleRate` gating — at `sampleRate=0` no correctness metrics are emitted, at `sampleRate=1.0` all items are checked (FR-024, SC-005) — Status: incomplete
+- [ ] T028 [US3] Add `SnapshotMetricExporter` test cases for correctness metrics in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — verify `RevisionSourceCountMean`, `RevisionTargetCountMean`, `RevisionDeltaMean`, `RevisionsMissing`, `RevisionOrderErrors`, `BrokenLinks`, `MissingWorkItems` populate correctly — Status: incomplete
 
 **Checkpoint**: User Stories 1, 2, AND 3 all work — full execution, payload, and correctness observability.
 
@@ -117,14 +117,14 @@
 
 ### Gherkin Feature File for User Story 4 (mandatory)
 
-- [X] T029 [US4] Create `features/platform/telemetry/in-flight-concurrency-metrics.feature` — translate spec.md US4 acceptance scenarios (maxConcurrency=4 → in_flight between 0 and 4; 100 pending items → queue depth starts ~100 and decreases) into conformant Gherkin
+- [X] T029 [US4] Create `features/platform/telemetry/in-flight-concurrency-metrics.feature` — translate spec.md US4 acceptance scenarios (maxConcurrency=4 → in_flight between 0 and 4; 100 pending items → queue depth starts ~100 and decreases) into conformant Gherkin — Status: complete
 
 ### Implementation for User Story 4
 
-- [X] T030 [P] [US4] Add unit tests for in-flight metrics in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MigrationMetricsTests.cs` — test `IncrementInFlight`, `DecrementInFlight` UpDownCounter semantics; test ObservableGauge callback for queue depth
-- [X] T031 [US4] Wire `IncrementInFlight`/`DecrementInFlight` calls into work item processing orchestration in `src/DevOpsMigrationPlatform.Infrastructure/Export/WorkItemExportOrchestrator.cs` and `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemImportOrchestrator.cs` — increment at processing start, decrement at completion or failure (FR-030)
-- [X] T032 [US4] Register `ObservableGauge` for queue depth with a `Func<int>` callback that reads the current pending count from the job engine's internal queue (FR-031)
-- [X] T033 [US4] Add `SnapshotMetricExporter` test cases for in-flight metrics in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — verify `WorkItemsInFlight` and `QueueDepth` properties populate correctly from UpDownCounter and ObservableGauge
+- [ ] T030 [P] [US4] Add unit tests for in-flight metrics in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MigrationMetricsTests.cs` — test `IncrementInFlight`, `DecrementInFlight` UpDownCounter semantics; test ObservableGauge callback for queue depth — Status: incomplete
+- [X] T031 [US4] Wire `IncrementInFlight`/`DecrementInFlight` calls into work item processing orchestration in `src/DevOpsMigrationPlatform.Infrastructure/Export/WorkItemExportOrchestrator.cs` and `src/DevOpsMigrationPlatform.Infrastructure/Import/WorkItemImportOrchestrator.cs` — increment at processing start, decrement at completion or failure (FR-030) — Status: complete
+- [ ] T032 [US4] Register `ObservableGauge` for queue depth with a `Func<int>` callback that reads the current pending count from the job engine's internal queue (FR-031) — Status: incomplete
+- [ ] T033 [US4] Add `SnapshotMetricExporter` test cases for in-flight metrics in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — verify `WorkItemsInFlight` and `QueueDepth` properties populate correctly from UpDownCounter and ObservableGauge — Status: incomplete
 
 **Checkpoint**: All operational metrics complete — execution, payload, correctness, in-flight, and queue pressure.
 
@@ -138,13 +138,13 @@
 
 ### Gherkin Feature File for User Story 5 (mandatory)
 
-- [X] T034 [US5] Create `features/platform/telemetry/idempotency-metric-registration.feature` — translate spec.md US5 acceptance scenario (instruments registered at startup, accept increments) into conformant Gherkin
+- [X] T034 [US5] Create `features/platform/telemetry/idempotency-metric-registration.feature` — translate spec.md US5 acceptance scenario (instruments registered at startup, accept increments) into conformant Gherkin — Status: complete
 
 ### Implementation for User Story 5
 
-- [X] T035 [P] [US5] Add unit tests for deferred idempotency instruments in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MigrationMetricsTests.cs` — verify `RecordDuplicated`, `RecordChangedOnRerun`, `RecordReprocessedAfterResume`, `RecordDuplicatedAfterResume`, `RecordMissingAfterResume` are callable and instruments are registered under the Migration meter (SC-002)
-- [X] T036 [US5] Verify deferred instruments are registered at startup — confirm `MigrationMetrics` constructor creates all 5 deferred Counter instruments (FR-025 through FR-029)
-- [X] T037 [US5] Add `SnapshotMetricExporter` test cases for deferred metrics in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — verify nullable `Duplicated`, `ChangedOnRerun`, `ReprocessedAfterResume`, `DuplicatedAfterResume`, `MissingAfterResume` properties default to `null` when no measurements recorded
+- [X] T035 [P] [US5] Add unit tests for deferred idempotency instruments in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MigrationMetricsTests.cs` — verify `RecordDuplicated`, `RecordChangedOnRerun`, `RecordReprocessedAfterResume`, `RecordDuplicatedAfterResume`, `RecordMissingAfterResume` are callable and instruments are registered under the Migration meter (SC-002) — Status: complete
+- [X] T036 [US5] Verify deferred instruments are registered at startup — confirm `MigrationMetrics` constructor creates all 5 deferred Counter instruments (FR-025 through FR-029) — Status: complete
+- [ ] T037 [US5] Add `SnapshotMetricExporter` test cases for deferred metrics in `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs` — verify nullable `Duplicated`, `ChangedOnRerun`, `ReprocessedAfterResume`, `DuplicatedAfterResume`, `MissingAfterResume` properties default to `null` when no measurements recorded — Status: incomplete
 
 **Checkpoint**: All 28 instruments registered and tested. Deferred instruments ready for future mapping store.
 
@@ -154,18 +154,18 @@
 
 **Purpose**: Ensure all canonical docs reflect what was implemented in this spec. This phase is a blocking gate — no spec is complete without it.
 
-- [X] T038 Add a "Telemetry" or "Observability" section to `docs/configuration-reference.md` — document the `migration.` dot-separated naming convention and mandatory dimension tags (`job.id`, `operation`, `module`) per `discrepancies.md` item 1
-- [X] T039 [P] Update `docs/architecture.md` Phase 2 item 20 — add reference to `migration.*` dot-separated metric convention defined in `WellKnownMetricNames` per `discrepancies.md` item 2
-- [X] T040 [P] Update `docs/control-plane.md` — add note to `GET /jobs/{jobId}/telemetry` endpoint that `MetricSnapshot` is a versioned DTO whose fields correspond to registered OTel instruments per `discrepancies.md` item 3
-- [X] T041 [P] Update `docs/validation.md` Tier 3 Post-Flight Validation section — add paragraph noting OTel metric emission (count parity histograms and error counters) alongside `validation-report.json`, respecting `sampleRate` per `discrepancies.md` item 4
-- [X] T042 [P] Update `docs/development-setup.md` ConfigureOpenTelemetry sample — register `DevOpsMigrationPlatform.Migration` meter instead of the two separate meter names per `discrepancies.md` item 5
-- [X] T043 [P] Update `docs/agent-hosting.md` Responsibilities table — add "Record metrics" row for `IMigrationMetrics` during job execution per `discrepancies.md` item 6
-- [X] T044 [P] Update `docs/migration-process-guide.md` Job Engine Steps — amend step 6 or add step 6a for OTel metric recording alongside progress event emission per `discrepancies.md` item 7
-- [X] T045 Mark all items in `specs/018-workitem-otel-metrics/discrepancies.md` as `Resolved` or `N/A`
-- [X] T046 Review `analysis/pending-actions.md` and remove any items resolved by this spec
-- [X] T047 Run `dotnet clean && dotnet build --no-incremental` — MUST pass
-- [X] T048 Run `dotnet test` — ALL tests MUST pass
-- [X] T049 Run at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile and verify observable output
+- [X] T038 Add a "Telemetry" or "Observability" section to `docs/configuration-reference.md` — document the `migration.` dot-separated naming convention and mandatory dimension tags (`job.id`, `operation`, `module`) per `discrepancies.md` item 1 — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T039 [P] Update `docs/architecture.md` Phase 2 item 20 — add reference to `migration.*` dot-separated metric convention defined in `WellKnownMetricNames` per `discrepancies.md` item 2 — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T040 [P] Update `docs/control-plane.md` — add note to `GET /jobs/{jobId}/telemetry` endpoint that `MetricSnapshot` is a versioned DTO whose fields correspond to registered OTel instruments per `discrepancies.md` item 3 — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T041 [P] Update `docs/validation.md` Tier 3 Post-Flight Validation section — add paragraph noting OTel metric emission (count parity histograms and error counters) alongside `validation-report.json`, respecting `sampleRate` per `discrepancies.md` item 4 — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T042 [P] Update `docs/development-setup.md` ConfigureOpenTelemetry sample — register `DevOpsMigrationPlatform.Migration` meter instead of the two separate meter names per `discrepancies.md` item 5 — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T043 [P] Update `docs/agent-hosting.md` Responsibilities table — add "Record metrics" row for `IMigrationMetrics` during job execution per `discrepancies.md` item 6 — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T044 [P] Update `docs/migration-process-guide.md` Job Engine Steps — amend step 6 or add step 6a for OTel metric recording alongside progress event emission per `discrepancies.md` item 7 — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [X] T045 Mark all items in `specs/018-workitem-otel-metrics/discrepancies.md` as `Resolved` or `N/A` — Status: complete
+- [X] T046 Review `analysis/pending-actions.md` and remove any items resolved by this spec — Status: complete
+- [ ] T047 Run `dotnet clean && dotnet build --no-incremental` — MUST pass — Status: incomplete
+- [ ] T048 Run `dotnet test` — ALL tests MUST pass — Status: incomplete
+- [ ] T049 Run at least one scenario config (e.g. `scenarios/queue-export-ado-workitems-single-project.json`) via a `.vscode/launch.json` debug profile and verify observable output — Status: incomplete
 
 ---
 
@@ -173,9 +173,9 @@
 
 **Purpose**: Clean up and verify end-to-end telemetry pipeline.
 
-- [X] T050 [P] Verify no references to removed legacy `MetricSnapshot` properties remain in TUI rendering or control plane code (grep for `WorkItemsExported`, `RevisionsExported`, `RevisionErrors`, `LinksExported`, `LinkErrors`, `AttachmentsAttempted`, `AttachmentsSucceeded`, `AttachmentsFailed`, `RevisionDurationMeanMs`, `TotalExportDurationMs`)
-- [X] T051 [P] Remove deprecated `WorkItemExport` and `AttachmentDownload` meter registrations if no OTLP/Azure Monitor collectors reference the old meter names
-- [X] T052 Verify all `IWorkItemExportMetrics` and `IAttachmentDownloadMetrics` usages have been migrated to `IMigrationMetrics` — remove old interfaces if fully replaced
+- [ ] T050 [P] Verify no references to removed legacy `MetricSnapshot` properties remain in TUI rendering or control plane code (grep for `WorkItemsExported`, `RevisionsExported`, `RevisionErrors`, `LinksExported`, `LinkErrors`, `AttachmentsAttempted`, `AttachmentsSucceeded`, `AttachmentsFailed`, `RevisionDurationMeanMs`, `TotalExportDurationMs`) — Status: incomplete
+- [X] T051 [P] Remove deprecated `WorkItemExport` and `AttachmentDownload` meter registrations if no OTLP/Azure Monitor collectors reference the old meter names — Status: complete/superseded; completed because superseded by specs/031-platform-metrics-unification/tasks.md (platform-metrics unification contract)
+- [ ] T052 Verify all `IWorkItemExportMetrics` and `IAttachmentDownloadMetrics` usages have been migrated to `IMigrationMetrics` — remove old interfaces if fully replaced — Status: incomplete
 
 ---
 
@@ -216,3 +216,51 @@ Phase 8: All doc tasks (T038–T044) parallel
 - **MVP scope**: Phase 1 + Phase 2 + Phase 3 (US1) delivers the minimum viable metric instrumentation — execution counters, duration histogram, and MetricSnapshot expansion.
 - **Incremental delivery**: Each subsequent user story adds an independent capability (payload → correctness → in-flight → idempotency).
 - **Parallel opportunities**: After Phase 2, all 5 user stories can proceed independently on different files with no inter-story dependencies.
+
+## Incomplete evidence notes
+
+- **T010**: src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Telemetry/WorkItemExportMetrics.cs still uses inline legacy names and does not delegate to IPlatformMetrics.
+- **T011**: src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Telemetry/AttachmentDownloadMetrics.cs still uses legacy counters and does not delegate to IPlatformMetrics.
+- **T012**: tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs does not exist.
+- **T022**: import path does not emit RecordFieldCount/RecordAttachmentCount/RecordLinkCount/RecordPayloadBytes (only RecordRevisionCount appears in WorkItemImportOrchestrator.cs).
+- **T023**: SnapshotMetricExporterTests file is absent; payload exporter behavior is not covered by the named test task.
+- **T026**: no RecordRevisionSourceCount/RecordRevisionTargetCount/RecordRevisionDelta calls are present in src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs ValidateAsync.
+- **T027**: no sampleRate-based correctness metric gating is implemented in WorkItemsModule ValidateAsync call paths.
+- **T028**: SnapshotMetricExporterTests file is absent; correctness metric projection tests are missing.
+- **T030**: no queue-depth ObservableGauge callback test exists in PlatformMetricsTests; only counter/histogram method tests are present.
+- **T032**: PlatformMetrics constructor has no ObservableGauge registration for WellKnownAgentMetricNames.QueueDepth.
+- **T033**: SnapshotMetricExporterTests file is absent; in-flight/queue depth exporter assertions are missing.
+- **T037**: SnapshotMetricExporterTests file is absent; deferred metric null-default mapping is not covered by the named task.
+- **T047**: no reproducible build evidence is recorded in this spec folder for the required command.
+- **T048**: no reproducible test-run evidence is recorded in this spec folder for the required command.
+- **T049**: no scenario-run evidence is recorded in this spec folder for the required launch-profile execution.
+- **T050**: legacy metric-name symbols still appear (e.g., WorkItemsExportedName/RevisionsExportedName in Infrastructure.TfsObjectModel telemetry classes).
+- **T052**: IWorkItemExportMetrics and IAttachmentDownloadMetrics remain in Abstractions.Agent and are still used by TFS telemetry classes.
+
+## Superseded evidence notes
+
+- **T001**: src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownAgentMetricNames.cs replaces WellKnownMetricNames.cs.
+- **T002**: src/DevOpsMigrationPlatform.Abstractions/WellKnownMeterNames.cs now defines Agent/ControlPlane/Cli (no Migration meter).
+- **T003**: src/DevOpsMigrationPlatform.Abstractions/Telemetry/MetricsTagList.cs is the active tag helper, not MigrationTagList.
+- **T004**: src/DevOpsMigrationPlatform.Abstractions.Agent/Telemetry/IPlatformMetrics.cs is the canonical interface.
+- **T005**: src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/PlatformMetrics.cs is the concrete implementation.
+- **T006**: telemetry DTO surface is JobMetrics/MigrationDiagnostics in src/DevOpsMigrationPlatform.Abstractions/ControlPlaneApi/.
+- **T007**: Snapshot exporter exists at src/DevOpsMigrationPlatform.Infrastructure.ControlPlane/Metrics/SnapshotMetricExporter.cs and maps WellKnownAgentMetricNames.
+- **T008**: src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/TelemetryServiceExtensions.cs registers IPlatformMetrics.
+- **T009**: src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentServiceExtensions.cs registers WellKnownMeterNames.Agent.
+- **T013**: tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/MetricSnapshotSerializationTests.cs validates current JobMetrics serialization.
+- **T014**: tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/WellKnownMetricNamesTests.cs now validates platform.* names on WellKnownAgentMetricNames.
+- **T016**: tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Telemetry/PlatformMetricsTests.cs covers execution metrics.
+- **T017**: src/DevOpsMigrationPlatform.Infrastructure.Agent/Export/WorkItemExportOrchestrator.cs records attempted/completed/duration through IPlatformMetrics.
+- **T018**: src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemImportOrchestrator.cs records attempted/completed/duration through IPlatformMetrics.
+- **T019**: MetricsTagList.Create(jobId, operation, module) is used at orchestrator call sites.
+- **T021**: tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Telemetry/PlatformMetricsTests.cs covers payload metric methods.
+- **T025**: PlatformMetricsTests contains correctness metric method tests (RecordRevisionSourceCount/TargetCount/Delta/etc.).
+- **T038**: telemetry section exists in docs/configuration-reference.md but still reflects the older migration.* contract.
+- **T039**: docs/architecture.md references migration.* and WellKnownMetricNames; newer spec/ADR mandate platform.* and WellKnownAgentMetricNames.
+- **T040**: docs/control-plane.md telemetry endpoint note still names MetricSnapshot/WellKnownMetricNames, while code/API use JobMetrics + WellKnownAgentMetricNames.
+- **T041**: docs/validation.md post-flight paragraph documents older migration.* correctness names.
+- **T042**: docs/development-setup.md sample still adds DevOpsMigrationPlatform.Migration while runtime uses WellKnownMeterNames.Agent.
+- **T043**: docs/agent-hosting.md added metrics row but references IMigrationMetrics; runtime uses IPlatformMetrics.
+- **T044**: docs/migration-process-guide.md step 7a references IMigrationMetrics; runtime seam is IPlatformMetrics.
+- **T051**: meter registrations use WellKnownMeterNames.Agent/ControlPlane/Cli; deprecated WorkItemExport/AttachmentDownload meter constants are absent.

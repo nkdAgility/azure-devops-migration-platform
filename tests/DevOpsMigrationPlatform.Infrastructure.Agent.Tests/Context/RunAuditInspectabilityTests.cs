@@ -14,7 +14,7 @@ public sealed class RunAuditInspectabilityTests
     [TestMethod]
     public void RunAuditPath_IsInspectable_ButNotAuthoritative()
     {
-        var runPlan = PackagePaths.RunPlanFile("20260507-120000");
+        var runPlan = PackagePathTestHelper.RunPlanFile("20260507-120000");
         StringAssert.Contains(runPlan, ".migration/runs/");
         Assert.IsTrue(RunScopeAuthorityGuard.IsRunScopedPath(runPlan));
         Assert.ThrowsExactly<InvalidOperationException>(() =>

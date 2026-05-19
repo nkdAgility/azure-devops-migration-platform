@@ -70,7 +70,8 @@ This is a breaking change to the public metric contract. The Abstractions assemb
 
 ## Related
 
-- [.agents/context/telemetry-model.md](../../.agents/context/telemetry-model.md) — telemetry model
-- [.agents/guardrails/observability-requirements.md](../../.agents/guardrails/observability-requirements.md) — O-1 metric requirements
+- [.agents/30-context/domains/telemetry-model.md](../../.agents/30-context/domains/telemetry-model.md) — telemetry model
+- [.agents/20-guardrails/domains/observability-requirements.md](../../.agents/20-guardrails/domains/observability-requirements.md) — O-1 metric requirements
 - [ADR-0006](0006-three-channel-observability.md) — three-channel model
 - Driving spec: `specs/031-platform-metrics-unification/spec.md`
+

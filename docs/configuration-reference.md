@@ -379,7 +379,7 @@ public interface ISourceEndpointInfo
     string ConnectorType { get; } // "AzureDevOpsServices" | "TeamFoundationServer" | "Simulated"
 }
 
-public interface ITargetEndpointInfo  // not registered for TFS (source-only)
+public interface ITargetEndpointInfo
 {
     string Url { get; }
     string Project { get; }
@@ -681,7 +681,7 @@ The pipeline layer references OTel SDK types (`BaseExporter<Metric>`, `PeriodicE
 5. If the metric should appear in `MetricSnapshot`, add a property and update `SnapshotMetricExporter`.
 6. Add a unit test to the corresponding `*MetricsTests` class.
 
-See `.agents/context/telemetry-model.md` for the full guide including code examples and placement rules.
+See `.agents/30-context/domains/telemetry-model.md` for the full guide including code examples and placement rules.
 
 ### Data Classification
 
@@ -866,3 +866,4 @@ The `IdentityLookup` tool (`Tools.IdentityLookup`) controls automatic identity r
 ```
 
 > **Relationship to `Modules.Identities.DefaultIdentity`**: The `IdentitiesModule` has its own `DefaultIdentity` field for identities that cannot be resolved via the identity lookup store. The `IdentityLookup.DefaultIdentity` is the fallback at the tool level for any module that calls the tool directly (e.g. `TeamsModule`). If both are set, module-level identity resolution consults the tool first.
+

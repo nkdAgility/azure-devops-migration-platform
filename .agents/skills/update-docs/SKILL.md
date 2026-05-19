@@ -1,17 +1,17 @@
 ---
 name: update-docs
-description: After implementation, scans what changed and updates every canonical doc in /docs and /.agents/context that describes the affected features, CLI commands, configuration, modules, or architecture. Fails if any doc named in a doc-task in tasks.md is not updated.
+description: After implementation, scans what changed and updates every canonical doc in /docs and /.agents/30-context that describes the affected features, CLI commands, configuration, modules, or architecture. Fails if any doc named in a doc-task in tasks.md is not updated.
 ---
 
 # Skill: Update Docs After Implementation
 
-Scan the completed implementation and propagate every observable behaviour change into the canonical documentation in `/docs` and `/.agents/context`. This skill is a mandatory post-implementation gate — it ensures that documentation remains a first-class engineering asset and never drifts from the code.
+Scan the completed implementation and propagate every observable behaviour change into the canonical documentation in `/docs` and `/.agents/30-context`. This skill is a mandatory post-implementation gate — it ensures that documentation remains a first-class engineering asset and never drifts from the code.
 
 **Invocation modes:**
 
 | Mode | How to invoke | Input | Output |
 |---|---|---|---|
-| **SpecKit hook** | Automatic via `after_implement` in `.specify/extensions.yml` | The feature directory being implemented | Updated `/docs` and `/.agents/context` files; updated tasks.md doc-tasks marked `[X]` |
+| **SpecKit hook** | Automatic via `after_implement` in `.specify/extensions.yml` | The feature directory being implemented | Updated `/docs` and `/.agents/30-context` files; updated tasks.md doc-tasks marked `[x]` |
 | **Manual (incremental)** | `/update-docs` or `/update-docs --feature <dir>` | Feature directory or current working spec | Same as hook mode — uses `git diff` to scope changes |
 | **Reconcile (full audit)** | `/update-docs --reconcile` | Entire solution root | Walks every canonical doc against the actual codebase; no git diff dependency. Use once to bring existing docs up to date. |
 
@@ -33,10 +33,12 @@ When this skill is active, you are a technical writer with full knowledge of the
 
 Before executing, read the following to understand what changed:
 
-1. `specs/<feature>/tasks.md` — identify all completed `[X]` tasks and any doc-tasks (tasks whose description references a `/docs` or `/.agents` file)
-2. `specs/<feature>/spec.md` — the user-visible feature description and acceptance criteria
-3. `specs/<feature>/plan.md` — the technical design, including new types, interfaces, CLI changes, config keys
-4. Any `specs/<feature>/contracts/*.md` — interface contracts and schema definitions
+1. `.agents/00-entry/manifest.yaml`, `.agents/00-entry/task-profiles.yaml`, and `.agents/00-entry/reading-order.md` — decision-system loading contract.
+2. `.agents/10-contracts/change-classes.yaml` and `.agents/10-contracts/consent-policy.yaml` — governance for contract/surface-impacting documentation changes.
+3. `specs/<feature>/tasks.md` — identify all completed `[x]` tasks and any doc-tasks (tasks whose description references a `/docs` or `/.agents` file)
+4. `specs/<feature>/spec.md` — the user-visible feature description and acceptance criteria
+5. `specs/<feature>/plan.md` — the technical design, including new types, interfaces, CLI changes, config keys
+6. Any `specs/<feature>/contracts/*.md` — interface contracts and schema definitions
 
 Then read the canonical docs that cover the same topic area. Use the mapping table below to identify which docs to read.
 
@@ -48,18 +50,18 @@ Use this table to decide which docs to open and potentially update based on what
 
 | If the implementation added or changed… | Read and potentially update… |
 |----------------------------------------|------------------------------|
-| A CLI command or flag | `docs/cli-guide.md`, `.agents/context/cli-commands.md` |
+| A CLI command or flag | `docs/cli-guide.md`, `.agents/30-context/domains/cli-commands.md` |
 | A configuration key or options class | `docs/configuration-reference.md` |
 | A module (`IModule`) | `docs/module-development-guide.md` |
-| A job or worker | `docs/agent-hosting.md`, `.agents/context/job-lifecycle.md` |
+| A job or worker | `docs/agent-hosting.md`, `.agents/30-context/domains/job-lifecycle.md` |
 | A connector (Simulated/ADO/TFS) | `docs/capabilities-guide.md` |
-| Package layout or artefact paths | `.agents/context/migration-package-concept.md` |
-| WorkItems folder structure | `.agents/context/workitems-format-summary.md` |
-| Streaming import behaviour | `.agents/context/import-streaming.md` |
-| Checkpointing or cursor state | `.agents/context/checkpointing-summary.md` |
-| `IArtefactStore` or `IStateStore` | `.agents/context/package-manager.md` |
-| Telemetry, metrics, or OTel spans | `.agents/context/telemetry-model.md` |
-| Identity mapping service | `.agents/context/identity-and-mapping.md` |
+| Package layout or artefact paths | `.agents/30-context/domains/migration-package-concept.md` |
+| WorkItems folder structure | `.agents/30-context/domains/workitems-format-summary.md` |
+| Streaming import behaviour | `.agents/30-context/domains/import-streaming.md` |
+| Checkpointing or cursor state | `.agents/30-context/domains/checkpointing-summary.md` |
+| `IArtefactStore` or `IStateStore` | `.agents/30-context/domains/package-manager.md` |
+| Telemetry, metrics, or OTel spans | `.agents/30-context/domains/telemetry-model.md` |
+| Identity mapping service | `.agents/30-context/domains/identity-and-mapping.md` |
 | Aspire integration | `docs/development-setup.md` |
 | Control plane API | `docs/control-plane.md` |
 | Orchestration logic | `docs/migration-process-guide.md` |
@@ -86,7 +88,7 @@ git diff --name-only HEAD
 Categorise each changed file:
 - **Production code** (`.cs` in `src/`) → triggers doc updates based on the mapping table above
 - **Test code** (`.cs` in `tests/`) → no doc update required unless a new test fixture or scenario config was added
-- **Config/schema** (`.json`, `.yml`, `.props`) → may require `docs/configuration-reference.md` or `.agents/context/` update
+- **Config/schema** (`.json`, `.yml`, `.props`) → may require `docs/configuration-reference.md` or `.agents/30-context/` update
 - **Feature files** (`.feature`) → no doc update required (features are self-documenting)
 - **Existing doc files** (`.md` in `docs/`, `.agents/`) → already updated; verify they are accurate
 
@@ -99,7 +101,7 @@ Do not use `git diff`. Instead, build the inventory by reading the codebase dire
 3. **Enumerate all options classes** — find every class implementing `IConfigSection` (grep for `: IConfigSection`). For each, note its `SectionName` and all `init`-only properties.
 4. **Enumerate all connectors** — find every class in `src/` matching `*Source`, `*Target`, `*Connector` or implementing `ISourceEndpointInfo`/`ITargetEndpointInfo`. Note the `ConnectorType` string.
 5. **Enumerate all interfaces in Abstractions** — find every `public interface` in `src/DevOpsMigrationPlatform.Abstractions*/`. Note new ones that may need docs.
-6. **Enumerate all telemetry metrics** — find every `IMigrationMetrics` method call site and every `ActivitySource.StartActivity` span name. Note any span names or metric names not present in `.agents/context/telemetry-model.md`.
+6. **Enumerate all telemetry metrics** — find every `IMigrationMetrics` method call site and every `ActivitySource.StartActivity` span name. Note any span names or metric names not present in `.agents/30-context/domains/telemetry-model.md`.
 
 Then use this enumerated inventory as the change set for Steps 2–7, treating every item as "potentially underdocumented" and checking each against the canonical docs.
 
@@ -116,8 +118,8 @@ Scan `tasks.md` for any task whose description contains:
 - The words "Update", "Document", "Add section", "Add docs", "Write docs"
 
 For each doc-task:
-- If marked `[X]` → verify the referenced file was actually modified (check `git diff`). If not modified, open the file and verify the content matches the implementation. If it does, the `[X]` is correct. If not, update the doc and leave `[X]`.
-- If marked `[ ]` → the doc update is pending. Execute it now and mark `[X]`.
+- If marked `[x]` → verify the referenced file was actually modified (check `git diff`). If not modified, open the file and verify the content matches the implementation. If it does, the `[x]` is correct. If not, update the doc and leave `[x]`.
+- If marked `[ ]` → the doc update is pending. Execute it now and mark `[x]`.
 
 ### Step 3 — Apply doc updates
 
@@ -139,12 +141,12 @@ For each doc identified in Step 1 and Step 2:
 5. **Do not rewrite prose** that is still accurate — only change what is wrong or missing.
 6. **Cross-link** rather than duplicate: if `docs/cli-guide.md` already documents a flag, do not re-document it in `docs/configuration-reference.md` — add a cross-reference.
 
-### Step 4 — Verify `.agents/context/cli-commands.md`
+### Step 4 — Verify `.agents/30-context/domains/cli-commands.md`
 
 This file is the canonical machine-readable command reference. It is more frequently read by agents than `docs/cli-guide.md`.
 
 For every CLI command added or changed in the implementation:
-1. Open `.agents/context/cli-commands.md`.
+1. Open `.agents/30-context/domains/cli-commands.md`.
 2. Check whether an entry for the command exists:
    - **Entry exists** → verify all flags, types, defaults, and description match the implementation. Update stale fields.
    - **Entry missing** → add a full new entry: command name, all flags with types and defaults, description of behaviour, exit codes if non-zero behaviour is defined.
@@ -170,7 +172,7 @@ Output a summary table of every doc that was checked:
 |----------|--------|----------------|
 | docs/cli-guide.md | ✅ Updated | Added --schema-path flag to queue command |
 | docs/configuration-reference.md | ✅ Updated | Added SchemaOptionsEntry pattern section |
-| .agents/context/cli-commands.md | ✅ Updated | Added queue --schema-path entry |
+| .agents/30-context/domains/cli-commands.md | ✅ Updated | Added queue --schema-path entry |
 | docs/module-development-guide.md | ✅ No change needed | Module list already accurate |
 | docs/architecture.md | ⏭ Skipped | No architectural change detected |
 ```
@@ -184,7 +186,7 @@ Status values:
 ### Step 7 — Mark doc-tasks complete
 
 For every doc-task in `tasks.md` that was addressed in Step 2:
-- Mark it `[X]` if not already done.
+- Mark it `[x]` if not already done.
 
 ### Step 8 — Final check
 
@@ -203,3 +205,5 @@ Run this loop for every doc updated in this skill execution. A doc update that i
 - **Never update `docs/architecture.md` with implementation details** — architecture docs describe intent and constraints, not code-level specifics.
 - **Always use the same terminology** as the existing doc. If the doc says "connector", do not introduce "adapter" or "provider" for the same concept.
 - **Data Classification**: Never add example values, project names, org URLs, or attachment paths to docs. Use placeholders like `<project-name>`, `<org-url>`.
+
+

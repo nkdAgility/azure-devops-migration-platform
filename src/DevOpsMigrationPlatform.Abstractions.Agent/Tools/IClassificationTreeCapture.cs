@@ -3,7 +3,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 
@@ -19,7 +19,9 @@ public interface IClassificationTreeCapture
     /// </summary>
     /// <returns>Total number of nodes captured (area + iteration).</returns>
     Task<int> CaptureAsync(
-        IArtefactStore artefactStore,
+        IPackageAccess package,
+        string organisation,
+        string project,
         CancellationToken ct,
         IPlatformMetrics? metrics = null,
         string? jobId = null,

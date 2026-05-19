@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Import Checkpoint",
+  "description": "Schema for ImportCheckpoint written to .migration/Checkpoints/workitems-import.cursor.json",
+  "type": "object",
+  "required": [
+    "version",
+    "lastProcessedRevisionFolder",
+    "lastCompletedStage",
+    "lastUpdated",
+    "totalWorkItemsProcessed",
+    "totalRevisionsApplied",
+    "totalLinksApplied",
+    "totalAttachmentsUploaded",
+    "totalEmbeddedImagesReplayed",
+    "totalRevisionsSkipped",
+    "jobConfigurationHash",
+    "reason"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Checkpoint format version for forward compatibility"
+    },
+    "lastProcessedRevisionFolder": {
+      "type": "string",
+      "pattern": "^WorkItems/\\d{4}-\\d{2}-\\d{2}/[0-9]+-[0-9]+-[0-9]+/?$",
+      "description": "Relative path of last successfully processed revision folder (canonical format)"
+    },
+    "lastCompletedStage": {
+      "type": "string",
+      "enum": [
+        "CreatedOrUpdated",
+        "AppliedFields",
+        "AppliedLinks",
+        "UploadedAttachments",
+        "Completed"
+      ],
+      "description": "Stage that completed for lastProcessedRevisionFolder; resume begins from next stage"
+    },
+    "lastUpdated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when checkpoint was last updated"
+    },
+    "totalWorkItemsProcessed": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Cumulative count of unique work items processed (reset on restart)"
+    },
+    "totalRevisionsApplied": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Cumulative count of revisions applied (CreatedOrUpdated + AppliedFields stages completed)"
+    },
+    "totalLinksApplied": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Cumulative count of links applied (AppliedLinks stage completed)"
+    },
+    "totalAttachmentsUploaded": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Cumulative count of attachments uploaded (UploadedAttachments stage completed)"
+    },
+    "totalEmbeddedImagesReplayed": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Cumulative count of embedded images replayed (UploadedAttachments stage completed)"
+    },
+    "totalRevisionsSkipped": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Cumulative count of revisions skipped (e.g., RevisionReplay=false)"
+    },
+    "jobConfigurationHash": {
+      "type": "string",
+      "description": "Hash of job configuration at checkpoint creation; mismatch indicates config change since checkpoint"
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "StageComplete",
+        "Error",
+        "Interrupted",
+        "UserRequest"
+      ],
+      "description": "Reason checkpoint was created"
+    },
+    "errorMessage": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Optional error message if reason is Error or Interrupted"
+    }
+  }
+}

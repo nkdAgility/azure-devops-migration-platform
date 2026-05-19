@@ -34,4 +34,4 @@ Migration execution is performed exclusively by the Migration Agent and TFS Migr
 ## Related
 
 - [docs/control-plane.md](../control-plane.md) — Control Plane responsibilities
-- [.agents/guardrails/control-plane-rules.md](../../.agents/guardrails/control-plane-rules.md) — enforced constraints
+- [.agents/20-guardrails/domains/control-plane-rules.md](../../.agents/20-guardrails/domains/control-plane-rules.md) — enforced constraints

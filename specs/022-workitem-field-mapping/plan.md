@@ -13,6 +13,32 @@ Key technical decisions:
 - **Prepare-time validation**: `validate` method checks field names/types against source+target definitions, executes sample dry-run.
 - **Fail-fast v1**: first transform error halts the revision (future: P4 Operator Interaction).
 
+## Current status
+
+- Implementation artifacts described by this plan are present in `Abstractions.Agent`, `Abstractions`, `Infrastructure.Agent`, and test/doc folders.
+- Reconciliation shows the plan is only partially complete due unresolved verification and polish tasks.
+
+## Remaining incomplete work (IDs)
+
+T016, T024, T030, T038, T046, T054, T065, T071, T079, T085, T092, T093, T094, T095, T096, T097, T098.
+
+## Completed because superseded (IDs + source)
+
+- T056 superseded by `WorkItemTagParser` implementation (`src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/WorkItemTagParser.cs`)
+- T062 superseded by `WorkItemTagParserTests` (`tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Transforms/WorkItemTagParserTests.cs`)
+
+## Contradictions and reconciliation
+
+- Historical task checkmarks asserted full completion, but current repository state fails baseline build/test.
+- Planned tag utility naming diverged to `WorkItemTagParser`; this is reconciled as superseded completion rather than missing work.
+- Verification commands in multiple phases require green build/test evidence that is currently unavailable.
+
+## Verification evidence
+
+- 2026-05-17 command evidence: `dotnet build --no-incremental` fails with 4 compile errors in `ImportCheckpointServiceTests` (missing `ClassificationNodeType` and `SetCreatedNodePathAsync` symbols).
+- Field transform runtime wiring verified in `MigrationAgentServiceExtensions` (`AddFieldTransformToolServices`) and `RevisionFolderProcessor` (Stage B `ApplyTransforms` call).
+- Field transform docs verified in `docs/configuration-reference.md`, `docs/module-development-guide.md`, and `docs/architecture.md`.
+
 ## Technical Context
 
 **Language/Version**: C# 10+, targeting .NET 10  
@@ -29,7 +55,7 @@ Key technical decisions:
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **Mandatory context loading:** All files in `/.agents/guardrails/`, `/.agents/context/`, and relevant `/docs/` have been read during this planning session. Constitution v1.3.4 reviewed.
+> **Mandatory context loading:** All files in `/.agents/20-guardrails/`, `/.agents/30-context/`, and relevant `/docs/` have been read during this planning session. Constitution v1.3.4 reviewed.
 
 - [x] **Package-First (I):** FieldTransformTool is a pure transformation — it reads field values from the in-memory field collection (loaded from `revision.json` via `IArtefactStore`) and returns a modified copy. No direct source-to-target API calls. Export-phase transforms modify fields before `revision.json` is written to the package; import-phase transforms modify fields after reading from the package before sending to target.
 - [x] **Streaming (II):** Transforms operate on a single revision's field collection at a time. FR-016 mandates statelessness across revisions — no accumulation. No in-memory buffering of multiple revisions.
@@ -175,3 +201,4 @@ features/
 ## Complexity Tracking
 
 No constitution violations. All requirements fit within existing architectural patterns.
+

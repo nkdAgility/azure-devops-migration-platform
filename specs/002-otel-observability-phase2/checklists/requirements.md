@@ -42,3 +42,12 @@
 - Auth on SSE endpoints matched to existing `GET /jobs/{jobId}` visibility rules (clarified 2026-04-03)
 - No SSE subscriber limit in v1 — documented as operational constraint (clarified 2026-04-03)
 - No POST batching in ControlPlaneProgressSink — individual events, bounded background Channel (clarified 2026-04-03)
+
+## Reconciliation status (2026-05-16)
+
+- [x] Tasks status markers updated for T001–T029.
+- [x] Complete tasks confirmed with code/test artifacts.
+- [x] Superseded tasks documented with source and evidence: T005, T006, T010, T014, T020, T023, T025.
+- [x] No remaining `Status: incomplete` tasks in `tasks.md`.
+- [ ] Endpoint naming in this spec bundle is fully aligned with runtime (`/progress` vs `/logs`).
+- [ ] Command-surface wording is fully aligned with runtime (`migrate logs` vs `manage progress`/`manage diagnostics`).

@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityLookup;
@@ -35,12 +37,14 @@ public static class ImportServiceCollectionExtensions
     {
         // Register ADO import target factory as a keyed entry in the composite dispatcher
         services.AddImportTargetFactory<AzureDevOpsWorkItemImportTargetFactory>("AzureDevOpsServices");
+        services.AddWorkItemTypeReadinessTargetFactory<AzureDevOpsWorkItemTypeReadinessTargetFactory>("AzureDevOpsServices");
         // Register ADO resolution strategy factory as a keyed entry in the composite dispatcher
         services.AddResolutionStrategyFactory<AzureDevOpsResolutionStrategyFactory, AzureDevOpsWorkItemImportTarget>();
+        services.TryAddSingleton<IIdentityMappingService, PassThroughIdentityMappingService>();
         services.AddIdentityLookupToolServices();
         services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();
         services.AddSingleton<IIdMapStoreFactory, IdMapStoreFactory>();
-        services.AddSingleton<IRevisionFolderProcessorFactory, RevisionFolderProcessorFactory>();
+        services.AddScoped<IRevisionFolderProcessorFactory, RevisionFolderProcessorFactory>();
         // Classification node creator — creates area/iteration nodes in the target ADO project.
         services.AddNodeCreator<AzureDevOpsNodeCreator>("AzureDevOpsServices");
         return services;

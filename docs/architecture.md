@@ -1,9 +1,9 @@
 # Architecture Overview
 
 > This document defines architectural intent and is the primary human reference.
-> In any conflict between this document and `/.agents/guardrails/*.md` guardrails, **the guardrails win**.
-> See [.agents/guardrails/architecture-boundaries.md](../.agents/guardrails/architecture-boundaries.md) for the enforced rules.
-> See [agents.md](../agents.md) for the agent entry point that binds docs to guardrails.
+> In any conflict between this document and `/.agents/20-guardrails/*.md` guardrails, **the guardrails win**.
+> See [.agents/20-guardrails/core/architecture-boundaries.md](../.agents/20-guardrails/core/architecture-boundaries.md) for the enforced rules.
+> See [agents.md](../.agents/agents.md) for the agent entry point that binds docs to guardrails.
 
 ## 1. System Purpose
 
@@ -16,7 +16,7 @@ The system supports five pipeline phases, each of which can be run independently
 1. **Inventory** — Count and catalogue everything in scope before export/import begins. Connects to the source system and enumerates work items, revisions, and related artefacts per project. Results are written to the package (inventory artefacts). Inventory may have been performed previously via `devopsmigration queue` with `Mode: Inventory`, but running it as a pipeline phase ensures results are recorded in the package and visible to downstream phases. Only the `source` connection is required.
 2. **Export** — Azure DevOps Services → Files, or TeamFoundationServer (via .NET 4 OM exporter) → Files, or Simulated → Files (for testing and development). Reads the source system and writes all in-scope data to the package via `IPackageAccess`. **Inventory gate**: if root `.migration/inventory.complete.json` is absent, Export auto-runs Inventory first.
 3. **Prepare** — Files + Target → Validation artefacts. Reads the exported package and connects to the target to cross-validate before import. Each module's `PrepareAsync` analyses the exported data against the target (e.g. identity mapping, node existence, field compatibility) and writes validation artefacts into the package for operator review. Any unresolved issue is blocking unless the operator adds an explicit skip. Prepare is idempotent and re-runnable; it overwrites its own output but never touches operator-edited mapping files.
-4. **Import** — Files → Azure DevOps Services, or Files → TeamFoundationServer (via .NET 4.8 TFS Migration Agent — not yet implemented; the TFS agent currently handles Export only), or Files → Simulated (for testing and development). If Prepare has not been run (no root `.migration/prepare.complete.json` marker), Import auto-runs Prepare first and aborts with a report if any blocking issues are found.
+4. **Import** — Files → Azure DevOps Services, or Files → TeamFoundationServer (via the .NET 4.8.1 TFS Migration Agent, based on current connector/runtime capability), or Files → Simulated (for testing and development). If Prepare has not been run (no root `.migration/prepare.complete.json` marker), Import auto-runs Prepare first and aborts with a report if any blocking issues are found.
 5. **Validate** — Post-import verification. Compares the import results against the exported package to identify missing or mismatched items. Runs Tier 3 post-flight checks (work item count parity, link integrity, attachment integrity, identity resolution completeness) and writes a comprehensive `validation-report.json`. Can be run independently after import to re-check at any time. Only the `target` connection and the package are required.
 
 Additionally, a convenience mode chains all five phases:
@@ -66,7 +66,7 @@ The platform separates **job coordination** (control plane) from **job execution
 | **ControlPlane** | Service library (`DevOpsMigrationPlatform.ControlPlane`). Contains the HTTP API controllers, job state machine, lease protocol, and progress tracking. Currently all stores are in-memory; durable EF Core / PostgreSQL persistence is planned for a later phase. Has no entry point — it is referenced and hosted by `ControlPlaneHost`. |
 | **ControlPlaneHost** | Deployable ASP.NET Core host (`DevOpsMigrationPlatform.ControlPlaneHost`). References the `ControlPlane` service library and adds: process entry point and `AgentLifecycleService` (currently monitors TFS agent on Windows). In Standalone mode the CLI (`LocalStackHost`) manages agent process lifecycle directly; in Cloud mode `ContainerAgentLauncher` deploys and scales agent containers to a configurable ACA environment. Always reachable over HTTP. |
 | **Migration Agent** | (`DevOpsMigrationPlatform.MigrationAgent`) Stateless worker that executes migration jobs. Polls `ControlPlaneHost` for assigned jobs under a time-bounded lease, runs modules via the Job Engine, writes to the package, reports progress back. In Standalone mode its lifecycle is managed by `LocalStackHost` in the CLI; in Cloud mode by `ContainerAgentLauncher` in `ControlPlaneHost`. A single binary and container image supports all modes (`Inventory`, `Export`, `Prepare`, `Import`, `Validate`, `Migrate`). |
-| **TFS Migration Agent** | (`DevOpsMigrationPlatform.TfsMigrationAgent`) A .NET 4.8 polling agent — structural peer of the `MigrationAgent` — that handles jobs with `source.type: TeamFoundationServer`. Polls `GET /agents/lease?capabilities=tfs`, acquires TFS jobs, runs `IModule` dispatch (`TfsJobAgentWorker` accepts `IEnumerable<IModule>`), connects to TFS via the TFS Object Model, accesses the package through `IPackageAccess` (backed by `FileSystemArtefactStore` on net481), maintains checkpoints and phase metadata through that same boundary, and reports progress via `ControlPlaneProgressSink`. Currently supports Export mode only; Import support will be added to the same binary. Windows-only — TFS OM cannot run in containers. `AgentLifecycleService` spawns it on Windows and skips it elsewhere. See [docs/agent-hosting.md — TFS Migration Agent](migration-agent.md#tfs-migration-agent). |
+| **TFS Migration Agent** | (`DevOpsMigrationPlatform.TfsMigrationAgent`) A .NET 4.8.1 polling agent — structural peer of the `MigrationAgent` — that handles jobs with `source.type: TeamFoundationServer`. Polls `GET /agents/lease?capabilities=tfs`, acquires TFS jobs, runs `IModule` dispatch (`TfsJobAgentWorker` accepts `IEnumerable<IModule>`), connects to TFS via the TFS Object Model, accesses the package through `IPackageAccess` (backed by `FileSystemArtefactStore` on net481), maintains checkpoints and phase metadata through that same boundary, and reports progress via `ControlPlaneProgressSink`. Supported mode coverage follows implemented connector/runtime capability in each release. Windows-only — TFS OM cannot run in containers. `AgentLifecycleService` spawns it on Windows and skips it elsewhere. See [docs/agent-hosting.md — TFS Migration Agent](agent-hosting.md#tfs-migration-agent). |
 
 ### Tools
 
@@ -75,6 +75,19 @@ A **Tool** is a shared, cross-cutting service declared once at the `MigrationPla
 Available tools: `FieldTransform`, `NodeTranslation`, `IdentityLookup`.
 
 Extension points in the execution engine are `IModule` (phase methods) and `IAnalyser` (`AnalyseAsync` for cross-cutting analysis artefacts).
+
+### Capability Seam Ethos
+
+The platform uses a seam-first ethos for every concern (not only tools):
+
+1. one canonical business seam per concern
+2. one public reusable contract surface for runtime consumers
+3. thin module/extension adapters for phase and policy behavior
+4. centralized concern logic behind the seam
+
+This prevents concern logic from being duplicated across modules, orchestrators, extensions, and analysers while still allowing slice-specific policy decisions. If internals need to evolve, they evolve behind the seam rather than adding parallel runtime entry points.
+
+This ethos is codified as [ADR-0017](adr/0017-capability-seam-ethos-and-tdd-architecture-governance.md).
 
 ### Project Boundary Rules
 
@@ -171,7 +184,7 @@ flowchart TD
 
 The `ControlPlaneHost` receives a `Job` from the CLI. It is the fully serialisable dispatch token that `ControlPlaneHost` passes to an Agent under a lease. The class was named `MigrationJob` until feature 025.1-fold-to-job unified the class hierarchy (replacing both `MigrationJob` and `DiscoveryJob`). All job kinds now use the same `Job` wire format with a `Kind` discriminator (`JobKind` enum). The config file is never sent to the Agent directly — it travels as `Job.ConfigPayload` (raw JSON) and the Agent writes it to `migration-config.json` at the package root before any module executes.
 
-See [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md).
+See [.agents/30-context/domains/job-lifecycle.md](../.agents/30-context/domains/job-lifecycle.md).
 
 ### ControlPlaneHost is Always an HTTP Service
 
@@ -253,7 +266,7 @@ The filter applies **only** to the OTel log export pipeline. `PackageLoggerProvi
 
 Unclassified logs default to `System` — they are safe for Azure Monitor. This safe-by-default design allows gradual rollout: existing log statements work without change, and new customer-data log statements are wrapped in classification scopes as they are identified.
 
-See [docs/configuration-reference.md — Data Classification](configuration.md#data-classification) for the usage pattern and classification table.
+See [docs/configuration-reference.md — Data Classification](configuration-reference.md#data-classification) for the usage pattern and classification table.
 
 ### Data Residency — Agent-Only Write Access
 
@@ -382,19 +395,19 @@ Key properties:
 
 | Section | Document |
 |---|---|
-| 2. Package structure & manifest | [.agents/context/migration-package-concept.md](../.agents/context/migration-package-concept.md) |
-| 3. WorkItems on-disk layout | [.agents/context/workitems-format-summary.md](../.agents/context/workitems-format-summary.md) |
-| 4. Streaming import model | [.agents/context/import-streaming.md](../.agents/context/import-streaming.md) |
-| 5. Cursor-based checkpointing | [.agents/context/checkpointing-summary.md](../.agents/context/checkpointing-summary.md) |
+| 2. Package structure & manifest | [.agents/30-context/domains/migration-package-concept.md](../.agents/30-context/domains/migration-package-concept.md) |
+| 3. WorkItems on-disk layout | [.agents/30-context/domains/workitems-format-summary.md](../.agents/30-context/domains/workitems-format-summary.md) |
+| 4. Streaming import model | [.agents/30-context/domains/import-streaming.md](../.agents/30-context/domains/import-streaming.md) |
+| 5. Cursor-based checkpointing | [.agents/30-context/domains/checkpointing-summary.md](../.agents/30-context/domains/checkpointing-summary.md) |
 | 6. Module architecture | [docs/module-development-guide.md](module-development-guide.md) |
-| 7. Identity & mapping | [.agents/context/identity-and-mapping.md](../.agents/context/identity-and-mapping.md) |
+| 7. Identity & mapping | [.agents/30-context/domains/identity-and-mapping.md](../.agents/30-context/domains/identity-and-mapping.md) |
 | 8. Source types | [docs/capabilities-guide.md](capabilities-guide.md) |
 | 9. Configuration model | [docs/configuration-reference.md](configuration-reference.md) |
 | 10. Orchestration | [docs/migration-process-guide.md](migration-process-guide.md) |
 | 11. Zip packaging | [docs/package-format-reference.md](package-format-reference.md) |
 | 12. Validation (pre-flight & post-flight) | [docs/validation.md](validation.md) |
 | 13. Package manager and persistence | [docs/package-boundary-reference.md](package-boundary-reference.md) |
-| 14. Job contract | [.agents/context/job-lifecycle.md](../.agents/context/job-lifecycle.md) |
+| 14. Job contract | [.agents/30-context/domains/job-lifecycle.md](../.agents/30-context/domains/job-lifecycle.md) |
 | 15. Control plane | [docs/control-plane.md](control-plane.md) |
 | 16. Migration Agent (worker) | [docs/agent-hosting.md](agent-hosting.md) |
 | 17. CLI | [docs/cli-guide.md](cli-guide.md) |
@@ -404,8 +417,9 @@ Key properties:
 
 | Topic | Document |
 |---|---|
-| Hard architectural constraints (authoritative) | [.agents/guardrails/architecture-boundaries.md](../.agents/guardrails/architecture-boundaries.md) |
-| WorkItems-specific rules | [.agents/guardrails/workitems-rules.md](../.agents/guardrails/workitems-rules.md) |
-| Migration behaviour invariants | [.agents/guardrails/migration-rules.md](../.agents/guardrails/migration-rules.md) |
-| Coding standards | [.agents/guardrails/coding-standards.md](../.agents/guardrails/coding-standards.md) |
-| New module checklist | [.agents/guardrails/module-rules.md](../.agents/guardrails/module-rules.md) |
+| Hard architectural constraints (authoritative) | [.agents/20-guardrails/core/architecture-boundaries.md](../.agents/20-guardrails/core/architecture-boundaries.md) |
+| WorkItems-specific rules | [.agents/20-guardrails/domains/workitems-rules.md](../.agents/20-guardrails/domains/workitems-rules.md) |
+| Migration behaviour invariants | [.agents/20-guardrails/domains/migration-rules.md](../.agents/20-guardrails/domains/migration-rules.md) |
+| Coding standards | [.agents/20-guardrails/core/coding-standards.md](../.agents/20-guardrails/core/coding-standards.md) |
+| New module checklist | [.agents/20-guardrails/domains/module-rules.md](../.agents/20-guardrails/domains/module-rules.md) |
+

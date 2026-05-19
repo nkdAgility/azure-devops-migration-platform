@@ -2,7 +2,7 @@
 
 **Feature Branch**: `007-observability-logging`  
 **Created**: 2026-04-09  
-**Status**: Draft  
+**Status**: Reconciled (Partially Implemented)  
 **Input**: User description: "Three-channel observability: OTel signals (traces, metrics, logs), Event Progress (IProgressSink), and ILogger diagnostics persisted to package and streamed to Control Plane/TUI"
 
 ## Architecture References
@@ -14,9 +14,45 @@
 | `docs/control-plane.md` | Discrepancy — progress endpoint named `/logs`; no diagnostics endpoint; no download endpoint |
 | `docs/agent-hosting.md` | Confirmed accurate — already documents three sinks and `Logs/` package writing |
 | `docs/cli-guide.md` | Discrepancy — `manage logs` command conflates progress events with diagnostic logs |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — guardrail #12 (agents stateless, durable state in package), #13 (IArtefactStore only), #18 (no UI coupling) all apply |
-| `.agents/context/package-manager.md` | Confirmed accurate — package persistence still routes through `IArtefactStore` |
-| `.agents/context/migration-package-concept.md` | Discrepancy — `Logs/` folder listed but contents not specified |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — guardrail #12 (agents stateless, durable state in package), #13 (IArtefactStore only), #18 (no UI coupling) all apply |
+| `.agents/30-context/domains/package-manager.md` | Confirmed accurate — package persistence still routes through `IArtefactStore` |
+| `.agents/30-context/domains/migration-package-concept.md` | Discrepancy — `Logs/` folder listed but contents not specified |
+
+---
+
+## Reconciliation Status (2026-05-17)
+
+### Current status
+
+This specification remains partially implemented. Core diagnostics/progress streaming is present, but package-download diagnostics workflows and command cleanup expectations remain open.
+Authority order used for reconciliation: `.agents` guidance → newer specs `018`, `031`, `033`, `034`, `035` → this spec folder → current code/test evidence.
+
+### Remaining incomplete work (tasks.md IDs)
+
+- T010, T015, T030 (fresh end-to-end verification evidence not captured in this reconciliation session)
+- T033, T037 (CLI rename/behavior incomplete: `manage diagnostics` is placeholder; deprecated `manage logs` still registered)
+- T041, T042, T043 (package log download API/client/command path not implemented)
+- T051, T054, T055 (test/evidence gaps)
+
+### Completed because superseded (tasks.md IDs)
+
+- T004, T008, T009, T012, T014, T020 superseded by package-boundary and core-wiring migration (`specs/034-package-manager-adoption/tasks.md`)
+- T006, T021, T025, T026, T028, T029, T034, T036, T039, T045, T046, T050 superseded by queue/task-bootstrap contract evolution (`specs/028.2-job-execution-by-task/tasks.md`)
+
+### Contradictions and reconciliation
+
+- Legacy spec references `Logs/progress.jsonl` / `Logs/agent.jsonl` and direct `IArtefactStore.AppendAsync`; implementation now writes run-scoped `.migration/runs/<runId>/logs/{progress,diagnostics}.ndjson` via `IPackageAccess.AppendLogAsync`.
+- Legacy `export` command assumptions are superseded by queue-based execution (`queue --follow --level`).
+- `manage diagnostics` acceptance intent requires package download, but current command is guidance-only and does not download/parse NDJSON.
+- FR-016 (`/jobs/{jobId}/logs/download`) remains in tension with current control-plane/data-sovereignty guardrails that prohibit control-plane package read/write behavior.
+
+### Verification evidence
+
+- `PackageProgressSink` and `PackageLoggerProvider` write via package boundary append APIs.
+- `DiagnosticsController` and `ProgressController` endpoints exist and are wired.
+- `/speckit.analyze` and `/speckit.checklist` executed for this spec folder.
+- Baseline validation: `dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo` passed.
+- Baseline tests: `dotnet test DevOpsMigrationPlatform.slnx --no-build --nologo` stalled; run was stopped after extended no-progress output.
 
 ---
 
@@ -233,4 +269,5 @@ An operator running `devopsmigration export` needs to control diagnostic verbosi
 - The rename from `/logs` to `/progress` is a breaking API change to the control plane. Since the platform is pre-release, this is acceptable without a versioned upgrader.
 - The control plane diagnostics ring buffer uses the same bounded capacity as the progress ring buffer (default: 1000 records), configurable independently.
 - All live observation of running jobs (job list, events, metrics, diagnostic log stream) is primarily through the TUI. The CLI also provides live diagnostic streaming via `export --follow` (implicit in standalone mode). CLI `manage` commands provide snapshot/download access only — no `--follow` on any `manage` subcommand.
-- Architecture docs read: `docs/architecture.md`, `docs/tui-guide.md`, `docs/control-plane.md`, `docs/agent-hosting.md`, `docs/cli-guide.md`, `docs/development-setup.md`, `.agents/guardrails/architecture-boundaries.md`, `.agents/context/package-manager.md`, `.agents/context/migration-package-concept.md`.
+- Architecture docs read: `docs/architecture.md`, `docs/tui-guide.md`, `docs/control-plane.md`, `docs/agent-hosting.md`, `docs/cli-guide.md`, `docs/development-setup.md`, `.agents/20-guardrails/core/architecture-boundaries.md`, `.agents/30-context/domains/package-manager.md`, `.agents/30-context/domains/migration-package-concept.md`.
+

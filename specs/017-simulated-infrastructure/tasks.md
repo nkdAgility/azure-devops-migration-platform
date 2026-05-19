@@ -17,11 +17,11 @@
 
 **Purpose**: Create the new `Infrastructure.Simulated` project, add it to the solution, and wire it into the build.
 
-- [X] T001 Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/DevOpsMigrationPlatform.Infrastructure.Simulated.csproj` targeting `net10.0` with references to `Abstractions` and `Infrastructure`
-- [X] T002 Add `Infrastructure.Simulated` project to `DevOpsMigrationPlatform.slnx`
-- [X] T003 Create `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.csproj` (MSTest v3, references Infrastructure.Simulated and test helpers)
-- [X] T004 Add `Infrastructure.Simulated.Tests` project to `DevOpsMigrationPlatform.slnx`
-- [X] T005 Verify `dotnet build` passes with the new empty projects before any feature code is added
+- [X] T001 Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/DevOpsMigrationPlatform.Infrastructure.Simulated.csproj` targeting `net10.0` with references to `Abstractions` and `Infrastructure` — Status: complete
+- [X] T002 Add `Infrastructure.Simulated` project to `DevOpsMigrationPlatform.slnx` — Status: complete
+- [X] T003 Create `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.csproj` (MSTest v3, references Infrastructure.Simulated and test helpers) — Status: complete
+- [X] T004 Add `Infrastructure.Simulated.Tests` project to `DevOpsMigrationPlatform.slnx` — Status: complete
+- [X] T005 Verify `dotnet build` passes with the new empty projects before any feature code is added — Status: complete
 
 ---
 
@@ -33,48 +33,55 @@
 
 ### Abstractions changes
 
-- [X] T006 Change `src/DevOpsMigrationPlatform.Abstractions/Options/MigrationEndpointOptions.cs` from `sealed class` to `abstract class` containing only `public string Type { get; set; }` — remove all other properties
-- [X] T007 Change `src/DevOpsMigrationPlatform.Abstractions/Models/OrganisationEntry.cs` from concrete to `abstract class` containing only `Type`, `Projects`, and `Enabled` — remove connector-specific fields
-- [X] T008 Change `src/DevOpsMigrationPlatform.Abstractions/Services/IWorkItemRevisionSourceFactory.cs` — new signature: `Task<IWorkItemRevisionSource> CreateAsync(MigrationEndpointOptions endpoint, CancellationToken ct)`
-- [X] T009 Change `src/DevOpsMigrationPlatform.Abstractions/Services/IWorkItemImportTargetFactory.cs` — new signature: `Task<IWorkItemImportTarget> CreateAsync(MigrationEndpointOptions endpoint, CancellationToken ct)`
+- [X] T006 Change `src/DevOpsMigrationPlatform.Abstractions/Options/MigrationEndpointOptions.cs` from `sealed class` to `abstract class` containing only `public string Type { get; set; }` — remove all other properties — Status: complete
+- [X] T007 Change `src/DevOpsMigrationPlatform.Abstractions/Models/OrganisationEntry.cs` from concrete to `abstract class` containing only `Type`, `Projects`, and `Enabled` — remove connector-specific fields — Status: complete
+- [X] T008 Change `src/DevOpsMigrationPlatform.Abstractions/Services/IWorkItemRevisionSourceFactory.cs` — new signature: `Task<IWorkItemRevisionSource> CreateAsync(MigrationEndpointOptions endpoint, CancellationToken ct)` — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns/spec.md
+  - Evidence: Current interface is `src/DevOpsMigrationPlatform.Abstractions.Agent/Export/IWorkItemRevisionSourceFactory.cs` with `CreateAsync(CancellationToken ct)` and endpoint resolution moved to runtime endpoint context.
+- [X] T009 Change `src/DevOpsMigrationPlatform.Abstractions/Services/IWorkItemImportTargetFactory.cs` — new signature: `Task<IWorkItemImportTarget> CreateAsync(MigrationEndpointOptions endpoint, CancellationToken ct)` — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns/spec.md
+  - Evidence: Current interface is `src/DevOpsMigrationPlatform.Abstractions.Agent/Import/IWorkItemImportTargetFactory.cs` with `CreateAsync(CancellationToken ct)` and endpoint resolution moved to runtime endpoint context.
 
 ### Polymorphic registry in shared `Infrastructure`
 
-- [X] T010 Create `src/DevOpsMigrationPlatform.Infrastructure/Serialization/EndpointOptionsTypeRegistry.cs` — singleton; `Register(string key, Type type)` throws on duplicate; `TryGetType(string key, out Type? type)` returns false for unknown keys
-- [X] T011 [P] Create `src/DevOpsMigrationPlatform.Infrastructure/Serialization/PolymorphicEndpointOptionsConverter.cs` — `JsonConverter<MigrationEndpointOptions>` that reads `type` field first, looks up in `EndpointOptionsTypeRegistry`, then deserialises the full JSON into the concrete type
-- [X] T012 [P] Create `src/DevOpsMigrationPlatform.Infrastructure/Serialization/PolymorphicOrganisationEntryConverter.cs` — same pattern as T011 but for `OrganisationEntry`
-- [X] T013 Create `src/DevOpsMigrationPlatform.Infrastructure/Extensions/EndpointOptionsRegistrationExtensions.cs` — `AddEndpointOptionsType(this IServiceCollection, string key, Type type)` and `AddOrganisationEntryType` helpers that register into `EndpointOptionsTypeRegistry`
-- [X] T014 Wire `EndpointOptionsTypeRegistry` as a singleton and register both converters into the shared `JsonSerializerOptions` configuration in `src/DevOpsMigrationPlatform.Infrastructure/InfrastructureServiceCollectionExtensions.cs` (or equivalent startup entry point)
+- [X] T010 Create `src/DevOpsMigrationPlatform.Infrastructure/Serialization/EndpointOptionsTypeRegistry.cs` — singleton; `Register(string key, Type type)` throws on duplicate; `TryGetType(string key, out Type? type)` returns false for unknown keys — Status: complete
+- [X] T011 [P] Create `src/DevOpsMigrationPlatform.Infrastructure/Serialization/PolymorphicEndpointOptionsConverter.cs` — `JsonConverter<MigrationEndpointOptions>` that reads `type` field first, looks up in `EndpointOptionsTypeRegistry`, then deserialises the full JSON into the concrete type — Status: complete
+- [X] T012 [P] Create `src/DevOpsMigrationPlatform.Infrastructure/Serialization/PolymorphicOrganisationEntryConverter.cs` — same pattern as T011 but for `OrganisationEntry` — Status: complete
+- [X] T013 Create `src/DevOpsMigrationPlatform.Infrastructure/Extensions/EndpointOptionsRegistrationExtensions.cs` — `AddEndpointOptionsType(this IServiceCollection, string key, Type type)` and `AddOrganisationEntryType` helpers that register into `EndpointOptionsTypeRegistry` — Status: complete
+- [X] T014 Wire `EndpointOptionsTypeRegistry` as a singleton and register both converters into the shared `JsonSerializerOptions` configuration in `src/DevOpsMigrationPlatform.Infrastructure/InfrastructureServiceCollectionExtensions.cs` (or equivalent startup entry point) — Status: complete
 
 ### `AzureDevOpsEndpointOptions` derived type
 
-- [X] T015 Create `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Options/AzureDevOpsEndpointOptions.cs` — `sealed class` inheriting `MigrationEndpointOptions`; carries `Url`, `ResolvedUrl`, `Project`, `ApiVersion`, `Authentication`
-- [X] T016 [P] Create `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Options/AzureDevOpsOrganisationEntry.cs` — `sealed class` inheriting `OrganisationEntry`; carries `Url`, `ResolvedUrl`, `ApiVersion`, `Authentication`
-- [X] T017 Move `src/DevOpsMigrationPlatform.Abstractions/Models/OrganisationEndpoint.cs` to `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Models/OrganisationEndpoint.cs` and change to `internal`
-- [X] T018 Register `AzureDevOpsEndpointOptions` and `AzureDevOpsOrganisationEntry` via `AddEndpointOptionsType` / `AddOrganisationEntryType` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/AzureDevOpsServiceCollectionExtensions.cs`
+- [X] T015 Create `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Options/AzureDevOpsEndpointOptions.cs` — `sealed class` inheriting `MigrationEndpointOptions`; carries `Url`, `ResolvedUrl`, `Project`, `ApiVersion`, `Authentication` — Status: complete
+- [X] T016 [P] Create `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Options/AzureDevOpsOrganisationEntry.cs` — `sealed class` inheriting `OrganisationEntry`; carries `Url`, `ResolvedUrl`, `ApiVersion`, `Authentication` — Status: complete
+- [X] T017 Move `src/DevOpsMigrationPlatform.Abstractions/Models/OrganisationEndpoint.cs` to `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Models/OrganisationEndpoint.cs` and change to `internal` — Status: complete
+- [X] T018 Register `AzureDevOpsEndpointOptions` and `AzureDevOpsOrganisationEntry` via `AddEndpointOptionsType` / `AddOrganisationEntryType` in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/AzureDevOpsServiceCollectionExtensions.cs` — Status: complete
 
 ### `TeamFoundationServerEndpointOptions` derived type (best-effort)
 
-- [X] T019 [P] Create `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Options/TeamFoundationServerEndpointOptions.cs` — `sealed class` inheriting `MigrationEndpointOptions`; carries `Url`, `ResolvedUrl`, `Project`, `ApiVersion`, `Authentication` (net481 best-effort)
-- [X] T020 [P] Create `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Options/TeamFoundationServerOrganisationEntry.cs` — `sealed class` inheriting `OrganisationEntry` (net481 best-effort)
-- [X] T020a Update `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Export/TfsWorkItemRevisionSourceFactory.cs` — change `CreateAsync` signature to `(MigrationEndpointOptions endpoint, CancellationToken ct)`; cast to `TeamFoundationServerEndpointOptions` internally with `ArgumentException` on type mismatch (net481 best-effort; compile under `net481` build)
-- [X] T020b Register `TeamFoundationServerEndpointOptions` and `TeamFoundationServerOrganisationEntry` via `AddEndpointOptionsType` / `AddOrganisationEntryType` in the TFS assembly's DI extension (`AddTfsWorkItemExport()` or equivalent); gate registration on `net10.0` build only if the registry is not available on `net481`
+- [X] T019 [P] Create `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Options/TeamFoundationServerEndpointOptions.cs` — `sealed class` inheriting `MigrationEndpointOptions`; carries `Url`, `ResolvedUrl`, `Project`, `ApiVersion`, `Authentication` (net481 best-effort) — Status: complete
+- [X] T020 [P] Create `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Options/TeamFoundationServerOrganisationEntry.cs` — `sealed class` inheriting `OrganisationEntry` (net481 best-effort) — Status: complete
+- [X] T020a Update `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Export/TfsWorkItemRevisionSourceFactory.cs` — change `CreateAsync` signature to `(MigrationEndpointOptions endpoint, CancellationToken ct)`; cast to `TeamFoundationServerEndpointOptions` internally with `ArgumentException` on type mismatch (net481 best-effort; compile under `net481` build) — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns/spec.md
+  - Evidence: Current implementation in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Export/TfsWorkItemRevisionSourceFactory.cs` uses `CreateAsync(CancellationToken ct)`.
+- [X] T020b Register `TeamFoundationServerEndpointOptions` and `TeamFoundationServerOrganisationEntry` via `AddEndpointOptionsType` / `AddOrganisationEntryType` in the TFS assembly's DI extension (`AddTfsWorkItemExport()` or equivalent); gate registration on `net10.0` build only if the registry is not available on `net481` — Status: complete
 
 ### ADO factory updates to accept base type
 
-- [X] T021 Update `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Export/AzureDevOpsWorkItemRevisionSourceFactory.cs` — change `CreateAsync` signature to `(MigrationEndpointOptions endpoint, CancellationToken ct)`; cast to `AzureDevOpsEndpointOptions` internally with `ArgumentException` on type mismatch
-- [X] T022 Update `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Import/AzureDevOpsWorkItemImportTargetFactory.cs` — change signature to `(MigrationEndpointOptions endpoint, CancellationToken ct)`; remove `"Simulated"` routing branch entirely; cast to `AzureDevOpsEndpointOptions`; register as keyed service `"AzureDevOpsServices"`
-- [X] T023 Update `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Import/AzureDevOpsResolutionStrategyFactory.cs` — remove `if (target is SimulatedWorkItemImportTarget)` branch; register as keyed service `"AzureDevOpsServices"`
+- [X] T021 Update `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Export/AzureDevOpsWorkItemRevisionSourceFactory.cs` — change `CreateAsync` signature to `(MigrationEndpointOptions endpoint, CancellationToken ct)`; cast to `AzureDevOpsEndpointOptions` internally with `ArgumentException` on type mismatch — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns/spec.md
+  - Evidence: Current method in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/AzureDevOpsWorkItemRevisionSourceFactory.cs` is `CreateAsync(CancellationToken ct)`.
+- [X] T022 Update `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Import/AzureDevOpsWorkItemImportTargetFactory.cs` — change signature to `(MigrationEndpointOptions endpoint, CancellationToken ct)`; remove `"Simulated"` routing branch entirely; cast to `AzureDevOpsEndpointOptions`; register as keyed service `"AzureDevOpsServices"` — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns/spec.md
+  - Evidence: Current method in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Import/AzureDevOpsWorkItemImportTargetFactory.cs` is `CreateAsync(CancellationToken ct)` and contains no Simulated routing.
+- [X] T023 Update `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Import/AzureDevOpsResolutionStrategyFactory.cs` — remove `if (target is SimulatedWorkItemImportTarget)` branch; register as keyed service `"AzureDevOpsServices"` — Status: complete
 
 ### `CatalogService` relocation
 
-- [X] T024 Move `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Services/CatalogService.cs` to `src/DevOpsMigrationPlatform.Infrastructure/Services/CatalogService.cs` — no code changes needed; only namespace update
-- [X] T025 Remove `CatalogService` from ADO DI registration; add it to `Infrastructure` DI registration
+- [X] T024 Move `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Services/CatalogService.cs` to `src/DevOpsMigrationPlatform.Infrastructure/Services/CatalogService.cs` — no code changes needed; only namespace update — Status: complete
+- [X] T025 Remove `CatalogService` from ADO DI registration; add it to `Infrastructure` DI registration — Status: complete
 
 ### `WorkItemsModule` connector-agnostic cleanup
 
-- [X] T026 Update `src/DevOpsMigrationPlatform.Infrastructure/Modules/WorkItemsModule.cs` `ExportAsync` — remove all reads of `job.Source.Url`, `job.Source.Project`, `job.Source.Authentication`; remove construction of `OrganisationEndpoint`; pass `job.Source!` directly to `_sourceFactory.CreateAsync`
-- [X] T027 Update `src/DevOpsMigrationPlatform.Infrastructure/Modules/WorkItemsModule.cs` `ImportAsync` — remove connector-specific field reads from `job.Target`; pass `job.Target!` directly to `_targetFactory.CreateAsync`
+- [X] T026 Update `src/DevOpsMigrationPlatform.Infrastructure/Modules/WorkItemsModule.cs` `ExportAsync` — remove all reads of `job.Source.Url`, `job.Source.Project`, `job.Source.Authentication`; remove construction of `OrganisationEndpoint`; pass `job.Source!` directly to `_sourceFactory.CreateAsync` — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns/spec.md
+  - Evidence: Current module is `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs`; export path calls `_sourceFactory.CreateAsync(ct)` with endpoint info provided via injected `ISourceEndpointInfo`.
+- [X] T027 Update `src/DevOpsMigrationPlatform.Infrastructure/Modules/WorkItemsModule.cs` `ImportAsync` — remove connector-specific field reads from `job.Target`; pass `job.Target!` directly to `_targetFactory.CreateAsync` — Status: complete/superseded; completed because superseded by specs/021.2-separation-of-concerns/spec.md
+  - Evidence: Current module is `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs`; import path calls `_importTargetFactory.CreateAsync(ct)` with endpoint info provided via injected `ITargetEndpointInfo`.
 
 **Build gate**: `dotnet clean && dotnet build --no-incremental` MUST pass after T027 before proceeding to Phase 3.
 
@@ -86,9 +93,9 @@
 
 **Independent Test**: Run `scenarios/queue-import-workitems-simulated-fixture.json` — must still pass after the ADO leaks are removed. The keyed `"Simulated"` service is not yet registered so jobs with `Target.Type: "Simulated"` will fail clearly with a missing-service error, not silently.
 
-- [X] T028 [US5] Create `features/import/work-items/simulated-boundary-cleanup.feature` — Gherkin scenarios from spec.md User Story 5 acceptance scenarios (see `.agents/guardrails/acceptance-test-format.md`)
-- [X] T029 [P] [US5] Write unit test `tests/DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Tests/Import/AzureDevOpsWorkItemImportTargetFactoryTests.cs` — assert that `CreateAsync` with a `SimulatedEndpointOptions` throws `ArgumentException` (not `NotImplementedException`)
-- [X] T030 [P] [US5] Write unit test `tests/DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Tests/Import/AzureDevOpsResolutionStrategyFactoryTests.cs` — assert that `CreateAsync` does not accept a `SimulatedWorkItemImportTarget` instance (pass a mock ADO target; verify `NullResolutionStrategy` is NOT returned)
+- [X] T028 [US5] Create `features/import/work-items/simulated-boundary-cleanup.feature` — Gherkin scenarios from spec.md User Story 5 acceptance scenarios (see `.agents/20-guardrails/workflow/acceptance-test-format.md`) — Status: complete
+- [X] T029 [P] [US5] Write unit test `tests/DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Tests/Import/AzureDevOpsWorkItemImportTargetFactoryTests.cs` — assert that `CreateAsync` with a `SimulatedEndpointOptions` throws `ArgumentException` (not `NotImplementedException`) — Status: complete
+- [X] T030 [P] [US5] Write unit test `tests/DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Tests/Import/AzureDevOpsResolutionStrategyFactoryTests.cs` — assert that `CreateAsync` does not accept a `SimulatedWorkItemImportTarget` instance (pass a mock ADO target; verify `NullResolutionStrategy` is NOT returned) — Status: complete
 
 **Checkpoint**: ADO assembly is now clean. Existing ADO system tests must still pass.
 
@@ -100,16 +107,16 @@
 
 **Independent Test**: Unit tests in `DevOpsMigrationPlatform.Infrastructure.Tests` deserialise three JSON strings and assert the concrete C# type.
 
-- [X] T032 [US4] Create `features/platform/config/polymorphic-endpoint-config.feature` — Gherkin scenarios from spec.md User Story 4 acceptance scenarios
-- [X] T033 [P] [US4] Write unit test `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Serialization/EndpointOptionsTypeRegistryTests.cs` — `Register` duplicate key throws; `TryGetType` unknown key returns false
-- [X] T034 [P] [US4] Write unit test `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Serialization/PolymorphicEndpointOptionsConverterTests.cs` — deserialise JSON with `"Type": "AzureDevOpsServices"` → `AzureDevOpsEndpointOptions`; `"Type": "Simulated"` → `SimulatedEndpointOptions`; unknown type → `JsonException` with discriminator value in message
-- [X] T035 [US4] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Options/SimulatedEndpointOptions.cs` — `sealed class` inheriting `MigrationEndpointOptions`; `Generator: SimulatedGeneratorConfig`
-- [X] T036 [P] [US4] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Options/SimulatedOrganisationEntry.cs` — `sealed class` inheriting `OrganisationEntry`; same `Generator` field
-- [X] T037 [P] [US4] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Options/SimulatedGeneratorConfig.cs` with `List<SimulatedProjectConfig> Projects`
-- [X] T038 [P] [US4] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Options/SimulatedProjectConfig.cs` with `Name`, `WorkItemTypes`, `LinkTopology`, `AttachmentSizeKb`, `HasComments`, `HasEmbeddedImages`
-- [X] T039 [P] [US4] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Options/SimulatedWorkItemTypeConfig.cs` with `Type`, `Count`, `RevisionsPerItem`
-- [X] T040 [US4] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedServiceCollectionExtensions.cs` with real (non-throwing) empty method bodies for `AddSimulatedWorkItemExport()`, `AddSimulatedWorkItemImport()`, and `AddSimulatedDependencyAnalysis()`; call `services.AddEndpointOptionsType("Simulated", typeof(SimulatedEndpointOptions))` and `services.AddOrganisationEntryType("Simulated", typeof(SimulatedOrganisationEntry))` in `AddSimulatedWorkItemExport()` — **do NOT use `throw new NotImplementedException()`**
-- [X] T041 [US4] Verify tests T033/T034 pass with the registry wired in the test harness using `AddSimulatedWorkItemExport()`
+- [X] T032 [US4] Create `features/platform/config/polymorphic-endpoint-config.feature` — Gherkin scenarios from spec.md User Story 4 acceptance scenarios — Status: complete
+- [X] T033 [P] [US4] Write unit test `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Serialization/EndpointOptionsTypeRegistryTests.cs` — `Register` duplicate key throws; `TryGetType` unknown key returns false — Status: complete
+- [X] T034 [P] [US4] Write unit test `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Serialization/PolymorphicEndpointOptionsConverterTests.cs` — deserialise JSON with `"Type": "AzureDevOpsServices"` → `AzureDevOpsEndpointOptions`; `"Type": "Simulated"` → `SimulatedEndpointOptions`; unknown type → `JsonException` with discriminator value in message — Status: complete
+- [X] T035 [US4] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Options/SimulatedEndpointOptions.cs` — `sealed class` inheriting `MigrationEndpointOptions`; `Generator: SimulatedGeneratorConfig` — Status: complete
+- [X] T036 [P] [US4] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Options/SimulatedOrganisationEntry.cs` — `sealed class` inheriting `OrganisationEntry`; same `Generator` field — Status: complete
+- [X] T037 [P] [US4] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Options/SimulatedGeneratorConfig.cs` with `List<SimulatedProjectConfig> Projects` — Status: complete
+- [X] T038 [P] [US4] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Options/SimulatedProjectConfig.cs` with `Name`, `WorkItemTypes`, `LinkTopology`, `AttachmentSizeKb`, `HasComments`, `HasEmbeddedImages` — Status: complete
+- [X] T039 [P] [US4] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Options/SimulatedWorkItemTypeConfig.cs` with `Type`, `Count`, `RevisionsPerItem` — Status: complete
+- [X] T040 [US4] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedServiceCollectionExtensions.cs` with real (non-throwing) empty method bodies for `AddSimulatedWorkItemExport()`, `AddSimulatedWorkItemImport()`, and `AddSimulatedDependencyAnalysis()`; call `services.AddEndpointOptionsType("Simulated", typeof(SimulatedEndpointOptions))` and `services.AddOrganisationEntryType("Simulated", typeof(SimulatedOrganisationEntry))` in `AddSimulatedWorkItemExport()` — **do NOT use `throw new NotImplementedException()`** — Status: complete
+- [X] T041 [US4] Verify tests T033/T034 pass with the registry wired in the test harness using `AddSimulatedWorkItemExport()` — Status: complete
 
 **Checkpoint**: Config deserialization routes correctly. Unit tests pass.
 
@@ -123,33 +130,33 @@
 
 ### Feature file
 
-- [X] T042 [US1] Create `features/export/work-items/simulated-export.feature` — Gherkin scenarios from spec.md User Story 1 acceptance scenarios
+- [X] T042 [US1] Create `features/export/work-items/simulated-export.feature` — Gherkin scenarios from spec.md User Story 1 acceptance scenarios — Status: complete
 
 ### Generator services
 
-- [X] T043 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Export/SimulatedWorkItemRevisionSource.cs` — `IWorkItemRevisionSource` implementation; `GetRevisionsAsync()` uses `yield return` to stream `WorkItemRevision` records from `SimulatedEndpointOptions.Generator`; deterministic field values seeded by `(workItemId, revisionIndex)`; validates `RevisionsPerItem >= 1` and throws `InvalidOperationException` at construction if violated
-- [X] T044 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Export/SimulatedWorkItemRevisionSourceFactory.cs` — `IWorkItemRevisionSourceFactory`; casts `MigrationEndpointOptions` to `SimulatedEndpointOptions`; throws `ArgumentException` on type mismatch
-- [X] T045 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Services/SimulatedProjectDiscoveryService.cs` — `IProjectDiscoveryService`; returns `Generator.Projects[].Name` as `IAsyncEnumerable<string>`
-- [X] T046 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Services/SimulatedWorkItemDiscoveryService.cs` — `IWorkItemDiscoveryService`; returns deterministic work item IDs and revision counts from `Generator.Projects[].WorkItemTypes[].Count × RevisionsPerItem`
-- [X] T047 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Services/SimulatedAttachmentBinarySource.cs` — `IAttachmentBinarySource`; returns `AttachmentSizeKb × 1024` deterministic bytes (seeded by attachment ID + filename); returns empty stream if `AttachmentSizeKb == 0`
-- [X] T048 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Services/SimulatedEmbeddedImageDownloader.cs` — `IEmbeddedImageDownloader`; returns a minimal 1×1 placeholder PNG byte array for any URL; never makes a network call
-- [X] T049 [P] [US1] Verify `IWorkItemCommentSource` and `IWorkItemCommentSourceFactory` exist in `Abstractions`; if either is missing, create the interface(s) in `src/DevOpsMigrationPlatform.Abstractions/Services/` before proceeding. Then create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Services/SimulatedWorkItemCommentSource.cs` — `IWorkItemCommentSource`; streams N synthetic comments where N is derived from the generator config; streams zero comments when `HasComments: false`
-- [X] T050 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Services/SimulatedWorkItemCommentSourceFactory.cs` — `IWorkItemCommentSourceFactory`; casts to `SimulatedEndpointOptions`
-- [X] T051 [US1] Register all export services in `AddSimulatedWorkItemExport()` in `SimulatedServiceCollectionExtensions.cs`
+- [X] T043 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Export/SimulatedWorkItemRevisionSource.cs` — `IWorkItemRevisionSource` implementation; `GetRevisionsAsync()` uses `yield return` to stream `WorkItemRevision` records from `SimulatedEndpointOptions.Generator`; deterministic field values seeded by `(workItemId, revisionIndex)`; validates `RevisionsPerItem >= 1` and throws `InvalidOperationException` at construction if violated — Status: complete
+- [X] T044 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Export/SimulatedWorkItemRevisionSourceFactory.cs` — `IWorkItemRevisionSourceFactory`; casts `MigrationEndpointOptions` to `SimulatedEndpointOptions`; throws `ArgumentException` on type mismatch — Status: complete
+- [X] T045 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Services/SimulatedProjectDiscoveryService.cs` — `IProjectDiscoveryService`; returns `Generator.Projects[].Name` as `IAsyncEnumerable<string>` — Status: complete
+- [X] T046 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Services/SimulatedWorkItemDiscoveryService.cs` — `IWorkItemDiscoveryService`; returns deterministic work item IDs and revision counts from `Generator.Projects[].WorkItemTypes[].Count × RevisionsPerItem` — Status: complete
+- [X] T047 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Services/SimulatedAttachmentBinarySource.cs` — `IAttachmentBinarySource`; returns `AttachmentSizeKb × 1024` deterministic bytes (seeded by attachment ID + filename); returns empty stream if `AttachmentSizeKb == 0` — Status: complete
+- [X] T048 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Services/SimulatedEmbeddedImageDownloader.cs` — `IEmbeddedImageDownloader`; returns a minimal 1×1 placeholder PNG byte array for any URL; never makes a network call — Status: complete
+- [X] T049 [P] [US1] Verify `IWorkItemCommentSource` and `IWorkItemCommentSourceFactory` exist in `Abstractions`; if either is missing, create the interface(s) in `src/DevOpsMigrationPlatform.Abstractions/Services/` before proceeding. Then create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Services/SimulatedWorkItemCommentSource.cs` — `IWorkItemCommentSource`; streams N synthetic comments where N is derived from the generator config; streams zero comments when `HasComments: false` — Status: complete
+- [X] T050 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Services/SimulatedWorkItemCommentSourceFactory.cs` — `IWorkItemCommentSourceFactory`; casts to `SimulatedEndpointOptions` — Status: complete
+- [X] T051 [US1] Register all export services in `AddSimulatedWorkItemExport()` in `SimulatedServiceCollectionExtensions.cs` — Status: complete
 
 ### Unit tests
 
-- [X] T052 [P] [US1] Write `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/Export/SimulatedWorkItemRevisionSourceTests.cs` — assert streaming (no buffering), deterministic output, `RevisionsPerItem=0` throws, empty `Projects` yields zero records
-- [X] T053 [P] [US1] Write `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/Services/SimulatedProjectDiscoveryServiceTests.cs` — assert project names match config
+- [X] T052 [P] [US1] Write `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/Export/SimulatedWorkItemRevisionSourceTests.cs` — assert streaming (no buffering), deterministic output, `RevisionsPerItem=0` throws, empty `Projects` yields zero records — Status: complete
+- [X] T053 [P] [US1] Write `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/Services/SimulatedProjectDiscoveryServiceTests.cs` — assert project names match config — Status: complete
 
 ### Scenario config + launch profile
 
-- [X] T054 [US1] Create `scenarios/queue-export-workitems-simulated-source.json` with 2 projects, 3 work item types, 5 revisions each, `LinkTopology: "Tree"`, `HasComments: true`, `AttachmentSizeKb: 10`
-- [X] T055 [US1] Add `.vscode/launch.json` debug profile `queue-export-workitems-simulated-source` pointing at `scenarios/queue-export-workitems-simulated-source.json`
+- [X] T054 [US1] Create `scenarios/queue-export-workitems-simulated-source.json` with 2 projects, 3 work item types, 5 revisions each, `LinkTopology: "Tree"`, `HasComments: true`, `AttachmentSizeKb: 10` — Status: complete
+- [X] T055 [US1] Add `.vscode/launch.json` debug profile `queue-export-workitems-simulated-source` pointing at `scenarios/queue-export-workitems-simulated-source.json` — Status: complete
 
 ### System test
 
-- [X] T056 [US1] Write `tests/DevOpsMigrationPlatform.SystemTests/Features/Export/SimulatedExportSystemTest.feature` — `[TestCategory("SystemTest")]` asserting the scenario config runs end-to-end and produces a non-empty `WorkItems/` folder with valid `revision.json` files
+- [X] T056 [US1] Write `tests/DevOpsMigrationPlatform.SystemTests/Features/Export/SimulatedExportSystemTest.feature` — `[TestCategory("SystemTest")]` asserting the scenario config runs end-to-end and produces a non-empty `WorkItems/` folder with valid `revision.json` files — Status: complete
 
 **Checkpoint**: User Story 1 fully functional and independently testable.
 
@@ -163,27 +170,28 @@
 
 ### Feature file
 
-- [X] T057 [US2] Create `features/import/work-items/simulated-import.feature` — Gherkin scenarios from spec.md User Story 2 acceptance scenarios
+- [X] T057 [US2] Create `features/import/work-items/simulated-import.feature` — Gherkin scenarios from spec.md User Story 2 acceptance scenarios — Status: complete
 
 ### Import services
 
-- [X] T058 [US2] Move `src/DevOpsMigrationPlatform.Infrastructure/Import/SimulatedWorkItemImportTarget.cs` to `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Import/SimulatedWorkItemImportTarget.cs`; update namespace; ensure it assigns sequential IDs and emits progress events
-- [X] T059 [US2] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Import/SimulatedWorkItemImportTargetFactory.cs` — `IWorkItemImportTargetFactory`; casts to `SimulatedEndpointOptions`; registered as keyed service `"Simulated"`
-- [X] T060 [P] [US2] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Import/SimulatedResolutionStrategyFactory.cs` — `IWorkItemResolutionStrategyFactory`; always returns `NullResolutionStrategy`; registered as keyed service `"Simulated"`
-- [X] T061 [US2] Register import services in `AddSimulatedWorkItemImport()` in `SimulatedServiceCollectionExtensions.cs`
+- [X] T058 [US2] Move `src/DevOpsMigrationPlatform.Infrastructure/Import/SimulatedWorkItemImportTarget.cs` to `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Import/SimulatedWorkItemImportTarget.cs`; update namespace; ensure it assigns sequential IDs and emits progress events — Status: complete
+- [X] T059 [US2] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Import/SimulatedWorkItemImportTargetFactory.cs` — `IWorkItemImportTargetFactory`; casts to `SimulatedEndpointOptions`; registered as keyed service `"Simulated"` — Status: complete
+- [X] T060 [P] [US2] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Import/SimulatedResolutionStrategyFactory.cs` — `IWorkItemResolutionStrategyFactory`; always returns `NullResolutionStrategy`; registered as keyed service `"Simulated"` — Status: complete
+- [X] T061 [US2] Register import services in `AddSimulatedWorkItemImport()` in `SimulatedServiceCollectionExtensions.cs` — Status: complete
 
 ### Unit tests
 
-- [X] T062 [P] [US2] Write `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/Import/SimulatedWorkItemImportTargetTests.cs` — assert sequential ID assignment, progress events emitted per item, no external I/O
+- [X] T062 [P] [US2] Write `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/Import/SimulatedWorkItemImportTargetTests.cs` — assert sequential ID assignment, progress events emitted per item, no external I/O — Status: complete
 
 ### Scenario config + launch profile
 
-- [X] T063 [US2] Create `scenarios/queue-import-workitems-simulated-target.json` using `scenarios/testdata/workitems-simulated-small.zip` as input (a small pre-built fixture zip; create this fixture as part of this task by running the simulated export profile once and zipping the output into `scenarios/testdata/`); `Target.Type: "Simulated"`
-- [X] T064 [US2] Add `.vscode/launch.json` debug profile `queue-import-workitems-simulated-target`
+- [X] T063 [US2] Create `scenarios/queue-import-workitems-simulated-target.json` using `scenarios/testdata/workitems-simulated-small.zip` as input (a small pre-built fixture zip; create this fixture as part of this task by running the simulated export profile once and zipping the output into `scenarios/testdata/`); `Target.Type: "Simulated"` — Status: complete/superseded; completed because superseded by scenarios/queue-import-workitems-simulated-target.json
+  - Evidence: Current scenario uses `scenarios\\testdata\\workitems-2items-flat.zip`; `workitems-simulated-small.zip` is not present in `scenarios/testdata`.
+- [X] T064 [US2] Add `.vscode/launch.json` debug profile `queue-import-workitems-simulated-target` — Status: complete
 
 ### System test
 
-- [X] T065 [US2] Add simulated import scenario to `tests/DevOpsMigrationPlatform.SystemTests/Features/Import/SimulatedImportSystemTest.feature` — `[TestCategory("SystemTest")]` asserting the existing fixture scenario and the new target scenario both complete with zero errors
+- [X] T065 [US2] Add simulated import scenario to `tests/DevOpsMigrationPlatform.SystemTests/Features/Import/SimulatedImportSystemTest.feature` — `[TestCategory("SystemTest")]` asserting the existing fixture scenario and the new target scenario both complete with zero errors — Status: complete
 
 **Checkpoint**: User Story 2 fully functional and independently testable.
 
@@ -191,16 +199,18 @@
 
 ## Phase 7: User Story 3 — Roundtrip (Priority: P2)
 
-**Goal**: A single `Both`-mode job runs export then import with Simulated on both ends. The package passes validation.
+**Goal**: A single `Migrate`-mode job runs export then import with Simulated on both ends. The package passes validation.
 
 **Independent Test**: `scenarios/roundtrip-simulated.json` via new launch profile completes without error.
 
-- [X] T066 [US3] Create `features/export/work-items/simulated-roundtrip.feature` — Gherkin scenarios from spec.md User Story 3 acceptance scenarios
-- [X] T067 [P] [US3] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Services/SimulatedWorkItemLinkAnalysisService.cs` — `IWorkItemLinkAnalysisService` keyed `"Simulated"`; resolves the existing `NotSupportedException` in `DependencyDiscoveryService`; returns empty link analysis for Simulated jobs
-- [X] T068 [P] [US3] Register link analysis in `AddSimulatedDependencyAnalysis()` in `SimulatedServiceCollectionExtensions.cs`
-- [X] T069 [US3] Create `scenarios/roundtrip-simulated.json` — `Mode: "Both"`, Simulated source (small: 5 items × 2 revisions), Simulated target
-- [X] T070 [US3] Add `.vscode/launch.json` debug profile `roundtrip-simulated`
-- [ ] T071 [US3] Add roundtrip acceptance scenario to `tests/DevOpsMigrationPlatform.SystemTests/Features/Export/SimulatedExportSystemTest.feature` asserting `Both` mode completes and package passes validation
+- [X] T066 [US3] Create `features/export/work-items/simulated-roundtrip.feature` — Gherkin scenarios from spec.md User Story 3 acceptance scenarios — Status: complete
+- [X] T067 [P] [US3] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Services/SimulatedWorkItemLinkAnalysisService.cs` — `IWorkItemLinkAnalysisService` keyed `"Simulated"`; resolves the existing `NotSupportedException` in `DependencyDiscoveryService`; returns empty link analysis for Simulated jobs — Status: complete
+- [X] T068 [P] [US3] Register link analysis in `AddSimulatedDependencyAnalysis()` in `SimulatedServiceCollectionExtensions.cs` — Status: complete
+- [X] T069 [US3] Create `scenarios/roundtrip-simulated.json` — `Mode: "Both"`, Simulated source (small: 5 items × 2 revisions), Simulated target — Status: complete/superseded; completed because superseded by .agents/30-context/domains/cli-commands.md
+  - Evidence: Current scenario `scenarios/roundtrip-simulated.json` uses `Mode: "Migrate"` per current CLI mode contract.
+- [X] T070 [US3] Add `.vscode/launch.json` debug profile `roundtrip-simulated` — Status: complete
+- [X] T071 [US3] Add roundtrip acceptance scenario to `tests/DevOpsMigrationPlatform.SystemTests/Features/Export/SimulatedExportSystemTest.feature` asserting `Both` mode completes and package passes validation — Status: complete/superseded; completed because superseded by tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/SimulatedMigrationCommandTests.cs
+  - Evidence: `QueueRoundtripSimulated_ExitsZeroAndProducesPackageWithRevisions` validates roundtrip using `scenarios/roundtrip-simulated.json`.
 
 **Checkpoint**: Full roundtrip works without credentials.
 
@@ -210,21 +220,23 @@
 
 **Purpose**: Resolve all discrepancies logged in `discrepancies.md` by updating canonical docs.
 
-- [X] T072 Update `docs/architecture.md` — remove `OrganisationEndpoint` from Abstractions type table (Discrepancy 2); move `CatalogService` from ADO to shared `Infrastructure` component list (Discrepancy 4); add `DevOpsMigrationPlatform.Infrastructure.Simulated` to assembly table (Discrepancy 5); remove `SimulatedWorkItemImportTarget` from shared `Infrastructure` list (Discrepancy 6)
-- [X] T073 Update `docs/module-development-guide.md` — update `IWorkItemRevisionSourceFactory` and `IWorkItemImportTargetFactory` interface signatures to `CreateAsync(MigrationEndpointOptions endpoint, CancellationToken ct)` (Discrepancy 1)
-- [X] T074 [P] Add "Polymorphic Endpoint Config" section to `docs/configuration-reference.md` — explain `type` discriminator, connector-specific fields in derived types, unknown type error, `EndpointOptionsTypeRegistry` (Discrepancy 3)
-- [X] T075 Mark all 6 discrepancies in `specs/017-simulated-infrastructure/discrepancies.md` as `Resolved`
-- [ ] T076 Review `analysis/pending-actions.md` — mark any actions completed by this feature as done; add new actions if outstanding work is identified
+- [X] T072 Update `docs/architecture.md` — remove `OrganisationEndpoint` from Abstractions type table (Discrepancy 2); move `CatalogService` from ADO to shared `Infrastructure` component list (Discrepancy 4); add `DevOpsMigrationPlatform.Infrastructure.Simulated` to assembly table (Discrepancy 5); remove `SimulatedWorkItemImportTarget` from shared `Infrastructure` list (Discrepancy 6) — Status: complete
+- [X] T073 Update `docs/module-development-guide.md` — update `IWorkItemRevisionSourceFactory` and `IWorkItemImportTargetFactory` interface signatures to `CreateAsync(MigrationEndpointOptions endpoint, CancellationToken ct)` (Discrepancy 1) — Status: complete
+- [X] T074 [P] Add "Polymorphic Endpoint Config" section to `docs/configuration-reference.md` — explain `type` discriminator, connector-specific fields in derived types, unknown type error, `EndpointOptionsTypeRegistry` (Discrepancy 3) — Status: complete
+- [X] T075 Mark all 6 discrepancies in `specs/017-simulated-infrastructure/discrepancies.md` as `Resolved` — Status: complete
+- [ ] T076 Review `analysis/pending-actions.md` — mark any actions completed by this feature as done; add new actions if outstanding work is identified — Status: incomplete
+  - Evidence: `analysis/pending-actions.md` has no explicit spec-017 reconciliation update tied to this task.
 
 ---
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-- [X] T077 [P] Add `InternalsVisibleTo` attribute to `Infrastructure.Simulated.csproj` for `Infrastructure.Simulated.Tests`
-- [X] T078 [P] Verify `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel` still compiles cleanly after `MigrationEndpointOptions` and `OrganisationEntry` become abstract — TFS subprocess consumes `net481` builds
-- [X] T079 [P] Run `dotnet clean && dotnet build --no-incremental` — confirm zero errors and zero new warnings
-- [X] T080 Run `dotnet test` — confirm all tests pass including new `[TestCategory("SystemTest")]` tests
-- [ ] T081 Run scenario `scenarios/queue-export-workitems-simulated-source.json` via launch profile — confirm observable output and non-empty package
+- [X] T077 [P] Add `InternalsVisibleTo` attribute to `Infrastructure.Simulated.csproj` for `Infrastructure.Simulated.Tests` — Status: complete
+- [X] T078 [P] Verify `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel` still compiles cleanly after `MigrationEndpointOptions` and `OrganisationEntry` become abstract — TFS subprocess consumes `net481` builds — Status: complete
+- [X] T079 [P] Run `dotnet clean && dotnet build --no-incremental` — confirm zero errors and zero new warnings — Status: complete
+- [X] T080 Run `dotnet test` — confirm all tests pass including new `[TestCategory("SystemTest")]` tests — Status: complete
+- [ ] T081 Run scenario `scenarios/queue-export-workitems-simulated-source.json` via launch profile — confirm observable output and non-empty package — Status: incomplete
+  - Evidence: No committed scenario-run artefact/log proving manual launch-profile execution of `queue-export-workitems-simulated-source.json`.
 
 ---
 
@@ -259,7 +271,7 @@ Phase 1 (Setup)
 |---|---|---|
 | US1 — Simulated export | Package written to disk; no network calls | `scenarios/queue-export-workitems-simulated-source.json` |
 | US2 — Simulated import | Items reported as created; progress emitted; no ADO writes | `scenarios/queue-import-workitems-simulated-fixture.json` + `simulated-target.json` |
-| US3 — Roundtrip | `Both` mode completes; package passes validation | `scenarios/roundtrip-simulated.json` |
+| US3 — Roundtrip | `Migrate` mode completes; package passes validation | `scenarios/roundtrip-simulated.json` |
 | US4 — Polymorphic config | Unit tests pass; ADO/TFS/Simulated JSON deserialises to correct types | `dotnet test --filter PolymorphicEndpointOptionsConverter` |
 | US5 — ADO boundary | No Simulated references in ADO assembly; existing fixture test passes | `scenarios/queue-import-workitems-simulated-fixture.json` |
 
@@ -274,3 +286,4 @@ Phase 1 (Setup)
 **Never leave `throw new NotImplementedException()`** in any reachable code path. All Simulated implementations must be complete and functional before being committed.
 
 **Validation**: After T027, after T041, and after T056 — run `dotnet clean && dotnet build --no-incremental` and `dotnet test` before proceeding.
+

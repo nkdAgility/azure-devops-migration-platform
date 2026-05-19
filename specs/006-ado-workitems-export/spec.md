@@ -2,7 +2,7 @@
 
 **Feature Branch**: `006-ado-workitems-export`
 **Created**: April 7, 2026
-**Status**: Draft
+**Status**: Reconciled (legacy spec; partially superseded by later work-item specs and current architecture)
 **Input**: User description: "Export work items from Azure DevOps via REST API, working the same way as the TFS POC but using the REST API instead of the TFS Object Model"
 
 ## Architecture References
@@ -14,15 +14,52 @@ The following documents were read before drafting this spec:
 | `docs/architecture.md` | Confirmed accurate — CLI is a thin shell; export logic lives in the Job Engine via `IDataTypeModule` |
 | `docs/module-development-guide.md` | Confirmed accurate — `WorkItemsModule` is the canonical module name; `IDataTypeModule` is the contract |
 | `docs/cli-guide.md` | Confirmed accurate — `export` command submits a job via `ControlPlaneClient`; it contains no export logic |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed — Rule 6 (no direct source→target), Rule 7 (`IArtefactStore` only), Rule 14 (lexicographic enumeration), Rule 16 (CLI contains no migration logic) |
-| `.agents/guardrails/workitems-rules.md` | Confirmed — canonical folder layout, cursor-based checkpointing, attachments beside `revision.json` |
-| `.agents/context/workitems-format-summary.md` | Confirmed — `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/revision.json` is canonical |
-| `.agents/context/checkpointing-summary.md` | Confirmed — cursor file at `Checkpoints/workitems.cursor.json` |
-| `.agents/context/package-manager.md` | Confirmed — package persistence still uses `IArtefactStore` as a primitive |
-| `.agents/context/job-lifecycle.md` | Confirmed — `MigrationJob.source.type = AzureDevOpsServices` with WIQL module scope |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed — Rule 6 (no direct source→target), Rule 7 (`IArtefactStore` only), Rule 14 (lexicographic enumeration), Rule 16 (CLI contains no migration logic) |
+| `.agents/20-guardrails/domains/workitems-rules.md` | Confirmed — canonical folder layout, cursor-based checkpointing, attachments beside `revision.json` |
+| `.agents/30-context/domains/workitems-format-summary.md` | Confirmed — `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/revision.json` is canonical |
+| `.agents/30-context/domains/checkpointing-summary.md` | Confirmed — cursor file at `Checkpoints/workitems.cursor.json` |
+| `.agents/30-context/domains/package-manager.md` | Confirmed — package persistence still uses `IArtefactStore` as a primitive |
+| `.agents/30-context/domains/job-lifecycle.md` | Confirmed — `MigrationJob.source.type = AzureDevOpsServices` with WIQL module scope |
 | `docs/configuration-reference.md` | Confirmed — module scope config via `MigrationJobModule.scopes` |
 
-**No conflicts found.** This spec implements the first concrete realisation of `WorkItemsModule.ExportAsync` for the `AzureDevOpsServices` source type. Discrepancies (undocumented ADO-specific implementation details) are logged in `discrepancies.md`.
+## Current Status (Reconciliation)
+
+This feature is **partially implemented and partially superseded** in the live codebase.  
+The authoritative task-by-task status is in `tasks.md` (T001–T037 now carry final status markers and evidence notes).
+
+### Newer Related Specs Reviewed
+
+`009-resumable-export-import`, `010-workitem-comments-images`, `011-inline-comment-fetching`, `013-ado-workitems-import`, `014-field-filter-scope`, `015-work-item-scoped-fetch`, `018-workitem-otel-metrics`, `019-workitem-idmap-sync`, `020-resumable-batching-cursor`, `022-workitem-field-mapping`, `029-import-workitems-attachments-nodes`, `031-platform-metrics-unification`, `035-workitem-import-support`
+
+### Remaining Incomplete Work
+
+`T001, T005, T010, T017, T019, T026, T027, T028, T029, T031, T035, T036, T037`
+
+### Completed Because Superseded
+
+`T003, T004, T006, T007, T008, T009, T011, T012, T013, T014, T015, T016, T018, T020, T021, T022, T023, T024, T025, T030, T032`
+
+### Contradictions and Reconciliation
+
+- `IDataTypeModule` + deferred import/validate no longer matches runtime truth; `WorkItemsModule` is an `IModule` with active export/prepare/import behavior.
+- Progress contract now uses `ProgressEvent.Metrics`/`JobMetrics` instead of scalar attachment counters on `ProgressEvent`.
+- Attachment export seam is `IAttachmentBinarySource`/`IStreamingAttachmentBinarySource` (not `IAttachmentDownloader`).
+- Retry implementation is Polly-based (`AddHttpClient(...).AddPolicyHandler(...)`), not `Microsoft.Extensions.Resilience`.
+- Factory contract is `IWorkItemRevisionSourceFactory.CreateAsync(CancellationToken)` with endpoint info resolved via DI.
+- Several remaining incomplete tasks still use pre-refactor file paths (`Infrastructure.Tests` / `Infrastructure` / `Abstractions` legacy paths) and require retargeting to current `Infrastructure.Agent`/`Abstractions.Agent` layout.
+- Constitution-alignment debt remains open in this legacy spec set (connector-coverage wording and `IOptions<T>` references are stale vs current guardrails).
+
+### Verification Evidence
+
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/Export/WorkItemExportOrchestrator.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Export/AzureDevOpsWorkItemRevisionSource.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/AzureDevOpsWorkItemRevisionSourceFactory.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Attachments/AzureDevOpsAttachmentBinarySource.cs`
+- `src/DevOpsMigrationPlatform.Abstractions/Streaming/ProgressEvent.cs`
+- `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Export/WorkItemExportOrchestratorTests.cs`
+- `features/export/work-items/revisions/export-work-item-revisions.feature`
+- `features/export/work-items/attachments/export-attachments.feature`
 
 ---
 
@@ -194,4 +231,5 @@ As a platform operator, I need the export to emit structured progress events so 
 - Clock collisions (two revisions with identical `changedDate` ticks for different work items) are handled by the lexicographic folder naming — the `<workItemId>` segment disambiguates.
 - Attachment delta detection compares relations of the current revision against the immediately preceding revision in the fetched revision list. If the work item has only one revision, all its attachments are treated as new.
 - The ADO REST API (`GetRevisionsAsync`) call pattern is O(N) per work item; there is no bulk-revisions endpoint. This is expected and acceptable for v1.
+
 

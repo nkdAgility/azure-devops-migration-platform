@@ -228,3 +228,36 @@ All items confirmed passing. No violations introduced by Phase 1 design decision
 | Determinism (VII) | ✅ Seeded random + fixed base date; no upgrader needed for this config change |
 | ATDD-First (VIII) | ✅ Feature files will be written before implementation code per session |
 | SOLID & DI (IX) | ✅ All new types use constructor injection; `AddSimulated*` extension methods follow existing pattern |
+
+---
+
+## Current status (Reconciled 2026-05-16)
+
+- Implementation largely complete; status metadata has been reconciled against repository truth.
+- Reconciliation scope is documentation only (Class A).
+- Speckit reconciliation audits (`/speckit.analyze`, `/speckit.checklist`) were executed for this pass.
+
+## Remaining incomplete work (IDs)
+
+- `T076`
+- `T081`
+
+## Completed because superseded (IDs + source)
+
+- `T008`, `T009`, `T020a`, `T021`, `T022`, `T026`, `T027` superseded by `specs/021.2-separation-of-concerns/spec.md` and current endpoint-context factory flow.
+- `T063` superseded by actual fixture usage in `scenarios/queue-import-workitems-simulated-target.json`.
+- `T069` superseded by current mode contract (`Migrate`) in `.agents/30-context/domains/cli-commands.md`.
+- `T071` superseded by `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/SimulatedMigrationCommandTests.cs`.
+
+## Contradictions and reconciliation
+
+- Earlier plan assumed factory signatures accepted endpoint options; runtime now resolves endpoints via injected endpoint info and `CreateAsync(CancellationToken)`.
+- Earlier task expected `Mode: "Both"`; current contract uses `Mode: "Migrate"`.
+- Earlier task expected `workitems-simulated-small.zip`; current scenario uses `workitems-2items-flat.zip`.
+- Earlier plan expected `OrganisationEndpoint` to move inward; current repository truth keeps `OrganisationEndpoint` in Abstractions.
+- Earlier references cite `analysis/Simulated.md`; that file is absent and remains a stale historical reference.
+
+## Verification evidence
+
+- `dotnet build DevOpsMigrationPlatform.slnx --no-incremental` succeeded.
+- `dotnet test tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.csproj` succeeded (46/46).

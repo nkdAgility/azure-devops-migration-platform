@@ -9,9 +9,10 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Reqnroll;
@@ -48,9 +49,10 @@ public class ExportWorkItemRevisionsSteps
 
     private WorkItemExportOrchestrator CreateSut()
         => new(
-            _ctx.RealArtefactStore!,
-            _ctx.MockCheckpointingService.Object,
-            package: PackageTestFactory.CreateDelegatingMock(_ctx.RealArtefactStore!).Object);
+            _ctx.Package!,
+            string.Empty,
+            string.Empty,
+            _ctx.MockCheckpointingService.Object);
 
     // ── Background ────────────────────────────────────────────────────────────
 
@@ -62,7 +64,16 @@ public class ExportWorkItemRevisionsSteps
     {
         _ctx.PackageRoot = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(_ctx.PackageRoot);
-        _ctx.RealArtefactStore = new FileSystemArtefactStore(_ctx.PackageRoot);
+        var packageState = new ActivePackageState
+        {
+            CurrentJob = new Job
+            {
+                JobId = "export-revisions",
+                Kind = JobKind.Export,
+                Package = new JobPackage { PackageUri = $"file:///{_ctx.PackageRoot.Replace(Path.DirectorySeparatorChar, '/')}" }
+            }
+        };
+        _ctx.Package = new ActivePackageAccess(packageState, new PackagePathRouter(), NullLogger<ActivePackageAccess>.Instance);
     }
 
     // ── Scenario 1: canonical folder layout (@azure-devops-rest @tfs-object-model — skipped in CI) ─
@@ -91,7 +102,7 @@ public class ExportWorkItemRevisionsSteps
         foreach (var rev in _ctx.SourceRevisions)
         {
             var folderPath = WorkItemExportOrchestrator.BuildFolderPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate);
-            var file = Path.Combine(_ctx.PackageRoot!, folderPath.Replace('/', Path.DirectorySeparatorChar), "revision.json");
+            var file = Path.Combine(_ctx.PackageRoot!, "WorkItems", folderPath.Replace('/', Path.DirectorySeparatorChar), "revision.json");
             Assert.IsTrue(File.Exists(file), $"Expected revision.json at {file}");
         }
     }
@@ -102,7 +113,7 @@ public class ExportWorkItemRevisionsSteps
         foreach (var rev in _ctx.SourceRevisions)
         {
             var folderPath = WorkItemExportOrchestrator.BuildFolderPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate);
-            var file = Path.Combine(_ctx.PackageRoot!, folderPath.Replace('/', Path.DirectorySeparatorChar), "revision.json");
+            var file = Path.Combine(_ctx.PackageRoot!, "WorkItems", folderPath.Replace('/', Path.DirectorySeparatorChar), "revision.json");
             Assert.IsTrue(File.Exists(file));
         }
     }
@@ -203,7 +214,9 @@ public class ExportWorkItemRevisionsSteps
 
         // Pre-write revision.json for the cursor-position revision so ExistsAsync returns true,
         // causing the orchestrator to skip it (simulating a prior run that already exported it).
-        await _ctx.RealArtefactStore!.WriteAsync($"{folderAtCursor}revision.json", "{}", CancellationToken.None);
+        var filePath = System.IO.Path.Combine(_ctx.PackageRoot!, "WorkItems", $"{folderAtCursor}revision.json".Replace('/', System.IO.Path.DirectorySeparatorChar));
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(filePath)!);
+        await System.IO.File.WriteAllTextAsync(filePath, "{}", CancellationToken.None);
 
         _ctx.MockCheckpointingService
             .Setup(s => s.ReadCursorAsync("export.workitems", It.IsAny<CancellationToken>()))

@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
@@ -23,7 +22,8 @@ public interface IRevisionFolderProcessorFactory
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
         IIdentityLookupTool? identityLookupTool,
-        IArtefactStore artefactStore);
+        string organisation,
+        string project);
 
     /// <summary>
     /// Creates a new <see cref="IRevisionFolderProcessor"/> with NodeTranslation context
@@ -34,8 +34,7 @@ public interface IRevisionFolderProcessorFactory
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
         IIdentityLookupTool? identityLookupTool,
-        IArtefactStore artefactStore,
+        string organisation,
+        string project,
         DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping? nodeStructureContext);
 }
-#endif
-

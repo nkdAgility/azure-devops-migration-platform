@@ -28,14 +28,14 @@
 - **Status**: ✓ Resolved in speckit.implement
 
 ### 4. CLI "manage logs" command conflates progress with diagnostics
-- **Source doc**: `docs/cli-guide.md` and `.agents/context/cli-commands.md`
+- **Source doc**: `docs/cli-guide.md` and `.agents/30-context/domains/cli-commands.md`
 - **Section**: Job Management Commands (`manage`) table; Command Registration Pattern
 - **Issue**: `manage logs` command described as fetching/streaming `ProgressEvent` records. The spec replaces it: `manage logs` becomes `manage diagnostics` (downloads package logs for completed jobs) and a new `manage progress` is added (snapshot of progress events, no `--follow`). Neither command supports `--follow` — all live streaming is TUI-only.
 - **Suggested update**: Replace `manage logs` with `manage diagnostics` (download helper for completed job package logs with `--level` filter) and add `manage progress` (snapshot of `ProgressEvent` records). Remove `--follow` from both. Update `ExportCommand` docs to include `--follow` and `--level` options. Update command registration in `Program.cs` section.
 - **Status**: ✓ Resolved in speckit.implement
 
 ### 8. Export command missing --follow and --level options
-- **Source doc**: `docs/cli-guide.md` and `.agents/context/cli-commands.md`
+- **Source doc**: `docs/cli-guide.md` and `.agents/30-context/domains/cli-commands.md`
 - **Section**: Migration Commands table; ExportCommandSettings
 - **Issue**: The `export` command does not document `--follow` or `--level` options. The spec adds both: `--follow` streams diagnostic logs inline (implicit in standalone), `--level` sets the agent's diagnostic minimum level per job.
 - **Suggested update**: Add `--follow` and `--level` to the `export` command settings table. Document standalone vs remote lifecycle. Add to `ExportCommandSettings`.
@@ -56,7 +56,7 @@
 - **Status**: ✓ Resolved in speckit.implement
 
 ### 6. Package format does not specify Logs/ folder contents
-- **Source doc**: `.agents/context/migration-package-concept.md`
+- **Source doc**: `.agents/30-context/domains/migration-package-concept.md`
 - **Section**: Package Structure
 - **Issue**: `Logs/` is listed in the package structure tree but its expected contents are not documented.
 - **Suggested update**: Add a `Logs/` subsection specifying: `progress.jsonl` (NDJSON of `ProgressEvent` records) and `agent.jsonl` (NDJSON of structured diagnostic log records).
@@ -68,3 +68,4 @@
 - **Issue**: Items 17 (`ControlPlaneProgressSink`), 18 (`JobProgressStore` ring buffer + endpoints), and 19 (`migrate logs --follow`) are listed as Phase 2 future work. The progress streaming infrastructure already exists in code. This spec completes the package persistence (item 7 `PackageProgressSink` from Phase 1) and adds the diagnostics channel.
 - **Suggested update**: Mark items 7, 17, 18, 19 as completed or in-progress. Add new items for the diagnostics channel, endpoint rename, and TUI diagnostics panel.
 - **Status**: ✓ Resolved in speckit.implement
+

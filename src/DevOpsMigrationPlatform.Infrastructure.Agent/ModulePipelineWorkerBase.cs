@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,7 +14,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Microsoft.Extensions.Configuration;
@@ -37,9 +40,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent;
 /// </summary>
 public abstract class ModulePipelineWorkerBase : AgentWorkerBase
 {
-    /// <summary>Factory for creating per-job artefact and state stores.</summary>
-    protected IPackageStoreFactory PackageStoreFactory { get; }
-
     /// <summary>Progress sink for emitting <see cref="ProgressEvent"/> records.</summary>
     protected IProgressSink ProgressSink { get; }
 
@@ -54,6 +54,9 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
 
     /// <summary>Reads <c>migration-config.json</c> from the package at job start.</summary>
     protected IPackageMigrationConfigLoader PackageMigrationConfigLoader { get; }
+
+    /// <summary>Package boundary for package-scoped metadata and content writes.</summary>
+    protected IPackageAccess PackageAccess { get; }
 
     /// <summary>Explicit holder for the current job's raw package configuration.</summary>
     protected ICurrentPackageConfigAccessor CurrentPackageConfig { get; }
@@ -73,7 +76,6 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     private readonly IServiceScopeFactory _moduleScopeFactory;
 
     protected ModulePipelineWorkerBase(
-        IPackageStoreFactory packageStoreFactory,
         IProgressSink progressSink,
         ICheckpointingServiceFactory checkpointingFactory,
         IPhaseTrackingServiceFactory phaseTrackingFactory,
@@ -81,6 +83,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         ActivePackageState packageState,
         ICurrentPackageConfigAccessor currentPackageConfigAccessor,
         IPackageMigrationConfigLoader packageMigrationConfigLoader,
+        IPackageAccess packageAccess,
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
         ILogger logger,
@@ -96,12 +99,12 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
 #endif
                  )
     {
-        PackageStoreFactory = packageStoreFactory ?? throw new ArgumentNullException(nameof(packageStoreFactory));
         ProgressSink = progressSink ?? throw new ArgumentNullException(nameof(progressSink));
         CheckpointingFactory = checkpointingFactory ?? throw new ArgumentNullException(nameof(checkpointingFactory));
         PhaseTrackingFactory = phaseTrackingFactory ?? throw new ArgumentNullException(nameof(phaseTrackingFactory));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
         PackageMigrationConfigLoader = packageMigrationConfigLoader ?? throw new ArgumentNullException(nameof(packageMigrationConfigLoader));
+        PackageAccess = packageAccess ?? throw new ArgumentNullException(nameof(packageAccess));
         CurrentPackageConfig = currentPackageConfigAccessor ?? throw new ArgumentNullException(nameof(currentPackageConfigAccessor));
         _activeJobState = activeJobState;
         _moduleScopeFactory = moduleScopeFactory ?? throw new ArgumentNullException(nameof(moduleScopeFactory));
@@ -124,33 +127,35 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         => Task.CompletedTask;
 
     /// <summary>
-    /// Creates artefact/state stores for the package, sets the active package store,
-    /// and writes run metadata into the package when a run id is active.
+    /// Initializes package-scoped runtime state and writes run metadata into the package when a run id is active.
     /// </summary>
-    protected async Task<(IArtefactStore ArtefactStore, IStateStore StateStore)> InitializeJobPackageAsync(
+    protected async Task InitializeJobPackageAsync(
         Job job,
         CancellationToken ct)
     {
-        var (artefactStore, stateStore) = PackageStoreFactory.Create(job.Package.PackageUri ?? ".");
-        PackageState.CurrentStore = artefactStore;
-        await WriteRunMetadataAsync(job, artefactStore, ct).ConfigureAwait(false);
-        return (artefactStore, stateStore);
+        await WriteRunMetadataAsync(job, ct).ConfigureAwait(false);
     }
 
-    protected async Task WriteRunMetadataAsync(Job job, IArtefactStore artefactStore, CancellationToken ct)
+    protected async Task WriteRunMetadataAsync(Job job, CancellationToken ct)
     {
         var runId = PackageState.CurrentRunId;
         if (string.IsNullOrEmpty(runId))
             return;
 
-        var runJobPath = PackagePaths.RunJobFile(runId!);
         var jobJson = JsonSerializer.Serialize(job, AgentJsonOptions);
-        await artefactStore.WriteAsync(runJobPath, jobJson, ct).ConfigureAwait(false);
+        using var jobStream = new MemoryStream(Encoding.UTF8.GetBytes(jobJson), writable: false);
+        await PackageAccess.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress($".migration/runs/{runId}/job.json")),
+            new PackagePayload(jobStream, "application/json"),
+            ct).ConfigureAwait(false);
 
         if (!string.IsNullOrWhiteSpace(job.ConfigPayload))
         {
-            var runConfigPath = PackagePaths.RunConfigFile(runId!);
-            await artefactStore.WriteAsync(runConfigPath, job.ConfigPayload!, ct).ConfigureAwait(false);
+            using var cfgStream = new MemoryStream(Encoding.UTF8.GetBytes(job.ConfigPayload!), writable: false);
+            await PackageAccess.PersistContentAsync(
+                new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress($".migration/runs/{runId}/config.json")),
+                new PackagePayload(cfgStream, "application/json"),
+                ct).ConfigureAwait(false);
         }
     }
 
@@ -167,7 +172,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
         _activeJobState?.Set(job.JobId, job.Kind.ToString());
-        var (artefactStore, stateStore) = await InitializeJobPackageAsync(job, ct).ConfigureAwait(false);
+        await InitializeJobPackageAsync(job, ct).ConfigureAwait(false);
 
         // T035 — explicit fail-fast for pre-025 packages that have no migration-config.json.
         IConfiguration packageConfig;
@@ -194,7 +199,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         using var jobScope = _moduleScopeFactory.CreateScope();
         var jobModules = jobScope.ServiceProvider.GetServices<IModule>();
 
-        var checkpointer = CheckpointingFactory.Create(stateStore);
+        var checkpointer = CheckpointingFactory.Create(PackageAccess);
 
         if (job.Resume?.Mode == ResumeMode.ForceFresh)
         {
@@ -209,8 +214,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         var exportContext = new ExportContext
         {
             Job = job,
-            ArtefactStore = artefactStore,
-            StateStore = stateStore,
+            Package = PackageAccess,
             ProgressSink = ProgressSink
         };
 
@@ -241,5 +245,10 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
 
         await SignalTerminalAsync(controlPlane, leaseId, failed ? "fail" : "complete", ct)
             .ConfigureAwait(false);
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

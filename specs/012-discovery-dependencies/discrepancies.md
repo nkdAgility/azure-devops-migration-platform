@@ -7,7 +7,7 @@
 ## Discrepancies
 
 ### CLI command reference missing `discovery dependencies`
-- **Source doc**: `.agents/context/cli-commands.md`
+- **Source doc**: `.agents/30-context/domains/cli-commands.md`
 - **Section**: "3. Discovery Commands (`discovery`)" table
 - **Issue**: The canonical command reference lists only `discovery inventory`. The `discovery dependencies` command added by this feature is not registered.
 - **Suggested update**: Add the following row to the Discovery Commands table:
@@ -35,3 +35,4 @@
 - **Section**: "AzureDevOpsServices — Inventory", "TeamFoundationServer — Inventory", "Simulated — Inventory"
 - **Issue**: Each source type documents how `discovery inventory` uses it. There is no equivalent `Dependency` subsection documenting how `discovery dependencies` uses each source type (REST API for ADO, subprocess delegation for TFS, synthetic generation for Simulated).
 - **Suggested update**: Add a **Dependency Analysis** paragraph after each source type's Inventory section following the same pattern: describe the query mechanism, credential usage, and WIQL-scoped filtering behaviour.
+

@@ -24,7 +24,7 @@ Implement a `devopsmigration discovery inventory` CLI command that counts work i
 
 ## Constitution Check
 
-> ALL files in `/.agents/guardrails/`, relevant `/.agents/context/` files, and `/docs/` files have been read. See Architecture References table in `spec.md`.
+> ALL files in `/.agents/20-guardrails/`, relevant `/.agents/30-context/` files, and `/docs/` files have been read. See Architecture References table in `spec.md`.
 
 - [x] **Package-First (I):** Inventory is a read-only pre-flight operation. It writes no package and calls no `IArtefactStore`. Not applicable — no violation possible.
 - [x] **Streaming (II):** No revision folders or work item revisions are loaded into memory. Query windows are processed one at a time. The `IAsyncEnumerable<InventoryProgressEvent>` pattern ensures lazy streaming.
@@ -140,4 +140,40 @@ Each row is one ATDD session (one scenario, one commit).
 ## Complexity Tracking
 
 > No constitution gate violations requiring justification in this plan.
+
+---
+
+## Current status
+
+Plan implementation is **historical and mostly superseded** by the queue/control-plane/agent runtime architecture now present in the repository.
+
+## Remaining incomplete work (IDs)
+
+None. After reconciliation, no task is marked `— Status: incomplete`.
+
+## Completed because superseded (IDs + source)
+
+Superseded task set: `T003, T006-T008, T010-T038, T041`.
+
+Primary supersession sources:
+
+- `specs/025.1-fold-to-job/tasks.md` (queue/control-plane dispatch)
+- `specs/028.2-job-execution-by-task/tasks.md` (agent task-plan ownership)
+- `specs/033-runtime-state-categories/tasks.md` (inventory runtime outputs/cadence)
+- `specs/025-agent-config-package/tasks.md` (configuration/auth model consolidation)
+- `specs/020-resumable-batching-cursor/tasks.md` (windowing/resume behavioral evolution)
+
+## Contradictions and reconciliation
+
+- Direct CLI discovery command assumptions were replaced by `queue` job submission.
+- TFS subprocess adapter assumptions were replaced by `TfsMigrationAgent` worker execution.
+- `discovery-summary.csv` output assumptions were replaced by runtime `inventory.csv`/`inventory.json` package artifacts.
+
+## Verification evidence
+
+- `src/DevOpsMigrationPlatform.CLI.Migration/Program.cs` (queue-based command surface)
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/Discovery/InventoryOrchestrator.cs` (inventory artifact output + resume)
+- `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/InventoryServiceCollectionExtensions.cs` and `.../Factories/InventoryServiceFactory.cs` (DI/runtime wiring)
+- `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Inventory/*` and `tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsJobAgentWorkerTests.cs` (current verification surface)
+
 

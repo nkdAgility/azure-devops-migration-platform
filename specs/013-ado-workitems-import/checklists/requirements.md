@@ -6,9 +6,9 @@
 
 ## Content Quality
 
-- [x] No implementation details (languages, frameworks, APIs)
+- [ ] No implementation details (languages, frameworks, APIs)
 - [x] Focused on user value and business needs
-- [x] Written for non-technical stakeholders
+- [ ] Written for non-technical stakeholders
 - [x] All mandatory sections completed
 
 ## Requirement Completeness
@@ -26,11 +26,12 @@
 
 - [x] All functional requirements have clear acceptance criteria
 - [x] User scenarios cover primary flows
-- [x] Feature meets measurable outcomes defined in Success Criteria
+- [ ] Feature meets measurable outcomes defined in Success Criteria
 - [x] No implementation details leak into specification
 
 ## Notes
 
 - FR-004 and FR-018 reference SDK/abstraction names for traceability to the architecture; this is acceptable per platform convention (the architecture docs themselves name these).
-- All 18 functional requirements map to one or more acceptance scenarios in the user stories.
-- All checklist items pass. Spec is ready for `/speckit.clarify` or `/speckit.plan`.
+- Reconciliation status now diverges from this original pre-planning checklist: `tasks.md` has incomplete tasks T043, T046, T049, T050, and T051.
+- Task T016 is reconciled as complete/superseded by `features/import/work-items/revisions/import-work-item-revisions.feature`.
+- This checklist is retained as historical quality intent, but implementation reconciliation evidence now lives in `tasks.md`, `spec.md` (Current status), and `plan.md` (Current status).

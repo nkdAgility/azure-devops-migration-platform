@@ -3,7 +3,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
@@ -18,7 +18,7 @@ public interface INodeTranslationValidator
     /// otherwise falls back to scanning all <c>revision.json</c> files.
     /// </summary>
     Task<NodeTranslationValidationReport> ValidateAsync(
-        IArtefactStore artefactStore,
+        IPackageAccess package,
         ProjectMapping context,
         CancellationToken ct);
 }

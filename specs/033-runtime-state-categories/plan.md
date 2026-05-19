@@ -5,13 +5,26 @@
 
 ## Summary
 
-Align runtime behavior with the documented three-scope package model and the clarified save/progress cadence model. The implementation introduces explicit category boundaries for (1) package-wide orchestration state, (2) project-scoped module resume state, (3) fine-grained processing save/progress state (including work-item-batch saves and work-item-level progress), and (4) run-scoped audit state. The plan updates path contracts, checkpoint semantics, and observability/progress behavior so resume correctness, operator visibility, and deterministic replay remain consistent across Inventory/Export/Import.
+Align runtime behavior with the documented scoped package model and the clarified save/progress cadence model. The implementation introduces explicit category boundaries for (1) package-wide orchestration state, (2) scoped module resume state (project, organisation, migration), (3) fine-grained processing save/progress state (including work-item-batch saves and work-item-level progress), and (4) run-scoped audit state. The plan updates path contracts, checkpoint semantics, and observability/progress behavior so resume correctness, operator visibility, and deterministic replay remain consistent across Inventory/Export/Import.
+
+## Reconciliation Status (2026-05-17)
+
+- **Overall**: Partially implemented; task file reconciled to mixed complete/incomplete/superseded state.
+- **Incomplete implementation gaps**:
+  - Planned O-1 span names `state.paths.resolve`, `state.workitems.batch.save`, and `state.progress.emit` are not present in current source.
+  - Commit-discipline tasks T076-T078 are not evidenced by actual commits.
+- **Superseded references**:
+  - Multiple planned file locations were superseded by later architecture moves from specs/034-package-manager-adoption and specs/035-workitem-import-support.
+- **Verification evidence**:
+  - `/speckit.analyze` result: stale task paths + contradiction findings.
+  - `/speckit.checklist` result: PASS/FAIL matrix with key FR-003 and observability gaps.
+  - Targeted runtime-state test execution recorded in checklist output.
 
 ## Technical Context
 
 **Language/Version**: C# 12 / .NET 10 (plus net481 support where already present in shared abstractions)  
 **Primary Dependencies**: `Microsoft.Extensions.*` DI/options/logging, existing migration abstractions (`IArtefactStore`, `IStateStore`, `ICheckpointingService`), OpenTelemetry (`ActivitySource`, metrics, structured logging)  
-**Storage**: Filesystem/Blob package via `IArtefactStore`; state via `IStateStore` under root `.migration/` and `/{org}/{project}/.migration/`  
+**Storage**: Filesystem/Blob package via `IArtefactStore`; state via `IStateStore` under scoped metadata paths (`/{org}/{project}/.migration/`, `/{org}/.migration/`, and `/.migration/`)  
 **Testing**: MSTest + Reqnroll + Moq; full solution build/test gates (`dotnet build`, `dotnet test`)  
 **Target Platform**: Windows/Linux .NET 10 agent runtime; TFS connector support remains in net481 agent boundary  
 **Project Type**: Modular monolith backend + CLI/TUI orchestration tooling  
@@ -28,7 +41,7 @@ Align runtime behavior with the documented three-scope package model and the cla
 - [x] **Package-First (I):** Design keeps Source → Package → Target only; state authority remains package-resident via `IArtefactStore`/`IStateStore`.  
 - [x] **Streaming (II):** Design preserves one-folder-at-a-time processing and forbids global in-memory sort/materialization.  
 - [x] **WorkItems Layout (III):** WorkItems folder contract remains unchanged; only save/progress cadence and cursor identity semantics change.  
-- [x] **Checkpointing (IV):** Design moves authoritative resume semantics to project-scoped `/{org}/{project}/.migration/` action-qualified cursors and keeps package-level orchestration at root `.migration/`.  
+- [x] **Checkpointing (IV):** Design keeps authoritative resume semantics on scoped action-qualified cursors (`/{org}/{project}/.migration/`, `/{org}/.migration/`, and `/.migration/`) with read precedence project → org → package.  
 - [x] **Module Isolation (V):** No direct filesystem bypass; state and artefacts remain behind abstractions and identity service conventions.  
 - [x] **Separation of Planes (VI):** No migration logic moved into control plane/CLI/TUI; runtime execution remains in agent path.  
 - [x] **Determinism (VII):** Resume and phase-gate decisions become more deterministic by removing run-scope authority and action-namespace collisions.  

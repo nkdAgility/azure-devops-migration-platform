@@ -1,143 +1,110 @@
 # Implementation Plan: Inline Comment Fetching for Edit/Delete Revisions
 
-**✅ STATUS: IMPLEMENTED (feature-gated, SDK bug non-fatal)**
+**✅ STATUS: IMPLEMENTED (feature-gated); reconciled to current repository evidence**
 
 ---
 
 ## Implementation Summary
 
-Tasks 1–4 and 6–7 are complete. The feature is gated behind `inlineComments.enabled: true`
-in the scenario config (default: `false`) to avoid unexpected API calls in standard exports.
+Tasks 1–6 are complete. Task 7 remains incomplete pending a fresh full-suite build/test run.
+The feature is gated through `Modules.WorkItems.Extensions.Comments.Enabled`.
 
-**Known limitation:** `AzureDevOpsWorkItemCommentSource.GetCommentsAsync()` still has an
-upstream SDK bug (`$top` parameter out of range). Errors are non-fatal — a progress warning
-is emitted and the export continues. Full comment data will be available once the SDK is fixed.
-
-**Task 5 (remove legacy post-processing)** is deferred: `IWorkItemCommentExportService` is
-retained but never injected (not registered in DI), so it is inert. Removal is a separate
-cleanup task once the inline path is fully validated.
+**Known limitation:** inline comment fetch failures are handled as non-fatal (warning + continue),
+so export remains resumable and deterministic even when comment API calls fail.
 
 ---
 
 ## Task List
 
-### ✅ Task 1: Add Comment Detection Method [DONE]
-**Status:** Complete — commit `f9423e9`
+- [x] Task 1: Add Comment Detection Method — Status: complete
 **File:** `WorkItemExportOrchestrator.cs`  
 **Description:** Implemented `IsCommentEditOrDeleteRevision()` static method.
 Guards `RevisionIndex == 0` (creation revision excluded — all fields appear as changed when
-previous is null, making CommentCount unreliable).
+previous is null, making CommentCount unreliable).  
+**Evidence:** `src\DevOpsMigrationPlatform.Infrastructure.Agent\Export\WorkItemExportOrchestrator.cs` (`IsCommentEditOrDeleteRevision`) and tests `IsCommentEditOrDeleteRevision_*` in `tests\DevOpsMigrationPlatform.Infrastructure.Agent.Tests\Export\WorkItemExportOrchestratorTests.cs`.
 
 ---
 
-### ✅ Task 2: Add Factory Injection to Orchestrator [DONE]
-**Status:** Complete — commit `f9423e9`
+- [x] Task 2: Add Factory Injection to Orchestrator — Status: complete
 **File:** `WorkItemExportOrchestrator.cs`  
-**Description:** Added `IWorkItemCommentSourceFactory?` optional constructor parameter and field.
+**Description:** Added `IWorkItemCommentSourceFactory?` optional constructor parameter and field.  
+**Evidence:** `WorkItemExportOrchestrator` constructor parameter `inlineCommentSourceFactory` and `_inlineCommentSourceFactory` assignment.
 
 ---
 
-### ✅ Task 3: Update Dependency Injection in WorkItemsModule [DONE]
-**Status:** Complete — commit `f9423e9`
+- [x] Task 3: Update Dependency Injection in WorkItemsModule — Status: complete
 **File:** `WorkItemsModule.cs`  
-**Description:** Module accepts `IWorkItemCommentSourceFactory?` from DI. Passes it to the
-orchestrator only when `inlineComments.enabled: true` is set in the scope parameters.
+**Description:** Module accepts `IWorkItemCommentSourceFactory?` from DI and passes it to the
+orchestrator when `Comments.Enabled` is true.  
+**Evidence:** `src\DevOpsMigrationPlatform.Infrastructure.Agent\Modules\WorkItemsModule.cs` (warning on missing factory and conditional `inlineFactory` wiring to orchestrator).
 
 ---
 
-### ✅ Task 4: Integrate Inline Comment Fetching [DONE]
-**Status:** Complete — commit `f9423e9`
+- [x] Task 4: Integrate Inline Comment Fetching — Status: complete
 **File:** `WorkItemExportOrchestrator.cs` - `ExportAsync()` method  
 **Description:** For detected comment edit/delete revisions, fetches comments via
 `IWorkItemCommentSource.GetCommentsAsync()`, filters by ±1 second timestamp window, and
-writes `comment.json` beside `revision.json`. SDK errors are non-fatal (progress warning,
-export continues).
+writes `comment.json` beside `revision.json`. Failures are warning-level and non-fatal.  
+**Evidence:** `src\DevOpsMigrationPlatform.Infrastructure.Agent\Export\WorkItemExportOrchestrator.cs` (inline fetch/write block) and tests `ExportAsync_WhenCommentEditRevision_*`.
 
 ---
 
-### ⏸️ Task 5: Remove Legacy Comment Export Post-Processing [DEFERRED]
-**Status:** Deferred — `IWorkItemCommentExportService` is inert (never injected via DI)
+- [x] Task 5: Remove Legacy Comment Export Post-Processing — Status: complete
 **File:** `WorkItemExportOrchestrator.cs` - `ExportAsync()` method  
-**Description:** Remove the `_commentExportService` plumbing once inline path is fully validated.
+**Description:** Legacy post-processing path is no longer present in runtime code.  
+**Evidence:** repository search in `src\` for `IWorkItemCommentExportService` / `WorkItemCommentExportService` returns no matches.
 
 ---
 
-### ✅ Task 6: Add Using Statements [DONE]
-**Status:** Complete — commit `f9423e9`
+- [x] Task 6: Add Using Statements — Status: complete
 **File:** `WorkItemExportOrchestrator.cs`  
-**Description:** Required `using DevOpsMigrationPlatform.Abstractions.Models;` added.
+**Description:** Required `using DevOpsMigrationPlatform.Abstractions.Models;` is present.  
+**Evidence:** `src\DevOpsMigrationPlatform.Infrastructure.Agent\Export\WorkItemExportOrchestrator.cs` imports include the model namespace.
 
 ---
 
-### ✅ Task 7: Build and Verify [DONE]
-**Status:** Complete — all 255 tests pass (253 pass, 2 skipped — require running control plane)
+- [ ] Task 7: Build and Verify — Status: incomplete
 **File:** All modified files  
+**Description:** Fresh full-repository build + full test suite verification for this reconciliation snapshot is not yet recorded in this spec artifact.  
+**Evidence:** Targeted checks passed (`dotnet build src\DevOpsMigrationPlatform.Infrastructure.Agent\DevOpsMigrationPlatform.Infrastructure.Agent.csproj` and `dotnet test tests\DevOpsMigrationPlatform.Infrastructure.Agent.Tests\DevOpsMigrationPlatform.Infrastructure.Agent.Tests.csproj --filter "WorkItemExportOrchestratorTests"` with 29 passed), but no completed full-solution test run evidence is captured here.
 
 ---
 
 ## Dependencies
 
-Task execution order (once SDK bug is fixed):
+Task execution order:
 1. Task 1 → Task 2 → Task 3 → Task 4 → Task 5 → Task 6 → Task 7
 
 Each task blocks the next because later tasks depend on earlier code changes being compiled.
 
 ---
 
-## Testing Strategy (For Future Reference)
+## Testing Strategy
 
-### Unit Tests (When Implemented)
+### Unit Tests (Implemented)
 - `IsCommentEditOrDeleteRevision()` with various field combinations
 - Timestamp correlation logic (±1 second boundary cases)
 - Null-safety: factory not available, no credentials, empty comment list
 
-### Integration Tests (When Implemented)
+### Integration Tests (Implemented)
 - Comment source factory mock returns synthetic comments
-- Verify comment.json written for edit/delete revisions
-- Verify NO comment.json for addition revisions
+- Verify `comment.json` written for edit/delete revisions
+- Verify NO `comment.json` for addition revisions
 - Verify cursor advancement with comment revisions
 
-### System Tests (When Implemented)
+### System/End-to-End Tests (Partially verified in this reconciliation)
 - Run full export on work item with comments (add + edit + delete)
 - Verify output folder structure matches spec
-- Verify comment.json contains expected comment versions
+- Verify `comment.json` contains expected comment versions
 - Resume from checkpoint with comment-edit revision
 
 ---
 
-## When to Unblock (SDK Bug Fix Checklist)
+## Remaining Work
 
-Before resuming implementation, verify:
+Before marking Task 7 complete:
 
-1. [ ] `AzureDevOpsWorkItemCommentSource.GetCommentsAsync()` parameter mapping is correct
-2. [ ] Azure DevOps Comments API call succeeds with proper parameters
-3. [ ] No "parameter out of range" error on `$top` parameter
-4. [ ] Comment fetching returns correct results in tests
-5. [ ] Existing system tests still pass with SDK upgrade
-6. [ ] Upstream SDK has released the fix (no local monkey-patching)
-
----
-
-## Resumption Instructions
-
-When the upstream SDK bug is fixed:
-
-1. Read the original [spec.md](./spec.md) "Planned User Scenarios" section
-2. Review the reference design in "Reference Implementation Design" section
-3. Execute tasks in order: Task 1 → Task 2 → Task 3 → Task 4 → Task 5 → Task 6 → Task 7
-4. Run all unit + integration + system tests
-5. Verify `dotnet clean && dotnet build --no-incremental` passes
-6. Verify `dotnet test` passes all tests
-7. Run at least one scenario config with comment-enabled work item export
-
----
-
-## Rollback Plan (Not Needed — No Code Changes)
-
-Since implementation is deferred, there is nothing to roll back.
-
-If the SDK bug is unfixed indefinitely:
-- Comment additions remain available via System.History field
-- Export functionality continues to work for all current use cases
-- Comment edit/delete history is acceptable data loss (non-critical)
+1. Run a fresh full-solution build.
+2. Run a fresh full-solution test suite.
+3. Record command evidence in this file.
 

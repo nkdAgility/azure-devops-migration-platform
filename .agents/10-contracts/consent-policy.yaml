@@ -1,0 +1,13 @@
+version: 1
+operator_consent:
+  required_for:
+    - "Any Class C change"
+    - "Any explicit guardrail challenge outcome"
+  evidence:
+    - "Recorded human approval in session"
+    - "Linked ADR update"
+    - "Linked contract test evidence"
+  block_if_missing: true
+  notes:
+    - "Silently applying a Class C change is a completion blocker."
+    - "Consent does not waive test or architecture evidence requirements."

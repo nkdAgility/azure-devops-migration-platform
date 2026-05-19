@@ -9,13 +9,14 @@ using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -38,8 +39,7 @@ public sealed class JobAgentWorkerInventoryTests
         var baseContext = new InventoryContext
         {
             Job = new Job { JobId = "job-1", Kind = JobKind.Inventory },
-            ArtefactStore = Mock.Of<IArtefactStore>(),
-            StateStore = Mock.Of<IStateStore>(),
+            Package = PackageTestFactory.CreateLooseMock().Object,
             ProgressSink = Mock.Of<IProgressSink>()
         };
 
@@ -204,8 +204,7 @@ public sealed class JobAgentWorkerInventoryTests
             var context = new InventoryContext
             {
                 Job = new Job { JobId = "job-1", Kind = JobKind.Inventory },
-                ArtefactStore = Mock.Of<IArtefactStore>(),
-                StateStore = Mock.Of<IStateStore>(),
+                Package = PackageTestFactory.CreateLooseMock().Object,
                 ProgressSink = progressSink
             };
 

@@ -5,6 +5,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 
 internal static class PackageBoundaryTestFixture
 {
-    public const string ContractsAssemblyName = "DevOpsMigrationPlatform.Abstractions.Agent";
+    public const string ContractsAssemblyName = "DevOpsMigrationPlatform.Abstractions.Storage";
 }
 

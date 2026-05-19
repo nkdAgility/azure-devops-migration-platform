@@ -2,8 +2,8 @@
 
 This package contains a documentation architecture skill for reviewing and restructuring:
 
-- `.agents/guardrails`
-- `.agents/context`
+- `.agents/20-guardrails`
+- `.agents/30-context`
 - `docs`
 
 The skill is designed to deepen and broaden human documentation while controlling the token surface for agent-facing files.
@@ -28,6 +28,7 @@ Use this skill when you want an agent to:
 - propose restructuring opportunities
 - split operator, advanced operator, contributor, context, guardrail, and ADR content
 - reduce duplication and drift
-- keep `.agents/context` concise
-- keep `.agents/guardrails` enforceable
+- keep `.agents/30-context` concise
+- keep `.agents/20-guardrails` enforceable
 - deepen `/docs` for humans
+

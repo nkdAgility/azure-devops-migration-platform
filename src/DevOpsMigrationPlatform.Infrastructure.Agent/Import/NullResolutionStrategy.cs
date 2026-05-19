@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -27,4 +26,3 @@ public sealed class NullResolutionStrategy : IWorkItemResolutionStrategy
     public Task WriteProvenanceAsync(int sourceWorkItemId, int targetWorkItemId, CancellationToken ct) =>
         Task.CompletedTask;
 }
-#endif

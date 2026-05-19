@@ -19,7 +19,7 @@ Contributors must use a tests-first workflow.
 - GREEN: make the minimal code change that turns that test green, then widen verification.
 - REFACTOR: clean up only after the changed slice is green, while keeping it green.
 
-This repository treats production-first additions as non-compliant work. The exact enforcement lives in [test-first-workflow.md](../.agents/guardrails/test-first-workflow.md) and [definition-of-done.md](../.agents/guardrails/definition-of-done.md). The contributor-facing explanation lives in [testing-guide.md](testing-guide.md).
+This repository treats production-first additions as non-compliant work. The exact enforcement lives in [test-first-workflow.md](../.agents/20-guardrails/workflow/test-first-workflow.md) and [definition-of-done.md](../.agents/20-guardrails/workflow/definition-of-done.md). The contributor-facing explanation lives in [testing-guide.md](testing-guide.md).
 
 ## Testing
 
@@ -73,4 +73,6 @@ For architectural information, start with:
 - [module-development-guide.md](module-development-guide.md)
 - [connector-development-guide.md](connector-development-guide.md)
 
-Agents and automation are additionally constrained by the guardrails under [.agents/guardrails](../.agents/guardrails/README.md).
+Agents and automation are additionally constrained by the guardrails under [.agents/20-guardrails](../.agents/20-guardrails/README.md).
+
+

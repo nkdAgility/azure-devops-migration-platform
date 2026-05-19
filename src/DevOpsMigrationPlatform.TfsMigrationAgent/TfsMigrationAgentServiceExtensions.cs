@@ -8,7 +8,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
+using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
@@ -16,8 +18,10 @@ using DevOpsMigrationPlatform.Infrastructure.Agent;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Export;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import;
 
 namespace DevOpsMigrationPlatform.TfsMigrationAgent;
 
@@ -54,14 +58,18 @@ public static class TfsMigrationAgentServiceExtensions
         services.AddSingleton<IClassificationTreeCapture, TfsClassificationTreeCapture>();
         services.AddSingleton<IWorkItemRevisionSourceFactory, TfsActiveJobWorkItemRevisionSourceFactory>();
         services.AddSingleton<IIdentitySource, TfsActiveJobIdentitySource>();
+        services.AddSingleton<INodeCreator, TfsActiveJobNodeCreator>();
+        services.AddSingleton<TfsActiveJobWorkItemTypeReadinessTargetFactory>();
+        services.TryAddSingleton<IWorkItemTypeReadinessTargetFactory>(sp => sp.GetRequiredService<TfsActiveJobWorkItemTypeReadinessTargetFactory>());
 
         // Export progress store — SQLite-backed fast-forward resume (now supported on net481).
         services.AddSingleton<IExportProgressStoreFactory, ExportProgressStoreFactory>();
 
-        // Register IModule pipeline (export-only on net481).
+        // Register IModule pipeline (export-only on net481 for Teams/WorkItems/Nodes/Identities).
         services.AddIdentitiesModule(configuration);
         services.AddNodesModule(configuration);
-        services.AddWorkItemsModule();
+        services.AddTeamsModule(configuration);
+        services.AddWorkItemsModule(configuration);
 
         // NOTE (spec 032, D-007): AddDependencyCapture() is intentionally NOT called here.
         // TFS sources do not support per-project dependency capture; the TFS plan builder emits
@@ -104,6 +112,8 @@ public static class TfsMigrationAgentServiceExtensions
     /// </summary>
     private sealed record TfsSourceEndpointInfo(string Url, string Project, string ConnectorType) : ISourceEndpointInfo
     {
+        public string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
+
         // TFS uses its own SDK for auth — return a minimal endpoint for compatibility.
         public OrganisationEndpoint ToOrganisationEndpoint() =>
             new OrganisationEndpoint { ResolvedUrl = Url, Type = ConnectorType };

@@ -61,4 +61,4 @@ Rejected. The current TUI is a useful baseline, but it is not the intended long-
 - [../cli-guide.md](../cli-guide.md)
 - [../tui-guide.md](../tui-guide.md)
 - [../ui-mode-contract.md](../ui-mode-contract.md)
-- [../../.agents/guardrails/cli-tui-rules.md](../../.agents/guardrails/cli-tui-rules.md)
+- [../../.agents/20-guardrails/domains/cli-tui-rules.md](../../.agents/20-guardrails/domains/cli-tui-rules.md)

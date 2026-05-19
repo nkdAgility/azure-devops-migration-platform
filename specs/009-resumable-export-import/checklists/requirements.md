@@ -31,4 +31,6 @@
 
 ## Notes
 
-All items pass. Spec is ready for `/speckit.clarify` or `/speckit.plan`.
+Historical quality gate passed at authoring time.  
+Current reconciliation truth is tracked in `checklists/reconciliation.md` and `tasks.md` (incomplete IDs: `T005`, `T015`, `T026`, `T034`).  
+Known contradiction retained for follow-up: `quickstart.md` force-fresh overwrite wording conflicts with spec FR-012 non-overwrite requirement.

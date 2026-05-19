@@ -2,8 +2,35 @@
 
 **Feature Branch**: `022-workitem-field-mapping`  
 **Created**: 2026-04-24  
-**Status**: Draft  
+**Status**: Reconciled (partially complete)  
 **Input**: User description: "M1: WorkItemsModule — FieldMapping from analysis/proposed-features.md. Check against azure-devops-migration-tools field mapping tool and advise on screaming architecture naming."
+
+## Current status
+
+- Field transform capability is implemented in the codebase (`IFieldTransformTool`, transform implementations, DI wiring, import-stage usage, docs, and test assets exist).
+- Task ledger reconciliation identifies completion drift in verification/polish tasks.
+- This spec is not fully done because verification gates and several polish tasks remain incomplete.
+
+## Remaining incomplete work (IDs)
+
+T016, T024, T030, T038, T046, T054, T065, T071, T079, T085, T092, T093, T094, T095, T096, T097, T098.
+
+## Completed because superseded (IDs + source)
+
+- T056 superseded by `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/FieldTransform/Transforms/WorkItemTagParser.cs`
+- T062 superseded by `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Tools/FieldTransform/Transforms/WorkItemTagParserTests.cs`
+
+## Contradictions and reconciliation
+
+- `tasks.md` previously marked all tasks complete, but current repository truth shows failing baseline build/test and missing benchmark/integration evidence; affected tasks were marked incomplete with evidence notes.
+- Planned `TagUtilities` artifacts were replaced by `WorkItemTagParser` naming in implementation; tasks were marked complete/superseded.
+- Spec lifecycle status (`Draft`) contradicted task completion claims and has been updated to reconciled partial-completion status.
+
+## Verification evidence
+
+- Build/test verification attempt on 2026-05-17: `dotnet build --no-incremental && dotnet test tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/... --filter "FieldTransform|WorkItemsModuleImport"` failed with 4 compile errors in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/ImportCheckpointServiceTests.cs`.
+- Implementation evidence: `FieldTransformFactory`, `FieldTransformPipeline`, `FieldTransformTool`, `FieldTransformValidator`, and import-stage wiring in `RevisionFolderProcessor`.
+- Documentation evidence: `docs/configuration-reference.md`, `docs/module-development-guide.md`, and `docs/architecture.md` include FieldTransform/tool model updates.
 
 ## Architecture References
 
@@ -12,9 +39,9 @@
 | `docs/architecture.md` | Confirmed accurate — tool resolution model not yet documented (discrepancy logged) |
 | `docs/module-development-guide.md` | Confirmed accurate — WorkItemsModule and extension model documented; no tool injection model yet (discrepancy logged) |
 | `docs/configuration-reference.md` | Confirmed accurate — `Tools` top-level section not yet documented (discrepancy logged) |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — rules 6 (no direct S→T), 7 (IArtefactStore only), 8 (identity cross-cutting), 14 (lexicographic enumeration), 21 (mandatory reuse) all apply |
-| `.agents/context/migration-package-concept.md` | Confirmed accurate — revision.json is the write target |
-| `.agents/context/workitems-format-summary.md` | Confirmed accurate — field values stored in revision.json |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — rules 6 (no direct S→T), 7 (IArtefactStore only), 8 (identity cross-cutting), 14 (lexicographic enumeration), 21 (mandatory reuse) all apply |
+| `.agents/30-context/domains/migration-package-concept.md` | Confirmed accurate — revision.json is the write target |
+| `.agents/30-context/domains/workitems-format-summary.md` | Confirmed accurate — field values stored in revision.json |
 | `analysis/proposed-features.md` | Source — M1 and T1 sections define the 14 map types and tool resolution model |
 
 ## Clarifications
@@ -407,3 +434,4 @@ As a migration operator, I want to merge multiple source fields into a single ta
 - Work item type remapping is handled by a separate `WorkItemTypeMappingTool` (T3) and is out of scope for this feature.
 - Runtime error policy for v1 is fail-fast on first transform error. Future integration with P4 (Operator Interaction — see `analysis/proposed-features.md`) will allow pause-and-ask behaviour.
 - Dry-run mode: prepare-time validation (FR-020) includes a sample dry-run against a configurable number of work items. A full dry-run across all items is a future feature.
+

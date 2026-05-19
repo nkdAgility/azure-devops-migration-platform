@@ -94,7 +94,7 @@ This document provides a quick reference linking the design to each SOLID princi
 
 ## ✅ Architectural Guardrails Alignment
 
-### System Architecture ([.agents/guardrails/architecture-boundaries.md](../../.agents/guardrails/architecture-boundaries.md))
+### System Architecture ([.agents/20-guardrails/core/architecture-boundaries.md](../../.agents/20-guardrails/core/architecture-boundaries.md))
 
 | Rule | Specification Compliance | Status |
 |------|--------------------------|--------|
@@ -111,7 +111,7 @@ This document provides a quick reference linking the design to each SOLID princi
 
 ---
 
-### Coding Standards ([.agents/guardrails/coding-standards.md](../../.agents/guardrails/coding-standards.md))
+### Coding Standards ([.agents/20-guardrails/core/coding-standards.md](../../.agents/20-guardrails/core/coding-standards.md))
 
 | Standard | Specification Compliance | Status |
 |----------|--------------------------|--------|
@@ -127,7 +127,7 @@ This document provides a quick reference linking the design to each SOLID princi
 
 ---
 
-### WorkItems Rules ([.agents/guardrails/workitems-rules.md](../../.agents/guardrails/workitems-rules.md))
+### WorkItems Rules ([.agents/20-guardrails/domains/workitems-rules.md](../../.agents/20-guardrails/domains/workitems-rules.md))
 
 | Rule | Specification Compliance | Status |
 |------|--------------------------|--------|
@@ -252,9 +252,9 @@ When the upstream SDK bug is fixed, use this checklist:
 - **SOLID Checklist:** [SOLID_COMPLIANCE_CHECKLIST.md](./SOLID_COMPLIANCE_CHECKLIST.md)
 
 **Guardrails Documents:**
-- [.agents/guardrails/architecture-boundaries.md](../../.agents/guardrails/architecture-boundaries.md)
-- [.agents/guardrails/coding-standards.md](../../.agents/guardrails/coding-standards.md)
-- [.agents/guardrails/workitems-rules.md](../../.agents/guardrails/workitems-rules.md)
+- [.agents/20-guardrails/core/architecture-boundaries.md](../../.agents/20-guardrails/core/architecture-boundaries.md)
+- [.agents/20-guardrails/core/coding-standards.md](../../.agents/20-guardrails/core/coding-standards.md)
+- [.agents/20-guardrails/domains/workitems-rules.md](../../.agents/20-guardrails/domains/workitems-rules.md)
 
 **Architecture Documents:**
 - [docs/architecture.md](../../docs/architecture.md)
@@ -270,3 +270,4 @@ When the upstream SDK bug is fixed, use this checklist:
 | Compliance | Copilot | 2026-04-11 | ✅ APPROVED |
 
 **Verdict:** Feature 011 specification is **ready for implementation** once the upstream SDK bug is resolved. No architectural redesign needed.
+

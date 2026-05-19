@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
@@ -18,6 +18,7 @@ using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -35,20 +36,12 @@ public sealed class DependencyCaptureTests
     private static InventoryContext CreateContext(
         IProgressSink? progressSink = null,
         string project = Project,
-        Mock<IArtefactStore>? artefactStoreMock = null)
+        IPackageAccess? package = null)
     {
-        var store = artefactStoreMock ?? new Mock<IArtefactStore>(MockBehavior.Strict);
-        // Only add the default ExistsAsync setup when we created the mock ourselves
-        if (artefactStoreMock is null)
-        {
-            store.Setup(s => s.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                 .ReturnsAsync(false);
-        }
         return new()
         {
             Job = new Job { JobId = JobId },
-            ArtefactStore = store.Object,
-            StateStore = new Mock<IStateStore>(MockBehavior.Strict).Object,
+            Package = package ?? PackageTestFactory.CreateLooseMock().Object,
             ProgressSink = progressSink,
             SourceEndpoint = new OrganisationEndpoint
             {
@@ -496,9 +489,9 @@ public sealed class DependencyCaptureTests
         var factory = new Mock<IDependencyDiscoveryServiceFactory>(MockBehavior.Strict);
         var orchestrator = new Mock<IDependencyOrchestrator>(MockBehavior.Strict);
         var service = new Mock<IDependencyDiscoveryService>(MockBehavior.Strict);
-        var artefactStore = new Mock<IArtefactStore>(MockBehavior.Strict);
+        var packageMock = PackageTestFactory.CreateLooseMock();
 
-        artefactStore.Setup(s => s.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        packageMock.Setup(p => p.ContentExistsAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true); // file already exists → should trigger debug log
 
         factory.Setup(f => f.CreateForProject(
@@ -515,7 +508,7 @@ public sealed class DependencyCaptureTests
             .ReturnsAsync(new DependencyCounters());
 
         var capture = new DependencyCapture(factory.Object, orchestrator.Object, logger.Object);
-        await capture.CaptureAsync(CreateContext(artefactStoreMock: artefactStore), CancellationToken.None);
+        await capture.CaptureAsync(CreateContext(package: packageMock.Object), CancellationToken.None);
 
         logger.Verify(
             x => x.Log(

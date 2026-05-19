@@ -26,10 +26,26 @@
 
 - [x] All functional requirements have clear acceptance criteria
 - [x] User scenarios cover primary flows
-- [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] No implementation details leak into specification
+- [ ] Feature meets measurable outcomes defined in Success Criteria
+- [ ] No implementation details leak into specification
+
+## Implementation Reconciliation (2026-05-16)
+
+- [x] Task ledger reconciled with current repository paths and project split
+- [ ] Resume fingerprint mismatch safety-net is enforced in `FetchAsync`
+- [ ] `IQueryFingerprintService` is registered/injected for resumable fetch flow
+- [ ] Resume decision telemetry/logging contract is fully implemented
+- [ ] Documentation and discrepancies are aligned with current code truth
+- [ ] Full build + full test + scenario verification evidence recorded
+
+### Verification Evidence Snapshot (2026-05-17)
+
+- [x] `dotnet clean DevOpsMigrationPlatform.slnx --nologo` + `dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo` succeeded.
+- [ ] `dotnet test DevOpsMigrationPlatform.slnx --no-build --nologo` stalled in `DevOpsMigrationPlatform.ControlPlane.Tests` and was stopped.
+- [ ] Scenario run via `.vscode/launch.json` (`scenarios/queue-export-ado-workitems-single-project.json`) not executed in this reconciliation session.
+- [x] `/speckit.analyze` and `/speckit.checklist` executed and findings reconciled into spec/plan/tasks evidence.
 
 ## Notes
 
-- Validation pass completed with no failing checklist items.
-- Architecture references are included in the spec and related documentation gaps are tracked in discrepancies.md.
+- Spec quality remains mostly valid, but implementation/readiness checks are currently failing.
+- `tasks.md` is the authoritative truth source for completion state and evidence.

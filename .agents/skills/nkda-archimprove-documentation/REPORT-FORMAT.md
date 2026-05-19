@@ -11,8 +11,8 @@ Use this format when reporting documentation architecture findings.
 
 Included:
 
-- `.agents/guardrails`
-- `.agents/context`
+- `.agents/20-guardrails`
+- `.agents/30-context`
 - `docs`
 
 Excluded:
@@ -122,10 +122,11 @@ Include this checklist when changes are made:
 ```markdown
 - [ ] Relevant source docs were re-read.
 - [ ] Audience and authority were preserved or corrected.
-- [ ] `.agents/context` token surface was not expanded unnecessarily.
-- [ ] `.agents/guardrails` remains imperative and testable.
+- [ ] `.agents/30-context` token surface was not expanded unnecessarily.
+- [ ] `.agents/20-guardrails` remains imperative and testable.
 - [ ] `/docs` remains human-facing and navigable.
 - [ ] Links and related-document sections were updated.
 - [ ] ADR impact was checked.
 - [ ] Open questions were recorded.
 ```
+

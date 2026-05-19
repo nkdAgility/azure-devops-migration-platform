@@ -32,3 +32,4 @@
 ## Notes
 
 All items pass. Spec is ready for `/speckit.plan`.
+Reconciled 2026-05-17: see `plan.md`, `tasks.md`, and `checklists/reconciliation.md` for current implementation-status truth.

@@ -26,11 +26,19 @@
 
 - [x] All functional requirements have clear acceptance criteria
 - [x] User scenarios cover primary flows
-- [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] No implementation details leak into specification
+- [ ] Feature meets measurable outcomes defined in Success Criteria
+- [ ] No implementation details leak into specification
+
+## Reconciliation Status (2026-05-17)
+
+- [ ] Verification gates are currently green (`dotnet build --no-incremental`, `dotnet test`)
+- [ ] Performance benchmark evidence exists for SC-003 (Task T095)
+- [ ] End-to-end Agile→Scrum integration evidence exists for SC-001/SC-002 (Task T096)
+- [ ] `Assert.Inconclusive()` cleanup is complete across tests (Task T097)
+- [x] Tag helper implementation is present via `WorkItemTagParser`/`WorkItemTagParserTests` (supersedes T056/T062)
 
 ## Notes
 
-- All items pass. Spec is ready for `/speckit.clarify` or `/speckit.plan`.
-- The Screaming Architecture naming recommendation is advisory; final naming is confirmed during planning.
-- The `CalculateField` expression language is intentionally left as an assumption (implementation detail).
+- Reconciliation found incomplete execution/verification tasks (T016, T024, T030, T038, T046, T054, T065, T071, T079, T085, T092, T093, T094, T095, T096, T097, T098).
+- Two tasks are complete/superseded: T056 and T062 (renamed to `WorkItemTagParser` artifacts).
+- The spec still contains implementation-oriented details and requires lifecycle/status refresh.

@@ -3,6 +3,27 @@
 **Branch**: `030-module-analiser-refactor` | **Date**: 2026-05-03 | **Spec**: [spec.md](spec.md)
 **Input**: Feature specification from `/specs/030-module-analiser-refactor/spec.md`
 
+## Reconciliation Status (2026-05-17)
+
+- **Status**: Implemented baseline with later supersession.
+- **Complete baseline**: phase consolidation, analyser introduction, prepare wiring, and documentation updates were implemented.
+- **Superseded design segments**:
+  - Inventory method naming and dispatch model superseded by `specs/032-icapture-interface`.
+  - Discovery/migration metric catalogs superseded by `specs/031-platform-metrics-unification`.
+  - Dependencies analyse-only dispatch assumption superseded by current fan-in planner/runtime behavior.
+- **Superseded task IDs (marked inline in `tasks.md`)**: `T009`, `T010`, `T012`, `T013`, `T069`, `T079f`, `T080`, `T088`.
+- **Remaining incomplete work in this spec folder**: none open in `tasks.md`; unresolved items are contradictions, not missing execution.
+- **Artefact note**: `quickstart.md` and `contracts/*` are absent in this spec folder (legacy shape); reconciliation evidence is captured in `spec.md`, `plan.md`, and `tasks.md`.
+- **Verification evidence**:
+  - `/speckit.analyze` on `specs/030-module-analiser-refactor` (high-severity drift findings on capture naming, metrics naming, and dependencies flow).
+  - `/speckit.checklist` reconciliation run (7 satisfied / 6 unsatisfied checks).
+  - Code truth checks in:
+    - `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IModule.cs`
+    - `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/ICapture.cs`
+    - `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownAgentMetricNames.cs`
+    - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Context/JobExecutionPlanBuilder.cs`
+    - `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`
+
 ## Summary
 
 The current `IModule` contract supports only `ExportAsync` and `ImportAsync`. Two additional operational phases — `Inventory` and `Prepare` — are abused via `ExportAsync` in standalone discovery modules (`InventoryModule`, `InventoryDiscoveryModule`, `DependencyDiscoveryModule`) that are semantically misaligned. Additionally, `PrepareAsync` is documented in `docs/module-development-guide.md` but absent from the actual interface.
@@ -34,7 +55,7 @@ Research findings are in [research.md](research.md). Data model is in [data-mode
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 > **Mandatory context loading:** Before completing this gate, confirm that ALL files in
-> `/.agents/guardrails/`, ALL files in `/.agents/context/`, and relevant `/docs/` files
+> `/.agents/20-guardrails/`, ALL files in `/.agents/30-context/`, and relevant `/docs/` files
 > have been read. Skipping either `.agents/` subdirectory is a constitution violation.
 
 - [x] **Package-First (I):** `InventoryAsync` and `PrepareAsync` write only via `IArtefactStore`. `AnalyseAsync` reads and writes artefacts only. No source-to-target migration. Verified.
@@ -393,3 +414,4 @@ tests/
 ## Complexity Tracking
 
 No constitution violations requiring justification.
+

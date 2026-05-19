@@ -47,6 +47,7 @@ When `--stage` is provided it is the **single source of truth**. It overrides al
 - DO NOT execute Step 0.
 - DO NOT infer the target from file type or current editor context.
 - Resolve **target** and **enforcement behaviour** exclusively from the Stage Resolution table below.
+- `--stage implement` is a mutating execution path. It overrides the generic audit-only behavior of Codebase mode.
 
 ---
 
@@ -98,7 +99,8 @@ If either check fails: STOP execution and emit the appropriate failure message. 
 When this skill is active, inspect the target for observability completeness and **fail explicitly** if minimum standards cannot be satisfied.
 
 - **Document mode:** Inject or rewrite the `## Observability` section to meet the mandatory contract. Modifies the document directly.
-- **Codebase mode:** Scan the actual source code for existing instrumentation, compare it against the mandatory contract, and produce an audit report listing gaps, violations, and required changes. Does not modify source code automatically — reports findings with specific file locations and fix instructions.
+- **Codebase mode without `--stage implement`:** Scan the actual source code for existing instrumentation, compare it against the mandatory contract, and produce an audit report listing gaps, violations, and required changes. This path is audit-only and does not modify source code.
+- **Stage `implement` (`--stage implement`):** Scan the scoped source files, produce the same gap table, then write the missing instrumentation directly into those files until each gap is resolved or escalated as a blocker.
 
 ---
 
@@ -106,7 +108,7 @@ When this skill is active, inspect the target for observability completeness and
 
 Before executing, read the following context files:
 
-- `.agents/context/telemetry-model.md` — Three-layer model, metric naming, span inventory
+- `.agents/30-context/domains/telemetry-model.md` — Three-layer model, metric naming, span inventory
 - `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMetricNames.cs` — Existing metric names
 - `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownActivitySourceNames.cs` — Existing ActivitySource names
 - `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownMeterNames.cs` — Existing meter names
@@ -405,7 +407,13 @@ Before writing the final Observability section:
 
 **Document mode:** Replace or insert the `## Observability` section with the validated content.
 
-**Codebase mode:** Produce the **Observability Audit Report** (see Codebase Output Format below). Do not modify source files automatically. The report is the deliverable.
+**Codebase mode without `--stage implement`:** Produce the **Observability Audit Report** (see Codebase Output Format below). Do not modify source files automatically. The report is the deliverable.
+
+**Stage `implement` (`--stage implement`):** Produce the same audit report structure, but the deliverable is both:
+- the report, and
+- the corresponding instrumentation edits applied to the scoped source files.
+
+For `--stage implement`, do not stop at listing gaps when the fix is mechanical and local to the scoped files. Apply the fix, rerun the relevant checks, and leave only true blockers unresolved.
 
 #### Document Output Structure
 
@@ -595,9 +603,11 @@ If all operations pass, the verdict is PASS. If any operation has a Missing metr
 - [ ] Every gap is marked with status (Missing/Partial) and file location.
 - [ ] Required Changes list is prioritised (Critical > High > Medium).
 - [ ] Verdict is explicitly stated (PASS or FAIL).
-- [ ] No source files were modified without explicit user instruction.
+- [ ] Audit-only Codebase runs did not modify source files without explicit user instruction.
+- [ ] `--stage implement` runs modified only the scoped source files needed to close observability gaps.
 - [ ] Observability section follows the mandatory structure.
 - [ ] Existing correct content is preserved (idempotent).
 - [ ] No TODO placeholders remain in the Observability section.
 
 The skill is not complete until all criteria are checked. Any unchecked criterion is a failure.
+

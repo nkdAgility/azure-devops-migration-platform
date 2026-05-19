@@ -23,7 +23,7 @@ Introduce a `Simulated` source and target type that generates deterministic, sch
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **Mandatory context loading confirmed:** All files in `/.agents/guardrails/` (architecture-boundaries.md, workitems-rules.md, migration-rules.md, coding-standards.md, module-rules.md) and all files in `/.agents/context/` (migration-package-concept.md, workitems-format-summary.md, checkpointing-summary.md, package-manager.md, job-lifecycle.md, identity-and-mapping.md, import-streaming.md, cli-commands.md) and relevant `/docs/` files (architecture.md, source-types.md, configuration.md, modules.md, tui.md) were read before completing this gate.
+> **Mandatory context loading confirmed:** All files in `/.agents/20-guardrails/` (architecture-boundaries.md, workitems-rules.md, migration-rules.md, coding-standards.md, module-rules.md) and all files in `/.agents/30-context/` (migration-package-concept.md, workitems-format-summary.md, checkpointing-summary.md, package-manager.md, job-lifecycle.md, identity-and-mapping.md, import-streaming.md, cli-commands.md) and relevant `/docs/` files (architecture.md, source-types.md, configuration.md, modules.md, tui.md) were read before completing this gate.
 
 - [x] **Package-First (I):** `SimulatedWorkItemRevisionSource` yields `WorkItemRevision` objects to `WorkItemExportOrchestrator`, which writes exclusively via `IArtefactStore`. The simulated target (`SimulatedWorkItemImportSink`) reads from the package via `IArtefactStore` — no direct source-to-target path.
 - [x] **Streaming (II):** `SimulatedRevisionStream` is an `IAsyncEnumerable<WorkItemRevision>` that yields one revision at a time; `WorkItemsModule.ImportAsync` (newly implemented) reads one revision folder at a time via `IArtefactStore.EnumerateAsync`. No in-memory list of all revisions.
@@ -108,3 +108,35 @@ No constitution violations. All design decisions are consistent with the existin
 | New `Infrastructure.Simulated` project | Isolates test-only generation code from production infrastructure | Adding to `Infrastructure.AzureDevOps` would couple a test-only concept to a production connector project, violating module isolation |
 | New `IWorkItemImportSink` abstraction | Decouples `WorkItemsModule.ImportAsync` from the ADO-specific target writer | Without abstraction, the module cannot be unit-tested and the simulated target cannot be injected |
 | `WorkItemsModule.ImportAsync` implemented here | Required prerequisite for simulated end-to-end migration (Story 3) | Deferring further leaves the import pipeline untestable and blocks all E2E system tests |
+
+## Reconciliation Status (2026-05-16)
+
+### Current status
+
+- This plan is stale relative to repository reality and newer specs.
+- The implementation has moved to keyed connector dispatch, polymorphic endpoint options, and `IWorkItemImportTarget` abstractions.
+- Task statuses have been reconciled in `tasks.md` with evidence-backed markers.
+
+### Remaining incomplete work (IDs)
+
+- `T034` (25k performance-gate automated test)
+- `T039` (quickstart walkthrough validation/update)
+
+### Completed because superseded (IDs + source)
+
+- Superseded by `specs/017-simulated-infrastructure/spec.md`: `T003`, `T004`, `T005`, `T006`, `T007`, `T009`, `T010`, `T012`, `T014`, `T016`, `T017`, `T018`, `T021`, `T022`, `T023`, `T024`, `T025`, `T026`, `T027`, `T028`, `T029`, `T030`, `T031`, `T032`, `T033`, `T038`.
+- Design choices are also aligned with `specs/021.1-simulated-infrastructure/spec.md` and import evolution in `specs/035-workitem-import-support/spec.md`.
+
+### Contradictions and reconciliation
+
+- Planned `IWorkItemImportSink` seam contradicts current/approved `IWorkItemImportTarget` seam.
+- Planned file paths and scenario names diverged from implemented structure.
+- Stale assumptions about `NotImplementedException` import paths no longer apply.
+
+### Verification evidence
+
+- Verified code/docs/tests in `src`, `tests`, `features`, `scenarios`, `.vscode`, and `docs` relevant to simulated infrastructure.
+- Commands run:
+  - `dotnet build DevOpsMigrationPlatform.slnx -v minimal` (pass)
+  - `dotnet test tests\DevOpsMigrationPlatform.Infrastructure.Simulated.Tests\DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.csproj -v minimal` (43 passed)
+

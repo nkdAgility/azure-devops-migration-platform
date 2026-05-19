@@ -8,6 +8,9 @@
   <Folder Name="/src/Service/Agents/">
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure.Agent/DevOpsMigrationPlatform.Infrastructure.Agent.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Abstractions.Agent/DevOpsMigrationPlatform.Abstractions.Agent.csproj" />
+    <Project Path="src/DevOpsMigrationPlatform.Abstractions.Storage/DevOpsMigrationPlatform.Abstractions.Storage.csproj" />
+    <Project Path="src/DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem/DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem.csproj" />
+    <Project Path="src/DevOpsMigrationPlatform.Infrastructure.Storage.AzureBlob/DevOpsMigrationPlatform.Infrastructure.Storage.AzureBlob.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure.Simulated/DevOpsMigrationPlatform.Infrastructure.Simulated.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
     <Project Path="src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.csproj" />

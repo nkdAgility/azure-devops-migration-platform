@@ -1,0 +1,47 @@
+version: 1
+surfaces:
+  package_access:
+    concern: "Package access and package state"
+    surface: "IPackageAccess"
+    owners:
+      - "MigrationAgent runtime"
+      - "Infrastructure.Agent package boundary"
+    allowed_callers:
+      - "modules"
+      - "orchestrators"
+      - "workers"
+      - "checkpointing flows"
+    forbidden:
+      - "Direct package routing in runtime flow code over IArtefactStore/IStateStore"
+      - "Raw filesystem writes from modules/orchestrators"
+  node_translation:
+    concern: "Node translation"
+    surface: "INodeTranslationTool"
+    owners:
+      - "Tools.NodeTranslation"
+    allowed_callers:
+      - "modules"
+      - "orchestrators"
+      - "extensions (policy-only)"
+    forbidden:
+      - "Alternative translation engines outside canonical seam"
+  identity_mapping:
+    concern: "Identity mapping"
+    surface: "IIdentityMappingService"
+    owners:
+      - "Identities capability"
+    allowed_callers:
+      - "modules requiring identity resolution"
+    forbidden:
+      - "Module-local ad-hoc identity resolution engines"
+  field_transform:
+    concern: "Field transformation"
+    surface: "IFieldTransformTool"
+    contract_doc: ".agents/10-contracts/specs/field-transform-contract.md"
+    owners:
+      - "Tools.FieldTransform"
+    allowed_callers:
+      - "work item flows"
+      - "extensions (policy-only)"
+    forbidden:
+      - "Parallel transform engines in wrappers/orchestrators"

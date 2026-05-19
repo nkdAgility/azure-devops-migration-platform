@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -12,10 +13,9 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -27,19 +27,19 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Inventory;
 [TestClass]
 public sealed class InventoryOrchestratorTests
 {
+    private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
+
     [TestMethod]
     public async Task RunAsync_WhenInventoryCompletes_DoesNotWriteInventoryCompletionMarker()
     {
-        var artefactStore = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateLooseMock();
         var orchestrator = new InventoryOrchestrator(
             NullLogger<InventoryOrchestrator>.Instance,
             CreateCheckpointingFactory("https://dev.azure.com/testorg", "TestProject"));
         var context = new InventoryContext
         {
             Job = new Job { JobId = "job-inventory", Kind = JobKind.Inventory },
-            ArtefactStore = artefactStore.Object,
-            StateStore = stateStore.Object,
+            Package = package.Object,
             SourceEndpoint = new OrganisationEndpoint
             {
                 ResolvedUrl = "https://dev.azure.com/testorg",
@@ -55,27 +55,23 @@ public sealed class InventoryOrchestratorTests
             checkpointIntervalSeconds: 300,
             ct: CancellationToken.None);
 
-        stateStore.Verify(
-            store => store.WriteAsync(
-                PackagePaths.InventoryCompleteFile,
-                It.IsAny<string>(),
-                It.IsAny<CancellationToken>()),
-            Times.Never);
+        var completionPayload = await package.Object.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress(PackagePathTestHelper.InventoryCompleteFile)),
+            CancellationToken.None);
+        Assert.IsNull(completionPayload, "Inventory must not write the completion marker.");
     }
 
     [TestMethod]
     public async Task RunAsync_WhenProjectCompletes_WritesProjectScopedInventoryCursor()
     {
-        var artefactStore = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var stateStore = new RecordingStateStore();
+        var package = PackageTestFactory.CreateLooseMock();
         var orchestrator = new InventoryOrchestrator(
             NullLogger<InventoryOrchestrator>.Instance,
             CreateCheckpointingFactory("https://dev.azure.com/testorg", "TestProject"));
         var context = new InventoryContext
         {
             Job = new Job { JobId = "job-inventory", Kind = JobKind.Inventory },
-            ArtefactStore = artefactStore.Object,
-            StateStore = stateStore,
+            Package = package.Object,
             SourceEndpoint = new OrganisationEndpoint
             {
                 ResolvedUrl = "https://dev.azure.com/testorg",
@@ -91,16 +87,20 @@ public sealed class InventoryOrchestratorTests
             checkpointIntervalSeconds: 300,
             ct: CancellationToken.None);
 
-        var expectedKey = PackagePaths.CursorFile("inventory", "workitems", "https://dev.azure.com/testorg", "TestProject");
-        Assert.IsTrue(stateStore.Writes.ContainsKey(expectedKey), "Inventory must write the authoritative cursor into the project-local .migration folder.");
-
-        var cursor = JsonSerializer.Deserialize<CursorEntry>(stateStore.Writes[expectedKey]);
-        Assert.IsNotNull(cursor, "Inventory cursor payload must be a CursorEntry JSON document.");
+        var metaResult = await package.Object.RequestMetaAsync(
+            new PackageMetaContext(PackageMetaKind.CheckpointCursor, Action: "inventory", Module: "workitems"),
+            CancellationToken.None);
+        Assert.IsTrue(metaResult.Payload is not null, "Inventory must write the authoritative cursor.");
+        metaResult.Payload!.Content.Position = 0;
+        var cursor = JsonSerializer.Deserialize<CursorEntry>(metaResult.Payload.Content);
+        Assert.IsNotNull(cursor);
         Assert.AreEqual(CursorStage.Completed, cursor.Stage);
         Assert.AreEqual("TestProject", cursor.LastProcessed);
-        Assert.IsFalse(
-            stateStore.Writes.ContainsKey(PackagePaths.CursorFile("inventory.workitems")),
-            "Inventory must not write the legacy root cursor key once centralized checkpointing is authoritative.");
+
+        var legacyPayload = await package.Object.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress(PackagePathTestHelper.CursorFile("inventory.workitems"))),
+            CancellationToken.None);
+        Assert.IsNull(legacyPayload, "Inventory must not write the legacy root cursor key.");
     }
 
     private static ICheckpointingServiceFactory CreateCheckpointingFactory(string endpointUrl, string projectName)
@@ -132,35 +132,12 @@ public sealed class InventoryOrchestratorTests
             _packageConfigAccessor = packageConfigAccessor;
         }
 
-        public ICheckpointingService Create(IStateStore stateStore)
+        public ICheckpointingService Create(IPackageAccess packageAccess)
             => new CheckpointingService(
-                stateStore,
                 _endpointAccessor,
                 _packageConfigAccessor,
-                package: PackageTestFactory.CreateStateDelegatingMock(stateStore).Object);
-    }
-
-    private sealed class RecordingStateStore : IStateStore
-    {
-        public Dictionary<string, string> Writes { get; } = new(StringComparer.OrdinalIgnoreCase);
-
-        public Task WriteAsync(string key, string value, CancellationToken cancellationToken)
-        {
-            Writes[key] = value;
-            return Task.CompletedTask;
-        }
-
-        public Task<string?> ReadAsync(string key, CancellationToken cancellationToken)
-            => Task.FromResult(Writes.TryGetValue(key, out var value) ? value : null);
-
-        public Task<bool> ExistsAsync(string key, CancellationToken cancellationToken)
-            => Task.FromResult(Writes.ContainsKey(key));
-
-        public Task DeleteAsync(string key, CancellationToken cancellationToken)
-        {
-            Writes.Remove(key);
-            return Task.CompletedTask;
-        }
+                null,
+                packageAccess);
     }
 
     private static async IAsyncEnumerable<InventoryProgressEvent> GetEvents([EnumeratorCancellation] CancellationToken ct = default)

@@ -21,10 +21,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 /// All <see cref="WorkItemTrackingHttpClient"/> calls are wrapped here.
 /// Retry with exponential back-off is handled by the underlying VssConnection.
 /// </summary>
-internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
+internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget, IDisposable
 {
     private readonly WorkItemTrackingHttpClient _witClient;
     private readonly string _project;
+    private readonly SemaphoreSlim _workItemTypeCacheLock = new(1, 1);
+    private HashSet<string>? _cachedWorkItemTypes;
+    private bool _disposed;
 
     /// <summary>Organisation URL used to establish the connection to this target.</summary>
     public string OrganisationUrl { get; }
@@ -42,6 +45,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
         IReadOnlyList<PlatformWorkItemField> fields,
         CancellationToken ct)
     {
+        ThrowIfDisposed();
+
         var patchDocument = BuildFieldPatch(fields, Operation.Add);
         var created = await _witClient
             .CreateWorkItemAsync(patchDocument, _project, workItemType, cancellationToken: ct)
@@ -60,6 +65,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
         IReadOnlyList<PlatformWorkItemField> fields,
         CancellationToken ct)
     {
+        ThrowIfDisposed();
+
         var patchDocument = BuildFieldPatch(fields, Operation.Add);
         await _witClient
             .UpdateWorkItemAsync(patchDocument, targetWorkItemId, cancellationToken: ct)
@@ -74,6 +81,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
         IReadOnlyList<HyperlinkWorkItemLink> hyperlinks,
         CancellationToken ct)
     {
+        ThrowIfDisposed();
+
         var existing = await GetExistingRelationsAsync(targetWorkItemId, ct).ConfigureAwait(false);
         var existingRelatedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var existingExternalUris = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -150,6 +159,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
         Stream content,
         CancellationToken ct)
     {
+        ThrowIfDisposed();
+
         var attachment = await _witClient
             .CreateAttachmentAsync(content, fileName: fileName, cancellationToken: ct)
             .ConfigureAwait(false);
@@ -184,6 +195,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
         Stream content,
         CancellationToken ct)
     {
+        ThrowIfDisposed();
+
         var attachment = await _witClient
             .CreateAttachmentAsync(content, fileName: fileName, cancellationToken: ct)
             .ConfigureAwait(false);
@@ -198,6 +211,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
         string text,
         CancellationToken ct)
     {
+        ThrowIfDisposed();
+
         await _witClient
             .AddCommentAsync(
                 new CommentCreate { Text = text },
@@ -212,6 +227,8 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
         int targetWorkItemId,
         CancellationToken ct)
     {
+        ThrowIfDisposed();
+
         var workItem = await _witClient
             .GetWorkItemAsync(targetWorkItemId, expand: WorkItemExpand.Relations, cancellationToken: ct)
             .ConfigureAwait(false);
@@ -259,8 +276,53 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
     }
 
     /// <inheritdoc/>
+    public async Task<bool> WorkItemTypeExistsAsync(string workItemType, CancellationToken ct)
+    {
+        ThrowIfDisposed();
+
+        if (string.IsNullOrWhiteSpace(workItemType))
+        {
+            return false;
+        }
+
+        var cachedWorkItemTypes = _cachedWorkItemTypes;
+        if (cachedWorkItemTypes is null)
+        {
+            await _workItemTypeCacheLock.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                cachedWorkItemTypes = _cachedWorkItemTypes;
+                if (cachedWorkItemTypes is null)
+                {
+                    var types = await _witClient.GetWorkItemTypesAsync(_project, cancellationToken: ct).ConfigureAwait(false);
+                    cachedWorkItemTypes = new HashSet<string>(
+                        types
+                            .Select(t => t.Name)
+                            .Where(name => !string.IsNullOrWhiteSpace(name))
+                            .Select(name => name!),
+                        StringComparer.OrdinalIgnoreCase);
+                    _cachedWorkItemTypes = cachedWorkItemTypes;
+                }
+            }
+            finally
+            {
+                _workItemTypeCacheLock.Release();
+            }
+        }
+
+        return cachedWorkItemTypes.Contains(workItemType.Trim());
+    }
+
+    private void ThrowIfDisposed()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> WorkItemExistsAsync(int targetWorkItemId, CancellationToken ct)
     {
+        ThrowIfDisposed();
+
         try
         {
             var wi = await _witClient
@@ -292,5 +354,16 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget
             });
         }
         return doc;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        GC.SuppressFinalize(this);
     }
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -8,8 +9,8 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -23,11 +24,11 @@ public class PackageBoundaryConnectorParityTests
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
         const string projectName = "ParityProject";
-        var expectedKey = PackagePaths.CursorFile("export", "workitems", endpointUrl, projectName);
+        var expectedKey = PackagePathTestHelper.CursorFile("export", "workitems", endpointUrl, projectName);
 
         var endpointAccessor = BuildSourceEndpointAccessor(endpointUrl, projectName, "AzureDevOpsServices");
         var package = BuildPackageReturningCursor(expectedKey);
-        var sut = new CheckpointingService(new Mock<IStateStore>(MockBehavior.Strict).Object, endpointAccessor.Object, null, null, package.Object);
+        var sut = new CheckpointingService(endpointAccessor.Object, null, null, package.Object);
 
         var result = await sut.ReadCursorAsync("export.workitems", CancellationToken.None);
 
@@ -40,11 +41,11 @@ public class PackageBoundaryConnectorParityTests
     {
         const string endpointUrl = "https://tfs.contoso.local/tfs/DefaultCollection";
         const string projectName = "ParityProject";
-        var expectedKey = PackagePaths.CursorFile("export", "workitems", endpointUrl, projectName);
+        var expectedKey = PackagePathTestHelper.CursorFile("export", "workitems", endpointUrl, projectName);
 
         var endpointAccessor = BuildSourceEndpointAccessor(endpointUrl, projectName, "TeamFoundationServer");
         var package = BuildPackageReturningCursor(expectedKey);
-        var sut = new CheckpointingService(new Mock<IStateStore>(MockBehavior.Strict).Object, endpointAccessor.Object, null, null, package.Object);
+        var sut = new CheckpointingService(endpointAccessor.Object, null, null, package.Object);
 
         var result = await sut.ReadCursorAsync("export.workitems", CancellationToken.None);
 
@@ -57,11 +58,11 @@ public class PackageBoundaryConnectorParityTests
     {
         const string endpointUrl = "";
         const string projectName = "ParityProject";
-        const string expectedKey = "simulated/ParityProject/.migration/export.workitems.cursor.json";
+        const string expectedKey = ".migration/export.workitems.cursor.json";
 
         var endpointAccessor = BuildSourceEndpointAccessor(endpointUrl, projectName, "Simulated");
         var package = BuildPackageReturningCursor(expectedKey);
-        var sut = new CheckpointingService(new Mock<IStateStore>(MockBehavior.Strict).Object, endpointAccessor.Object, null, null, package.Object);
+        var sut = new CheckpointingService(endpointAccessor.Object, null, null, package.Object);
 
         var result = await sut.ReadCursorAsync("export.workitems", CancellationToken.None);
 
@@ -92,10 +93,10 @@ public class PackageBoundaryConnectorParityTests
 
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == expectedKey),
+            .Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && PackagePathTestHelper.CursorFile(c.Action!, c.Module!, string.Empty, string.Empty) == expectedKey),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(entry))), "application/json"));
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(expectedKey, new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(entry))), "application/json"))));
         return package;
     }
 }

@@ -12,7 +12,36 @@ This feature adds two focused sub-services to the existing `WorkItemsModule`:
 1. **`WorkItemCommentExportService`** — streams every comment version for a work item from the Comments API and writes one `comment.json` per version into a `<ticks>-<workItemId>-c<commentId>/` sub-folder, placed chronologically alongside revision sub-folders inside `WorkItems/yyyy-MM-dd/`.
 2. **`EmbeddedImageExportService`** — scans HTML (`<img src>`) and Markdown (`![](url)`) field values and comment text fields, downloads each ADO-hosted image via an authenticated HTTP client with Polly back-off, writes the bytes named `<sha256>.<ext>` beside the parent document, and rewrites field values to relative local paths.
 
-Both services use `IArtefactStore` exclusively for all package I/O and integrate cursor-based checkpointing for resumability.
+Both services were originally planned around `IArtefactStore` and dedicated comment cursoring. Current runtime implementation has evolved to `IPackageAccess`, inline comment fetching in `WorkItemExportOrchestrator`, and shared export checkpointing.
+
+## Reconciliation (Repository Truth)
+
+### Current status
+
+- This plan is partially historical; implementation diverged from the original service/cursor design.
+- Current repository status is tracked in `tasks.md` with canonical statuses (9 complete, 14 incomplete, 20 complete/superseded).
+- `/speckit.analyze` and `/speckit.checklist` were run in reconciliation; checklist items were appended to `checklists/requirements.md`.
+
+### Remaining incomplete work (IDs)
+
+- T014, T022, T024, T025, T026, T028, T030, T031, T032, T033, T034, T038, T039, T040.
+
+### Completed because superseded (IDs + source)
+
+- T001, T003, T004, T005, T006, T007, T008, T009, T009b, T009c, T011, T012, T015, T016, T017, T018, T019, T023, T027, T035.
+- Superseded by newer specs and architecture evolution: `specs/011-inline-comment-fetching`, `specs/029-import-workitems-attachments-nodes`, `specs/034-package-manager-adoption`.
+
+### Contradictions and reconciliation
+
+- Planned dedicated comment export service path is replaced by inline orchestration in `WorkItemExportOrchestrator`.
+- Planned embedded-image orchestration wiring is not fully implemented even though downloader/export service primitives exist.
+- Planned per-comment version export from comments versions API remains unimplemented.
+
+### Verification evidence
+
+- Source review: `WorkItemExportOrchestrator.cs`, `AzureDevOpsWorkItemCommentSource.cs`, `EmbeddedImageExportService.cs`, `ExportServiceCollectionExtensions.cs`, `WorkItemsModuleExtensions.cs`.
+- Feature/test review: export comment and embedded-image feature files; CLI migration export system test presence.
+- Runtime verification: repository build command succeeded; full-suite test command did not complete in-session, so full verification evidence remains pending.
 
 ## Technical Context
 
@@ -30,7 +59,7 @@ Both services use `IArtefactStore` exclusively for all package I/O and integrate
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **Mandatory context loading:** Confirmed — all files in `/.agents/guardrails/`, all files in `/.agents/context/`, and all relevant `/docs/` files read in this session.
+> **Mandatory context loading:** Confirmed — all files in `/.agents/20-guardrails/`, all files in `/.agents/30-context/`, and all relevant `/docs/` files read in this session.
 
 - [x] **Package-First (I):** No direct source-to-target migration. Comments API results are written to `IArtefactStore`. Image bytes are written to `IArtefactStore`. No direct filesystem access inside any module class.
 - [x] **Streaming (II):** `IAsyncEnumerable<WorkItemComment>` is consumed one record at a time. Image downloads happen per-record. No in-memory lists of all comments accumulated, no sort of enumeration results in memory.
@@ -329,7 +358,8 @@ Each activity spans one work item's comment export; child activities span each c
 
 See `discrepancies.md`. Two docs must be updated as part of implementation:
 
-1. **`.agents/context/workitems-format-summary.md`** — add `<ticks>-<workItemId>-c<commentId>/comment.json` sub-folder description
-2. **`.agents/context/migration-package-concept.md`** — add embedded image files beside documents; add `workitems-comments.cursor.json` cursor description
+1. **`.agents/30-context/domains/workitems-format-summary.md`** — add `<ticks>-<workItemId>-c<commentId>/comment.json` sub-folder description
+2. **`.agents/30-context/domains/migration-package-concept.md`** — add embedded image files beside documents; add `workitems-comments.cursor.json` cursor description
 
 These must be updated before the final task in `tasks.md` is marked complete.
+

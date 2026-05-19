@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.IO;
 using DevOpsMigrationPlatform.Abstractions;
@@ -19,19 +18,22 @@ public sealed class IdMapStoreFactory : IIdMapStoreFactory
         => new SqliteIdMapStore(dbFilePath);
 
     /// <inheritdoc/>
+    public IIdMapStore Create(System.Data.Common.DbConnection connection)
+        => new SqliteIdMapStore(connection);
+
+    /// <inheritdoc/>
     public IIdMapStore CreateFromPackageUri(string packageUri)
     {
         string localRoot;
         if (packageUri.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
-            localRoot = packageUri["file:///".Length..].Replace('/', Path.DirectorySeparatorChar);
+            localRoot = packageUri.Substring("file:///".Length).Replace('/', Path.DirectorySeparatorChar);
         else
             localRoot = packageUri;
 
         localRoot = Path.GetFullPath(localRoot);
 
-        var newPath = PackagePaths.IdMapDbNative(localRoot);
+        var newPath = Path.Combine(localRoot, ".migration", "Checkpoints", "idmap.db");
 
         return new SqliteIdMapStore(newPath);
     }
 }
-#endif

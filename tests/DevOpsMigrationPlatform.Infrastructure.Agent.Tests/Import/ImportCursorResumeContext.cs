@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -24,8 +25,6 @@ public class ImportCursorResumeContext
     public const string ProjectName = "Shop";
     public const string CursorIdentity = "import.workitems";
 
-    public Mock<IArtefactStore> MockArtefactStore { get; } = new(MockBehavior.Strict);
-    public Mock<IStateStore> MockStateStore { get; } = new(MockBehavior.Strict);
     public Mock<IProgressSink> MockProgressSink { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
@@ -50,7 +49,7 @@ public class ImportCursorResumeContext
 
     public ImportCursorResumeContext()
     {
-        MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object, MockStateStore.Object);
+        MockPackage = PackageTestFactory.CreateLooseMock();
         var target = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
         target.SetupGet(t => t.Url).Returns(EndpointUrl);
         target.SetupGet(t => t.Project).Returns(ProjectName);
@@ -60,15 +59,15 @@ public class ImportCursorResumeContext
         MockEndpointAccessor.SetupGet(a => a.Target).Returns(target.Object);
 
         CheckpointingService = new CheckpointingService(
-            MockStateStore.Object,
-            MockEndpointAccessor.Object,
+            currentJobEndpointAccessor: MockEndpointAccessor.Object,
             package: MockPackage.Object);
-        MockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("import", "workitems", EndpointUrl, ProjectName), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
-        MockStateStore
-            .Setup(s => s.DeleteAsync(PackagePaths.CursorFile("import", "workitems", EndpointUrl, ProjectName), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        MockPackage
+            .Setup(p => p.RequestMetaAsync(It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "import" && c.Module == "workitems"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PackageMetaResult("import.workitems", null));
+        MockPackage
+            .Setup(p => p.ResetMetaAsync(It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "import" && c.Module == "workitems"), It.IsAny<CancellationToken>()))
+            .Callback(() => CursorWasDeleted = true)
+            .Returns(ValueTask.CompletedTask);
     }
 
     public WorkItemImportOrchestrator BuildOrchestrator()
@@ -78,19 +77,21 @@ public class ImportCursorResumeContext
             MockIdMapStore.Object,
             CheckpointingService,
             (IIdentityLookupTool?)null,
-            MockArtefactStore.Object,
             NullLogger<RevisionFolderProcessor>.Instance,
+            EndpointUrl,
+            ProjectName,
             package: MockPackage.Object);
 
         return new WorkItemImportOrchestrator(
-            MockArtefactStore.Object,
+            MockPackage.Object,
+            EndpointUrl,
+            ProjectName,
             CheckpointingService,
             MockProgressSink.Object,
             MockResolutionStrategy.Object,
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemImportOrchestrator>.Instance,
-            package: MockPackage.Object);
+            NullLogger<WorkItemImportOrchestrator>.Instance);
     }
 }

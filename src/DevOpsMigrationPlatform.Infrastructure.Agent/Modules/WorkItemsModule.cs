@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -11,24 +12,27 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
+using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
-#if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
-#endif
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Configuration;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import.FailurePatterns;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -78,23 +82,30 @@ public sealed class WorkItemsModule : IModule
     private readonly ILogger<WorkItemsModule> _logger;
 #if !NET481
     private readonly ILogger<WorkItemImportOrchestrator> _orchestratorLogger;
+    private readonly IWorkItemsImportOrchestrator _workItemsImportOrchestrator;
 #endif
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IInventoryOrchestrator? _inventoryOrchestrator;
     private readonly IPlatformMetrics? _metrics;
-    private readonly IPlatformMetrics? _PlatformMetrics;
+    
     private readonly IWorkItemDiscoveryService? _discoveryService;
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
 #if !NET481
     private readonly IReferencedPathTracker? _referencedPathTracker;
     private readonly INodesOrchestrator? _nodesOrchestrator;
+    private readonly NodeReadinessOrchestrator? _nodeReadinessOrchestrator;
+    private readonly IOptions<NodesModuleOptions>? _nodesModuleOptions;
 #endif
-    private readonly IPackageAccess? _package;
     private readonly IOptions<WorkItemsModuleOptions> _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
     private readonly IRepoDiscoveryService? _repoDiscoveryService;
+    private readonly ImportPreparer _importPreparer;
 #if !NET481
     private readonly ITargetEndpointInfo _targetEndpointInfo;
+    private readonly IIdentityMappingService _identityMappingService;
+    private readonly INodeTranslationTool _nodeTranslationTool;
+    private readonly IFieldTransformTool _fieldTransformTool;
+    private readonly IOptions<WorkItemImportOptions>? _workItemImportOptions;
 #endif
 
     public WorkItemsModule(
@@ -124,10 +135,20 @@ public sealed class WorkItemsModule : IModule
 #if !NET481
         IReferencedPathTracker? referencedPathTracker = null,
         INodesOrchestrator? nodesOrchestrator = null,
+        NodeReadinessOrchestrator? nodeReadinessOrchestrator = null,
+        IOptions<NodesModuleOptions>? nodesModuleOptions = null,
+#endif
+#if !NET481
+        IIdentityMappingService? identityMappingService = null,
+        INodeTranslationTool? nodeTranslationTool = null,
+        IFieldTransformTool? fieldTransformTool = null,
+        IOptions<WorkItemImportOptions>? workItemImportOptions = null,
+        IWorkItemsImportOrchestrator? workItemsImportOrchestrator = null,
 #endif
         IIdentityLookupTool? identityLookupTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
-        IPackageAccess? package = null)
+        IEnumerable<IImportFailurePattern>? importFailurePatterns = null,
+        ImportPreparer? importPreparer = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -146,17 +167,44 @@ public sealed class WorkItemsModule : IModule
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
         _fetchService = fetchService;
         _inventoryOrchestrator = inventoryOrchestrator;
-        _metrics = metrics;
-        _PlatformMetrics = PlatformMetrics;
+        _metrics = metrics ?? PlatformMetrics;
         _discoveryService = discoveryService;
         _exportProgressStoreFactory = exportProgressStoreFactory;
 #if !NET481
         _referencedPathTracker = referencedPathTracker;
         _nodesOrchestrator = nodesOrchestrator;
+        _nodeReadinessOrchestrator = nodeReadinessOrchestrator;
+        _nodesModuleOptions = nodesModuleOptions;
+        _identityMappingService = identityMappingService ?? throw new ArgumentNullException(nameof(identityMappingService));
+        _nodeTranslationTool = nodeTranslationTool ?? throw new ArgumentNullException(nameof(nodeTranslationTool));
+        _fieldTransformTool = fieldTransformTool ?? throw new ArgumentNullException(nameof(fieldTransformTool));
+        _workItemImportOptions = workItemImportOptions;
+        _workItemsImportOrchestrator = workItemsImportOrchestrator
+            ?? new WorkItemsImportOrchestrator(
+                _importTargetFactory,
+                _resolutionStrategyFactory,
+                _checkpointingFactory,
+                _idMapStoreFactory,
+                _processorFactory,
+                _identityLookupTool,
+                new WorkItemsImportCapabilityValidator(_fieldTransformTool),
+                new WorkItemsNodeReadinessOrchestrator(_nodeReadinessOrchestrator, _nodesOrchestrator, _metrics, _logger),
+                _metrics,
+                _orchestratorLogger,
+                _logger,
+                _sourceEndpointInfo,
+                _targetEndpointInfo,
+                _options,
+                _workItemImportOptions,
+                _nodesModuleOptions);
 #endif
         _identityLookupTool = identityLookupTool;
         _repoDiscoveryService = repoDiscoveryService;
-        _package = package;
+        var resolvedFailurePatterns = importFailurePatterns?.ToArray();
+        resolvedFailurePatterns = resolvedFailurePatterns is { Length: > 0 }
+            ? resolvedFailurePatterns
+            : CreateDefaultImportFailurePatterns().ToArray();
+        _importPreparer = importPreparer ?? new ImportPreparer(_options, resolvedFailurePatterns);
     }
 
     public async Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
@@ -301,7 +349,7 @@ public sealed class WorkItemsModule : IModule
 
                 var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
                 await ProjectInventoryFile.MergeAsync(
-                    context.ArtefactStore, projectPath,
+                    context.Package, projectPath,
                     orgUrl: orgUrl, project: project,
                     workItems: projectWorkItems,
                     revisions: projectRevisions,
@@ -312,12 +360,12 @@ public sealed class WorkItemsModule : IModule
         }
 
         var tags = new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } };
-        _PlatformMetrics?.RecordInventoryWorkItems(totalWorkItems, tags);
+        _metrics?.RecordInventoryWorkItems(totalWorkItems, tags);
         var durationMs = sw.Elapsed.TotalMilliseconds;
-        _PlatformMetrics?.RecordInventoryWorkItemsDuration(durationMs, tags);
+        _metrics?.RecordInventoryWorkItemsDuration(durationMs, tags);
         if (totalWorkItems == 0)
         {
-            _PlatformMetrics?.RecordInventoryWorkItemsErrors(tags);
+            _metrics?.RecordInventoryWorkItemsErrors(tags);
             _logger.LogWarning("Zero items inventoried for {Module} in {Project}", Name, project);
         }
         _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", Name, totalWorkItems, durationMs);
@@ -354,19 +402,48 @@ public sealed class WorkItemsModule : IModule
             Timestamp = DateTimeOffset.UtcNow
         });
 
-        var report = new PrepareReport
-        {
-            ModuleName = Name,
-            ResolvedCount = 0
-        };
-
         var tags = new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } };
+        PrepareReport report;
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            report = await _importPreparer.PrepareAsync(context, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _metrics?.RecordPrepareWorkItemsError(tags);
+            _logger.LogError(ex, "[WorkItems] Prepare phase dispatch failed.");
+            throw new InvalidOperationException("[WorkItems] Prepare phase dispatch failed.", ex);
+        }
+        finally
+        {
+            stopwatch.Stop();
+        }
+
         _metrics?.RecordPrepareWorkItemsResolved(report.ResolvedCount, tags);
         _metrics?.RecordPrepareWorkItemsUnresolved(report.UnresolvedCount, tags);
-        _metrics?.RecordPrepareWorkItemsDuration(0, tags);
-        await context.ArtefactStore.WriteAsync("WorkItems/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
+        _metrics?.RecordPrepareWorkItemsDuration(stopwatch.Elapsed.TotalMilliseconds, tags);
+        await WritePackageTextAsync(context.Package, "WorkItems/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
+        if (report.ImportReadinessReport is not null)
+        {
+            await WritePackageTextAsync(
+                    context.Package,
+                    ".migration/Readiness/workitems-import-readiness.json",
+                    JsonSerializer.Serialize(report.ImportReadinessReport),
+                    ct)
+                .ConfigureAwait(false);
+        }
 
-        _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", Name, report.ResolvedCount, report.UnresolvedCount, 0);
+        _logger.LogInformation(
+            "Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms",
+            Name,
+            report.ResolvedCount,
+            report.UnresolvedCount,
+            stopwatch.ElapsedMilliseconds);
         context.ProgressSink?.Emit(new ProgressEvent
         {
             Module = Name,
@@ -378,6 +455,18 @@ public sealed class WorkItemsModule : IModule
         return TaskExecutionResult.Completed();
     }
 
+    private static IReadOnlyList<IImportFailurePattern> CreateDefaultImportFailurePatterns()
+    {
+        return
+        [
+            new MissingRevisionArtefactImportFailurePattern(),
+            new InvalidRevisionPayloadImportFailurePattern(),
+            new MissingAttachmentBinaryImportFailurePattern(),
+            new MissingEmbeddedImageBinaryImportFailurePattern(),
+            new FieldTransformCompatibilityImportFailurePattern()
+        ];
+    }
+
     /// <inheritdoc/>
     public async Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct)
     {
@@ -386,6 +475,7 @@ public sealed class WorkItemsModule : IModule
         var job = context.Job;
 
         var orgUrl = _sourceEndpointInfo.Url;
+        var orgSlug = _sourceEndpointInfo.OrganisationSlug;
         var project = _sourceEndpointInfo.Project;
 
 #if !NET481
@@ -427,10 +517,10 @@ public sealed class WorkItemsModule : IModule
             _logger.LogWarning("[WorkItems] IReferencedPathTracker is not available — referenced path tracking will be skipped.");
 
         if (_referencedPathTracker is not null)
-            await _referencedPathTracker.InitializeAsync(context.ArtefactStore, ct).ConfigureAwait(false);
+            await _referencedPathTracker.InitializeAsync(context.Package, orgSlug, project, ct).ConfigureAwait(false);
 #endif
 
-        var checkpointingService = _checkpointingFactory.Create(context.StateStore);
+        var checkpointingService = _checkpointingFactory.Create(context.Package);
 
         // Comments extension gates inline comment fetching.
 #if !NET481
@@ -440,7 +530,9 @@ public sealed class WorkItemsModule : IModule
 #endif
 
         var orchestrator = new WorkItemExportOrchestrator(
-            context.ArtefactStore,
+            context.Package,
+            orgSlug,
+            project,
             checkpointingService,
 #if !NET481
             ext.AttachmentsEnabled ? _attachmentBinarySource : null,
@@ -449,7 +541,6 @@ public sealed class WorkItemsModule : IModule
 #endif
             context.ProgressSink,
             endpoint: null, // Connectors now resolve from DI
-            project: project,
             inlineCommentSourceFactory: inlineFactory,
             fetchService: allFilters.Count > 0 ? _fetchService : null,
             filterOptions: allFilters.Count > 0 ? allFilters : null,
@@ -462,14 +553,12 @@ public sealed class WorkItemsModule : IModule
             discoveryService: _discoveryService,
             exportProgressStoreFactory: _exportProgressStoreFactory,
              packageUri: job.Package.PackageUri,
-            package: _package,
             referencedPathTracker: _referencedPathTracker
 #else
             wiqlQuery: wiqlQuery,
             discoveryService: discoveryService481,
             exportProgressStoreFactory: _exportProgressStoreFactory,
-            packageUri: job.Package.PackageUri,
-            package: _package
+            packageUri: job.Package.PackageUri
 #endif
             );
 
@@ -487,79 +576,53 @@ public sealed class WorkItemsModule : IModule
         await Task.CompletedTask.ConfigureAwait(false);
         return TaskExecutionResult.Skipped("WorkItems import is not supported on net481.");
 #else
-
-        var job = context.Job;
-
-        var orgUrl = _targetEndpointInfo.Url;
-        var project = _targetEndpointInfo.Project;
-
-        var ext = WorkItemsModuleExtensions.FromOptions(_options.Value);
-
-        using (_logger.BeginDataScope(DataClassification.Customer))
-        {
-            _logger.LogInformation(
-                "[WorkItems] Importing into {OrgUrl}/{Project} (revisions={Revisions}, links={Links}, attachments={Attachments}, comments={Comments})",
-                orgUrl, project, ext.RevisionsEnabled, ext.LinksEnabled, ext.AttachmentsEnabled, ext.Comments.Enabled);
-        }
-
-        // NOTE: Connectors now resolve their own credentials from DI; no need to pass endpoint options.
-        var target = await _importTargetFactory.CreateAsync(ct).ConfigureAwait(false);
-        var checkpointingService = _checkpointingFactory.Create(context.StateStore);
-
-        // Resolve the strategy at execution time — the factory creates the correct implementation
-        // based on the module config and target connection parameters.
-        // TODO T051+: IWorkItemResolutionStrategyFactory and ITeamTarget still require MigrationEndpointOptions
-        // These interfaces need IOptions<TargetEndpointOptions> injection or to be split into Info + Options
-        var resolutionStrategy = await _resolutionStrategyFactory
-            .CreateAsync(ext.ResolutionStrategy, target, null!, ct)
-            .ConfigureAwait(false);
-
-        // Derive the SQLite idmap.db from the package URI (legacy fallback handled by factory)
-        var idMapStore = _idMapStoreFactory.CreateFromPackageUri(job.Package.PackageUri);
-
-        // NodesOrchestrator: pre-create missing classification nodes before the revision import loop.
-        if (_nodesOrchestrator == null)
-            _logger.LogWarning("[WorkItems] NodesOrchestrator is not available — AutoCreateNodes will be skipped. Register INodesOrchestrator to enable import-side node creation.");
-        else
-        {
-            var sourceProjectName = _sourceEndpointInfo.Project;
-            var ensurerContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectName, project);
-            await _nodesOrchestrator.EnsureReferencedPathsAsync(ensurerContext, context.ArtefactStore, ct, _metrics, job.JobId).ConfigureAwait(false);
-        }
-
-        // Build processor — use NodeTranslation-aware overload when available.
-        IRevisionFolderProcessor processor;
-        var sourceProjectNameForProcessor = _sourceEndpointInfo.Project;
-        var nodeStructureContext = new DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping(sourceProjectNameForProcessor, project);
-
-        processor = _processorFactory.Create(
-            target, idMapStore, checkpointingService, _identityLookupTool, context.ArtefactStore,
-            nodeStructureContext);
-
-        // Build combined filter options for import (include as Regex + exclude as NotRegex).
-        var importFilters = ext.IncludeFilters.Concat(ext.ExcludeFilters).ToList();
-
-        var orchestrator = new WorkItemImportOrchestrator(
-            context.ArtefactStore,
-            checkpointingService,
-            context.ProgressSink,
-            resolutionStrategy,
-            idMapStore,
-            processor,
-            target,
-            _orchestratorLogger,
-            filterOptions: importFilters.Count > 0 ? importFilters : null,
-            metrics: _metrics,
-            jobId: job.JobId,
-            package: _package);
-
-        var resumeMode = job.Resume?.Mode ?? ResumeMode.Auto;
-        await orchestrator.ImportAsync(ext, resumeMode, ct).ConfigureAwait(false);
-
-        _logger.LogInformation("[WorkItems] Import complete.");
-        return TaskExecutionResult.Completed();
+        return await _workItemsImportOrchestrator.ExecuteAsync(context, ct).ConfigureAwait(false);
 #endif
     }
+
+#if !NET481
+    private WorkItemsModuleExtensions ApplyImportReplayLevers(WorkItemsModuleExtensions ext)
+    {
+        if (_workItemImportOptions is null)
+            return ext;
+
+        var replayOptions = _workItemImportOptions.Value;
+        var hasExplicitLeverConfig =
+            replayOptions.RevisionReplay ||
+            replayOptions.LinkReplay ||
+            replayOptions.AttachmentReplay ||
+            replayOptions.EmbeddedImageReplay ||
+            replayOptions.FieldTransform;
+
+        // Preserve current defaults when WorkItemImport options are not explicitly configured.
+        if (!hasExplicitLeverConfig)
+            return ext;
+
+        var attachmentsEnabled = ext.AttachmentsEnabled &&
+                                 (!replayOptions.RevisionReplay || replayOptions.AttachmentReplay);
+        var linksEnabled = ext.LinksEnabled &&
+                           (!replayOptions.RevisionReplay || replayOptions.LinkReplay);
+        var embeddedImagesEnabled = ext.EmbeddedImages.Enabled &&
+                                    (!replayOptions.RevisionReplay || replayOptions.EmbeddedImageReplay);
+
+        return new WorkItemsModuleExtensions
+        {
+            Query = ext.Query,
+            RevisionsEnabled = ext.RevisionsEnabled,
+            LinksEnabled = linksEnabled,
+            AttachmentsEnabled = attachmentsEnabled,
+            Comments = ext.Comments,
+            EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig
+            {
+                Enabled = embeddedImagesEnabled,
+                DownloadTimeoutSeconds = ext.EmbeddedImages.DownloadTimeoutSeconds
+            },
+            ResolutionStrategy = ext.ResolutionStrategy,
+            IncludeFilters = ext.IncludeFilters,
+            ExcludeFilters = ext.ExcludeFilters
+        };
+    }
+#endif
 
 
     public async Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct)
@@ -572,7 +635,9 @@ public sealed class WorkItemsModule : IModule
 
         // Tier 2: Verify the WorkItems/ prefix has at least one revision folder
         var found = false;
-        await foreach (var path in context.ArtefactStore.EnumerateAsync("WorkItems/", ct).ConfigureAwait(false))
+        await foreach (var path in context.Package.EnumerateContentAsync(
+                           new PackageContentContext(PackageContentKind.Collection, Address: new RelativePathAddress("WorkItems/"), IsCollectionRequest: true),
+                           ct).ConfigureAwait(false))
         {
             found = true;
             break;
@@ -591,4 +656,17 @@ public sealed class WorkItemsModule : IModule
         return TaskExecutionResult.Completed();
     }
 
+    private static async Task WritePackageTextAsync(IPackageAccess package, string relativePath, string content, CancellationToken cancellationToken)
+    {
+        using var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(content), writable: false);
+        await package.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
+            new PackagePayload(stream, "application/json"),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+    }
 }

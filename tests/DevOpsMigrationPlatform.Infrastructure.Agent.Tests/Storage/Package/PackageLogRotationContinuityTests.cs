@@ -5,9 +5,8 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -19,9 +18,8 @@ public sealed class PackageLogRotationContinuityTests
     [TestMethod]
     public async Task AppendLogAsync_WhenRunIdChanges_WritesEachStreamToItsOwnRunFile()
     {
-        var store = new InMemoryArtefactStore();
-        var active = new ActivePackageState { CurrentStore = store };
-        var sut = new ActivePackageAccess(active, new PackagePathRouter(), NullLogger<ActivePackageAccess>.Instance);
+        var store = new InMemoryPackageAccess();
+        var (sut, _) = ActivePackageTestFactory.Create(store);
 
         await sut.AppendLogAsync(
             new PackageLogContext("run-a", PackageLogStream.Diagnostics),
@@ -37,3 +35,4 @@ public sealed class PackageLogRotationContinuityTests
         Assert.AreEqual("{\"msg\":\"b1\"}\n", await store.ReadAsync(".migration/runs/run-b/logs/diagnostics.ndjson", CancellationToken.None));
     }
 }
+

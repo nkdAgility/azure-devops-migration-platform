@@ -170,25 +170,26 @@ internal sealed class AzureDevOpsNodeCreator : INodeCreator
     /// </summary>
     private static (string project, string relativePath) SplitPath(string path, string fallbackProject)
     {
-        if (string.IsNullOrWhiteSpace(path)) return (fallbackProject, string.Empty);
+        var normalizedPath = NormalizePath(path);
+        if (string.IsNullOrWhiteSpace(normalizedPath)) return (fallbackProject, string.Empty);
 
-        var sep = path.IndexOf('\\');
+        var sep = normalizedPath.IndexOf('\\');
         if (sep < 0)
         {
             // Single segment — either it IS the project name (root) or it's a root-level node name
-            if (path.Equals(fallbackProject, StringComparison.OrdinalIgnoreCase))
+            if (normalizedPath.Equals(fallbackProject, StringComparison.OrdinalIgnoreCase))
                 return (fallbackProject, string.Empty); // project root
-            return (fallbackProject, path); // single-segment node under project root
+            return (fallbackProject, normalizedPath); // single-segment node under project root
         }
 
-        var firstSegment = path[..sep];
-        var rest = path[(sep + 1)..];
+        var firstSegment = normalizedPath[..sep];
+        var rest = normalizedPath[(sep + 1)..];
 
         if (firstSegment.Equals(fallbackProject, StringComparison.OrdinalIgnoreCase))
             return (fallbackProject, rest); // strip project prefix
 
         // Path does not start with project name — treat entire path as relative
-        return (fallbackProject, path);
+        return (fallbackProject, normalizedPath);
     }
 
     private static TreeStructureGroup ToTreeStructureGroup(ClassificationNodeType nodeType)
@@ -212,4 +213,7 @@ internal sealed class AzureDevOpsNodeCreator : INodeCreator
             || msg.Contains("TF400507", StringComparison.OrdinalIgnoreCase)
             || msg.Contains("TF400506", StringComparison.OrdinalIgnoreCase);
     }
+
+    private static string NormalizePath(string path)
+        => path.Replace('/', '\\').Trim().Trim('\\');
 }

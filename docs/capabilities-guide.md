@@ -52,7 +52,7 @@ A `devopsmigration queue` run with `Mode: Inventory` uses the REST API directly 
 - The TFS agent is Windows-only and cannot run in containers. `AgentLifecycleService` spawns it on Windows and skips it elsewhere.
 - The package output is identical to an ADO export — the same canonical layout. An exported TFS package feeds directly into the standard `import` flow.
 
-See [docs/agent-hosting.md — TFS Migration Agent](migration-agent.md#tfs-migration-agent) for the full specification.
+See [docs/agent-hosting.md — TFS Migration Agent](agent-hosting.md#tfs-migration-agent) for the full specification.
 
 **Inventory:**
 

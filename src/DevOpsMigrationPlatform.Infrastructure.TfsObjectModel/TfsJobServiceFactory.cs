@@ -12,10 +12,12 @@ using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Attachments;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Export;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Options;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.Client;
+using Microsoft.TeamFoundation.Server;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using Microsoft.TeamFoundation.WorkItemTracking.Proxy;
 using Microsoft.VisualStudio.Services.Client;
@@ -118,6 +120,13 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
             collection,
             _loggerFactory.CreateLogger<TfsClassificationTreeReader>(),
             endpointInfo);
+        var commonStructureService = collection.GetService<ICommonStructureService4>();
+        var projectUri = commonStructureService.GetProjectFromName(project).Uri;
+        var nodeCreator = new TfsNodeCreator(
+            commonStructureService,
+            _loggerFactory.CreateLogger<TfsNodeCreator>(),
+            project,
+            projectUri);
 
         var discoveryService = new TfsObjectModelWorkItemDiscoveryService(
             workItemStore,
@@ -135,8 +144,10 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
 
         return new TfsJobServices(
             collection,
+            workItemStore,
             revisionSource,
             attachmentSource,
+            nodeCreator,
             classificationTreeReader,
             discoveryService,
             projectDiscoveryService,
@@ -158,8 +169,10 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
 /// </summary>
 public sealed class TfsJobServices : IDisposable
 {
+    public WorkItemStore WorkItemStore { get; }
     public IWorkItemRevisionSource RevisionSource { get; }
     public IAttachmentBinarySource AttachmentSource { get; }
+    public INodeCreator NodeCreator { get; }
     public IClassificationTreeReader ClassificationTreeReader { get; }
     public IWorkItemDiscoveryService DiscoveryService { get; }
     public IProjectDiscoveryService ProjectDiscoveryService { get; }
@@ -174,8 +187,10 @@ public sealed class TfsJobServices : IDisposable
 
     public TfsJobServices(
         TfsTeamProjectCollection collection,
+        WorkItemStore workItemStore,
         IWorkItemRevisionSource revisionSource,
         IAttachmentBinarySource attachmentSource,
+        INodeCreator nodeCreator,
         IClassificationTreeReader classificationTreeReader,
         IWorkItemDiscoveryService discoveryService,
         IProjectDiscoveryService projectDiscoveryService,
@@ -186,8 +201,10 @@ public sealed class TfsJobServices : IDisposable
         IIdentitySource identitySource)
     {
         _collection = collection;
+        WorkItemStore = workItemStore;
         RevisionSource = revisionSource;
         AttachmentSource = attachmentSource;
+        NodeCreator = nodeCreator;
         ClassificationTreeReader = classificationTreeReader;
         DiscoveryService = discoveryService;
         ProjectDiscoveryService = projectDiscoveryService;
@@ -212,6 +229,7 @@ internal sealed class SourceEndpointInfo : ISourceEndpointInfo
     public string Url { get; init; } = string.Empty;
     public string Project { get; init; } = string.Empty;
     public string ConnectorType { get; init; } = string.Empty;
+    public string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
 
     // TFS uses its own SDK for auth — return a minimal endpoint for compatibility.
     public OrganisationEndpoint ToOrganisationEndpoint() =>

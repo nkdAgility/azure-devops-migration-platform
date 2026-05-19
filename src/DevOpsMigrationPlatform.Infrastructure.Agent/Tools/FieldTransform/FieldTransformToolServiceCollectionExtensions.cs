@@ -47,9 +47,7 @@ public static class FieldTransformToolServiceCollectionExtensions
                 state.Current?.GetSection(FieldTransformOptions.SectionName).Bind(opts);
             });
 
-#if !NET481
         services.AddSingleton<IValidateOptions<FieldTransformOptions>, FieldTransformOptionsValidator>();
-#endif
 
         services.AddScoped<IFieldTransformFactory>(sp =>
             new FieldTransformFactory(sp.GetService<ILoggerFactory>()));

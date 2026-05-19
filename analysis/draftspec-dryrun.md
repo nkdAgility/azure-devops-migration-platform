@@ -39,7 +39,7 @@ Affects:
 - `QueueCommand` (copies `ImportType` from config to job contract)
 - `MigrationOptionsValidator` (emits structured `Warning` when `ProductionRun` is set)
 - `docs/configuration-reference.md` (new top-level field documentation)
-- `.agents/context/job-lifecycle.md` (new contract field)
+- `.agents/30-context/domains/job-lifecycle.md` (new contract field)
 
 Does **not** affect:
 
@@ -190,3 +190,4 @@ None — all questions resolved. See Decisions table above.
 - Per-module `ImportType` override (e.g. `DryRun` for `WorkItems` but `ProductionRun` for `Teams`)
 - UI/TUI indication of `ImportType` in the job dashboard
 - `ImportType` on `Export` — export has no write side-effects on the target system
+

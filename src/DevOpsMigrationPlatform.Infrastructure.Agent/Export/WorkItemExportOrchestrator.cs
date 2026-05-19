@@ -15,7 +15,9 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
+using DevOpsMigrationPlatform.Abstractions.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 #if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 #endif
@@ -49,13 +51,14 @@ public sealed class WorkItemExportOrchestrator
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
 
-    private readonly IArtefactStore _artefactStore;
+    private readonly IPackageAccess _package;
+    private readonly string _organisation;
+    private readonly string _project;
     private readonly ICheckpointingService _checkpointingService;
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
     private readonly IProgressSink? _progressSink;
     private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
     private readonly MigrationEndpointOptions? _endpoint;
-    private readonly string? _project;
     private readonly string? _wiqlQuery;
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
@@ -66,18 +69,18 @@ public sealed class WorkItemExportOrchestrator
     private readonly IWorkItemDiscoveryService? _discoveryService;
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
     private readonly string? _packageUri;
-    private readonly IPackageAccess? _package;
 #if !NET481
     private readonly IReferencedPathTracker? _referencedPathTracker;
 #endif
 
     public WorkItemExportOrchestrator(
-        IArtefactStore artefactStore,
+        IPackageAccess package,
+        string organisation,
+        string project,
         ICheckpointingService checkpointingService,
         IAttachmentBinarySource? attachmentBinarySource = null,
         IProgressSink? progressSink = null,
         MigrationEndpointOptions? endpoint = null,
-        string? project = null,
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
         IWorkItemFetchService? fetchService = null,
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
@@ -88,20 +91,20 @@ public sealed class WorkItemExportOrchestrator
         string? wiqlQuery = null,
         IWorkItemDiscoveryService? discoveryService = null,
         IExportProgressStoreFactory? exportProgressStoreFactory = null,
-        string? packageUri = null,
-        IPackageAccess? package = null
+        string? packageUri = null
 #if !NET481
         , IReferencedPathTracker? referencedPathTracker = null
 #endif
         )
     {
-        _artefactStore = artefactStore;
+        _package = package ?? throw new ArgumentNullException(nameof(package));
+        _organisation = organisation ?? throw new ArgumentNullException(nameof(organisation));
+        _project = project ?? throw new ArgumentNullException(nameof(project));
         _checkpointingService = checkpointingService;
         _attachmentBinarySource = attachmentBinarySource;
         _progressSink = progressSink;
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
         _endpoint = endpoint;
-        _project = project;
         _wiqlQuery = wiqlQuery;
         _fetchService = fetchService;
         _filterOptions = filterOptions;
@@ -112,7 +115,6 @@ public sealed class WorkItemExportOrchestrator
         _discoveryService = discoveryService;
         _exportProgressStoreFactory = exportProgressStoreFactory;
         _packageUri = packageUri;
-        _package = package;
 #if !NET481
         _referencedPathTracker = referencedPathTracker;
 #endif
@@ -175,9 +177,15 @@ public sealed class WorkItemExportOrchestrator
             });
         }
 
-        var exportProgressStore = _exportProgressStoreFactory != null && _packageUri != null
-                    ? _exportProgressStoreFactory.CreateFromPackageUri(_packageUri)
-                    : null;
+        IExportProgressStore? exportProgressStore = null;
+        if (_exportProgressStoreFactory != null)
+        {
+            var connection = await _package.OpenNativeDatabaseAsync(
+                PackageMetaKind.ExportProgressDb,
+                cancellationToken).ConfigureAwait(false);
+            exportProgressStore = _exportProgressStoreFactory.Create(connection);
+        }
+
         try
         {
             if (exportProgressStore != null)
@@ -501,10 +509,10 @@ public sealed class WorkItemExportOrchestrator
                     {
                         if (string.Equals(field.ReferenceName, "System.AreaPath", StringComparison.OrdinalIgnoreCase)
                             && field.Value is string areaPath && !string.IsNullOrEmpty(areaPath))
-                            await _referencedPathTracker.RecordAreaPathAsync(areaPath, _artefactStore, cancellationToken).ConfigureAwait(false);
+                            await _referencedPathTracker.RecordAreaPathAsync(areaPath, _package, _organisation, _project, cancellationToken).ConfigureAwait(false);
                         else if (string.Equals(field.ReferenceName, "System.IterationPath", StringComparison.OrdinalIgnoreCase)
                             && field.Value is string iterPath && !string.IsNullOrEmpty(iterPath))
-                            await _referencedPathTracker.RecordIterationPathAsync(iterPath, _artefactStore, cancellationToken).ConfigureAwait(false);
+                            await _referencedPathTracker.RecordIterationPathAsync(iterPath, _package, _organisation, _project, cancellationToken).ConfigureAwait(false);
                     }
                 }
 #endif
@@ -757,7 +765,7 @@ public sealed class WorkItemExportOrchestrator
                             }
                         });
 
-                        var targetPath = $"{folderPath}{attachment.RelativePath}";
+                        var targetPath = $"{folderPath}{attachment.RelativePath ?? string.Empty}";
 
                         using var attachmentActivity = ActivitySource.StartActivity("attachment.download", ActivityKind.Internal);
                         attachmentActivity?.SetTag("workitem.id", revision.WorkItemId);
@@ -770,8 +778,15 @@ public sealed class WorkItemExportOrchestrator
                         if (streamingSource != null)
                         {
                             var result = await streamingSource
-                                .StreamToStoreAsync(revision.WorkItemId, revision.RevisionIndex, attachment,
-                                    _artefactStore, targetPath, cancellationToken)
+                                .StreamToStoreAsync(
+                                    revision.WorkItemId,
+                                    revision.RevisionIndex,
+                                    attachment,
+                                    _package,
+                                    _organisation,
+                                    _project,
+                                    GetRevisionFolderPath(folderPath),
+                                    cancellationToken)
                                 .ConfigureAwait(false);
 
                             downloadSucceeded = result.HasValue;
@@ -1020,22 +1035,14 @@ public sealed class WorkItemExportOrchestrator
     {
         var date = changedDate.ToString("yyyy-MM-dd");
         var ticks = changedDate.Ticks.ToString("D20");
-        return $"WorkItems/{date}/{ticks}-{workItemId}-{revisionIndex}/";
+        return $"{date}/{ticks}-{workItemId}-{revisionIndex}/";
     }
 
-    private async Task<bool> PackageExistsAsync(string path, CancellationToken ct)
-    {
-        if (_package is null)
-            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
-
-        return await _package.ContentExistsAsync(CreateArtefactContext(path), ct).ConfigureAwait(false);
-    }
+    private Task<bool> PackageExistsAsync(string path, CancellationToken ct)
+        => _package.ContentExistsAsync(CreateArtefactContext(path), ct).AsTask();
 
     private async Task WritePackageTextAsync(string path, string content, CancellationToken ct)
     {
-        if (_package is null)
-            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
-
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
         await _package.PersistContentAsync(
             CreateArtefactContext(path),
@@ -1045,9 +1052,6 @@ public sealed class WorkItemExportOrchestrator
 
     private async Task WritePackageBinaryAsync(string path, byte[] content, CancellationToken ct)
     {
-        if (_package is null)
-            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
-
         using var stream = new MemoryStream(content, writable: false);
         await _package.PersistContentStreamAsync(
             CreateArtefactContext(path),
@@ -1056,15 +1060,44 @@ public sealed class WorkItemExportOrchestrator
             ct).ConfigureAwait(false);
     }
 
-    private static PackageContentContext CreateArtefactContext(string relativePath)
-        => new(
-            PackageContentKind.Artefact,
-            SplitRouteSegments(relativePath));
+    private PackageContentContext CreateArtefactContext(string relativePath)
+    {
+        if (relativePath.EndsWith("revision.json", StringComparison.OrdinalIgnoreCase))
+        {
+            return new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: _organisation,
+                Project: _project,
+                Module: "WorkItems",
+                Address: new WorkItemRevisionAddress(GetRevisionFolderPath(relativePath)));
+        }
 
-    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
-        => relativePath
-            .Replace('\\', '/')
-            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+        var revisionFolderPath = GetRevisionFolderPath(relativePath);
+        var fileName = GetFileName(relativePath);
+        return new PackageContentContext(
+            PackageContentKind.Artefact,
+            Organisation: _organisation,
+            Project: _project,
+            Module: "WorkItems",
+            Address: new WorkItemAttachmentAddress(revisionFolderPath, fileName));
+    }
+
+    private static string GetRevisionFolderPath(string relativePath)
+    {
+        var normalized = relativePath.Replace('\\', '/').TrimEnd('/');
+        if (normalized.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase))
+            normalized = normalized.Substring("WorkItems/".Length);
+
+        var lastSlash = normalized.LastIndexOf('/');
+        return lastSlash >= 0 ? normalized.Substring(0, lastSlash) : normalized;
+    }
+
+    private static string GetFileName(string relativePath)
+    {
+        var normalized = relativePath.Replace('\\', '/').TrimEnd('/');
+        var lastSlash = normalized.LastIndexOf('/');
+        return lastSlash >= 0 ? normalized.Substring(lastSlash + 1) : normalized;
+    }
 
     private static string FormatBytes(long bytes) =>
         bytes switch

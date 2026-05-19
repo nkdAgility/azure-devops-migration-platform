@@ -27,7 +27,7 @@ public class MigrationExportCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     [Timeout(1_200_000)] // 20 minutes — full export of a dev project over real network
-    public async Task MigrationExportCommand_SystemTest_AdoSingleProject_ExitsZero_AndWritesRevisionFiles()
+    public async Task ExportAdo_WritesRevisions()
     {
         // ── Guard ─────────────────────────────────────────────────────────
         var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
@@ -42,7 +42,7 @@ public class MigrationExportCommandTests
 
         // ── Act — run the CLI exactly as the launch profile does ────────
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(MigrationExportCommand_SystemTest_AdoSingleProject_ExitsZero_AndWritesRevisionFiles),
+            testName: nameof(ExportAdo_WritesRevisions),
             args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(18),
             cleanOutputFolder: true);
@@ -122,7 +122,7 @@ public class MigrationExportCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     [Timeout(1_200_000)] // 20 minutes — full export including API calls for comments
-    public async Task MigrationExportCommand_SystemTest_WorkItemComments_ExitsZero_AndWritesCommentFolders()
+    public async Task ExportAdo_WritesComments()
     {
         // ── Guard ─────────────────────────────────────────────────────────
         var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
@@ -137,7 +137,7 @@ public class MigrationExportCommandTests
 
         // ── Act — run the CLI with comments and embedded images enabled ────
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(MigrationExportCommand_SystemTest_WorkItemComments_ExitsZero_AndWritesCommentFolders),
+            testName: nameof(ExportAdo_WritesComments),
             args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(18),
             cleanOutputFolder: true);

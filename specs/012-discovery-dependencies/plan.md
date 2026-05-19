@@ -124,3 +124,28 @@ src/DevOpsMigrationPlatform.CLI.TfsMigration/   MODIFIED — add 'dependencies' 
 | `Dictionary<ProjectPairKey, int>` streaming accumulator + post-pass Union-Find | Millions of links cannot be held in memory; project graph required for GroupId and Mermaid | Two-pass (stream then re-read CSV): slow; full `List<DependencyRecord>`: O(links) memory, violates scale requirement |
 | `MermaidDiagramBuilder` bespoke string builder | Mermaid output must be GitHub/ADO wiki compatible; no suitable NuGet library exists | Third-party library: adds dependency risk; DOT/SVG: not natively rendered in both target wikis |
 | TFS subprocess bridge for `TfsDependencyProcessAdapter` | TFS OM is net481-only; must not be referenced from net10.0 CLI.Migration | Direct TFS OM reference: breaks netstandard/net10 targets; violates Principle VI |
+
+## Current status
+
+Partially implemented with architecture shifted to queue-mode dependency capture/analyse in Agent runtime. The plan's original CLI command-centric model is stale.
+
+## Remaining incomplete work (IDs)
+
+T003, T014a, T019, T020, T021, T025, T026, T029, T030, T031, T035, T040, T041, T042, T043, T044, T045, T046, T050, T051, T053.
+
+## Completed because superseded (IDs + source)
+
+T002, T004, T005, T006, T007, T008, T009, T010, T011, T014, T015, T017, T018, T022, T023, T024, T027, T028, T032, T033, T034, T036, T037, T038, T039, T047, T048, T049, T054.
+
+Primary supersession sources: `specs/015-work-item-scoped-fetch`, `specs/016-organisation-endpoint`, `specs/017-simulated-infrastructure`, `specs/021.2-separation-of-concerns`, `specs/030-module-analiser-refactor`, `specs/032-icapture-interface`.
+
+## Contradictions and reconciliation
+
+- Plan expects direct CLI command wiring and local CSV output; runtime now executes via queue job + package artefacts.
+- Plan expects `DiscoveryOptions`; runtime uses `MigrationPlatformOptions` policy model.
+- Plan expects simulated synthetic link generation; runtime simulated link service is empty-link implementation.
+- Plan expects TFS subprocess adapter in CLI command flow; runtime still has unresolved TFS keyed-service gap.
+
+## Verification evidence
+
+Reconciliation used concrete file inspection of current runtime wiring, DI registrations, features, tests, and command surfaces. Build and targeted dependency tests passed; full test suite execution did not complete in-session.

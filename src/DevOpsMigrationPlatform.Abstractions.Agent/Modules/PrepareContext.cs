@@ -2,7 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 
@@ -14,8 +14,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 public sealed record PrepareContext
 {
     public Job Job { get; init; } = null!;
-    public IArtefactStore ArtefactStore { get; init; } = null!;
-    public IStateStore StateStore { get; init; } = null!;
+    public IPackageAccess Package { get; init; } = null!;
     public IProgressSink? ProgressSink { get; init; }
     public ITargetEndpointInfo TargetEndpoint { get; init; } = null!;
 }

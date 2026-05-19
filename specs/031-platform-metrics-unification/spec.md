@@ -1,11 +1,51 @@
 # Specification: Platform Metrics Unification
 
-**Status**: ✅ Implemented — clean-break approach (no `[Obsolete]` tombstones per author decision; see § Implementation Notes)
+**Status**: ⚠️ Reconciled (2026-05-17): mostly complete, with remaining gaps
 **Date**: 2026-05-04
 **Implemented**: 2026-05-06
 **Author**: MartinHinshelwoodNKD + Copilot
 **Spec dir**: `specs/031-platform-metrics-unification`
 **Blocking**: Does NOT block spec-030; must be sequenced before spec-030 implementation begins (see § Sequencing)
+
+---
+
+## Reconciliation Snapshot (2026-05-17)
+
+### Canonical task status source
+
+- `tasks.md` in this folder (added during reconciliation).
+
+### Current status summary
+
+- **Complete**: D1, D3, D4, D5, D6, D7, D8, D11, D12
+- **Incomplete**: D2, D9 and deferred breaking-policy follow-ups
+- **Complete/superseded**: D10 (superseded by clean-break decision)
+
+### Remaining incomplete work
+
+1. Unify remaining non-`platform.*` metric instrument names in TFS object model telemetry (`WorkItemExportMetrics`, `AttachmentDownloadMetrics`).
+2. Complete deferred versioning/release operations from § Breaking Change Policy.
+3. Fix stale `WellKnownMetricNames` reference in `MigrationDiagnostics` XML documentation.
+
+### Superseded list
+
+- D10 `[Obsolete]` tombstones superseded by clean-break implementation (file deletions + `git mv` renames), as already documented in § Implementation Notes.
+
+### Contradictions captured
+
+1. This spec says naming is unified across all components, but TFS telemetry still uses legacy literal metric names.
+2. This spec says “discovery” vocabulary is removed, while newer spec-032 still uses `JobMetrics.Discovery` terminology in planning artifacts.
+3. Breaking-change version bump and release-note actions remain deferred.
+
+### Verification evidence
+
+- `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownAgentMetricNames.cs` (`platform.*` constants)
+- `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownControlPlaneMetricNames.cs` (`platform.job.*`)
+- `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownCliMetricNames.cs` (`platform.command.*`)
+- `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Telemetry/WorkItemExportMetrics.cs` (legacy literals still present)
+- `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Telemetry/AttachmentDownloadMetrics.cs` (legacy literals still present)
+- `src/DevOpsMigrationPlatform.Abstractions/ControlPlaneApi/MigrationDiagnostics.cs` (stale `WellKnownMetricNames` XML reference)
+- `dotnet test tests\DevOpsMigrationPlatform.Infrastructure.Tests\DevOpsMigrationPlatform.Infrastructure.Tests.csproj --nologo --filter "FullyQualifiedName~WellKnownMetricNamesTests"` (passed, 4/4)
 
 ---
 
@@ -408,7 +448,7 @@ Any class that currently injected `IDiscoveryMetrics` or `IMigrationMetrics` now
 
 | File | Change | Status |
 |---|---|---|
-| `.agents/context/telemetry-model.md` | Replace `IDiscoveryMetrics`/`IMigrationMetrics` references with `IPlatformMetrics`; update meter name; add meter name reference table | ✅ Done |
+| `.agents/30-context/domains/telemetry-model.md` | Replace `IDiscoveryMetrics`/`IMigrationMetrics` references with `IPlatformMetrics`; update meter name; add meter name reference table | ✅ Done |
 
 ---
 
@@ -493,3 +533,4 @@ Meter: `WellKnownMeterNames.Cli` (`DevOpsMigrationPlatform.CLI`) — unchanged.
 | Q1 | Should `IWorkItemExportMetrics` (TfsObjectModel) be merged into `IPlatformMetrics` or left as a TFS-specific sub-interface? | Open |
 | Q2 | Should spec-030 `InventoryAsync` metrics be added to this spec's mapping table, or left to spec-030? | Resolved — left to spec-030 |
 | Q3 | ~~Do we need a Prometheus/OTEL collector relabelling rule to bridge old → new metric names for existing dashboards during transition?~~ **Resolved:** Yes — the runbook must include relabelling rules for all four old prefixes (`discovery.*`, `migration.*`, `controlplane.*`, `cli.*`) until dashboards are updated. | Resolved |
+

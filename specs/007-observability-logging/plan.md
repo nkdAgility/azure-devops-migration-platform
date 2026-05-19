@@ -7,6 +7,40 @@
 
 Establish three orthogonal observability channels for the Migration Agent: (1) complete the existing `PackageProgressSink` stub so `ProgressEvent` records are persisted to `Logs/progress.jsonl` in the package, (2) add a new diagnostics channel that captures `ILogger` output as `DiagnosticLogRecord` NDJSON in `Logs/agent.jsonl` and streams it to the Control Plane for live TUI and `export --follow` consumption, and (3) rename the misnamed `/logs` endpoints to `/progress` and repurpose `manage logs` as `manage diagnostics`.
 
+## Reconciliation Status (2026-05-17)
+
+### Current status
+
+The plan is partially stale versus current code architecture. Core telemetry and progress/diagnostics endpoints are implemented, but several planned surfaces are superseded or still incomplete.
+Authority order used for reconciliation: `.agents` guidance → newer specs `018`, `031`, `033`, `034`, `035` → this spec folder → current code/test evidence.
+
+### Remaining incomplete work (tasks.md IDs)
+
+- T010, T015, T030 (fresh end-to-end evidence pending)
+- T033, T037 (full `manage diagnostics` replacement and cleanup of deprecated `manage logs`)
+- T041, T042, T043 (download endpoint + client + command flow)
+- T051, T054, T055 (system-test/evidence completion)
+
+### Completed because superseded (tasks.md IDs)
+
+- Queue/task-bootstrap model superseded command/settings expectations: T006, T021, T025, T026, T028, T029, T034, T036, T039, T045, T046, T050 (`specs/028.2-job-execution-by-task/tasks.md`)
+- Package-manager/run-scoped logging superseded legacy `Logs/*.jsonl` write paths and DI assumptions: T004, T008, T009, T012, T014, T020 (`specs/034-package-manager-adoption/tasks.md`)
+
+### Contradictions and reconciliation
+
+- Planned direct `IArtefactStore.AppendAsync("Logs/*.jsonl")` persistence has shifted to package boundary append APIs under run-scoped `.migration/runs/<runId>/logs/*.ndjson`.
+- Planned `MigrationExportCommand` focus shifted to queue-command flow.
+- Planned `LogDownloadController` and corresponding CLI retrieval remain unimplemented; this is a true gap, not supersession.
+- Planned package-download endpoint (`/jobs/{jobId}/logs/download`) conflicts with current control-plane guardrails that disallow control-plane package I/O.
+
+### Verification evidence
+
+- Implemented: `PackageProgressSink`, `PackageLoggerProvider`, `DiagnosticsController`, `ProgressController`, queue `--follow/--level` flow.
+- Missing: `LogDownloadController`, `ControlPlaneClient` download methods, functional `manage diagnostics` download path.
+- `/speckit.analyze` and `/speckit.checklist` executed for this spec folder.
+- Build baseline passes: `dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo`.
+- Full test baseline (`dotnet test DevOpsMigrationPlatform.slnx --no-build --nologo`) was started but stalled and was stopped.
+
 Key design decisions:
 - **Tiered log levels**: The agent's diagnostic log level is per-job (set via `export --level`, default: Information). The control plane has an independent deployment-level minimum (default: Warning). The agent writes full detail to the package; the CP filters incoming records at its own floor before buffering, streaming via SSE, or exporting to Application Insights / OTel.
 - **CLI lifecycle**: `export --follow` streams diagnostics inline (implicit in standalone mode). Without `--follow` on a remote CP, the CLI submits the job and exits. Ctrl+C during `--follow` detaches without cancelling the job.
@@ -150,9 +184,9 @@ All design decisions checked against:
 - `docs/tui-guide.md` — Terminal.Gui for diagnostics panel; SSE subscription pattern matches existing progress table
 - `docs/control-plane.md` — ring buffer pattern matches existing `JobProgressStore`; separate `DiagnosticLogStore` parallels it
 - `docs/agent-hosting.md` — three sinks (console, package, CP) already documented; adding logger providers follows same wiring
-- `.agents/guardrails/architecture-boundaries.md` — rule #11 (CP no migration logic), #12 (agents stateless), #13 (IArtefactStore only), #16 (CLI no migration logic), #18 (no UI coupling in engine)
-- `.agents/guardrails/control-plane-rules.md` — standalone mode uses embedded Aspire APIs, not AppHost; ServiceDefaults for OTel
-- `.agents/context/job-lifecycle.md` — `--level` value passed via job definition to agent; no schema break (additive field)
+- `.agents/20-guardrails/core/architecture-boundaries.md` — rule #11 (CP no migration logic), #12 (agents stateless), #13 (IArtefactStore only), #16 (CLI no migration logic), #18 (no UI coupling in engine)
+- `.agents/20-guardrails/domains/control-plane-rules.md` — standalone mode uses embedded Aspire APIs, not AppHost; ServiceDefaults for OTel
+- `.agents/30-context/domains/job-lifecycle.md` — `--level` value passed via job definition to agent; no schema break (additive field)
 
 Discrepancies with existing docs flagged in [discrepancies.md](discrepancies.md) (9 items). These will be resolved during `speckit.implement`.
 
@@ -398,3 +432,4 @@ The following debug profiles must be added or updated:
 - [x] **Tiered Log Levels:** Confirmed — agent's per-job `--level` is independent of CP's deployment config. In standalone mode, CP adopts operator's level. In non-standalone, CP uses its own. Package always gets full agent-level detail. CP filters before buffering. App Insights / OTel export at CP level.
 - [x] **CLI constraints (Rule #16):** Confirmed — `export --follow` streams from the CP via SSE (read-only). It does not call modules, write cursors, or access `IArtefactStore`. `manage diagnostics` downloads files via CP API. `manage progress` reads from CP ring buffer. All through `ControlPlaneClient`.
 - [x] **Build & Test gates:** Plan includes: `dotnet clean && dotnet build --no-incremental` must pass; `dotnet test` all tests must pass; at least one scenario config run via `launch.json` debug profile. New `launch.json` entries required for `manage diagnostics` and `manage progress`. New `[TestCategory("SystemTest")]` tests for `export --follow` and `manage diagnostics`.
+

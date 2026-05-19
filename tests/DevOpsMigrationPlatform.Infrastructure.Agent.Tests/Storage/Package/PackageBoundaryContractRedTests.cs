@@ -13,7 +13,7 @@ public sealed class PackageBoundaryContractRedTests
     public void Red_IPackageContract_IsAvailableInAbstractionsAgent()
     {
         var ipackageType = Type.GetType(
-            $"DevOpsMigrationPlatform.Abstractions.Agent.Storage.IPackageAccess, {PackageBoundaryTestFixture.ContractsAssemblyName}");
+            $"DevOpsMigrationPlatform.Abstractions.Storage.IPackageAccess, {PackageBoundaryTestFixture.ContractsAssemblyName}");
 
         Assert.IsNotNull(ipackageType);
     }

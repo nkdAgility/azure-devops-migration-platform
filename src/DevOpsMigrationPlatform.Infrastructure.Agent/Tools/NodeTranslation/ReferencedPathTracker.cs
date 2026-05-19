@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -10,7 +9,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using Microsoft.Extensions.Logging;
 
@@ -23,7 +22,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 /// </summary>
 public sealed class ReferencedPathTracker : IReferencedPathTracker
 {
-    private const string ArtifactPath = "Nodes/referenced-paths.json";
 
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
 
@@ -45,7 +43,7 @@ public sealed class ReferencedPathTracker : IReferencedPathTracker
     }
 
     /// <summary>Loads existing artifact (for resume). Call once before discovery begins.</summary>
-    public async Task InitializeAsync(IArtefactStore artefactStore, CancellationToken ct)
+    public async Task InitializeAsync(IPackageAccess package, string organisation, string project, CancellationToken ct)
     {
         // Acquire the lock BEFORE reading: PersistAsync opens the file with FileShare.None
         // (via File.WriteAllTextAsync on .NET 6+), so a concurrent read without the lock
@@ -54,8 +52,14 @@ public sealed class ReferencedPathTracker : IReferencedPathTracker
         await _lock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            var json = await artefactStore.ReadAsync(ArtifactPath, ct).ConfigureAwait(false);
-            if (json is null) return;
+            var payload = await package.RequestContentAsync(CreateContext(organisation, project), ct).ConfigureAwait(false);
+            if (payload is null) return;
+
+            if (payload.Content.CanSeek)
+                payload.Content.Position = 0;
+            using var reader = new System.IO.StreamReader(payload.Content, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+            var json = await reader.ReadToEndAsync().ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(json)) return;
 
             var existing = JsonSerializer.Deserialize<ReferencedPathsArtifact>(json, s_jsonOptions);
             if (existing is null) return;
@@ -75,7 +79,7 @@ public sealed class ReferencedPathTracker : IReferencedPathTracker
     }
 
     /// <summary>Records a discovered area path. If new, persists the artifact.</summary>
-    public async Task RecordAreaPathAsync(string path, IArtefactStore artefactStore, CancellationToken ct)
+    public async Task RecordAreaPathAsync(string path, IPackageAccess package, string organisation, string project, CancellationToken ct)
     {
         await _lock.WaitAsync(ct).ConfigureAwait(false);
         bool added;
@@ -89,12 +93,12 @@ public sealed class ReferencedPathTracker : IReferencedPathTracker
         }
 
         if (!added) return;
-        await PersistAsync(artefactStore, ct).ConfigureAwait(false);
+        await PersistAsync(package, organisation, project, ct).ConfigureAwait(false);
         _logger.LogDebug("[NodeTranslation] Area path discovered: {Path}", path);
     }
 
     /// <summary>Records a discovered iteration path. If new, persists the artifact.</summary>
-    public async Task RecordIterationPathAsync(string path, IArtefactStore artefactStore, CancellationToken ct)
+    public async Task RecordIterationPathAsync(string path, IPackageAccess package, string organisation, string project, CancellationToken ct)
     {
         await _lock.WaitAsync(ct).ConfigureAwait(false);
         bool added;
@@ -108,11 +112,11 @@ public sealed class ReferencedPathTracker : IReferencedPathTracker
         }
 
         if (!added) return;
-        await PersistAsync(artefactStore, ct).ConfigureAwait(false);
+        await PersistAsync(package, organisation, project, ct).ConfigureAwait(false);
         _logger.LogDebug("[NodeTranslation] Iteration path discovered: {Path}", path);
     }
 
-    private async Task PersistAsync(IArtefactStore artefactStore, CancellationToken ct)
+    private async Task PersistAsync(IPackageAccess package, string organisation, string project, CancellationToken ct)
     {
         using var activity = s_activitySource.StartActivity("nodes.export.discover");
 
@@ -123,7 +127,11 @@ public sealed class ReferencedPathTracker : IReferencedPathTracker
                 new List<string>(_areaPaths),
                 new List<string>(_iterationPaths));
             var json = JsonSerializer.Serialize(artifact, s_jsonOptions);
-            await artefactStore.WriteAsync(ArtifactPath, json, ct).ConfigureAwait(false);
+            using var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(json), writable: false);
+            await package.PersistContentAsync(
+                CreateContext(organisation, project),
+                new PackagePayload(stream, "application/json"),
+                ct).ConfigureAwait(false);
         }
         finally
         {
@@ -131,10 +139,17 @@ public sealed class ReferencedPathTracker : IReferencedPathTracker
         }
     }
 
+    private static PackageContentContext CreateContext(string organisation, string project)
+        => new(
+            PackageContentKind.Artefact,
+            Organisation: organisation,
+            Project: project,
+            Module: "Nodes",
+            Address: new ReferencedPathsAddress());
+
     /// <summary>Returns current area paths (for testing).</summary>
-    public IReadOnlySet<string> AreaPaths => _areaPaths;
+    public IReadOnlyCollection<string> AreaPaths => _areaPaths;
 
     /// <summary>Returns current iteration paths (for testing).</summary>
-    public IReadOnlySet<string> IterationPaths => _iterationPaths;
+    public IReadOnlyCollection<string> IterationPaths => _iterationPaths;
 }
-#endif

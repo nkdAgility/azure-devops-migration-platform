@@ -45,7 +45,7 @@ The output should be specific enough that a developer or coding agent can implem
 
 ```text
 Subsystem path or name (required):
-  Name from .agents/context/architecture/
+  Name from .agents/30-context/architecture/
   Example: "agent-task-execution.md"
 
 Scope options (choose one):
@@ -76,12 +76,12 @@ Before executing, read all relevant guidance and subsystem context.
 
 Required:
 
-* `.agents/guardrails/testing-rules.md`
-* `.agents/guardrails/coding-standards.md`
-* `.agents/guardrails/architecture-boundaries.md`
-* `.agents/guardrails/observability-requirements.md`
+* `.agents/20-guardrails/workflow/testing-rules.md`
+* `.agents/20-guardrails/core/coding-standards.md`
+* `.agents/20-guardrails/core/architecture-boundaries.md`
+* `.agents/20-guardrails/domains/observability-requirements.md`
 * `docs/testing-guide.md`
-* The subsystem document from `.agents/context/architecture/`
+* The subsystem document from `.agents/30-context/architecture/`
 
 Also read any subsystem-specific documentation that explains intended behaviour, for example:
 
@@ -1218,3 +1218,4 @@ This skill is complete when:
 - [ ] A prioritised rebuild plan has been provided.
 - [ ] Design seams required for valuable tests have been identified.
 - [ ] At least one minimal test skeleton has been provided for the highest-priority missing or rewritten test.
+

@@ -1,0 +1,49 @@
+# CLI and TUI Rules
+
+These rules are mandatory for all CLI and TUI code.
+
+## Progress Display Sources
+
+1. The CLI progress display must read aggregate counters from `GET /jobs/{id}/telemetry` (Channel 2 — `JobMetrics` polling).
+2. Real-time stage and cursor updates must come from `GET /jobs/{id}/progress?follow=true` (Channel 1 — SSE).
+3. The TUI Metrics panel must poll `GET /jobs/{id}/telemetry`.
+4. The TUI Progress table and Log panel must subscribe to `GET /jobs/{id}/progress?follow=true` and `GET /jobs/{id}/diagnostics?follow=true` respectively.
+
+## Forbidden Patterns
+
+5. No in-process `IProgressSink` wiring in CLI or TUI code. Progress data must come from the Control Plane API only.
+6. `ProgressEvent.Metrics` must not be used as the source of counter data in CLI or TUI display. It is null for .NET 10 agents; populated only by the TFS subprocess.
+7. CLI and TUI must not write package artefacts. They have no access to `IArtefactStore` write methods.
+
+## Command Behaviour
+
+8. All CLI commands must match the canonical specification in `.agents/30-context/domains/cli-commands.md`. No undocumented options or behaviour.
+9. Any change to a CLI command must be accompanied by an update to `.agents/30-context/domains/cli-commands.md` and `docs/cli-guide.md`.
+10. Any change to a CLI command must have a corresponding `launch.json` debug profile entry.
+
+## Counter Display
+
+11. Every module counter added to `MigrationCounters` DTO must have a corresponding rendered row in `QueueCommand.BuildProgressRenderable`, in correct execution order (Identities → Nodes → Teams → WorkItems).
+
+## Exit Codes
+
+12. CLI commands must return non-zero exit codes on failure. The exit code must be documented in `docs/cli-guide.md`.
+
+## UI Contract
+
+13. The exact CLI/TUI mode-to-view contract is defined in `docs/ui-mode-contract.md`. UI work must preserve that contract or update it explicitly in the same change.
+14. Any change to `queue --follow`, `manage status`, `manage progress`, `manage diagnostics`, or `tui` rendering must update `docs/ui-mode-contract.md` and the corresponding tests in the same change.
+15. `queue` is a submission command, not a mode. Presentation must be selected from the job `Kind`, not inferred from the command name.
+16. Detailed shared-task-view behaviour — including bootstrap task-list rendering, per-task progress bars, ETA/completion-duration display, remaining-task footer timing, task-specific bar variants, and WorkItems back-off warning behaviour — belongs in `docs/ui-mode-contract.md`, not in this guardrail file.
+
+## Related
+
+- [control-plane-rules.md](../domains/control-plane-rules.md) — Control Plane API contracts
+- [.agents/30-context/domains/cli-commands.md](../../30-context/domains/cli-commands.md) — canonical command reference
+- [docs/cli-guide.md](../../../docs/cli-guide.md) — CLI operator guide
+- [docs/tui-guide.md](../../../docs/tui-guide.md) — TUI operator guide
+- [docs/ui-mode-contract.md](../../../docs/ui-mode-contract.md) — canonical mode-to-view contract
+
+
+
+

@@ -2,19 +2,44 @@
 
 **Feature Branch**: `009-resumable-export-import`  
 **Created**: 2026-04-10  
-**Status**: Draft  
+**Status**: Reconciled (legacy-spec; implementation-aligned)  
 **Input**: User description: "We need to have the Export resume from where it left off if possible. We may have already exported 20k work items, and we don't want to overwrite them unnecessarily. This should work for both export and import."
 
 ## Architecture References
 
 | Document | Status |
 |---|---|
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — Rule #4 mandates cursor-based checkpoints; Rule #2 mandates streaming import |
-| `.agents/context/checkpointing-summary.md` | Confirmed: defines cursor schema, stage values, and resume logic for import; **export cursor is not yet specified — discrepancy logged** |
-| `.agents/context/import-streaming.md` | Confirmed accurate — staged import, idempotency notes, and failure behaviour already defined |
-| `.agents/context/job-lifecycle.md` | Confirmed accurate — `MigrationJob` schema does not include a resume mode flag; **gap logged** |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — Rule #4 mandates cursor-based checkpoints; Rule #2 mandates streaming import |
+| `.agents/30-context/domains/checkpointing-summary.md` | Confirmed accurate — includes cursor schema and export/import resume behaviour |
+| `.agents/30-context/domains/import-streaming.md` | Confirmed accurate — staged import, idempotency notes, and failure behaviour already defined |
+| `.agents/30-context/domains/job-lifecycle.md` | Confirmed accurate — `Job.Resume.Mode` (`Auto`/`ForceFresh`) and phase semantics are documented |
 | `docs/architecture.md` | Confirmed accurate — resumability described as a property of the Files layer; no implementation detail |
 | `docs/module-development-guide.md` | Confirmed accurate — `IDataTypeModule.ExportAsync` and `ImportAsync` contracts |
+
+## Reconciliation Snapshot (2026-05-17)
+
+- **Current status**: Feature capability is implemented in current architecture (`Job`, queue CLI, `IPackageAccess` routing), with legacy naming in this spec folder reconciled via task-level supersession annotations.
+- **Remaining incomplete task IDs**: `T005`, `T015`, `T026`, `T034`.
+- **Completed because superseded (IDs)**: `T002`, `T006`, `T007`, `T008`, `T009`, `T011`, `T012`, `T013`, `T014`, `T016`, `T017`, `T018`, `T019`, `T020`, `T021`, `T022`, `T023`, `T025`, `T027`, `T031`, `T032`.
+- **Contradictions and reconciliation**:
+  - Legacy `MigrationJob*` paths are reconciled to `src/DevOpsMigrationPlatform.Abstractions/Jobs/*`.
+  - Legacy command model (`export/import/migrate`) is reconciled to queue-centric CLI (`QueueCommand`, `QueueCommandSettings --force-fresh`).
+  - Legacy infra paths (`Infrastructure/*`) are reconciled to current agent assembly layout (`Infrastructure.Agent/*`).
+- **Verification evidence**:
+  - Build: `dotnet build DevOpsMigrationPlatform.slnx --nologo` (pass, 2026-05-17 reconciliation run).
+  - Resume model: `src/DevOpsMigrationPlatform.Abstractions/Jobs/Job.cs`, `JobResume.cs`.
+  - Queue force-fresh wiring: `src/DevOpsMigrationPlatform.CLI.Migration/Settings/QueueCommandSettings.cs`, `Commands/QueueCommand.cs`.
+  - Force-fresh handling and phase reset: `src/DevOpsMigrationPlatform.MigrationAgent/JobAgentWorker.cs`.
+  - Cursor/phase services: `src/DevOpsMigrationPlatform.Infrastructure.Agent/Checkpointing/CheckpointingService.cs`, `PhaseTrackingService.cs`.
+  - Known verification gap: full-suite `dotnet test` and launch-profile scenario evidence remain incomplete (task `T034`).
+
+## Remaining Reconciliation Blockers
+
+- `T005`: missing force-fresh export scenario in `features/platform/checkpointing/cursor-resume.feature`.
+- `T015`: resume startup event does not include estimated skipped-count evidence.
+- `T026`: `features/cli/execute/resume-mode.feature` lacks Both-mode-specific scenarios.
+- `T034`: final full-suite and launch-profile verification gate not yet closed.
+- Open contradiction to resolve: quickstart wording says force-fresh export overwrites existing folders, while FR-012 says already-exported package files are not overwritten.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -117,8 +142,9 @@ An operator ran a migration in Both mode (export then import in a single job) an
 
 - The package path is the same between the original interrupted run and the resume run. If the operator changes the package path, a fresh run begins.
 - The scope query (WIQL) for export is assumed to be deterministic and returns the same logical set of work items in the same order across runs. New items added to the source between runs that fall after the cursor position in sort order will be included; items before the cursor will not be re-fetched on resume.
-- Both export cursor and import cursor use the same JSON schema (defined in `.agents/context/checkpointing-summary.md`). The export cursor always writes `stage: "Completed"` since export has no intra-item stages.
+- Both export cursor and import cursor use the same JSON schema (defined in `.agents/30-context/domains/checkpointing-summary.md`). The export cursor always writes `stage: "Completed"` since export has no intra-item stages.
 - The forced fresh-start option applies at the module level. The operator can reset one module's cursor without affecting other modules' cursors in the same package.
 - The `idmap.db`/`idmap.json` identity map is scoped to a single package. It is never shared between packages.
 - Import-phase resume is only safe if the package was not modified after the interrupted run (i.e., no new export was run against the same package between the interrupted import and the resume). This constraint is not enforced by the system in v1 but is documented as an operator responsibility.
 - The feature does not add retry-on-failure within a single run (that is covered by resilience policies elsewhere). It handles restart of the entire job process.
+

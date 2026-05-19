@@ -167,7 +167,7 @@ await _artefactStore.WriteAsync($"{folderPath}comment.json", jsonStream, ct);
 - ✅ **Package Consistency:** Format enforcement at single point (store implementation)
 
 **Guardrail Reference:**
-- Rule #13 from `.agents/guardrails/architecture-boundaries.md`: "IArtefactStore is the only permitted file abstraction"
+- Rule #13 from `.agents/20-guardrails/core/architecture-boundaries.md`: "IArtefactStore is the only permitted file abstraction"
 - Rule #7: "Modules only through IArtefactStore and IStateStore"
 
 ---
@@ -417,3 +417,4 @@ var sortedComments = allComments.OrderBy(c => c.CreatedDate).ToList();
 Every design decision in feature 011 traces back to a SOLID principle or architectural guardrail. This specification demonstrates that **compliance is achievable** without added complexity — in fact, adherence to SOLID makes the code simpler, more testable, and more maintainable.
 
 When implementation begins (post-SDK-fix), each design decision above can be validated in code review against this rationale document. No surprises; just following the specification.
+

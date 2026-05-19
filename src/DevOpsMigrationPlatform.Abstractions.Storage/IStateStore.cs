@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace DevOpsMigrationPlatform.Abstractions.Storage;
+
+/// <summary>
+/// Internal state persistence abstraction for cursors and checkpoints.
+/// </summary>
+internal interface IStateStore
+{
+    /// <summary>
+    /// Writes a state entry. Key is the cursor path, e.g. ".migration/Checkpoints/workitems.cursor.json".
+    /// </summary>
+    Task WriteAsync(string key, string value, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads a state entry. Returns null if the key does not exist.
+    /// </summary>
+    Task<string?> ReadAsync(string key, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns true if a state entry exists for the given key.
+    /// </summary>
+    Task<bool> ExistsAsync(string key, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Deletes the state entry at the given key. No-op if the key does not exist.
+    /// </summary>
+    Task DeleteAsync(string key, CancellationToken cancellationToken);
+}

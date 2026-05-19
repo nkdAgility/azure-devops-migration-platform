@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -17,7 +18,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 /// </summary>
 public class WorkItemResolutionStrategiesContext
 {
-    public Mock<IArtefactStore> MockArtefactStore { get; } = new(MockBehavior.Strict);
     public Mock<ICheckpointingService> MockCheckpointing { get; } = new(MockBehavior.Strict);
     public Mock<IProgressSink> MockProgressSink { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
@@ -43,7 +43,7 @@ public class WorkItemResolutionStrategiesContext
 
     public WorkItemResolutionStrategiesContext()
     {
-        MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
+        MockPackage = PackageTestFactory.CreateLooseMock();
     }
 
     public WorkItemImportOrchestrator BuildOrchestrator()
@@ -53,19 +53,21 @@ public class WorkItemResolutionStrategiesContext
             MockIdMapStore.Object,
             MockCheckpointing.Object,
             (IIdentityLookupTool?)null,
-            MockArtefactStore.Object,
             NullLogger<RevisionFolderProcessor>.Instance,
+            "https://dev.azure.com/contoso",
+            "Shop",
             package: MockPackage.Object);
 
         return new WorkItemImportOrchestrator(
-            MockArtefactStore.Object,
+            MockPackage.Object,
+            "https://dev.azure.com/contoso",
+            "Shop",
             MockCheckpointing.Object,
             MockProgressSink.Object,
             MockResolutionStrategy.Object,
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemImportOrchestrator>.Instance,
-            package: MockPackage.Object);
+            NullLogger<WorkItemImportOrchestrator>.Instance);
     }
 }

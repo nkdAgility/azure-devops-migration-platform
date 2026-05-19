@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -12,7 +11,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
@@ -65,7 +64,7 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
 
         if (descriptorsContent is not null)
         {
-            foreach (var line in descriptorsContent.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            foreach (var line in descriptorsContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 if (string.IsNullOrWhiteSpace(line)) continue;
                 try
@@ -76,7 +75,10 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
                         : root.TryGetProperty("UniqueName", out var unU) ? unU.GetString()
                         : null;
                     if (!string.IsNullOrWhiteSpace(uniqueName))
-                        allUniqueNames.Add(uniqueName);
+                    {
+                        var resolvedUniqueName = uniqueName!;
+                        allUniqueNames.Add(resolvedUniqueName);
+                    }
                 }
                 catch (JsonException) { }
             }
@@ -90,7 +92,8 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
         {
             try
             {
-                var raw = JsonSerializer.Deserialize<Dictionary<string, string>>(mappingContent, s_jsonOptions);
+                var mappingJson = mappingContent!;
+                var raw = JsonSerializer.Deserialize<Dictionary<string, string>>(mappingJson, s_jsonOptions);
                 if (raw is not null)
                 {
                     foreach (var kv in raw)
@@ -124,7 +127,7 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
             return mapped;
 
         if (!string.IsNullOrWhiteSpace(_options.DefaultIdentity))
-            return _options.DefaultIdentity;
+            return _options.DefaultIdentity ?? sourceIdentity;
 
         return sourceIdentity;
     }
@@ -152,7 +155,7 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
     private async Task<string?> ReadPackageTextAsync(string relativePath, CancellationToken ct)
     {
         var payload = await _package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
             ct).ConfigureAwait(false);
         if (payload is null)
             return null;
@@ -167,14 +170,13 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
     {
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
         await _package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(relativePath)),
+            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
             new PackagePayload(stream, "application/json"),
             ct).ConfigureAwait(false);
     }
 
-    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
-        => relativePath
-            .Replace('\\', '/')
-            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+    }
 }
-#endif

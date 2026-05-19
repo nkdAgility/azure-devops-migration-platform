@@ -5,6 +5,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -122,8 +123,10 @@ public class IdentityMappingSteps
     public async Task WhenWorkItemsImportIsInvoked()
     {
         // The prerequisite check verifies Identities/descriptors.jsonl exists.
-        var identitiesComplete = await _ctx.RealStore!
-            .ExistsAsync("Identities/descriptors.jsonl", CancellationToken.None);
+        var identitiesComplete = await _ctx.Package!
+            .ContentExistsAsync(
+                new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("Identities/descriptors.jsonl")),
+                CancellationToken.None);
         _ctx.ResolvedIdentity = identitiesComplete ? "started" : "blocked";
     }
 
@@ -148,4 +151,6 @@ public class IdentityMappingSteps
         if (_ctx.PackageRoot != null && Directory.Exists(_ctx.PackageRoot))
             Directory.Delete(_ctx.PackageRoot, recursive: true);
     }
+
+    private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
 }

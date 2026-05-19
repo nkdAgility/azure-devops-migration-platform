@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -12,10 +11,14 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Models;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
@@ -37,12 +40,15 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
     private readonly IIdMapStore _idMapStore;
     private readonly ICheckpointingService _checkpointing;
     private readonly IIdentityLookupTool? _identityLookupTool;
-    private readonly IArtefactStore _artefactStore;
     private readonly ILogger<RevisionFolderProcessor> _logger;
+    private readonly string _organisation;
+    private readonly string _project;
     private readonly IPlatformMetrics? _metrics;
     private readonly string? _jobId;
     private readonly IFieldTransformTool? _fieldTransformTool;
     private readonly INodeTranslationTool? _nodeStructureTool;
+    private readonly AttachmentReplayService _attachmentReplayService;
+    private readonly EmbeddedImageReplayService _embeddedImageReplayService;
     private readonly ProjectMapping? _nodeTranslationContext;
     private readonly NodeTranslationOptions? _nodeStructureOptions;
     private readonly IPackageAccess? _package;
@@ -59,26 +65,34 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
         IIdentityLookupTool? identityLookupTool,
-        IArtefactStore artefactStore,
         ILogger<RevisionFolderProcessor> logger,
+        string organisation,
+        string project,
         IPlatformMetrics? metrics = null,
         string? jobId = null,
         IFieldTransformTool? fieldTransformTool = null,
         INodeTranslationTool? nodeStructureTool = null,
         ProjectMapping? nodeStructureContext = null,
         NodeTranslationOptions? nodeStructureOptions = null,
-        IPackageAccess? package = null)
+        IPackageAccess? package = null,
+        AttachmentReplayService? attachmentReplayService = null,
+        EmbeddedImageReplayService? embeddedImageReplayService = null)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));
         _checkpointing = checkpointing ?? throw new ArgumentNullException(nameof(checkpointing));
         _identityLookupTool = identityLookupTool;
-        _artefactStore = artefactStore ?? throw new ArgumentNullException(nameof(artefactStore));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _organisation = organisation ?? throw new ArgumentNullException(nameof(organisation));
+        _project = project ?? throw new ArgumentNullException(nameof(project));
         _metrics = metrics;
         _jobId = jobId;
         _fieldTransformTool = fieldTransformTool;
         _nodeStructureTool = nodeStructureTool;
+        _attachmentReplayService = attachmentReplayService
+            ?? new AttachmentReplayService(target, idMapStore, NullLogger<AttachmentReplayService>.Instance);
+        _embeddedImageReplayService = embeddedImageReplayService
+            ?? new EmbeddedImageReplayService(target, NullLogger<EmbeddedImageReplayService>.Instance);
         _nodeTranslationContext = nodeStructureContext;
         _nodeStructureOptions = nodeStructureOptions;
         _package = package;
@@ -116,8 +130,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
             return;
         }
 
-        var revision = JsonSerializer.Deserialize<WorkItemRevision>(revisionJson, _jsonOptions)
-            ?? throw new InvalidOperationException($"Failed to deserialise revision.json in {folderPath}");
+        var revision = ParseRevision(revisionJson, folderPath);
 
         // Record import-side payload complexity metrics.
         if (_metrics != null)
@@ -186,12 +199,15 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         {
             // Identity resolution — NOTE: IIdentityMappingService.Resolve is synchronous per the existing interface.
             // Full identity mapping logic is added in T031 (US4). For now, pass fields as-is.
-            var fields = ApplyIdentityResolution(revision.Fields);
+            var identityResolutionContext = new IdentityResolutionContext();
+            var fields = ApplyIdentityResolution(revision.Fields, identityResolutionContext);
 
             // Embedded images — upload and rewrite URLs if extension enabled
             if (ext.EmbeddedImages.Enabled && revision.EmbeddedImages.Count > 0)
             {
-                fields = await RewriteEmbeddedImageUrlsAsync(fields, revision.EmbeddedImages, folderPath, ct).ConfigureAwait(false);
+                fields = await _embeddedImageReplayService
+                    .RewriteFieldValuesAsync(fields, revision.EmbeddedImages, folderPath, ReadPackageBinaryAsync, ct)
+                    .ConfigureAwait(false);
             }
 
             // Field transforms — apply if tool is registered and enabled for Import phase
@@ -245,32 +261,15 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         // Stage D — UploadedAttachments
         if (ext.AttachmentsEnabled && ShouldRunStage(CursorStage.UploadedAttachments, resumeAtStage))
         {
-            foreach (var attachment in revision.Attachments)
-            {
-                var existingId = await _idMapStore.GetAttachmentIdAsync(
-                    revision.WorkItemId, revision.RevisionIndex, attachment.RelativePath, ct).ConfigureAwait(false);
-
-                if (existingId is not null)
-                {
-                    _logger.LogDebug("[WorkItems] Attachment {File} already uploaded — skipping.", attachment.RelativePath);
-                    continue;
-                }
-
-                var binaryPath = $"{folderPath}/{attachment.RelativePath}";
-                await using var stream = await ReadPackageBinaryAsync(binaryPath, ct).ConfigureAwait(false);
-                if (stream is null)
-                {
-                    _logger.LogWarning("[WorkItems] Attachment binary {Path} not found — skipping.", binaryPath);
-                    continue;
-                }
-
-                var targetAttachmentId = await _target.UploadAttachmentAsync(
-                    resolvedTargetId, attachment.OriginalName, stream, ct).ConfigureAwait(false);
-
-                await _idMapStore.SetAttachmentMappingAsync(
-                    revision.WorkItemId, revision.RevisionIndex, attachment.RelativePath, targetAttachmentId, ct)
-                    .ConfigureAwait(false);
-            }
+            await _attachmentReplayService
+                .ReplayAsync(
+                    revision,
+                    folderPath,
+                    resolvedTargetId,
+                    ReadPackageBinaryAsync,
+                    await EnumerateAttachmentBinariesAsync(folderPath, ct).ConfigureAwait(false),
+                    ct)
+                .ConfigureAwait(false);
 
             await WriteCursorAsync(folderPath, CursorStage.UploadedAttachments, ct).ConfigureAwait(false);
         }
@@ -380,7 +379,9 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         return "Task";
     }
 
-    private IReadOnlyList<WorkItemField> ApplyIdentityResolution(IReadOnlyList<WorkItemField> fields)
+    private IReadOnlyList<WorkItemField> ApplyIdentityResolution(
+        IReadOnlyList<WorkItemField> fields,
+        IdentityResolutionContext identityResolutionContext)
     {
         // Identity-type fields resolved via IIdentityLookupTool when enabled.
         var identityFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -393,7 +394,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         {
             if (identityFields.Contains(field.ReferenceName) && field.Value is string identity)
             {
-                var resolved = _identityLookupTool?.IsEnabled == true ? _identityLookupTool.Resolve(identity) : identity;
+                var resolved = identityResolutionContext.Resolve(identity, ResolveIdentity);
                 result.Add(new WorkItemField { ReferenceName = field.ReferenceName, Value = resolved });
             }
             else
@@ -404,45 +405,8 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         return result;
     }
 
-    private async Task<IReadOnlyList<WorkItemField>> RewriteEmbeddedImageUrlsAsync(
-        IReadOnlyList<WorkItemField> fields,
-        IReadOnlyList<EmbeddedImageMetadata> images,
-        string folderPath,
-        CancellationToken ct)
-    {
-        var urlMap = new Dictionary<string, string>(images.Count, StringComparer.Ordinal);
-        foreach (var img in images)
-        {
-            var imgPath = $"{folderPath}/{img.RelativePath}";
-            await using var imgStream = await ReadPackageBinaryAsync(imgPath, ct).ConfigureAwait(false);
-            if (imgStream is null)
-            {
-                _logger.LogWarning("[WorkItems] Embedded image {Path} not found — skipping URL rewrite.", imgPath);
-                continue;
-            }
-            var targetUrl = await _target.UploadEmbeddedImageAsync(img.RelativePath, imgStream, ct).ConfigureAwait(false);
-            urlMap[img.OriginalUrl] = targetUrl;
-        }
-
-        if (urlMap.Count == 0) return fields;
-
-        var result = new List<WorkItemField>(fields.Count);
-        foreach (var field in fields)
-        {
-            if (field.Value is string html && html.Contains("http", StringComparison.OrdinalIgnoreCase))
-            {
-                var rewritten = html;
-                foreach (var (original, target) in urlMap)
-                    rewritten = rewritten.Replace(original, target, StringComparison.Ordinal);
-                result.Add(new WorkItemField { ReferenceName = field.ReferenceName, Value = rewritten });
-            }
-            else
-            {
-                result.Add(field);
-            }
-        }
-        return result;
-    }
+    private string ResolveIdentity(string identity)
+        => _identityLookupTool?.IsEnabled == true ? _identityLookupTool.Resolve(identity) : identity;
 
     private async Task ProcessInlineCommentsAsync(int targetWorkItemId, string folderPath, CancellationToken ct)
     {
@@ -466,14 +430,14 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
         var payload = await _package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(path)),
+            CreateArtefactContext(path),
             ct).ConfigureAwait(false);
         if (payload is null)
             return null;
 
         if (payload.Content.CanSeek)
             payload.Content.Position = 0;
-        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
         return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
@@ -483,14 +447,76 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
         return await _package.RequestContentBinaryAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(path)),
+            CreateArtefactContext(path),
             ct).ConfigureAwait(false);
     }
 
-    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
-        => relativePath
-            .Replace('\\', '/')
-            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+    private async Task<ISet<string>?> EnumerateAttachmentBinariesAsync(string folderPath, CancellationToken ct)
+    {
+        if (_package is null)
+            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
+
+        var binaryPaths = new HashSet<string>(StringComparer.Ordinal);
+        var paths = _package.EnumerateContentAsync(
+            new PackageContentContext(
+                PackageContentKind.Collection,
+                Address: new RelativePathAddress($"{folderPath.Replace('\\', '/').TrimEnd('/')}/"),
+                IsCollectionRequest: true),
+            ct);
+        if (paths is null)
+            return null;
+
+        await foreach (var path in paths.ConfigureAwait(false))
+        {
+            var normalizedPath = path.Replace('\\', '/').TrimEnd('/');
+            if (normalizedPath.EndsWith("/revision.json", StringComparison.OrdinalIgnoreCase) ||
+                normalizedPath.EndsWith("/comment.json", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            binaryPaths.Add(normalizedPath);
+        }
+
+        return binaryPaths.Count == 0 ? null : binaryPaths;
+    }
+
+    private PackageContentContext CreateArtefactContext(string path)
+    {
+        if (path.EndsWith("revision.json", StringComparison.OrdinalIgnoreCase))
+        {
+            return new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: _organisation,
+                Project: _project,
+                Module: "WorkItems",
+                Address: new WorkItemRevisionAddress(GetRevisionFolderPath(path)));
+        }
+
+        return new PackageContentContext(
+            PackageContentKind.Artefact,
+            Organisation: _organisation,
+            Project: _project,
+            Module: "WorkItems",
+            Address: new WorkItemAttachmentAddress(GetRevisionFolderPath(path), GetFileName(path)));
+    }
+
+    private static string GetRevisionFolderPath(string path)
+    {
+        var normalized = path.Replace('\\', '/').TrimEnd('/');
+        if (normalized.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase))
+            normalized = normalized.Substring("WorkItems/".Length);
+
+        var lastSlash = normalized.LastIndexOf('/');
+        return lastSlash >= 0 ? normalized.Substring(0, lastSlash) : normalized;
+    }
+
+    private static string GetFileName(string path)
+    {
+        var normalized = path.Replace('\\', '/').TrimEnd('/');
+        var lastSlash = normalized.LastIndexOf('/');
+        return lastSlash >= 0 ? normalized.Substring(lastSlash + 1) : normalized;
+    }
 
     private Task WriteCursorAsync(string folderPath, string stage, CancellationToken ct)
         => _checkpointing.WriteCursorAsync("import.workitems", new CursorEntry
@@ -515,6 +541,83 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
             result.Add(new WorkItemField { ReferenceName = kvp.Key, Value = kvp.Value?.ToString() });
         return result;
     }
-}
-#endif
 
+    private static WorkItemRevision ParseRevision(string revisionJson, string folderPath)
+    {
+        var revision = JsonSerializer.Deserialize<WorkItemRevision>(revisionJson, _jsonOptions)
+            ?? throw new InvalidOperationException($"Failed to deserialise revision.json in {folderPath}");
+
+        using var jsonDocument = JsonDocument.Parse(revisionJson);
+        if (!jsonDocument.RootElement.TryGetProperty("Attachments", out var attachmentsElement) ||
+            attachmentsElement.ValueKind != JsonValueKind.Array)
+        {
+            return revision;
+        }
+
+        var parsedAttachments = new List<AttachmentMetadata>(attachmentsElement.GetArrayLength());
+        foreach (var element in attachmentsElement.EnumerateArray())
+        {
+            var relativePath =
+                GetString(element, "relativePath") ??
+                GetString(element, "path") ??
+                GetString(element, "binaryFile") ??
+                string.Empty;
+
+            parsedAttachments.Add(new AttachmentMetadata
+            {
+                SourceId = GetString(element, "id") ?? string.Empty,
+                OriginalName = GetString(element, "name") ?? GetString(element, "originalName") ?? string.Empty,
+                RelativePath = relativePath,
+                Sha256 = GetString(element, "sha256") ?? string.Empty,
+                Size = GetInt64(element, "size"),
+                ContentType = GetString(element, "contentType") ?? string.Empty
+            });
+        }
+
+        return revision with { Attachments = parsedAttachments };
+    }
+
+    private static string? GetString(JsonElement element, string propertyName)
+    {
+        if (!TryGetPropertyIgnoreCase(element, propertyName, out var property) ||
+            property.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        return property.GetString();
+    }
+
+    private static long GetInt64(JsonElement element, string propertyName)
+    {
+        if (!TryGetPropertyIgnoreCase(element, propertyName, out var property))
+            return 0;
+
+        return property.ValueKind switch
+        {
+            JsonValueKind.Number when property.TryGetInt64(out var value) => value,
+            JsonValueKind.String when long.TryParse(property.GetString(), out var parsed) => parsed,
+            _ => 0
+        };
+    }
+
+    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement property)
+    {
+        foreach (var candidate in element.EnumerateObject())
+        {
+            if (string.Equals(candidate.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                property = candidate.Value;
+                return true;
+            }
+        }
+
+        property = default;
+        return false;
+    }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+    }
+}

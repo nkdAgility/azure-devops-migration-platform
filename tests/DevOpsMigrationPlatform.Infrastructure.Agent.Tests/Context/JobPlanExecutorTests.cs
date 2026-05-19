@@ -13,7 +13,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
@@ -23,6 +23,7 @@ using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -75,8 +76,12 @@ public sealed class JobPlanExecutorTests
 
         var package = PackageTestFactory.CreateLooseMock().Object;
         var executor = CreateExecutor(package: package);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose).Object;
-        var exportContext = new ExportContext();
+        var exportContext = new ExportContext
+        {
+            Job = new Job { JobId = "test-job" },
+            Package = package,
+            ProgressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object
+        };
 
         // Act
         var result = await executor.ExecuteExportPhaseAsync(
@@ -85,9 +90,7 @@ public sealed class JobPlanExecutorTests
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
             baseInventoryContext: null,
             endpointsByUrl: null,
-            exportContext,
-            stateStore,
-            CancellationToken.None);
+            exportContext, CancellationToken.None);
 
         // Assert
         Assert.IsTrue(result, "Export phase should succeed");
@@ -169,8 +172,7 @@ public sealed class JobPlanExecutorTests
 
         var package = PackageTestFactory.CreateLooseMock().Object;
         var executor = CreateExecutor(package: package);
-        var stateStore = new InMemoryStateStore();
-        var inventoryContext = CreateMinimalInventoryContext(stateStore) with
+        var inventoryContext = CreateMinimalInventoryContext() with
         {
             SourceEndpoint = new OrganisationEndpoint { ResolvedUrl = "https://dev.azure.com/testorg", Type = "Simulated" },
             Project = "testproject"
@@ -178,8 +180,8 @@ public sealed class JobPlanExecutorTests
         var exportContext = new ExportContext
         {
             Job = new Job { JobId = "test-job" },
-            ArtefactStore = new Mock<IArtefactStore>(MockBehavior.Loose).Object,
-            StateStore = stateStore
+            Package = package,
+            ProgressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object
         };
         var endpointsByUrl = new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase)
         {
@@ -193,9 +195,7 @@ public sealed class JobPlanExecutorTests
             analysers,
             inventoryContext,
             endpointsByUrl,
-            exportContext,
-            stateStore,
-            CancellationToken.None);
+            exportContext, CancellationToken.None);
 
         // Assert
         Assert.IsTrue(result, "Export phase should succeed when prerequisite capture/analyse tasks succeed.");
@@ -271,10 +271,9 @@ public sealed class JobPlanExecutorTests
 
         var package = PackageTestFactory.CreateLooseMock().Object;
         var executor = CreateExecutor(package: package);
-        var stateStore = new InMemoryStateStore();
-        await stateStore.WriteAsync(
-            PackagePaths.InventoryCompleteFile,
-            "{}",
+        await package.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress(PackagePathTestHelper.InventoryCompleteFile)),
+            new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes("{}"), writable: false)),
             CancellationToken.None);
 
         var inventoryJson = System.Text.Json.JsonSerializer.Serialize(new InventoryReport
@@ -293,20 +292,21 @@ public sealed class JobPlanExecutorTests
             }
         });
 
-        var inventoryContext = CreateMinimalInventoryContext(stateStore) with
+        await package.PersistContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("inventory.json")),
+            new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(inventoryJson), writable: false)),
+            CancellationToken.None);
+
+        var inventoryContext = CreateMinimalInventoryContext(package) with
         {
             SourceEndpoint = new OrganisationEndpoint { ResolvedUrl = "https://dev.azure.com/testorg", Type = "Simulated" },
             Project = "testproject"
         };
-        var artefactStore = new Mock<IArtefactStore>(MockBehavior.Loose);
-        artefactStore
-            .Setup(store => store.ReadAsync("inventory.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(inventoryJson);
         var exportContext = new ExportContext
         {
             Job = new Job { JobId = "test-job" },
-            ArtefactStore = artefactStore.Object,
-            StateStore = stateStore
+            Package = package,
+            ProgressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object
         };
         var endpointsByUrl = new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase)
         {
@@ -319,14 +319,12 @@ public sealed class JobPlanExecutorTests
             analysers,
             inventoryContext,
             endpointsByUrl,
-            exportContext,
-            stateStore,
-            CancellationToken.None);
+            exportContext, CancellationToken.None);
 
         Assert.IsTrue(result);
         CollectionAssert.AreEqual(new[] { "Capture", "Analyse", "Export" }, executionOrder);
 
-        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(package, CancellationToken.None);
         Assert.IsNotNull(persistedPlan);
         var executedCapture = persistedPlan.Tasks.First(t => t.Id == "capture.workitems.testorg.testproject");
         Assert.AreEqual(JobTaskStatus.Completed, executedCapture.Status);
@@ -356,8 +354,6 @@ public sealed class JobPlanExecutorTests
         {
             CreateTask("capture.workitems.testorg.testproject", "WorkItems Capture", "Capture")
         });
-
-        var stateStore = new InMemoryStateStore();
         var package = PackageTestFactory.CreateLooseMock().Object;
         var executor = CreateExecutor(package: package);
 
@@ -365,16 +361,14 @@ public sealed class JobPlanExecutorTests
             plan,
             handlers,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
-            CreateMinimalInventoryContext(stateStore),
+            CreateMinimalInventoryContext(),
             null,
             null,
-            new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase),
-            stateStore,
-            CancellationToken.None);
+            new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase), CancellationToken.None);
 
         Assert.IsTrue(result, "A handler-reported skipped/already-done state should be treated as successful execution.");
 
-        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(package, CancellationToken.None);
         Assert.IsNotNull(persistedPlan);
 
         var captureTask = persistedPlan.Tasks.Single(t => t.Id == "capture.workitems.testorg.testproject");
@@ -433,20 +427,15 @@ public sealed class JobPlanExecutorTests
 
         var package = PackageTestFactory.CreateLooseMock().Object;
         await package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, RouteSegments: ["inventory.json"]),
+            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("inventory.json")),
             new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(inventoryJson), writable: false)),
             CancellationToken.None);
         var executor = CreateExecutor(progressSink: progressSink.Object, package: package);
-        var stateStore = new InMemoryStateStore();
-        var artefactStore = new Mock<IArtefactStore>(MockBehavior.Loose);
-        artefactStore
-            .Setup(store => store.ReadAsync("inventory.json", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(inventoryJson);
         var exportContext = new ExportContext
         {
             Job = new Job { JobId = "test-job" },
-            ArtefactStore = artefactStore.Object,
-            StateStore = stateStore
+            Package = package,
+            ProgressSink = progressSink.Object
         };
 
         var result = await executor.ExecuteExportPhaseAsync(
@@ -455,9 +444,7 @@ public sealed class JobPlanExecutorTests
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
             baseInventoryContext: null,
             endpointsByUrl: null,
-            exportContext,
-            stateStore,
-            CancellationToken.None);
+            exportContext, CancellationToken.None);
 
         Assert.IsTrue(result);
 
@@ -468,7 +455,7 @@ public sealed class JobPlanExecutorTests
         Assert.AreEqual(5L, completedEvent.KnownTotal);
         Assert.AreEqual(5L, completedEvent.CompletedCount);
 
-        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(package, CancellationToken.None);
         Assert.IsNotNull(persistedPlan);
         var completedTask = persistedPlan.Tasks.Single(t => t.Id == "export.workitems.testorg.testproject");
         Assert.AreEqual(5L, completedTask.KnownTotal);
@@ -522,11 +509,10 @@ public sealed class JobPlanExecutorTests
 
         var package = PackageTestFactory.CreateLooseMock().Object;
         var executor = CreateExecutor(package: package);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose).Object;
         var importContext = new ImportContext();
 
         // Act
-        var result = await executor.ExecuteImportPhaseAsync(plan, modules, importContext, stateStore, CancellationToken.None);
+        var result = await executor.ExecuteImportPhaseAsync(plan, modules, importContext, CancellationToken.None);
 
         // Assert
         Assert.IsTrue(result, "Import phase should succeed");
@@ -563,17 +549,16 @@ public sealed class JobPlanExecutorTests
 
         var package = PackageTestFactory.CreateLooseMock().Object;
         var executor = CreateExecutor(package: package);
-        var stateStore = new InMemoryStateStore();
         var importContext = new ImportContext();
 
         // Act
-        var result = await executor.ExecuteImportPhaseAsync(plan, modules, importContext, stateStore, CancellationToken.None);
+        var result = await executor.ExecuteImportPhaseAsync(plan, modules, importContext, CancellationToken.None);
 
         // Assert
         Assert.IsFalse(result, "Import phase should fail");
 
         // Check that plan was persisted with correct statuses
-        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(package, CancellationToken.None);
         Assert.IsNotNull(persistedPlan, "Plan should be persisted");
         var identitiesTask = persistedPlan!.Tasks.First(t => t.Id == "import.identities");
         var workItemsTask = persistedPlan.Tasks.First(t => t.Id == "import.workitems");
@@ -611,12 +596,10 @@ public sealed class JobPlanExecutorTests
 
         var package = PackageTestFactory.CreateLooseMock().Object;
         var executor = CreateExecutor(package: package);
-        var stateStore = new InMemoryStateStore();
         var exportContext = new ExportContext
         {
             Job = new Job { JobId = "test-job" },
-            ArtefactStore = new Mock<IArtefactStore>(MockBehavior.Loose).Object,
-            StateStore = stateStore,
+            Package = package,
             ProgressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object
         };
 
@@ -626,9 +609,7 @@ public sealed class JobPlanExecutorTests
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
             baseInventoryContext: null,
             endpointsByUrl: null,
-            exportContext,
-            stateStore,
-            CancellationToken.None);
+            exportContext, CancellationToken.None);
 
         Assert.IsTrue(result, "Export phase should succeed.");
         Assert.IsNotNull(observedContext, "The module should receive a scoped export context.");
@@ -658,17 +639,16 @@ public sealed class JobPlanExecutorTests
 
         var package = PackageTestFactory.CreateLooseMock().Object;
         var executor = CreateExecutor(package: package);
-        var stateStore = new InMemoryStateStore();
         var importContext = new ImportContext();
 
         // Act
-        var result = await executor.ExecuteImportPhaseAsync(plan, modules, importContext, stateStore, CancellationToken.None);
+        var result = await executor.ExecuteImportPhaseAsync(plan, modules, importContext, CancellationToken.None);
 
         // Assert
         // Since Identities is already Skipped at plan time, Nodes will be skipped during tier extraction
         Assert.IsTrue(result, "Import phase should succeed (no executed tasks failed)");
 
-        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(package, CancellationToken.None);
         Assert.IsNotNull(persistedPlan);
         var nodesTask = persistedPlan!.Tasks.First(t => t.Id == "import.nodes");
 
@@ -710,16 +690,15 @@ public sealed class JobPlanExecutorTests
 
         var package = PackageTestFactory.CreateLooseMock().Object;
         var executor = CreateExecutor(package: package);
-        var stateStore = new InMemoryStateStore();
         var importContext = new ImportContext();
 
         // Act
-        var result = await executor.ExecuteImportPhaseAsync(plan, modules, importContext, stateStore, CancellationToken.None);
+        var result = await executor.ExecuteImportPhaseAsync(plan, modules, importContext, CancellationToken.None);
 
         // Assert
         Assert.IsFalse(result, "Import phase should fail (Nodes failed)");
 
-        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(package, CancellationToken.None);
         Assert.IsNotNull(persistedPlan);
 
         var identitiesTask = persistedPlan!.Tasks.First(t => t.Id == "import.identities");
@@ -735,7 +714,6 @@ public sealed class JobPlanExecutorTests
     public async Task LoadOrResetAsync_RunningTasksAreResetToPending()
     {
         // Arrange
-        var stateStore = new InMemoryStateStore();
 
         var plan = CreatePlan(new[]
         {
@@ -744,7 +722,6 @@ public sealed class JobPlanExecutorTests
         });
 
         var json = System.Text.Json.JsonSerializer.Serialize(plan);
-        await stateStore.WriteAsync(".migration/plan.json", json, CancellationToken.None);
 
         // Act
         var package = PackageTestFactory.CreateLooseMock().Object;
@@ -752,7 +729,7 @@ public sealed class JobPlanExecutorTests
             new PackageMetaContext(PackageMetaKind.ExecutionPlan),
             new PackageMetaPayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json), writable: false)),
             CancellationToken.None);
-        var loaded = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
+        var loaded = await JobPlanExecutor.LoadOrResetAsync(package, CancellationToken.None);
 
         // Assert
         Assert.IsNotNull(loaded, "Plan should be loaded");
@@ -768,11 +745,14 @@ public sealed class JobPlanExecutorTests
     public async Task LoadOrResetAsync_CorruptPlan_ReturnsNull()
     {
         // Arrange
-        var stateStore = new InMemoryStateStore();
-        await stateStore.WriteAsync(".migration/plan.json", "{ invalid json }", CancellationToken.None);
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        await package.PersistMetaAsync(
+            new PackageMetaContext(PackageMetaKind.ExecutionPlan),
+            new PackageMetaPayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes("{ invalid json }"), writable: false)),
+            CancellationToken.None);
 
         // Act
-        var loaded = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None);
+        var loaded = await JobPlanExecutor.LoadOrResetAsync(package, CancellationToken.None);
 
         // Assert
         Assert.IsNull(loaded, "Corrupt plan file should return null");
@@ -807,7 +787,6 @@ public sealed class JobPlanExecutorTests
         });
 
         var executor = CreateExecutor();
-        var stateStore = new InMemoryStateStore();
         var exportContext = new ExportContext();
 
         // Act
@@ -817,9 +796,7 @@ public sealed class JobPlanExecutorTests
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
             baseInventoryContext: null,
             endpointsByUrl: null,
-            exportContext,
-            stateStore,
-            CancellationToken.None);
+            exportContext, CancellationToken.None);
 
         // Assert
         Assert.IsTrue(result, "Export phase should return true when all tasks are already completed");
@@ -851,11 +828,10 @@ public sealed class JobPlanExecutorTests
         });
 
         var executor = CreateExecutor();
-        var stateStore = new InMemoryStateStore();
         var importContext = new ImportContext();
 
         // Act
-        var result = await executor.ExecuteImportPhaseAsync(plan, modules, importContext, stateStore, CancellationToken.None);
+        var result = await executor.ExecuteImportPhaseAsync(plan, modules, importContext, CancellationToken.None);
 
         // Assert
         Assert.IsTrue(result, "Import phase should return true when all tasks are already completed");
@@ -886,11 +862,11 @@ public sealed class JobPlanExecutorTests
             CreateTask("import.workitems", "WorkItems Import", "Import", dependsOn: new[] { "import.identities" })
         });
 
-        var result = await CreateExecutor().ExecuteImportPhaseAsync(
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var result = await CreateExecutor(package: package).ExecuteImportPhaseAsync(
             plan,
             modules,
-            new ImportContext(),
-            new InMemoryStateStore(),
+            new ImportContext { Package = package, ProgressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object, Job = new Job { JobId = "test-job" } },
             CancellationToken.None);
 
         Assert.IsTrue(result, "A completed dependency should satisfy the dependent import task on resume.");
@@ -911,8 +887,6 @@ public sealed class JobPlanExecutorTests
         {
             ["workitems"] = captureHandler.Object
         };
-
-        var stateStore = new InMemoryStateStore();
         var plan = CreatePlan(new[]
         {
             CreateTask("capture.identities.org.project", "Identities Capture", "Capture", status: JobTaskStatus.Failed),
@@ -928,17 +902,15 @@ public sealed class JobPlanExecutorTests
             plan,
             handlers,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
-            CreateMinimalInventoryContext(stateStore),
+            CreateMinimalInventoryContext(),
             null,
             null,
-            new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase),
-            stateStore,
-            CancellationToken.None);
+            new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase), CancellationToken.None);
 
         Assert.IsFalse(result, "A resumed canonical plan containing a failed task must keep the job failed.");
         Assert.IsFalse(invoked, "Dependent capture handlers must not run when their dependency already failed.");
 
-        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(package, CancellationToken.None);
         var persisted = persistedPlan is null ? null : System.Text.Json.JsonSerializer.Serialize(persistedPlan);
         Assert.IsNotNull(persisted, "The skipped dependent state should be persisted for resume and UI bootstrap.");
         StringAssert.Contains(persisted, "capture.workitems.org.project");
@@ -959,8 +931,6 @@ public sealed class JobPlanExecutorTests
         {
             ["workitems"] = captureHandler.Object
         };
-
-        var stateStore = new InMemoryStateStore();
         var plan = CreatePlan(new[]
         {
             CreateTask("capture.identities.org.project", "Identities Capture", "Capture", status: JobTaskStatus.Skipped),
@@ -976,17 +946,15 @@ public sealed class JobPlanExecutorTests
             plan,
             handlers,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
-            CreateMinimalInventoryContext(stateStore),
+            CreateMinimalInventoryContext(),
             null,
             null,
-            new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase),
-            stateStore,
-            CancellationToken.None);
+            new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase), CancellationToken.None);
 
         Assert.IsTrue(result, "Skipping a blocked dependent task is a successful no-op when no runnable tasks fail.");
         Assert.IsFalse(invoked, "Dependent capture handlers must not run when their dependency was skipped.");
 
-        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(package, CancellationToken.None);
         var persisted = persistedPlan is null ? null : System.Text.Json.JsonSerializer.Serialize(persistedPlan);
         Assert.IsNotNull(persisted, "The skipped dependent state should be persisted for resume and UI bootstrap.");
         StringAssert.Contains(persisted, "capture.workitems.org.project");
@@ -1007,8 +975,6 @@ public sealed class JobPlanExecutorTests
         {
             ["WorkItems"] = workItemsModule.Object
         };
-
-        var stateStore = new InMemoryStateStore();
         var plan = CreatePlan(new[]
         {
             CreateTask("import.identities", "Identities Import", "Import", status: JobTaskStatus.Failed),
@@ -1019,14 +985,12 @@ public sealed class JobPlanExecutorTests
         var result = await CreateExecutor(package: package).ExecuteImportPhaseAsync(
             plan,
             modules,
-            new ImportContext(),
-            stateStore,
-            CancellationToken.None);
+            new ImportContext(), CancellationToken.None);
 
         Assert.IsFalse(result, "A resumed import plan containing a failed task must keep the phase failed.");
         Assert.IsFalse(invoked, "Dependent import modules must not run when their dependency already failed.");
 
-        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(stateStore, CancellationToken.None, package);
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(package, CancellationToken.None);
         var persisted = persistedPlan is null ? null : System.Text.Json.JsonSerializer.Serialize(persistedPlan);
         Assert.IsNotNull(persisted, "The skipped dependent state should be persisted for resume and UI bootstrap.");
         StringAssert.Contains(persisted, "import.workitems");
@@ -1073,7 +1037,6 @@ public sealed class JobPlanExecutorTests
         });
 
         var executor = CreateExecutor();
-        var stateStore = new InMemoryStateStore();
         var exportContext = new ExportContext();
 
         // Act
@@ -1083,9 +1046,7 @@ public sealed class JobPlanExecutorTests
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
             baseInventoryContext: null,
             endpointsByUrl: null,
-            exportContext,
-            stateStore,
-            CancellationToken.None);
+            exportContext, CancellationToken.None);
 
         // Assert
         Assert.IsTrue(result, "Export phase should succeed");
@@ -1120,13 +1081,12 @@ public sealed class JobPlanExecutorTests
         });
 
         var executor = CreateExecutor();
-        var stateStore = new InMemoryStateStore();
-        var ctx = CreateMinimalInventoryContext(stateStore);
+        var ctx = CreateMinimalInventoryContext();
 
         var result = await executor.ExecuteTasksAsync(
             plan, handlers,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
-            ctx, null, null, null, stateStore, CancellationToken.None);
+            ctx, null, null, null, CancellationToken.None);
 
         Assert.IsTrue(result, "ExecuteTasksAsync should succeed when handler is found");
         Assert.IsTrue(invoked, "Handler named 'workitems' must be invoked for task 'capture.workitems.org.project'");
@@ -1157,13 +1117,12 @@ public sealed class JobPlanExecutorTests
         });
 
         var executor = CreateExecutor();
-        var stateStore = new InMemoryStateStore();
-        var ctx = CreateMinimalInventoryContext(stateStore);
+        var ctx = CreateMinimalInventoryContext();
 
         var result = await executor.ExecuteTasksAsync(
             plan, handlers,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
-            ctx, null, null, null, stateStore, CancellationToken.None);
+            ctx, null, null, null, CancellationToken.None);
 
         Assert.IsTrue(result, "ExecuteTasksAsync should succeed when handler is found");
         Assert.IsTrue(invoked, "Handler named 'dependencies' must be invoked for task 'capture.dependencies.org.project'");
@@ -1232,8 +1191,7 @@ public sealed class JobPlanExecutorTests
         };
 
         var executor = CreateExecutor(endpointAccessor);
-        var stateStore = new InMemoryStateStore();
-        var ctx = CreateMinimalInventoryContext(stateStore);
+        var ctx = CreateMinimalInventoryContext();
 
         var result = await executor.ExecuteTasksAsync(
             plan,
@@ -1242,9 +1200,7 @@ public sealed class JobPlanExecutorTests
             ctx,
             null,
             null,
-            endpointsByUrl,
-            stateStore,
-            CancellationToken.None);
+            endpointsByUrl, CancellationToken.None);
 
         Assert.IsTrue(result, "ExecuteTasksAsync should succeed when the capture handler is present.");
         Assert.AreEqual("https://original.example", activeSourceEndpoint.Url);
@@ -1296,13 +1252,13 @@ public sealed class JobPlanExecutorTests
             }
         });
 
-        var executor = CreateExecutor(endpointAccessor);
-        var stateStore = new InMemoryStateStore();
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var executor = CreateExecutor(endpointAccessor, package: package);
         var exportContext = new ExportContext
         {
             Job = new Job { JobId = "test-job" },
-            ArtefactStore = new Mock<IArtefactStore>(MockBehavior.Loose).Object,
-            StateStore = stateStore
+            Package = package,
+            ProgressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object
         };
 
         var result = await executor.ExecuteExportPhaseAsync(
@@ -1311,9 +1267,7 @@ public sealed class JobPlanExecutorTests
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
             baseInventoryContext: null,
             endpointsByUrl: null,
-            exportContext,
-            stateStore,
-            CancellationToken.None);
+            exportContext, CancellationToken.None);
 
         Assert.IsTrue(result, "Export phase should succeed when fallback source context has no URL.");
         Assert.AreEqual(string.Empty, activeSourceEndpoint.Url);
@@ -1365,21 +1319,19 @@ public sealed class JobPlanExecutorTests
             }
         });
 
-        var executor = CreateExecutor(endpointAccessor);
-        var stateStore = new InMemoryStateStore();
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        var executor = CreateExecutor(endpointAccessor, package: package);
         var importContext = new ImportContext
         {
             Job = new Job { JobId = "test-job" },
-            ArtefactStore = new Mock<IArtefactStore>(MockBehavior.Loose).Object,
-            StateStore = stateStore
+            Package = package,
+            ProgressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object
         };
 
         var result = await executor.ExecuteImportPhaseAsync(
             plan,
             modules,
-            importContext,
-            stateStore,
-            CancellationToken.None);
+            importContext, CancellationToken.None);
 
         Assert.IsTrue(result, "Import execution should succeed when fallback target context has no URL.");
         Assert.AreEqual(string.Empty, activeTargetEndpoint.Url);
@@ -1400,13 +1352,11 @@ public sealed class JobPlanExecutorTests
             CreateTask("capture.dependencies.testorg.testproject", "Dependencies Capture", "Capture")
         });
 
-        var stateStore = new InMemoryStateStore();
-
         var result = await executor.ExecuteTasksAsync(
             plan,
             new Dictionary<string, ICapture>(StringComparer.OrdinalIgnoreCase),
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
-            null, null, null, null, stateStore, CancellationToken.None);
+            null, null, null, null, CancellationToken.None);
 
         Assert.IsFalse(result, "ExecuteTasksAsync should fail when a handler is missing");
 
@@ -1451,8 +1401,7 @@ public sealed class JobPlanExecutorTests
         });
 
         var executor = CreateExecutor();
-        var stateStore = new InMemoryStateStore();
-        var ctx = CreateMinimalInventoryContext(stateStore);
+        var ctx = CreateMinimalInventoryContext();
 
         var result = await executor.ExecuteTasksAsync(
             plan,
@@ -1461,9 +1410,7 @@ public sealed class JobPlanExecutorTests
             ctx,
             null,
             null,
-            new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase),
-            stateStore,
-            CancellationToken.None);
+            new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase), CancellationToken.None);
 
         Assert.IsFalse(result, "ExecuteTasksAsync should fail when the capture task organisation URL cannot be resolved.");
         Assert.IsFalse(invoked, "Capture handler must not be invoked when the task organisation URL cannot be resolved.");
@@ -1504,8 +1451,7 @@ public sealed class JobPlanExecutorTests
         });
 
         var executor = CreateExecutor(package: package.Object);
-        var stateStore = new InMemoryStateStore();
-        var ctx = CreateMinimalInventoryContext(stateStore);
+        var ctx = CreateMinimalInventoryContext();
         var endpoints = new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase)
         {
             ["https://dev.azure.com/testorg"] = new OrganisationEndpoint
@@ -1522,9 +1468,7 @@ public sealed class JobPlanExecutorTests
             ctx,
             null,
             null,
-            endpoints,
-            stateStore,
-            CancellationToken.None);
+            endpoints, CancellationToken.None);
 
         Assert.IsTrue(result, "Capture task should complete successfully.");
         package.Verify(p => p.PersistMetaAsync(
@@ -1559,12 +1503,11 @@ public sealed class JobPlanExecutorTests
         return new JobPlanExecutor(progressSink, logger, package: PackageTestFactory.CreateLooseMock().Object);
     }
 
-    private static InventoryContext CreateMinimalInventoryContext(IStateStore? stateStore = null)
+    private static InventoryContext CreateMinimalInventoryContext(IPackageAccess? package = null)
         => new()
         {
             Job = new Job { JobId = "test-job" },
-            ArtefactStore = new Mock<IArtefactStore>(MockBehavior.Loose).Object,
-            StateStore = stateStore ?? new InMemoryStateStore(),
+            Package = package ?? PackageTestFactory.CreateLooseMock().Object,
             SourceEndpoint = new OrganisationEndpoint(),
             Project = string.Empty,
             Organisations = Array.AsReadOnly(Array.Empty<ScopedOrganisationEndpoint>()),
@@ -1613,37 +1556,6 @@ public sealed class JobPlanExecutorTests
             OrganisationUrl = orgUrl,
             ProjectName = projectName
         };
-    }
-
-    /// <summary>
-    /// Simple in-memory state store for tests.
-    /// </summary>
-    private sealed class InMemoryStateStore : IStateStore
-    {
-        private readonly Dictionary<string, string> _data = new(StringComparer.OrdinalIgnoreCase);
-
-        public Task<string?> ReadAsync(string key, CancellationToken ct)
-        {
-            _data.TryGetValue(key, out var value);
-            return Task.FromResult(value);
-        }
-
-        public Task WriteAsync(string key, string content, CancellationToken ct)
-        {
-            _data[key] = content;
-            return Task.CompletedTask;
-        }
-
-        public Task<bool> ExistsAsync(string key, CancellationToken ct)
-        {
-            return Task.FromResult(_data.ContainsKey(key));
-        }
-
-        public Task DeleteAsync(string key, CancellationToken ct)
-        {
-            _data.Remove(key);
-            return Task.CompletedTask;
-        }
     }
 
     private sealed record TestSourceEndpointInfo(string Url, string Project, string ConnectorType, OrganisationEndpoint Endpoint) : ISourceEndpointInfo

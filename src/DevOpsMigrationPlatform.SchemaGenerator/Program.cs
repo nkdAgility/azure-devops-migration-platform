@@ -60,7 +60,7 @@ public static class Program
         services.AddIdentitiesModule(builder.Configuration);
         services.AddNodesModule(builder.Configuration);
         services.AddTeamsModule(builder.Configuration);
-        services.AddWorkItemsModule();
+        services.AddWorkItemsModule(builder.Configuration);
 
         // Register tool services
         services.AddFieldTransformToolServices();

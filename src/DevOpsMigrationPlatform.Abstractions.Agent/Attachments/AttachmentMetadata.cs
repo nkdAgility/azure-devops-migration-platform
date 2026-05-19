@@ -9,6 +9,9 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 /// </summary>
 public record AttachmentMetadata
 {
+    /// <summary>Source-system attachment identifier from revision.json (if present).</summary>
+    public string SourceId { get; init; } = string.Empty;
+
     /// <summary>The filename as it appeared in the source system.</summary>
     public string OriginalName { get; init; } = string.Empty;
 
@@ -20,6 +23,9 @@ public record AttachmentMetadata
 
     /// <summary>File size in bytes.</summary>
     public long Size { get; init; }
+
+    /// <summary>MIME content type from revision.json (if present).</summary>
+    public string ContentType { get; init; } = string.Empty;
 
     /// <summary>
     /// Download URL from the source system. Populated during export for delta detection

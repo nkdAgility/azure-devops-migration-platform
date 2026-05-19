@@ -3,7 +3,8 @@
 
 using System.IO;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 
@@ -18,6 +19,10 @@ public sealed class ExportProgressStoreFactory : IExportProgressStoreFactory
         => new SqliteExportProgressStore(dbFilePath);
 
     /// <inheritdoc/>
+    public IExportProgressStore Create(System.Data.Common.DbConnection connection)
+        => new SqliteExportProgressStore(connection);
+
+    /// <inheritdoc/>
     public IExportProgressStore CreateFromPackageUri(string packageUri)
     {
         string localRoot;
@@ -28,7 +33,7 @@ public sealed class ExportProgressStoreFactory : IExportProgressStoreFactory
 
         localRoot = Path.GetFullPath(localRoot);
 
-        var newPath = PackagePaths.ExportProgressDbNative(localRoot);
+        var newPath = Path.Combine(localRoot, ".migration", "Checkpoints", "export_progress.db");
 
         return new SqliteExportProgressStore(newPath);
     }

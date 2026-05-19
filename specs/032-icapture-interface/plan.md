@@ -16,6 +16,20 @@ with all `ICapture`-only registrations. A `SimulatedDependencyDiscoveryServiceFa
 added to close the Simulated connector coverage gap. No CLI, configuration, or user-facing
 changes.
 
+## Reconciliation Status (2026-05-17)
+
+- **Class**: Class A documentation/status reconciliation (no runtime surface changes in this pass).
+- **Implemented**: unified `ICapture` dispatch, `BuildCaptureHandlers`, `DependencyCapture`, and `IProjectAnalyser` removal are present in source.
+- **Superseded path/name drift**:
+  - `DependencyCapture` implemented at `Infrastructure.Agent/Analysis/DependencyCapture.cs`.
+  - Simulated factory implemented at `Infrastructure.Simulated/Factories/SimulatedDependencyDiscoveryServiceFactory.cs`.
+  - DI extension implemented as `AddDependencyCapture` in `DependencyAnalyserServiceCollectionExtensions.cs`.
+  - CLI progress row change implemented in `CLI.Migration/Commands/QueueCommand.cs`.
+- **Outstanding verification gaps**:
+  - Clean build gate with zero warnings is not currently true (build succeeds with warnings).
+  - No fresh full-solution `dotnet test` evidence in this reconciliation run.
+  - No fresh `.vscode/launch.json` simulated dependency-capture run evidence in this reconciliation run.
+
 ## Technical Context
 
 **Language/Version**: C# 10+, .NET 10  
@@ -32,8 +46,8 @@ changes.
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **Mandatory context loading:** ALL files in `/.agents/guardrails/`, ALL files in
-> `/.agents/context/`, and relevant `/docs/` files have been read prior to this plan.
+> **Mandatory context loading:** ALL files in `/.agents/20-guardrails/`, ALL files in
+> `/.agents/30-context/`, and relevant `/docs/` files have been read prior to this plan.
 
 - [x] **Package-First (I):** `DependencyCapture` writes only to `IArtefactStore` via `discovery/{org}/{project}/dependencies.csv`. No direct source-to-target migration. No module may write files directly. ✅
 - [x] **Streaming (II):** This refactor does not alter any streaming import path. `DependencyCapture.CaptureAsync` is a single-project per-call operation with no in-memory accumulation of revisions. ✅
@@ -50,7 +64,7 @@ changes.
 
 *GATE: Must be completed before task generation. Every operation enumerated here MUST appear as explicit tasks in `tasks.md`.*
 
-> Files consulted: `.agents/context/telemetry-architecture.md`, `.agents/context/telemetry-model.md`, `WellKnownActivitySourceNames.cs`, `WellKnownAgentMetricNames.cs`, `WellKnownMeterNames.cs`, `WellKnownTagNames.cs`, `IPlatformMetrics.cs`.
+> Files consulted: `.agents/30-context/telemetry-architecture.md`, `.agents/30-context/domains/telemetry-model.md`, `WellKnownActivitySourceNames.cs`, `WellKnownAgentMetricNames.cs`, `WellKnownMeterNames.cs`, `WellKnownTagNames.cs`, `IPlatformMetrics.cs`.
 
 For this feature, the only **new** operation is `DependencyCapture.CaptureAsync`. Existing module operations (`workitems`, `identities`, `nodes`, `teams`) are renamed method-only (`InventoryAsync` → `CaptureAsync`) and retain all current signals unchanged.
 
@@ -206,3 +220,4 @@ features/
 ## Complexity Tracking
 
 No constitution violations. All principles satisfied without architectural workarounds.
+

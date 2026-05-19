@@ -88,7 +88,7 @@ Module (thin wrapper)
 ```mermaid
 flowchart TD
     subgraph Module["Module (thin wrapper ~100-130 lines)"]
-        MGuard["Guard checks\n(enabled? null service?)"]
+    MCompat["Compatibility guard\n(net481 vs net10 only, if needed)"]
         MConfig["Resolve config/endpoints"]
         MDelegate["Delegate to orchestrator"]
     end
@@ -112,7 +112,7 @@ flowchart TD
 
 | Layer | Responsibility | Examples |
 |---|---|---|
-| **Module** | Guard checks (enabled? null service?), resolve config/endpoints, delegate to orchestrator. Contains no business logic. ~100–130 lines. | `NodesModule`, `TeamsModule`, `IdentitiesModule` |
+| **Module** | Compatibility-boundary handling only (net481 vs net10, where required), resolve config/endpoints, delegate to orchestrator. Contains no business logic. ~100–130 lines. | `NodesModule`, `TeamsModule`, `IdentitiesModule` |
 | **Orchestrator** | All cross-cutting orchestration: checkpointing (cursor read/write), progress events (`IProgressSink`), metrics (OTel), CSV/JSON writing, enumeration loops, resume logic. This is the reusable business logic layer. | `INodesOrchestrator`, `ITeamsOrchestrator`, `IIdentitiesOrchestrator` |
 | **Service / Source / Target** | Connector-specific SDK/API calls. One implementation per connector (AzureDevOps, TFS, Simulated). Injected into the orchestrator via method parameters. | `ITeamSource`, `IIdentitySource`, `IClassificationTreeCapture`, `INodeEnsurer` |
 
@@ -124,7 +124,7 @@ Orchestrator interfaces are declared in `DevOpsMigrationPlatform.Abstractions.Ag
 |---|---|---|
 | `INodesOrchestrator` | `Abstractions.Agent/Modules/` | Classification-tree export, import, and validation |
 | `IIdentitiesOrchestrator` | `Abstractions.Agent/Modules/` | Identity descriptor export, import (lookup/resolution), and validation |
-| `ITeamsOrchestrator` | `Abstractions.Agent/Modules/` | Team export, import, and validation (net10.0 only) |
+| `ITeamsOrchestrator` | `Abstractions.Agent/Modules/` | Team export and validation on both runtimes; team import on net10.0 |
 | `IDependencyOrchestrator` | `Abstractions.Agent/Modules/` | Dependency analysis orchestration (`DependencyAnalyser`) |
 | `IInventoryOrchestrator` | `Abstractions.Agent/Discovery/` | Inventory collection orchestration (retained, now injected into `WorkItemsModule.CaptureAsync`) |
 
@@ -135,7 +135,13 @@ Orchestrator *implementations* are `internal sealed` classes in `Infrastructure.
 1. **Reusability** — Orchestrators are the business logic. They can be consumed by Modules today and by Tools or Extensions in the future without duplicating cross-cutting concerns.
 2. **Testability** — Modules are thin and trivial. Orchestrators can be unit-tested with mocked services. Services can be tested against real APIs.
 3. **Consistency** — Every module follows the same structure. New contributors can navigate any module by recognising the pattern.
-4. **Separation of concerns** — Guard checks and config resolution (Module) are separate from enumeration/checkpoint/progress logic (Orchestrator), which is separate from SDK calls (Service).
+4. **Separation of concerns** — Compatibility-boundary handling and config resolution (Module) are separate from enumeration/checkpoint/progress logic (Orchestrator), which is separate from SDK calls (Service).
+
+#### Capability Seam Rule (Tools, Modules, Extensions)
+
+When a concern already has a canonical seam (for example node translation, identity lookup, field transform), modules and extensions must consume that seam. They must not introduce alternate concern engines.
+
+Extensions are policy adapters: they decide when/how to apply the seam, skip/fail behavior, and checkpoint interaction. They are not replacement translation or mapping engines.
 
 #### Module ↔ Orchestrator Mapping
 
@@ -143,7 +149,7 @@ Orchestrator *implementations* are `internal sealed` classes in `Infrastructure.
 |---|---|---|
 | `NodesModule` | `INodesOrchestrator` | `IClassificationTreeCapture`, `INodeEnsurer` |
 | `IdentitiesModule` | `IIdentitiesOrchestrator` | `IIdentitySource`, `IIdentityLookupTool` |
-| `TeamsModule` | `ITeamsOrchestrator` | `ITeamSource`, `ITeamTarget`, `TeamExportOrchestrator`, `TeamImportOrchestrator` |
+| `TeamsModule` | `ITeamsOrchestrator` | `ITeamSource`, `TeamExportOrchestrator`, plus `ITeamTarget` and `TeamImportOrchestrator` on net10.0 |
 | `WorkItemsModule` | `WorkItemExportOrchestrator`, `WorkItemImportOrchestrator` | `IWorkItemRevisionSource`, `IAttachmentBinarySource` |
 | `WorkItemsModule` (inventory phase) | `IInventoryOrchestrator` | `IInventoryService` |
 | `DependencyCapture` | `IDependencyOrchestrator` | `IDependencyDiscoveryServiceFactory`, `IDependencyOrchestrator` — pure `ICapture` (not IModule) |
@@ -204,7 +210,7 @@ public interface ISourceEndpointInfo
 }
 ```
 
-`ITargetEndpointInfo` has the same shape. It is **not registered for TFS** (TFS is source-only). Registered by each connector's `Add*Services()` extension method.
+`ITargetEndpointInfo` has the same shape. Registration is connector-specific via each connector's `Add*Services()` extension method.
 
 **Why this matters**: Using these interfaces keeps modules connector-agnostic and independently testable. Injecting `AzureDevOpsEndpointOptions` directly into a module would couple it to the ADO connector and prevent unit testing without a full ADO config.
 
@@ -298,7 +304,7 @@ The TFS export path runs inside `DevOpsMigrationPlatform.TfsMigrationAgent` (net
 
 | Component | Role |
 |---|---|
-| `TfsWorkItemsModule` | Implements `IModule`. `ExportAsync` drives the full TFS export; `PrepareAsync`, `ImportAsync`, `ValidateAsync` return `Task.CompletedTask` (TFS is source-only; import not yet implemented). |
+| `TfsWorkItemsModule` | Implements `IModule`. `ExportAsync` drives the TFS export path; phase coverage on `net481` is implementation-driven and should not be enforced via non-compatibility runtime guards. |
 | `TfsWorkItemRevisionSource` | Enumerates work item revisions from the TFS Object Model (`WorkItemStore`). Uses date-windowed iteration, same chronological ordering as the ADO source. |
 | `TfsAttachmentBinarySource` | Downloads attachment binaries from TFS. |
 | `WorkItemExportOrchestrator` | Same orchestrator as ADO — enumerate revisions → write `revision.json` → download attachments → advance cursor. Shared from `DevOpsMigrationPlatform.Infrastructure.Agent`. |
@@ -307,7 +313,7 @@ The package output is identical to an ADO export — the same `WorkItems/yyyy-MM
 
 ### Adding a New Module
 
-See [.agents/guardrails/module-rules.md](../.agents/guardrails/module-rules.md) for the full checklist.
+See [.agents/20-guardrails/domains/module-rules.md](../.agents/20-guardrails/domains/module-rules.md) for the full checklist.
 
 > **Naming convention**: modules are named by *domain* (`WorkItems`, `Identities`, `Teams`, `Git`), not by operation. One module handles both export and import for its domain. `Scopes` are mandatory selection criteria (e.g. a `wiql` scope for WorkItems). The `Extensions` array controls which sub-data is collected.
 
@@ -367,7 +373,7 @@ Available tools:
 | `RegexField` | Apply a regex find-and-replace to a field value |
 | `TreeToTag` | Flatten a hierarchical path (area/iteration) into tag values |
 
-For the full tool schema and available options, see [docs/configuration-reference.md — Tools](configuration.md#fieldtransform-tool--available-transform-types).
+For the full tool schema and available options, see [docs/configuration-reference.md — Tools](configuration-reference.md#fieldtransform-tool--available-transform-types).
 
 ### IdentitiesModule
 
@@ -491,7 +497,7 @@ Orchestrators are registered as singletons (they hold only an `ILogger` and opti
 ```csharp
 services.AddSingleton<INodesOrchestrator, NodesOrchestrator>();
 services.AddSingleton<IIdentitiesOrchestrator, IdentitiesOrchestrator>();
-services.AddSingleton<ITeamsOrchestrator, TeamsOrchestrator>();       // net10.0 only
+services.AddSingleton<ITeamsOrchestrator, TeamsOrchestrator>();
 services.AddSingleton<IDependencyOrchestrator, DependencyOrchestrator>();
 services.AddSingleton<IInventoryOrchestrator, InventoryOrchestrator>();
 ```
@@ -506,3 +512,4 @@ The `Infrastructure.Modules.Discovery` namespace contains **utility types** used
 - `ProjectDependencyRecord` / `ProjectPairKey` — data records for dependency edges.
 
 > **Important**: These are NOT `IModule` or `IDiscoveryModule` implementations. They are internal utilities consumed only by `DependencyDiscoveryModule`.
+

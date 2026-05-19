@@ -13,7 +13,7 @@ Load this skill when the **Test Generation Agent** needs to produce pending/fail
 ## Input Contract
 
 - The structured test plan produced by the **Parse Criteria** skill.
-- The [agents/testing-rules.md](../../.agents/guardrails/testing-rules.md) naming and structure rules.
+- The [agents/testing-rules.md](../../../.agents/20-guardrails/workflow/testing-rules.md) naming and structure rules.
 
 ## Available Templates
 
@@ -28,3 +28,4 @@ Two `.cs` files placed at `tests/<Project>.Tests/<Area>/`:
 - `<FeatureName>Steps.cs` — compiles, all steps throw `PendingStepException` (Reqnroll marks them pending/failing).
 - `<FeatureName>Context.cs` — holds mocks and the system-under-test.
 - Mocks all infrastructure via `Mock<T>` (Moq).
+

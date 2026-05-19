@@ -2,7 +2,7 @@
 
 **Feature Branch**: `018-workitem-otel-metrics`
 **Created**: 2026-04-18
-**Status**: Draft
+**Status**: Reconciled (partially implemented; canonical task formatting normalised 2026-05-17)
 **Input**: User description: "Work item OpenTelemetry metrics for migration observability — execution, payload, correctness, idempotency, in-flight, and throughput metrics using Counter, Histogram, UpDownCounter, and ObservableGauge instruments"
 
 ## Architecture References
@@ -14,10 +14,54 @@
 | `docs/module-development-guide.md` | Confirmed accurate — `IModule` contract with `ExportAsync`, `ImportAsync`, `ValidateAsync` |
 | `docs/migration-process-guide.md` | Confirmed accurate — Job Engine steps, progress event emission after each cursor write |
 | `docs/agent-hosting.md` | Confirmed accurate — three progress sinks, heartbeat, stateless design |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — `IArtefactStore`/`IStateStore` only, streaming, no in-memory sort |
-| `.agents/guardrails/coding-standards.md` | Confirmed accurate — OTel packages already in `Directory.Packages.props` |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — `IArtefactStore`/`IStateStore` only, streaming, no in-memory sort |
+| `.agents/20-guardrails/core/coding-standards.md` | Confirmed accurate — OTel packages already in `Directory.Packages.props` |
 | `docs/configuration-reference.md` | Discrepancy logged — no telemetry naming convention documented |
-| `.agents/context/checkpointing-summary.md` | Confirmed accurate — cursor-based, forward-only |
+| `.agents/30-context/domains/checkpointing-summary.md` | Confirmed accurate — cursor-based, forward-only |
+
+## Reconciliation Snapshot (2026-05-17)
+
+### Current status
+
+- This spec is **partially implemented and partially superseded**.
+- Newer telemetry architecture work in `specs/031-platform-metrics-unification` and `docs/adr/0011-unified-platform-metric-namespace.md` supersedes major contract assumptions in this spec.
+- Task ledger is now reconciled in `tasks.md` with explicit per-task status markers and evidence.
+- Task lines now use canonical status formatting: `[X]/[ ]` + `— Status: complete|incomplete|complete/superseded`.
+
+### Remaining incomplete work (IDs)
+
+`T010, T011, T012, T022, T023, T026, T027, T028, T030, T032, T033, T037, T047, T048, T049, T050, T052`
+
+### Completed because superseded (IDs + source)
+
+- Superseded by `specs/031-platform-metrics-unification/spec.md` + `docs/adr/0011-unified-platform-metric-namespace.md`:
+  `T001, T002, T003, T004, T005, T006, T007, T008, T009, T013, T014, T016, T017, T018, T019, T021, T025, T038, T039, T040, T041, T042, T043, T044, T051`
+
+### Contradictions and reconciliation
+
+- `migration.*` and `DevOpsMigrationPlatform.Migration` in this spec conflict with current `platform.*` and `DevOpsMigrationPlatform.Agent` runtime constants.
+- `IMigrationMetrics`/`MigrationMetrics` in this spec conflict with current seam `IPlatformMetrics`/`PlatformMetrics`.
+- `MetricSnapshot` wording in this spec conflicts with current control-plane DTO surface (`JobMetrics` + `MigrationDiagnostics`).
+- The `SnapshotMetricExporterTests` path used by this spec no longer exists; missing tests are now tracked as incomplete tasks.
+
+### Verification evidence
+
+- Code/constants/seam evidence:
+  - `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownAgentMetricNames.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions/WellKnownMeterNames.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions.Agent/Telemetry/IPlatformMetrics.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/PlatformMetrics.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.ControlPlane/Metrics/SnapshotMetricExporter.cs`
+- Wiring evidence:
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Telemetry/TelemetryServiceExtensions.cs`
+  - `src/DevOpsMigrationPlatform.MigrationAgent/MigrationAgentServiceExtensions.cs`
+- Task gap evidence:
+  - `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Telemetry/WorkItemExportMetrics.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Telemetry/AttachmentDownloadMetrics.cs`
+  - Missing: `tests/DevOpsMigrationPlatform.Infrastructure.Tests/Telemetry/SnapshotMetricExporterTests.cs`
+- Reconciliation tooling evidence:
+  - `/speckit.analyze` (completed, produced contradiction + coverage findings)
+  - `/speckit.checklist` (completed dry-run checklist for this spec folder)
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -202,4 +246,5 @@ After a crash-and-resume scenario, an operator needs signals indicating whether 
 - The work item identity mapping store (SourceId → TargetId) is a separate future spec. The deferred metric instruments will be wired to actual emission logic in that spec.
 - `migration.workitem.payload.bytes` measures the serialised `revision.json` size, not the raw API response size.
 - Queue depth (`migration.queue.workitems.depth`) reflects the agent's internal processing queue, not the control plane job queue.
-- Architecture docs read: `docs/architecture.md`, `docs/validation.md`, `docs/module-development-guide.md`, `docs/migration-process-guide.md`, `docs/agent-hosting.md`, `.agents/guardrails/architecture-boundaries.md`, `.agents/guardrails/coding-standards.md`, `.agents/context/checkpointing-summary.md`.
+- Architecture docs read: `docs/architecture.md`, `docs/validation.md`, `docs/module-development-guide.md`, `docs/migration-process-guide.md`, `docs/agent-hosting.md`, `.agents/20-guardrails/core/architecture-boundaries.md`, `.agents/20-guardrails/core/coding-standards.md`, `.agents/30-context/domains/checkpointing-summary.md`.
+

@@ -23,7 +23,7 @@ Implement the `WorkItemsModule.ImportAsync` method to replace the current `NotSu
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **Mandatory context loading:** Confirmed — ALL files in `/.agents/guardrails/` (system-architecture, coding-standards, testing-standards, workitems-rules, migration-rules, module-template, aspire-integration, atdd-workflow, acceptance-test-format), ALL files in `/.agents/context/` (package-format, workitems-format, import-streaming, checkpointing, identity-and-mapping, job-contract), and relevant `/docs/` files (architecture, modules, work-item-iteration-pattern, cli, configuration) have been read.
+> **Mandatory context loading:** Confirmed — ALL files in `/.agents/20-guardrails/` (system-architecture, coding-standards, testing-standards, workitems-rules, migration-rules, module-template, aspire-integration, atdd-workflow, acceptance-test-format), ALL files in `/.agents/30-context/` (package-format, workitems-format, import-streaming, checkpointing, identity-and-mapping, job-contract), and relevant `/docs/` files (architecture, modules, work-item-iteration-pattern, cli, configuration) have been read.
 
 - [x] **Package-First (I):** Import reads from the on-disk package via `IArtefactStore`. No direct source-to-target migration. The Azure DevOps target SDK calls are behind `IWorkItemImportTarget` — the module itself only touches `IArtefactStore` for reads.
 - [x] **Streaming (II):** Import processes one revision folder at a time via `IArtefactStore.EnumerateAsync("WorkItems/")`. No list/array accumulation. No in-memory sort. The `EnumerateAsync` implementation already returns lexicographic order.
@@ -122,3 +122,29 @@ scenarios/
 |-----------|------------|-------------------------------------|
 | SQLite dependency (`Microsoft.Data.Sqlite`) added to `Infrastructure` | `idmap.db` requires indexed lookup for 20k+ mappings. The spec mandates SQLite for portable, single-file, indexed storage inside the package. | JSON-based `idmap.json` was considered but is too slow for O(1) lookup at scale. The checkpointing guardrail prohibits databases for the cursor, but SQLite is explicitly permitted for the ID map (package-local storage, not control-plane). |
 | `IWorkItemImportTarget` is a new single-use abstraction | FR-018 mandates wrapping all Azure DevOps SDK write calls behind an abstraction. This is the import-side mirror of `IWorkItemRevisionSource`. | Direct SDK calls in module code would violate system-architecture rule 21 and coding-standards rule 12 (SDK calls behind abstractions). The abstraction enables mocking for tests and future non-ADO targets. |
+
+## Current status
+
+- Reconciled against current repository implementation (2026-05-16).
+- Most plan outcomes are present in code, but specific documentation and validation tasks remain incomplete.
+
+## Remaining incomplete work (IDs)
+
+- T043, T046, T049, T050, T051 (see `tasks.md` evidence notes).
+
+## Completed because superseded (IDs + source)
+
+- T016 superseded by `features/import/work-items/revisions/import-work-item-revisions.feature` naming/coverage replacement.
+
+## Contradictions and reconciliation
+
+- Planned file paths/namespaces are stale versus current architecture (`Infrastructure.Agent`, `Abstractions.Agent`, `Abstractions.Storage`).
+- Plan item T051 claims Tier 2 + Tier 3 validation; implementation currently only includes Tier 2 WorkItems presence checks.
+- Documentation task T043 is marked incomplete because the WorkItems extension table still lacks `WorkItemResolutionStrategy`.
+
+## Verification evidence
+
+- `dotnet build DevOpsMigrationPlatform.slnx --no-incremental` completed successfully.
+- Targeted import tests passed (12/12): `WorkItemsModuleImportTests` + `WorkItemImportOrchestrator*`.
+- Full-suite `dotnet test` did not finish in-session; task T049 remains incomplete pending a full passing run with evidence.
+

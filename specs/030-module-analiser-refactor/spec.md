@@ -2,8 +2,24 @@
 
 **Feature Branch**: `030-module-analiser-refactor`  
 **Created**: 2026-05-03  
-**Status**: Draft  
+**Status**: Reconciled (partially superseded)  
 **Input**: Refactor `IModule` to expose all five migration phases (`Inventory`, `Export`, `Prepare`, `Import`, `Validate`), eliminate the standalone `InventoryModule`, `InventoryDiscoveryModule`, and `DependencyDiscoveryModule`, and introduce a new `IAnalyser` interface for cross-cutting analysis participants.
+
+## Reconciliation Snapshot (2026-05-17)
+
+- **Authority applied**: `.agents` guardrails → newer specs (`031`-`035`) → this spec → implementation evidence.
+- **Current truth highlights**:
+  - Inventory dispatch is now capture-centric (`ICapture.CaptureAsync`) via spec `032`.
+  - Agent metrics are now unified under `platform.*` and `IPlatformMetrics` via spec `031`.
+  - Dependencies execution now includes capture/analyse fan-in (`analyse.inventory` then dependencies capture/analyse), not analyse-only.
+- **Tasks status summary**:
+  - Complete: all remaining tasks in `tasks.md` are marked `[X]`.
+  - Complete/superseded: `T009`, `T010`, `T012`, `T013`, `T069`, `T079f`, `T080`, `T088` (inline supersession notes in `tasks.md`).
+  - Incomplete: none.
+- **Contradictions retained for traceability** (not silently rewritten):
+  - FR-001/FR-003/FR-004/FR-005 still describe `InventoryAsync` semantics.
+  - FR-013/FR-010 assumptions conflict with current `JobExecutionPlanBuilder` + `DependencyAnalyser` behavior.
+- **Verification evidence**: `/speckit.analyze`, `/speckit.checklist`, and direct source inspection (`IModule.cs`, `ICapture.cs`, `WellKnownAgentMetricNames.cs`, `JobExecutionPlanBuilder.cs`, `JobAgentWorker.cs`).
 
 ---
 
@@ -13,8 +29,8 @@
 |---|---|
 | `docs/module-development-guide.md` | ⚠️ Has discrepancies — `IModule` contract, discovery module descriptions, phase dispatch table all require update |
 | `docs/architecture.md` | ✓ Confirmed accurate — phase gate rules already reference `Inventory` and `Prepare` phases |
-| `.agents/guardrails/architecture-boundaries.md` | ✓ Confirmed — rule 10 (phase gates), rule 15 (job unit), rule 17 (execution plan) all apply |
-| `.agents/guardrails/module-rules.md` | ⚠️ Has discrepancies — template describes only `ExportAsync`/`ImportAsync`; must be extended for `InventoryAsync`/`PrepareAsync` |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | ✓ Confirmed — rule 10 (phase gates), rule 15 (job unit), rule 17 (execution plan) all apply |
+| `.agents/20-guardrails/domains/module-rules.md` | ⚠️ Has discrepancies — template describes only `ExportAsync`/`ImportAsync`; must be extended for `InventoryAsync`/`PrepareAsync` |
 | `analysis/draftspec-Module-refactor-consolidation.md` | Source design document — grounded this spec |
 
 ---
@@ -406,4 +422,5 @@ traces
 - Each `IModule.InventoryAsync` writes its domain counts to a per-module file (`{Module}/inventory.json`); `InventoryAnalyser` reads all per-module files and produces the consolidated `inventory.json` and `inventory.csv` at the package root. No module writes to `inventory.json` directly.
 - The `IAnalyser` interface is placed in `DevOpsMigrationPlatform.Abstractions.Agent` (same assembly as `IModule`) per the project reference boundary rules (guardrail 20a).
 - `JobKind.Dependencies` remains a valid `JobKind` value and dispatches as `analyse (DependencyAnalyser only)`. No inventory phase runs as a prerequisite.
-- Docs read: `docs/module-development-guide.md`, `docs/architecture.md`, `.agents/guardrails/architecture-boundaries.md`, `.agents/guardrails/module-rules.md`. Gaps found — see `discrepancies.md`.
+- Docs read: `docs/module-development-guide.md`, `docs/architecture.md`, `.agents/20-guardrails/core/architecture-boundaries.md`, `.agents/20-guardrails/domains/module-rules.md`. Gaps found — see `discrepancies.md`.
+

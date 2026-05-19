@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -20,7 +20,6 @@ public class LegacyStateResumeCompatibilityTests
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
         const string projectName = "MyProject";
-        var expectedKey = PackagePaths.CursorFile("export", "workitems", endpointUrl, projectName);
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         var sourceInfo = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
@@ -32,19 +31,16 @@ public class LegacyStateResumeCompatibilityTests
 
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == expectedKey),
+            .Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "export" && c.Module == "workitems"),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((PackagePayload?)null);
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/export.workitems.cursor.json", null)));
 
-        var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
-
-        var sut = new CheckpointingService(stateStore.Object, endpointAccessor.Object, null, null, package.Object);
+        var sut = new CheckpointingService(endpointAccessor.Object, null, null, package.Object);
         var result = await sut.ReadCursorAsync("export.workitems", CancellationToken.None);
 
         Assert.IsNull(result);
         package.VerifyAll();
-        stateStore.VerifyAll();
     }
 
     [TestMethod]
@@ -52,7 +48,6 @@ public class LegacyStateResumeCompatibilityTests
     {
         const string endpointUrl = "https://dev.azure.com/contoso";
         const string projectName = "MyProject";
-        var expectedKey = PackagePaths.ContinuationFile("export", "workitems", endpointUrl, projectName);
 
         var endpointAccessor = new Mock<ICurrentJobEndpointAccessor>(MockBehavior.Strict);
         var sourceInfo = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
@@ -64,18 +59,15 @@ public class LegacyStateResumeCompatibilityTests
 
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == expectedKey),
+            .Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ContinuationToken && c.Action == "export" && c.Module == "workitems"),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((PackagePayload?)null);
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/export.workitems.continuation.json", null)));
 
-        var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
-
-        var sut = new CheckpointingService(stateStore.Object, endpointAccessor.Object, null, null, package.Object);
+        var sut = new CheckpointingService(endpointAccessor.Object, null, null, package.Object);
         var result = await sut.ReadContinuationTokenAsync("export.workitems", CancellationToken.None);
 
         Assert.IsNull(result);
         package.VerifyAll();
-        stateStore.VerifyAll();
     }
 }

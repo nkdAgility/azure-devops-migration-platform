@@ -2,7 +2,11 @@
 
 **Feature**: Work Items Inventory Command  
 **Flagged by**: speckit.specify  
-**Status**: Pending rectification (resolve in speckit.implement)
+**Status**: Reconciled as historical/superseded (2026-05-17)
+
+## Reconciliation note
+
+These discrepancies were authored for the original direct-command design. Repository truth now follows queue/control-plane/agent architecture (`Mode: Inventory`), so items below are either resolved in current docs or superseded by newer specs (`025.1`, `028.2`, `033`, `035`).
 
 ## Discrepancies
 

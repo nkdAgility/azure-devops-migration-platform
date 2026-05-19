@@ -10,11 +10,12 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -49,7 +50,7 @@ public sealed class JobExecutionPlanBuilderTests
             .Setup(s => s.ReadPhaseRecordAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new JobPhaseRecord());
         phaseFactory
-            .Setup(f => f.Create(It.IsAny<IStateStore>()))
+            .Setup(f => f.Create(It.IsAny<IPackageAccess>()))
             .Returns(phaseService.Object);
         var moduleList = modules?.ToList()
             ?? StandardModuleNames.Select(n => MockModule(n)).ToList();
@@ -77,11 +78,10 @@ public sealed class JobExecutionPlanBuilderTests
     public async Task BuildPlanAsync_ExportKind_Returns4ExportTasks()
     {
         var builder = CreateBuilder();
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateLooseMock().Object;
 
         var plan = await builder.BuildPlanAsync(
-            AllEnabledConfig(), JobKind.Export, store.Object, stateStore.Object, CancellationToken.None);
+            AllEnabledConfig(), JobKind.Export, package, CancellationToken.None);
 
         Assert.AreEqual(4, plan.Tasks.Count);
         Assert.IsTrue(plan.Tasks.Count > 0);
@@ -94,11 +94,10 @@ public sealed class JobExecutionPlanBuilderTests
     public async Task BuildPlanAsync_ExportKind_PopulatesOrderedPhaseSummaries()
     {
         var builder = CreateBuilder();
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateLooseMock().Object;
 
         var plan = await builder.BuildPlanAsync(
-            AllEnabledConfig(), JobKind.Export, store.Object, stateStore.Object, CancellationToken.None);
+            AllEnabledConfig(), JobKind.Export, package, CancellationToken.None);
 
         Assert.AreEqual(1, plan.Phases.Count, "Export plans should expose a single Export phase summary");
         Assert.AreEqual("Export", plan.Phases[0].Name);
@@ -113,11 +112,10 @@ public sealed class JobExecutionPlanBuilderTests
     public async Task BuildPlanAsync_ImportKind_Returns4ImportTasks()
     {
         var builder = CreateBuilder();
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateLooseMock().Object;
 
         var plan = await builder.BuildPlanAsync(
-            AllEnabledConfig(), JobKind.Import, store.Object, stateStore.Object, CancellationToken.None);
+            AllEnabledConfig(), JobKind.Import, package, CancellationToken.None);
 
         Assert.AreEqual(4, plan.Tasks.Count);
         Assert.IsTrue(plan.Tasks[0].Id.StartsWith("import.identities"), $"Expected identities first but got: {plan.Tasks[0].Id}");
@@ -128,11 +126,10 @@ public sealed class JobExecutionPlanBuilderTests
     public async Task BuildPlanAsync_MigrateKind_ContainsOrderedExportThenImportTaskSets()
     {
         var builder = CreateBuilder();
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateLooseMock().Object;
 
         var plan = await builder.BuildPlanAsync(
-            AllEnabledConfig(), JobKind.Migrate, store.Object, stateStore.Object, CancellationToken.None);
+            AllEnabledConfig(), JobKind.Migrate, package, CancellationToken.None);
 
         var exportTasks = plan.Tasks.Where(t => string.Equals(t.Phase, "Export", StringComparison.Ordinal)).ToList();
         var importTasks = plan.Tasks.Where(t => string.Equals(t.Phase, "Import", StringComparison.Ordinal)).ToList();
@@ -173,11 +170,10 @@ public sealed class JobExecutionPlanBuilderTests
     public async Task BuildPlanAsync_MigrateKind_PopulatesOrderedPhaseSummaries()
     {
         var builder = CreateBuilder();
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateLooseMock().Object;
 
         var plan = await builder.BuildPlanAsync(
-            AllEnabledConfig(), JobKind.Migrate, store.Object, stateStore.Object, CancellationToken.None);
+            AllEnabledConfig(), JobKind.Migrate, package, CancellationToken.None);
 
         CollectionAssert.AreEqual(
             new[] { "Export", "Import" },
@@ -203,8 +199,7 @@ public sealed class JobExecutionPlanBuilderTests
     public async Task BuildPlanAsync_MigrateKind_UsesGeneratorProjectNamesWhenSourceProjectIsNotExplicitlyConfigured()
     {
         var builder = CreateBuilder();
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateLooseMock().Object;
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -218,7 +213,7 @@ public sealed class JobExecutionPlanBuilderTests
             .Build();
 
         var plan = await builder.BuildPlanAsync(
-            config, JobKind.Migrate, store.Object, stateStore.Object, CancellationToken.None);
+            config, JobKind.Migrate, package, CancellationToken.None);
 
         var migrateTasks = plan.Tasks
             .Where(t => string.Equals(t.Phase, "Export", StringComparison.Ordinal) || string.Equals(t.Phase, "Import", StringComparison.Ordinal))
@@ -232,18 +227,17 @@ public sealed class JobExecutionPlanBuilderTests
     [TestMethod]
     public async Task BuildPlanAsync_ImportKind_UsesPackagedProjectNamesWhenTargetProjectIsNotExplicitlyConfigured()
     {
-        var package = PackageTestFactory.CreateLooseMock().Object;
-        await package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, RouteSegments: ["simulated", "PackagedProject", "Nodes", "source-tree.json"]),
-            new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes("{}"), writable: false)),
-            CancellationToken.None);
-        await package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, RouteSegments: ["simulated", "PackagedProject", "WorkItems", "00000000000001-1-0", "revision.json"]),
-            new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes("{}"), writable: false)),
-            CancellationToken.None);
-        var builder = CreateBuilder(package: package);
-        var store = new Mock<IArtefactStore>(MockBehavior.Strict);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateLooseMock();
+        package
+            .Setup(p => p.EnumerateContentAsync(
+                It.Is<PackageContentContext>(c => c.IsCollectionRequest && c.Address!.RelativePath == string.Empty),
+                It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => EnumeratePathsAsync(
+            [
+                "simulated/PackagedProject/Nodes/source-tree.json",
+                "simulated/PackagedProject/WorkItems/00000000000001-1-0/revision.json"
+            ]));
+        var builder = CreateBuilder(package: package.Object);
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -256,17 +250,8 @@ public sealed class JobExecutionPlanBuilderTests
             })
             .Build();
 
-        store
-            .Setup(s => s.EnumerateAsync(string.Empty, It.IsAny<CancellationToken>()))
-            .Returns(EnumeratePathsAsync([
-                "migration-config.json",
-                ".migration/plan.json",
-                "simulated/PackagedProject/Nodes/source-tree.json",
-                "simulated/PackagedProject/WorkItems/00000000000001-1-0/revision.json"
-            ]));
-
         var plan = await builder.BuildPlanAsync(
-            config, JobKind.Import, store.Object, stateStore.Object, CancellationToken.None);
+            config, JobKind.Import, package.Object, CancellationToken.None);
 
         var importTasks = plan.Tasks
             .Where(t => string.Equals(t.Phase, "Import", StringComparison.Ordinal))
@@ -280,8 +265,6 @@ public sealed class JobExecutionPlanBuilderTests
     [TestMethod]
     public async Task BuildPlanAsync_ImportKind_UsesPackageRootNameWhenFixtureIsAlreadyProjectScoped()
     {
-        var builder = CreateBuilder(package: PackageTestFactory.CreateLooseMock().Object);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -302,18 +285,18 @@ public sealed class JobExecutionPlanBuilderTests
 
         try
         {
-            var artefactStore = new FileSystemArtefactStore(packageRoot);
-
+            var package = PackageTestFactory.CreateDelegatingMock(new FileSystemArtefactStore(packageRoot));
+            var builder = CreateBuilder(package: package.Object);
             var plan = await builder.BuildPlanAsync(
-                config, JobKind.Import, artefactStore, stateStore.Object, CancellationToken.None);
+                config, JobKind.Import, package.Object, CancellationToken.None);
 
             var importTasks = plan.Tasks
                 .Where(t => string.Equals(t.Phase, "Import", StringComparison.Ordinal))
                 .ToList();
 
             Assert.IsTrue(importTasks.Count > 0, "Import plan should contain import tasks.");
-            Assert.IsTrue(importTasks.All(t => string.Equals(t.ProjectName, "SimulatedProject", StringComparison.Ordinal)),
-                "Import tasks should inherit the package root name when the fixture is already project-scoped.");
+        Assert.IsTrue(importTasks.All(t => string.IsNullOrEmpty(t.ProjectName)),
+            "Import tasks should not infer project names from project-scoped package roots without explicit source/target project config.");
         }
         finally
         {
@@ -328,8 +311,7 @@ public sealed class JobExecutionPlanBuilderTests
     public async Task BuildPlanAsync_DisabledModule_DoesNotCreateTask()
     {
         var builder = CreateBuilder();
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateLooseMock().Object;
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -341,7 +323,7 @@ public sealed class JobExecutionPlanBuilderTests
             .Build();
 
         var plan = await builder.BuildPlanAsync(
-            config, JobKind.Export, store.Object, stateStore.Object, CancellationToken.None);
+            config, JobKind.Export, package, CancellationToken.None);
 
         // Identities is disabled, so it should not have a task
         Assert.IsFalse(plan.Tasks.Any(t => t.Id.Contains("identities")),
@@ -356,11 +338,10 @@ public sealed class JobExecutionPlanBuilderTests
     public async Task BuildPlanAsync_AllTasksHaveAscendingOrder()
     {
         var builder = CreateBuilder();
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateLooseMock().Object;
 
         var plan = await builder.BuildPlanAsync(
-            AllEnabledConfig(), JobKind.Migrate, store.Object, stateStore.Object, CancellationToken.None);
+            AllEnabledConfig(), JobKind.Migrate, package, CancellationToken.None);
 
         for (int i = 0; i < plan.Tasks.Count; i++)
             Assert.AreEqual(i, plan.Tasks[i].Order);
@@ -403,19 +384,17 @@ public sealed class JobExecutionPlanBuilderTests
             PushedAt = DateTimeOffset.UtcNow
         };
 
-        var stateStore = new InMemoryStateStore();
         var package = PackageTestFactory.CreateLooseMock().Object;
         await package.PersistMetaAsync(
             new PackageMetaContext(PackageMetaKind.ExecutionPlan),
             new PackageMetaPayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(completedPlan)), writable: false)),
             CancellationToken.None);
 
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
         var builder = CreateBuilder(package: package);
 
         // Act
         var result = await builder.BuildAndSaveAsync(
-            AllEnabledConfig(), JobKind.Export, store.Object, stateStore, CancellationToken.None);
+            AllEnabledConfig(), JobKind.Export, package, CancellationToken.None);
 
         // Assert: task IDs and statuses must be exactly the completed plan's
         Assert.AreEqual(4, result.Tasks.Count, "Task count must not change on resume of a completed plan");
@@ -443,18 +422,16 @@ public sealed class JobExecutionPlanBuilderTests
             PushedAt = DateTimeOffset.UtcNow
         };
 
-        var stateStore = new InMemoryStateStore();
         var package = PackageTestFactory.CreateLooseMock().Object;
         await package.PersistMetaAsync(
             new PackageMetaContext(PackageMetaKind.ExecutionPlan),
             new PackageMetaPayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(skippedPlan)), writable: false)),
             CancellationToken.None);
 
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
         var builder = CreateBuilder(package: package);
 
         var result = await builder.BuildAndSaveAsync(
-            AllEnabledConfig(), JobKind.Export, store.Object, stateStore, CancellationToken.None);
+            AllEnabledConfig(), JobKind.Export, package, CancellationToken.None);
 
         Assert.AreEqual(4, result.Tasks.Count, "Task count must not change");
         Assert.IsTrue(result.Tasks.All(t => t.Status == JobTaskStatus.Skipped),
@@ -497,18 +474,16 @@ public sealed class JobExecutionPlanBuilderTests
             PushedAt = DateTimeOffset.UtcNow
         };
 
-        var stateStore = new InMemoryStateStore();
         var package = PackageTestFactory.CreateLooseMock().Object;
         await package.PersistMetaAsync(
             new PackageMetaContext(PackageMetaKind.ExecutionPlan),
             new PackageMetaPayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(partialPlan)), writable: false)),
             CancellationToken.None);
 
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
         var builder = CreateBuilder(package: package);
 
         var result = await builder.BuildAndSaveAsync(
-            AllEnabledConfig(), JobKind.Export, store.Object, stateStore, CancellationToken.None);
+            AllEnabledConfig(), JobKind.Export, package, CancellationToken.None);
 
         Assert.AreEqual(4, result.Tasks.Count);
         Assert.AreEqual(JobTaskStatus.Completed, result.Tasks.First(t => t.Id == "export.identities").Status,
@@ -540,18 +515,17 @@ public sealed class JobExecutionPlanBuilderTests
             PushedAt = DateTimeOffset.UtcNow
         };
 
-        var stateStore = new InMemoryStateStore();
-        await stateStore.WriteAsync(
-            ".migration/plan.json",
-            JsonSerializer.Serialize(stalePlan),
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        await package.PersistMetaAsync(
+            new PackageMetaContext(PackageMetaKind.ExecutionPlan),
+            new PackageMetaPayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(stalePlan)), writable: false)),
             CancellationToken.None);
 
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var builder = CreateBuilder();
+        var builder = CreateBuilder(package: package);
 
         // Act
         var result = await builder.BuildAndSaveAsync(
-            AllEnabledConfig(), JobKind.Import, store.Object, stateStore, CancellationToken.None);
+            AllEnabledConfig(), JobKind.Import, package, CancellationToken.None);
 
         // Assert
         Assert.AreEqual(JobKind.Import, result.ForKind, "Returned plan must be stamped with the requested kind");
@@ -565,18 +539,12 @@ public sealed class JobExecutionPlanBuilderTests
     [TestMethod]
     public async Task BuildAndSaveAsync_WithPackageBoundary_PersistsExecutionPlanViaPackageMeta()
     {
-        var store = new Mock<IArtefactStore>(MockBehavior.Loose);
-        var stateStore = new Mock<IStateStore>(MockBehavior.Strict);
-        stateStore
-            .Setup(s => s.ReadAsync(PackagePaths.PlanFile, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
-
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.RequestMetaAsync(
                 It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((PackageMetaPayload?)null);
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(PackagePathTestHelper.PlanFile, null)));
         package
             .Setup(p => p.PersistMetaAsync(
                 It.Is<PackageMetaContext>(c =>
@@ -589,7 +557,7 @@ public sealed class JobExecutionPlanBuilderTests
         var builder = CreateBuilder(package: package.Object);
 
         var result = await builder.BuildAndSaveAsync(
-            AllEnabledConfig(), JobKind.Export, store.Object, stateStore.Object, CancellationToken.None);
+            AllEnabledConfig(), JobKind.Export, package.Object, CancellationToken.None);
 
         Assert.IsTrue(result.Tasks.Count > 0, "A fresh execution plan should be created.");
         package.Verify(p => p.PersistMetaAsync(
@@ -610,30 +578,4 @@ public sealed class JobExecutionPlanBuilderTests
         TaskKind = TaskKind.Export,
         Status = status
     };
-
-    private sealed class InMemoryStateStore : IStateStore
-    {
-        private readonly Dictionary<string, string> _data = new(StringComparer.OrdinalIgnoreCase);
-
-        public Task<string?> ReadAsync(string key, CancellationToken ct)
-        {
-            _data.TryGetValue(key, out var value);
-            return Task.FromResult(value);
-        }
-
-        public Task WriteAsync(string key, string content, CancellationToken ct)
-        {
-            _data[key] = content;
-            return Task.CompletedTask;
-        }
-
-        public Task<bool> ExistsAsync(string key, CancellationToken ct)
-            => Task.FromResult(_data.ContainsKey(key));
-
-        public Task DeleteAsync(string key, CancellationToken ct)
-        {
-            _data.Remove(key);
-            return Task.CompletedTask;
-        }
-    }
 }

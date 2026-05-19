@@ -8,8 +8,8 @@ Do not create every file automatically. Create files when there is real content,
 
 Included:
 
-- `.agents/guardrails`
-- `.agents/context`
+- `.agents/20-guardrails`
+- `.agents/30-context`
 - `docs`
 
 Excluded unless explicitly requested:
@@ -202,3 +202,4 @@ Recommended file purposes:
 - `workitems-format-summary.md`: compressed work item layout.
 - `checkpointing-summary.md`: cursor-based checkpointing.
 - `data-classification-summary.md`: data classes and telemetry boundary.
+

@@ -2,8 +2,40 @@
 
 **Feature Branch**: `020-resumable-batching-cursor`  
 **Created**: 2026-04-22  
-**Status**: Draft  
+**Status**: Reconciled (implementation drift remains)  
 **Input**: User description: "Make the batching strategy resumable so callers can pass a resume flag, protect resume with a query hash, let callers own duplicate handling and save strategy, and account for data drift by ordering oldest to newest by changed date."
+
+## Reconciliation Snapshot (2026-05-16)
+
+### Current Status
+
+- Spec and task ledger were reconciled against repository truth.
+- Core resumable batching primitives exist, but several FR-critical behaviors remain incomplete.
+- Many completed tasks were path-superseded by later architecture split/package-routing specs.
+
+### Remaining Incomplete Work (Task IDs)
+
+- `T010`, `T020`, `T021`, `T024`, `T025`, `T026`, `T027`, `T028`, `T030`, `T031`, `T034`, `T035`, `T036`, `T037`, `T038`, `T040`, `T041`, `T042`, `T043`, `T045`, `T046`
+
+### Completed Because Superseded (Task IDs + Source)
+
+- `T002`, `T003`, `T004`, `T005`, `T006`, `T007`, `T008`, `T009`, `T011`, `T012`, `T014`, `T016`, `T018`, `T019`, `T044` → superseded by `specs/021.2-separation-of-concerns`
+- `T013`, `T015` → superseded by `specs/034-package-manager-adoption`
+
+### Contradictions and Reconciliation
+
+- `FetchAsync` safety-net behavior required by FR-014 (throw `ResumeRejectedException` on mismatch) is not currently enforced.
+- `AzureDevOpsWorkItemFetchService` does not currently register/inject/use `IQueryFingerprintService` in the resumable fetch path as planned.
+- Boundary-cluster semantics in FR-013 are stricter than current resume filtering behavior.
+- `EvaluateResumeDecisionAsync` exists but is not yet wired as shared logic with `FetchAsync` safety-net behavior.
+- Documentation and discrepancy records currently overstate completion; `tasks.md` now records evidence-backed truth.
+
+### Verification Evidence
+
+- Targeted tests passed: `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests` resumable-focused set (`70/70`).
+- Build validation passed: `dotnet clean DevOpsMigrationPlatform.slnx --nologo` + `dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo` (exit 0).
+- Full test validation remains incomplete: `dotnet test DevOpsMigrationPlatform.slnx --no-build --nologo` stalled in `DevOpsMigrationPlatform.ControlPlane.Tests` and was stopped.
+- `/speckit.analyze` and `/speckit.checklist` both reported high-signal drift that is now reflected in reconciled artifacts.
 
 ## Clarifications
 
@@ -22,24 +54,24 @@
 - `docs/work-item-iteration-guide.md` - Discrepancy logged (does not yet describe resumable batching token contract shared by callers).
 - `docs/module-development-guide.md` - Confirmed for module boundary and dependency rules.
 - `docs/configuration-reference.md` - Discrepancy logged (does not yet define caller-level resume token persistence expectations for resumable batching).
-- `.agents/guardrails/architecture-boundaries.md` - Confirmed as applicable (rules on determinism, checkpointing, reuse patterns, and no hidden state).
-- `.agents/guardrails/workitems-rules.md` - Confirmed as applicable (cursor semantics and stage consistency).
-- `.agents/guardrails/migration-rules.md` - Confirmed as applicable (streaming, deterministic ordering, and checkpoint constraints).
-- `.agents/guardrails/coding-standards.md` - Confirmed as applicable (async/cancellation, immutability, and abstraction boundaries).
-- `.agents/guardrails/testing-rules.md` - Confirmed as applicable (system-test and deterministic test expectations).
-- `.agents/guardrails/module-rules.md` - Confirmed as applicable (cursor schema and resume behavior requirements).
-- `.agents/guardrails/control-plane-rules.md` - Confirmed as applicable for topology neutrality.
-- `.agents/guardrails/test-first-workflow.md` - Confirmed as applicable for downstream implementation workflow.
-- `.agents/guardrails/acceptance-test-format.md` - Confirmed as applicable for feature acceptance formatting.
-- `.agents/context/cli-commands.md` - Confirmed as applicable for CLI-level exposure boundaries.
-- `.agents/context/migration-package-concept.md` - Confirmed as applicable for checkpoint location and package invariants.
-- `.agents/context/job-lifecycle.md` - Confirmed as applicable for durable job contract expectations.
-- `.agents/context/telemetry-model.md` - Confirmed as applicable for observable resume progress.
-- `.agents/context/workitems-format-summary.md` - Confirmed as applicable for canonical ordering behavior.
-- `.agents/context/import-streaming.md` - Confirmed as applicable for streaming and idempotent stage processing.
-- `.agents/context/checkpointing-summary.md` - Discrepancy logged (does not yet define resumable batching continuation token semantics).
-- `.agents/context/package-manager.md` - Confirmed as applicable for state and artifact boundary rules.
-- `.agents/context/identity-and-mapping.md` - Confirmed as applicable for idempotency and duplicate-safe import behavior.
+- `.agents/20-guardrails/core/architecture-boundaries.md` - Confirmed as applicable (rules on determinism, checkpointing, reuse patterns, and no hidden state).
+- `.agents/20-guardrails/domains/workitems-rules.md` - Confirmed as applicable (cursor semantics and stage consistency).
+- `.agents/20-guardrails/domains/migration-rules.md` - Confirmed as applicable (streaming, deterministic ordering, and checkpoint constraints).
+- `.agents/20-guardrails/core/coding-standards.md` - Confirmed as applicable (async/cancellation, immutability, and abstraction boundaries).
+- `.agents/20-guardrails/workflow/testing-rules.md` - Confirmed as applicable (system-test and deterministic test expectations).
+- `.agents/20-guardrails/domains/module-rules.md` - Confirmed as applicable (cursor schema and resume behavior requirements).
+- `.agents/20-guardrails/domains/control-plane-rules.md` - Confirmed as applicable for topology neutrality.
+- `.agents/20-guardrails/workflow/test-first-workflow.md` - Confirmed as applicable for downstream implementation workflow.
+- `.agents/20-guardrails/workflow/acceptance-test-format.md` - Confirmed as applicable for feature acceptance formatting.
+- `.agents/30-context/domains/cli-commands.md` - Confirmed as applicable for CLI-level exposure boundaries.
+- `.agents/30-context/domains/migration-package-concept.md` - Confirmed as applicable for checkpoint location and package invariants.
+- `.agents/30-context/domains/job-lifecycle.md` - Confirmed as applicable for durable job contract expectations.
+- `.agents/30-context/domains/telemetry-model.md` - Confirmed as applicable for observable resume progress.
+- `.agents/30-context/domains/workitems-format-summary.md` - Confirmed as applicable for canonical ordering behavior.
+- `.agents/30-context/domains/import-streaming.md` - Confirmed as applicable for streaming and idempotent stage processing.
+- `.agents/30-context/domains/checkpointing-summary.md` - Discrepancy logged (does not yet define resumable batching continuation token semantics).
+- `.agents/30-context/domains/package-manager.md` - Confirmed as applicable for state and artifact boundary rules.
+- `.agents/30-context/domains/identity-and-mapping.md` - Confirmed as applicable for idempotency and duplicate-safe import behavior.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -173,24 +205,25 @@ As a module owner, I need deterministic ordering and explicit duplicate-tolerant
   - `docs/work-item-iteration-guide.md`
   - `docs/module-development-guide.md`
   - `docs/configuration-reference.md`
-  - `.agents/guardrails/architecture-boundaries.md`
-  - `.agents/guardrails/workitems-rules.md`
-  - `.agents/guardrails/migration-rules.md`
-  - `.agents/guardrails/coding-standards.md`
-  - `.agents/guardrails/testing-rules.md`
-  - `.agents/guardrails/module-rules.md`
-  - `.agents/guardrails/control-plane-rules.md`
-  - `.agents/guardrails/test-first-workflow.md`
-  - `.agents/guardrails/acceptance-test-format.md`
-  - `.agents/context/cli-commands.md`
-  - `.agents/context/migration-package-concept.md`
-  - `.agents/context/job-lifecycle.md`
-  - `.agents/context/telemetry-model.md`
-  - `.agents/context/workitems-format-summary.md`
-  - `.agents/context/import-streaming.md`
-  - `.agents/context/checkpointing-summary.md`
-  - `.agents/context/package-manager.md`
-  - `.agents/context/identity-and-mapping.md`
+  - `.agents/20-guardrails/core/architecture-boundaries.md`
+  - `.agents/20-guardrails/domains/workitems-rules.md`
+  - `.agents/20-guardrails/domains/migration-rules.md`
+  - `.agents/20-guardrails/core/coding-standards.md`
+  - `.agents/20-guardrails/workflow/testing-rules.md`
+  - `.agents/20-guardrails/domains/module-rules.md`
+  - `.agents/20-guardrails/domains/control-plane-rules.md`
+  - `.agents/20-guardrails/workflow/test-first-workflow.md`
+  - `.agents/20-guardrails/workflow/acceptance-test-format.md`
+  - `.agents/30-context/domains/cli-commands.md`
+  - `.agents/30-context/domains/migration-package-concept.md`
+  - `.agents/30-context/domains/job-lifecycle.md`
+  - `.agents/30-context/domains/telemetry-model.md`
+  - `.agents/30-context/domains/workitems-format-summary.md`
+  - `.agents/30-context/domains/import-streaming.md`
+  - `.agents/30-context/domains/checkpointing-summary.md`
+  - `.agents/30-context/domains/package-manager.md`
+  - `.agents/30-context/domains/identity-and-mapping.md`
 - Gaps identified and captured in discrepancies:
   - No explicit documented contract yet for resumable batching continuation token behavior.
   - No explicit documented query-fingerprint mismatch handling for caller-driven resume.
+

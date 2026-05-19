@@ -17,7 +17,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
@@ -27,7 +27,7 @@ using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Options;
 using Microsoft.Extensions.Configuration;
@@ -50,7 +50,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     private readonly ITfsJobServiceFactory _tfsServiceFactory;
     private readonly ActiveTfsJobServices _activeTfsJobServices;
     private readonly ILogger<TfsJobAgentWorker> _logger;
-    private readonly IPackageAccess? _package;
+    private readonly IPackageAccess _package;
 
     // Per-job TFS connection — set in OnBeforeModulesAsync, cleared in OnAfterModulesAsync.
     private TfsJobServices? _currentTfsServices;
@@ -59,7 +59,6 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     private string? _currentPackageUri;
 
     public TfsJobAgentWorker(
-        IPackageStoreFactory packageStoreFactory,
         IProgressSink progressSink,
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
@@ -74,16 +73,16 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         ITfsJobServiceFactory tfsServiceFactory,
         ActiveTfsJobServices activeTfsJobServices,
         ILogger<TfsJobAgentWorker> logger,
-        IPackageAccess? package = null)
-        : base(packageStoreFactory, progressSink, checkpointingFactory,
+        IPackageAccess? package)
+        : base(progressSink, checkpointingFactory,
              phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageMigrationConfigLoader,
-                moduleScopeFactory, httpClientFactory, logger, activeJobState)
+                package!, moduleScopeFactory, httpClientFactory, logger, activeJobState)
     {
         _flushables = flushables;
         _tfsServiceFactory = tfsServiceFactory;
         _activeTfsJobServices = activeTfsJobServices;
         _logger = logger;
-        _package = package;
+        _package = package ?? throw new ArgumentNullException(nameof(package));
     }
 
     protected override ConnectorType[] Capabilities => new[] { ConnectorType.TeamFoundationServer };
@@ -154,8 +153,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         _currentPackageUri = job.Package.PackageUri ?? ".";
 
         // Update plan file to mark TFS export task as Running (best-effort).
-        var (_, stateStore) = PackageStoreFactory.Create(_currentPackageUri);
-        await UpdatePlanTaskStatusAsync(stateStore, "export.workitems", JobTaskStatus.Running, ct)
+        await UpdatePlanTaskStatusAsync("export.workitems", JobTaskStatus.Running, ct)
             .ConfigureAwait(false);
     }
 
@@ -186,8 +184,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         // If the job failed, the status remains Failed (set in the exception handler).
         if (_currentPackageUri != null)
         {
-            var (_, stateStore) = PackageStoreFactory.Create(_currentPackageUri);
-            await UpdatePlanTaskStatusAsync(stateStore, "export.workitems", JobTaskStatus.Completed, ct)
+            await UpdatePlanTaskStatusAsync("export.workitems", JobTaskStatus.Completed, ct)
                 .ConfigureAwait(false);
             _currentPackageUri = null;
         }
@@ -198,7 +195,6 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     /// Best-effort — logs warnings on failure but does not throw.
     /// </summary>
     private async Task UpdatePlanTaskStatusAsync(
-        IStateStore stateStore,
         string taskId,
         JobTaskStatus newStatus,
         CancellationToken ct)
@@ -208,23 +204,23 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
             string? json = null;
             if (_package is not null)
             {
-                var payload = await _package.RequestMetaAsync(
+                var result = await _package.RequestMetaAsync(
                     new PackageMetaContext(PackageMetaKind.ExecutionPlan),
                     ct).ConfigureAwait(false);
-                if (payload is not null)
+                if (result.Payload is not null)
                 {
-                    using var reader = new StreamReader(payload.Content);
+                    using var reader = new StreamReader(result.Payload.Content);
                     json = await reader.ReadToEndAsync().ConfigureAwait(false);
+                }
+
+                if (json is null)
+                {
+                    _logger.LogDebug("No execution plan payload returned through package boundary for {Path}.", result.ResolvedPath);
                 }
             }
 
-            if (json is null)
-            {
-                _logger.LogDebug("No execution plan payload returned through package boundary.");
-            }
             if (json == null)
             {
-                _logger.LogDebug("No plan file found at {Path} — skipping TFS task status update.", PackagePaths.PlanFile);
                 return;
             }
 
@@ -279,10 +275,6 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
     {
         ActiveJobIdentity?.Set(job.JobId, job.Kind.ToString());
-        var (artefactStore, stateStore) = PackageStoreFactory.Create(
-            job.Package.PackageUri ?? ".");
-
-        PackageState.CurrentStore = artefactStore;
 
         // Discovery config (organisations, endpoint) is read from migration-config.json.
         // Read the raw config section for the TFS source endpoint.

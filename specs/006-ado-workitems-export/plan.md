@@ -7,12 +7,48 @@
 
 Export all work item revisions from an Azure DevOps project via the REST API, writing each revision as `revision.json` in the canonical `WorkItems/yyyy-MM-dd/<ticks>-<workItemId>-<revisionIndex>/` package layout. Attachment binaries are streamed beside their revision, SHA-256 verified, and delta-deduplicated. The export is resumable via cursor-based checkpointing. Progress flows via `IProgressSink` to the TUI and control plane.
 
-The implementation extends the existing `WorkItemExportOrchestrator` (streaming loop + cursor) by wiring in an abstract `IAttachmentDownloader`, an ADO-specific `AzureDevOpsWorkItemRevisionSource`, and a binary-write extension to `IArtefactStore`. A new `WorkItemsModule` wraps the orchestrator behind `IDataTypeModule`, making the ADO export path a first-class export module.
+The implementation now follows current repository seams: `WorkItemExportOrchestrator` + `IWorkItemRevisionSourceFactory` + `IAttachmentBinarySource`/`IStreamingAttachmentBinarySource`, with `WorkItemsModule` implemented as `IModule` in `Infrastructure.Agent`.
+
+## Current Status (Reconciliation)
+
+This plan reflects a **historical design snapshot** and is now partially stale against repository truth.
+
+### Remaining Incomplete Work (from tasks reconciliation)
+
+`T001, T005, T010, T017, T019, T026, T027, T028, T029, T031, T035, T036, T037`
+
+### Completed Because Superseded
+
+`T003, T004, T006, T007, T008, T009, T011, T012, T013, T014, T015, T016, T018, T020, T021, T022, T023, T024, T025, T030, T032`
+
+### Newer Related Specs Reviewed
+
+`009-resumable-export-import`, `010-workitem-comments-images`, `011-inline-comment-fetching`, `013-ado-workitems-import`, `014-field-filter-scope`, `015-work-item-scoped-fetch`, `018-workitem-otel-metrics`, `019-workitem-idmap-sync`, `020-resumable-batching-cursor`, `022-workitem-field-mapping`, `029-import-workitems-attachments-nodes`, `031-platform-metrics-unification`, `035-workitem-import-support`
+
+### Contradictions and Reconciliation
+
+- `WorkItemsModule` is implemented as `IModule` in `Infrastructure.Agent`, not `IDataTypeModule` in `Infrastructure`.
+- Attachment flow is implemented via `IAttachmentBinarySource`/`AzureDevOpsAttachmentBinarySource`, not `IAttachmentDownloader`.
+- `IWorkItemRevisionSourceFactory` exists but with async `CreateAsync(CancellationToken)` and DI-resolved endpoint context.
+- Retry policy is implemented with Polly HTTP handlers rather than `Microsoft.Extensions.Resilience`.
+- Progress contract now uses `ProgressEvent.Metrics` (`JobMetrics`) rather than added scalar fields.
+- Several remaining incomplete tasks still point to pre-refactor file paths and need retargeting to current `Infrastructure.Agent`/`Abstractions.Agent` locations.
+- Constitution-alignment debt remains open in this legacy plan text (connector-coverage wording and `IOptions<T>` references need explicit modernization if this spec is revived for implementation).
+
+### Verification Evidence
+
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.Agent/Export/WorkItemExportOrchestrator.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ExportServiceCollectionExtensions.cs`
+- `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Attachments/AzureDevOpsAttachmentBinarySource.cs`
+- `src/DevOpsMigrationPlatform.Abstractions.Agent/Export/IWorkItemRevisionSourceFactory.cs`
+- `src/DevOpsMigrationPlatform.Abstractions/Streaming/ProgressEvent.cs`
+- `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Export/WorkItemExportOrchestratorTests.cs`
 
 ## Technical Context
 
 **Language/Version**: C# 12 / .NET 10.0 (multi-targeted `net481;net10.0` for `Abstractions` and `Infrastructure` only; `Infrastructure.AzureDevOps` targets `net10.0` only)  
-**Primary Dependencies**: `Microsoft.TeamFoundationServer.Client` 20.256.2 (ADO SDK); `Microsoft.Extensions.DependencyInjection`; `Microsoft.Extensions.Http.Resilience` (retry pipeline); `OpenTelemetry.Api`  
+**Primary Dependencies**: `Microsoft.TeamFoundationServer.Client` 20.256.2 (ADO SDK); `Microsoft.Extensions.DependencyInjection`; `Microsoft.Extensions.Http.Polly` (retry policy wiring); `OpenTelemetry.Api`  
 **Storage**: On-disk package via `IArtefactStore` (FileSystemArtefactStore for local; AzureBlobArtefactStore for cloud)  
 **Testing**: MSTest 3 + Reqnroll 2 (BDD); Moq 4 (mocking); existing Infrastructure.Tests project  
 **Target Platform**: Linux/Windows server (.NET 10); also net481 for shared Abstractions/Infrastructure types  
@@ -26,7 +62,7 @@ The implementation extends the existing `WorkItemExportOrchestrator` (streaming 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 > **Mandatory context loading:** Before completing this gate, confirm that ALL files in
-> `/.agents/guardrails/`, ALL files in `/.agents/context/`, and relevant `/docs/` files
+> `/.agents/20-guardrails/`, ALL files in `/.agents/30-context/`, and relevant `/docs/` files
 > have been read. Skipping either `.agents/` subdirectory is a constitution violation.
 
 - [x] **Package-First (I):** `WorkItemsModule.ExportAsync` writes only via `IArtefactStore`. No ADO API calls from within module code — all ADO interaction is behind `IWorkItemRevisionSource` and `IAttachmentDownloader` abstractions.
@@ -293,5 +329,6 @@ All nine principles re-verified against the Phase 1 design above:
 
 ---
 
-*Next step: run `/speckit.tasks` to generate the dependency-ordered task list for implementation.*
+*Reconciliation note: `tasks.md` already exists and has been updated with evidence-backed completion, incomplete, and superseded statuses.*
+
 

@@ -2,7 +2,7 @@
 
 **Feature Branch**: `017-simulated-infrastructure`
 **Created**: 2026-04-18
-**Status**: Draft
+**Status**: Reconciled (Implemented with residual evidence/documentation gaps)
 **Input**: Add Infrastructure.Simulated connector assembly with polymorphic endpoint config, config-driven work item generator, and full boundary cleanup
 
 ## Architecture References
@@ -13,7 +13,7 @@ The following `docs/` and `.agents/` files were read before drafting this spec:
 |---|---|
 | `docs/architecture.md` | Confirmed accurate — Simulated is listed as a valid source/target mode |
 | `docs/module-development-guide.md` | Confirmed accurate — `WorkItemsModule` contract drives the connector pattern |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — all rules applied |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — all rules applied |
 | `analysis/Simulated.md` | **Design input** — full connector analysis; drives this spec |
 
 ## User Scenarios & Testing *(mandatory)*
@@ -201,3 +201,38 @@ After this feature, `AzureDevOpsWorkItemImportTargetFactory` no longer contains 
 - The `wiql` query parameter on `IWorkItemRevisionSourceFactory.CreateAsync` is removed when the signature changes to accept `MigrationEndpointOptions`. The ADO connector internalises the WIQL query — it is not passed via endpoint options.
 - Architecture docs `docs/architecture.md` and `docs/module-development-guide.md` are confirmed accurate and consistent with this spec. No doc updates are required from the spec itself — the `speckit.implement` phase will update them as discrepancies are resolved.
 - `analysis/Simulated.md` is the canonical design reference for the implementation phase and MUST be read by the implementing agent before writing any code.
+
+---
+
+## Current status (Reconciled 2026-05-16)
+
+- Overall: **Implemented with residual documentation reconciliation gaps**.
+- Change class for this reconciliation: **Class A (documentation/status alignment only)**.
+
+## Remaining incomplete work (IDs)
+
+- `T076` — `analysis/pending-actions.md` was not explicitly reconciled for spec 017.
+- `T081` — No committed evidence for manual launch-profile run of `queue-export-workitems-simulated-source.json`.
+
+## Completed because superseded (IDs + source)
+
+- `T008`, `T009`, `T020a`, `T021`, `T022`, `T026`, `T027` superseded by `specs/021.2-separation-of-concerns/spec.md` and current runtime endpoint-context factory pattern.
+- `T063` superseded by implemented fixture choice in `scenarios/queue-import-workitems-simulated-target.json` (`workitems-2items-flat.zip`).
+- `T069` superseded by current CLI mode contract in `.agents/30-context/domains/cli-commands.md` (`Migrate`).
+- `T071` superseded by existing roundtrip system coverage in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/SimulatedMigrationCommandTests.cs`.
+
+## Contradictions and reconciliation
+
+- Planned factory signatures with `MigrationEndpointOptions` contradict current code (`CreateAsync(CancellationToken ct)`); reconciled as superseded by newer architecture.
+- Planned `Mode: "Both"` contradicts current scenario contract using `Mode: "Migrate"`; reconciled as superseded terminology.
+- Planned fixture `workitems-simulated-small.zip` contradicts current checked-in fixture `workitems-2items-flat.zip`; reconciled as superseded implementation detail.
+- Planned move of `OrganisationEndpoint` from Abstractions contradicts current repository truth (`src/DevOpsMigrationPlatform.Abstractions/Organisations/OrganisationEndpoint.cs`); reconciled as not adopted in current architecture.
+- Historical reference to `analysis/Simulated.md` contradicts repository truth (file absent); reconciled as stale provenance reference.
+
+## Verification evidence
+
+- Build: `dotnet build DevOpsMigrationPlatform.slnx --no-incremental` (pass).
+- Tests: `dotnet test tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.csproj` (46 passed).
+- Roundtrip coverage exists in `QueueRoundtripSimulated_ExitsZeroAndProducesPackageWithRevisions`.
+- Reconciliation audits executed: `/speckit.analyze` and `/speckit.checklist` (findings incorporated into this status alignment pass).
+

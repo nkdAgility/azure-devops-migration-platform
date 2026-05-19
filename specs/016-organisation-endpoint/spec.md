@@ -11,7 +11,7 @@
 | Document | Status |
 |---|---|
 | `docs/architecture.md` | Confirmed — no structural changes required |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed — new type must live in `DevOpsMigrationPlatform.Abstractions` |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed — new type must live in `DevOpsMigrationPlatform.Abstractions` |
 | `docs/module-development-guide.md` | Confirmed — no module-layer changes required |
 | `docs/capabilities-guide.md` | Confirmed — both ADO and TFS callers adopt the new type |
 
@@ -149,3 +149,42 @@ During implementation, the design evolved beyond the original spec in one key wa
 - `OrganisationEndpoint` (sealed) — resolved ADO/TFS connection context, used by `IAzureDevOpsClientFactory`
 
 This is a better design (OCP-compliant, supports new connector types without modifying interfaces) and all original success criteria are still met.
+
+## Reconciliation Update (2026-05-16)
+
+### Current status
+
+- Reconciled against current repository state.
+- Core endpoint refactor outcomes are implemented, with later architectural evolution applied.
+
+### Remaining incomplete work (IDs)
+
+- `T021` — docs updates in `docs/module-development-guide.md` and `docs/capabilities-guide.md` are not evidenced.
+- `T025` — full unfiltered `dotnet test` all-tests pass is not evidenced in this reconciliation run.
+- `T026` — scenario/system execution evidence is currently failing in this run due file lock.
+
+### Completed because superseded (IDs + source)
+
+- `T001`, `T002`, `T013` superseded by `specs/021.2-separation-of-concerns/spec.md` (project/folder boundary realignment).
+- `T003`, `T005`, `T008`, `T010` superseded by `specs/017-simulated-infrastructure/spec.md` (polymorphic endpoint model).
+- `T012`, `T015`, `T016` superseded by `specs/025.1-fold-to-job/spec.md` (unified `Job` model removed discovery-command path).
+
+### Contradictions and reconciliation
+
+- This spec’s evolved note says all abstraction interfaces accept `MigrationEndpointOptions`; current implementation intentionally uses a mixed model:
+  - `OrganisationEndpoint` for connection-oriented discovery/query interfaces.
+  - `MigrationEndpointOptions` where connector polymorphism is required (for example comment source and link analysis entry points).
+- `DiscoveryJob`-based scope handling was replaced by later job unification (`Job.Kind` flow), so discovery-command assumptions in this spec are historical.
+
+### Verification evidence
+
+- Type and signature checks:
+  - `src/DevOpsMigrationPlatform.Abstractions/Organisations/OrganisationEndpoint.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions/Organisations/ScopedOrganisationEndpoint.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions.Agent/Discovery/IWorkItemDiscoveryService.cs`
+  - `src/DevOpsMigrationPlatform.Abstractions.Agent/Import/IWorkItemLinkAnalysisService.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/IAzureDevOpsClientFactory.cs`
+- Commands run:
+  - `dotnet clean && dotnet build --no-incremental` (pass)
+  - `dotnet test --no-build --filter "TestCategory!=SystemTest&TestCategory!=SystemTest_Live"` (pass: 1274/1274)
+  - targeted scenario test `QueueCommand_WithExportMode_ExitsZero_AndWritesRevisionFiles` (fail: `System.IO.IOException` on `CLI-cli.log` lock)

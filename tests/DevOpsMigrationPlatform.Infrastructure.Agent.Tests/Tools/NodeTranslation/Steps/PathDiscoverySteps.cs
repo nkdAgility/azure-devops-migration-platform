@@ -36,25 +36,25 @@ public class PathDiscoverySteps
     {
         _ctx.SetupExistingArtifact(new List<string> { path });
         _ctx.CreateTracker();
-        await _ctx.Tracker!.InitializeAsync(_ctx.ArtefactStoreMock.Object, CancellationToken.None);
+        await _ctx.Tracker!.InitializeAsync(_ctx.PackageMock.Object, string.Empty, string.Empty, CancellationToken.None);
     }
 
     [When(@"the path tracker discovers area path ""(.*)""")]
     public async Task WhenDiscoverAreaPath(string path)
     {
-        await _ctx.Tracker!.RecordAreaPathAsync(path, _ctx.ArtefactStoreMock.Object, CancellationToken.None);
+        await _ctx.Tracker!.RecordAreaPathAsync(path, _ctx.PackageMock.Object, string.Empty, string.Empty, CancellationToken.None);
     }
 
     [When(@"the path tracker discovers iteration path ""(.*)""")]
     public async Task WhenDiscoverIterationPath(string path)
     {
-        await _ctx.Tracker!.RecordIterationPathAsync(path, _ctx.ArtefactStoreMock.Object, CancellationToken.None);
+        await _ctx.Tracker!.RecordIterationPathAsync(path, _ctx.PackageMock.Object, string.Empty, string.Empty, CancellationToken.None);
     }
 
     [When(@"the path tracker is initialized from the existing artifact")]
     public async Task WhenTrackerInitialized()
     {
-        await _ctx.Tracker!.InitializeAsync(_ctx.ArtefactStoreMock.Object, CancellationToken.None);
+        await _ctx.Tracker!.InitializeAsync(_ctx.PackageMock.Object, string.Empty, string.Empty, CancellationToken.None);
     }
 
     [Then(@"the referenced-paths artifact contains area path ""(.*)""")]

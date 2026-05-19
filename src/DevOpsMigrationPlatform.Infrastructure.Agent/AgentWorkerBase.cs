@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using Microsoft.Extensions.Hosting;
@@ -99,7 +100,9 @@ public abstract class AgentWorkerBase : BackgroundService
 
     protected sealed override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Agent worker started — polling for jobs.");
+        _logger.LogWarning(
+            "Agent worker ExecuteAsync entered — polling for jobs against {BaseUrl}.",
+            _httpClientFactory.CreateClient("ControlPlane").BaseAddress);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -118,7 +121,7 @@ public abstract class AgentWorkerBase : BackgroundService
             }
         }
 
-        _logger.LogInformation("Agent worker stopping.");
+        _logger.LogWarning("Agent worker stopping.");
     }
 
     private async Task PollAndExecuteAsync(CancellationToken ct)

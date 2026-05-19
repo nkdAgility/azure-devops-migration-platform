@@ -121,3 +121,30 @@ The refactor is executed in dependency order — types first, then interfaces, t
 7. **CLI updates**: `InventoryCommand`, `DependencyCommand` — construct `ScopedOrganisationEndpoint` via `entry.ToEndpointOptions()`
 8. **Test updates**: Fix any compilation errors in test mocks/fakes
 9. **Verification**: `dotnet clean && dotnet build --no-incremental`, `dotnet test`, scenario run
+
+## Reconciliation Update (2026-05-16)
+
+### Current status
+
+- Plan intent is largely implemented, with key flow changes superseded by later specs (`017`, `021.2`, `025.1`).
+
+### Remaining incomplete work (IDs)
+
+- `T021`, `T025`, `T026`.
+
+### Completed because superseded (IDs + source)
+
+- Superseded by `specs/017-simulated-infrastructure/spec.md`: `T003`, `T005`, `T008`, `T010`.
+- Superseded by `specs/021.2-separation-of-concerns/spec.md`: `T001`, `T002`, `T013`.
+- Superseded by `specs/025.1-fold-to-job/spec.md`: `T012`, `T015`, `T016`.
+
+### Contradictions and reconciliation
+
+- Original task paths under `Abstractions/Models` and `Abstractions/Services` no longer represent repository structure after abstraction split (`Abstractions.Agent` + `Abstractions/Organisations`).
+- Discovery command assumptions in this plan were replaced by unified `Job` execution flow.
+
+### Verification evidence
+
+- Build: `dotnet clean && dotnet build --no-incremental` succeeded.
+- Tests (non-live): `dotnet test --no-build --filter "TestCategory!=SystemTest&TestCategory!=SystemTest_Live"` succeeded (1274 passed).
+- Scenario validation attempt: targeted queue-export ADO system test failed due file lock (`CLI-cli.log`), so scenario evidence remains open.

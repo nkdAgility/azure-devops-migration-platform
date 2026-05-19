@@ -1,7 +1,7 @@
 # Contract: GET /jobs
 
 **Owner**: `JobsController` in `DevOpsMigrationPlatform.ControlPlane`  
-**Status**: Missing — must be added
+**Status**: Implemented
 
 ---
 
@@ -55,14 +55,14 @@ Returns an empty array `[]` when no jobs are visible to the caller.
 
 ## Implementation notes
 
-`IJobStore.GetAll()` already exists and returns `IReadOnlyList<MigrationJob>`. The controller projects each into `JobSummary`. `State`, `SubmittedAt`, `SubmittedByUpn` require the `JobRecord` wrapper described in `data-model.md` Gap 1.
+`JobsController` now exposes `GET /jobs` and projects `IJobStore.GetAllRecords()` to `JobSummary` (`src/DevOpsMigrationPlatform.ControlPlane/Controllers/JobsController.cs`).
 
 ---
 
 # Contract: GET /jobs/{jobId}/telemetry (documentation gap only)
 
 **Owner**: `TelemetryController` in `DevOpsMigrationPlatform.ControlPlane`  
-**Status**: Implemented — missing from `docs/control-plane.md` API table
+**Status**: Implemented and documented
 
 ---
 
@@ -100,14 +100,14 @@ When no snapshot has been pushed yet (job queued or just leased, agent has not s
 
 ## Notes
 
-No code change required. Only `docs/control-plane.md` needs updating to add this endpoint to the Job Lifecycle table.
+No additional code change required for this contract item; the endpoint and `docs/control-plane.md` table entry are both present.
 
 ---
 
 # Contract: CLI Job Submission Output
 
-**Owner**: All migration commands that call `SubmitAsync` (`MigrationExportCommand`, `MigrationImportCommand`, `MigrationMigrateCommand`, `MigrationPrepareCommand`)  
-**Status**: Must be added
+**Owner**: Submission commands that call `SubmitAsync` (`QueueCommand` and `PrepareCommand`)  
+**Status**: Implemented
 
 ---
 

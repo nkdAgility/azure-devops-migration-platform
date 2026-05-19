@@ -6,8 +6,8 @@ This folder contains human-facing documentation for operators, advanced operator
 - **Advanced operators** should read [`operator-advanced-guide.md`](operator-advanced-guide.md), [`control-plane.md`](control-plane.md), [`agent-hosting.md`](agent-hosting.md), [`observability.md`](observability.md), and [`security-and-data-sovereignty.md`](security-and-data-sovereignty.md).
 - **Contributors** should start with [`contributor-guide.md`](contributor-guide.md), then use the development, testing, module, connector, telemetry, and client integration guides.
 
-Agent-specific compressed context lives in [`.agents/context`](../.agents/context/README.md).
-Agent-specific mandatory constraints live in [`.agents/guardrails`](../.agents/guardrails/README.md).
+Agent-specific compressed context lives in [`.agents/30-context`](../.agents/30-context/README.md).
+Agent-specific mandatory constraints live in [`.agents/20-guardrails`](../.agents/20-guardrails/README.md).
 
 ---
 
@@ -64,3 +64,5 @@ Agent-specific mandatory constraints live in [`.agents/guardrails`](../.agents/g
 | [`work-item-iteration-guide.md`](work-item-iteration-guide.md) | Work item iteration patterns |
 | [`concurrent-write-detection.md`](concurrent-write-detection.md) | Concurrent write detection and lease protocol |
 | [`adr/`](adr/README.md) | Architecture Decision Records |
+
+

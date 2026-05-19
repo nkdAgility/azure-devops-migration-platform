@@ -3,7 +3,7 @@
 
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Validation;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 
 /// <summary>
@@ -13,6 +13,6 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 public class ValidationContext
 {
     public Job Job { get; init; } = null!;
-    public IArtefactStore ArtefactStore { get; init; } = null!;
+    public IPackageAccess Package { get; init; } = null!;
     public System.Collections.Generic.List<ValidationError> Errors { get; } = new();
 }

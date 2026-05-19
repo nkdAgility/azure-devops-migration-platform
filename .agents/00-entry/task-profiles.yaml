@@ -1,0 +1,80 @@
+version: 1
+profiles:
+  package-runtime:
+    guardrails:
+      - ".agents/20-guardrails/core/architecture-boundaries.md"
+      - ".agents/20-guardrails/core/architecture-perspectives-ethos.md"
+      - ".agents/20-guardrails/core/capability-ethos-rules.md"
+      - ".agents/20-guardrails/core/runtime-compatibility-net10-net481.md"
+      - ".agents/20-guardrails/core/surface-usage.md"
+      - ".agents/20-guardrails/core/change-governance.md"
+      - ".agents/20-guardrails/domains/package-rules.md"
+      - ".agents/20-guardrails/domains/migration-rules.md"
+      - ".agents/20-guardrails/domains/module-rules.md"
+      - ".agents/20-guardrails/workflow/test-first-workflow.md"
+      - ".agents/20-guardrails/workflow/definition-of-done.md"
+    context:
+      - ".agents/30-context/domains/package-manager.md"
+      - ".agents/30-context/domains/migration-package-concept.md"
+      - ".agents/30-context/domains/checkpointing-summary.md"
+      - ".agents/30-context/domains/workitems-format-summary.md"
+      - ".agents/30-context/domains/capability-seam-contract.md"
+  cli-tui:
+    guardrails:
+      - ".agents/20-guardrails/core/architecture-boundaries.md"
+      - ".agents/20-guardrails/core/architecture-perspectives-ethos.md"
+      - ".agents/20-guardrails/core/capability-ethos-rules.md"
+      - ".agents/20-guardrails/core/runtime-compatibility-net10-net481.md"
+      - ".agents/20-guardrails/core/surface-usage.md"
+      - ".agents/20-guardrails/core/change-governance.md"
+      - ".agents/20-guardrails/domains/cli-tui-rules.md"
+      - ".agents/20-guardrails/domains/control-plane-rules.md"
+      - ".agents/20-guardrails/workflow/test-first-workflow.md"
+      - ".agents/20-guardrails/workflow/definition-of-done.md"
+    context:
+      - ".agents/30-context/domains/cli-commands.md"
+      - ".agents/30-context/domains/ui-mode-summary.md"
+      - ".agents/30-context/domains/telemetry-model.md"
+      - ".agents/30-context/domains/job-lifecycle.md"
+  control-plane:
+    guardrails:
+      - ".agents/20-guardrails/core/architecture-boundaries.md"
+      - ".agents/20-guardrails/core/architecture-perspectives-ethos.md"
+      - ".agents/20-guardrails/core/capability-ethos-rules.md"
+      - ".agents/20-guardrails/core/runtime-compatibility-net10-net481.md"
+      - ".agents/20-guardrails/core/surface-usage.md"
+      - ".agents/20-guardrails/core/change-governance.md"
+      - ".agents/20-guardrails/domains/control-plane-rules.md"
+      - ".agents/20-guardrails/domains/security-rules.md"
+      - ".agents/20-guardrails/domains/observability-requirements.md"
+      - ".agents/20-guardrails/workflow/test-first-workflow.md"
+      - ".agents/20-guardrails/workflow/definition-of-done.md"
+    context:
+      - ".agents/30-context/domains/control-plane-concept.md"
+      - ".agents/30-context/domains/job-lifecycle.md"
+      - ".agents/30-context/domains/telemetry-model.md"
+  connectors:
+    guardrails:
+      - ".agents/20-guardrails/core/architecture-boundaries.md"
+      - ".agents/20-guardrails/core/architecture-perspectives-ethos.md"
+      - ".agents/20-guardrails/core/capability-ethos-rules.md"
+      - ".agents/20-guardrails/core/coding-standards.md"
+      - ".agents/20-guardrails/core/runtime-compatibility-net10-net481.md"
+      - ".agents/20-guardrails/core/surface-usage.md"
+      - ".agents/20-guardrails/core/change-governance.md"
+      - ".agents/20-guardrails/domains/connector-rules.md"
+      - ".agents/20-guardrails/domains/security-rules.md"
+      - ".agents/20-guardrails/domains/observability-requirements.md"
+      - ".agents/20-guardrails/workflow/test-first-workflow.md"
+      - ".agents/20-guardrails/workflow/testing-rules.md"
+      - ".agents/20-guardrails/workflow/definition-of-done.md"
+    context:
+      - ".agents/30-context/domains/connector-model.md"
+      - ".agents/30-context/domains/capability-seam-contract.md"
+  docs-only:
+    guardrails:
+      - ".agents/20-guardrails/workflow/documentation-rules.md"
+    context:
+      - ".agents/30-context/README.md"
+      - ".agents/90-index/context-index.md"
+      - ".agents/90-index/guardrails-index.md"

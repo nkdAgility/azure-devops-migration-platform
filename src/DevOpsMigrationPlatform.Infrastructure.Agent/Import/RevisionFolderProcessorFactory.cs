@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 
@@ -18,18 +19,24 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
     private readonly ILoggerFactory _loggerFactory;
     private readonly IPlatformMetrics? _metrics;
     private readonly INodeTranslationTool? _nodeStructureTool;
+    private readonly IFieldTransformTool? _fieldTransformTool;
     private readonly IPackageAccess _package;
+    private readonly NodeTranslationOptions? _nodeStructureOptions;
 
     public RevisionFolderProcessorFactory(
         ILoggerFactory loggerFactory,
         IPackageAccess package,
         IPlatformMetrics? metrics = null,
-        INodeTranslationTool? nodeStructureTool = null)
+        IFieldTransformTool? fieldTransformTool = null,
+        INodeTranslationTool? nodeStructureTool = null,
+        IOptions<NodeTranslationOptions>? nodeStructureOptions = null)
     {
         _loggerFactory = loggerFactory ?? throw new System.ArgumentNullException(nameof(loggerFactory));
         _package = package ?? throw new System.ArgumentNullException(nameof(package));
         _metrics = metrics;
+        _fieldTransformTool = fieldTransformTool;
         _nodeStructureTool = nodeStructureTool;
+        _nodeStructureOptions = nodeStructureOptions?.Value;
     }
 
     /// <inheritdoc/>
@@ -38,8 +45,9 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
         IIdentityLookupTool? identityLookupTool,
-        IArtefactStore artefactStore)
-        => Create(target, idMapStore, checkpointing, identityLookupTool, artefactStore, nodeStructureContext: null);
+        string organisation,
+        string project)
+        => Create(target, idMapStore, checkpointing, identityLookupTool, organisation, project, nodeStructureContext: null);
 
     /// <inheritdoc/>
     public IRevisionFolderProcessor Create(
@@ -47,18 +55,21 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
         IIdentityLookupTool? identityLookupTool,
-        IArtefactStore artefactStore,
+        string organisation,
+        string project,
         ProjectMapping? nodeStructureContext)
         => new RevisionFolderProcessor(
             target,
             idMapStore,
             checkpointing,
             identityLookupTool,
-            artefactStore,
             _loggerFactory.CreateLogger<RevisionFolderProcessor>(),
+            organisation,
+            project,
             _metrics,
+            fieldTransformTool: _fieldTransformTool,
             nodeStructureTool: _nodeStructureTool,
             nodeStructureContext: nodeStructureContext,
+            nodeStructureOptions: _nodeStructureOptions,
             package: _package);
 }
-#endif

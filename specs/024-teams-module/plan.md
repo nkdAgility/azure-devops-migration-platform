@@ -17,6 +17,16 @@ Plus two module extensions:
 
 All three connectors (Simulated, AzureDevOpsServices, TeamFoundationServer) must be fully implemented.
 
+## Reconciliation Status (2026-05-17)
+
+- Task truth is now canonical in `tasks.md` with normalized statuses.
+- Remaining incomplete execution evidence: `T084`, `T085`, `T096`.
+- Part of this plan is historically superseded by later specs:
+  - `specs/030-module-analiser-refactor` (Nodes naming and module lifecycle evolution)
+  - `specs/032-icapture-interface` (capture contract terminology)
+  - `specs/035-workitem-import-support` (prepare/import readiness orchestration details)
+- Legacy path references to `DevOpsMigrationPlatform.CLI.TfsExport` are reconciled to `Infrastructure.TfsObjectModel` implementations in current code.
+
 ## Technical Context
 
 **Language/Version**: C# 10+, .NET 10 (TFS subprocess: .NET 4.8)
@@ -33,7 +43,7 @@ All three connectors (Simulated, AzureDevOpsServices, TeamFoundationServer) must
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **Mandatory context loading:** All files in `/.agents/guardrails/`, `/.agents/context/`, and relevant `/docs/` files have been read.
+> **Mandatory context loading:** All files in `/.agents/20-guardrails/`, `/.agents/30-context/`, and relevant `/docs/` files have been read.
 
 - [x] **Package-First (I):** All modules write exclusively through `IArtefactStore`. No direct sourceâ†’target migration. IdentitiesModule writes to `Identities/`, NodeStructureModule writes to `Nodes/`, TeamsModule writes to `Teams/`.
 - [x] **Streaming (II):** IdentitiesModule streams descriptors one at a time. TeamsModule processes teams one at a time. NodeStructure tree is bounded (<500 nodes typical). No in-memory sort of `EnumerateAsync`.
@@ -375,12 +385,13 @@ Each acceptance scenario from the spec becomes one ATDD session (Specification â
 | 2 | Add NodeStructureModule detailed section | `docs/module-development-guide.md` |
 | 3 | Add TeamsModule detailed section | `docs/module-development-guide.md` |
 | 4 | Add module config schemas | `docs/configuration-reference.md` |
-| 5 | Document `Teams/` folder internal structure | `.agents/context/migration-package-concept.md` |
-| 6 | Add NodeStructureModule cursor to checkpointing docs | `.agents/context/checkpointing-summary.md` |
-| 7 | Add `Identities` and `Nodes` to `includedTypes` example in manifest | `.agents/context/migration-package-concept.md` |
+| 5 | Document `Teams/` folder internal structure | `.agents/30-context/domains/migration-package-concept.md` |
+| 6 | Add NodeStructureModule cursor to checkpointing docs | `.agents/30-context/domains/checkpointing-summary.md` |
+| 7 | Add `Identities` and `Nodes` to `includedTypes` example in manifest | `.agents/30-context/domains/migration-package-concept.md` |
 | 8 | Resolve all discrepancies in `specs/024-teams-module/discrepancies.md` | `discrepancies.md` |
 | 9 | Review and update `analysis/pending-actions.md` | `analysis/pending-actions.md` |
 
 ## Complexity Tracking
 
 No Constitution Check violations. All principles satisfied as documented above.
+

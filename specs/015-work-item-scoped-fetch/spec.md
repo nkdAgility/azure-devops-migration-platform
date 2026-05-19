@@ -14,7 +14,7 @@
 | `docs/module-development-guide.md` | Confirmed accurate — abstraction lives outside module layer |
 | `docs/capabilities-guide.md` | Confirmed accurate — both ADO and TFS sources need implementations |
 | `docs/work-item-iteration-guide.md` | **Discrepancy logged** — new abstraction must be registered in the mandatory reuse section |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — new interface must live in `DevOpsMigrationPlatform.Abstractions` |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — new interface must live in `DevOpsMigrationPlatform.Abstractions` |
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -121,3 +121,46 @@ As a migration operator using a TFS source, I want `IWorkItemFetchService` to ha
 - Relations expansion is intentionally excluded from `IWorkItemFetchService`; this is a deliberate architectural constraint, not an oversight.
 - This feature is a prerequisite for feature 014 field-filter scopes; both may be developed in parallel but 015 must land first (or concurrently) to unblock the per-caller wiring in 014.
 - Feature 016 (`OrganisationEndpoint`) must land before or alongside this feature so that `FetchAsync` can accept `OrganisationEndpoint` in its signature.
+
+## Current status
+
+- Reconciled against repository state on 2026-05-16.
+- Core capability is implemented and in active use.
+- This spec is **partially superseded** by later specs that changed architectural placement and export-filter behaviour (`021.2-separation-of-concerns`, `014-field-filter-scope`).
+
+## Remaining incomplete work (IDs)
+
+- T013 — dedicated `AzureDevOpsWorkItemDiscoveryService` unit test update not evidenced by a corresponding test file.
+- T021 — dedicated `TfsWorkItemFetchService` test project/file remains deferred and not present.
+- T028 — full-suite test execution evidence is non-green in the recorded task evidence.
+- T029 — simulated export run evidence is not preserved in this spec folder.
+
+## Completed because superseded (IDs + source)
+
+- Architectural path/location supersession by `specs/021.2-separation-of-concerns`: T001, T002, T003, T004, T005, T006, T009, T010, T012, T017, T019, T030.
+- Export-path scope supersession by `specs/014-field-filter-scope`: FR-012 original exclusion intent is superseded by FR-002 in spec 014.
+
+## Contradictions and reconciliation
+
+- Original FR-012 (“export path must not be changed”) conflicts with later accepted behaviour in spec 014 requiring export pre-filtering through `IWorkItemFetchService`; this spec now treats FR-012 as superseded.
+- Original file paths in plan/tasks target pre-SoC layout; reconciliation treats these as completed/superseded where concrete implementation exists at new locations.
+- Task list previously showed all completed despite missing test evidence; reconciliation now marks missing-evidence tasks as incomplete.
+
+## Verification evidence
+
+- Implementation files:
+  - `src/DevOpsMigrationPlatform.Abstractions.Agent/Export/IWorkItemFetchService.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Export/AzureDevOpsWorkItemFetchService.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Export/TfsWorkItemFetchService.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Discovery/AzureDevOpsWorkItemDiscoveryService.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Discovery/AzureDevOpsDependencyAnalysisService.cs`
+- Test/docs evidence:
+  - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Services/AzureDevOpsWorkItemFetchServiceTests.cs`
+  - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Services/WorkItemFieldFilterEvaluatorTests.cs`
+  - `features/inventory/work-items/inventory-field-projection.feature`
+  - `features/inventory/work-items/dependency-pre-filter.feature`
+  - `features/inventory/work-items/tfs-field-projection.feature`
+  - `docs/work-item-iteration-guide.md`, `docs/module-development-guide.md`, `docs/architecture.md`
+- Command evidence:
+  - `dotnet build DevOpsMigrationPlatform.slnx --no-incremental` succeeded during reconciliation.
+

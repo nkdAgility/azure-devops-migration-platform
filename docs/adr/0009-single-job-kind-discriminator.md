@@ -49,5 +49,6 @@ Job
 ## Related
 
 - [ADR-0008](0008-configuration-travels-in-package.md) — config payload in Job
-- [.agents/context/job-lifecycle.md](../../.agents/context/job-lifecycle.md) — job lifecycle model
+- [.agents/30-context/domains/job-lifecycle.md](../../.agents/30-context/domains/job-lifecycle.md) — job lifecycle model
 - Driving spec: `specs/025.1-fold-to-job/spec.md`
+

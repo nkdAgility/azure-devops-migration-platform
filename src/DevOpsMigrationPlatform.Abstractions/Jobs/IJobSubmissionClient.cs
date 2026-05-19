@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System.Collections.Generic;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
@@ -35,4 +34,3 @@ public interface IJobSubmissionClient
         Job job,
         CancellationToken ct = default);
 }
-#endif

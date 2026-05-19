@@ -54,18 +54,19 @@ public class ImportCursorResumeSteps
     {
         var cursor = new CursorEntry
         {
-            LastProcessed = _ctx.AllFolderPaths[1], // second folder was last completed
+            LastProcessed = _ctx.AllFolderPaths[1],
             Stage = CursorStage.Completed,
             UpdatedAt = System.DateTimeOffset.UtcNow
         };
         var cursorJson = JsonSerializer.Serialize(cursor);
 
-        _ctx.MockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(cursorJson);
-        _ctx.MockStateStore
-            .Setup(s => s.WriteAsync(PackagePaths.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        _ctx.MockPackage
+            .Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "import" && c.Module == "workitems"),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PackageMetaResult(
+                PackagePathTestHelper.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName),
+                new PackageMetaPayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(cursorJson)), "application/json")));
     }
 
     [When("the import is restarted")]
@@ -120,12 +121,13 @@ public class ImportCursorResumeSteps
         };
         var cursorJson = JsonSerializer.Serialize(cursor);
 
-        _ctx.MockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(cursorJson);
-        _ctx.MockStateStore
-            .Setup(s => s.WriteAsync(PackagePaths.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        _ctx.MockPackage
+            .Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "import" && c.Module == "workitems"),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PackageMetaResult(
+                PackagePathTestHelper.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName),
+                new PackageMetaPayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(cursorJson)), "application/json")));
     }
 
     [Then(@"the importer skips stages ""(.*)"" and ""(.*)"" for that folder")]
@@ -159,23 +161,27 @@ public class ImportCursorResumeSteps
             UpdatedAt = System.DateTimeOffset.UtcNow
         });
         // Return null once cursor is deleted so ForceFresh starts fresh.
-        _ctx.MockStateStore
-            .Setup(s => s.ReadAsync(PackagePaths.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<CancellationToken>()))
-            .Returns((string _, CancellationToken ct) =>
-                Task.FromResult<string?>(_ctx.CursorWasDeleted ? null : cursorJson));
-        _ctx.MockStateStore
-            .Setup(s => s.WriteAsync(PackagePaths.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        _ctx.MockStateStore
-            .Setup(s => s.DeleteAsync(PackagePaths.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName), It.IsAny<CancellationToken>()))
+        _ctx.MockPackage
+            .Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "import" && c.Module == "workitems"),
+                It.IsAny<CancellationToken>()))
+            .Returns((PackageMetaContext _, CancellationToken _) => ValueTask.FromResult(new PackageMetaResult(
+                PackagePathTestHelper.CursorFile("import", "workitems", ImportCursorResumeContext.EndpointUrl, ImportCursorResumeContext.ProjectName),
+                _ctx.CursorWasDeleted
+                    ? null
+                    : new PackageMetaPayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(cursorJson)), "application/json"))));
+        _ctx.MockPackage
+            .Setup(p => p.ResetMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Action == "import" && c.Module == "workitems"),
+                It.IsAny<CancellationToken>()))
             .Callback(() => _ctx.CursorWasDeleted = true)
-            .Returns(Task.CompletedTask);
+            .Returns(ValueTask.CompletedTask);
     }
 
     [Given(@"an existing ID map database at {string}")]
     public void GivenAnExistingIdMapDatabase(string _path)
     {
-        // idmap.db is managed by SqliteIdMapStore, not IStateStore.
+        // idmap.db is managed by SqliteIdMapStore, not IPackageAccess.
         // In this test, the mock IdMapStore simulates it being present.
         _ctx.AllFolderPaths = new List<string>
         {
@@ -205,8 +211,8 @@ public class ImportCursorResumeSteps
     public void ThenTheIdMapDatabaseIsPreserved()
     {
         // idmap.db is not touched by DeleteCursorAsync — only the cursor key is deleted.
-        _ctx.MockStateStore.Verify(
-            s => s.DeleteAsync(It.Is<string>(k => k.Contains("idmap")), It.IsAny<CancellationToken>()),
+        _ctx.MockPackage.Verify(
+            p => p.ResetMetaAsync(It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.CheckpointCursor && c.Module == "idmap"), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -225,18 +231,18 @@ public class ImportCursorResumeSteps
 
     private void SetupFolderEnumeration()
     {
-        _ctx.MockArtefactStore
-            .Setup(s => s.EnumerateAsync("WorkItems/", It.IsAny<CancellationToken>()))
-            .Returns((string _, CancellationToken ct) => _ctx.AllFolderPaths.ToAsyncEnumerable(ct));
+        _ctx.MockPackage
+            .Setup(p => p.EnumerateContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken ct) => _ctx.AllFolderPaths.ToAsyncEnumerable(ct));
 
         foreach (var path in _ctx.AllFolderPaths)
         {
-            _ctx.MockArtefactStore
-                .Setup(s => s.ReadAsync($"{path}/revision.json", It.IsAny<CancellationToken>()))
-                .ReturnsAsync(_revisionJson);
-            _ctx.MockArtefactStore
-                .Setup(s => s.ReadAsync($"{path}/comment.json", It.IsAny<CancellationToken>()))
-                .ReturnsAsync((string?)null);
+            _ctx.MockPackage
+                .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.EndsWith($"{path.Replace("WorkItems/", string.Empty)}/revision.json", System.StringComparison.Ordinal)), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(_revisionJson)), "application/json"));
+            _ctx.MockPackage
+                .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath.EndsWith($"{path.Replace("WorkItems/", string.Empty)}/comment.json", System.StringComparison.Ordinal)), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((PackagePayload?)null);
         }
     }
 

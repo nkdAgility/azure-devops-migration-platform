@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -81,7 +80,7 @@ public class ConfigurationService : IConfigurationService
             if (!File.Exists(actualConfigPath))
                 throw new FileNotFoundException($"Configuration file not found: {actualConfigPath}");
 
-            var jsonContent = await File.ReadAllTextAsync(actualConfigPath, cancellationToken).ConfigureAwait(false);
+            var jsonContent = await ReadAllTextCompatAsync(actualConfigPath, cancellationToken).ConfigureAwait(false);
 
             using var doc = JsonDocument.Parse(jsonContent, new JsonDocumentOptions
             {
@@ -215,7 +214,7 @@ public class ConfigurationService : IConfigurationService
             var writeOptions = new JsonSerializerOptions { WriteIndented = true };
             var jsonContent = root.ToJsonString(writeOptions);
 
-            await File.WriteAllTextAsync(configPath, jsonContent, cancellationToken).ConfigureAwait(false);
+            await WriteAllTextCompatAsync(configPath, jsonContent, cancellationToken).ConfigureAwait(false);
 
             var cacheKey = Path.GetFullPath(configPath);
             _configCache[cacheKey] = options;
@@ -270,5 +269,23 @@ public class ConfigurationService : IConfigurationService
         _logger.LogDebug("No configuration files discovered");
         return null;
     }
+
+    private static async Task<string> ReadAllTextCompatAsync(string path, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, useAsync: true);
+        using var reader = new StreamReader(stream);
+        var content = await reader.ReadToEndAsync().ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return content;
+    }
+
+    private static async Task WriteAllTextCompatAsync(string path, string content, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true);
+        using var writer = new StreamWriter(stream);
+        await writer.WriteAsync(content).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+    }
 }
-#endif

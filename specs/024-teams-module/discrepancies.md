@@ -21,7 +21,7 @@
 - **Status**: ✓ Resolved in speckit.implement
 
 ### Teams/ folder contents not documented in migration-package-concept.md
-- **Source doc**: `.agents/context/migration-package-concept.md`
+- **Source doc**: `.agents/30-context/domains/migration-package-concept.md`
 - **Section**: Package Structure (line 25–45)
 - **Issue**: The `Teams/` folder is listed in the package tree but its internal structure (file naming, schema) is not documented. The spec defines five key entities (Team, TeamIteration, TeamMember, TeamCapacity, TeamAreaPath) that need a defined on-disk layout.
 - **Suggested update**: Add a `### Teams/` subsection documenting the folder structure: one JSON file per team containing settings, iterations, members, capacity, and area path assignments. Define the file naming convention and schema version.
@@ -35,7 +35,7 @@
 - **Status**: ✓ Resolved in speckit.implement
 
 ### TeamsModule cursor file not listed in migration-package-concept.md
-- **Source doc**: `.agents/context/migration-package-concept.md`
+- **Source doc**: `.agents/30-context/domains/migration-package-concept.md`
 - **Section**: Package Structure — `.migration/Checkpoints/` (line 38–40)
 - **Issue**: The checkpoint listing shows `workitems.cursor.json`, `idmap.db`, and `export_progress.db` but does not list `teams.cursor.json`.
 - **Suggested update**: Add `teams.cursor.json` to the `.migration/Checkpoints/` listing with a brief description: "cursor-based checkpoint for TeamsModule export/import resume."
@@ -56,9 +56,10 @@
 - **Status**: ✓ Resolved in speckit.implement
 
 ### IdentitiesModule cursor not in migration-package-concept.md
-- **Source doc**: `.agents/context/migration-package-concept.md`
+- **Source doc**: `.agents/30-context/domains/migration-package-concept.md`
 - **Section**: Package Structure — `.migration/Checkpoints/`
 - **Issue**: The checkpoint listing does not include `identities.cursor.json`.
 - **Suggested update**: Add `identities.cursor.json` to the `.migration/Checkpoints/` listing.
 - **Status**: ✓ Resolved in speckit.implement
+
 

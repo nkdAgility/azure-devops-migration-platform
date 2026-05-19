@@ -30,8 +30,8 @@ The following architecture and guardrail documents were read before drafting thi
 | `docs/module-development-guide.md` | Confirmed accurate — this feature is not a module |
 | `docs/capabilities-guide.md` | **Discrepancy** — inventory section per source type needs a corresponding dependencies section |
 | `docs/validation.md` | Confirmed accurate — does not apply to discovery commands |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — Rules 16 (no migration logic in CLI) applies |
-| `.agents/context/cli-commands.md` | **Discrepancy** — `discovery dependencies` command is not yet registered here |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — Rules 16 (no migration logic in CLI) applies |
+| `.agents/30-context/domains/cli-commands.md` | **Discrepancy** — `discovery dependencies` command is not yet registered here |
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -163,3 +163,54 @@ A migration planner needs to understand not just which individual work items hav
 - **Simulated source support**: When an organisation entry in `DiscoveryOptions` has `Type` = `Simulated`, the command generates synthetic dependency records so the feature can be tested without a live ADO organisation.
 - **No checkpoint support**: Discovery commands are fast local queries. If the run is interrupted, the operator re-runs from scratch. This is consistent with `discovery inventory`.
 - **Report format**: CSV is chosen as the primary output format for compatibility with common analysis tools. A machine-readable JSON summary format is out of scope for this initial version.
+
+
+## Current status
+
+Partially implemented with significant architectural drift. Dependency analysis capability exists and runs through queue-mode Agent capture/analyse orchestration, but the original local `discovery dependencies` command contract is not implemented.
+
+## Remaining incomplete work (IDs)
+
+T003, T014a, T019, T020, T021, T025, T026, T029, T030, T031, T035, T040, T041, T042, T043, T044, T045, T046, T050, T051, T053.
+
+## Completed because superseded (IDs + source)
+
+- Superseded by `specs/016-organisation-endpoint` + `specs/030-module-analiser-refactor`: T004, T005, T006, T007, T008, T009, T010.
+- Superseded by `specs/030-module-analiser-refactor` + `specs/032-icapture-interface`: T002, T015, T017, T018, T022, T028, T039.
+- Superseded by `specs/015-work-item-scoped-fetch`: T014, T027.
+- Superseded by `specs/017-simulated-infrastructure`: T023, T024.
+- Superseded by `specs/030-module-analiser-refactor`: T011, T032, T033, T034, T036, T037, T038.
+- Superseded by `specs/030-module-analiser-refactor` + `specs/021.2-separation-of-concerns`: T047, T048, T049, T054.
+
+## Contradictions and reconciliation
+
+1. **Execution model contradiction**: Spec requires `discovery dependencies` command; implementation is queue-mode (`Mode: Dependencies`) only.
+   - Reconciliation: treat command-specific tasks as superseded by later architecture specs (030/032/021.2).
+2. **Configuration model contradiction**: Spec/task references `DiscoveryOptions`; implementation uses `MigrationPlatformOptions` + job policies.
+   - Reconciliation: foundational options tasks marked superseded by 030 + 017 refactors.
+3. **Simulated behavior contradiction**: Spec expects synthetic dependency links; current simulated link analysis returns empty sequence.
+   - Reconciliation: marked superseded by 017 task stream where empty simulated dependency output is accepted.
+4. **TFS connector contradiction**: Spec expects TFS dependency subprocess adapter; current `DependencyDiscoveryService` still throws `NotSupportedException` for missing keyed TFS service.
+   - Reconciliation: kept as incomplete (T042–T046, T043).
+
+## Verification evidence
+
+- Implementation files inspected:
+  - `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Discovery/AzureDevOpsDependencyAnalysisService.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Discovery/DependencyDiscoveryService.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/DependencyOrchestrator.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Analysis/DependencyCapture.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Agent/Analysis/DependencyAnalyser.cs`
+  - `src/DevOpsMigrationPlatform.CLI.Migration/Program.cs`
+- Test/feature evidence inspected:
+  - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Dependencies/AzureDevOpsDependencyAnalysisServiceTests.cs`
+  - `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/DependencyDiscovery/SimulatedDependencyDiscoveryServiceFactoryTests.cs`
+  - `features/cli/discovery/dependency-command-wiring.feature`
+  - `features/inventory/work-items/dependency-analysis.feature`
+- Commands run:
+  - `dotnet build DevOpsMigrationPlatform.slnx --nologo` (pass)
+  - `dotnet test ...Infrastructure.Agent.Tests... --filter FullyQualifiedName~Dependency` (pass)
+  - `dotnet test ...Infrastructure.Simulated.Tests... --filter FullyQualifiedName~Dependency` (pass)
+  - `dotnet test ...CLI.Migration.Tests... --filter FullyQualifiedName~Dependency` (pass)
+  - `dotnet clean DevOpsMigrationPlatform.slnx --nologo && dotnet build DevOpsMigrationPlatform.slnx --nologo --no-incremental` (pass)
+  - `dotnet test DevOpsMigrationPlatform.slnx --nologo` (did not complete within session timeout)

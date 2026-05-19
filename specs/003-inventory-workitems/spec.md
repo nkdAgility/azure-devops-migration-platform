@@ -2,7 +2,7 @@
 
 **Feature Branch**: `003-inventory-workitems`  
 **Created**: 2026-04-04  
-**Status**: Draft  
+**Status**: Reconciled (historical; largely superseded)  
 **Input**: User description: "Flesh out the inventory command for Work Items discovery supporting both AzureDevOps and TfsObjectModel with progressive timespan reduction to stay under the 20k work item query limit"
 
 ## Architecture References
@@ -18,9 +18,9 @@ The following documents were read before drafting this specification.
 | `docs/configuration-reference.md` | **Discrepancy** — `source` section omits authentication fields; needs update to include auth shape |
 | `docs/architecture.md` | Confirmed accurate — inventory is a read-only pre-flight operation; does not violate job-engine separation |
 | `docs/module-development-guide.md` | Confirmed accurate — no inventory module type yet; this feature introduces `IInventoryService` as a separate concern |
-| `.agents/guardrails/architecture-boundaries.md` | Confirmed accurate — rules 16, 19 consulted; inventory is not migration logic; TFS still requires subprocess isolation |
-| `.agents/guardrails/coding-standards.md` | Confirmed — Spectre.Console.Cli for CLI; no bare credential args |
-| `.agents/guardrails/migration-rules.md` | Confirmed — inventory is not migration; no package, no checkpoint |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Confirmed accurate — rules 16, 19 consulted; inventory is not migration logic; TFS still requires subprocess isolation |
+| `.agents/20-guardrails/core/coding-standards.md` | Confirmed — Spectre.Console.Cli for CLI; no bare credential args |
+| `.agents/20-guardrails/domains/migration-rules.md` | Confirmed — inventory is not migration; no package, no checkpoint |
 
 ---
 
@@ -329,3 +329,38 @@ The `accessToken` field value is resolved in this order (highest precedence firs
 - The TFS inventory subprocess reuses the existing `DevOpsMigrationPlatform.CLI.TfsMigration` binary with a new `inventory` subcommand — no new binary is introduced.
 - `target` in the config file is silently ignored by the inventory command.
 - Architecture docs consulted: `docs/cli-guide.md`, `docs/configuration-reference.md`, `docs/capabilities-guide.md`, `docs/tfs-exporter.md`, `docs/architecture.md`. All gaps are filed in `discrepancies.md`.
+
+---
+
+## Current status
+
+This spec is **historical and largely superseded**. The repository now runs inventory through the queue/control-plane/agent path (`JobKind.Inventory`) rather than a direct `devopsmigration discovery inventory` command.
+
+## Remaining incomplete work (IDs)
+
+None. `tasks.md` reconciliation marks no task as `— Status: incomplete`.
+
+## Completed because superseded (IDs + source)
+
+`T003, T006-T008, T010-T038, T041` were completed in intent but superseded by later architecture and specs, primarily:
+
+- `specs/025.1-fold-to-job` (single `Job`, queue/control-plane dispatch)
+- `specs/028.2-job-execution-by-task` (agent execution plan ownership)
+- `specs/033-runtime-state-categories` (inventory runtime state/output alignment)
+- `specs/025-agent-config-package` (config/auth model consolidation)
+- `specs/020-resumable-batching-cursor` (windowing/resume behavior evolution)
+
+## Contradictions and reconciliation
+
+- **Command surface contradiction**: this spec requires `discovery inventory`; current CLI routes inventory via `queue` mode. Reconciled as superseded by `specs/025.1-fold-to-job`.
+- **TFS execution contradiction**: this spec expects a CLI subprocess adapter; current implementation uses `TfsMigrationAgent` lease execution. Reconciled as superseded by `specs/025.1-fold-to-job`.
+- **Output contradiction**: this spec expects `discovery-summary.csv`; current implementation writes `inventory.csv`/`inventory.json`. Reconciled as superseded by runtime/state evolution (`specs/033-runtime-state-categories`).
+
+## Verification evidence
+
+- CLI command surface: `src/DevOpsMigrationPlatform.CLI.Migration/Program.cs`
+- Inventory runtime/orchestration: `src/DevOpsMigrationPlatform.Infrastructure.Agent/Discovery/InventoryOrchestrator.cs`
+- Inventory service/factories: `src/DevOpsMigrationPlatform.Infrastructure.Agent/Discovery/InventoryService.cs`, `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Factories/InventoryServiceFactory.cs`
+- TFS agent path: `src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsJobAgentWorker.cs`
+- Docs alignment: `docs/cli-guide.md`, `docs/configuration-reference.md`, `docs/capabilities-guide.md`
+

@@ -20,7 +20,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 /// <summary>
 /// TFS Object Model implementation of <see cref="IClassificationTreeReader"/>.
 /// Uses <see cref="ICommonStructureService4"/> to enumerate area and iteration nodes from the
-/// TFS collection. TFS is export-only so no corresponding <see cref="INodeCreator"/> is needed.
+/// TFS collection.
 /// </summary>
 public sealed class TfsClassificationTreeReader : IClassificationTreeReader
 {

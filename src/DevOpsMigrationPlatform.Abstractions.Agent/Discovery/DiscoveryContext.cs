@@ -4,7 +4,7 @@
 using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
@@ -21,10 +21,10 @@ public class DiscoveryContext
     public Job Job { get; init; } = null!;
 
     /// <summary>Output store for discovery results (CSVs, logs).</summary>
-    public IArtefactStore ArtefactStore { get; init; } = null!;
+    public IPackageAccess Package { get; init; } = null!;
 
     /// <summary>Cursor-based checkpoint store. Persists progress across restarts.</summary>
-    public IStateStore StateStore { get; init; } = null!;
+    
 
     /// <summary>Progress event sink. Emits structured events to the control plane ring buffer and package log.</summary>
     public IProgressSink ProgressSink { get; init; } = null!;

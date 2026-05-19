@@ -2,7 +2,7 @@
 
 **Feature Branch**: `008-tui-job-dashboard`  
 **Created**: 2026-04-09  
-**Status**: Draft  
+**Status**: Reconciled (partially implemented; partially superseded)  
 **Input**: User description: "Id like to build out the TUI. It should show a list of all the jobs. On clicking a job it should show both the metrics and the logs stream for that job in separate windows. The cli should show both the job ID and the url of the ControlPlane when it queues the job. Even in standalone mode I can connect the TUI to the ControlPlane"
 
 ## Architecture References
@@ -13,8 +13,8 @@ Documents read during spec creation:
 |----------|--------|
 | `docs/tui-guide.md` | Confirmed accurate — describes full desired TUI behaviour. Spec implements what is documented. |
 | `docs/cli-guide.md` | Confirmed accurate — job submission output pattern described. |
-| `docs/control-plane.md` | Discrepancy logged — `/jobs/{jobId}/telemetry` referenced in `docs/tui-guide.md` is absent from the API surface table here. |
-| `.agents/guardrails/architecture-boundaries.md` | Guardrails 15, 16, 17, 18 apply directly to this feature. |
+| `docs/control-plane.md` | Confirmed accurate — includes `/jobs`, `/jobs/{jobId}/telemetry`, `/progress`, and `/diagnostics` surface entries used by this spec. |
+| `.agents/20-guardrails/core/architecture-boundaries.md` | Guardrails 15, 16, 17, 18 apply directly to this feature. |
 
 ---
 
@@ -176,3 +176,34 @@ As an operator who already knows their job ID I want to run `devopsmigration tui
 ### Session 2026-04-09
 
 - Q: Does the TUI start the local control plane stack when no `--url` is provided? → A: No. The TUI is a pure viewer — it never starts any hosted services. Only CLI migration commands (export, import, migrate, prepare) start the local stack via `LocalStackHost`. The TUI connects to an already-running control plane or exits with an error.
+
+---
+
+## Current status
+
+Reconciled to repository truth on 2026-05-17. This spec is **partially implemented and partially superseded** by later specs and architectural changes. Core TUI wiring, control-plane job listing, telemetry endpoint docs, and CLI submission output are implemented; several test and behavior tasks remain incomplete.
+
+## Remaining incomplete work (IDs)
+
+`T025`, `T027`, `T030`, `T031`, `T032`, `T033`, `T034`, `T035`, `T037`, `T042`, `T043`.
+
+## Completed because superseded (IDs + source)
+
+- `T003`, `T009` → superseded by `specs/021.2-separation-of-concerns/tasks.md` (abstraction and path moves into `Abstractions/ControlPlaneApi` and `ControlPlane/Jobs`).
+- `T017`, `T018`, `T019`, `T020` → superseded by `specs/025.1-fold-to-job/tasks.md` (`queue`/`prepare` submission contract).
+- `T028` → superseded by `specs/028.1-task-bootstrap/tasks.md` and `specs/028.2-job-execution-by-task/tasks.md` (task-bootstrap/task-centric TUI behavior).
+
+## Contradictions and reconciliation
+
+- Original FR-012 text excludes prepare submission output, but current implementation submits prepare jobs and prints job submission output; tasks were reconciled as superseded by current command contract.
+- Original TUI panel semantics (Progress/Diagnostics pair) diverged to a broader feed model (`Trace/Logs/Metrics-Feed`); reconciled by marking corresponding task work incomplete/superseded where appropriate.
+- Original path assumptions (`Abstractions/Models`, `ControlPlane/Services`) diverged after boundary refactor; reconciled by mapping to current paths instead of forcing legacy structure.
+
+## Verification evidence
+
+- Implementation evidence: `src/DevOpsMigrationPlatform.CLI.Migration/Commands/TuiCommand.cs`, `Views/TuiMainView.cs`, `Views/TuiJobListView.cs`, `Views/TuiMetricsView.cs`, `Views/TuiLogView.cs`.
+- Control plane evidence: `src/DevOpsMigrationPlatform.ControlPlane/Controllers/JobsController.cs`, `Controllers/AgentLeaseController.cs`, `Controllers/ProgressController.cs`, `Jobs/JobStore.cs`, `Jobs/IJobStore.cs`.
+- CLI submission output evidence: `src/DevOpsMigrationPlatform.CLI.Migration/Commands/ControlPlaneCommandBase.cs`, `Commands/QueueCommand.cs`, `Commands/PrepareCommand.cs`, `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Commands/PrintJobSubmittedTests.cs`.
+- Docs/launch evidence: `docs/control-plane.md`, `.vscode/launch.json`.
+- Validation commands run in this reconciliation: `dotnet clean && dotnet build --no-incremental` (completed), `dotnet test --no-build` (failed after clean because test assemblies were missing; marked incomplete evidence for T042).
+

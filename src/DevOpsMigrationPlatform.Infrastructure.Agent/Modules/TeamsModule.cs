@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
+using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -47,13 +47,17 @@ public sealed class TeamsModule : IModule
     private static readonly ActivitySource MigrationActivity = new(WellKnownActivitySourceNames.Migration);
 
     private readonly ITeamSource? _teamSource;
+#if !NET481
     private readonly ITeamTarget? _teamTarget;
+#endif
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<TeamsModule> _logger;
     private readonly IPlatformMetrics? _PlatformMetrics;
     private readonly TeamsModuleOptions _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
-    private readonly ITargetEndpointInfo _targetEndpointInfo;
+#if !NET481
+    private readonly ITargetEndpointInfo? _targetEndpointInfo;
+#endif
     private readonly ITeamsOrchestrator _orchestrator;
 
     public string Name => "Teams";
@@ -65,9 +69,32 @@ public sealed class TeamsModule : IModule
     public bool SupportsExport => true;
     public bool SupportsInventory => true;
     public bool SupportsPrepare => true;
+#if !NET481
     public bool SupportsImport => true;
+#else
+    public bool SupportsImport => false;
+#endif
     public bool SupportsValidate => false;
 
+    public TeamsModule(
+        ILogger<TeamsModule> logger,
+        IOptions<TeamsModuleOptions> options,
+        ISourceEndpointInfo sourceEndpointInfo,
+        ITeamsOrchestrator orchestrator,
+        IPlatformMetrics? PlatformMetrics = null,
+        ITeamSource? teamSource = null,
+        ICheckpointingServiceFactory? checkpointingFactory = null)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
+        _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
+        _PlatformMetrics = PlatformMetrics;
+        _teamSource = teamSource;
+        _checkpointingFactory = checkpointingFactory;
+    }
+
+#if !NET481
     public TeamsModule(
         ILogger<TeamsModule> logger,
         IOptions<TeamsModuleOptions> options,
@@ -78,17 +105,12 @@ public sealed class TeamsModule : IModule
         ITeamSource? teamSource = null,
         ITeamTarget? teamTarget = null,
         ICheckpointingServiceFactory? checkpointingFactory = null)
+        : this(logger, options, sourceEndpointInfo, orchestrator, PlatformMetrics, teamSource, checkpointingFactory)
     {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
         _targetEndpointInfo = targetEndpointInfo ?? throw new ArgumentNullException(nameof(targetEndpointInfo));
-        _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
-        _PlatformMetrics = PlatformMetrics;
-        _teamSource = teamSource;
         _teamTarget = teamTarget;
-        _checkpointingFactory = checkpointingFactory;
     }
+#endif
 
     public async Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
     {
@@ -121,7 +143,7 @@ public sealed class TeamsModule : IModule
 
                 var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
                 await ProjectInventoryFile.MergeAsync(
-                    context.ArtefactStore, projectPath,
+                    context.Package, projectPath,
                     orgUrl: orgUrl, project: project,
                     teams: count, ct: ct).ConfigureAwait(false);
             }
@@ -166,7 +188,13 @@ public sealed class TeamsModule : IModule
         var report = new PrepareReport { ModuleName = Name, ResolvedCount = 0 };
         _PlatformMetrics?.RecordPrepareTeamsResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
         _PlatformMetrics?.RecordPrepareTeamsUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
-        await context.ArtefactStore.WriteAsync("Teams/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
+        using (var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(report)), writable: false))
+        {
+            await context.Package.PersistContentAsync(
+                new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress("Teams/prepare-report.json")),
+                new PackagePayload(stream, "application/json"),
+                ct).ConfigureAwait(false);
+        }
         _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", Name, report.ResolvedCount, report.UnresolvedCount, 0);
         context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Prepared", Message = $"{Name} prepare complete", Timestamp = DateTimeOffset.UtcNow });
 
@@ -196,6 +224,7 @@ public sealed class TeamsModule : IModule
     }
 
     /// <inheritdoc/>
+#if !NET481
     public async Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct)
     {
         if (!_options.Enabled)
@@ -211,18 +240,29 @@ public sealed class TeamsModule : IModule
         }
 
         await _orchestrator.ImportAsync(
-            context, _sourceEndpointInfo, _targetEndpointInfo,
+            context, _sourceEndpointInfo, _targetEndpointInfo!,
             _checkpointingFactory, _options, ct).ConfigureAwait(false);
 
         return TaskExecutionResult.Completed();
     }
+#else
+    public Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct)
+    {
+        _logger.LogWarning("[Teams] Import is not supported on net481. Team export and validation remain available.");
+        return Task.FromResult(TaskExecutionResult.Skipped("Teams import is not supported on net481."));
+    }
+#endif
 
     /// <inheritdoc/>
     public async Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct)
     {
-        await _orchestrator.ValidateAsync(context.ArtefactStore, context, ct).ConfigureAwait(false);
+        await _orchestrator.ValidateAsync(context.Package, _sourceEndpointInfo.Url, _sourceEndpointInfo.Project, context, ct).ConfigureAwait(false);
 
         return TaskExecutionResult.Completed();
     }
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+    }
 }
-#endif

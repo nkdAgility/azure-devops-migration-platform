@@ -9,6 +9,38 @@ Make the work-item batching strategy resumable so that interrupted export, depen
 
 The implementation extends three existing abstractions (`ICheckpointingService`, `IWorkItemQueryWindowStrategy`, `IWorkItemFetchService`) and introduces three new model types (`BatchContinuationToken`, `ResumeDecision`, `IQueryFingerprintService`) — all in `DevOpsMigrationPlatform.Abstractions`. No new projects are created.
 
+## Reconciliation Addendum (2026-05-16)
+
+### Current Status
+
+- Plan intent is only partially realized in current implementation.
+- Key planned safety-net/observability elements are still missing in runtime behavior.
+- Multiple path assumptions were superseded by later architecture split and package-routing changes.
+
+### Remaining Incomplete Work (Task IDs)
+
+- `T010`, `T020`, `T021`, `T024`, `T025`, `T026`, `T027`, `T028`, `T030`, `T031`, `T034`, `T035`, `T036`, `T037`, `T038`, `T040`, `T041`, `T042`, `T043`, `T045`, `T046`
+
+### Completed Because Superseded (Task IDs + Source)
+
+- `T002`, `T003`, `T004`, `T005`, `T006`, `T007`, `T008`, `T009`, `T011`, `T012`, `T014`, `T016`, `T018`, `T019`, `T044` → `specs/021.2-separation-of-concerns`
+- `T013`, `T015` → `specs/034-package-manager-adoption`
+
+### Contradictions and Reconciliation
+
+- Finding 1 planned `FetchAsync` mismatch rejection safety net; implementation currently exposes decision pre-check but does not consistently enforce rejection in `FetchAsync`.
+- `EvaluateResumeDecisionAsync` is implemented but not yet shared with `FetchAsync` to enforce the safety net in one path.
+- Finding 2 planned constructor injection of `IQueryFingerprintService` into fetch service; implementation does not currently wire that dependency through resumable fetch flow.
+- Finding 3 planned warning logs (null writer, stale token); these warnings are not fully present in the implementation.
+- Planned FR-013 tuple-boundary behavior is stricter than current first-window filtering.
+
+### Verification Evidence
+
+- `speckit.analyze` and `speckit.checklist` both report high-severity spec/plan/tasks-to-code drift.
+- Targeted resumable tests in `Infrastructure.Agent.Tests` pass.
+- Build validation passed: `dotnet clean DevOpsMigrationPlatform.slnx --nologo` and `dotnet build DevOpsMigrationPlatform.slnx --no-incremental --nologo` exited 0.
+- Full test validation remains incomplete: `dotnet test DevOpsMigrationPlatform.slnx --no-build --nologo` stalled in `DevOpsMigrationPlatform.ControlPlane.Tests` and was stopped.
+
 ## Technical Context
 
 **Language/Version**: C# 10+, targeting net481;net10.0 (multi-target for Abstractions/Infrastructure)  

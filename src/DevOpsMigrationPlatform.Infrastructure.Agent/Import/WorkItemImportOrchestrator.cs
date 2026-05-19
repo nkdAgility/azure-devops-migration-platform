@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -11,7 +10,10 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Abstractions.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 
@@ -34,7 +36,9 @@ public sealed class WorkItemImportOrchestrator
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
 
-    private readonly IArtefactStore _artefactStore;
+    private readonly IPackageAccess _package;
+    private readonly string _organisation;
+    private readonly string _project;
     private readonly ICheckpointingService _checkpointing;
     private readonly IProgressSink _progressSink;
     private readonly IWorkItemResolutionStrategy _resolutionStrategy;
@@ -45,10 +49,11 @@ public sealed class WorkItemImportOrchestrator
     private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
     private readonly IPlatformMetrics? _metrics;
     private readonly string? _jobId;
-    private readonly IPackageAccess? _package;
 
     public WorkItemImportOrchestrator(
-        IArtefactStore artefactStore,
+        IPackageAccess package,
+        string organisation,
+        string project,
         ICheckpointingService checkpointing,
         IProgressSink progressSink,
         IWorkItemResolutionStrategy resolutionStrategy,
@@ -58,10 +63,11 @@ public sealed class WorkItemImportOrchestrator
         ILogger<WorkItemImportOrchestrator> logger,
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
         IPlatformMetrics? metrics = null,
-        string? jobId = null,
-        IPackageAccess? package = null)
+        string? jobId = null)
     {
-        _artefactStore = artefactStore ?? throw new ArgumentNullException(nameof(artefactStore));
+        _package = package ?? throw new ArgumentNullException(nameof(package));
+        _organisation = organisation ?? throw new ArgumentNullException(nameof(organisation));
+        _project = project ?? throw new ArgumentNullException(nameof(project));
         _checkpointing = checkpointing ?? throw new ArgumentNullException(nameof(checkpointing));
         _progressSink = progressSink ?? throw new ArgumentNullException(nameof(progressSink));
         _resolutionStrategy = resolutionStrategy ?? throw new ArgumentNullException(nameof(resolutionStrategy));
@@ -72,7 +78,6 @@ public sealed class WorkItemImportOrchestrator
         _filterOptions = filterOptions;
         _metrics = metrics;
         _jobId = jobId;
-        _package = package;
     }
 
     /// <summary>
@@ -124,22 +129,11 @@ public sealed class WorkItemImportOrchestrator
                 staleMappings.Count);
         }
 
-        // Pre-filter pass: build the set of work item IDs that pass filter predicates.
-        // Enumerates folder names only to find the last revision per WI, then reads one
-        // revision.json per work item. Items not in the set are skipped in the main loop.
-        HashSet<int>? filteredIds = null;
-        if (_filterOptions is { Count: > 0 })
-        {
-            filteredIds = await BuildFilteredIdSetAsync(_filterOptions, ct).ConfigureAwait(false);
-            _logger.LogInformation(
-                "[WorkItems] Import pre-filter pass complete: {Count} work items pass the configured filter(s).",
-                filteredIds.Count);
-        }
-
         int foldersProcessed = 0;
         int workItemsProcessed = 0;
         int lastImportedWorkItemId = 0;
         int revisionsForCurrentWorkItem = 0;
+        HashSet<int>? filteredWorkItemIds = null;
 
         var importTags = MetricsTagList.Create(_jobId ?? "not-set", "import", "workitems");
         var workItemStopwatch = Stopwatch.StartNew();
@@ -147,31 +141,20 @@ public sealed class WorkItemImportOrchestrator
 
         try
         {
+            if (_filterOptions is { Count: > 0 })
+            {
+                filteredWorkItemIds = await BuildFilteredWorkItemIdSetAsync(_filterOptions, ct).ConfigureAwait(false);
+            }
+
             await foreach (var folderPath in EnumerateWorkItemFoldersAsync(ct).ConfigureAwait(false))
             {
                 ct.ThrowIfCancellationRequested();
 
-                // Skip folders at or before the cursor (already completed)
-                if (!string.IsNullOrEmpty(lastProcessed)
-                    && string.CompareOrdinal(folderPath, lastProcessed) < 0)
-                {
+                var resumeDecision = ImportResumeDecisionResolver.Resolve(folderPath, cursor);
+                if (resumeDecision.ShouldSkip)
                     continue;
-                }
 
-                // Determine resume stage for the cursor folder (mid-folder resume)
-                string? resumeAtStage = null;
-                if (string.Equals(folderPath, lastProcessed, StringComparison.Ordinal)
-                    && lastStage is not null
-                    && !string.Equals(lastStage, CursorStage.Completed, StringComparison.Ordinal))
-                {
-                    resumeAtStage = GetNextStage(lastStage);
-                }
-                else if (string.Equals(folderPath, lastProcessed, StringComparison.Ordinal)
-                    && string.Equals(lastStage, CursorStage.Completed, StringComparison.Ordinal))
-                {
-                    // This exact folder was fully completed — skip it
-                    continue;
-                }
+                var resumeAtStage = resumeDecision.ResumeAtStage;
 
                 // Parse folder name to distinguish revision vs comment folders
                 var folderName = GetFolderName(folderPath);
@@ -188,12 +171,9 @@ public sealed class WorkItemImportOrchestrator
                 else if (ext.RevisionsEnabled)
                 {
                     // Revision folder — parse work item ID and revision index
-                    var revisionSegments = folderName.Split('-');
-                    int.TryParse(revisionSegments.Length >= 2 ? revisionSegments[1] : null, out var wiId);
-                    int.TryParse(revisionSegments.Length >= 3 ? revisionSegments[2] : null, out var revIdx);
+                    ParseRevisionFolder(folderName, out var wiId, out var revIdx);
 
-                    // Skip if the work item did not pass the filter pre-pass.
-                    if (filteredIds != null && !filteredIds.Contains(wiId))
+                    if (filteredWorkItemIds is not null && !filteredWorkItemIds.Contains(wiId))
                     {
                         _logger.LogInformation(
                             "[WorkItems] Work item {WorkItemId} skipped by import filter scope.",
@@ -248,6 +228,8 @@ public sealed class WorkItemImportOrchestrator
                     using var revisionActivity = ActivitySource.StartActivity("revision.process", ActivityKind.Internal);
                     revisionActivity?.SetTag("workitem.id", wiId);
                     revisionActivity?.SetTag("revision.index", revIdx);
+
+                    EmitReplaySkipVisibilityEvents(ext, resumeAtStage);
 
                     await _processor.ProcessAsync(folderPath, ext, resumeAtStage, _resolutionStrategy, ct)
                         .ConfigureAwait(false);
@@ -304,72 +286,85 @@ public sealed class WorkItemImportOrchestrator
         }
     }
 
-    /// <summary>
-    /// Pre-filter pass for import: enumerates revision folder names only to locate the last
-    /// revision folder per work item, reads one revision.json per work item, evaluates against
-    /// <paramref name="filterOptions"/>, and returns the set of passing work item IDs.
-    /// </summary>
-    private async Task<HashSet<int>> BuildFilteredIdSetAsync(
+    private async Task<HashSet<int>> BuildFilteredWorkItemIdSetAsync(
         IReadOnlyList<WorkItemFieldFilterOptions> filterOptions,
         CancellationToken ct)
     {
-        // Pass 1: collect the last folder path for each work item ID (folder names only, no reads).
-        var lastFolderPerWi = new Dictionary<int, string>();
-
+        var lastRevisionFolderByWorkItem = new Dictionary<int, string>();
         await foreach (var folderPath in EnumerateWorkItemFoldersAsync(ct).ConfigureAwait(false))
         {
             ct.ThrowIfCancellationRequested();
             var folderName = GetFolderName(folderPath);
-            var segs = folderName.Split('-');
-            if (IsCommentFolder(segs)) continue;
-            if (!int.TryParse(segs.Length >= 2 ? segs[1] : null, out var wiId)) continue;
+            var segments = folderName.Split('-');
+            if (IsCommentFolder(segments))
+                continue;
 
-            // Lexicographic order = chronological order; overwriting gives us the latest folder.
-            lastFolderPerWi[wiId] = folderPath;
+            ParseRevisionFolder(folderName, out var workItemId, out _);
+            if (workItemId <= 0)
+                continue;
+
+            lastRevisionFolderByWorkItem[workItemId] = folderPath;
         }
 
-        // Pass 2: read one revision.json per work item, evaluate filters.
-        var passedIds = new HashSet<int>();
-
-        foreach (var (wiId, folderPath) in lastFolderPerWi)
+        var includedIds = new HashSet<int>();
+        foreach (var entry in lastRevisionFolderByWorkItem)
         {
             ct.ThrowIfCancellationRequested();
-
-            var json = await ReadPackageTextAsync($"{folderPath}revision.json", ct).ConfigureAwait(false);
-            if (json is null) continue;
-
-            WorkItemRevision? revision = null;
-            try { revision = JsonSerializer.Deserialize<WorkItemRevision>(json, _jsonOptions); }
-            catch { /* skip unreadable revision */ }
-
-            if (revision is null) continue;
-
-            // Convert WorkItemField list to the FetchedWorkItem fields dictionary.
-            var fields = revision.Fields.ToDictionary(
-                f => f.ReferenceName,
-                f => (object?)f.Value);
-
-            var fetchedItem = new FetchedWorkItem(wiId, fields);
-
-            bool passes;
-            try
-            {
-                passes = WorkItemFieldFilterEvaluator
-                    .PassesFilters(fetchedItem, filterOptions);
-            }
-            catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
-            {
-                _logger.LogWarning(
-                    "[WorkItems] Regex filter timeout evaluating work item {WorkItemId} — treating as non-match.",
-                    wiId);
-                passes = false;
-            }
-
-            if (passes)
-                passedIds.Add(wiId);
+            var workItemId = entry.Key;
+            var folderPath = entry.Value;
+            if (await RevisionFolderPassesFilterAsync(workItemId, folderPath, filterOptions, ct).ConfigureAwait(false))
+                includedIds.Add(workItemId);
         }
 
-        return passedIds;
+        return includedIds;
+    }
+
+    private async Task<bool> RevisionFolderPassesFilterAsync(
+        int workItemId,
+        string folderPath,
+        IReadOnlyList<WorkItemFieldFilterOptions> filterOptions,
+        CancellationToken ct)
+    {
+        var json = await ReadPackageTextAsync($"{folderPath}revision.json", ct).ConfigureAwait(false);
+        if (json is null)
+            return false;
+
+        WorkItemRevision? revision = null;
+        try
+        {
+            revision = JsonSerializer.Deserialize<WorkItemRevision>(json, _jsonOptions);
+        }
+        catch
+        {
+            return false;
+        }
+
+        if (revision is null)
+            return false;
+
+        var fields = revision.Fields.ToDictionary(
+            f => f.ReferenceName,
+            f => (object?)f.Value);
+        var fetchedItem = new FetchedWorkItem(workItemId, fields);
+
+        try
+        {
+            return WorkItemFieldFilterEvaluator.PassesFilters(fetchedItem, filterOptions);
+        }
+        catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
+        {
+            _logger.LogWarning(
+                "[WorkItems] Regex filter timeout evaluating work item {WorkItemId} — treating as non-match.",
+                workItemId);
+            return false;
+        }
+    }
+
+    private static void ParseRevisionFolder(string folderName, out int workItemId, out int revisionIndex)
+    {
+        var segments = folderName.Split('-');
+        int.TryParse(segments.Length >= 2 ? segments[1] : null, out workItemId);
+        int.TryParse(segments.Length >= 3 ? segments[2] : null, out revisionIndex);
     }
 
     // --- Comment folder handling ---
@@ -430,49 +425,87 @@ public sealed class WorkItemImportOrchestrator
     private async IAsyncEnumerable<string> EnumerateWorkItemFoldersAsync(
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
-        if (_package is null)
-            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
-
         var paths = _package.EnumerateContentAsync(
             new PackageContentContext(
                 PackageContentKind.Collection,
-                SplitRouteSegments("WorkItems/"),
+                Organisation: _organisation,
+                Project: _project,
+                Module: "WorkItems",
                 IsCollectionRequest: true),
             ct);
         if (paths is null)
             yield break;
 
+        string? previousPath = null;
         await foreach (var path in paths.ConfigureAwait(false))
+        {
+            if (previousPath is not null && string.CompareOrdinal(path, previousPath) < 0)
+            {
+                throw new InvalidOperationException(
+                    $"WorkItems package enumeration must be lexicographic ascending. Previous='{previousPath}', Current='{path}'.");
+            }
+
+            previousPath = path;
             yield return path;
+        }
     }
 
     private async Task<string?> ReadPackageTextAsync(string path, CancellationToken ct)
     {
-        if (_package is null)
-            throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
-
         var payload = await _package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, SplitRouteSegments(path)),
+            CreateArtefactContext(path),
             ct).ConfigureAwait(false);
         if (payload is null)
             return null;
 
         if (payload.Content.CanSeek)
             payload.Content.Position = 0;
-        using var reader = new System.IO.StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+        using var reader = new System.IO.StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
         return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
-    private static IReadOnlyList<string> SplitRouteSegments(string relativePath)
-        => relativePath
-            .Replace('\\', '/')
-            .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+    private PackageContentContext CreateArtefactContext(string path)
+    {
+        if (path.EndsWith("revision.json", StringComparison.OrdinalIgnoreCase))
+        {
+            return new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: _organisation,
+                Project: _project,
+                Module: "WorkItems",
+                Address: new WorkItemRevisionAddress(GetRevisionFolderPath(path)));
+        }
+
+        return new PackageContentContext(
+            PackageContentKind.Artefact,
+            Organisation: _organisation,
+            Project: _project,
+            Module: "WorkItems",
+            Address: new WorkItemAttachmentAddress(GetRevisionFolderPath(path), GetFileName(path)));
+    }
+
+    private static string GetRevisionFolderPath(string path)
+    {
+        var normalized = path.Replace('\\', '/').TrimEnd('/');
+        if (normalized.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase))
+            normalized = normalized.Substring("WorkItems/".Length);
+
+        var lastSlash = normalized.LastIndexOf('/');
+        return lastSlash >= 0 ? normalized.Substring(0, lastSlash) : normalized;
+    }
+
+    private static string GetFileName(string path)
+    {
+        var normalized = path.Replace('\\', '/').TrimEnd('/');
+        var lastSlash = normalized.LastIndexOf('/');
+        return lastSlash >= 0 ? normalized.Substring(lastSlash + 1) : normalized;
+    }
 
     private static string GetFolderName(string folderPath)
     {
         var trimmed = folderPath.TrimEnd('/');
         var lastSlash = trimmed.LastIndexOf('/');
-        return lastSlash >= 0 ? trimmed[(lastSlash + 1)..] : trimmed;
+        return lastSlash >= 0 ? trimmed.Substring(lastSlash + 1) : trimmed;
     }
 
     /// <summary>
@@ -482,13 +515,42 @@ public sealed class WorkItemImportOrchestrator
     private static bool IsCommentFolder(string[] segments)
         => segments.Length >= 3 && segments[2].StartsWith("c", StringComparison.OrdinalIgnoreCase);
 
-    private static string? GetNextStage(string currentStage) => currentStage switch
+    private void EmitReplaySkipVisibilityEvents(WorkItemsModuleExtensions ext, string? resumeAtStage)
     {
-        CursorStage.CreatedOrUpdated => CursorStage.AppliedFields,
-        CursorStage.AppliedFields => CursorStage.AppliedLinks,
-        CursorStage.AppliedLinks => CursorStage.UploadedAttachments,
-        _ => null
-    };
+        if (!ext.EmbeddedImages.Enabled && ShouldRunStage(CursorStage.AppliedFields, resumeAtStage))
+        {
+            _progressSink.Emit(new ProgressEvent
+            {
+                Module = "WorkItems",
+                Stage = CursorStage.AppliedFields,
+                Message = "Embedded image replay skipped because the replay lever is disabled.",
+                Timestamp = DateTimeOffset.UtcNow,
+                LastCheckpointAt = DateTimeOffset.UtcNow,
+                NextCheckpointDueAt = null
+            });
+        }
+
+        if (!ext.AttachmentsEnabled && ShouldRunStage(CursorStage.UploadedAttachments, resumeAtStage))
+        {
+            _progressSink.Emit(new ProgressEvent
+            {
+                Module = "WorkItems",
+                Stage = CursorStage.UploadedAttachments,
+                Message = "Attachment replay skipped because the replay lever is disabled.",
+                Timestamp = DateTimeOffset.UtcNow,
+                LastCheckpointAt = DateTimeOffset.UtcNow,
+                NextCheckpointDueAt = null
+            });
+        }
+    }
+
+    private static bool ShouldRunStage(string stage, string? resumeAtStage)
+    {
+        if (resumeAtStage is null)
+            return true;
+
+        return string.CompareOrdinal(stage, resumeAtStage) >= 0;
+    }
 
     private Task WriteCompletedCursorAsync(string folderPath, CancellationToken ct)
         => _checkpointing.WriteCursorAsync("import.workitems", new CursorEntry
@@ -498,5 +560,4 @@ public sealed class WorkItemImportOrchestrator
             UpdatedAt = DateTimeOffset.UtcNow
         }, ct);
 }
-#endif
 

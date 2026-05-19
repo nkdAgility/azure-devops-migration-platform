@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-#if !NET481
 using System;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
@@ -35,6 +34,23 @@ public static class FactoryRegistrationExtensions
         services.AddSingleton(sp =>
             new KeyedWorkItemImportTargetFactory(typeKey, sp.GetRequiredService<TFactory>()));
         services.TryAddSingleton<IWorkItemImportTargetFactory, CompositeWorkItemImportTargetFactory>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a concrete <see cref="IWorkItemTypeReadinessTargetFactory"/> implementation
+    /// and ensures the <see cref="CompositeWorkItemTypeReadinessTargetFactory"/> dispatcher is
+    /// registered as <see cref="IWorkItemTypeReadinessTargetFactory"/>.
+    /// </summary>
+    public static IServiceCollection AddWorkItemTypeReadinessTargetFactory<TFactory>(
+        this IServiceCollection services,
+        string typeKey)
+        where TFactory : class, IWorkItemTypeReadinessTargetFactory
+    {
+        services.TryAddSingleton<TFactory>();
+        services.AddSingleton(sp =>
+            new KeyedWorkItemTypeReadinessTargetFactory(typeKey, sp.GetRequiredService<TFactory>()));
+        services.TryAddSingleton<IWorkItemTypeReadinessTargetFactory, CompositeWorkItemTypeReadinessTargetFactory>();
         return services;
     }
 
@@ -177,4 +193,3 @@ public static class FactoryRegistrationExtensions
         return services;
     }
 }
-#endif
