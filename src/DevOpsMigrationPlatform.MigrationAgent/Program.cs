@@ -36,7 +36,28 @@ try
     // LocalStackHost (CLI in-process mode) can use the exact same registrations.
     builder.AddMigrationAgentServices(controlPlaneBaseUrl);
 
-    var host = builder.Build();
+    // Enable DI validation — catches missing registrations and some circular dependencies
+    // at startup rather than at first resolution.
+    builder.Services.Configure<ServiceProviderOptions>(options =>
+    {
+        options.ValidateOnBuild = true;
+        options.ValidateScopes = true;
+    });
+
+    // Build with timeout — converts silent circular-dependency deadlocks into a clear
+    // exception rather than hanging forever with no diagnostics.
+    const int buildTimeoutSeconds = 30;
+    var buildTask = Task.Run(() => builder.Build());
+    if (!buildTask.Wait(TimeSpan.FromSeconds(buildTimeoutSeconds)))
+    {
+        throw new TimeoutException(
+            $"Host.Build() did not complete within {buildTimeoutSeconds}s. " +
+            "This typically indicates a circular dependency in an ILoggerProvider that " +
+            "eagerly resolves IHttpClientFactory, ILogger<T>, or IPackageAccess. " +
+            "ILoggerProvider implementations must use lazy resolution (IServiceProvider) " +
+            "for any dependency that may itself depend on ILogger<T>.");
+    }
+    var host = buildTask.GetAwaiter().GetResult();
 
     // Emit startup log immediately after host build — before hosted services start.
     // This verifies the logging pipeline is functional and provides an early diagnostic.

@@ -61,6 +61,25 @@ Do not inject `IProgressSink` into infrastructure classes. Infrastructure report
 
 The CLI progress display and TUI Metrics panel must read from the Control Plane API, not from an in-process progress sink. See `control-plane-rules.md`.
 
+## O-6 — ILoggerProvider Circular Dependency Prevention
+
+`ILoggerProvider` singletons are resolved eagerly during `Host.Build()` to construct
+`LoggerFactory`. Any constructor dependency that transitively requires `ILogger<T>` or
+`ILoggerFactory` creates a **silent deadlock** — the process hangs forever with no error.
+
+Rules:
+- `ILoggerProvider` implementations **must not** take `IHttpClientFactory`, `IPackageAccess`,
+  or any service whose implementation depends on `ILogger<T>` as a direct constructor parameter.
+- Instead, inject `IServiceProvider` and resolve the dependency lazily on first use (after Build completes).
+- The `DiCompositionTests.Build_FullMigrationAgentContainer_CompletesWithoutDeadlock` test
+  guards against regressions — it builds the full container with a 15-second timeout.
+- `Program.cs` wraps `Build()` in a 30-second timeout that throws `TimeoutException` with
+  a diagnostic message rather than hanging silently in production.
+
+Known circular paths:
+- `PackageLoggerProvider` → `IPackageAccess` → `ActivePackageAccess` → `ILogger<ActivePackageAccess>`
+- `ControlPlaneLoggerProvider` → `IHttpClientFactory` → resilience handlers → `ILogger<T>`
+
 ## Related
 
 - [.agents/30-context/domains/telemetry-model.md](../../30-context/domains/telemetry-model.md) — telemetry model overview
