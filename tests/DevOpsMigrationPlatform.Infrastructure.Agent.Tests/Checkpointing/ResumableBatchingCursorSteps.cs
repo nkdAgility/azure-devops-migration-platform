@@ -38,7 +38,7 @@ public sealed class ResumableBatchingCursorSteps
         Type = "AzureDevOps",
         Authentication = new OrganisationEndpointAuthentication
         {
-            Type = AuthenticationType.Pat,
+            Type = AuthenticationType.AccessToken,
             ResolvedAccessToken = "test-pat"
         }
     };

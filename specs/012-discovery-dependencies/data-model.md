@@ -328,7 +328,7 @@ Spawns `tfsmigration.exe dependencies` via `IExternalToolRunner`. Passes credent
 {
   "collectionUrl": "http://tfs.internal:8080/tfs/DefaultCollection",
   "project": "MyProject",
-  "pat": "",               // empty = Windows-integrated auth
+  "AccessToken": "",               // empty = Windows-integrated auth
   "wiqlFilter": null       // null = all work items
 }
 ```

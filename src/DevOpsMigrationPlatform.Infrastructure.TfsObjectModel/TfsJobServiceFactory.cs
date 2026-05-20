@@ -56,7 +56,7 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
 
         // Authenticate — access token or Windows-integrated depending on config.
         VssClientCredentials creds;
-        if (tfsEndpoint.Authentication?.Type == AuthenticationType.Pat &&
+        if (tfsEndpoint.Authentication?.Type == AuthenticationType.AccessToken &&
             !string.IsNullOrEmpty(tfsEndpoint.Authentication.ResolvedAccessToken))
         {
             creds = new VssClientCredentials(

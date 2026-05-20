@@ -32,7 +32,7 @@ public class EndpointAuthenticationOptionsContractTests
         {
             var options = new EndpointAuthenticationOptions
             {
-                Type = AuthenticationType.Pat,
+                Type = AuthenticationType.AccessToken,
                 AccessToken = $"$ENV:{envName}"
             };
 

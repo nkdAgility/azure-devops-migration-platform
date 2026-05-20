@@ -19,7 +19,7 @@
         "Url": "$ENV:AZDEVOPS_DEV_ORG",
         "Projects": [],
         "Authentication": {
-          "Type": "Pat",
+          "Type": "AccessToken",
           "AccessToken": "$ENV:AZDEVOPS_DEV_PAT"
         }
       }

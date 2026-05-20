@@ -118,7 +118,7 @@ public sealed class SchemaGeneratorHost
         // enforces strict key validation at the MigrationPlatform level.
         //
         // JsonStringEnumConverter is included to match the runtime serialiser — enums are
-        // serialised as strings in config files (e.g. "Pat" not 1 for AuthenticationType).
+        // serialised as strings in config files (e.g. "AccessToken" not 1 for AuthenticationType).
         var settings = new SystemTextJsonSchemaGeneratorSettings
         {
             SchemaType = SchemaType.JsonSchema,

@@ -76,13 +76,13 @@ internal sealed class InteractiveConfigurationBuilder : IInteractiveConfiguratio
         endpoint.Url = console.Ask<string>($"Enter {role} URL [{defaultUrl}]:");
         endpoint.Project = console.Ask<string>($"Enter {role} project name:");
 
-        var authTypes = new[] { "Pat", "Windows" };
+        var authTypes = new[] { "AccessToken", "Windows" };
         var authType = console.Prompt(
             new SelectionPrompt<string>()
                 .Title($"Select {role} authentication type:")
                 .AddChoices(authTypes));
 
-        if (authType == "Pat")
+        if (authType == "AccessToken")
         {
             var accessToken = console.Prompt(
                 new TextPrompt<string>($"Enter {role} Personal Access Token (or $ENV:VARNAME):")
@@ -90,7 +90,7 @@ internal sealed class InteractiveConfigurationBuilder : IInteractiveConfiguratio
 
             endpoint.Authentication = new EndpointAuthenticationOptions
             {
-                Type = AuthenticationType.Pat,
+                Type = AuthenticationType.AccessToken,
                 AccessToken = accessToken
             };
         }

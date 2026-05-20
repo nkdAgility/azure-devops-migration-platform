@@ -16,7 +16,7 @@ public enum AuthenticationType
     None = 0,
 
     /// <summary>Personal Access Token.</summary>
-    Pat,
+    AccessToken,
 
     /// <summary>Windows-integrated (NTLM/Kerberos) — TFS on-premises only.</summary>
     Windows

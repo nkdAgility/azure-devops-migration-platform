@@ -57,7 +57,7 @@ public sealed class AzureDevOpsOrganisationEntry : OrganisationEntry
                 "Set 'url' to a literal value or '$ENV:VARNAME'.");
 
         if (Authentication != null &&
-            Authentication.Type == AuthenticationType.Pat)
+            Authentication.Type == AuthenticationType.AccessToken)
         {
             var resolved = Authentication.ResolvedAccessToken;
             if (string.IsNullOrWhiteSpace(resolved))

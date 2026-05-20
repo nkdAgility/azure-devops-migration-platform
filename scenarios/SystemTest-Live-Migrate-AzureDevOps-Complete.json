@@ -1,4 +1,4 @@
-﻿{
+{
   "Diagnostics": {
     "MinimumLevel": "Information",
     "ChannelCapacity": 1024,
@@ -32,7 +32,7 @@
       "Project": "$ENV:SOURCE_PROJECT",
       "ApiVersion": "7.1",
       "Authentication": {
-        "Type": "Pat",
+        "Type": "AccessToken",
         "AccessToken": "$ENV:SOURCE_PAT"
       }
     },
@@ -42,7 +42,7 @@
       "Project": "$ENV:TARGET_PROJECT",
       "ApiVersion": "7.1",
       "Authentication": {
-        "Type": "Pat",
+        "Type": "AccessToken",
         "AccessToken": "$ENV:TARGET_PAT"
       }
     },

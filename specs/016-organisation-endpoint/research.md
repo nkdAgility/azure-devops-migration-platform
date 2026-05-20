@@ -77,13 +77,13 @@ Update it as part of FR-007 (implementation updates). It's not an Abstractions-l
 
 ### Context
 
-`DiscoveryJobAuthentication.Type` is a `string` with default `"Pat"`. The config layer uses `AuthenticationType` (an enum: `None`, `Pat`, `Windows`). The new `OrganisationEndpointAuthentication` uses `AuthenticationType Type` (the enum).
+`DiscoveryJobAuthentication.Type` is a `string` with default `"AccessToken"`. The config layer uses `AuthenticationType` (an enum: `None`, `Pat`, `Windows`). The new `OrganisationEndpointAuthentication` uses `AuthenticationType Type` (the enum).
 
 ### Decision: Use the `AuthenticationType` enum on `OrganisationEndpointAuthentication`
 
 The string-based `Type` on `DiscoveryJobAuthentication` was a loose serialisation artefact. The enum is the correct domain type. `OrganisationEndpointAuthentication` uses `AuthenticationType Type` directly.
 
-The CLI command mapping (currently `Type = "Pat"`) will change to `Type = AuthenticationType.Pat`.
+The CLI command mapping (currently `Type = "AccessToken"`) will change to `Type = AuthenticationType.Pat`.
 
 For `DiscoveryJobOrganisationScope`, the `Authentication` property carries the raw serialisable form for the job contract. The conversion from scope to `OrganisationEndpoint` resolves the token and maps the auth type.
 

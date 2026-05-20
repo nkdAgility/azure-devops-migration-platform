@@ -83,7 +83,7 @@ WorkingDirectory: "D:\\exports"  →  D:\exports\<org>\<project>\
   "Project": "MyProject",
   "ApiVersion": "7.1",
   "Authentication": {
-    "Type": "Pat",
+    "Type": "AccessToken",
     "AccessToken": "$ENV:MIGRATION_PAT"
   }
 }

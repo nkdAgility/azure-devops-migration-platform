@@ -35,7 +35,7 @@ Create a config file (e.g. `import.json`):
     "project": "MyTargetProject",
     "apiVersion": "7.1",
     "authentication": {
-      "type": "Pat",
+      "Type": "AccessToken",
       "accessToken": "$ENV:TARGET_PAT"
     }
   },

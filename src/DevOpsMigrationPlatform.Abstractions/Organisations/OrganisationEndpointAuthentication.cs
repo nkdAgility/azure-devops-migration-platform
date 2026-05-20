@@ -11,7 +11,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Organisations;
 /// </summary>
 public sealed class OrganisationEndpointAuthentication
 {
-    /// <summary>Authentication scheme: <see cref="AuthenticationType.Pat"/>,
+    /// <summary>Authentication scheme: <see cref="AuthenticationType.AccessToken"/>,
     /// <see cref="AuthenticationType.Windows"/>, or <see cref="AuthenticationType.None"/>.</summary>
     public AuthenticationType Type { get; init; }
 

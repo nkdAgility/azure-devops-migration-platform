@@ -463,7 +463,7 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
                     ResolvedUrl = creds.OrgUrl,
                     Authentication = new OrganisationEndpointAuthentication
                     {
-                        Type = Abstractions.Options.AuthenticationType.Pat,
+                        Type = Abstractions.Options.AuthenticationType.AccessToken,
                         ResolvedAccessToken = creds.Pat
                     }
                 }, cancellationToken).ConfigureAwait(false);

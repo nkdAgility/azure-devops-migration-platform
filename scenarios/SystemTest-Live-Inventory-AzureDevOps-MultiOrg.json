@@ -19,7 +19,7 @@
         "Url": "$ENV:AZDEVOPS_DEV_ORG",
         "Projects": [],
         "Authentication": {
-          "Type": "Pat",
+          "Type": "AccessToken",
           "AccessToken": "$ENV:AZDEVOPS_DEV_PAT"
         }
       },
@@ -28,7 +28,7 @@
         "Url": "https://dev.azure.com/nkdagility-learn/",
         "Projects": [],
         "Authentication": {
-          "Type": "Pat",
+          "Type": "AccessToken",
           "AccessToken": "$ENV:AZDEVOPS_DEV_PAT"
         }
       }

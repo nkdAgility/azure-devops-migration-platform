@@ -159,7 +159,7 @@ Or start from a [scenario in this repo](scenarios/). A minimal export config:
       "Url": "https://dev.azure.com/myorg",
       "Project": "MyProject",
       "Authentication": {
-        "Type": "Pat",
+        "Type": "AccessToken",
         "AccessToken": "$ENV:SOURCE_PAT"
       }
     },

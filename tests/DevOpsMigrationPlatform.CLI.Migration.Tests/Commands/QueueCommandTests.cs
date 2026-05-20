@@ -387,4 +387,178 @@ public class QueueCommandTests
         Assert.IsTrue(jsonContent.Contains("SimulatedProject", StringComparison.OrdinalIgnoreCase),
             "inventory.json must reference the SimulatedProject that was discovered.");
     }
+
+    /// <summary>
+    /// Runs <c>devopsmigration queue --config scenarios/SystemTest-Live-Export-TFS-WorkItems-SingleProject.json --force-fresh</c>
+    /// as a subprocess against a live TeamFoundationServer instance.
+    /// Verifies the CLI exits zero and writes revision files into the package.
+    /// Requires <c>TFS_SYSTEM_TEST_URL</c> and <c>TFS_SYSTEM_TEST_PROJECT</c> to be set.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
+    [TestCategory("SystemTest_Live_TFS")]
+    [Timeout(1_200_000)] // 20 minutes
+    public async Task QueueCommand_WithExportMode_TFS_ExitsZero_AndWritesRevisionFiles()
+    {
+        // ── Guard ─────────────────────────────────────────────────────────
+        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
+        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
+        if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
+        {
+            Assert.Fail(
+                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
+                "See docs/live-system-testing-guide.md for setup instructions.");
+            return;
+        }
+
+        // ── Act ───────────────────────────────────────────────────────────
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(QueueCommand_WithExportMode_TFS_ExitsZero_AndWritesRevisionFiles),
+            args: ["queue", "--config", "scenarios/SystemTest-Live-Export-TFS-WorkItems-SingleProject.json", "--force-fresh"],
+            timeout: TimeSpan.FromMinutes(18),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
+
+        Console.WriteLine("=== STDOUT ===");
+        Console.WriteLine(result.StandardOutput);
+        if (!string.IsNullOrEmpty(result.StandardError))
+        {
+            Console.WriteLine("=== STDERR ===");
+            Console.WriteLine(result.StandardError);
+        }
+
+        // ── Assert ────────────────────────────────────────────────────────
+        Assert.IsFalse(result.TimedOut, "CLI timed out.");
+        Assert.AreEqual(0, result.ExitCode,
+            $"CLI exited with code {result.ExitCode}. Check STDOUT/STDERR above.");
+
+        var combinedOutput = result.StandardOutput + result.StandardError;
+        Assert.IsTrue(
+            combinedOutput.Contains("export complete", StringComparison.OrdinalIgnoreCase) ||
+            combinedOutput.Contains("work items", StringComparison.OrdinalIgnoreCase),
+            "Expected CLI success message not found in output.");
+
+        var workItemsDirs = Directory.GetDirectories(outputDir, "workitems", SearchOption.AllDirectories);
+        Assert.IsTrue(workItemsDirs.Length > 0,
+            $"WorkItems directory was not created anywhere under {outputDir}");
+
+        var revisionFiles = Directory.GetFiles(workItemsDirs[0], "revision.json", SearchOption.AllDirectories);
+        Assert.IsTrue(revisionFiles.Length > 0,
+            $"No revision.json files found under {workItemsDirs[0]}");
+    }
+
+    /// <summary>
+    /// Runs <c>devopsmigration queue --config scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture.json --force-fresh</c>
+    /// as a subprocess against a live AzureDevOpsServices target, using the pre-built fixture zip.
+    /// Verifies the CLI exits zero and the idmap checkpoint database is created.
+    /// Requires <c>AZDEVOPS_SYSTEM_TEST_ORG</c>, <c>AZDEVOPS_SYSTEM_TEST_PAT</c>, and
+    /// <c>AZDEVOPS_SYSTEM_TEST_PROJECT</c> to be set.
+    /// See <c>scenarios/testdata/catalogue.json</c> for fixture details.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
+    [Timeout(60_000)] // 60 seconds — fixture has only 2 work items
+    public async Task QueueCommand_WithImportMode_AzureDevOps_Fixture_ExitsZero_AndCreatesIdmap()
+    {
+        // ── Guard ─────────────────────────────────────────────────────────
+        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
+        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
+        if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
+        {
+            Assert.Fail(
+                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
+                "See docs/live-system-testing-guide.md for setup instructions.");
+            return;
+        }
+
+        // ── Act ───────────────────────────────────────────────────────────
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(QueueCommand_WithImportMode_AzureDevOps_Fixture_ExitsZero_AndCreatesIdmap),
+            args: ["queue", "--config", "scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture.json", "--force-fresh"],
+            timeout: TimeSpan.FromSeconds(55),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
+
+        Console.WriteLine("=== STDOUT ===");
+        Console.WriteLine(result.StandardOutput);
+        if (!string.IsNullOrEmpty(result.StandardError))
+        {
+            Console.WriteLine("=== STDERR ===");
+            Console.WriteLine(result.StandardError);
+        }
+
+        // ── Assert ────────────────────────────────────────────────────────
+        Assert.IsFalse(result.TimedOut, "CLI timed out.");
+        Assert.AreEqual(0, result.ExitCode,
+            $"CLI exited with code {result.ExitCode}. Check STDOUT/STDERR above.");
+
+        var combinedOutput = result.StandardOutput + result.StandardError;
+        Assert.IsTrue(
+            combinedOutput.Contains("import complete", StringComparison.OrdinalIgnoreCase) ||
+            combinedOutput.Contains("work item", StringComparison.OrdinalIgnoreCase),
+            "Expected CLI import progress message not found in output.");
+
+        var idmapFiles = Directory.GetFiles(outputDir, "idmap.db", SearchOption.AllDirectories);
+        Assert.IsTrue(idmapFiles.Length > 0,
+            $"idmap.db was not found anywhere under {outputDir} — import may not have processed any work items.");
+    }
+
+    /// <summary>
+    /// Runs <c>devopsmigration queue --config scenarios/SystemTest-Live-Import-TFS-WorkItems-Fixture.json --force-fresh</c>
+    /// as a subprocess against a live TeamFoundationServer target, using the pre-built fixture zip.
+    /// Verifies the CLI exits zero and the idmap checkpoint database is created.
+    /// Requires <c>TFS_SYSTEM_TEST_URL</c> and <c>TFS_SYSTEM_TEST_PROJECT</c> to be set.
+    /// See <c>scenarios/testdata/catalogue.json</c> for fixture details.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
+    [TestCategory("SystemTest_Live_TFS")]
+    [Timeout(60_000)] // 60 seconds — fixture has only 2 work items
+    public async Task QueueCommand_WithImportMode_TFS_Fixture_ExitsZero_AndCreatesIdmap()
+    {
+        // ── Guard ─────────────────────────────────────────────────────────
+        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
+        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
+        if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
+        {
+            Assert.Fail(
+                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
+                "See docs/live-system-testing-guide.md for setup instructions.");
+            return;
+        }
+
+        // ── Act ───────────────────────────────────────────────────────────
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(QueueCommand_WithImportMode_TFS_Fixture_ExitsZero_AndCreatesIdmap),
+            args: ["queue", "--config", "scenarios/SystemTest-Live-Import-TFS-WorkItems-Fixture.json", "--force-fresh"],
+            timeout: TimeSpan.FromSeconds(55),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
+
+        Console.WriteLine("=== STDOUT ===");
+        Console.WriteLine(result.StandardOutput);
+        if (!string.IsNullOrEmpty(result.StandardError))
+        {
+            Console.WriteLine("=== STDERR ===");
+            Console.WriteLine(result.StandardError);
+        }
+
+        // ── Assert ────────────────────────────────────────────────────────
+        Assert.IsFalse(result.TimedOut, "CLI timed out.");
+        Assert.AreEqual(0, result.ExitCode,
+            $"CLI exited with code {result.ExitCode}. Check STDOUT/STDERR above.");
+
+        var combinedOutput = result.StandardOutput + result.StandardError;
+        Assert.IsTrue(
+            combinedOutput.Contains("import complete", StringComparison.OrdinalIgnoreCase) ||
+            combinedOutput.Contains("work item", StringComparison.OrdinalIgnoreCase),
+            "Expected CLI import progress message not found in output.");
+
+        var idmapFiles = Directory.GetFiles(outputDir, "idmap.db", SearchOption.AllDirectories);
+        Assert.IsTrue(idmapFiles.Length > 0,
+            $"idmap.db was not found anywhere under {outputDir} — import may not have processed any work items.");
+    }
 }

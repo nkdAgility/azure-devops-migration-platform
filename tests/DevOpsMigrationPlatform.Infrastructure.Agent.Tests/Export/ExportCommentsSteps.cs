@@ -20,6 +20,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Reqnroll;
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Export;
+
 [Binding]
 [Scope(Feature = "Export Work Item Comments")]
 public class ExportCommentsSteps
@@ -30,7 +31,7 @@ public class ExportCommentsSteps
         Type = "AzureDevOps",
         Authentication = new EndpointAuthenticationOptions
         {
-            Type = AuthenticationType.Pat,
+            Type = AuthenticationType.AccessToken,
             AccessToken = "pat-token"
         }
     };

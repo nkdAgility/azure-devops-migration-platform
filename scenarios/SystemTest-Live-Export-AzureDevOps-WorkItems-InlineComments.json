@@ -18,7 +18,7 @@
       "Url": "$ENV:AZDEVOPS_DEV_ORG",
       "Project": "migrationTest5",
       "Authentication": {
-        "Type": "Pat",
+        "Type": "AccessToken",
         "AccessToken": "$ENV:AZDEVOPS_DEV_PAT"
       }
     },

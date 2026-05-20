@@ -42,7 +42,7 @@ public class WorkItemQueryWindowStrategyTests
         Type = "AzureDevOps",
         Authentication = new OrganisationEndpointAuthentication
         {
-            Type = AuthenticationType.Pat,
+            Type = AuthenticationType.AccessToken,
             ResolvedAccessToken = Pat
         }
     };

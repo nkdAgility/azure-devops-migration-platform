@@ -16,9 +16,9 @@
     "Target": {
       "Type": "AzureDevOpsServices",
       "Url": "$ENV:AZDEVOPS_SYSTEM_TEST_ORG",
-      "Project": "$ENV:AZDEVOPS_SYSTEM_TEST_PROJECT",
+      "Project": "migrationTest5",
       "Authentication": {
-        "Type": "Pat",
+        "Type": "AccessToken",
         "AccessToken": "$ENV:AZDEVOPS_SYSTEM_TEST_PAT"
       }
     },

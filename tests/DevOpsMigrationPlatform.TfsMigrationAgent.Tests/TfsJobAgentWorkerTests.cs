@@ -664,7 +664,7 @@ public class TfsJobAgentWorkerTests
         Type = "TeamFoundationServer",
         Authentication = new EndpointAuthenticationOptions
         {
-            Type = AuthenticationType.Pat,
+            Type = AuthenticationType.AccessToken,
             AccessToken = "test-pat-token"
         }
     };
