@@ -105,6 +105,29 @@ internal sealed class AgentLifecycleService : BackgroundService
             "control plane URL: {ControlPlaneUrl}",
             agentPath, controlPlaneUrl);
 
+        // ── Optional TFS agent (net481, Windows-only) ─────────────────────────
+        // Only started when AgentLifecycle:SpawnTfsAgent=true is explicitly set.
+        // This prevents the TFS agent from racing with the regular agent for
+        // connector-less jobs (Simulated, etc.) that match any agent.
+        var spawnTfsAgent = _configuration.GetValue<bool?>("AgentLifecycle:SpawnTfsAgent") ?? false;
+        if (spawnTfsAgent)
+        {
+            var tfsAgentPath = Path.GetFullPath(
+                Path.Combine(AppContext.BaseDirectory, "..", "TfsMigrationAgent", "tfsmigration.exe"));
+            if (File.Exists(tfsAgentPath))
+            {
+                _logger.LogInformation(
+                    "AgentLifecycleService: TFS agent found at {TfsAgentPath} — spawning.", tfsAgentPath);
+                _ = SpawnSingletonAgentAsync(tfsAgentPath, "TfsMigrationAgent", controlPlaneUrl, stoppingToken);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "AgentLifecycleService: AgentLifecycle:SpawnTfsAgent=true but tfsmigration.exe not found at {Path}.",
+                    tfsAgentPath);
+            }
+        }
+
         // ── Spawn + restart loop ──────────────────────────────────────────────
         var backOffSeconds = 1;
 
@@ -206,6 +229,61 @@ internal sealed class AgentLifecycleService : BackgroundService
 
             // Exponential back-off capped at MaxBackOffSeconds
             backOffSeconds = Math.Min(backOffSeconds * 2, MaxBackOffSeconds);
+        }
+    }
+
+    /// <summary>
+    /// Spawns a supplementary agent process (e.g. TFS agent) once and lets it run until it
+    /// exits or <paramref name="stoppingToken"/> fires. No restart loop — the agent is optional.
+    /// </summary>
+    private async Task SpawnSingletonAgentAsync(
+        string agentPath, string agentName, string controlPlaneUrl, CancellationToken stoppingToken)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = agentPath,
+                UseShellExecute = false,
+                CreateNoWindow = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            psi.Environment["ControlPlane__BaseUrl"] = controlPlaneUrl;
+            psi.Environment["MigrationPlatform__Environment__ControlPlane__BaseUrl"] = controlPlaneUrl;
+
+            using var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
+            process.OutputDataReceived += (_, e) =>
+            {
+                if (!string.IsNullOrWhiteSpace(e.Data))
+                    _logger.LogInformation("AgentLifecycleService: [{Agent} stdout] {Line}", agentName, e.Data);
+            };
+            process.ErrorDataReceived += (_, e) =>
+            {
+                if (!string.IsNullOrWhiteSpace(e.Data))
+                    _logger.LogError("AgentLifecycleService: [{Agent} stderr] {Line}", agentName, e.Data);
+            };
+
+            if (!process.Start())
+            {
+                _logger.LogError("AgentLifecycleService: failed to start {Agent}.", agentName);
+                return;
+            }
+
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            _logger.LogInformation("AgentLifecycleService: {Agent} started (PID {Pid}).", agentName, process.Id);
+
+            await process.WaitForExitAsync(stoppingToken).ConfigureAwait(false);
+            _logger.LogWarning("AgentLifecycleService: {Agent} exited with code {Code}.", agentName, process.ExitCode);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutdown requested — process killed by OS when parent exits.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AgentLifecycleService: error managing {Agent} process.", agentName);
         }
     }
 

@@ -43,7 +43,7 @@ public class ManageDiagnosticsCommandTests
 
         var exportResult = await CliRunner.RunTestAsync(
             testName: nameof(ManageDiagnosticsCommand_SystemTest_AfterExport_ExitsZero_AndShowsDiagnosticOutput),
-            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Export-WorkItems.json", "--force-fresh"],
             env: hostedEnv,
             timeout: TimeSpan.FromMinutes(2),
             cleanOutputFolder: true);

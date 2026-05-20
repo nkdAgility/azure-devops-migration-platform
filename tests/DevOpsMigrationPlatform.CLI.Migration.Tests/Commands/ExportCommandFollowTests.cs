@@ -50,7 +50,7 @@ public class ExportCommandFollowTests
         // ── Act — run with --follow and --level Warning ──────────────────
         var result = await CliRunner.RunTestAsync(
             testName: nameof(ExportCommand_WithFollowAndWarningLevel_ExitsZero_AndWritesRevisionFiles),
-            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json",
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Export-WorkItems.json",
                    "--force-fresh", "--follow", "--level", "Warning"],
             timeout: TimeSpan.FromMinutes(1),
             cleanOutputFolder: true);
@@ -101,7 +101,7 @@ public class ExportCommandFollowTests
         // ── Act — run with --level Debug ──────────────────────────────────────
         var result = await CliRunner.RunTestAsync(
             testName: nameof(ExportCommand_WithDebugLevel_WritesDiagnosticsNdjson),
-            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json",
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Export-WorkItems.json",
                    "--force-fresh", "--level", "Debug"],
             timeout: TimeSpan.FromMinutes(1),
             cleanOutputFolder: true);
