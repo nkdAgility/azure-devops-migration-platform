@@ -5,6 +5,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 
@@ -23,17 +25,21 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 internal sealed class AzureDevOpsResolutionStrategyFactory : IWorkItemResolutionStrategyFactory
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
+    private readonly ILogger<TargetFieldResolutionStrategy> _fieldStrategyLogger;
 
-    public AzureDevOpsResolutionStrategyFactory(IAzureDevOpsClientFactory clientFactory)
+    public AzureDevOpsResolutionStrategyFactory(
+        IAzureDevOpsClientFactory clientFactory,
+        ILogger<TargetFieldResolutionStrategy> fieldStrategyLogger)
     {
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
+        _fieldStrategyLogger = fieldStrategyLogger ?? throw new ArgumentNullException(nameof(fieldStrategyLogger));
     }
 
     /// <inheritdoc/>
     public async Task<IWorkItemResolutionStrategy> CreateAsync(
         WorkItemResolutionStrategyOptions options,
         IWorkItemImportTarget target,
-        MigrationEndpointOptions endpoint,
+        ITargetEndpointInfo endpoint,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -51,12 +57,12 @@ internal sealed class AzureDevOpsResolutionStrategyFactory : IWorkItemResolution
                 $"but received {target.GetType().Name}.");
 
         var orgEndpoint = endpoint.ToOrganisationEndpoint();
-        var project = endpoint.GetProject();
+        var project = endpoint.Project;
         var witClient = await _clientFactory.CreateWorkItemClientAsync(orgEndpoint, ct).ConfigureAwait(false);
 
         return options.Strategy switch
         {
-            "TargetField" => new TargetFieldResolutionStrategy(witClient, target, project, options.FieldName),
+            "TargetField" => new TargetFieldResolutionStrategy(witClient, target, project, options.FieldName, _fieldStrategyLogger),
             "TargetHyperlink" => new TargetHyperlinkResolutionStrategy(witClient, target, project, options.UrlPattern),
             _ => throw new InvalidOperationException(
                 $"Unknown WorkItemResolutionStrategy.strategy value \"{options.Strategy}\". " +

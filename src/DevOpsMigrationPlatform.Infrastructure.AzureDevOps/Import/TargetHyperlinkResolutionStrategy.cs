@@ -24,7 +24,7 @@ internal sealed class TargetHyperlinkResolutionStrategy : IWorkItemResolutionStr
     private readonly IWorkItemImportTarget _target;
     private readonly string _project;
     private readonly string _urlPattern;
-    private readonly Regex _urlRegex;
+    private readonly Regex? _urlRegex;
 
     /// <param name="witClient">Azure DevOps WIT HTTP client.</param>
     /// <param name="target">Target for writing provenance hyperlinks.</param>
@@ -43,14 +43,20 @@ internal sealed class TargetHyperlinkResolutionStrategy : IWorkItemResolutionStr
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _project = project ?? throw new ArgumentNullException(nameof(project));
         _urlPattern = urlPattern ?? throw new ArgumentNullException(nameof(urlPattern));
-        // Build a regex from the pattern: replace {id} with a named capture group
-        var escapedPattern = Regex.Escape(urlPattern).Replace(@"\{id\}", @"(?<id>\d+)");
-        _urlRegex = new Regex(escapedPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        // Build a regex from the pattern: replace {id} with a named capture group.
+        // When urlPattern is empty no seeding or provenance writing is performed.
+        if (!string.IsNullOrEmpty(urlPattern))
+        {
+            var escapedPattern = Regex.Escape(urlPattern).Replace(@"\{id\}", @"(?<id>\d+)");
+            _urlRegex = new Regex(escapedPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        }
     }
 
     /// <inheritdoc/>
     public async Task SeedAsync(IIdMapStore idMapStore, CancellationToken ct)
     {
+        if (_urlRegex is null)
+            return;
         var wiql = new Wiql
         {
             Query = $"SELECT [System.Id] FROM WorkItems " +
@@ -110,6 +116,8 @@ internal sealed class TargetHyperlinkResolutionStrategy : IWorkItemResolutionStr
     /// <inheritdoc/>
     public async Task WriteProvenanceAsync(int sourceId, int targetId, CancellationToken ct)
     {
+        if (string.IsNullOrEmpty(_urlPattern))
+            return;
         var provenanceUrl = _urlPattern.Replace("{id}", sourceId.ToString(), StringComparison.OrdinalIgnoreCase);
         var hyperlinks = new List<HyperlinkWorkItemLink>
         {

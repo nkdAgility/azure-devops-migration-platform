@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 
@@ -28,7 +29,7 @@ public sealed class CompositeWorkItemResolutionStrategyFactory : IWorkItemResolu
     public Task<IWorkItemResolutionStrategy> CreateAsync(
         WorkItemResolutionStrategyOptions options,
         IWorkItemImportTarget target,
-        MigrationEndpointOptions endpoint,
+        ITargetEndpointInfo endpoint,
         CancellationToken ct)
     {
         if (target is null)

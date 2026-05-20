@@ -148,25 +148,25 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                             var taskList = plan.Tasks.ToList();
                             var idx = taskList.FindIndex(t => t.Id == task.Id);
                             taskList[idx] = skipped;
-                                plan = plan with { Tasks = taskList.AsReadOnly() };
-                                await PersistPlanAsync(plan, ct).ConfigureAwait(false);
+                            plan = plan with { Tasks = taskList.AsReadOnly() };
+                            await PersistPlanAsync(plan, ct).ConfigureAwait(false);
 
-                                _progressSink?.Emit(new ProgressEvent
-                                {
-                                    Module = GetModuleName(task.Id, captureHandlersByName.Keys),
-                                    Stage = $"{task.TaskKind}.Skipped",
-                                    Message = $"Skipped due to failed dependency: {matchedDep}",
-                                    Timestamp = DateTimeOffset.UtcNow,
-                                    TaskId = task.Id,
-                                    TaskStatus = JobTaskStatus.Skipped
-                                });
+                            _progressSink?.Emit(new ProgressEvent
+                            {
+                                Module = GetModuleName(task.Id, captureHandlersByName.Keys),
+                                Stage = $"{task.TaskKind}.Skipped",
+                                Message = $"Skipped due to failed dependency: {matchedDep}",
+                                Timestamp = DateTimeOffset.UtcNow,
+                                TaskId = task.Id,
+                                TaskStatus = JobTaskStatus.Skipped
+                            });
 
-                                _logger.LogWarning(
-                                    "Task {TaskId} skipped — dependency {Dependency} failed.",
-                                    task.Id, matchedDep);
-                            }
+                            _logger.LogWarning(
+                                "Task {TaskId} skipped — dependency {Dependency} failed.",
+                                task.Id, matchedDep);
                         }
                     }
+                }
             }
 
             _logger.LogInformation(
@@ -1026,6 +1026,9 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 _logger.LogError(ex, "{Handler}.{Kind}Async failed for task {TaskId}.",
                     handlerName, task.TaskKind, task.Id);
 
+                var packageForErrors = importContext?.Package ?? exportContext?.Package ?? _package;
+                await WriteErrorsJsonAsync(packageForErrors, task.Id, task.TaskKind.ToString(), handlerName, ex).ConfigureAwait(false);
+
                 updated = updated with
                 {
                     Status = JobTaskStatus.Failed,
@@ -1159,6 +1162,46 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
     {
         public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+    }
+
+    private static async Task WriteErrorsJsonAsync(
+        IPackageAccess? package,
+        string taskId,
+        string phase,
+        string module,
+        Exception exception)
+    {
+        if (package is null)
+            return;
+
+        try
+        {
+            var record = new
+            {
+                generatedAt = DateTimeOffset.UtcNow,
+                taskId,
+                errors = new[]
+                {
+                    new
+                    {
+                        phase,
+                        module,
+                        message = exception.Message,
+                        exceptionType = exception.GetType().Name
+                    }
+                }
+            };
+            var json = JsonSerializer.Serialize(record, new JsonSerializerOptions { WriteIndented = true });
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
+            await package.PersistContentAsync(
+                new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress("errors.json")),
+                new PackagePayload(stream, "application/json"),
+                CancellationToken.None).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Best-effort — never mask the original exception.
+        }
     }
 
     private static IPackageAccess ResolvePackage(IPackageAccess? package)

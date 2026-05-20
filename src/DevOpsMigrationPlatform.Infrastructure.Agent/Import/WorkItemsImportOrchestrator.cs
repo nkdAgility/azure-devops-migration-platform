@@ -95,15 +95,8 @@ public sealed class WorkItemsImportOrchestrator : IWorkItemsImportOrchestrator
         var target = await _importTargetFactory.CreateAsync(ct).ConfigureAwait(false);
         var checkpointingService = _checkpointingFactory.Create(context.Package);
 
-        var targetEndpointOptions = new SimulatedEndpointOptions
-        {
-            Type = _targetEndpointInfo.ConnectorType,
-            Url = _targetEndpointInfo.Url,
-            Project = _targetEndpointInfo.Project
-        };
-
         var resolutionStrategy = await _resolutionStrategyFactory
-            .CreateAsync(ext.ResolutionStrategy, target, targetEndpointOptions, ct)
+            .CreateAsync(ext.ResolutionStrategy, target, _targetEndpointInfo, ct)
             .ConfigureAwait(false);
 
         var idMapConnection = await context.Package.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, ct).ConfigureAwait(false);

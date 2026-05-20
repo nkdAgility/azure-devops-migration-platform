@@ -7,8 +7,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
+using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi.Patch;
 using Microsoft.VisualStudio.Services.WebApi.Patch.Json;
 
@@ -28,17 +30,20 @@ internal sealed class TargetFieldResolutionStrategy : IWorkItemResolutionStrateg
     private readonly IWorkItemImportTarget _target;
     private readonly string _project;
     private readonly string _fieldName;
+    private readonly ILogger<TargetFieldResolutionStrategy> _logger;
 
     public TargetFieldResolutionStrategy(
         WorkItemTrackingHttpClient witClient,
         IWorkItemImportTarget target,
         string project,
-        string fieldName)
+        string fieldName,
+        ILogger<TargetFieldResolutionStrategy> logger)
     {
         _witClient = witClient ?? throw new ArgumentNullException(nameof(witClient));
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _project = project ?? throw new ArgumentNullException(nameof(project));
         _fieldName = fieldName ?? throw new ArgumentNullException(nameof(fieldName));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <inheritdoc/>
@@ -52,9 +57,22 @@ internal sealed class TargetFieldResolutionStrategy : IWorkItemResolutionStrateg
                     $"ORDER BY [System.Id]"
         };
 
-        var result = await _witClient
-            .QueryByWiqlAsync(wiql, _project, top: null, cancellationToken: ct)
-            .ConfigureAwait(false);
+        Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models.WorkItemQueryResult result;
+        try
+        {
+            result = await _witClient
+                .QueryByWiqlAsync(wiql, _project, top: null, cancellationToken: ct)
+                .ConfigureAwait(false);
+        }
+        catch (VssServiceException ex) when (ex.Message.Contains("TF51005"))
+        {
+            _logger.LogWarning(
+                "[WorkItems] TargetField resolution strategy: field '{FieldName}' does not exist in project '{Project}'. " +
+                "ID map seeding skipped — no prior mappings will be pre-loaded. " +
+                "If this field is expected to exist, verify the field reference name in WorkItemResolutionStrategy config.",
+                _fieldName, _project);
+            return;
+        }
 
         if (result.WorkItems is null || !result.WorkItems.Any())
             return;
