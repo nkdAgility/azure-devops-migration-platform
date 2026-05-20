@@ -94,7 +94,7 @@
             "args": [
                 "queue",
                 "--config",
-                "scenarios/inventory-ado-single-project.json"
+                "scenarios/SystemTest-Live-Inventory-AzureDevOps-SingleProject.json"
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
@@ -114,7 +114,7 @@
             "args": [
                 "queue",
                 "--config",
-                "scenarios/inventory-ado-multi-project.json"
+                "scenarios/SystemTest-Live-Inventory-AzureDevOps-MultiProject.json"
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
@@ -134,7 +134,7 @@
             "args": [
                 "queue",
                 "--config",
-                "scenarios/inventory-tfs-windows-auth.json",
+                "scenarios/SystemTest-Live-Inventory-TFS-WindowsAuth.json",
                 "--verbose"
             ],
             "env": {
@@ -153,7 +153,7 @@
             "args": [
                 "queue",
                 "--config",
-                "scenarios/inventory-multi-org.json"
+                "scenarios/SystemTest-Live-Inventory-AzureDevOps-MultiOrg.json"
             ],
             "env": {
                 "AZDEVOPS_PAT_ORG1": "${env:AZDEVOPS_PAT_ORG1}",
@@ -174,7 +174,7 @@
             "args": [
                 "queue",
                 "--config",
-                "scenarios/discovery-dependency-ado-single-project.json"
+                "scenarios/SystemTest-Live-Dependencies-AzureDevOps-SingleProject.json"
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
@@ -196,7 +196,7 @@
             "args": [
                 "prepare",
                 "--config",
-                "scenarios/queue-export-ado-workitems-single-project.json"
+                "scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json"
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
@@ -219,7 +219,7 @@
             "args": [
                 "queue",
                 "--config",
-                "scenarios/queue-export-ado-workitems-single-project.json"
+                "scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json"
             ],
             "env": {
                 "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
@@ -239,7 +239,7 @@
             "args": [
                 "queue",
                 "--config",
-                "scenarios/queue-export-ado-workitems-single-project.json",
+                "scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json",
                 "--force-fresh"
             ],
             "env": {
@@ -260,7 +260,7 @@
             "args": [
                 "queue",
                 "--config",
-                "scenarios/queue-export-ado-workitems-single-project.json",
+                "scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json",
                 "--diagnostics",
                 "--follow",
                 "--level",
@@ -303,10 +303,74 @@
             "args": [
                 "queue",
                 "--config",
-                "scenarios/inventory-tfs-windows-auth.json"
+                "scenarios/SystemTest-Live-Inventory-TFS-WindowsAuth.json"
             ],
             "env": {
                 "DEVOPS_MIGRATION_TEST_STORAGE": "storage/inventory-tfs-windows-auth"
+            },
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "📤 Migration CLI: Queue Export TFS WorkItems (Single Project)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "queue",
+                "--config",
+                "scenarios/SystemTest-Live-Export-TFS-WorkItems-SingleProject.json",
+                "--force-fresh"
+            ],
+            "env": {
+                "TFS_SYSTEM_TEST_URL": "${env:TFS_SYSTEM_TEST_URL}",
+                "TFS_SYSTEM_TEST_PROJECT": "${env:TFS_SYSTEM_TEST_PROJECT}",
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/export-tfs-workitems-single-project"
+            },
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "📥 Migration CLI: Queue Import ADO WorkItems (Fixture)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "queue",
+                "--config",
+                "scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture.json",
+                "--force-fresh"
+            ],
+            "env": {
+                "AZDEVOPS_SYSTEM_TEST_ORG": "${env:AZDEVOPS_SYSTEM_TEST_ORG}",
+                "AZDEVOPS_SYSTEM_TEST_PROJECT": "${env:AZDEVOPS_SYSTEM_TEST_PROJECT}",
+                "AZDEVOPS_SYSTEM_TEST_PAT": "${env:AZDEVOPS_SYSTEM_TEST_PAT}",
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/import-ado-workitems-fixture"
+            },
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "build-migration-cli"
+        },
+        {
+            "name": "📥 Migration CLI: Queue Import TFS WorkItems (Fixture)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
+            "args": [
+                "queue",
+                "--config",
+                "scenarios/SystemTest-Live-Import-TFS-WorkItems-Fixture.json",
+                "--force-fresh"
+            ],
+            "env": {
+                "TFS_SYSTEM_TEST_URL": "${env:TFS_SYSTEM_TEST_URL}",
+                "TFS_SYSTEM_TEST_PROJECT": "${env:TFS_SYSTEM_TEST_PROJECT}",
+                "DEVOPS_MIGRATION_TEST_STORAGE": "storage/import-tfs-workitems-fixture"
             },
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -322,7 +386,7 @@
             "args": [
                 "queue",
                 "--config",
-                "scenarios/queue-export-workitems-simulated-source.json",
+                "scenarios/SystemTest-Simulated-Export-WorkItems.json",
                 "--force-fresh"
             ],            "env": {
                 "DEVOPS_MIGRATION_TEST_STORAGE": "storage/queue-export-workitems-simulated-source"
@@ -339,7 +403,7 @@
             "args": [
                 "queue",
                 "--config",
-                "scenarios/queue-import-workitems-simulated-target.json",
+                "scenarios/SystemTest-Simulated-Import-WorkItems.json",
                 "--force-fresh"
             ],
             "env": {
@@ -358,7 +422,7 @@
             "args": [
                 "queue",
                 "--config",
-                "scenarios/roundtrip-simulated.json",
+                "scenarios/SystemTest-Simulated-Migrate-Roundtrip.json",
                 "--force-fresh"
             ],
             "env": {
@@ -377,7 +441,7 @@
             "args": [
                 "queue",
                 "--config",
-                "scenarios/queue-import-workitems-simulated-fixture.json",
+                "scenarios/SystemTest-Simulated-Import-WorkItems-Fixture.json",
                 "--force-fresh"
             ],            "env": {
                 "DEVOPS_MIGRATION_TEST_STORAGE": "storage/queue-import-workitems-simulated-fixture"
@@ -394,7 +458,7 @@
             "args": [
                 "queue",
                 "--config",
-                "scenarios/import-ado-workitems-single-project.json"
+                "scenarios/SystemTest-Simulated-Import-WorkItems-SingleProject.json"
             ],
             "env": {
                 "DEVOPS_MIGRATION_TEST_STORAGE": "storage/import-ado-workitems-single-project"

@@ -195,7 +195,7 @@ public class QueueCommandTests
     // ── System tests ───────────────────────────────────────────────────────
 
     /// <summary>
-    /// Runs <c>devopsmigration queue --config scenarios/queue-export-ado-workitems-single-project.json --force-fresh</c>
+    /// Runs <c>devopsmigration queue --config scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json --force-fresh</c>
     /// as a subprocess. The scenario config has <c>mode: Export</c>, so this must behave
     /// identically to the former <c>export</c> command.
     /// </summary>
@@ -224,7 +224,7 @@ public class QueueCommandTests
         // ── Act ───────────────────────────────────────────────────────────
         var result = await CliRunner.RunTestAsync(
             testName: nameof(QueueCommand_WithExportMode_ExitsZero_AndWritesRevisionFiles),
-            args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(18),
             cleanOutputFolder: true);
         outputDir = result.OutputDirectory;
@@ -273,7 +273,7 @@ public class QueueCommandTests
         // ── Act — override to Hosted mode pointing at a port nothing listens on ──
         var result = await CliRunner.RunTestAsync(
             testName: nameof(QueueCommand_WithHostedModeAndUnreachableControlPlane_FailsFast),
-            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json"],
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Export-WorkItems.json"],
             env: new Dictionary<string, string>
             {
                 ["MigrationPlatform__Environment__Type"] = "Hosted",
@@ -304,7 +304,7 @@ public class QueueCommandTests
     }
 
     /// <summary>
-    /// Runs <c>devopsmigration queue --config scenarios/queue-import-workitems-simulated-fixture.json --force-fresh</c>
+    /// Runs <c>devopsmigration queue --config scenarios/SystemTest-Simulated-Import-WorkItems-Fixture.json --force-fresh</c>
     /// as a subprocess. Uses a pre-built fixture zip (<c>scenarios/testdata/workitems-2items-flat.zip</c>)
     /// with a <c>Simulated</c> target — no live credentials required.
     /// Verifies that the CLI exits zero and logs import progress for both work items.
@@ -319,7 +319,7 @@ public class QueueCommandTests
         // ── Act ───────────────────────────────────────────────────────────
         var result = await CliRunner.RunTestAsync(
             testName: nameof(QueueCommand_WithSimulatedImportMode_Fixture_ExitsZero_AndImportsBothWorkItems),
-            args: ["queue", "--config", "scenarios/queue-import-workitems-simulated-fixture.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Import-WorkItems-Fixture.json", "--force-fresh"],
             timeout: TimeSpan.FromSeconds(110),
             cleanOutputFolder: true);
         var outputDir = result.OutputDirectory;
@@ -360,7 +360,7 @@ public class QueueCommandTests
     {
         var result = await CliRunner.RunTestAsync(
             testName: nameof(QueueCommand_WithInventoryMode_Simulated_WritesInventoryArtefacts),
-            args: ["queue", "--config", "scenarios/inventory-simulated.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Inventory-WorkItems.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
         var outputDir = result.OutputDirectory;

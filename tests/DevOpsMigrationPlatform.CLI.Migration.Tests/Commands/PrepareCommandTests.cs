@@ -23,7 +23,7 @@ public class PrepareCommandTests
     // ── System tests ───────────────────────────────────────────────────────
 
     /// <summary>
-    /// Runs <c>devopsmigration prepare --config scenarios/queue-export-ado-workitems-single-project.json</c>
+    /// Runs <c>devopsmigration prepare --config scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json</c>
     /// as a subprocess. The prepare command submits a probe job that writes a single file
     /// to the artefact store and completes.
     /// </summary>
@@ -50,7 +50,7 @@ public class PrepareCommandTests
         // ── Act ───────────────────────────────────────────────────────────
         var result = await CliRunner.RunTestAsync(
             testName: nameof(PrepareCommand_WithValidConfig_ExitsZero_AndWritesProbeFile),
-            args: ["prepare", "--config", "scenarios/queue-export-ado-workitems-single-project.json"],
+            args: ["prepare", "--config", "scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
         outputDir = result.OutputDirectory;
@@ -88,7 +88,7 @@ public class PrepareCommandTests
     {
         var result = await CliRunner.RunTestAsync(
             testName: nameof(PrepareCommand_WithSimulatedConfig_ExitsZero),
-            args: ["prepare", "--config", "scenarios/roundtrip-simulated.json", "--force-fresh"],
+            args: ["prepare", "--config", "scenarios/SystemTest-Simulated-Migrate-Roundtrip.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
 

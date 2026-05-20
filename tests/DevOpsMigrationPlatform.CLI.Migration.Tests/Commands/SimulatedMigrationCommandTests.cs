@@ -31,7 +31,7 @@ public class SimulatedMigrationCommandTests
     {
         var result = await CliRunner.RunTestAsync(
             testName: nameof(QueueExportSimulated_ExitsZeroAndWritesWorkItemRevisions),
-            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Export-WorkItems.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
         var outputDir = result.OutputDirectory;
@@ -97,7 +97,7 @@ public class SimulatedMigrationCommandTests
         // First run: establishes migration-config.json using --force-fresh
         var first = await CliRunner.RunTestAsync(
             testName: nameof(QueueExportSimulated_ReSubmitWithoutForce_ResumesSuccessfully),
-            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Export-WorkItems.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
         var outputDir = first.OutputDirectory;
@@ -114,7 +114,7 @@ public class SimulatedMigrationCommandTests
         // Second run WITHOUT --force-fresh: same source/target → must be accepted (resume)
         var second = await CliRunner.RunTestAsync(
             testName: nameof(QueueExportSimulated_ReSubmitWithoutForce_ResumesSuccessfully),
-            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json"],
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Export-WorkItems.json"],
             timeout: TimeSpan.FromMinutes(4));
 
         Console.WriteLine("=== SECOND RUN STDOUT ===");
@@ -146,7 +146,7 @@ public class SimulatedMigrationCommandTests
     {
         var result = await CliRunner.RunTestAsync(
             testName: nameof(QueueImportSimulated_ExitsZeroAndAcceptsWorkItems),
-            args: ["queue", "--config", "scenarios/queue-import-workitems-simulated-target.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Import-WorkItems.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
 
@@ -174,7 +174,7 @@ public class SimulatedMigrationCommandTests
     {
         var result = await CliRunner.RunTestAsync(
             testName: nameof(QueueRoundtripSimulated_ExitsZeroAndProducesPackageWithRevisions),
-            args: ["queue", "--config", "scenarios/roundtrip-simulated.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Migrate-Roundtrip.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
         var outputDir = result.OutputDirectory;
@@ -220,7 +220,7 @@ public class SimulatedMigrationCommandTests
     {
         var result = await CliRunner.RunTestAsync(
             testName: nameof(QueueExportSimulated_ProducesBothLogFiles),
-            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Export-WorkItems.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
         var outputDir = result.OutputDirectory;
@@ -259,7 +259,7 @@ public class SimulatedMigrationCommandTests
     {
         var result = await CliRunner.RunTestAsync(
             testName: nameof(DiscoveryInventorySimulated_ExitsZeroAndWritesInventoryArtefacts),
-            args: ["queue", "--config", "scenarios/inventory-simulated.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Inventory-WorkItems.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
         var outputDir = result.OutputDirectory;

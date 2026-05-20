@@ -1,0 +1,54 @@
+{
+  "MigrationPlatform": {
+    "ConfigVersion": "1.0",
+    "Policies": {
+      "Retries": {
+        "Max": 8
+      },
+      "Throttle": {
+        "MaxConcurrency": 4
+      },
+      "Checkpoints": {
+        "Interval": 300
+      }
+    },
+    "Mode": "Export",
+    "Source": {
+      "Type": "TeamFoundationServer",
+      "Url": "$ENV:TFS_SYSTEM_TEST_URL",
+      "Project": "$ENV:TFS_SYSTEM_TEST_PROJECT",
+      "Authentication": {
+        "Type": "Windows"
+      }
+    },
+    "Package": {
+      "WorkingDirectory": "%DEVOPS_MIGRATION_TEST_STORAGE%",
+      "CreatePackage": true
+    },
+    "Modules": {
+      "WorkItems": {
+        "Enabled": true,
+        "Scope": {
+          "Query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.Id]"
+        },
+        "Extensions": {
+          "Revisions": {
+            "Enabled": true
+          },
+          "Links": {
+            "Enabled": true
+          },
+          "Attachments": {
+            "Enabled": true
+          },
+          "Comments": {
+            "Enabled": true
+          },
+          "EmbeddedImages": {
+            "Enabled": true
+          }
+        }
+      }
+    }
+  }
+}

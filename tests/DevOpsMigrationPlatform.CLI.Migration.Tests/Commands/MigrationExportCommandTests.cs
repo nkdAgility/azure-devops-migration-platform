@@ -19,7 +19,7 @@ public class MigrationExportCommandTests
     // ── System tests ───────────────────────────────────────────────────────
 
     /// <summary>
-    /// Runs <c>devopsmigration export --config scenarios/queue-export-ado-workitems-single-project.json --force-fresh</c>
+    /// Runs <c>devopsmigration export --config scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json --force-fresh</c>
     /// as a subprocess — the exact same invocation as the VS Code launch profile — then
     /// asserts the exit code, the success message, and the output folder contents.
     /// </summary>
@@ -43,7 +43,7 @@ public class MigrationExportCommandTests
         // ── Act — run the CLI exactly as the launch profile does ────────
         var result = await CliRunner.RunTestAsync(
             testName: nameof(ExportAdo_WritesRevisions),
-            args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(18),
             cleanOutputFolder: true);
         var outputDir = result.OutputDirectory;
@@ -109,7 +109,7 @@ public class MigrationExportCommandTests
     }
 
     /// <summary>
-    /// Runs <c>devopsmigration export --config scenarios/queue-export-ado-workitems-single-project.json --force-fresh</c>
+    /// Runs <c>devopsmigration export --config scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json --force-fresh</c>
     /// as a subprocess and validates that comments and embedded images are exported correctly.
     /// 
     /// This test verifies:
@@ -138,7 +138,7 @@ public class MigrationExportCommandTests
         // ── Act — run the CLI with comments and embedded images enabled ────
         var result = await CliRunner.RunTestAsync(
             testName: nameof(ExportAdo_WritesComments),
-            args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(18),
             cleanOutputFolder: true);
         var outputDir = result.OutputDirectory;
