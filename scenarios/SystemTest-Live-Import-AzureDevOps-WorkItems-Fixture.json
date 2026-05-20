@@ -45,6 +45,10 @@
           },
           "EmbeddedImages": {
             "Enabled": true
+          },
+          "WorkItemResolutionStrategy": {
+            "Strategy": "TargetField",
+            "FieldName": "nkdScrum.ReflectedWorkItemId"
           }
         }
       }

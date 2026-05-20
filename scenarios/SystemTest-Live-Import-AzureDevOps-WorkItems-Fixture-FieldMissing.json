@@ -14,12 +14,12 @@
     },
     "Mode": "Import",
     "Target": {
-      "Type": "TeamFoundationServer",
+      "Type": "AzureDevOpsServices",
       "Url": "$ENV:AZDEVOPS_SYSTEM_TEST_ORG",
       "Project": "migrationTest5",
       "Authentication": {
         "Type": "AccessToken",
-        "Token": "$ENV:AZDEVOPS_SYSTEM_TEST_PAT"
+        "AccessToken": "$ENV:AZDEVOPS_SYSTEM_TEST_PAT"
       }
     },
     "Package": {
@@ -48,7 +48,7 @@
           },
           "WorkItemResolutionStrategy": {
             "Strategy": "TargetField",
-            "FieldName": "nkdScrum.ReflectedWorkItemId"
+            "FieldName": "Custom.ReflectedWorkItemId"
           }
         }
       }

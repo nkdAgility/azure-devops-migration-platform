@@ -506,6 +506,69 @@ public class QueueCommandTests
     }
 
     /// <summary>
+    /// Verifies that when the provenance field configured in <c>WorkItemResolutionStrategy.FieldName</c>
+    /// does not exist in the target project (TF51005), the CLI exits non-zero and writes
+    /// <c>errors.json</c> to the package root with a <c>ValidationError</c> category entry.
+    /// Uses the same ADO fixture config as <see cref="Queue_Import_ADO_Fixture_CreatesIdmap"/>.
+    /// Requires <c>AZDEVOPS_SYSTEM_TEST_ORG</c> and <c>AZDEVOPS_SYSTEM_TEST_PAT</c> to be set,
+    /// and the target project must NOT have the <c>Custom.ReflectedWorkItemId</c> field.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
+    [Timeout(60_000)]
+    public async Task Queue_Import_ADO_Fixture_FieldMissing_WritesErrorsJson()
+    {
+        // ── Guard ─────────────────────────────────────────────────────────
+        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
+        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
+        if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
+        {
+            Assert.Fail(
+                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
+                "See docs/live-system-testing-guide.md for setup instructions.");
+            return;
+        }
+
+        // ── Act ───────────────────────────────────────────────────────────
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(Queue_Import_ADO_Fixture_FieldMissing_WritesErrorsJson),
+            args: ["queue", "--config", "scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture-FieldMissing.json", "--force-fresh"],
+            timeout: TimeSpan.FromSeconds(55),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
+
+        Console.WriteLine("=== STDOUT ===");
+        Console.WriteLine(result.StandardOutput);
+        if (!string.IsNullOrEmpty(result.StandardError))
+        {
+            Console.WriteLine("=== STDERR ===");
+            Console.WriteLine(result.StandardError);
+        }
+
+        // ── Assert ────────────────────────────────────────────────────────
+        Assert.IsFalse(result.TimedOut, "CLI timed out.");
+        Assert.AreNotEqual(0, result.ExitCode,
+            "CLI should exit non-zero when the provenance field is missing (TF51005).");
+
+        var errorsJsonPath = Path.Combine(outputDir, "errors.json");
+        Assert.IsTrue(File.Exists(errorsJsonPath),
+            $"errors.json was not found at package root '{errorsJsonPath}'. " +
+            "JobPlanExecutor should write it on any blocking task failure.");
+
+        var errorsJson = File.ReadAllText(errorsJsonPath);
+        Console.WriteLine("=== errors.json ===");
+        Console.WriteLine(errorsJson);
+
+        StringAssert.Contains(errorsJson, "errors",
+            "errors.json must contain an 'errors' array.");
+        StringAssert.Contains(errorsJson, "MigrationException",
+            "errors.json exceptionType should be MigrationException for TF51005.");
+        StringAssert.Contains(errorsJson, "ReflectedWorkItemId",
+            "errors.json message should reference the missing field name.");
+    }
+
+    /// <summary>
     /// Runs <c>devopsmigration queue --config scenarios/SystemTest-Live-Import-TFS-WorkItems-Fixture.json --force-fresh</c>
     /// as a subprocess against a live TeamFoundationServer target, using the pre-built fixture zip.
     /// Verifies the CLI exits zero and the idmap checkpoint database is created.
