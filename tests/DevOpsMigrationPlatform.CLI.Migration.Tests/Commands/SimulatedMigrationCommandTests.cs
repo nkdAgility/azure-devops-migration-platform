@@ -27,10 +27,10 @@ public class SimulatedMigrationCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
     [Timeout(300_000)] // 5 minutes — includes local stack startup
-    public async Task QueueExportSimulated_ExitsZeroAndWritesWorkItemRevisions()
+    public async Task Queue_Export_Sim_WritesWorkItemRevisions()
     {
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(QueueExportSimulated_ExitsZeroAndWritesWorkItemRevisions),
+            testName: nameof(Queue_Export_Sim_WritesWorkItemRevisions),
             args: ["queue", "--config", "scenarios/SystemTest-Simulated-Export-WorkItems.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
@@ -92,11 +92,11 @@ public class SimulatedMigrationCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
     [Timeout(600_000)] // 10 minutes — two full stack runs back to back
-    public async Task QueueExportSimulated_ReSubmitWithoutForce_ResumesSuccessfully()
+    public async Task Queue_Export_Sim_ReSubmitWithoutForce_Resumes()
     {
         // First run: establishes migration-config.json using --force-fresh
         var first = await CliRunner.RunTestAsync(
-            testName: nameof(QueueExportSimulated_ReSubmitWithoutForce_ResumesSuccessfully),
+            testName: nameof(Queue_Export_Sim_ReSubmitWithoutForce_Resumes),
             args: ["queue", "--config", "scenarios/SystemTest-Simulated-Export-WorkItems.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
@@ -113,7 +113,7 @@ public class SimulatedMigrationCommandTests
 
         // Second run WITHOUT --force-fresh: same source/target → must be accepted (resume)
         var second = await CliRunner.RunTestAsync(
-            testName: nameof(QueueExportSimulated_ReSubmitWithoutForce_ResumesSuccessfully),
+            testName: nameof(Queue_Export_Sim_ReSubmitWithoutForce_Resumes),
             args: ["queue", "--config", "scenarios/SystemTest-Simulated-Export-WorkItems.json"],
             timeout: TimeSpan.FromMinutes(4));
 
@@ -142,10 +142,10 @@ public class SimulatedMigrationCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
     [Timeout(300_000)] // 5 minutes
-    public async Task QueueImportSimulated_ExitsZeroAndAcceptsWorkItems()
+    public async Task Queue_Import_Sim_AcceptsWorkItems()
     {
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(QueueImportSimulated_ExitsZeroAndAcceptsWorkItems),
+            testName: nameof(Queue_Import_Sim_AcceptsWorkItems),
             args: ["queue", "--config", "scenarios/SystemTest-Simulated-Import-WorkItems.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
@@ -170,10 +170,10 @@ public class SimulatedMigrationCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
     [Timeout(300_000)] // 5 minutes
-    public async Task QueueRoundtripSimulated_ExitsZeroAndProducesPackageWithRevisions()
+    public async Task Queue_Migrate_Sim_ProducesPackageWithRevisions()
     {
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(QueueRoundtripSimulated_ExitsZeroAndProducesPackageWithRevisions),
+            testName: nameof(Queue_Migrate_Sim_ProducesPackageWithRevisions),
             args: ["queue", "--config", "scenarios/SystemTest-Simulated-Migrate-Roundtrip.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
@@ -216,10 +216,10 @@ public class SimulatedMigrationCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
     [Timeout(300_000)] // 5 minutes
-    public async Task QueueExportSimulated_ProducesBothLogFiles()
+    public async Task Queue_Export_Sim_ProducesBothLogFiles()
     {
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(QueueExportSimulated_ProducesBothLogFiles),
+            testName: nameof(Queue_Export_Sim_ProducesBothLogFiles),
             args: ["queue", "--config", "scenarios/SystemTest-Simulated-Export-WorkItems.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
@@ -255,10 +255,10 @@ public class SimulatedMigrationCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
     [Timeout(300_000)] // 5 minutes
-    public async Task DiscoveryInventorySimulated_ExitsZeroAndWritesInventoryArtefacts()
+    public async Task Queue_Inventory_Sim_WritesInventoryArtefacts()
     {
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(DiscoveryInventorySimulated_ExitsZeroAndWritesInventoryArtefacts),
+            testName: nameof(Queue_Inventory_Sim_WritesInventoryArtefacts),
             args: ["queue", "--config", "scenarios/SystemTest-Simulated-Inventory-WorkItems.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);

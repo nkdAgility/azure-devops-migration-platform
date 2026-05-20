@@ -31,7 +31,7 @@ public class PrepareCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     [Timeout(300_000)] // 5 minutes — prepare jobs should be fast
-    public async Task PrepareCommand_WithValidConfig_ExitsZero_AndWritesProbeFile()
+    public async Task Prepare_ADO_WritesProbeFile()
     {
         // ── Guard ─────────────────────────────────────────────────────────
         var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
@@ -44,12 +44,12 @@ public class PrepareCommandTests
             return;
         }
 
-        var testStorage = Path.Combine(CliRunner.TestWorkingFolder, nameof(PrepareCommand_WithValidConfig_ExitsZero_AndWritesProbeFile));
+        var testStorage = Path.Combine(CliRunner.TestWorkingFolder, nameof(Prepare_ADO_WritesProbeFile));
         var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
 
         // ── Act ───────────────────────────────────────────────────────────
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(PrepareCommand_WithValidConfig_ExitsZero_AndWritesProbeFile),
+            testName: nameof(Prepare_ADO_WritesProbeFile),
             args: ["prepare", "--config", "scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
@@ -84,10 +84,10 @@ public class PrepareCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
     [Timeout(300_000)] // 5 minutes — includes local stack startup
-    public async Task PrepareCommand_WithSimulatedConfig_ExitsZero()
+    public async Task Prepare_Sim_ExitsZero()
     {
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(PrepareCommand_WithSimulatedConfig_ExitsZero),
+            testName: nameof(Prepare_Sim_ExitsZero),
             args: ["prepare", "--config", "scenarios/SystemTest-Simulated-Migrate-Roundtrip.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);

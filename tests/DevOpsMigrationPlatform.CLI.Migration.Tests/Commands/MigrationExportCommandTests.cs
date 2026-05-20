@@ -27,7 +27,7 @@ public class MigrationExportCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     [Timeout(1_200_000)] // 20 minutes — full export of a dev project over real network
-    public async Task ExportAdo_WritesRevisions()
+    public async Task Export_ADO_WritesRevisions()
     {
         // ── Guard ─────────────────────────────────────────────────────────
         var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
@@ -42,7 +42,7 @@ public class MigrationExportCommandTests
 
         // ── Act — run the CLI exactly as the launch profile does ────────
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(ExportAdo_WritesRevisions),
+            testName: nameof(Export_ADO_WritesRevisions),
             args: ["queue", "--config", "scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(18),
             cleanOutputFolder: true);
@@ -122,7 +122,7 @@ public class MigrationExportCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     [Timeout(1_200_000)] // 20 minutes — full export including API calls for comments
-    public async Task ExportAdo_WritesComments()
+    public async Task Export_ADO_WritesComments()
     {
         // ── Guard ─────────────────────────────────────────────────────────
         var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
@@ -137,7 +137,7 @@ public class MigrationExportCommandTests
 
         // ── Act — run the CLI with comments and embedded images enabled ────
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(ExportAdo_WritesComments),
+            testName: nameof(Export_ADO_WritesComments),
             args: ["queue", "--config", "scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(18),
             cleanOutputFolder: true);

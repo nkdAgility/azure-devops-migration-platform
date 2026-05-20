@@ -203,7 +203,7 @@ public class QueueCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     [Timeout(1_200_000)] // 20 minutes
-    public async Task QueueCommand_WithExportMode_ExitsZero_AndWritesRevisionFiles()
+    public async Task Queue_Export_Sim_WritesRevisionFiles()
     {
         // ── Guard ─────────────────────────────────────────────────────────
         var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
@@ -216,14 +216,14 @@ public class QueueCommandTests
             return;
         }
 
-        var testStorage = Path.Combine(CliRunner.TestWorkingFolder, nameof(QueueCommand_WithExportMode_ExitsZero_AndWritesRevisionFiles));
+        var testStorage = Path.Combine(CliRunner.TestWorkingFolder, nameof(Queue_Export_Sim_WritesRevisionFiles));
         var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
 
         // ── Act ───────────────────────────────────────────────────────────
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(QueueCommand_WithExportMode_ExitsZero_AndWritesRevisionFiles),
+            testName: nameof(Queue_Export_Sim_WritesRevisionFiles),
             args: ["queue", "--config", "scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(18),
             cleanOutputFolder: true);
@@ -268,11 +268,11 @@ public class QueueCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
     [Timeout(30_000)] // 30 seconds — should fail fast
-    public async Task QueueCommand_WithHostedModeAndUnreachableControlPlane_FailsFast()
+    public async Task Queue_FailsFast_UnreachableControlPlane()
     {
         // ── Act — override to Hosted mode pointing at a port nothing listens on ──
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(QueueCommand_WithHostedModeAndUnreachableControlPlane_FailsFast),
+            testName: nameof(Queue_FailsFast_UnreachableControlPlane),
             args: ["queue", "--config", "scenarios/SystemTest-Simulated-Export-WorkItems.json"],
             env: new Dictionary<string, string>
             {
@@ -314,11 +314,11 @@ public class QueueCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
     [Timeout(120_000)] // 2 minutes — no network I/O
-    public async Task QueueCommand_WithSimulatedImportMode_Fixture_ExitsZero_AndImportsBothWorkItems()
+    public async Task Queue_Import_Sim_Fixture_ImportsBothWorkItems()
     {
         // ── Act ───────────────────────────────────────────────────────────
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(QueueCommand_WithSimulatedImportMode_Fixture_ExitsZero_AndImportsBothWorkItems),
+            testName: nameof(Queue_Import_Sim_Fixture_ImportsBothWorkItems),
             args: ["queue", "--config", "scenarios/SystemTest-Simulated-Import-WorkItems-Fixture.json", "--force-fresh"],
             timeout: TimeSpan.FromSeconds(110),
             cleanOutputFolder: true);
@@ -356,10 +356,10 @@ public class QueueCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
     [Timeout(300_000)]
-    public async Task QueueCommand_WithInventoryMode_Simulated_WritesInventoryArtefacts()
+    public async Task Queue_Inventory_Sim_WritesInventoryArtefacts()
     {
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(QueueCommand_WithInventoryMode_Simulated_WritesInventoryArtefacts),
+            testName: nameof(Queue_Inventory_Sim_WritesInventoryArtefacts),
             args: ["queue", "--config", "scenarios/SystemTest-Simulated-Inventory-WorkItems.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
@@ -399,7 +399,7 @@ public class QueueCommandTests
     [TestCategory("SystemTest_Live")]
     [TestCategory("SystemTest_Live_TFS")]
     [Timeout(1_200_000)] // 20 minutes
-    public async Task QueueCommand_WithExportMode_TFS_ExitsZero_AndWritesRevisionFiles()
+    public async Task Queue_Export_TFS_WritesRevisionFiles()
     {
         // ── Guard ─────────────────────────────────────────────────────────
         var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
@@ -414,7 +414,7 @@ public class QueueCommandTests
 
         // ── Act ───────────────────────────────────────────────────────────
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(QueueCommand_WithExportMode_TFS_ExitsZero_AndWritesRevisionFiles),
+            testName: nameof(Queue_Export_TFS_WritesRevisionFiles),
             args: ["queue", "--config", "scenarios/SystemTest-Live-Export-TFS-WorkItems-SingleProject.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(18),
             cleanOutputFolder: true);
@@ -460,7 +460,7 @@ public class QueueCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     [Timeout(60_000)] // 60 seconds — fixture has only 2 work items
-    public async Task QueueCommand_WithImportMode_AzureDevOps_Fixture_ExitsZero_AndCreatesIdmap()
+    public async Task Queue_Import_ADO_Fixture_CreatesIdmap()
     {
         // ── Guard ─────────────────────────────────────────────────────────
         var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
@@ -475,7 +475,7 @@ public class QueueCommandTests
 
         // ── Act ───────────────────────────────────────────────────────────
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(QueueCommand_WithImportMode_AzureDevOps_Fixture_ExitsZero_AndCreatesIdmap),
+            testName: nameof(Queue_Import_ADO_Fixture_CreatesIdmap),
             args: ["queue", "--config", "scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture.json", "--force-fresh"],
             timeout: TimeSpan.FromSeconds(55),
             cleanOutputFolder: true);
@@ -517,7 +517,7 @@ public class QueueCommandTests
     [TestCategory("SystemTest_Live")]
     [TestCategory("SystemTest_Live_TFS")]
     [Timeout(60_000)] // 60 seconds — fixture has only 2 work items
-    public async Task QueueCommand_WithImportMode_TFS_Fixture_ExitsZero_AndCreatesIdmap()
+    public async Task Queue_Import_TFS_Fixture_CreatesIdmap()
     {
         // ── Guard ─────────────────────────────────────────────────────────
         var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
@@ -532,7 +532,7 @@ public class QueueCommandTests
 
         // ── Act ───────────────────────────────────────────────────────────
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(QueueCommand_WithImportMode_TFS_Fixture_ExitsZero_AndCreatesIdmap),
+            testName: nameof(Queue_Import_TFS_Fixture_CreatesIdmap),
             args: ["queue", "--config", "scenarios/SystemTest-Live-Import-TFS-WorkItems-Fixture.json", "--force-fresh"],
             timeout: TimeSpan.FromSeconds(55),
             cleanOutputFolder: true);

@@ -17,7 +17,7 @@ public class AdoPackageBoundaryIntegrationTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     [Timeout(1_200_000)] // 20 minutes
-    public async Task QueueExportAdo_WritesAuthoritativeAndProjectScopedPackageState()
+    public async Task Queue_Export_ADO_WritesAuthoritativeAndProjectScopedPackageState()
     {
         var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
         var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
@@ -30,8 +30,8 @@ public class AdoPackageBoundaryIntegrationTests
         }
 
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(QueueExportAdo_WritesAuthoritativeAndProjectScopedPackageState),
-            args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json", "--force-fresh"],
+            testName: nameof(Queue_Export_ADO_WritesAuthoritativeAndProjectScopedPackageState),
+            args: ["queue", "--config", "scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(18),
             cleanOutputFolder: true);
         var outputDir = result.OutputDirectory;
