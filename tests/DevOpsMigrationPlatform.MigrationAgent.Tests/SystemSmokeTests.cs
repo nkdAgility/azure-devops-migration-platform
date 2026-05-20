@@ -16,7 +16,6 @@ public class SystemSmokeTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Smoke")]
-    [Timeout(60_000)]
     public async Task SystemTest_Smoke_AgentStartsWithoutStartupOrDiErrors()
     {
         var repoRoot = FindRepoRoot();

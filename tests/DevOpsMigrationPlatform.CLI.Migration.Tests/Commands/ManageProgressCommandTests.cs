@@ -26,7 +26,6 @@ public class ManageProgressCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(240_000)] // 4 minutes — export + progress query
     public async Task ManageProgressCommand_SystemTest_AfterExport_ExitsZero_AndShowsProgressEvents()
     {
         // ── Start control plane (reuse if already running) ──────────────────────

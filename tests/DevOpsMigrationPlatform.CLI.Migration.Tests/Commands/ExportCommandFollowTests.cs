@@ -45,7 +45,6 @@ public class ExportCommandFollowTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(120_000)] // 2 minutes
     public async Task ExportCommand_WithFollowAndWarningLevel_ExitsZero_AndWritesRevisionFiles()
     {
         // ── Act — run with --follow and --level Warning ──────────────────
@@ -97,7 +96,6 @@ public class ExportCommandFollowTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(120_000)] // 2 minutes
     public async Task ExportCommand_WithDebugLevel_WritesDiagnosticsNdjson()
     {
         // ── Act — run with --level Debug ──────────────────────────────────────

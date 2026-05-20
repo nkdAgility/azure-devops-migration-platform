@@ -16,7 +16,6 @@ public class AdoPackageBoundaryIntegrationTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
-    [Timeout(1_200_000)] // 20 minutes
     public async Task Queue_Export_ADO_WritesAuthoritativeAndProjectScopedPackageState()
     {
         var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");

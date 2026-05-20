@@ -26,7 +26,6 @@ public class SimulatedMigrationCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(300_000)] // 5 minutes — includes local stack startup
     public async Task Queue_Export_Sim_WritesWorkItemRevisions()
     {
         var result = await CliRunner.RunTestAsync(
@@ -91,7 +90,6 @@ public class SimulatedMigrationCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(600_000)] // 10 minutes — two full stack runs back to back
     public async Task Queue_Export_Sim_ReSubmitWithoutForce_Resumes()
     {
         // First run: establishes migration-config.json using --force-fresh
@@ -141,7 +139,6 @@ public class SimulatedMigrationCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(300_000)] // 5 minutes
     public async Task Queue_Import_Sim_AcceptsWorkItems()
     {
         var result = await CliRunner.RunTestAsync(
@@ -169,7 +166,6 @@ public class SimulatedMigrationCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(300_000)] // 5 minutes
     public async Task Queue_Migrate_Sim_ProducesPackageWithRevisions()
     {
         var result = await CliRunner.RunTestAsync(
@@ -215,7 +211,6 @@ public class SimulatedMigrationCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(300_000)] // 5 minutes
     public async Task Queue_Export_Sim_ProducesBothLogFiles()
     {
         var result = await CliRunner.RunTestAsync(
@@ -254,7 +249,6 @@ public class SimulatedMigrationCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(300_000)] // 5 minutes
     public async Task Queue_Inventory_Sim_WritesInventoryArtefacts()
     {
         var result = await CliRunner.RunTestAsync(

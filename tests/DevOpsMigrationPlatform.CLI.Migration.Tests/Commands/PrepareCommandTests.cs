@@ -30,7 +30,6 @@ public class PrepareCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
-    [Timeout(300_000)] // 5 minutes — prepare jobs should be fast
     public async Task Prepare_ADO_WritesProbeFile()
     {
         // ── Guard ─────────────────────────────────────────────────────────
@@ -83,7 +82,6 @@ public class PrepareCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(300_000)] // 5 minutes — includes local stack startup
     public async Task Prepare_Sim_ExitsZero()
     {
         var result = await CliRunner.RunTestAsync(

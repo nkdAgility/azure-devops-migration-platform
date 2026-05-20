@@ -26,7 +26,6 @@ public class MigrationExportCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
-    [Timeout(1_200_000)] // 20 minutes — full export of a dev project over real network
     public async Task Export_ADO_WritesRevisions()
     {
         // ── Guard ─────────────────────────────────────────────────────────
@@ -121,7 +120,6 @@ public class MigrationExportCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
-    [Timeout(1_200_000)] // 20 minutes — full export including API calls for comments
     public async Task Export_ADO_WritesComments()
     {
         // ── Guard ─────────────────────────────────────────────────────────

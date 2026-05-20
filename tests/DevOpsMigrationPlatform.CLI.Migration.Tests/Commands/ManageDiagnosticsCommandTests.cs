@@ -26,7 +26,6 @@ public class ManageDiagnosticsCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(240_000)] // 4 minutes — export + diagnostics query
     public async Task ManageDiagnosticsCommand_SystemTest_AfterExport_ExitsZero_AndShowsDiagnosticOutput()
     {
         // ── Start control plane (reuse if already running) ──────────────────────

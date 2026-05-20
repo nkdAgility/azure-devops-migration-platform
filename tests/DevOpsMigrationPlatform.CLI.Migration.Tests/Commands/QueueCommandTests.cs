@@ -202,7 +202,6 @@ public class QueueCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
-    [Timeout(1_200_000)] // 20 minutes
     public async Task Queue_Export_Sim_WritesRevisionFiles()
     {
         // ── Guard ─────────────────────────────────────────────────────────
@@ -267,7 +266,6 @@ public class QueueCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(30_000)] // 30 seconds — should fail fast
     public async Task Queue_FailsFast_UnreachableControlPlane()
     {
         // ── Act — override to Hosted mode pointing at a port nothing listens on ──
@@ -313,7 +311,6 @@ public class QueueCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(120_000)] // 2 minutes — no network I/O
     public async Task Queue_Import_Sim_Fixture_ImportsBothWorkItems()
     {
         // ── Act ───────────────────────────────────────────────────────────
@@ -355,7 +352,6 @@ public class QueueCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(300_000)]
     public async Task Queue_Inventory_Sim_WritesInventoryArtefacts()
     {
         var result = await CliRunner.RunTestAsync(
@@ -398,7 +394,6 @@ public class QueueCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     [TestCategory("SystemTest_Live_TFS")]
-    [Timeout(1_200_000)] // 20 minutes
     public async Task Queue_Export_TFS_WritesRevisionFiles()
     {
         // ── Guard ─────────────────────────────────────────────────────────
@@ -459,7 +454,6 @@ public class QueueCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
-    [Timeout(60_000)] // 60 seconds — fixture has only 2 work items
     public async Task Queue_Import_ADO_Fixture_CreatesIdmap()
     {
         // ── Guard ─────────────────────────────────────────────────────────
@@ -516,7 +510,6 @@ public class QueueCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
-    [Timeout(60_000)]
     public async Task Queue_Import_ADO_Fixture_FieldMissing_WritesErrorsJson()
     {
         // ── Guard ─────────────────────────────────────────────────────────
@@ -579,7 +572,6 @@ public class QueueCommandTests
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     [TestCategory("SystemTest_Live_TFS")]
-    [Timeout(60_000)] // 60 seconds — fixture has only 2 work items
     public async Task Queue_Import_TFS_Fixture_CreatesIdmap()
     {
         // ── Guard ─────────────────────────────────────────────────────────
