@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
@@ -66,12 +67,18 @@ internal sealed class TargetFieldResolutionStrategy : IWorkItemResolutionStrateg
         }
         catch (VssServiceException ex) when (ex.Message.Contains("TF51005"))
         {
-            _logger.LogWarning(
-                "[WorkItems] TargetField resolution strategy: field '{FieldName}' does not exist in project '{Project}'. " +
-                "ID map seeding skipped — no prior mappings will be pre-loaded. " +
-                "If this field is expected to exist, verify the field reference name in WorkItemResolutionStrategy config.",
+            _logger.LogError(
+                "[WorkItems] Field '{FieldName}' does not exist in project '{Project}' (TF51005). " +
+                "Work item writes requiring this field will also fail. " +
+                "Create the field in the target project or correct the FieldName in WorkItemResolutionStrategy config.",
                 _fieldName, _project);
-            return;
+            throw new MigrationException(
+                $"Field '{_fieldName}' does not exist in project '{_project}' (TF51005). " +
+                "Create the field in the target project or correct the FieldName in WorkItemResolutionStrategy config.",
+                MigrationErrorCategory.ValidationError,
+                isRetryable: false,
+                guidance: $"Add field '{_fieldName}' to project '{_project}' via Project Settings > Work Items > Fields, then re-run the import.",
+                innerException: ex);
         }
 
         if (result.WorkItems is null || !result.WorkItems.Any())
