@@ -1,4 +1,4 @@
-﻿# Azure DevOps Migration Platform
+# Azure DevOps Migration Platform
 
 > ⚠️ **Pre-release — not production-ready.** Under active development. APIs, configuration schemas, and package formats may change without notice. [Open an issue](https://github.com/nkdAgility/azure-devops-migration-platform/issues) to share feedback.
 
@@ -41,12 +41,26 @@ The package is a versioned, portable snapshot on disk.Zip it, move it, review it
 > 📋 Later
 > ❌ Never
 
+### Current development status
+
+| Scenario | Status | Notes |
+|----------|:------:|-------|
+| **Simulated → Simulated** | ✅ | Full Migrate pipeline (Inventory → Export → Prepare → Import) runs offline. Used for CI and integration testing. |
+| **ADO → ADO Export** | ✅ | Production-ready. Work items, revisions, comments, attachments, embedded images, links, identities, nodes, teams. |
+| **ADO → ADO Import** | 🔜 | Real implementation exists — work item creation, node creation, link/attachment/comment import, identity resolution. Integration validation and error-recovery hardening in progress. Not recommended for production yet. |
+| **TFS → ADO Export** | ✅ | Works via the TfsMigrationAgent (.NET 4.8.1, Windows only). Work items, revisions, nodes. |
+| **TFS → ADO Import** | 📋 | TFS export produces a standard package; ADO import target exists. TFS-specific identity and field mapping configs are not yet validated. |
+
 ### Migration Modules
 
 Stages run left-to-right: **Capture** → **Export** → **Prepare** → **Import** → **Validate**
 
 | Connector | Module | Capture | Export | Prepare | Import | Validate |
 |-----------|--------|:-------:|:------:|:-------:|:------:|:--------:|
+| **Simulated** | Work Items | ✅ | ✅ | ✅ | ✅ | 📋 |
+| | Identities | ✅ | ✅ | ✅ | ✅ | 📋 |
+| | Area & Iteration Nodes | ✅ | ✅ | ✅ | ✅ | 📋 |
+| | Teams | ✅ | ✅ | ✅ | ✅ | 📋 |
 | **Azure DevOps Services** | Work Items | ✅ | ✅ | 🔜 | 🔜 | 📋 |
 | | Identities | ✅ | ✅ | 🔜 | 🔜 | 📋 |
 | | Area & Iteration Nodes | ✅ | ✅ | 🔜 | 🔜 | 📋 |
@@ -56,10 +70,10 @@ Stages run left-to-right: **Capture** → **Export** → **Prepare** → **Impor
 | | Git Repositories | ✅ | 🔜 | 🔜 | 🔜 | 📋 |
 | | Pipelines | 🔜 | 🔜 | 🔜 | 🔜 | 📋 |
 | | Permissions | 🔜 | 🔜 | 🔜 | 🔜 | 📋 |
-| **Team Foundation Server** | Work Items | 🚧 | 🚧 | 📋 | 📋 | 📋 |
-| | Identities | 🚧 | 🚧 | 📋 | 📋 | 📋 |
-| | Area & Iteration Nodes | 🚧 | 🚧 | 📋 | 📋 | 📋 |
-| | Teams | 🚧 | 🚧 | 📋 | 📋 | 📋 |
+| **Team Foundation Server** | Work Items | ✅ | ✅ | 📋 | 📋 | 📋 |
+| | Identities | ✅ | ✅ | 📋 | 📋 | 📋 |
+| | Area & Iteration Nodes | ✅ | ✅ | 📋 | 📋 | 📋 |
+| | Teams | ✅ | ✅ | 📋 | 📋 | 📋 |
 | | Test Plans | 📋 | 📋 | 📋 | 📋 | 📋 |
 | | Shared Queries | 📋 | 📋 | 📋 | 📋 | 📋 |
 | | Git Repositories | 📋 | 📋 | 📋 | 📋 | 📋 |
