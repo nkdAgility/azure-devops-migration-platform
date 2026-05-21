@@ -93,7 +93,7 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
             _loggerFactory.CreateLogger<TfsAttachmentDownloader>(),
             attachmentMetrics);
 
-        var wiqlQuery = $"SELECT * FROM WorkItems WHERE [System.TeamProject] = '{project}'";
+        var wiqlQuery = $"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '{project}'";
 
         var revisionSource = new TfsWorkItemRevisionSource(
             workItemStore,
