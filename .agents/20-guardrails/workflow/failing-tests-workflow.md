@@ -404,6 +404,22 @@ If any fail:
 - Record the failure in the verification ledger
 - Return to Step 1 with the new failing list
 
+### Timeout Increases for Live Tests
+
+A live test timeout may be increased **only** if all of the following are true:
+
+1. **The failure is a timeout**, not a logic error, assertion failure, or connectivity problem. Confirm from the test output or OTel log that the process was killed by deadline, not by an exception or wrong value.
+2. **The operation is inherently slow against a live system**, for example a large work-item export, a long-running import, or a network-bound call with known latency characteristics.
+3. **The new timeout is defensible with evidence**, for example: a log showing the operation took N seconds, a throughput calculation, or a documented SLA for the external system. State the evidence explicitly.
+4. **The new value is testable**, meaning the test will still fail if the system regresses to genuinely broken behaviour rather than passing unconditionally.
+5. **No simulated or unit test is affected**. Timeout changes apply only to live test configuration and must not widen timeouts in unit or simulated suites.
+
+If any condition is not met, a timeout increase is not the fix. Investigate the real cause at Step 2.2.
+
+When a timeout is increased:
+- State the old value, the new value, and the evidence that justifies the change.
+- Treat it as a code change: all previous completion evidence is stale and Phase B must restart from Step 3.
+
 Required evidence before Step 7:
 - Suite name
 - Total tests run
