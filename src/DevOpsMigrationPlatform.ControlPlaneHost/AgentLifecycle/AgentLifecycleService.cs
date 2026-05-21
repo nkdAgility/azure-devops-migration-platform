@@ -105,11 +105,12 @@ internal sealed class AgentLifecycleService : BackgroundService
             "control plane URL: {ControlPlaneUrl}",
             agentPath, controlPlaneUrl);
 
-        // ── Optional TFS agent (net481, Windows-only) ─────────────────────────
-        // Only started when AgentLifecycle:SpawnTfsAgent=true is explicitly set.
-        // This prevents the TFS agent from racing with the regular agent for
-        // connector-less jobs (Simulated, etc.) that match any agent.
-        var spawnTfsAgent = _configuration.GetValue<bool?>("AgentLifecycle:SpawnTfsAgent") ?? false;
+        // ── TFS agent (net481, Windows-only) ──────────────────────────────────
+        // Spawned automatically when the binary is present alongside the control plane.
+        // The TFS agent declares ConnectorType.TeamFoundationServer as its sole capability,
+        // so it cannot race with the regular agent (AzureDevOps, Simulated).
+        // Can be suppressed by setting AgentLifecycle:SpawnTfsAgent=false explicitly.
+        var spawnTfsAgent = _configuration.GetValue<bool?>("AgentLifecycle:SpawnTfsAgent") ?? true;
         if (spawnTfsAgent)
         {
             var tfsAgentPath = Path.GetFullPath(
@@ -122,8 +123,8 @@ internal sealed class AgentLifecycleService : BackgroundService
             }
             else
             {
-                _logger.LogWarning(
-                    "AgentLifecycleService: AgentLifecycle:SpawnTfsAgent=true but tfsmigration.exe not found at {Path}.",
+                _logger.LogInformation(
+                    "AgentLifecycleService: tfsmigration.exe not found at {Path} — TFS jobs will not be processed.",
                     tfsAgentPath);
             }
         }

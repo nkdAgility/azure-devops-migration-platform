@@ -44,6 +44,8 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
     <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" />
+    <!-- Required to trigger CopyNativeBinariesToOutputDirectory target for Microsoft.WITDataStore64.dll -->
+    <PackageReference Include="Microsoft.TeamFoundationServer.ExtendedClient" />
   </ItemGroup>
 
   <ItemGroup>

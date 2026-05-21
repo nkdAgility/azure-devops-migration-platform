@@ -544,10 +544,11 @@ public class QueueCommandTests
         Assert.AreNotEqual(0, result.ExitCode,
             "CLI should exit non-zero when the provenance field is missing (TF51005).");
 
-        var errorsJsonPath = Path.Combine(outputDir, "errors.json");
-        Assert.IsTrue(File.Exists(errorsJsonPath),
-            $"errors.json was not found at package root '{errorsJsonPath}'. " +
+        var errorsJsonFiles = Directory.GetFiles(outputDir, "errors.json", SearchOption.AllDirectories);
+        Assert.IsTrue(errorsJsonFiles.Length > 0,
+            $"errors.json was not found anywhere under '{outputDir}'. " +
             "JobPlanExecutor should write it on any blocking task failure.");
+        var errorsJsonPath = errorsJsonFiles[0];
 
         var errorsJson = File.ReadAllText(errorsJsonPath);
         Console.WriteLine("=== errors.json ===");

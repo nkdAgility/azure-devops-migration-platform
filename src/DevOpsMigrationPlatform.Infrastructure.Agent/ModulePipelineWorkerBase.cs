@@ -72,8 +72,10 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     /// are resolved AFTER the current package configuration is published from
     /// <c>migration-config.json</c>. This ensures Singleton tools whose
     /// <c>IOptions&lt;T&gt;.Value</c> is read at construction time receive the per-job config.
+    /// Exposed as protected so subclasses that implement additional job kinds (e.g. Import)
+    /// can resolve scoped services such as <c>IJobPlanExecutor</c>.
     /// </summary>
-    private readonly IServiceScopeFactory _moduleScopeFactory;
+    protected IServiceScopeFactory ModuleScopeFactory { get; }
 
     protected ModulePipelineWorkerBase(
         IProgressSink progressSink,
@@ -107,7 +109,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         PackageAccess = packageAccess ?? throw new ArgumentNullException(nameof(packageAccess));
         CurrentPackageConfig = currentPackageConfigAccessor ?? throw new ArgumentNullException(nameof(currentPackageConfigAccessor));
         _activeJobState = activeJobState;
-        _moduleScopeFactory = moduleScopeFactory ?? throw new ArgumentNullException(nameof(moduleScopeFactory));
+        ModuleScopeFactory = moduleScopeFactory ?? throw new ArgumentNullException(nameof(moduleScopeFactory));
     }
 
     /// <summary>
@@ -134,6 +136,37 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         CancellationToken ct)
     {
         await WriteRunMetadataAsync(job, ct).ConfigureAwait(false);
+        await WriteConfigPayloadIfAbsentAsync(job, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Writes <c>migration-config.json</c> from <see cref="Job.ConfigPayload"/> when the file
+    /// is not already present in the package (or when ForceFresh is set).
+    /// <para>
+    /// This ensures all agent workers (including the TFS agent, which does not carry its own
+    /// config-write step) can reliably read <c>migration-config.json</c> at job startup.
+    /// On resume runs (file exists, no ForceFresh), writing is skipped so that
+    /// <see cref="DevOpsMigrationPlatform.MigrationAgent.JobAgentWorker"/> can perform its
+    /// source/target compatibility validation before overwriting.
+    /// </para>
+    /// </summary>
+    private async Task WriteConfigPayloadIfAbsentAsync(Job job, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(job.ConfigPayload))
+            return;
+
+        var forceFresh = job.Resume?.Mode == ResumeMode.ForceFresh;
+        var existing = await PackageAccess.RequestMetaAsync(
+            new PackageMetaContext(PackageMetaKind.MigrationConfig), ct).ConfigureAwait(false);
+
+        if (existing.Payload is not null && !forceFresh)
+            return;
+
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(job.ConfigPayload!), writable: false);
+        await PackageAccess.PersistMetaAsync(
+            new PackageMetaContext(PackageMetaKind.MigrationConfig),
+            new PackageMetaPayload(stream),
+            ct).ConfigureAwait(false);
     }
 
     protected async Task WriteRunMetadataAsync(Job job, CancellationToken ct)
@@ -196,7 +229,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         // tool dependencies like IFieldTransformTool) that read IOptions<T>.Value at
         // construction time will now receive values from migration-config.json rather than
         // the empty appsettings.json loaded at host startup.
-        using var jobScope = _moduleScopeFactory.CreateScope();
+        using var jobScope = ModuleScopeFactory.CreateScope();
         var jobModules = jobScope.ServiceProvider.GetServices<IModule>();
 
         var checkpointer = CheckpointingFactory.Create(PackageAccess);
