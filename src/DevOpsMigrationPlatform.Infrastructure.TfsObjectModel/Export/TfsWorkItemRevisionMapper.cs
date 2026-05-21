@@ -151,7 +151,7 @@ public class TfsWorkItemRevisionMapper : IWorkItemRevisionMapper
         {
             WorkItemId = workItem.Id,
             RevisionIndex = revision.Index,
-            ChangedDate = new DateTimeOffset(changedDate, TimeSpan.Zero),
+            ChangedDate = new DateTimeOffset(changedDate.ToUniversalTime(), TimeSpan.Zero),
             Fields = fields,
             ExternalLinks = externalLinks,
             RelatedLinks = relatedLinks,

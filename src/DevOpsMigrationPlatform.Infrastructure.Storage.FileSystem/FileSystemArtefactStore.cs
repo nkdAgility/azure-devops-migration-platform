@@ -15,12 +15,24 @@ using DevOpsMigrationPlatform.Abstractions.Storage;
 internal sealed class FileSystemArtefactStore : IArtefactStore
 {
     private readonly string _rootPath;
+    private readonly string _effectiveRootPath;
 
     internal string RootPath => _rootPath;
 
     public FileSystemArtefactStore(string rootPath)
     {
         _rootPath = rootPath;
+#if !NET5_0_OR_GREATER
+        // On .NET Framework, use the extended-length path prefix to bypass the 260-char MAX_PATH limit.
+        // Build the extended-length prefix as individual chars to avoid verbatim-string escaping confusion.
+        // \\?\ (4 chars: backslash backslash question-mark backslash) bypasses MAX_PATH on .NET Framework.
+        var longPathPrefix = string.Concat(Path.DirectorySeparatorChar, Path.DirectorySeparatorChar, "?", Path.DirectorySeparatorChar);
+        _effectiveRootPath = rootPath.StartsWith(longPathPrefix, StringComparison.Ordinal)
+            ? rootPath
+            : longPathPrefix + rootPath;
+#else
+        _effectiveRootPath = rootPath;
+#endif
     }
 
     public Task<string?> ReadAsync(string path, CancellationToken cancellationToken)
@@ -78,7 +90,7 @@ internal sealed class FileSystemArtefactStore : IArtefactStore
 
         await foreach (var absolutePath in EnumerateDirectorySortedAsync(rootDir, cancellationToken))
         {
-            var relative = absolutePath.Substring(_rootPath.Length)
+            var relative = absolutePath.Substring(_effectiveRootPath.Length)
                                        .TrimStart(Path.DirectorySeparatorChar)
                                        .Replace(Path.DirectorySeparatorChar, '/');
             yield return relative;
@@ -142,5 +154,5 @@ internal sealed class FileSystemArtefactStore : IArtefactStore
     }
 
     private string ToFullPath(string path)
-        => Path.Combine(_rootPath, path.Replace('/', Path.DirectorySeparatorChar));
+        => Path.Combine(_effectiveRootPath, path.Replace('/', Path.DirectorySeparatorChar));
 }
