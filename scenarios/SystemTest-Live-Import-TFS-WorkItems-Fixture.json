@@ -15,11 +15,11 @@
     "Mode": "Import",
     "Target": {
       "Type": "TeamFoundationServer",
-      "Url": "$ENV:AZDEVOPS_SYSTEM_TEST_ORG",
+      "Url": "$ENV:TFS_SYSTEM_TEST_URL",
       "Project": "migrationTest5",
       "Authentication": {
         "Type": "AccessToken",
-        "Token": "$ENV:AZDEVOPS_SYSTEM_TEST_PAT"
+        "Token": "$ENV:TFS_SYSTEM_TEST_PAT"
       }
     },
     "Package": {

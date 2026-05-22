@@ -215,6 +215,8 @@ Do not soften this. Do not claim partial completion as completion.
 - "The task only asked me to fix one test" is not an excuse to skip Steps 3 and 5.
 - Historical passing output is stale if anything changed afterwards.
 - A stale pass may be reported as history, but never as completion evidence.
+- **`Assert.Inconclusive` is banned** unless explicitly operator-approved. The only permitted exception is a live test targeting infrastructure known to be absent in all CI environments. It must name the missing infra in a test-body comment, be documented in the suite, and have operator sign-off. Any other use is a defect — replace with `Assert.Fail`.
+- **Missing prerequisites must fail the test, not skip it.** If a required env var, credential, or external resource is absent, call `Assert.Fail` with a clear message. `Assert.Inconclusive` or any skip mechanism is not permitted without operator approval.
 
 ---
 

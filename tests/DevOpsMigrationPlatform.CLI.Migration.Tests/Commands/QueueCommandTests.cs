@@ -397,12 +397,12 @@ public class QueueCommandTests
     public async Task Queue_Export_TFS_WritesRevisionFiles()
     {
         // ── Guard ─────────────────────────────────────────────────────────
-        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
-        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
-        if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
+        var tfsUrlEnv = Environment.GetEnvironmentVariable("TFS_SYSTEM_TEST_URL");
+        var tfsPatEnv = Environment.GetEnvironmentVariable("TFS_SYSTEM_TEST_PAT");
+        if (string.IsNullOrEmpty(tfsUrlEnv) || string.IsNullOrEmpty(tfsPatEnv))
         {
             Assert.Fail(
-                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
+                "System test skipped: TFS_SYSTEM_TEST_URL and TFS_SYSTEM_TEST_PAT must be set. " +
                 "See docs/live-system-testing-guide.md for setup instructions.");
             return;
         }
@@ -576,12 +576,12 @@ public class QueueCommandTests
     public async Task Queue_Import_TFS_Fixture_CreatesIdmap()
     {
         // ── Guard ─────────────────────────────────────────────────────────
-        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
-        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
-        if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
+        var tfsUrlEnv = Environment.GetEnvironmentVariable("TFS_SYSTEM_TEST_URL");
+        var tfsPatEnv = Environment.GetEnvironmentVariable("TFS_SYSTEM_TEST_PAT");
+        if (string.IsNullOrEmpty(tfsUrlEnv) || string.IsNullOrEmpty(tfsPatEnv))
         {
             Assert.Fail(
-                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
+                "System test skipped: TFS_SYSTEM_TEST_URL and TFS_SYSTEM_TEST_PAT must be set. " +
                 "See docs/live-system-testing-guide.md for setup instructions.");
             return;
         }

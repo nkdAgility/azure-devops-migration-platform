@@ -486,3 +486,30 @@ Return to Step 2.2 if any of these occur:
 - Treating old passing output as current evidence after a later change
 - Leaving the ledger marked as valid after a later failure
 - Saying the task only asked for one test, therefore suite verification is unnecessary
+- Treating a skipped or inconclusive test as a passing test
+
+---
+
+## Skipped Tests Are Not Passing Tests
+
+A skipped, inconclusive, or ignored test result does not satisfy a verification gate.
+
+Every test counted in the suite must either pass or be genuinely absent from the suite (i.e. not compiled, not registered, not applicable on this platform).
+
+A test that skips at runtime is a test that ran and did not pass.
+
+Skip counts in the evidence output must be zero, or explained and justified, before a gate is considered passed.
+
+### Missing prerequisites must fail, not skip
+
+If a test cannot execute because a required environment variable, credential, external service, or fixture is absent, the test must call `Assert.Fail` (or the equivalent hard failure) — not `Assert.Inconclusive`, `Assert.Ignore`, or any other skip mechanism.
+
+A missing prerequisite is a configuration defect. It means the environment is not set up to run the test. The correct response is a clear test failure, not a quiet skip that hides the gap.
+
+**`Assert.Inconclusive` is banned** unless explicitly operator-approved. The only permitted exception is a live test targeting infrastructure that is explicitly known to be absent in all CI environments (e.g. an on-premises TFS server). Such tests must meet all three conditions:
+
+1. A comment in the test body names the missing infrastructure and explains why no CI environment has it.
+2. The suite documentation records the test as intentionally absent from CI.
+3. A human operator has approved the exception in writing (e.g. in a PR comment or decision record).
+
+Any use of `Assert.Inconclusive` that does not meet all three conditions is a defect and must be replaced with `Assert.Fail`.

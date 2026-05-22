@@ -156,8 +156,8 @@ public sealed class WorkItemsModule : IModule
         _nodesOrchestrator = nodesOrchestrator;
         _nodeReadinessOrchestrator = nodeReadinessOrchestrator;
         _nodesModuleOptions = nodesModuleOptions;
-        _identityMappingService = identityMappingService;
-        _nodeTranslationTool = nodeTranslationTool;
+        _identityMappingService = identityMappingService ?? throw new ArgumentNullException(nameof(identityMappingService));
+        _nodeTranslationTool = nodeTranslationTool ?? throw new ArgumentNullException(nameof(nodeTranslationTool));
         _fieldTransformTool = fieldTransformTool;
         _workItemImportOptions = workItemImportOptions;
         _workItemsImportOrchestrator = workItemsImportOrchestrator

@@ -469,6 +469,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 connectors.Add(ConnectorType.TeamFoundationServer);
             else if (string.Equals(type, "AzureDevOpsServices", StringComparison.OrdinalIgnoreCase))
                 connectors.Add(ConnectorType.AzureDevOps);
+            else if (string.Equals(type, "Simulated", StringComparison.OrdinalIgnoreCase))
+                connectors.Add(ConnectorType.Simulated);
         }
 
         AddForType(GetJsonString(mp, "Source", "Type"));
@@ -492,6 +494,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 connectors.Add(ConnectorType.TeamFoundationServer);
             else if (string.Equals(type, "AzureDevOpsServices", StringComparison.OrdinalIgnoreCase))
                 connectors.Add(ConnectorType.AzureDevOps);
+            else if (string.Equals(type, "Simulated", StringComparison.OrdinalIgnoreCase))
+                connectors.Add(ConnectorType.Simulated);
         }
 
         return connectors.Count > 0 ? connectors.ToArray() : Array.Empty<ConnectorType>();
@@ -544,7 +548,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             JobId = Guid.NewGuid().ToString(),
             Kind = JobKind.Export,
             ConfigPayload = rawJson,
-            Connectors = Array.Empty<ConnectorType>(),
+            Connectors = GetConnectors(mp),
             Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",

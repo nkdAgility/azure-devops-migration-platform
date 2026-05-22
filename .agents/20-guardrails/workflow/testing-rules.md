@@ -85,6 +85,33 @@ tests/<Project>.Tests/<Area>/<ClassName>Tests.cs              ← plain MSTest u
 - Steps calling each other directly.
 - Catching all exceptions without re-asserting.
 - Steps depending on execution order beyond Given/When/Then.
+- `Assert.Inconclusive` in any test unless explicitly operator-approved (see below).
+
+---
+
+## Assert.Inconclusive Is Banned
+
+`Assert.Inconclusive` (and any equivalent — `Assert.Ignore`, `Assert.Skip`, or any mechanism that produces a skipped/inconclusive result) **must not appear in any test** without explicit operator approval.
+
+A skipped test is not a passing test. It provides no verification signal and silently hides defects.
+
+### Missing prerequisites must use Assert.Fail
+
+If a test cannot execute because a required environment variable, credential, external service, or fixture is absent, the test must call `Assert.Fail` with a clear message naming the missing prerequisite.
+
+Do not use `Assert.Inconclusive` to hide a missing configuration. The absence of a required prerequisite is a defect in the environment. `Assert.Fail` makes that defect visible.
+
+### Operator-approved exceptions
+
+The **only** permitted use of `Assert.Inconclusive` is for a live test that targets infrastructure that is explicitly known to be absent in all CI environments (for example, an on-premises TFS server with no hosted equivalent).
+
+To use `Assert.Inconclusive` for this purpose, all three conditions must be met:
+
+1. A comment in the test body names the missing infrastructure and states why no CI environment has it.
+2. The suite documentation records the test as intentionally absent from CI.
+3. A human operator has approved the exception in writing (e.g. in a PR comment or decision record).
+
+If any condition is not met, the `Assert.Inconclusive` call is a defect and must be replaced with `Assert.Fail`.
 
 ---
 
@@ -116,7 +143,7 @@ The contributor-facing debugging workflow lives in [docs/testing-guide.md](../..
 
 Every CLI command MUST have `[TestCategory("SystemTest")]` test that:
 
-1. Guards on env vars (marks `Inconclusive` if absent).
+1. Guards on env vars (calls `Assert.Fail` with a clear message if absent — see Assert.Inconclusive Is Banned above).
 2. Exercises the feature against real/simulated system.
 3. Asserts observable output (files, zip, records).
 4. Co-located in `.Tests` project under `Commands/`.
