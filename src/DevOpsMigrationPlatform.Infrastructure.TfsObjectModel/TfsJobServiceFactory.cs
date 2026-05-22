@@ -81,17 +81,23 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
         var collection = new TfsTeamProjectCollection(serverUrl, creds);
 
         var authTask = Task.Run(() => collection.EnsureAuthenticated());
-        if (!authTask.Wait(TimeSpan.FromSeconds(60)))
+        try
+        {
+            if (!authTask.Wait(TimeSpan.FromSeconds(60)))
+            {
+                collection.Dispose();
+                throw new TimeoutException(
+                    $"TFS authentication timed out after 60 s connecting to {serverUrl}. " +
+                    "Verify the collection URL and credentials are correct and that the endpoint is reachable.");
+            }
+        }
+        catch (AggregateException ex)
         {
             collection.Dispose();
-            throw new TimeoutException(
-                $"TFS authentication timed out after 60 s connecting to {serverUrl}. " +
-                "Verify the collection URL and credentials are correct and that the endpoint is reachable.");
-        }
-        if (authTask.IsFaulted)
             System.Runtime.ExceptionServices.ExceptionDispatchInfo
-                .Capture(authTask.Exception!.InnerException ?? authTask.Exception)
+                .Capture(ex.InnerException ?? ex)
                 .Throw();
+        }
 
         var workItemStore = new WorkItemStore(collection, WorkItemStoreFlags.BypassRules);
 
@@ -113,7 +119,8 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
             _loggerFactory.CreateLogger<TfsAttachmentDownloader>(),
             attachmentMetrics);
 
-        var wiqlQuery = $"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '{project}'";
+        var escapedProject = project.Replace("'", "''");
+        var wiqlQuery = $"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '{escapedProject}'";
 
         var revisionSource = new TfsWorkItemRevisionSource(
             workItemStore,

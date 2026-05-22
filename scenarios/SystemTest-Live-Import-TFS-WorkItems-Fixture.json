@@ -19,7 +19,7 @@
       "Project": "migrationTest5",
       "Authentication": {
         "Type": "AccessToken",
-        "Token": "$ENV:AZDEVOPS_SYSTEM_TEST_PAT"
+        "AccessToken": "$ENV:AZDEVOPS_SYSTEM_TEST_PAT"
       }
     },
     "Package": {

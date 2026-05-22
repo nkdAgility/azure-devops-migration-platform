@@ -147,7 +147,7 @@ The `--all-projects` CLI flag controls scope:
     "project": "Alpha",
     "apiVersion": "7.1",
     "authentication": {
-      "Type": "AccessToken",
+      "type": "AccessToken",
       "accessToken": "$ENV:MIGRATION_SOURCE_PAT"
     }
   }

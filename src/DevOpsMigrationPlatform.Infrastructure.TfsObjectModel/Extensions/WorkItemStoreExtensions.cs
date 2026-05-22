@@ -41,9 +41,13 @@ public static class WorkItemStoreExtensions
         while (true)
         {
             DateTime startDate = endDate - chunkSize;
+            bool reachedMinDate = false;
 
             if (startDate < minDate)
-                yield break;
+            {
+                startDate = minDate;
+                reachedMinDate = true;
+            }
 
             string wiql = $@"{baseQuery}
           AND [System.CreatedDate] >= '{startDate:yyyy-MM-dd}'
@@ -64,6 +68,9 @@ public static class WorkItemStoreExtensions
 
                 if (returnCount == 0)
                 {
+                    if (reachedMinDate)
+                        yield break;
+
                     endDate = startDate;
                     continue;
                 }
@@ -81,6 +88,9 @@ public static class WorkItemStoreExtensions
             }
 
             yield return status;
+
+            if (reachedMinDate)
+                yield break;
 
             if (chunkSize < TimeSpan.FromDays(30))
                 chunkSize += TimeSpan.FromDays(1);

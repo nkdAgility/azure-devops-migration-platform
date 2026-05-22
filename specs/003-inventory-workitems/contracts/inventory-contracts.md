@@ -45,7 +45,7 @@ Fields:
 | `source.project` | No | If null/absent, `--all-projects` CLI flag is required |
 | `source.apiVersion` | Yes | Pinned API version string |
 | `source.authentication.type` | Yes | `"AccessToken"` or `"Windows"` |
-| `source.authentication.accessToken` | Yes for Pat | Literal or `$ENV:VARNAME` |
+| `source.authentication.accessToken` | Yes for `AccessToken` | Literal or `$ENV:VARNAME` |
 
 IConfiguration `__`-path env var override applies to all `source.*` fields (standard .NET layering).
 
@@ -62,7 +62,7 @@ IConfiguration `__`-path env var override applies to all `source.*` fields (stan
       "projects": ["<name>"],
       "apiVersion": "<version>",
       "authentication": {
-        "type": "Pat | Windows",
+        "type": "AccessToken | Windows",
         "accessToken": "<literal> | $ENV:<VARNAME>"
       }
     }

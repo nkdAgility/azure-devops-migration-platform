@@ -62,6 +62,14 @@ public sealed class EmbeddedImageReplayService
             }
 
             var targetUrl = await _target.UploadEmbeddedImageAsync(image.RelativePath, imageStream, ct).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(targetUrl))
+            {
+                _logger.LogDebug(
+                    "[WorkItems] Embedded image upload returned no target URL for {Path} — preserving original URL.",
+                    imagePath);
+                continue;
+            }
+
             urlMap[image.OriginalUrl] = targetUrl;
         }
 

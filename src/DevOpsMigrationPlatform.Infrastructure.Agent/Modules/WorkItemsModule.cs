@@ -97,7 +97,7 @@ public sealed class WorkItemsModule : IModule
     private readonly ITargetEndpointInfo _targetEndpointInfo;
     private readonly IIdentityMappingService? _identityMappingService;
     private readonly INodeTranslationTool? _nodeTranslationTool;
-    private readonly IFieldTransformTool? _fieldTransformTool;
+    private readonly IFieldTransformTool _fieldTransformTool;
     private readonly IOptions<WorkItemImportOptions>? _workItemImportOptions;
 
     public WorkItemsModule(
@@ -158,7 +158,7 @@ public sealed class WorkItemsModule : IModule
         _nodesModuleOptions = nodesModuleOptions;
         _identityMappingService = identityMappingService ?? throw new ArgumentNullException(nameof(identityMappingService));
         _nodeTranslationTool = nodeTranslationTool ?? throw new ArgumentNullException(nameof(nodeTranslationTool));
-        _fieldTransformTool = fieldTransformTool;
+        _fieldTransformTool = fieldTransformTool ?? throw new ArgumentNullException(nameof(fieldTransformTool));
         _workItemImportOptions = workItemImportOptions;
         _workItemsImportOrchestrator = workItemsImportOrchestrator
             ?? new WorkItemsImportOrchestrator(
@@ -168,7 +168,7 @@ public sealed class WorkItemsModule : IModule
                 _idMapStoreFactory,
                 _processorFactory,
                 _identityLookupTool,
-                new WorkItemsImportCapabilityValidator(_fieldTransformTool!),
+                new WorkItemsImportCapabilityValidator(_fieldTransformTool),
                 new WorkItemsNodeReadinessOrchestrator(_nodeReadinessOrchestrator, _nodesOrchestrator, _metrics, _logger),
                 _metrics,
                 _orchestratorLogger,

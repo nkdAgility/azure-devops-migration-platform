@@ -469,7 +469,7 @@ public class QueueCommandTests
         if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
         {
             Assert.Fail(
-                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
+                "System test failed: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
                 "See docs/live-system-testing-guide.md for setup instructions.");
             return;
         }
@@ -604,7 +604,7 @@ public class QueueCommandTests
         var result = await CliRunner.RunTestAsync(
             testName: nameof(Queue_Import_TFS_Fixture_CreatesIdmap),
             args: ["queue", "--config", "scenarios/SystemTest-Live-Import-TFS-WorkItems-Fixture.json", "--force-fresh"],
-            timeout: TimeSpan.FromSeconds(55),
+            timeout: TimeSpan.FromSeconds(90),
             cleanOutputFolder: true);
         var outputDir = result.OutputDirectory;
 

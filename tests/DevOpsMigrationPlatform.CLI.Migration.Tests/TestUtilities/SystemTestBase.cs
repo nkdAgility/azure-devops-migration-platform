@@ -133,7 +133,7 @@ public abstract class SystemTestBase
         var connectivity = await ValidateConnectivityAsync(context.Configuration);
         if (!connectivity.IsValid)
         {
-            Assert.Fail($"System test skipped: {connectivity.GetFormattedMessage()}");
+            Assert.Fail($"System test failed: {connectivity.GetFormattedMessage()}");
         }
 
         context.ConnectionValidated = true;

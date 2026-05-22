@@ -16,7 +16,7 @@ Feature: Configuration Flow
         "Source": {
           "Type": "AzureDevOpsServices", 
           "Url": "https://dev.azure.com/custom-org",
-          "Authentication": { "Type": "AccessToken", "PersonalAccessToken": "test-token" },
+          "Authentication": { "Type": "AccessToken", "AccessToken": "test-token" },
           "Project": { "Name": "TestProject" }
         },
         "Package": { "WorkingDirectory": "./test-output" }
@@ -36,7 +36,7 @@ Feature: Configuration Flow
         "Source": {
           "Type": "AzureDevOpsServices",
           "Url": "https://dev.azure.com/test-org", 
-          "Authentication": { "Type": "AccessToken", "PersonalAccessToken": "secure-token-123" },
+          "Authentication": { "Type": "AccessToken", "AccessToken": "secure-token-123" },
           "Project": { "Name": "TestProject" }
         },
         "Package": { "WorkingDirectory": "./test-output" }
@@ -56,7 +56,7 @@ Feature: Configuration Flow
         "Source": {
           "Type": "AzureDevOpsServices",
           "Url": "https://dev.azure.com/test-org",
-          "Authentication": { "Type": "AccessToken", "PersonalAccessToken": "test-token" },
+          "Authentication": { "Type": "AccessToken", "AccessToken": "test-token" },
           "Project": { "Name": "TestProject" }
         },
         "Package": { "WorkingDirectory": "./test-output" },

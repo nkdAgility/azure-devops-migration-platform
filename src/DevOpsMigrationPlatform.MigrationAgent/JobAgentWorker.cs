@@ -250,7 +250,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         }
 
         var authSection = packageConfig.GetSection("MigrationPlatform:Source:Authentication");
-        _ = Enum.TryParse<AuthenticationType>(authSection?["Type"], ignoreCase: true, out var authType);
+        var authType = ParseAuthenticationType(authSection, "MigrationPlatform:Source:Authentication");
         endpoint = new ExplicitSourceEndpointInfo(
             url ?? string.Empty,
             project ?? string.Empty,
@@ -274,7 +274,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         }
 
         var authSection = packageConfig.GetSection("MigrationPlatform:Target:Authentication");
-        _ = Enum.TryParse<AuthenticationType>(authSection?["Type"], ignoreCase: true, out var authType);
+        var authType = ParseAuthenticationType(authSection, "MigrationPlatform:Target:Authentication");
         endpoint = new ExplicitTargetEndpointInfo(
             url ?? string.Empty,
             project ?? string.Empty,
@@ -287,6 +287,23 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     private static bool PlanMaterializesInventorySnapshot(JobTaskList plan)
         => plan.Tasks.Any(task => task.Id.Equals("analyse.inventory", StringComparison.OrdinalIgnoreCase));
+
+    private static AuthenticationType ParseAuthenticationType(IConfiguration authSection, string path)
+    {
+        var raw = authSection?["Type"];
+        if (string.IsNullOrWhiteSpace(raw))
+            return AuthenticationType.None;
+
+        if (string.Equals(raw, "Pat", StringComparison.OrdinalIgnoreCase))
+            return AuthenticationType.AccessToken;
+
+        if (Enum.TryParse<AuthenticationType>(raw, ignoreCase: true, out var parsed))
+            return parsed;
+
+        throw new InvalidOperationException(
+            $"Unsupported authentication type '{raw}' at '{path}:Type'. " +
+            "Supported values are None, AccessToken, and Windows.");
+    }
 
     private static async Task WriteInventoryCompletionMarkerAsync(IPackageAccess package, Job job, CancellationToken ct)
     {

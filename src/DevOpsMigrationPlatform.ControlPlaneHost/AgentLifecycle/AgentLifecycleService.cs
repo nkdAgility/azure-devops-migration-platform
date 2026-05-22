@@ -240,6 +240,7 @@ internal sealed class AgentLifecycleService : BackgroundService
     private async Task SpawnSingletonAgentAsync(
         string agentPath, string agentName, string controlPlaneUrl, CancellationToken stoppingToken)
     {
+        Process? process = null;
         try
         {
             var psi = new ProcessStartInfo
@@ -253,7 +254,7 @@ internal sealed class AgentLifecycleService : BackgroundService
             psi.Environment["ControlPlane__BaseUrl"] = controlPlaneUrl;
             psi.Environment["MigrationPlatform__Environment__ControlPlane__BaseUrl"] = controlPlaneUrl;
 
-            using var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
+            process = new Process { StartInfo = psi, EnableRaisingEvents = true };
             process.OutputDataReceived += (_, e) =>
             {
                 if (!string.IsNullOrWhiteSpace(e.Data))
@@ -280,11 +281,15 @@ internal sealed class AgentLifecycleService : BackgroundService
         }
         catch (OperationCanceledException)
         {
-            // Shutdown requested — process killed by OS when parent exits.
+            KillAgent(process);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "AgentLifecycleService: error managing {Agent} process.", agentName);
+        }
+        finally
+        {
+            process?.Dispose();
         }
     }
 

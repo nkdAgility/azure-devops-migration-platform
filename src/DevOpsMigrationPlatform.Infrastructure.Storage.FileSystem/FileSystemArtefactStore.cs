@@ -24,12 +24,15 @@ internal sealed class FileSystemArtefactStore : IArtefactStore
         _rootPath = rootPath;
 #if !NET5_0_OR_GREATER
         // On .NET Framework, use the extended-length path prefix to bypass the 260-char MAX_PATH limit.
-        // Build the extended-length prefix as individual chars to avoid verbatim-string escaping confusion.
-        // \\?\ (4 chars: backslash backslash question-mark backslash) bypasses MAX_PATH on .NET Framework.
-        var longPathPrefix = string.Concat(Path.DirectorySeparatorChar, Path.DirectorySeparatorChar, "?", Path.DirectorySeparatorChar);
-        _effectiveRootPath = rootPath.StartsWith(longPathPrefix, StringComparison.Ordinal)
-            ? rootPath
-            : longPathPrefix + rootPath;
+        // Local absolute paths use \\?\C:\..., and UNC paths use \\?\UNC\server\share\...
+        var fullRootPath = Path.GetFullPath(rootPath);
+        const string longPathPrefix = @"\\?\";
+        if (fullRootPath.StartsWith(longPathPrefix, StringComparison.Ordinal))
+            _effectiveRootPath = fullRootPath;
+        else if (fullRootPath.StartsWith(@"\\", StringComparison.Ordinal))
+            _effectiveRootPath = @"\\?\UNC\" + fullRootPath.TrimStart('\\');
+        else
+            _effectiveRootPath = longPathPrefix + fullRootPath;
 #else
         _effectiveRootPath = rootPath;
 #endif

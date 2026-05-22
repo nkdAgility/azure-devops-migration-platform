@@ -17,7 +17,7 @@ public sealed class EndpointAuthenticationOptions
     /// <summary>
     /// Personal Access Token (or <c>$ENV:VARNAME</c> reference).
     /// Resolved at runtime via <see cref="ResolvedAccessToken"/>.
-    /// Required when <see cref="Type"/> is <c>Pat</c>; ignored for <c>Windows</c>.
+    /// Required when <see cref="Type"/> is <c>AccessToken</c>; ignored for <c>Windows</c>.
     /// </summary>
     public string? AccessToken { get; init; }
 

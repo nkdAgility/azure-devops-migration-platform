@@ -17,7 +17,7 @@
     "project": "Alpha",
     "apiVersion": "7.1",
     "authentication": {
-      "Type": "AccessToken",
+      "type": "AccessToken",
       "accessToken": "$ENV:MIGRATION_SOURCE_PAT"
     }
   }
@@ -59,7 +59,7 @@ Leave `project` null in the config:
     "project": null,
     "apiVersion": "7.1",
     "authentication": {
-      "Type": "AccessToken",
+      "type": "AccessToken",
       "accessToken": "$ENV:MIGRATION_SOURCE_PAT"
     }
   }

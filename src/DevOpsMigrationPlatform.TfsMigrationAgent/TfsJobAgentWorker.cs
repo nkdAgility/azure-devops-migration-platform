@@ -313,7 +313,9 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         var url = packageConfig["MigrationPlatform:Target:Url"];
         var project = packageConfig["MigrationPlatform:Target:Project"];
         var connectorType = packageConfig["MigrationPlatform:Target:Type"];
-        var accessToken = packageConfig["MigrationPlatform:Target:Authentication:Token"];
+        var accessToken =
+            packageConfig["MigrationPlatform:Target:Authentication:AccessToken"]
+            ?? packageConfig["MigrationPlatform:Target:Authentication:Token"];
 
         if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(connectorType))
         {

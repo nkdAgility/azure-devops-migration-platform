@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using Microsoft.Extensions.Logging;
+using Microsoft.TeamFoundation.Framework.Client;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import;
@@ -164,7 +165,7 @@ public sealed class TfsWorkItemImportTarget : IWorkItemImportTarget
     }
 
     /// <inheritdoc/>
-    public Task<string> UploadAttachmentAsync(
+    public async Task<string> UploadAttachmentAsync(
         int targetWorkItemId,
         string fileName,
         Stream content,
@@ -176,9 +177,15 @@ public sealed class TfsWorkItemImportTarget : IWorkItemImportTarget
         var tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + "_" + fileName);
         try
         {
-            using (var fs = File.Create(tempPath))
+            using (var fs = new FileStream(
+                tempPath,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 81920,
+                useAsync: true))
             {
-                content.CopyTo(fs);
+                await content.CopyToAsync(fs, 81920, ct).ConfigureAwait(false);
             }
 
             var workItem = _store.GetWorkItem(targetWorkItemId);
@@ -187,7 +194,7 @@ public sealed class TfsWorkItemImportTarget : IWorkItemImportTarget
             workItem.Save();
 
             // Return attachment URI — TFS uses the file name as identifier.
-            return Task.FromResult(fileName);
+            return fileName;
         }
         finally
         {
@@ -294,7 +301,7 @@ public sealed class TfsWorkItemImportTarget : IWorkItemImportTarget
             var workItem = _store.GetWorkItem(targetWorkItemId);
             return Task.FromResult(workItem != null);
         }
-        catch
+        catch (DeniedOrNotExistException)
         {
             return Task.FromResult(false);
         }
