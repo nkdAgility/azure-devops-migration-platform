@@ -1,4 +1,4 @@
-# Copilot Instructions
+﻿# Copilot Instructions
 
 **Follow [agents.md](../.agents/agents.md) for all guardrails, technology stack, and architectural constraints.**
 
