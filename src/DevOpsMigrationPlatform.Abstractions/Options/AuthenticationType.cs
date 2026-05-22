@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
+
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
@@ -16,7 +18,11 @@ public enum AuthenticationType
     None = 0,
 
     /// <summary>Personal Access Token.</summary>
-    Pat,
+    AccessToken,
+
+    /// <summary>Legacy alias for <see cref="AccessToken"/>.</summary>
+    [Obsolete("Use AccessToken instead.")]
+    Pat = AccessToken,
 
     /// <summary>Windows-integrated (NTLM/Kerberos) — TFS on-premises only.</summary>
     Windows

@@ -44,8 +44,8 @@ Fields:
 | `source.orgOrCollection` | Yes | Organisation or collection URL |
 | `source.project` | No | If null/absent, `--all-projects` CLI flag is required |
 | `source.apiVersion` | Yes | Pinned API version string |
-| `source.authentication.type` | Yes | `"Pat"` or `"Windows"` |
-| `source.authentication.accessToken` | Yes for Pat | Literal or `$ENV:VARNAME` |
+| `source.authentication.type` | Yes | `"AccessToken"` or `"Windows"` |
+| `source.authentication.accessToken` | Yes for `AccessToken` | Literal or `$ENV:VARNAME` |
 
 IConfiguration `__`-path env var override applies to all `source.*` fields (standard .NET layering).
 
@@ -62,7 +62,7 @@ IConfiguration `__`-path env var override applies to all `source.*` fields (stan
       "projects": ["<name>"],
       "apiVersion": "<version>",
       "authentication": {
-        "type": "Pat | Windows",
+        "type": "AccessToken | Windows",
         "accessToken": "<literal> | $ENV:<VARNAME>"
       }
     }
@@ -79,7 +79,7 @@ Fields per entry:
 | `url` | Yes | — | URL |
 | `projects` | No | `[]` | Empty/absent = all projects in org |
 | `apiVersion` | Yes | — | Pinned version |
-| `authentication.type` | Yes | — | `"Pat"` or `"Windows"` |
+| `authentication.type` | Yes | — | `"AccessToken"` or `"Windows"` |
 | `authentication.accessToken` | Yes for Pat | — | Literal or `$ENV:VARNAME` |
 
 IConfiguration `__`-path overrides do **not** reach `organisations[n]` entries. Use `$ENV:VARNAME` for per-entry env refs.
@@ -123,7 +123,7 @@ tfsmigration.exe inventory --collection <url> [--project <name>] [--all-projects
 Credentials are passed via **stdin** as UTF-8 JSON (same pattern as export):
 
 ```json
-{ "pat": "<resolved-token>" }
+{ "AccessToken": "<resolved-token>" }
 ```
 
 For Windows auth, stdin is `{}` (empty object; the subprocess uses the current Windows identity).

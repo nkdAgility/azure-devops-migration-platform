@@ -175,7 +175,8 @@ public static class MigrationPlatformHost
             // attachment IDs registered during revision enumeration can be resolved during
             // binary download.  This keeps all TFS SDK types confined to the composition root.
             services.AddSingleton<TfsAttachmentRegistry>();
-            var wiqlQuery = $"SELECT * FROM WorkItems WHERE [System.TeamProject] = '{settings.Project}'";
+            var escapedProject = settings.Project.Replace("'", "''");
+            var wiqlQuery = $"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '{escapedProject}'";
             services.AddSingleton<IWorkItemRevisionSource>(sp =>
                 new TfsWorkItemRevisionSource(
                     sp.GetRequiredService<WorkItemStore>(),

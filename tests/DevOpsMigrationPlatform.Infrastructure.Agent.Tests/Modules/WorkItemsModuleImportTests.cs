@@ -226,7 +226,7 @@ public sealed class WorkItemsModuleImportTests
             .Setup(f => f.CreateAsync(
                 It.IsAny<WorkItemResolutionStrategyOptions>(),
                 It.IsAny<IWorkItemImportTarget>(),
-                It.IsAny<MigrationEndpointOptions>(),
+                It.IsAny<ITargetEndpointInfo>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(resolutionStrategy.Object);
 
@@ -399,7 +399,7 @@ public sealed class WorkItemsModuleImportTests
             .Setup(f => f.CreateAsync(
                 It.IsAny<WorkItemResolutionStrategyOptions>(),
                 It.IsAny<IWorkItemImportTarget>(),
-                It.IsAny<MigrationEndpointOptions>(),
+                It.IsAny<ITargetEndpointInfo>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(resolutionStrategy.Object);
 
@@ -545,7 +545,7 @@ public sealed class WorkItemsModuleImportTests
             .Setup(f => f.CreateAsync(
                 It.IsAny<WorkItemResolutionStrategyOptions>(),
                 It.IsAny<IWorkItemImportTarget>(),
-                It.IsAny<MigrationEndpointOptions>(),
+                It.IsAny<ITargetEndpointInfo>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(resolutionStrategy.Object);
 

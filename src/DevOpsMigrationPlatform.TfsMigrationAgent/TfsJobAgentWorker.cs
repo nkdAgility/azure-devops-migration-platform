@@ -11,19 +11,20 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
+using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
-using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
@@ -49,6 +50,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     private readonly IEnumerable<IFlushable> _flushables;
     private readonly ITfsJobServiceFactory _tfsServiceFactory;
     private readonly ActiveTfsJobServices _activeTfsJobServices;
+    private readonly ICurrentJobEndpointAccessor _endpointAccessor;
     private readonly ILogger<TfsJobAgentWorker> _logger;
     private readonly IPackageAccess _package;
 
@@ -72,6 +74,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         IEnumerable<IFlushable> flushables,
         ITfsJobServiceFactory tfsServiceFactory,
         ActiveTfsJobServices activeTfsJobServices,
+        ICurrentJobEndpointAccessor endpointAccessor,
         ILogger<TfsJobAgentWorker> logger,
         IPackageAccess? package)
         : base(progressSink, checkpointingFactory,
@@ -81,6 +84,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         _flushables = flushables;
         _tfsServiceFactory = tfsServiceFactory;
         _activeTfsJobServices = activeTfsJobServices;
+        _endpointAccessor = endpointAccessor;
         _logger = logger;
         _package = package ?? throw new ArgumentNullException(nameof(package));
     }
@@ -106,6 +110,10 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
                 await OnExportJobAsync(job, controlPlane, leaseId, ct).ConfigureAwait(false);
                 break;
 
+            case JobKind.Import:
+                await OnImportJobAsync(job, controlPlane, leaseId, ct).ConfigureAwait(false);
+                break;
+
             case JobKind.Inventory:
             case JobKind.Dependencies:
                 await OnDiscoveryJobAsync(job, controlPlane, leaseId, ct).ConfigureAwait(false);
@@ -113,7 +121,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
 
             default:
                 _logger.LogError(
-                    "TFS agent only supports Export, Inventory, and Dependencies — rejecting kind {JobKind} for job {JobId}.",
+                    "TFS agent does not support job kind {JobKind} — rejecting job {JobId}.",
                     job.Kind, job.JobId);
                 await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
                 break;
@@ -121,6 +129,119 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     }
 
     // ── Migration execution ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Handles <see cref="JobKind.Import"/> jobs: connects to the TFS/ADO Target endpoint,
+    /// extracts any fixture package, builds the execution plan, and runs the import phase.
+    /// </summary>
+    private async Task OnImportJobAsync(
+        Job job, HttpClient controlPlane, string leaseId, CancellationToken ct)
+    {
+        ActiveJobIdentity?.Set(job.JobId, job.Kind.ToString());
+
+        // migration-config.json was already written by InitializeJobPackageAsync.
+        IConfiguration packageConfig;
+        try
+        {
+            packageConfig = await PackageMigrationConfigLoader.LoadAsync(ct).ConfigureAwait(false);
+            CurrentPackageConfig.Set(packageConfig);
+        }
+        catch (PackageConfigNotFoundException ex)
+        {
+            _logger.LogError(ex,
+                "Config file not found for import job {JobId} — failing.", job.JobId);
+            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+            ActiveJobIdentity?.Clear();
+            return;
+        }
+
+        // For import, the source is the package — no TFS Object Model source connection is needed.
+        // But we DO need a TFS Object Model connection to the TARGET to create work items there.
+        // Populate the endpoint accessor so ITargetEndpointInfo resolves correctly.
+        SetImportEndpointContext(packageConfig);
+
+        // Connect to the TFS TARGET endpoint so import modules can create work items.
+        var targetEndpoint = TryBindTfsEndpoint(packageConfig, "MigrationPlatform:Target");
+        if (targetEndpoint != null)
+        {
+            try
+            {
+                _currentTfsServices = _tfsServiceFactory.CreateForEndpoint(targetEndpoint);
+                _activeTfsJobServices.Current = _currentTfsServices;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Could not connect to TFS target endpoint for import job {JobId}. " +
+                    "Import will proceed without TFS OM connection (REST-only path).", job.JobId);
+            }
+        }
+
+        bool failed = false;
+        using var jobScope = ModuleScopeFactory.CreateScope();
+        try
+        {
+            var jobModules = jobScope.ServiceProvider.GetServices<IModule>().ToList();
+            var planBuilder = jobScope.ServiceProvider.GetRequiredService<IJobExecutionPlanBuilder>();
+            var planExecutor = jobScope.ServiceProvider.GetRequiredService<IJobPlanExecutor>();
+
+            // Extract fixture archive into package store if PackagePath is set.
+            var preparer = jobScope.ServiceProvider.GetService<IPackagePreparer>();
+            if (preparer != null)
+                await preparer.PrepareForImportAsync(PackageAccess, packageConfig, ct).ConfigureAwait(false);
+
+            // Build (or resume) the execution plan and persist it to the package.
+            var executionPlan = await planBuilder
+                .BuildAndSaveAsync(packageConfig, job.Kind, PackageAccess, ct)
+                .ConfigureAwait(false);
+
+            // Push plan to the control plane for display (best-effort).
+            var telemetry = jobScope.ServiceProvider.GetService<IControlPlaneTelemetryClient>();
+            if (telemetry != null)
+            {
+                try
+                {
+                    await telemetry.PushTaskListAsync(leaseId, executionPlan, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Failed to push task list for import job {JobId} — continuing.", job.JobId);
+                }
+            }
+
+            var moduleMap = jobModules.ToDictionary(
+                m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
+            var importContext = new ImportContext
+            {
+                Job = job,
+                Package = PackageAccess,
+                ProgressSink = ProgressSink
+            };
+
+            var importOk = await planExecutor.ExecuteImportPhaseAsync(
+                executionPlan, moduleMap, importContext, ct).ConfigureAwait(false);
+
+            failed = !importOk;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Import job {JobId} failed during module execution.", job.JobId);
+            failed = true;
+        }
+        finally
+        {
+            _endpointAccessor.Clear();
+            _activeTfsJobServices.Clear();
+            _currentTfsServices?.Dispose();
+            _currentTfsServices = null;
+            CurrentPackageConfig.Clear();
+            ActiveJobIdentity?.Clear();
+        }
+
+        await SignalTerminalAsync(controlPlane, leaseId, failed ? "fail" : "complete", ct)
+            .ConfigureAwait(false);
+    }
 
     /// <summary>
     /// Validates that the job is Export kind, then delegates to the base export pipeline.
@@ -164,6 +285,16 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         return opts;
     }
 
+    private static TeamFoundationServerEndpointOptions? TryBindTfsEndpoint(
+        IConfiguration? packageConfig, string sectionPath)
+    {
+        var section = packageConfig?.GetSection(sectionPath);
+        if (section == null || !section.Exists() || string.IsNullOrEmpty(section["Url"]))
+            return null;
+
+        return BindTfsSource(section);
+    }
+
     private static TeamFoundationServerEndpointOptions? TryBindTfsSource(IConfiguration? packageConfig)
     {
         var section = packageConfig?.GetSection("MigrationPlatform:Source");
@@ -171,6 +302,53 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
             return null;
 
         return BindTfsSource(section);
+    }
+
+    /// <summary>
+    /// Sets the target endpoint in <see cref="ICurrentJobEndpointAccessor"/> from the
+    /// import job's migration config.
+    /// </summary>
+    private void SetImportEndpointContext(IConfiguration packageConfig)
+    {
+        var url = packageConfig["MigrationPlatform:Target:Url"];
+        var project = packageConfig["MigrationPlatform:Target:Project"];
+        var connectorType = packageConfig["MigrationPlatform:Target:Type"];
+        var accessToken =
+            packageConfig["MigrationPlatform:Target:Authentication:AccessToken"]
+            ?? packageConfig["MigrationPlatform:Target:Authentication:Token"];
+
+        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(connectorType))
+        {
+            _endpointAccessor.ClearTarget();
+            return;
+        }
+
+        _endpointAccessor.SetTarget(new ImportTargetEndpointInfo(
+            url!,
+            project ?? string.Empty,
+            connectorType!,
+            accessToken));
+    }
+
+    /// <summary>Inline target endpoint info for import jobs.</summary>
+    private sealed record ImportTargetEndpointInfo(
+        string Url,
+        string Project,
+        string ConnectorType,
+        string? AccessToken) : ITargetEndpointInfo
+    {
+        public string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
+
+        public OrganisationEndpoint ToOrganisationEndpoint() => new OrganisationEndpoint
+        {
+            ResolvedUrl = Url,
+            Type = ConnectorType,
+            Authentication = new OrganisationEndpointAuthentication
+            {
+                Type = AuthenticationType.AccessToken,
+                ResolvedAccessToken = AccessToken
+            }
+        };
     }
 
     /// <inheritdoc/>

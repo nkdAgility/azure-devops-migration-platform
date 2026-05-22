@@ -26,7 +26,6 @@ public class ManageProgressCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(240_000)] // 4 minutes — export + progress query
     public async Task ManageProgressCommand_SystemTest_AfterExport_ExitsZero_AndShowsProgressEvents()
     {
         // ── Start control plane (reuse if already running) ──────────────────────
@@ -44,7 +43,7 @@ public class ManageProgressCommandTests
 
         var exportResult = await CliRunner.RunTestAsync(
             testName: nameof(ManageProgressCommand_SystemTest_AfterExport_ExitsZero_AndShowsProgressEvents),
-            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json", "--force-fresh"],
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Export-WorkItems.json", "--force-fresh"],
             env: hostedEnv,
             timeout: TimeSpan.FromMinutes(2),
             cleanOutputFolder: true);

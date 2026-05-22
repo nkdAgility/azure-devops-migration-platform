@@ -26,7 +26,7 @@ public class WorkItemExportOrchestratorTests
         Type = "AzureDevOps",
         Authentication = new EndpointAuthenticationOptions
         {
-            Type = AuthenticationType.Pat,
+            Type = AuthenticationType.AccessToken,
             AccessToken = "myPat"
         }
     };

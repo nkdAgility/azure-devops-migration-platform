@@ -105,6 +105,30 @@ internal sealed class AgentLifecycleService : BackgroundService
             "control plane URL: {ControlPlaneUrl}",
             agentPath, controlPlaneUrl);
 
+        // ── TFS agent (net481, Windows-only) ──────────────────────────────────
+        // Spawned automatically when the binary is present alongside the control plane.
+        // The TFS agent declares ConnectorType.TeamFoundationServer as its sole capability,
+        // so it cannot race with the regular agent (AzureDevOps, Simulated).
+        // Can be suppressed by setting AgentLifecycle:SpawnTfsAgent=false explicitly.
+        var spawnTfsAgent = _configuration.GetValue<bool?>("AgentLifecycle:SpawnTfsAgent") ?? true;
+        if (spawnTfsAgent)
+        {
+            var tfsAgentPath = Path.GetFullPath(
+                Path.Combine(AppContext.BaseDirectory, "..", "TfsMigrationAgent", "tfsmigration.exe"));
+            if (File.Exists(tfsAgentPath))
+            {
+                _logger.LogInformation(
+                    "AgentLifecycleService: TFS agent found at {TfsAgentPath} — spawning.", tfsAgentPath);
+                _ = SpawnSingletonAgentAsync(tfsAgentPath, "TfsMigrationAgent", controlPlaneUrl, stoppingToken);
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "AgentLifecycleService: tfsmigration.exe not found at {Path} — TFS jobs will not be processed.",
+                    tfsAgentPath);
+            }
+        }
+
         // ── Spawn + restart loop ──────────────────────────────────────────────
         var backOffSeconds = 1;
 
@@ -206,6 +230,66 @@ internal sealed class AgentLifecycleService : BackgroundService
 
             // Exponential back-off capped at MaxBackOffSeconds
             backOffSeconds = Math.Min(backOffSeconds * 2, MaxBackOffSeconds);
+        }
+    }
+
+    /// <summary>
+    /// Spawns a supplementary agent process (e.g. TFS agent) once and lets it run until it
+    /// exits or <paramref name="stoppingToken"/> fires. No restart loop — the agent is optional.
+    /// </summary>
+    private async Task SpawnSingletonAgentAsync(
+        string agentPath, string agentName, string controlPlaneUrl, CancellationToken stoppingToken)
+    {
+        Process? process = null;
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = agentPath,
+                UseShellExecute = false,
+                CreateNoWindow = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            psi.Environment["ControlPlane__BaseUrl"] = controlPlaneUrl;
+            psi.Environment["MigrationPlatform__Environment__ControlPlane__BaseUrl"] = controlPlaneUrl;
+
+            process = new Process { StartInfo = psi, EnableRaisingEvents = true };
+            process.OutputDataReceived += (_, e) =>
+            {
+                if (!string.IsNullOrWhiteSpace(e.Data))
+                    _logger.LogInformation("AgentLifecycleService: [{Agent} stdout] {Line}", agentName, e.Data);
+            };
+            process.ErrorDataReceived += (_, e) =>
+            {
+                if (!string.IsNullOrWhiteSpace(e.Data))
+                    _logger.LogError("AgentLifecycleService: [{Agent} stderr] {Line}", agentName, e.Data);
+            };
+
+            if (!process.Start())
+            {
+                _logger.LogError("AgentLifecycleService: failed to start {Agent}.", agentName);
+                return;
+            }
+
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            _logger.LogInformation("AgentLifecycleService: {Agent} started (PID {Pid}).", agentName, process.Id);
+
+            await process.WaitForExitAsync(stoppingToken).ConfigureAwait(false);
+            _logger.LogWarning("AgentLifecycleService: {Agent} exited with code {Code}.", agentName, process.ExitCode);
+        }
+        catch (OperationCanceledException)
+        {
+            KillAgent(process);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AgentLifecycleService: error managing {Agent} process.", agentName);
+        }
+        finally
+        {
+            process?.Dispose();
         }
     }
 

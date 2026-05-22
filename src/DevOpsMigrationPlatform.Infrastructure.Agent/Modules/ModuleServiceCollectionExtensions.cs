@@ -16,9 +16,13 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
+using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 
@@ -62,6 +66,13 @@ public static class ModuleServiceCollectionExtensions
         services.AddSchemaEntry<WorkItemsModuleOptions>("Work items export/import module configuration");
         services.AddSchemaEntry<WorkItemImportOptions>("Work item import replay lever configuration");
 #endif
+        services.TryAddSingleton<ICurrentPackageConfigAccessor, CurrentPackageConfigAccessor>();
+        services.AddOptions<WorkItemsModuleOptions>()
+            .Configure<ICurrentPackageConfigAccessor>((opts, state) =>
+            {
+                state.Current?.GetSection(WorkItemsModuleOptions.SectionName).Bind(opts);
+            });
+
         services.RegisterWorkItemImportServices(configuration);
         services.AddScoped<IWorkItemsImportCapabilityValidator, WorkItemsImportCapabilityValidator>();
         services.AddSingleton<IWorkItemsNodeReadinessOrchestrator>(sp =>

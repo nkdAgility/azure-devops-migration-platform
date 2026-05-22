@@ -66,6 +66,7 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
             {
                 "TeamFoundationServer" => new[] { ConnectorType.TeamFoundationServer },
                 "AzureDevOpsServices" => new[] { ConnectorType.AzureDevOps },
+                "Simulated" => new[] { ConnectorType.Simulated },
                 _ => Array.Empty<ConnectorType>()
             },
             Package = new JobPackage

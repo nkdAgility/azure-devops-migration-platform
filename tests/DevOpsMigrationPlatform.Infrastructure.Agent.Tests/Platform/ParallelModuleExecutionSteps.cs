@@ -148,7 +148,7 @@ public sealed class ParallelModuleExecutionSteps
 
         if (exportTimes.Count < 4)
         {
-            Assert.Inconclusive("Not all export tasks recorded start times");
+            Assert.Fail("Not all export tasks recorded start times");
             return;
         }
 

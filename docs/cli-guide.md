@@ -283,8 +283,8 @@ devopsmigration manage cancel  --job 550e8400-e29b-41d4-a716-446655440000
 devopsmigration manage login   --url https://migration.example.com
 devopsmigration manage logout  --url https://migration.example.com
 
-devopsmigration queue --config scenarios/inventory-ado-single-project.json
-devopsmigration queue --config scenarios/discovery-dependency-ado-single-project.json
+devopsmigration queue --config scenarios/SystemTest-Live-Inventory-AzureDevOps-SingleProject.json
+devopsmigration queue --config scenarios/SystemTest-Live-Dependencies-AzureDevOps-SingleProject.json
 
 devopsmigration config new
 devopsmigration config new --output my-migration.json

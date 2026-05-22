@@ -195,15 +195,14 @@ public class QueueCommandTests
     // ── System tests ───────────────────────────────────────────────────────
 
     /// <summary>
-    /// Runs <c>devopsmigration queue --config scenarios/queue-export-ado-workitems-single-project.json --force-fresh</c>
+    /// Runs <c>devopsmigration queue --config scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json --force-fresh</c>
     /// as a subprocess. The scenario config has <c>mode: Export</c>, so this must behave
     /// identically to the former <c>export</c> command.
     /// </summary>
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
-    [Timeout(1_200_000)] // 20 minutes
-    public async Task QueueCommand_WithExportMode_ExitsZero_AndWritesRevisionFiles()
+    public async Task Queue_Export_Sim_WritesRevisionFiles()
     {
         // ── Guard ─────────────────────────────────────────────────────────
         var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
@@ -216,15 +215,15 @@ public class QueueCommandTests
             return;
         }
 
-        var testStorage = Path.Combine(CliRunner.TestWorkingFolder, nameof(QueueCommand_WithExportMode_ExitsZero_AndWritesRevisionFiles));
+        var testStorage = Path.Combine(CliRunner.TestWorkingFolder, nameof(Queue_Export_Sim_WritesRevisionFiles));
         var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
         if (Directory.Exists(outputDir))
             Directory.Delete(outputDir, recursive: true);
 
         // ── Act ───────────────────────────────────────────────────────────
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(QueueCommand_WithExportMode_ExitsZero_AndWritesRevisionFiles),
-            args: ["queue", "--config", "scenarios/queue-export-ado-workitems-single-project.json", "--force-fresh"],
+            testName: nameof(Queue_Export_Sim_WritesRevisionFiles),
+            args: ["queue", "--config", "scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(18),
             cleanOutputFolder: true);
         outputDir = result.OutputDirectory;
@@ -267,13 +266,12 @@ public class QueueCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(30_000)] // 30 seconds — should fail fast
-    public async Task QueueCommand_WithHostedModeAndUnreachableControlPlane_FailsFast()
+    public async Task Queue_FailsFast_UnreachableControlPlane()
     {
         // ── Act — override to Hosted mode pointing at a port nothing listens on ──
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(QueueCommand_WithHostedModeAndUnreachableControlPlane_FailsFast),
-            args: ["queue", "--config", "scenarios/queue-export-workitems-simulated-source.json"],
+            testName: nameof(Queue_FailsFast_UnreachableControlPlane),
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Export-WorkItems.json"],
             env: new Dictionary<string, string>
             {
                 ["MigrationPlatform__Environment__Type"] = "Hosted",
@@ -304,7 +302,7 @@ public class QueueCommandTests
     }
 
     /// <summary>
-    /// Runs <c>devopsmigration queue --config scenarios/queue-import-workitems-simulated-fixture.json --force-fresh</c>
+    /// Runs <c>devopsmigration queue --config scenarios/SystemTest-Simulated-Import-WorkItems-Fixture.json --force-fresh</c>
     /// as a subprocess. Uses a pre-built fixture zip (<c>scenarios/testdata/workitems-2items-flat.zip</c>)
     /// with a <c>Simulated</c> target — no live credentials required.
     /// Verifies that the CLI exits zero and logs import progress for both work items.
@@ -313,13 +311,12 @@ public class QueueCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(120_000)] // 2 minutes — no network I/O
-    public async Task QueueCommand_WithSimulatedImportMode_Fixture_ExitsZero_AndImportsBothWorkItems()
+    public async Task Queue_Import_Sim_Fixture_ImportsBothWorkItems()
     {
         // ── Act ───────────────────────────────────────────────────────────
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(QueueCommand_WithSimulatedImportMode_Fixture_ExitsZero_AndImportsBothWorkItems),
-            args: ["queue", "--config", "scenarios/queue-import-workitems-simulated-fixture.json", "--force-fresh"],
+            testName: nameof(Queue_Import_Sim_Fixture_ImportsBothWorkItems),
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Import-WorkItems-Fixture.json", "--force-fresh"],
             timeout: TimeSpan.FromSeconds(110),
             cleanOutputFolder: true);
         var outputDir = result.OutputDirectory;
@@ -355,12 +352,11 @@ public class QueueCommandTests
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [Timeout(300_000)]
-    public async Task QueueCommand_WithInventoryMode_Simulated_WritesInventoryArtefacts()
+    public async Task Queue_Inventory_Sim_WritesInventoryArtefacts()
     {
         var result = await CliRunner.RunTestAsync(
-            testName: nameof(QueueCommand_WithInventoryMode_Simulated_WritesInventoryArtefacts),
-            args: ["queue", "--config", "scenarios/inventory-simulated.json", "--force-fresh"],
+            testName: nameof(Queue_Inventory_Sim_WritesInventoryArtefacts),
+            args: ["queue", "--config", "scenarios/SystemTest-Simulated-Inventory-WorkItems.json", "--force-fresh"],
             timeout: TimeSpan.FromMinutes(4),
             cleanOutputFolder: true);
         var outputDir = result.OutputDirectory;
@@ -386,5 +382,255 @@ public class QueueCommandTests
             $"inventory.json must contain meaningful content. Got {jsonContent.Length} chars.");
         Assert.IsTrue(jsonContent.Contains("SimulatedProject", StringComparison.OrdinalIgnoreCase),
             "inventory.json must reference the SimulatedProject that was discovered.");
+    }
+
+    /// <summary>
+    /// Runs <c>devopsmigration queue --config scenarios/SystemTest-Live-Export-TFS-WorkItems-SingleProject.json --force-fresh</c>
+    /// as a subprocess against a live TeamFoundationServer instance.
+    /// Verifies the CLI exits zero and writes revision files into the package.
+    /// Requires <c>AZDEVOPS_SYSTEM_TEST_ORG</c> and <c>AZDEVOPS_SYSTEM_TEST_PAT</c> to be set.
+    /// </summary>
+    /// <remarks>
+    /// NOTE: The ADO and TFS credentials used for system testing are IDENTICAL.
+    /// <c>AZDEVOPS_SYSTEM_TEST_ORG</c> holds the TFS collection URL and <c>AZDEVOPS_SYSTEM_TEST_PAT</c>
+    /// holds the PAT for both ADO and TFS test targets. Do not introduce separate TFS_* env vars.
+    /// </remarks>
+    [TestMethod]
+    [Timeout(180000)]
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
+    [TestCategory("SystemTest_Live_TFS")]
+    public async Task Queue_Export_TFS_WritesRevisionFiles()
+    {
+        // ── Guard ─────────────────────────────────────────────────────────
+        // NOTE: ADO and TFS test credentials are identical — use AZDEVOPS_SYSTEM_TEST_* for both.
+        var tfsUrlEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
+        var tfsPatEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
+        if (string.IsNullOrEmpty(tfsUrlEnv) || string.IsNullOrEmpty(tfsPatEnv))
+        {
+            Assert.Fail(
+                "System test failed: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
+                "These credentials are shared between ADO and TFS test targets. " +
+                "See docs/live-system-testing-guide.md for setup instructions.");
+            return;
+        }
+
+        // ── Act ───────────────────────────────────────────────────────────
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(Queue_Export_TFS_WritesRevisionFiles),
+            args: ["queue", "--config", "scenarios/SystemTest-Live-Export-TFS-WorkItems-SingleProject.json", "--force-fresh"],
+            timeout: TimeSpan.FromMinutes(18),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
+
+        Console.WriteLine("=== STDOUT ===");
+        Console.WriteLine(result.StandardOutput);
+        if (!string.IsNullOrEmpty(result.StandardError))
+        {
+            Console.WriteLine("=== STDERR ===");
+            Console.WriteLine(result.StandardError);
+        }
+
+        // ── Assert ────────────────────────────────────────────────────────
+        Assert.IsFalse(result.TimedOut, "CLI timed out.");
+        Assert.AreEqual(0, result.ExitCode,
+            $"CLI exited with code {result.ExitCode}. Check STDOUT/STDERR above.");
+
+        var combinedOutput = result.StandardOutput + result.StandardError;
+        Assert.IsTrue(
+            combinedOutput.Contains("export complete", StringComparison.OrdinalIgnoreCase) ||
+            combinedOutput.Contains("work items", StringComparison.OrdinalIgnoreCase),
+            "Expected CLI success message not found in output.");
+
+        var workItemsDirs = Directory.GetDirectories(outputDir, "workitems", SearchOption.AllDirectories);
+        Assert.IsTrue(workItemsDirs.Length > 0,
+            $"WorkItems directory was not created anywhere under {outputDir}");
+
+        var revisionFiles = Directory.GetFiles(workItemsDirs[0], "revision.json", SearchOption.AllDirectories);
+        Assert.IsTrue(revisionFiles.Length > 0,
+            $"No revision.json files found under {workItemsDirs[0]}");
+    }
+
+    /// <summary>
+    /// Runs <c>devopsmigration queue --config scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture.json --force-fresh</c>
+    /// as a subprocess against a live AzureDevOpsServices target, using the pre-built fixture zip.
+    /// Verifies the CLI exits zero and the idmap checkpoint database is created.
+    /// Requires <c>AZDEVOPS_SYSTEM_TEST_ORG</c>, <c>AZDEVOPS_SYSTEM_TEST_PAT</c>, and
+    /// <c>AZDEVOPS_SYSTEM_TEST_PROJECT</c> to be set.
+    /// See <c>scenarios/testdata/catalogue.json</c> for fixture details.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
+    public async Task Queue_Import_ADO_Fixture_CreatesIdmap()
+    {
+        // ── Guard ─────────────────────────────────────────────────────────
+        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
+        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
+        if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
+        {
+            Assert.Fail(
+                "System test failed: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
+                "See docs/live-system-testing-guide.md for setup instructions.");
+            return;
+        }
+
+        // ── Act ───────────────────────────────────────────────────────────
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(Queue_Import_ADO_Fixture_CreatesIdmap),
+            args: ["queue", "--config", "scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture.json", "--force-fresh"],
+            timeout: TimeSpan.FromSeconds(55),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
+
+        Console.WriteLine("=== STDOUT ===");
+        Console.WriteLine(result.StandardOutput);
+        if (!string.IsNullOrEmpty(result.StandardError))
+        {
+            Console.WriteLine("=== STDERR ===");
+            Console.WriteLine(result.StandardError);
+        }
+
+        // ── Assert ────────────────────────────────────────────────────────
+        Assert.IsFalse(result.TimedOut, "CLI timed out.");
+        Assert.AreEqual(0, result.ExitCode,
+            $"CLI exited with code {result.ExitCode}. Check STDOUT/STDERR above.");
+
+        var combinedOutput = result.StandardOutput + result.StandardError;
+        Assert.IsTrue(
+            combinedOutput.Contains("import complete", StringComparison.OrdinalIgnoreCase) ||
+            combinedOutput.Contains("work item", StringComparison.OrdinalIgnoreCase),
+            "Expected CLI import progress message not found in output.");
+
+        var idmapFiles = Directory.GetFiles(outputDir, "idmap.db", SearchOption.AllDirectories);
+        Assert.IsTrue(idmapFiles.Length > 0,
+            $"idmap.db was not found anywhere under {outputDir} — import may not have processed any work items.");
+    }
+
+    /// <summary>
+    /// Verifies that when the provenance field configured in <c>WorkItemResolutionStrategy.FieldName</c>
+    /// does not exist in the target project (TF51005), the CLI exits non-zero and writes
+    /// <c>errors.json</c> to the package root with a <c>ValidationError</c> category entry.
+    /// Uses the same ADO fixture config as <see cref="Queue_Import_ADO_Fixture_CreatesIdmap"/>.
+    /// Requires <c>AZDEVOPS_SYSTEM_TEST_ORG</c> and <c>AZDEVOPS_SYSTEM_TEST_PAT</c> to be set,
+    /// and the target project must NOT have the <c>Custom.ReflectedWorkItemId</c> field.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
+    public async Task Queue_Import_ADO_Fixture_FieldMissing_WritesErrorsJson()
+    {
+        // ── Guard ─────────────────────────────────────────────────────────
+        var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
+        var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
+        if (string.IsNullOrEmpty(orgEnv) || string.IsNullOrEmpty(patEnv))
+        {
+            Assert.Fail(
+                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
+                "See docs/live-system-testing-guide.md for setup instructions.");
+            return;
+        }
+
+        // ── Act ───────────────────────────────────────────────────────────
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(Queue_Import_ADO_Fixture_FieldMissing_WritesErrorsJson),
+            args: ["queue", "--config", "scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture-FieldMissing.json", "--force-fresh"],
+            timeout: TimeSpan.FromSeconds(55),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
+
+        Console.WriteLine("=== STDOUT ===");
+        Console.WriteLine(result.StandardOutput);
+        if (!string.IsNullOrEmpty(result.StandardError))
+        {
+            Console.WriteLine("=== STDERR ===");
+            Console.WriteLine(result.StandardError);
+        }
+
+        // ── Assert ────────────────────────────────────────────────────────
+        Assert.IsFalse(result.TimedOut, "CLI timed out.");
+        Assert.AreNotEqual(0, result.ExitCode,
+            "CLI should exit non-zero when the provenance field is missing (TF51005).");
+
+        var errorsJsonFiles = Directory.GetFiles(outputDir, "errors.json", SearchOption.AllDirectories);
+        Assert.IsTrue(errorsJsonFiles.Length > 0,
+            $"errors.json was not found anywhere under '{outputDir}'. " +
+            "JobPlanExecutor should write it on any blocking task failure.");
+        var errorsJsonPath = errorsJsonFiles[0];
+
+        var errorsJson = File.ReadAllText(errorsJsonPath);
+        Console.WriteLine("=== errors.json ===");
+        Console.WriteLine(errorsJson);
+
+        StringAssert.Contains(errorsJson, "errors",
+            "errors.json must contain an 'errors' array.");
+        StringAssert.Contains(errorsJson, "MigrationException",
+            "errors.json exceptionType should be MigrationException for TF51005.");
+        StringAssert.Contains(errorsJson, "ReflectedWorkItemId",
+            "errors.json message should reference the missing field name.");
+    }
+
+    /// <summary>
+    /// Runs <c>devopsmigration queue --config scenarios/SystemTest-Live-Import-TFS-WorkItems-Fixture.json --force-fresh</c>
+    /// as a subprocess against a live TeamFoundationServer target, using the pre-built fixture zip.
+    /// Verifies the CLI exits zero and the idmap checkpoint database is created.
+    /// Requires <c>AZDEVOPS_SYSTEM_TEST_ORG</c> and <c>AZDEVOPS_SYSTEM_TEST_PAT</c> to be set.
+    /// See <c>scenarios/testdata/catalogue.json</c> for fixture details.
+    /// </summary>
+    /// <remarks>
+    /// NOTE: The ADO and TFS credentials used for system testing are IDENTICAL.
+    /// <c>AZDEVOPS_SYSTEM_TEST_ORG</c> holds the TFS collection URL and <c>AZDEVOPS_SYSTEM_TEST_PAT</c>
+    /// holds the PAT for both ADO and TFS test targets. Do not introduce separate TFS_* env vars.
+    /// </remarks>
+    [TestMethod]
+    [Timeout(120000)]
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
+    [TestCategory("SystemTest_Live_TFS")]
+    public async Task Queue_Import_TFS_Fixture_CreatesIdmap()
+    {
+        // ── Guard ─────────────────────────────────────────────────────────
+        // NOTE: ADO and TFS test credentials are identical — use AZDEVOPS_SYSTEM_TEST_* for both.
+        var tfsUrlEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
+        var tfsPatEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
+        if (string.IsNullOrEmpty(tfsUrlEnv) || string.IsNullOrEmpty(tfsPatEnv))
+        {
+            Assert.Fail(
+                "System test failed: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
+                "These credentials are shared between ADO and TFS test targets. " +
+                "See docs/live-system-testing-guide.md for setup instructions.");
+            return;
+        }
+
+        // ── Act ───────────────────────────────────────────────────────────
+        var result = await CliRunner.RunTestAsync(
+            testName: nameof(Queue_Import_TFS_Fixture_CreatesIdmap),
+            args: ["queue", "--config", "scenarios/SystemTest-Live-Import-TFS-WorkItems-Fixture.json", "--force-fresh"],
+            timeout: TimeSpan.FromSeconds(90),
+            cleanOutputFolder: true);
+        var outputDir = result.OutputDirectory;
+
+        Console.WriteLine("=== STDOUT ===");
+        Console.WriteLine(result.StandardOutput);
+        if (!string.IsNullOrEmpty(result.StandardError))
+        {
+            Console.WriteLine("=== STDERR ===");
+            Console.WriteLine(result.StandardError);
+        }
+
+        // ── Assert ────────────────────────────────────────────────────────
+        Assert.IsFalse(result.TimedOut, "CLI timed out.");
+        Assert.AreEqual(0, result.ExitCode,
+            $"CLI exited with code {result.ExitCode}. Check STDOUT/STDERR above.");
+
+        var combinedOutput = result.StandardOutput + result.StandardError;
+        Assert.IsTrue(
+            combinedOutput.Contains("import complete", StringComparison.OrdinalIgnoreCase) ||
+            combinedOutput.Contains("work item", StringComparison.OrdinalIgnoreCase),
+            "Expected CLI import progress message not found in output.");
+
+        var idmapFiles = Directory.GetFiles(outputDir, "idmap.db", SearchOption.AllDirectories);
+        Assert.IsTrue(idmapFiles.Length > 0,
+            $"idmap.db was not found anywhere under {outputDir} — import may not have processed any work items.");
     }
 }

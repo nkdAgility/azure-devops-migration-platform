@@ -33,7 +33,7 @@ A single JSON configuration file drives the entire run.
       "Project": "<targetproject>",
       "ApiVersion": "7.1",
       "Authentication": {
-        "Type": "Pat",
+        "Type": "AccessToken",
         "AccessToken": "$ENV:TARGET_PAT"
       }
     },
@@ -44,7 +44,7 @@ A single JSON configuration file drives the entire run.
         "Projects": ["Alpha", "Beta"],
         "ApiVersion": "7.1",
         "Authentication": {
-          "Type": "Pat",
+          "Type": "AccessToken",
           "AccessToken": "$ENV:ORG_PAT"
         },
         "Enabled": true
@@ -199,19 +199,19 @@ Setting `enabled: false` only suppresses the discovery iteration for that organi
       "url": "https://dev.azure.com/org1",
       "projects": ["MyProject"],
       "enabled": true,
-      "authentication": { "type": "Pat", "accessToken": "$ENV:ORG1_PAT" }
+      "authentication": { "Type": "AccessToken", "accessToken": "$ENV:ORG1_PAT" }
     },
     {
       "type": "AzureDevOpsServices",
       "url": "https://dev.azure.com/org2",
       "enabled": false,
-      "authentication": { "type": "Pat", "accessToken": "$ENV:ORG2_PAT" }
+      "authentication": { "Type": "AccessToken", "accessToken": "$ENV:ORG2_PAT" }
     },
     {
       "type": "AzureDevOpsServices",
       "url": "https://dev.azure.com/org3",
       "enabled": false,
-      "authentication": { "type": "Pat", "accessToken": "$ENV:ORG3_PAT" }
+      "authentication": { "Type": "AccessToken", "accessToken": "$ENV:ORG3_PAT" }
     }
   ]
 }

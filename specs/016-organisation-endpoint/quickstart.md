@@ -43,7 +43,7 @@ new DiscoveryJobOrganisation
     ApiVersion = entry.ApiVersion,
     Authentication = new DiscoveryJobAuthentication
     {
-        Type = "Pat",
+        Type = "AccessToken",
         AccessToken = entry.Authentication?.AccessToken ?? ""
     }
 }

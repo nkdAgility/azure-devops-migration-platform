@@ -22,6 +22,7 @@ public sealed class CliRunner
     private const string ExeName = "devopsmigration.exe";
     private const string ControlPlaneExeName = "DevOpsMigrationPlatform.ControlPlaneHost.exe";
     private const string MigrationAgentExeName = "DevOpsMigrationPlatform.MigrationAgent.exe";
+    private const string TfsMigrationAgentExeName = "tfsmigration.exe";
 
     /// <summary>
     /// Root folder (relative to the repo root) used by system tests as their working directory.
@@ -310,6 +311,14 @@ public sealed class CliRunner
             Path.GetDirectoryName(FindComponentExe(repoRoot, "DevOpsMigrationPlatform.MigrationAgent", MigrationAgentExeName))!,
             stagedMigrationAgentDirectory);
 
+        // Stage TFS agent if available (net481, Windows-only).
+        var tfsAgentExePath = TryFindTfsMigrationAgentExe(repoRoot);
+        if (tfsAgentExePath is not null)
+        {
+            var stagedTfsAgentDirectory = Path.Combine(stagingRoot, "TfsMigrationAgent");
+            CopyDirectory(Path.GetDirectoryName(tfsAgentExePath)!, stagedTfsAgentDirectory);
+        }
+
         return new StagedExecutableLayout
         {
             RootDirectory = stagingRoot,
@@ -334,6 +343,29 @@ public sealed class CliRunner
         throw new FileNotFoundException(
             $"Could not find '{exeName}' in the expected build output paths. Run 'build-all' first.",
             exeName);
+    }
+
+    /// <summary>
+    /// Returns the path to <c>tfsmigration.exe</c> if it exists in the expected net481 output
+    /// directory, or <c>null</c> if it has not been built or is not applicable on this OS.
+    /// </summary>
+    private static string? TryFindTfsMigrationAgentExe(string repoRoot)
+    {
+        // build.ps1 always builds Release; prefer Release so tests run against the freshest binary.
+        // Debug is kept as a fallback for developers who build locally without build.ps1.
+        var candidates = new[]
+        {
+            Path.Combine(repoRoot, "src", "DevOpsMigrationPlatform.TfsMigrationAgent", "bin", "Release", "net481", TfsMigrationAgentExeName),
+            Path.Combine(repoRoot, "src", "DevOpsMigrationPlatform.TfsMigrationAgent", "bin", "Debug", "net481", TfsMigrationAgentExeName),
+        };
+
+        foreach (var candidate in candidates)
+        {
+            if (File.Exists(candidate))
+                return candidate;
+        }
+
+        return null;
     }
 
     private static void CopyDirectory(string sourceDirectory, string destinationDirectory)

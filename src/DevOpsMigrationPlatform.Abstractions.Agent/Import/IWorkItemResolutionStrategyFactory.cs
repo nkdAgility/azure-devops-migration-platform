@@ -3,7 +3,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Import;
 
@@ -45,6 +45,6 @@ public interface IWorkItemResolutionStrategyFactory
     Task<IWorkItemResolutionStrategy> CreateAsync(
         WorkItemResolutionStrategyOptions options,
         IWorkItemImportTarget target,
-        MigrationEndpointOptions endpoint,
+        ITargetEndpointInfo endpoint,
         CancellationToken ct);
 }

@@ -38,7 +38,7 @@ Minimum viable config:
       "Url": "https://dev.azure.com/myorg",
       "Project": "MyProject",
       "Authentication": {
-        "Type": "Pat",
+        "Type": "AccessToken",
         "AccessToken": "$ENV:SOURCE_PAT"
       }
     },
@@ -47,7 +47,7 @@ Minimum viable config:
       "Url": "https://dev.azure.com/targetorg",
       "Project": "TargetProject",
       "Authentication": {
-        "Type": "Pat",
+        "Type": "AccessToken",
         "AccessToken": "$ENV:TARGET_PAT"
       }
     },

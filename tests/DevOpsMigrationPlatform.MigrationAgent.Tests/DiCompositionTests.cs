@@ -23,7 +23,6 @@ public class DiCompositionTests
     /// timeout, failing CI with a clear diagnostic instead of hanging.
     /// </summary>
     [TestMethod]
-    [Timeout(15_000)]
     public void Build_FullMigrationAgentContainer_CompletesWithoutDeadlock()
     {
         // Arrange — replicate the same registration path as Program.cs

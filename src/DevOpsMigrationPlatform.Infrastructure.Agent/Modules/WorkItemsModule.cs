@@ -71,49 +71,40 @@ public sealed class WorkItemsModule : IModule
     private readonly IWorkItemRevisionSourceFactory _sourceFactory;
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
     private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
-#if !NET481
     private readonly IWorkItemImportTargetFactory _importTargetFactory;
     private readonly IWorkItemResolutionStrategyFactory _resolutionStrategyFactory;
     private readonly IIdMapStoreFactory _idMapStoreFactory;
     private readonly IRevisionFolderProcessorFactory _processorFactory;
-#endif
     private readonly IIdentityLookupTool? _identityLookupTool;
     private readonly ICheckpointingServiceFactory _checkpointingFactory;
     private readonly ILogger<WorkItemsModule> _logger;
-#if !NET481
     private readonly ILogger<WorkItemImportOrchestrator> _orchestratorLogger;
     private readonly IWorkItemsImportOrchestrator _workItemsImportOrchestrator;
-#endif
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IInventoryOrchestrator? _inventoryOrchestrator;
     private readonly IPlatformMetrics? _metrics;
-    
+
     private readonly IWorkItemDiscoveryService? _discoveryService;
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
-#if !NET481
     private readonly IReferencedPathTracker? _referencedPathTracker;
     private readonly INodesOrchestrator? _nodesOrchestrator;
     private readonly NodeReadinessOrchestrator? _nodeReadinessOrchestrator;
     private readonly IOptions<NodesModuleOptions>? _nodesModuleOptions;
-#endif
     private readonly IOptions<WorkItemsModuleOptions> _options;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
     private readonly IRepoDiscoveryService? _repoDiscoveryService;
     private readonly ImportPreparer _importPreparer;
-#if !NET481
     private readonly ITargetEndpointInfo _targetEndpointInfo;
-    private readonly IIdentityMappingService _identityMappingService;
-    private readonly INodeTranslationTool _nodeTranslationTool;
+    private readonly IIdentityMappingService? _identityMappingService;
+    private readonly INodeTranslationTool? _nodeTranslationTool;
     private readonly IFieldTransformTool _fieldTransformTool;
     private readonly IOptions<WorkItemImportOptions>? _workItemImportOptions;
-#endif
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
         ILogger<WorkItemsModule> logger,
         IOptions<WorkItemsModuleOptions> options,
         ISourceEndpointInfo sourceEndpointInfo,
-#if !NET481
         ILogger<WorkItemImportOrchestrator> orchestratorLogger,
         IWorkItemImportTargetFactory importTargetFactory,
         IWorkItemResolutionStrategyFactory resolutionStrategyFactory,
@@ -121,9 +112,6 @@ public sealed class WorkItemsModule : IModule
         IIdMapStoreFactory idMapStoreFactory,
         IRevisionFolderProcessorFactory processorFactory,
         ITargetEndpointInfo targetEndpointInfo,
-#else
-        ICheckpointingServiceFactory checkpointingFactory,
-#endif
         IAttachmentBinarySource? attachmentBinarySource = null,
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
         IWorkItemFetchService? fetchService = null,
@@ -132,19 +120,15 @@ public sealed class WorkItemsModule : IModule
         IPlatformMetrics? PlatformMetrics = null,
         IWorkItemDiscoveryService? discoveryService = null,
         IExportProgressStoreFactory? exportProgressStoreFactory = null,
-#if !NET481
         IReferencedPathTracker? referencedPathTracker = null,
         INodesOrchestrator? nodesOrchestrator = null,
         NodeReadinessOrchestrator? nodeReadinessOrchestrator = null,
         IOptions<NodesModuleOptions>? nodesModuleOptions = null,
-#endif
-#if !NET481
         IIdentityMappingService? identityMappingService = null,
         INodeTranslationTool? nodeTranslationTool = null,
         IFieldTransformTool? fieldTransformTool = null,
         IOptions<WorkItemImportOptions>? workItemImportOptions = null,
         IWorkItemsImportOrchestrator? workItemsImportOrchestrator = null,
-#endif
         IIdentityLookupTool? identityLookupTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
         IEnumerable<IImportFailurePattern>? importFailurePatterns = null,
@@ -154,14 +138,12 @@ public sealed class WorkItemsModule : IModule
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
-#if !NET481
         _orchestratorLogger = orchestratorLogger ?? throw new ArgumentNullException(nameof(orchestratorLogger));
         _importTargetFactory = importTargetFactory ?? throw new ArgumentNullException(nameof(importTargetFactory));
         _resolutionStrategyFactory = resolutionStrategyFactory ?? throw new ArgumentNullException(nameof(resolutionStrategyFactory));
         _idMapStoreFactory = idMapStoreFactory ?? throw new ArgumentNullException(nameof(idMapStoreFactory));
         _processorFactory = processorFactory ?? throw new ArgumentNullException(nameof(processorFactory));
         _targetEndpointInfo = targetEndpointInfo ?? throw new ArgumentNullException(nameof(targetEndpointInfo));
-#endif
         _checkpointingFactory = checkpointingFactory ?? throw new ArgumentNullException(nameof(checkpointingFactory));
         _attachmentBinarySource = attachmentBinarySource;
         _inlineCommentSourceFactory = inlineCommentSourceFactory;
@@ -170,7 +152,6 @@ public sealed class WorkItemsModule : IModule
         _metrics = metrics ?? PlatformMetrics;
         _discoveryService = discoveryService;
         _exportProgressStoreFactory = exportProgressStoreFactory;
-#if !NET481
         _referencedPathTracker = referencedPathTracker;
         _nodesOrchestrator = nodesOrchestrator;
         _nodeReadinessOrchestrator = nodeReadinessOrchestrator;
@@ -197,7 +178,6 @@ public sealed class WorkItemsModule : IModule
                 _options,
                 _workItemImportOptions,
                 _nodesModuleOptions);
-#endif
         _identityLookupTool = identityLookupTool;
         _repoDiscoveryService = repoDiscoveryService;
         var resolvedFailurePatterns = importFailurePatterns?.ToArray();
@@ -570,14 +550,7 @@ public sealed class WorkItemsModule : IModule
 
     public async Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct)
     {
-#if NET481
-        // TFS is a source-only connector — import is not supported.
-        _logger.LogDebug("[WorkItems] Import not supported on net481 (TFS agent) — skipping.");
-        await Task.CompletedTask.ConfigureAwait(false);
-        return TaskExecutionResult.Skipped("WorkItems import is not supported on net481.");
-#else
         return await _workItemsImportOrchestrator.ExecuteAsync(context, ct).ConfigureAwait(false);
-#endif
     }
 
 #if !NET481

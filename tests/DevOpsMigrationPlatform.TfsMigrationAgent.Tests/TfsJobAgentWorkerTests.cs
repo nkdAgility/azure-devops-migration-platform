@@ -169,6 +169,7 @@ public class TfsJobAgentWorkerTests
             _flushables,
             _tfsServiceFactory.Object,
             new DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.ActiveTfsJobServices(),
+            new DevOpsMigrationPlatform.Infrastructure.Agent.Context.CurrentJobEndpointAccessor(),
             _logger,
             package ?? _package.Object);
     }
@@ -664,7 +665,7 @@ public class TfsJobAgentWorkerTests
         Type = "TeamFoundationServer",
         Authentication = new EndpointAuthenticationOptions
         {
-            Type = AuthenticationType.Pat,
+            Type = AuthenticationType.AccessToken,
             AccessToken = "test-pat-token"
         }
     };
@@ -719,7 +720,8 @@ internal static class TestTfsJobServicesFactory
             },
             new Mock<IWorkItemExportMetrics>().Object,
             new Mock<IAttachmentDownloadMetrics>().Object,
-            new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Tools.IIdentitySource>().Object);
+            new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Tools.IIdentitySource>().Object,
+            new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Tools.ITeamSource>().Object);
     }
 }
 

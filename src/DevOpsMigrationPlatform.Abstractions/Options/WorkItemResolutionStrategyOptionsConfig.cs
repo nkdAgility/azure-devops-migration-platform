@@ -9,11 +9,11 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 /// </summary>
 public sealed class WorkItemResolutionStrategyOptionsConfig : EnabledExtensionOptions
 {
-    /// <summary>Strategy name: <c>"TargetField"</c> or <c>"TargetHyperlink"</c>.</summary>
-    public string Strategy { get; init; } = string.Empty;
+    /// <summary>Strategy name: <c>"TargetField"</c> or <c>"TargetHyperlink"</c>. Default: <c>"TargetField"</c>.</summary>
+    public string Strategy { get; init; } = "TargetField";
 
-    /// <summary>Field name for TargetField strategy.</summary>
-    public string FieldName { get; init; } = string.Empty;
+    /// <summary>Field name for TargetField strategy. Default: <c>"Custom.ReflectedWorkItemId"</c>.</summary>
+    public string FieldName { get; init; } = "Custom.ReflectedWorkItemId";
 
     /// <summary>URL pattern for TargetHyperlink strategy.</summary>
     public string UrlPattern { get; init; } = string.Empty;

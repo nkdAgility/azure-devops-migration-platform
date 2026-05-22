@@ -17,7 +17,7 @@
     "project": "Alpha",
     "apiVersion": "7.1",
     "authentication": {
-      "type": "Pat",
+      "type": "AccessToken",
       "accessToken": "$ENV:MIGRATION_SOURCE_PAT"
     }
   }
@@ -59,7 +59,7 @@ Leave `project` null in the config:
     "project": null,
     "apiVersion": "7.1",
     "authentication": {
-      "type": "Pat",
+      "type": "AccessToken",
       "accessToken": "$ENV:MIGRATION_SOURCE_PAT"
     }
   }
@@ -85,14 +85,14 @@ devopsmigration discovery inventory --config migration.json --all-projects
       "url": "https://dev.azure.com/org-a",
       "projects": ["Alpha", "Beta"],
       "apiVersion": "7.1",
-      "authentication": { "type": "Pat", "accessToken": "$ENV:ORG_A_PAT" }
+      "authentication": { "Type": "AccessToken", "accessToken": "$ENV:ORG_A_PAT" }
     },
     {
       "type": "AzureDevOpsServices",
       "url": "https://dev.azure.com/org-b",
       "projects": [],
       "apiVersion": "7.1",
-      "authentication": { "type": "Pat", "accessToken": "$ENV:SHARED_PAT" }
+      "authentication": { "Type": "AccessToken", "accessToken": "$ENV:SHARED_PAT" }
     },
     {
       "enabled": false,

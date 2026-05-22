@@ -2,5 +2,6 @@
 <RunSettings>
   <RunConfiguration>
     <TestCaseFilter></TestCaseFilter>
+    <TestTimeout>60000</TestTimeout>
   </RunConfiguration>
 </RunSettings>

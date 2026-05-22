@@ -114,7 +114,7 @@ public abstract class SystemTestBase
     }
 
     /// <summary>
-    /// Handles system test setup and validation with proper Assert.Inconclusive for missing environment
+    /// Handles system test setup and validation with proper Assert.Fail for missing environment
     /// </summary>
     /// <param name="testName">Name of the test method</param>
     /// <returns>Validated system test context, or terminates test if environment not configured</returns>
@@ -126,14 +126,14 @@ public abstract class SystemTestBase
         if (!context.Configuration.IsConfigured)
         {
             var errorMessage = context.Configuration.GetConfigurationErrorMessage();
-            Assert.Inconclusive(errorMessage);
+            Assert.Fail(errorMessage);
         }
 
         // Validate connectivity
         var connectivity = await ValidateConnectivityAsync(context.Configuration);
         if (!connectivity.IsValid)
         {
-            Assert.Inconclusive($"System test skipped: {connectivity.GetFormattedMessage()}");
+            Assert.Fail($"System test failed: {connectivity.GetFormattedMessage()}");
         }
 
         context.ConnectionValidated = true;

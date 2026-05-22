@@ -1151,7 +1151,7 @@ public sealed class JobPlanExecutorTests
                 Assert.AreEqual("https://resolved.example", activeSourceEndpoint.Url);
                 Assert.AreEqual("TestProject", activeSourceEndpoint.Project);
                 Assert.AreEqual("AzureDevOpsServices", activeSourceEndpoint.ConnectorType);
-                Assert.AreEqual(AuthenticationType.Pat, activeSourceEndpoint.ToOrganisationEndpoint().Authentication.Type);
+                Assert.AreEqual(AuthenticationType.AccessToken, activeSourceEndpoint.ToOrganisationEndpoint().Authentication.Type);
                 Assert.AreEqual("secret-token", activeSourceEndpoint.ToOrganisationEndpoint().Authentication.ResolvedAccessToken);
             })
             .ReturnsAsync(TaskExecutionResult.Completed());
@@ -1184,7 +1184,7 @@ public sealed class JobPlanExecutorTests
                 ApiVersion = "7.1",
                 Authentication = new OrganisationEndpointAuthentication
                 {
-                    Type = AuthenticationType.Pat,
+                    Type = AuthenticationType.AccessToken,
                     ResolvedAccessToken = "secret-token"
                 }
             }

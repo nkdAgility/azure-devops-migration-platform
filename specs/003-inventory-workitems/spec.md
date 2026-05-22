@@ -147,7 +147,7 @@ The `--all-projects` CLI flag controls scope:
     "project": "Alpha",
     "apiVersion": "7.1",
     "authentication": {
-      "type": "Pat",
+      "type": "AccessToken",
       "accessToken": "$ENV:MIGRATION_SOURCE_PAT"
     }
   }
@@ -201,7 +201,7 @@ The `--all-projects` flag has no effect in this mode; scope is controlled per en
       "projects": ["Alpha", "Beta"],
       "apiVersion": "7.1",
       "authentication": {
-        "type": "Pat",
+        "Type": "AccessToken",
         "accessToken": "$ENV:ORG1_PAT"
       }
     },
@@ -211,7 +211,7 @@ The `--all-projects` flag has no effect in this mode; scope is controlled per en
       "projects": [],
       "apiVersion": "7.1",
       "authentication": {
-        "type": "Pat",
+        "Type": "AccessToken",
         "accessToken": "$ENV:SHARED_PAT"
       }
     },

@@ -1,0 +1,57 @@
+{
+  "MigrationPlatform": {
+    "ConfigVersion": "1.0",
+    "Policies": {
+      "Retries": {
+        "Max": 8
+      },
+      "Throttle": {
+        "MaxConcurrency": 4
+      },
+      "Checkpoints": {
+        "Interval": 300
+      }
+    },
+    "Mode": "Import",
+    "Target": {
+      "Type": "TeamFoundationServer",
+      "Url": "$ENV:AZDEVOPS_SYSTEM_TEST_ORG",
+      "Project": "migrationTest5",
+      "Authentication": {
+        "Type": "AccessToken",
+        "AccessToken": "$ENV:AZDEVOPS_SYSTEM_TEST_PAT"
+      }
+    },
+    "Package": {
+      "WorkingDirectory": "%DEVOPS_MIGRATION_TEST_STORAGE%",
+      "CreatePackage": false,
+      "PackagePath": "scenarios\\testdata\\workitems-2items-flat.zip"
+    },
+    "Modules": {
+      "WorkItems": {
+        "Enabled": true,
+        "Extensions": {
+          "Revisions": {
+            "Enabled": true
+          },
+          "Links": {
+            "Enabled": true
+          },
+          "Attachments": {
+            "Enabled": true
+          },
+          "Comments": {
+            "Enabled": true
+          },
+          "EmbeddedImages": {
+            "Enabled": true
+          },
+          "WorkItemResolutionStrategy": {
+            "Strategy": "TargetField",
+            "FieldName": "nkdScrum.ReflectedWorkItemId"
+          }
+        }
+      }
+    }
+  }
+}

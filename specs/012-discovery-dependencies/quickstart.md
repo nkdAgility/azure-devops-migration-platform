@@ -26,7 +26,7 @@
       "Url": "$ENV:AZDEVOPS_SYSTEM_TEST_ORG",
       "Projects": ["MyProject"],
       "Authentication": {
-        "Type": "Pat",
+        "Type": "AccessToken",
         "AccessToken": "$ENV:AZDEVOPS_SYSTEM_TEST_PAT"
       }
     }
@@ -182,13 +182,13 @@ Configure multiple entries in `Organisations`:
       "Type": "AzureDevOpsServices",
       "Url": "$ENV:AZDEVOPS_ORG1",
       "Projects": ["ProjectA", "ProjectB"],
-      "Authentication": { "Type": "Pat", "AccessToken": "$ENV:PAT_ORG1" }
+      "Authentication": { "Type": "AccessToken", "AccessToken": "$ENV:PAT_ORG1" }
     },
     {
       "Type": "AzureDevOpsServices",
       "Url": "$ENV:AZDEVOPS_ORG2",
       "Projects": ["ProjectC"],
-      "Authentication": { "Type": "Pat", "AccessToken": "$ENV:PAT_ORG2" }
+      "Authentication": { "Type": "AccessToken", "AccessToken": "$ENV:PAT_ORG2" }
     }
   ]
 }
@@ -208,7 +208,7 @@ Each organisation is analysed in sequence. Links between the two configured orga
       "Type": "TeamFoundationServer",
       "Url": "http://tfs.internal:8080/tfs/DefaultCollection",
       "Projects": ["LegacyProject"],
-      "Authentication": { "Type": "Pat", "AccessToken": "" }
+      "Authentication": { "Type": "AccessToken", "AccessToken": "" }
     }
   ]
 }

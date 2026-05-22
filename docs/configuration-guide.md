@@ -42,7 +42,7 @@ Credentials in `AccessToken` fields resolve in this order:
   "Url": "https://dev.azure.com/myorg",
   "Project": "MyProject",
   "Authentication": {
-    "Type": "Pat",
+    "Type": "AccessToken",
     "AccessToken": "$ENV:SOURCE_PAT"
   }
 }

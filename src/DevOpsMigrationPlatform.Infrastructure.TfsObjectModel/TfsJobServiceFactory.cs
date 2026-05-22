@@ -55,15 +55,23 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
         var project = tfsEndpoint.Project;
 
         // Authenticate — access token or Windows-integrated depending on config.
-        VssClientCredentials creds;
-        if (tfsEndpoint.Authentication?.Type == AuthenticationType.Pat &&
+        //
+        // For AccessToken (PAT) endpoints use VssCredentials with ONLY VssBasicCredential and NO
+        // WindowsCredential. Including a WindowsCredential triggers NTLM/Kerberos negotiation; on
+        // Azure DevOps cloud the server rejects NTLM but the TFS SDK stalls for minutes retrying
+        // instead of falling back to Basic auth.  VssCredentials(FederatedCredential) skips all
+        // Windows auth challenges and sends the PAT directly.
+        //
+        // EnsureAuthenticated() is a blocking synchronous call with no cancellation support.
+        // Wrap it in a Task with a timeout so a credential failure or unreachable server fails
+        // fast rather than blocking the agent for the duration of the job timeout.
+        Microsoft.VisualStudio.Services.Common.VssCredentials creds;
+        if (tfsEndpoint.Authentication?.Type == AuthenticationType.AccessToken &&
             !string.IsNullOrEmpty(tfsEndpoint.Authentication.ResolvedAccessToken))
         {
-            creds = new VssClientCredentials(
-                new Microsoft.VisualStudio.Services.Common.WindowsCredential(false),
+            creds = new Microsoft.VisualStudio.Services.Common.VssCredentials(
                 new Microsoft.VisualStudio.Services.Common.VssBasicCredential(
-                    string.Empty, tfsEndpoint.Authentication.ResolvedAccessToken),
-                Microsoft.VisualStudio.Services.Common.CredentialPromptType.DoNotPrompt);
+                    string.Empty, tfsEndpoint.Authentication.ResolvedAccessToken));
         }
         else
         {
@@ -71,7 +79,25 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
         }
 
         var collection = new TfsTeamProjectCollection(serverUrl, creds);
-        collection.EnsureAuthenticated();
+
+        var authTask = Task.Run(() => collection.EnsureAuthenticated());
+        try
+        {
+            if (!authTask.Wait(TimeSpan.FromSeconds(60)))
+            {
+                collection.Dispose();
+                throw new TimeoutException(
+                    $"TFS authentication timed out after 60 s connecting to {serverUrl}. " +
+                    "Verify the collection URL and credentials are correct and that the endpoint is reachable.");
+            }
+        }
+        catch (AggregateException ex)
+        {
+            collection.Dispose();
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo
+                .Capture(ex.InnerException ?? ex)
+                .Throw();
+        }
 
         var workItemStore = new WorkItemStore(collection, WorkItemStoreFlags.BypassRules);
 
@@ -93,7 +119,8 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
             _loggerFactory.CreateLogger<TfsAttachmentDownloader>(),
             attachmentMetrics);
 
-        var wiqlQuery = $"SELECT * FROM WorkItems WHERE [System.TeamProject] = '{project}'";
+        var escapedProject = project.Replace("'", "''");
+        var wiqlQuery = $"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '{escapedProject}'";
 
         var revisionSource = new TfsWorkItemRevisionSource(
             workItemStore,
@@ -142,6 +169,10 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
             collection,
             _loggerFactory.CreateLogger<TfsIdentitySource>());
 
+        var teamSource = new TfsTeamSource(
+            collection,
+            _loggerFactory.CreateLogger<TfsTeamSource>());
+
         return new TfsJobServices(
             collection,
             workItemStore,
@@ -155,7 +186,8 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
             tfsEndpoint,
             exportMetrics,
             attachmentMetrics,
-            identitySource);
+            identitySource,
+            teamSource);
     }
 
     public void Dispose()
@@ -179,6 +211,7 @@ public sealed class TfsJobServices : IDisposable
     public IWorkItemFetchService FetchService { get; }
     public TeamFoundationServerEndpointOptions Endpoint { get; }
     public IIdentitySource IdentitySource { get; }
+    public ITeamSource TeamSource { get; }
 
     public IWorkItemExportMetrics ExportMetrics { get; }
     public IAttachmentDownloadMetrics AttachmentMetrics { get; }
@@ -198,7 +231,8 @@ public sealed class TfsJobServices : IDisposable
         TeamFoundationServerEndpointOptions endpoint,
         IWorkItemExportMetrics exportMetrics,
         IAttachmentDownloadMetrics attachmentMetrics,
-        IIdentitySource identitySource)
+        IIdentitySource identitySource,
+        ITeamSource teamSource)
     {
         _collection = collection;
         WorkItemStore = workItemStore;
@@ -213,6 +247,7 @@ public sealed class TfsJobServices : IDisposable
         ExportMetrics = exportMetrics;
         AttachmentMetrics = attachmentMetrics;
         IdentitySource = identitySource;
+        TeamSource = teamSource;
     }
 
     public void Dispose()

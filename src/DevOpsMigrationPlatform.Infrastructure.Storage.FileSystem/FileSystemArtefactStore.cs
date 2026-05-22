@@ -15,12 +15,27 @@ using DevOpsMigrationPlatform.Abstractions.Storage;
 internal sealed class FileSystemArtefactStore : IArtefactStore
 {
     private readonly string _rootPath;
+    private readonly string _effectiveRootPath;
 
     internal string RootPath => _rootPath;
 
     public FileSystemArtefactStore(string rootPath)
     {
         _rootPath = rootPath;
+#if !NET5_0_OR_GREATER
+        // On .NET Framework, use the extended-length path prefix to bypass the 260-char MAX_PATH limit.
+        // Local absolute paths use \\?\C:\..., and UNC paths use \\?\UNC\server\share\...
+        var fullRootPath = Path.GetFullPath(rootPath);
+        const string longPathPrefix = @"\\?\";
+        if (fullRootPath.StartsWith(longPathPrefix, StringComparison.Ordinal))
+            _effectiveRootPath = fullRootPath;
+        else if (fullRootPath.StartsWith(@"\\", StringComparison.Ordinal))
+            _effectiveRootPath = @"\\?\UNC\" + fullRootPath.TrimStart('\\');
+        else
+            _effectiveRootPath = longPathPrefix + fullRootPath;
+#else
+        _effectiveRootPath = rootPath;
+#endif
     }
 
     public Task<string?> ReadAsync(string path, CancellationToken cancellationToken)
@@ -78,7 +93,7 @@ internal sealed class FileSystemArtefactStore : IArtefactStore
 
         await foreach (var absolutePath in EnumerateDirectorySortedAsync(rootDir, cancellationToken))
         {
-            var relative = absolutePath.Substring(_rootPath.Length)
+            var relative = absolutePath.Substring(_effectiveRootPath.Length)
                                        .TrimStart(Path.DirectorySeparatorChar)
                                        .Replace(Path.DirectorySeparatorChar, '/');
             yield return relative;
@@ -142,5 +157,5 @@ internal sealed class FileSystemArtefactStore : IArtefactStore
     }
 
     private string ToFullPath(string path)
-        => Path.Combine(_rootPath, path.Replace('/', Path.DirectorySeparatorChar));
+        => Path.Combine(_effectiveRootPath, path.Replace('/', Path.DirectorySeparatorChar));
 }

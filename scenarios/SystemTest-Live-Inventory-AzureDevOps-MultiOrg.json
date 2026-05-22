@@ -1,7 +1,7 @@
 {
   "MigrationPlatform": {
     "ConfigVersion": "1.0",
-    "Mode": "Dependencies",
+    "Mode": "Inventory",
     "Policies": {
       "Retries": {
         "Max": 8
@@ -16,13 +16,20 @@
     "Organisations": [
       {
         "Type": "AzureDevOpsServices",
-        "Url": "$ENV:AZDEVOPS_SYSTEM_TEST_ORG",
-        "Projects": [
-          "migrationTest5"
-        ],
+        "Url": "$ENV:AZDEVOPS_DEV_ORG",
+        "Projects": [],
         "Authentication": {
-          "Type": "Pat",
-          "AccessToken": "$ENV:AZDEVOPS_SYSTEM_TEST_PAT"
+          "Type": "AccessToken",
+          "AccessToken": "$ENV:AZDEVOPS_DEV_PAT"
+        }
+      },
+      {
+        "Type": "AzureDevOpsServices",
+        "Url": "https://dev.azure.com/nkdagility-learn/",
+        "Projects": [],
+        "Authentication": {
+          "Type": "AccessToken",
+          "AccessToken": "$ENV:AZDEVOPS_DEV_PAT"
         }
       }
     ],

@@ -25,7 +25,7 @@ public class FilterScopeExportSteps
         Type = "AzureDevOps",
         Authentication = new DevOpsMigrationPlatform.Abstractions.Options.EndpointAuthenticationOptions
         {
-            Type = AuthenticationType.Pat,
+            Type = AuthenticationType.AccessToken,
             AccessToken = "test"
         }
     };

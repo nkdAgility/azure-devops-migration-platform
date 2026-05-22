@@ -35,7 +35,7 @@ public class InventoryServiceTests
         Type = "AzureDevOps",
         Authentication = new EndpointAuthenticationOptions
         {
-            Type = AuthenticationType.Pat,
+            Type = AuthenticationType.AccessToken,
             AccessToken = "pat"
         }
     };
@@ -46,7 +46,7 @@ public class InventoryServiceTests
         Type = "AzureDevOps",
         Authentication = new OrganisationEndpointAuthentication
         {
-            Type = AuthenticationType.Pat,
+            Type = AuthenticationType.AccessToken,
             ResolvedAccessToken = "pat"
         }
     };
@@ -65,7 +65,7 @@ public class InventoryServiceTests
                     Type = "AzureDevOpsServices",
                     Url = org,
                     Projects = string.IsNullOrEmpty(project) ? new() : new() { project },
-                    Authentication = new EndpointAuthenticationOptions { Type = AuthenticationType.Pat, AccessToken = pat }
+                    Authentication = new EndpointAuthenticationOptions { Type = AuthenticationType.AccessToken, AccessToken = pat }
                 }
             }
         };
@@ -628,7 +628,7 @@ public class InventoryServiceTests
                     Projects = new() { "ProjectA", "ProjectB" },
                     Authentication = new EndpointAuthenticationOptions
                     {
-                        Type = AuthenticationType.Pat,
+                        Type = AuthenticationType.AccessToken,
                         AccessToken = "test-pat"
                     }
                 }
@@ -711,7 +711,7 @@ public class InventoryServiceTests
                         Projects = new() { "ProjectA" },
                         Authentication = new EndpointAuthenticationOptions
                         {
-                            Type = AuthenticationType.Pat,
+                            Type = AuthenticationType.AccessToken,
                             AccessToken = "test-pat"
                         }
                     }

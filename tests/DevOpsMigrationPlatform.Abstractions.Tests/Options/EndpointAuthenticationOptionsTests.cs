@@ -31,7 +31,7 @@ public class EndpointAuthenticationOptionsTests
         {
             var options = new EndpointAuthenticationOptions
             {
-                Type = AuthenticationType.Pat,
+                Type = AuthenticationType.AccessToken,
                 AccessToken = $"$ENV:{envName}"
             };
 

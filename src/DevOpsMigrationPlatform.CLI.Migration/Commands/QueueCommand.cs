@@ -169,7 +169,9 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var targetType = GetJsonString(mp, "Target", "Type") ?? string.Empty;
         var isSimulated = string.Equals(targetType, "Simulated", StringComparison.Ordinal);
-        var orgUrl = GetJsonString(mp, "Target", "Url") ?? (isSimulated ? "https://simulated.example.com" : null);
+        var orgUrl = EnvironmentVariableResolver.Resolve(
+            GetJsonString(mp, "Target", "Url") ?? (isSimulated ? "https://simulated.example.com" : null),
+            "Target.Url");
         var project = GetJsonString(mp, "Target", "Project") ?? (isSimulated ? "SimulatedProject" : null);
         var packagePath = GetJsonString(mp, "Package", "WorkingDirectory") ?? string.Empty;
         var createPackage = GetJsonBool(mp, false, "Package", "CreatePackage");
@@ -467,6 +469,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 connectors.Add(ConnectorType.TeamFoundationServer);
             else if (string.Equals(type, "AzureDevOpsServices", StringComparison.OrdinalIgnoreCase))
                 connectors.Add(ConnectorType.AzureDevOps);
+            else if (string.Equals(type, "Simulated", StringComparison.OrdinalIgnoreCase))
+                connectors.Add(ConnectorType.Simulated);
         }
 
         AddForType(GetJsonString(mp, "Source", "Type"));
@@ -490,6 +494,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 connectors.Add(ConnectorType.TeamFoundationServer);
             else if (string.Equals(type, "AzureDevOpsServices", StringComparison.OrdinalIgnoreCase))
                 connectors.Add(ConnectorType.AzureDevOps);
+            else if (string.Equals(type, "Simulated", StringComparison.OrdinalIgnoreCase))
+                connectors.Add(ConnectorType.Simulated);
         }
 
         return connectors.Count > 0 ? connectors.ToArray() : Array.Empty<ConnectorType>();
@@ -522,7 +528,9 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         using var doc = JsonDocument.Parse(rawJson);
         var mp = doc.RootElement.GetProperty("MigrationPlatform");
 
-        var orgUrl = GetJsonString(mp, "Source", "Url") ?? "https://simulated.example.com";
+        var orgUrl = EnvironmentVariableResolver.Resolve(
+            GetJsonString(mp, "Source", "Url") ?? "https://simulated.example.com",
+            "Source.Url");
         var project = GetJsonString(mp, "Source", "Project") ?? "SimulatedProject";
         var packagePath = GetJsonString(mp, "Package", "WorkingDirectory") ?? string.Empty;
         var createPackage = GetJsonBool(mp, false, "Package", "CreatePackage");
@@ -540,7 +548,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             JobId = Guid.NewGuid().ToString(),
             Kind = JobKind.Export,
             ConfigPayload = rawJson,
-            Connectors = Array.Empty<ConnectorType>(),
+            Connectors = GetConnectors(mp),
             Package = new JobPackage
             {
                 PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
@@ -636,7 +644,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         using var doc = JsonDocument.Parse(rawJson);
         var mp = doc.RootElement.GetProperty("MigrationPlatform");
 
-        var orgUrl = GetJsonString(mp, "Source", "Url");
+        var orgUrl = EnvironmentVariableResolver.Resolve(GetJsonString(mp, "Source", "Url"), "Source.Url");
         var project = GetJsonString(mp, "Source", "Project");
         var packagePath = GetJsonString(mp, "Package", "WorkingDirectory") ?? string.Empty;
         var createPackage = GetJsonBool(mp, false, "Package", "CreatePackage");

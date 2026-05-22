@@ -36,9 +36,18 @@ public static class WorkItemStoreExtensions
             CurrentChunkCount = 0
         };
 
+        var minDate = new DateTime(1990, 1, 1);
+
         while (true)
         {
             DateTime startDate = endDate - chunkSize;
+            bool reachedMinDate = false;
+
+            if (startDate < minDate)
+            {
+                startDate = minDate;
+                reachedMinDate = true;
+            }
 
             string wiql = $@"{baseQuery}
           AND [System.CreatedDate] >= '{startDate:yyyy-MM-dd}'
@@ -58,7 +67,13 @@ public static class WorkItemStoreExtensions
                 }
 
                 if (returnCount == 0)
-                    yield break;
+                {
+                    if (reachedMinDate)
+                        yield break;
+
+                    endDate = startDate;
+                    continue;
+                }
             }
             catch (Exception ex)
             {
@@ -73,6 +88,9 @@ public static class WorkItemStoreExtensions
             }
 
             yield return status;
+
+            if (reachedMinDate)
+                yield break;
 
             if (chunkSize < TimeSpan.FromDays(30))
                 chunkSize += TimeSpan.FromDays(1);
@@ -96,9 +114,14 @@ public static class WorkItemStoreExtensions
         TimeSpan chunkSize = initialChunkSize ?? TimeSpan.FromDays(120);
         int queryIndex = 0;
 
+        var minDate = new DateTime(1990, 1, 1);
+
         while (true)
         {
             DateTime startDate = endDate - chunkSize;
+
+            if (startDate < minDate)
+                yield break;
 
             string wiql = $@"{baseQuery}
           AND [System.CreatedDate] >= '{startDate:yyyy-MM-dd}'
@@ -116,7 +139,10 @@ public static class WorkItemStoreExtensions
                 }
 
                 if (workItems.Count == 0)
-                    yield break;
+                {
+                    endDate = startDate;
+                    continue;
+                }
             }
             catch (Exception ex)
             {

@@ -8,7 +8,7 @@
     "project": "MySourceProject",
     "apiVersion": "7.1",
     "authentication": {
-      "type": "Pat",
+      "Type": "AccessToken",
       "accessToken": "$ENV:SOURCE_PAT"
     }
   },
@@ -19,7 +19,7 @@
     "project": "MyTargetProject",
     "apiVersion": "7.1",
     "authentication": {
-      "type": "Pat",
+      "Type": "AccessToken",
       "accessToken": "$ENV:TARGET_PAT"
     }
   },

@@ -12,7 +12,7 @@ Replaces the missing auth section in `MigrationEndpointOptions`.
 
 | Property | Type | Notes |
 |---|---|---|
-| `Type` | `string` | `"Pat"` or `"Windows"` |
+| `Type` | `string` | `"AccessToken"` or `"Windows"` |
 | `AccessToken` | `string?` | Literal value or `$ENV:VARNAME` prefix. Resolved by `TokenResolver`. |
 
 Validation: for `Pat`, resolved token must be non-empty after resolution.
