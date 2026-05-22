@@ -55,6 +55,9 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
         var project = tfsEndpoint.Project;
 
         // Authenticate — access token or Windows-integrated depending on config.
+        // For AccessToken (PAT), use ONLY VssBasicCredential with no Windows credential.
+        // Including WindowsCredential triggers NTLM negotiation on dev.azure.com which hangs
+        // because Azure DevOps cloud rejects NTLM but the TFS SDK retries instead of failing fast.
         VssClientCredentials creds;
         if (tfsEndpoint.Authentication?.Type == AuthenticationType.AccessToken &&
             !string.IsNullOrEmpty(tfsEndpoint.Authentication.ResolvedAccessToken))
@@ -71,7 +74,22 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
         }
 
         var collection = new TfsTeamProjectCollection(serverUrl, creds);
-        collection.EnsureAuthenticated();
+
+        // EnsureAuthenticated() is a blocking synchronous call with no cancellation support.
+        // Against Azure DevOps cloud, NTLM negotiation can stall for many minutes before failing.
+        // Limit to 60 seconds so a bad credential fails fast with a clear error.
+        var authTask = Task.Run(() => collection.EnsureAuthenticated());
+        if (!authTask.Wait(TimeSpan.FromSeconds(60)))
+        {
+            collection.Dispose();
+            throw new TimeoutException(
+                $"TFS authentication timed out after 60 s connecting to {serverUrl}. " +
+                "Verify the collection URL and credentials are correct and that the endpoint is reachable.");
+        }
+        if (authTask.IsFaulted)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo
+                .Capture(authTask.Exception!.InnerException ?? authTask.Exception)
+                .Throw();
 
         var workItemStore = new WorkItemStore(collection, WorkItemStoreFlags.BypassRules);
 

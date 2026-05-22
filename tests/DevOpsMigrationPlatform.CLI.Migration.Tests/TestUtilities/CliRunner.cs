@@ -351,10 +351,12 @@ public sealed class CliRunner
     /// </summary>
     private static string? TryFindTfsMigrationAgentExe(string repoRoot)
     {
+        // build.ps1 always builds Release; prefer Release so tests run against the freshest binary.
+        // Debug is kept as a fallback for developers who build locally without build.ps1.
         var candidates = new[]
         {
-            Path.Combine(repoRoot, "src", "DevOpsMigrationPlatform.TfsMigrationAgent", "bin", "Debug", "net481", TfsMigrationAgentExeName),
             Path.Combine(repoRoot, "src", "DevOpsMigrationPlatform.TfsMigrationAgent", "bin", "Release", "net481", TfsMigrationAgentExeName),
+            Path.Combine(repoRoot, "src", "DevOpsMigrationPlatform.TfsMigrationAgent", "bin", "Debug", "net481", TfsMigrationAgentExeName),
         };
 
         foreach (var candidate in candidates)

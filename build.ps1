@@ -593,8 +593,10 @@ function Invoke-EnsureBuilt {
     param($VersionArgs)
     if (Test-Path $BuildStampFile) {
         $stampAge = (Get-Date) - (Get-Item $BuildStampFile).LastWriteTime
-        $sourceChanged = Get-ChildItem -Path (Join-Path $RepoRoot 'src') -Recurse -Include '*.cs', '*.csproj', '*.slnx', 'Directory.Build.*', 'Directory.Packages.*' |
-            Where-Object { $_.LastWriteTime -gt (Get-Item $BuildStampFile).LastWriteTime }
+        $sourceChanged = @(
+            Get-ChildItem -Path (Join-Path $RepoRoot 'src')   -Recurse -Include '*.cs', '*.csproj', '*.slnx', 'Directory.Build.*', 'Directory.Packages.*' -ErrorAction SilentlyContinue
+            Get-ChildItem -Path (Join-Path $RepoRoot 'tests') -Recurse -Include '*.cs', '*.csproj', '*.slnx', 'Directory.Build.*', 'Directory.Packages.*' -ErrorAction SilentlyContinue
+        ) | Where-Object { $_.LastWriteTime -gt (Get-Item $BuildStampFile).LastWriteTime }
         if (-not $sourceChanged) {
             Write-Host "`n==> Build already up-to-date (stamp: $([System.IO.File]::ReadAllText($BuildStampFile))). Skipping build." -ForegroundColor DarkGray
             return
