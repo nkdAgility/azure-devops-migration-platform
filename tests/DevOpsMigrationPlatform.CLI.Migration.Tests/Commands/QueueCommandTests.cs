@@ -396,6 +396,7 @@ public class QueueCommandTests
     /// holds the PAT for both ADO and TFS test targets. Do not introduce separate TFS_* env vars.
     /// </remarks>
     [TestMethod]
+    [Timeout(180000)]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     [TestCategory("SystemTest_Live_TFS")]
@@ -582,6 +583,7 @@ public class QueueCommandTests
     /// holds the PAT for both ADO and TFS test targets. Do not introduce separate TFS_* env vars.
     /// </remarks>
     [TestMethod]
+    [Timeout(120000)]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     [TestCategory("SystemTest_Live_TFS")]
