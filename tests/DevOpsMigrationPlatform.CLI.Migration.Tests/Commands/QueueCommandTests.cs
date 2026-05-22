@@ -388,8 +388,13 @@ public class QueueCommandTests
     /// Runs <c>devopsmigration queue --config scenarios/SystemTest-Live-Export-TFS-WorkItems-SingleProject.json --force-fresh</c>
     /// as a subprocess against a live TeamFoundationServer instance.
     /// Verifies the CLI exits zero and writes revision files into the package.
-    /// Requires <c>TFS_SYSTEM_TEST_URL</c> and <c>TFS_SYSTEM_TEST_PROJECT</c> to be set.
+    /// Requires <c>AZDEVOPS_SYSTEM_TEST_ORG</c> and <c>AZDEVOPS_SYSTEM_TEST_PAT</c> to be set.
     /// </summary>
+    /// <remarks>
+    /// NOTE: The ADO and TFS credentials used for system testing are IDENTICAL.
+    /// <c>AZDEVOPS_SYSTEM_TEST_ORG</c> holds the TFS collection URL and <c>AZDEVOPS_SYSTEM_TEST_PAT</c>
+    /// holds the PAT for both ADO and TFS test targets. Do not introduce separate TFS_* env vars.
+    /// </remarks>
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
@@ -397,12 +402,14 @@ public class QueueCommandTests
     public async Task Queue_Export_TFS_WritesRevisionFiles()
     {
         // ── Guard ─────────────────────────────────────────────────────────
-        var tfsUrlEnv = Environment.GetEnvironmentVariable("TFS_SYSTEM_TEST_URL");
-        var tfsPatEnv = Environment.GetEnvironmentVariable("TFS_SYSTEM_TEST_PAT");
+        // NOTE: ADO and TFS test credentials are identical — use AZDEVOPS_SYSTEM_TEST_* for both.
+        var tfsUrlEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
+        var tfsPatEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
         if (string.IsNullOrEmpty(tfsUrlEnv) || string.IsNullOrEmpty(tfsPatEnv))
         {
             Assert.Fail(
-                "System test skipped: TFS_SYSTEM_TEST_URL and TFS_SYSTEM_TEST_PAT must be set. " +
+                "System test failed: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
+                "These credentials are shared between ADO and TFS test targets. " +
                 "See docs/live-system-testing-guide.md for setup instructions.");
             return;
         }
@@ -566,9 +573,14 @@ public class QueueCommandTests
     /// Runs <c>devopsmigration queue --config scenarios/SystemTest-Live-Import-TFS-WorkItems-Fixture.json --force-fresh</c>
     /// as a subprocess against a live TeamFoundationServer target, using the pre-built fixture zip.
     /// Verifies the CLI exits zero and the idmap checkpoint database is created.
-    /// Requires <c>TFS_SYSTEM_TEST_URL</c> and <c>TFS_SYSTEM_TEST_PROJECT</c> to be set.
+    /// Requires <c>AZDEVOPS_SYSTEM_TEST_ORG</c> and <c>AZDEVOPS_SYSTEM_TEST_PAT</c> to be set.
     /// See <c>scenarios/testdata/catalogue.json</c> for fixture details.
     /// </summary>
+    /// <remarks>
+    /// NOTE: The ADO and TFS credentials used for system testing are IDENTICAL.
+    /// <c>AZDEVOPS_SYSTEM_TEST_ORG</c> holds the TFS collection URL and <c>AZDEVOPS_SYSTEM_TEST_PAT</c>
+    /// holds the PAT for both ADO and TFS test targets. Do not introduce separate TFS_* env vars.
+    /// </remarks>
     [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
@@ -576,12 +588,14 @@ public class QueueCommandTests
     public async Task Queue_Import_TFS_Fixture_CreatesIdmap()
     {
         // ── Guard ─────────────────────────────────────────────────────────
-        var tfsUrlEnv = Environment.GetEnvironmentVariable("TFS_SYSTEM_TEST_URL");
-        var tfsPatEnv = Environment.GetEnvironmentVariable("TFS_SYSTEM_TEST_PAT");
+        // NOTE: ADO and TFS test credentials are identical — use AZDEVOPS_SYSTEM_TEST_* for both.
+        var tfsUrlEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
+        var tfsPatEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
         if (string.IsNullOrEmpty(tfsUrlEnv) || string.IsNullOrEmpty(tfsPatEnv))
         {
             Assert.Fail(
-                "System test skipped: TFS_SYSTEM_TEST_URL and TFS_SYSTEM_TEST_PAT must be set. " +
+                "System test failed: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT must be set. " +
+                "These credentials are shared between ADO and TFS test targets. " +
                 "See docs/live-system-testing-guide.md for setup instructions.");
             return;
         }
