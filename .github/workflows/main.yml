@@ -72,7 +72,7 @@ jobs:
         run: pwsh ./build.ps1 -Mode SystemTest_Simulated
 
       - name: System Test (Live)
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: pwsh ./build.ps1 -Mode SystemTest_Live
         env:
           AZDEVOPS_SYSTEM_TEST_ORG: ${{ vars.AZDEVOPS_SYSTEM_TEST_ORG }}
