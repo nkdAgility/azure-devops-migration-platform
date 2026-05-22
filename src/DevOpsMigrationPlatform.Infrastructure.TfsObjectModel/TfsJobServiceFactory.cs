@@ -55,18 +55,23 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
         var project = tfsEndpoint.Project;
 
         // Authenticate — access token or Windows-integrated depending on config.
-        // For AccessToken (PAT), use ONLY VssBasicCredential with no Windows credential.
-        // Including WindowsCredential triggers NTLM negotiation on dev.azure.com which hangs
-        // because Azure DevOps cloud rejects NTLM but the TFS SDK retries instead of failing fast.
-        VssClientCredentials creds;
+        //
+        // For AccessToken (PAT) endpoints use VssCredentials with ONLY VssBasicCredential and NO
+        // WindowsCredential. Including a WindowsCredential triggers NTLM/Kerberos negotiation; on
+        // Azure DevOps cloud the server rejects NTLM but the TFS SDK stalls for minutes retrying
+        // instead of falling back to Basic auth.  VssCredentials(FederatedCredential) skips all
+        // Windows auth challenges and sends the PAT directly.
+        //
+        // EnsureAuthenticated() is a blocking synchronous call with no cancellation support.
+        // Wrap it in a Task with a timeout so a credential failure or unreachable server fails
+        // fast rather than blocking the agent for the duration of the job timeout.
+        Microsoft.VisualStudio.Services.Common.VssCredentials creds;
         if (tfsEndpoint.Authentication?.Type == AuthenticationType.AccessToken &&
             !string.IsNullOrEmpty(tfsEndpoint.Authentication.ResolvedAccessToken))
         {
-            creds = new VssClientCredentials(
-                new Microsoft.VisualStudio.Services.Common.WindowsCredential(false),
+            creds = new Microsoft.VisualStudio.Services.Common.VssCredentials(
                 new Microsoft.VisualStudio.Services.Common.VssBasicCredential(
-                    string.Empty, tfsEndpoint.Authentication.ResolvedAccessToken),
-                Microsoft.VisualStudio.Services.Common.CredentialPromptType.DoNotPrompt);
+                    string.Empty, tfsEndpoint.Authentication.ResolvedAccessToken));
         }
         else
         {
@@ -75,9 +80,6 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
 
         var collection = new TfsTeamProjectCollection(serverUrl, creds);
 
-        // EnsureAuthenticated() is a blocking synchronous call with no cancellation support.
-        // Against Azure DevOps cloud, NTLM negotiation can stall for many minutes before failing.
-        // Limit to 60 seconds so a bad credential fails fast with a clear error.
         var authTask = Task.Run(() => collection.EnsureAuthenticated());
         if (!authTask.Wait(TimeSpan.FromSeconds(60)))
         {
