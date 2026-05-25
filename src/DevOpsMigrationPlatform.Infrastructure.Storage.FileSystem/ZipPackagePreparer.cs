@@ -62,6 +62,8 @@ internal sealed class ZipPackagePreparer : IPackagePreparer
 
             cancellationToken.ThrowIfCancellationRequested();
 
+            // Fixture ZIP structure is canonical import input. Do not rewrite/move entry paths:
+            // extract each entry exactly as provided in the archive.
             using var entryStream = entry.Open();
             await packageAccess.PersistContentStreamAsync(
                 new PackageContentContext(PackageContentKind.Artefact, Address: new ZipEntryAddress(entry.FullName)),
