@@ -233,6 +233,11 @@ public class QueueCommandTests
             return;
         }
 
+        var sourceProjectName = TryGetScenarioSourceProjectName("scenarios/SystemTest-Live-Export-AzureDevOps-WorkItems-SingleProject.json");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(sourceProjectName),
+            "Live export scenario must define MigrationPlatform.Source.Project.");
+        var expectedWorkItemCount = await CountWorkItemsInProjectAsync(orgEnv, patEnv, sourceProjectName!);
+
         var testStorage = Path.Combine(CliRunner.TestWorkingFolder, nameof(Queue_Export_Sim_WritesRevisionFiles));
         var outputDir = Path.Combine(CliRunner.FindRepoRoot(), testStorage);
         if (Directory.Exists(outputDir))
@@ -273,6 +278,21 @@ public class QueueCommandTests
         var revisionFiles = Directory.GetFiles(workItemsDirs[0], "revision.json", SearchOption.AllDirectories);
         Assert.IsTrue(revisionFiles.Length > 0,
             $"No revision.json files found under {workItemsDirs[0]}");
+
+        var exportedWorkItemIds = revisionFiles
+            .Select(Path.GetDirectoryName)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => Path.GetFileName(path!))
+            .Where(folderName => !string.IsNullOrWhiteSpace(folderName))
+            .Select(folderName => folderName!.Split('-'))
+            .Where(parts => parts.Length >= 3 && int.TryParse(parts[1], out _))
+            .Select(parts => int.Parse(parts[1]))
+            .Distinct()
+            .Count();
+
+        Assert.AreEqual(expectedWorkItemCount, exportedWorkItemIds,
+            $"Expected exported work item count to match source project '{sourceProjectName}' count ({expectedWorkItemCount}), " +
+            $"but found {exportedWorkItemIds} distinct work item IDs in exported revisions.");
     }
 
     /// <summary>
@@ -884,6 +904,39 @@ public class QueueCommandTests
         return root?["MigrationPlatform"]?["Target"]?["Project"]?.GetValue<string>();
     }
 
+    private static string? TryGetScenarioSourceProjectName(string relativeTemplatePath)
+    {
+        var templatePath = ResolveScenarioTemplatePath(relativeTemplatePath);
+        if (!File.Exists(templatePath))
+            return null;
+
+        var root = JsonNode.Parse(File.ReadAllText(templatePath));
+        return root?["MigrationPlatform"]?["Source"]?["Project"]?.GetValue<string>();
+    }
+
+    private static string CreateLiveImportFieldMissingConfigForProject(string projectName)
+    {
+        var templatePath = ResolveScenarioTemplatePath("scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture-FieldMissing.json");
+        var tempConfigPath = Path.Combine(
+            Path.GetTempPath(),
+            $"SystemTest-Live-Import-AzureDevOps-FieldMissing-{Guid.NewGuid():N}.json");
+
+        var root = JsonNode.Parse(File.ReadAllText(templatePath))
+            ?? throw new InvalidOperationException($"Could not parse scenario template '{templatePath}'.");
+        var migrationPlatform = root["MigrationPlatform"]?.AsObject()
+            ?? throw new InvalidOperationException("Scenario template does not contain MigrationPlatform object.");
+        var target = migrationPlatform["Target"]?.AsObject()
+            ?? throw new InvalidOperationException("Scenario template does not contain Target object.");
+
+        target["Project"] = projectName;
+
+        File.WriteAllText(
+            tempConfigPath,
+            root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+
+        return tempConfigPath;
+    }
+
     private sealed class SingleConnectorProjectProcessService : IProjectProcessService
     {
         private readonly IProjectProcessProvider _provider;
@@ -952,43 +1005,77 @@ public class QueueCommandTests
             return;
         }
 
-        // ── Act ───────────────────────────────────────────────────────────
-        var result = await CliRunner.RunTestAsync(
-            testName: nameof(Queue_Import_ADO_Fixture_FieldMissing_WritesErrorsJson),
-            args: ["queue", "--config", "scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture-FieldMissing.json", "--force-fresh"],
-            timeout: TimeSpan.FromSeconds(55),
-            cleanOutputFolder: true);
-        var outputDir = result.OutputDirectory;
-
-        Console.WriteLine("=== STDOUT ===");
-        Console.WriteLine(result.StandardOutput);
-        if (!string.IsNullOrEmpty(result.StandardError))
+        ProjectLifecycleRecord? lifecycleRecord = null;
+        var lifecycleService = CreateAzureDevOpsProjectLifecycleService();
+        string? runtimeConfigPath = null;
+        try
         {
-            Console.WriteLine("=== STDERR ===");
-            Console.WriteLine(result.StandardError);
+            var preferredProcessName = await TryResolveProcessNameForExistingProjectAsync(
+                orgEnv,
+                patEnv,
+                Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PROJECT") ?? TryGetScenarioTargetProjectName("scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture-FieldMissing.json"),
+                CancellationToken.None);
+
+            lifecycleRecord = await CreateTemporaryAzureDevOpsProjectAsync(
+                lifecycleService,
+                orgEnv,
+                patEnv,
+                preferredProcessName,
+                CancellationToken.None);
+
+            runtimeConfigPath = CreateLiveImportFieldMissingConfigForProject(lifecycleRecord.ProjectName);
+            var baselineWorkItemCount = await CountWorkItemsInProjectAsync(orgEnv, patEnv, lifecycleRecord.ProjectName);
+
+            // ── Act ───────────────────────────────────────────────────────────
+            var result = await CliRunner.RunTestAsync(
+                testName: nameof(Queue_Import_ADO_Fixture_FieldMissing_WritesErrorsJson),
+                args: ["queue", "--config", runtimeConfigPath, "--force-fresh"],
+                timeout: TimeSpan.FromSeconds(55),
+                cleanOutputFolder: true);
+            var outputDir = result.OutputDirectory;
+
+            Console.WriteLine("=== STDOUT ===");
+            Console.WriteLine(result.StandardOutput);
+            if (!string.IsNullOrEmpty(result.StandardError))
+            {
+                Console.WriteLine("=== STDERR ===");
+                Console.WriteLine(result.StandardError);
+            }
+
+            // ── Assert ────────────────────────────────────────────────────────
+            Assert.IsFalse(result.TimedOut, "CLI timed out.");
+            Assert.AreNotEqual(0, result.ExitCode,
+                "CLI should exit non-zero when the provenance field is missing (TF51005).");
+
+            var errorsJsonFiles = Directory.GetFiles(outputDir, "errors.json", SearchOption.AllDirectories);
+            Assert.IsTrue(errorsJsonFiles.Length > 0,
+                $"errors.json was not found anywhere under '{outputDir}'. " +
+                "JobPlanExecutor should write it on any blocking task failure.");
+            var errorsJsonPath = errorsJsonFiles[0];
+
+            var errorsJson = File.ReadAllText(errorsJsonPath);
+            Console.WriteLine("=== errors.json ===");
+            Console.WriteLine(errorsJson);
+
+            StringAssert.Contains(errorsJson, "errors",
+                "errors.json must contain an 'errors' array.");
+            StringAssert.Contains(errorsJson, "MigrationException",
+                "errors.json exceptionType should be MigrationException for TF51005.");
+            StringAssert.Contains(errorsJson, "ReflectedWorkItemId",
+                "errors.json message should reference the missing field name.");
+
+            var finalWorkItemCount = await CountWorkItemsInProjectAsync(orgEnv, patEnv, lifecycleRecord.ProjectName);
+            Assert.AreEqual(baselineWorkItemCount, finalWorkItemCount,
+                $"Field-missing failure must not create work items in temporary project '{lifecycleRecord.ProjectName}'.");
         }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(runtimeConfigPath) && File.Exists(runtimeConfigPath))
+                File.Delete(runtimeConfigPath);
 
-        // ── Assert ────────────────────────────────────────────────────────
-        Assert.IsFalse(result.TimedOut, "CLI timed out.");
-        Assert.AreNotEqual(0, result.ExitCode,
-            "CLI should exit non-zero when the provenance field is missing (TF51005).");
-
-        var errorsJsonFiles = Directory.GetFiles(outputDir, "errors.json", SearchOption.AllDirectories);
-        Assert.IsTrue(errorsJsonFiles.Length > 0,
-            $"errors.json was not found anywhere under '{outputDir}'. " +
-            "JobPlanExecutor should write it on any blocking task failure.");
-        var errorsJsonPath = errorsJsonFiles[0];
-
-        var errorsJson = File.ReadAllText(errorsJsonPath);
-        Console.WriteLine("=== errors.json ===");
-        Console.WriteLine(errorsJson);
-
-        StringAssert.Contains(errorsJson, "errors",
-            "errors.json must contain an 'errors' array.");
-        StringAssert.Contains(errorsJson, "MigrationException",
-            "errors.json exceptionType should be MigrationException for TF51005.");
-        StringAssert.Contains(errorsJson, "ReflectedWorkItemId",
-            "errors.json message should reference the missing field name.");
+            if (lifecycleRecord is not null)
+                await lifecycleService.TeardownAsync(lifecycleRecord, CancellationToken.None);
+        }
     }
 
     /// <summary>
