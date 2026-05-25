@@ -33,6 +33,7 @@
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.CLI.Migration\DevOpsMigrationPlatform.CLI.Migration.csproj" />
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Abstractions.Agent\DevOpsMigrationPlatform.Abstractions.Agent.csproj" />
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.Agent\DevOpsMigrationPlatform.Infrastructure.Agent.csproj" />
+    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.Simulated\DevOpsMigrationPlatform.Infrastructure.Simulated.csproj" />
   </ItemGroup>
 

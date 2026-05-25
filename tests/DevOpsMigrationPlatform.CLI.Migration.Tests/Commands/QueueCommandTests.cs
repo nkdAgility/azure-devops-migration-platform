@@ -4,15 +4,33 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
+using System.Linq;
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
+using DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.ProjectLifecycle;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.TeamFoundation.Core.WebApi;
+using Microsoft.TeamFoundation.SourceControl.WebApi;
+using Microsoft.TeamFoundation.Work.WebApi;
+using Microsoft.TeamFoundation.WorkItemTracking.Process.WebApi;
+using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
+using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
+using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.Operations;
+using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Spectre.Console.Rendering;
 using Spectre.Console.Testing;
@@ -464,6 +482,9 @@ public class QueueCommandTests
     [TestCategory("SystemTest_Live")]
     public async Task Queue_Import_ADO_Fixture_CreatesIdmap()
     {
+        const int expectedImportedWorkItemCount = 2;
+        const string liveImportTemplatePath = "scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture.json";
+
         // ── Guard ─────────────────────────────────────────────────────────
         var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
         var patEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT");
@@ -475,36 +496,436 @@ public class QueueCommandTests
             return;
         }
 
-        // ── Act ───────────────────────────────────────────────────────────
-        var result = await CliRunner.RunTestAsync(
-            testName: nameof(Queue_Import_ADO_Fixture_CreatesIdmap),
-            args: ["queue", "--config", "scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture.json", "--force-fresh"],
-            timeout: TimeSpan.FromSeconds(55),
-            cleanOutputFolder: true);
-        var outputDir = result.OutputDirectory;
-
-        Console.WriteLine("=== STDOUT ===");
-        Console.WriteLine(result.StandardOutput);
-        if (!string.IsNullOrEmpty(result.StandardError))
+        ProjectLifecycleRecord? lifecycleRecord = null;
+        var lifecycleService = CreateAzureDevOpsProjectLifecycleService();
+        string? runtimeConfigPath = null;
+        string? runtimeFixtureZipPath = null;
+        try
         {
-            Console.WriteLine("=== STDERR ===");
-            Console.WriteLine(result.StandardError);
+            var preferredProcessName = await TryResolveProcessNameForExistingProjectAsync(
+                orgEnv,
+                patEnv,
+                Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PROJECT") ?? TryGetScenarioTargetProjectName(liveImportTemplatePath),
+                CancellationToken.None);
+
+            lifecycleRecord = await CreateTemporaryAzureDevOpsProjectAsync(
+                lifecycleService,
+                orgEnv,
+                patEnv,
+                preferredProcessName,
+                CancellationToken.None);
+
+            runtimeConfigPath = CreateLiveImportConfigForProject(
+                orgEnv,
+                lifecycleRecord.ProjectName,
+                out runtimeFixtureZipPath);
+            var runtimeConfig = File.ReadAllText(runtimeConfigPath);
+            Assert.IsTrue(runtimeConfig.Contains("\"Strategy\": \"TargetHyperlink\"", StringComparison.Ordinal),
+                "Runtime import config must override WorkItemResolutionStrategy.Strategy to 'TargetHyperlink'.");
+            var baselineWorkItemCount = await CountWorkItemsInProjectAsync(orgEnv, patEnv, lifecycleRecord.ProjectName);
+
+            // ── Act ───────────────────────────────────────────────────────────
+            var result = await CliRunner.RunTestAsync(
+                testName: nameof(Queue_Import_ADO_Fixture_CreatesIdmap),
+                args: ["queue", "--config", runtimeConfigPath, "--force-fresh"],
+                timeout: TimeSpan.FromSeconds(90),
+                cleanOutputFolder: true);
+            var outputDir = result.OutputDirectory;
+
+            Console.WriteLine("=== STDOUT ===");
+            Console.WriteLine(result.StandardOutput);
+            if (!string.IsNullOrEmpty(result.StandardError))
+            {
+                Console.WriteLine("=== STDERR ===");
+                Console.WriteLine(result.StandardError);
+            }
+
+            // ── Assert ────────────────────────────────────────────────────────
+            Assert.IsFalse(result.TimedOut, "CLI timed out.");
+            Assert.AreEqual(0, result.ExitCode,
+                $"CLI exited with code {result.ExitCode}. Check STDOUT/STDERR above.");
+
+            var combinedOutput = result.StandardOutput + result.StandardError;
+            Assert.IsTrue(
+                combinedOutput.Contains("import complete", StringComparison.OrdinalIgnoreCase) ||
+                combinedOutput.Contains("work item", StringComparison.OrdinalIgnoreCase),
+                "Expected CLI import progress message not found in output.");
+
+            var idmapFiles = Directory.GetFiles(outputDir, "idmap.db", SearchOption.AllDirectories);
+            Assert.IsTrue(idmapFiles.Length > 0,
+                $"idmap.db was not found anywhere under {outputDir} — import may not have processed any work items.");
+
+            var importedCount = await CountWorkItemsInProjectAsync(orgEnv, patEnv, lifecycleRecord.ProjectName);
+            var createdCount = importedCount - baselineWorkItemCount;
+            Assert.AreEqual(expectedImportedWorkItemCount, createdCount,
+                $"Expected {expectedImportedWorkItemCount} imported work items to be created in temporary project '{lifecycleRecord.ProjectName}', " +
+                $"but baseline={baselineWorkItemCount}, final={importedCount}, created={createdCount}.");
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(runtimeConfigPath) && File.Exists(runtimeConfigPath))
+                File.Delete(runtimeConfigPath);
+            if (!string.IsNullOrWhiteSpace(runtimeFixtureZipPath) && File.Exists(runtimeFixtureZipPath))
+                File.Delete(runtimeFixtureZipPath);
+
+            if (lifecycleRecord is not null)
+                await lifecycleService.TeardownAsync(lifecycleRecord, CancellationToken.None);
+        }
+    }
+
+    private static async Task<ProjectLifecycleRecord> CreateTemporaryAzureDevOpsProjectAsync(
+        IProjectLifecycleService lifecycleService,
+        string organisationUrl,
+        string accessToken,
+        string? preferredProcessName,
+        CancellationToken cancellationToken)
+    {
+        var processCandidates = new List<string>();
+        if (!string.IsNullOrWhiteSpace(preferredProcessName))
+            processCandidates.Add(preferredProcessName);
+        processCandidates.Add("Agile");
+        processCandidates.Add("Scrum");
+        processCandidates.Add("CMMI");
+        processCandidates.AddRange(
+            await GetAvailableProcessNamesAsync(organisationUrl, accessToken, cancellationToken));
+
+        ProjectLifecycleRecord? lastFailure = null;
+
+        foreach (var processName in processCandidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var context = CreateAzureDevOpsLifecycleContext(organisationUrl, accessToken, processName);
+            var record = await lifecycleService.CreateAsync(context, cancellationToken);
+            if (record.CreateResult == ProjectLifecycleCreateResult.Succeeded)
+                return record;
+
+            lastFailure = record;
+            if (record.CreateFailureReason?.IndexOf("disabled", StringComparison.OrdinalIgnoreCase) >= 0)
+                continue;
+
+            Assert.Fail($"Lifecycle setup failed for process '{processName}': {record.CreateFailureReason}");
         }
 
-        // ── Assert ────────────────────────────────────────────────────────
-        Assert.IsFalse(result.TimedOut, "CLI timed out.");
-        Assert.AreEqual(0, result.ExitCode,
-            $"CLI exited with code {result.ExitCode}. Check STDOUT/STDERR above.");
+        Assert.Fail($"Lifecycle setup failed for all candidate processes. Last failure: {lastFailure?.CreateFailureReason}");
+        return null!;
+    }
 
-        var combinedOutput = result.StandardOutput + result.StandardError;
-        Assert.IsTrue(
-            combinedOutput.Contains("import complete", StringComparison.OrdinalIgnoreCase) ||
-            combinedOutput.Contains("work item", StringComparison.OrdinalIgnoreCase),
-            "Expected CLI import progress message not found in output.");
+    private static async Task<IReadOnlyList<string>> GetAvailableProcessNamesAsync(
+        string organisationUrl,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        var endpoint = new OrganisationEndpoint
+        {
+            Type = "AzureDevOpsServices",
+            ResolvedUrl = organisationUrl,
+            Authentication = new OrganisationEndpointAuthentication
+            {
+                Type = AuthenticationType.AccessToken,
+                ResolvedAccessToken = accessToken
+            }
+        };
 
-        var idmapFiles = Directory.GetFiles(outputDir, "idmap.db", SearchOption.AllDirectories);
-        Assert.IsTrue(idmapFiles.Length > 0,
-            $"idmap.db was not found anywhere under {outputDir} — import may not have processed any work items.");
+        var clientFactory = new TestAzureDevOpsClientFactory();
+        var processClient = await clientFactory.CreateProcessClientAsync(endpoint, cancellationToken);
+        var processes = await processClient.GetListOfProcessesAsync(cancellationToken: cancellationToken);
+        return processes
+            .Select(p => p.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static async Task<string?> TryResolveProcessNameForExistingProjectAsync(
+        string organisationUrl,
+        string accessToken,
+        string? existingProjectName,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(existingProjectName))
+            return null;
+
+        var endpoint = new OrganisationEndpoint
+        {
+            Type = "AzureDevOpsServices",
+            ResolvedUrl = organisationUrl,
+            Authentication = new OrganisationEndpointAuthentication
+            {
+                Type = AuthenticationType.AccessToken,
+                ResolvedAccessToken = accessToken
+            }
+        };
+
+        var clientFactory = new TestAzureDevOpsClientFactory();
+        var projectClient = await clientFactory.CreateProjectClientAsync(endpoint, cancellationToken);
+        var processClient = await clientFactory.CreateProcessClientAsync(endpoint, cancellationToken);
+
+        var existingProject = await projectClient.GetProject(
+            existingProjectName,
+            includeCapabilities: true,
+            includeHistory: false,
+            userState: null);
+        if (existingProject.Capabilities is null)
+            return null;
+
+        if (!existingProject.Capabilities.TryGetValue(
+                TeamProjectCapabilitiesConstants.ProcessTemplateCapabilityName,
+                out var processCapability))
+            return null;
+
+        if (!processCapability.TryGetValue(
+                TeamProjectCapabilitiesConstants.ProcessTemplateCapabilityTemplateTypeIdAttributeName,
+                out var processTypeId) ||
+            !Guid.TryParse(processTypeId, out var processTypeGuid))
+            return null;
+
+        var processes = await processClient.GetListOfProcessesAsync(cancellationToken: cancellationToken);
+        var process = processes.FirstOrDefault(p => p.TypeId == processTypeGuid);
+        return process?.Name;
+    }
+
+    private static ProjectLifecycleContext CreateAzureDevOpsLifecycleContext(
+        string organisationUrl,
+        string accessToken,
+        string processName)
+    {
+        return new ProjectLifecycleContext
+        {
+            RunId = Guid.NewGuid().ToString("N"),
+            ConnectorType = "AzureDevOpsServices",
+            NamePrefix = "importsys",
+            ProcessName = processName,
+            Endpoint = new OrganisationEndpoint
+            {
+                Type = "AzureDevOpsServices",
+                ResolvedUrl = organisationUrl,
+                Authentication = new OrganisationEndpointAuthentication
+                {
+                    Type = AuthenticationType.AccessToken,
+                    ResolvedAccessToken = accessToken
+                }
+            }
+        };
+    }
+
+    private static IProjectLifecycleService CreateAzureDevOpsProjectLifecycleService()
+    {
+        var clientFactory = new TestAzureDevOpsClientFactory();
+        var processProvider = new AzureDevOpsProjectProcessProvider(clientFactory);
+        var processService = new SingleConnectorProjectProcessService(processProvider);
+        var lifecycleProvider = new AzureDevOpsProjectLifecycleProvider(clientFactory, processService);
+
+        return new ProjectLifecycleService(
+            new ProjectLifecycleNameGenerator(),
+            lifecycleProvider,
+            NullLogger<ProjectLifecycleService>.Instance);
+    }
+
+    private static async Task<int> CountWorkItemsInProjectAsync(string organisationUrl, string accessToken, string projectName)
+    {
+        var endpoint = new OrganisationEndpoint
+        {
+            Type = "AzureDevOpsServices",
+            ResolvedUrl = organisationUrl,
+            Authentication = new OrganisationEndpointAuthentication
+            {
+                Type = AuthenticationType.AccessToken,
+                ResolvedAccessToken = accessToken
+            }
+        };
+
+        var clientFactory = new TestAzureDevOpsClientFactory();
+        var workItemClient = await clientFactory.CreateWorkItemClientAsync(endpoint, CancellationToken.None);
+        var queryResult = await workItemClient.QueryByWiqlAsync(
+            new Wiql { Query = "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project" },
+            project: projectName,
+            cancellationToken: CancellationToken.None);
+
+        return queryResult.WorkItems is null ? 0 : queryResult.WorkItems.Count();
+    }
+
+    private static string CreateLiveImportConfigForProject(
+        string organisationUrl,
+        string projectName,
+        out string rewrittenFixtureZipPath)
+    {
+        var templatePath = ResolveScenarioTemplatePath("scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture.json");
+        rewrittenFixtureZipPath = CreateRuntimeFixtureZip(templatePath, organisationUrl, projectName);
+        var tempConfigPath = Path.Combine(
+            Path.GetTempPath(),
+            $"SystemTest-Live-Import-AzureDevOps-{Guid.NewGuid():N}.json");
+
+        var root = JsonNode.Parse(File.ReadAllText(templatePath))
+            ?? throw new InvalidOperationException($"Could not parse scenario template '{templatePath}'.");
+        var migrationPlatform = root["MigrationPlatform"]?.AsObject()
+            ?? throw new InvalidOperationException("Scenario template does not contain MigrationPlatform object.");
+        var target = migrationPlatform["Target"]?.AsObject()
+            ?? throw new InvalidOperationException("Scenario template does not contain Target object.");
+        var package = migrationPlatform["Package"]?.AsObject()
+            ?? throw new InvalidOperationException("Scenario template does not contain Package object.");
+
+        target["Project"] = projectName;
+        package["PackagePath"] = rewrittenFixtureZipPath;
+
+        var extensions = migrationPlatform["Modules"]?["WorkItems"]?["Extensions"]?.AsObject()
+            ?? throw new InvalidOperationException("Scenario template does not contain Modules.WorkItems.Extensions object.");
+        extensions["WorkItemResolutionStrategy"] = new JsonObject
+        {
+            ["Strategy"] = "TargetHyperlink",
+            ["UrlPattern"] = string.Empty
+        };
+
+        File.WriteAllText(
+            tempConfigPath,
+            root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+
+        return tempConfigPath;
+    }
+
+    private static string CreateRuntimeFixtureZip(
+        string scenarioTemplatePath,
+        string organisationUrl,
+        string targetProjectName)
+    {
+        var root = JsonNode.Parse(File.ReadAllText(scenarioTemplatePath))
+            ?? throw new InvalidOperationException($"Could not parse scenario template '{scenarioTemplatePath}'.");
+        var packagePath = root["MigrationPlatform"]?["Package"]?["PackagePath"]?.GetValue<string>()
+            ?? throw new InvalidOperationException("Scenario template does not contain MigrationPlatform.Package.PackagePath.");
+
+        var repoRoot = CliRunner.FindRepoRoot();
+        var sourceZipPath = Path.Combine(repoRoot, packagePath.Replace('/', Path.DirectorySeparatorChar));
+        if (!File.Exists(sourceZipPath))
+            throw new InvalidOperationException($"Fixture zip not found at '{sourceZipPath}'.");
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"workitems-fixture-{Guid.NewGuid():N}");
+        var extractPath = Path.Combine(tempRoot, "extract");
+        Directory.CreateDirectory(extractPath);
+
+        ZipFile.ExtractToDirectory(sourceZipPath, extractPath);
+        var revisionFiles = Directory.GetFiles(extractPath, "revision.json", SearchOption.AllDirectories);
+        foreach (var revisionFile in revisionFiles)
+        {
+            var revision = JsonNode.Parse(File.ReadAllText(revisionFile)) as JsonObject;
+            if (revision is null)
+                continue;
+
+            if (revision["fields"] is not JsonArray fields)
+                continue;
+
+            foreach (var fieldNode in fields)
+            {
+                if (fieldNode is not JsonObject field)
+                    continue;
+
+                var referenceName = field["referenceName"]?.GetValue<string>();
+                if (!string.Equals(referenceName, "System.WorkItemType", StringComparison.Ordinal))
+                    continue;
+
+                var typeValue = field["value"]?.GetValue<string>();
+                if (string.Equals(typeValue, "User Story", StringComparison.OrdinalIgnoreCase))
+                    field["value"] = "Task";
+            }
+
+            File.WriteAllText(
+                revisionFile,
+                revision.ToJsonString(new JsonSerializerOptions { WriteIndented = false }));
+        }
+
+        var organisationSlug = ResolveOrganisationSlug(organisationUrl);
+        var scopedRoot = Path.Combine(extractPath, organisationSlug, targetProjectName);
+        Directory.CreateDirectory(scopedRoot);
+        foreach (var moduleFolderName in new[] { "Identities", "Nodes", "Teams", "WorkItems" })
+        {
+            var modulePath = Path.Combine(extractPath, moduleFolderName);
+            if (!Directory.Exists(modulePath))
+                continue;
+
+            var scopedModulePath = Path.Combine(scopedRoot, moduleFolderName);
+            if (Directory.Exists(scopedModulePath))
+                Directory.Delete(scopedModulePath, recursive: true);
+
+            Directory.Move(modulePath, scopedModulePath);
+        }
+
+        var tempZipPath = Path.Combine(Path.GetTempPath(), $"workitems-2items-flat-runtime-{Guid.NewGuid():N}.zip");
+        if (File.Exists(tempZipPath))
+            File.Delete(tempZipPath);
+
+        ZipFile.CreateFromDirectory(extractPath, tempZipPath);
+        Directory.Delete(tempRoot, recursive: true);
+        return tempZipPath;
+    }
+
+    private static string ResolveOrganisationSlug(string organisationUrl)
+    {
+        var uri = new Uri(organisationUrl);
+        if (uri.Host.Equals("dev.azure.com", StringComparison.OrdinalIgnoreCase))
+        {
+            var segment = uri.AbsolutePath.Trim('/').Split('/').FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(segment))
+                return segment;
+        }
+
+        return uri.Host.Split('.')[0];
+    }
+
+    private static string ResolveScenarioTemplatePath(string relativePath)
+    {
+        var repoRoot = CliRunner.FindRepoRoot();
+        return Path.Combine(repoRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
+    }
+
+    private static string? TryGetScenarioTargetProjectName(string relativeTemplatePath)
+    {
+        var templatePath = ResolveScenarioTemplatePath(relativeTemplatePath);
+        if (!File.Exists(templatePath))
+            return null;
+
+        var root = JsonNode.Parse(File.ReadAllText(templatePath));
+        return root?["MigrationPlatform"]?["Target"]?["Project"]?.GetValue<string>();
+    }
+
+    private sealed class SingleConnectorProjectProcessService : IProjectProcessService
+    {
+        private readonly IProjectProcessProvider _provider;
+
+        public SingleConnectorProjectProcessService(IProjectProcessProvider provider)
+            => _provider = provider ?? throw new ArgumentNullException(nameof(provider));
+
+        public Task<string> ResolveProcessTypeIdAsync(ProjectLifecycleContext context, CancellationToken cancellationToken)
+            => _provider.ResolveProcessTypeIdAsync(context, cancellationToken);
+    }
+
+    private sealed class TestAzureDevOpsClientFactory : IAzureDevOpsClientFactory
+    {
+        public Task<ProjectHttpClient> CreateProjectClientAsync(OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)
+            => CreateConnection(endpoint).GetClientAsync<ProjectHttpClient>(cancellationToken);
+
+        public Task<WorkItemTrackingHttpClient> CreateWorkItemClientAsync(OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)
+            => CreateConnection(endpoint).GetClientAsync<WorkItemTrackingHttpClient>(cancellationToken);
+
+        public Task<GitHttpClient> CreateGitClientAsync(OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)
+            => CreateConnection(endpoint).GetClientAsync<GitHttpClient>(cancellationToken);
+
+        public Task<TeamHttpClient> CreateTeamClientAsync(OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)
+            => CreateConnection(endpoint).GetClientAsync<TeamHttpClient>(cancellationToken);
+
+        public Task<WorkHttpClient> CreateWorkClientAsync(OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)
+            => CreateConnection(endpoint).GetClientAsync<WorkHttpClient>(cancellationToken);
+
+        public Task<OperationsHttpClient> CreateOperationsClientAsync(OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)
+            => CreateConnection(endpoint).GetClientAsync<OperationsHttpClient>(cancellationToken);
+
+        public Task<WorkItemTrackingProcessHttpClient> CreateProcessClientAsync(OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)
+            => CreateConnection(endpoint).GetClientAsync<WorkItemTrackingProcessHttpClient>(cancellationToken);
+
+        private static VssConnection CreateConnection(OrganisationEndpoint endpoint)
+        {
+            var pat = endpoint.Authentication.ResolvedAccessToken;
+            VssCredentials credentials = string.IsNullOrWhiteSpace(pat)
+                ? new VssCredentials()
+                : (VssCredentials)new VssBasicCredential(string.Empty, pat);
+            return new VssConnection(new Uri(endpoint.ResolvedUrl), credentials);
+        }
     }
 
     /// <summary>
