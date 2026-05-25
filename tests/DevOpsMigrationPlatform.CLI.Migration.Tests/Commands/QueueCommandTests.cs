@@ -502,7 +502,7 @@ public class QueueCommandTests
     public async Task Queue_Import_ADO_Fixture_CreatesIdmap()
     {
         const int expectedImportedWorkItemCount = 2;
-        const string liveImportTemplatePath = "scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture.json";
+        const string sourceFixtureType = "User Story";
 
         // ── Guard ─────────────────────────────────────────────────────────
         var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
@@ -520,11 +520,7 @@ public class QueueCommandTests
         string? runtimeConfigPath = null;
         try
         {
-            var preferredProcessName = await TryResolveProcessNameForExistingProjectAsync(
-                orgEnv,
-                patEnv,
-                Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PROJECT") ?? TryGetScenarioTargetProjectName(liveImportTemplatePath),
-                CancellationToken.None);
+            const string preferredProcessName = "Agile";
 
             lifecycleRecord = await CreateTemporaryAzureDevOpsProjectAsync(
                 lifecycleService,
@@ -533,7 +529,13 @@ public class QueueCommandTests
                 preferredProcessName,
                 CancellationToken.None);
 
-            runtimeConfigPath = CreateLiveImportConfigForProject(lifecycleRecord.ProjectName);
+            var availableTypes = await GetWorkItemTypeNamesAsync(
+                orgEnv,
+                patEnv,
+                lifecycleRecord.ProjectName,
+                CancellationToken.None);
+            var mappedTargetType = ResolveTargetWorkItemTypeForFixture(sourceFixtureType, availableTypes);
+            runtimeConfigPath = CreateLiveImportConfigForProject(lifecycleRecord.ProjectName, sourceFixtureType, mappedTargetType);
             var runtimeConfig = File.ReadAllText(runtimeConfigPath);
             Assert.IsTrue(runtimeConfig.Contains("\"Strategy\": \"TargetHyperlink\"", StringComparison.Ordinal),
                 "Runtime import config must override WorkItemResolutionStrategy.Strategy to 'TargetHyperlink'.");
@@ -593,9 +595,17 @@ public class QueueCommandTests
         string? preferredProcessName,
         CancellationToken cancellationToken)
     {
-        var processCandidates = new List<string>();
         if (!string.IsNullOrWhiteSpace(preferredProcessName))
-            processCandidates.Add(preferredProcessName);
+        {
+            var requestedContext = CreateAzureDevOpsLifecycleContext(organisationUrl, accessToken, preferredProcessName);
+            var requestedRecord = await lifecycleService.CreateAsync(requestedContext, cancellationToken);
+            if (requestedRecord.CreateResult == ProjectLifecycleCreateResult.Succeeded)
+                return requestedRecord;
+
+            Assert.Fail($"Lifecycle setup failed for explicitly requested process '{preferredProcessName}': {requestedRecord.CreateFailureReason}");
+        }
+
+        var processCandidates = new List<string>();
         processCandidates.Add("Agile");
         processCandidates.Add("Scrum");
         processCandidates.Add("CMMI");
@@ -603,7 +613,6 @@ public class QueueCommandTests
             await GetAvailableProcessNamesAsync(organisationUrl, accessToken, cancellationToken));
 
         ProjectLifecycleRecord? lastFailure = null;
-
         foreach (var processName in processCandidates.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             var context = CreateAzureDevOpsLifecycleContext(organisationUrl, accessToken, processName);
@@ -621,6 +630,7 @@ public class QueueCommandTests
         Assert.Fail($"Lifecycle setup failed for all candidate processes. Last failure: {lastFailure?.CreateFailureReason}");
         return null!;
     }
+
 
     private static async Task<IReadOnlyList<string>> GetAvailableProcessNamesAsync(
         string organisationUrl,
@@ -646,6 +656,34 @@ public class QueueCommandTests
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private static async Task<HashSet<string>> GetWorkItemTypeNamesAsync(
+        string organisationUrl,
+        string accessToken,
+        string projectName,
+        CancellationToken cancellationToken)
+    {
+        var endpoint = new OrganisationEndpoint
+        {
+            Type = "AzureDevOpsServices",
+            ResolvedUrl = organisationUrl,
+            Authentication = new OrganisationEndpointAuthentication
+            {
+                Type = AuthenticationType.AccessToken,
+                ResolvedAccessToken = accessToken
+            }
+        };
+
+        var clientFactory = new TestAzureDevOpsClientFactory();
+        var workItemClient = await clientFactory.CreateWorkItemClientAsync(endpoint, cancellationToken);
+        var workItemTypes = await workItemClient.GetWorkItemTypesAsync(projectName, cancellationToken: cancellationToken);
+
+        return workItemTypes
+            .Select(type => type.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     private static async Task<string?> TryResolveProcessNameForExistingProjectAsync(
@@ -756,7 +794,26 @@ public class QueueCommandTests
         return queryResult.WorkItems is null ? 0 : queryResult.WorkItems.Count();
     }
 
-    private static string CreateLiveImportConfigForProject(string projectName)
+    private static string ResolveTargetWorkItemTypeForFixture(
+        string sourceFixtureType,
+        IReadOnlyCollection<string> availableTypes)
+    {
+        if (availableTypes.Contains(sourceFixtureType, StringComparer.OrdinalIgnoreCase))
+            return sourceFixtureType;
+
+        if (availableTypes.Contains("Product Backlog Item", StringComparer.OrdinalIgnoreCase))
+            return "Product Backlog Item";
+
+        if (availableTypes.Contains("Issue", StringComparer.OrdinalIgnoreCase))
+            return "Issue";
+
+        Assert.Fail(
+            $"Temporary target project does not contain '{sourceFixtureType}', 'Product Backlog Item', or 'Issue'. " +
+            $"Available types: {string.Join(", ", availableTypes.OrderBy(type => type, StringComparer.OrdinalIgnoreCase))}.");
+        return sourceFixtureType;
+    }
+
+    private static string CreateLiveImportConfigForProject(string projectName, string sourceType, string targetType)
     {
         var templatePath = ResolveScenarioTemplatePath("scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture.json");
         var tempConfigPath = Path.Combine(
@@ -778,6 +835,34 @@ public class QueueCommandTests
         {
             ["Strategy"] = "TargetHyperlink",
             ["UrlPattern"] = string.Empty
+        };
+        migrationPlatform["Tools"] = new JsonObject
+        {
+            ["FieldTransform"] = new JsonObject
+            {
+                ["Enabled"] = true,
+                ["TransformGroups"] = new JsonArray
+                {
+                    new JsonObject
+                    {
+                        ["Name"] = "MapFixtureWorkItemType",
+                        ["Enabled"] = true,
+                        ["Transforms"] = new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["Type"] = "MapValue",
+                                ["Enabled"] = true,
+                                ["Field"] = "System.WorkItemType",
+                                ["ValueMap"] = new JsonObject
+                                {
+                                    [sourceType] = targetType
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         };
 
         File.WriteAllText(

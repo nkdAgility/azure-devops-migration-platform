@@ -219,7 +219,7 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
             if (line.StartsWith("event:") && line.Contains("job-failed"))
             {
                 _logger.LogWarning("Control plane SSE stream reported job-failed for {JobId}", jobId);
-                throw new InvalidOperationException("Job failed on the agent. Check agent logs for details.");
+                throw new InvalidOperationException("Job failed on the agent. Check errors.json in the package root for details.");
             }
 
             if (line.StartsWith("event:") && line.Contains("job-ended"))

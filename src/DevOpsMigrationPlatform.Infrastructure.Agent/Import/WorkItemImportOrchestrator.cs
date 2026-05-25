@@ -325,7 +325,7 @@ public sealed class WorkItemImportOrchestrator
         IReadOnlyList<WorkItemFieldFilterOptions> filterOptions,
         CancellationToken ct)
     {
-        var json = await ReadPackageTextAsync($"{folderPath}revision.json", ct).ConfigureAwait(false);
+        var json = await ReadPackageTextAsync(CombineFolderFile(folderPath, "revision.json"), ct).ConfigureAwait(false);
         if (json is null)
             return false;
 
@@ -391,7 +391,7 @@ public sealed class WorkItemImportOrchestrator
             return;
         }
 
-        var commentJson = await ReadPackageTextAsync($"{folderPath}/comment.json", ct).ConfigureAwait(false);
+        var commentJson = await ReadPackageTextAsync(CombineFolderFile(folderPath, "comment.json"), ct).ConfigureAwait(false);
         if (commentJson is null)
         {
             _logger.LogWarning("[WorkItems] comment.json not found in {Folder} — skipping.", folderPath);
@@ -425,30 +425,106 @@ public sealed class WorkItemImportOrchestrator
     private async IAsyncEnumerable<string> EnumerateWorkItemFoldersAsync(
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
-        var paths = _package.EnumerateContentAsync(
-            new PackageContentContext(
+        var scopedContext = new PackageContentContext(
+            PackageContentKind.Collection,
+            Organisation: _organisation,
+            Project: _project,
+            Module: "WorkItems",
+            IsCollectionRequest: true);
+
+        var yieldedAny = false;
+        await foreach (var folderPath in EnumerateWorkItemFoldersFromContextAsync(scopedContext, ct).ConfigureAwait(false))
+        {
+            yieldedAny = true;
+            yield return folderPath;
+        }
+
+        if (!yieldedAny && (!string.IsNullOrWhiteSpace(_organisation) || !string.IsNullOrWhiteSpace(_project)))
+        {
+            _logger.LogInformation(
+                "[WorkItems] No revision/comment folders found under source scope {Org}/{Project}/WorkItems; falling back to root WorkItems/.",
+                _organisation,
+                _project);
+
+            var rootContext = new PackageContentContext(
                 PackageContentKind.Collection,
-                Organisation: _organisation,
-                Project: _project,
                 Module: "WorkItems",
-                IsCollectionRequest: true),
-            ct);
+                IsCollectionRequest: true);
+
+            await foreach (var folderPath in EnumerateWorkItemFoldersFromContextAsync(rootContext, ct).ConfigureAwait(false))
+                yield return folderPath;
+        }
+    }
+
+    private async IAsyncEnumerable<string> EnumerateWorkItemFoldersFromContextAsync(
+        PackageContentContext context,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+    {
+        var paths = _package.EnumerateContentAsync(context, ct);
         if (paths is null)
             yield break;
 
         string? previousPath = null;
         await foreach (var path in paths.ConfigureAwait(false))
         {
-            if (previousPath is not null && string.CompareOrdinal(path, previousPath) < 0)
+            var candidateFolderPath = TryGetImportFolderPath(path);
+            if (candidateFolderPath is null || candidateFolderPath.Length == 0)
+                continue;
+            var folderPath = candidateFolderPath;
+
+            if (previousPath is not null && string.CompareOrdinal(folderPath, previousPath) < 0)
             {
                 throw new InvalidOperationException(
-                    $"WorkItems package enumeration must be lexicographic ascending. Previous='{previousPath}', Current='{path}'.");
+                    $"WorkItems package enumeration must be lexicographic ascending. Previous='{previousPath}', Current='{folderPath}'.");
             }
 
-            previousPath = path;
-            yield return path;
+            if (string.Equals(folderPath, previousPath, StringComparison.Ordinal))
+                continue;
+
+            previousPath = folderPath;
+            yield return folderPath;
         }
     }
+
+    private static string? TryGetImportFolderPath(string path)
+    {
+        var normalized = path.Replace('\\', '/');
+        var hadTrailingSlash = normalized.EndsWith("/", StringComparison.Ordinal);
+        var folderCandidate = normalized.TrimEnd('/');
+        if (LooksLikeImportFolderPath(folderCandidate))
+            return hadTrailingSlash ? $"{folderCandidate}/" : folderCandidate;
+
+        if (!folderCandidate.EndsWith("/revision.json", StringComparison.OrdinalIgnoreCase)
+            && !folderCandidate.EndsWith("/comment.json", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var lastSlash = folderCandidate.LastIndexOf('/');
+        if (lastSlash <= 0)
+            return null;
+        return folderCandidate.Substring(0, lastSlash);
+    }
+
+    private static bool LooksLikeImportFolderPath(string normalizedFolderPath)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedFolderPath))
+            return false;
+
+        var folderName = GetFolderName(normalizedFolderPath);
+        var segments = folderName.Split('-');
+        if (segments.Length < 3)
+            return false;
+
+        if (!int.TryParse(segments[1], out _))
+            return false;
+
+        return int.TryParse(segments[2], out _)
+               || segments[2].StartsWith("c", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string CombineFolderFile(string folderPath, string fileName)
+        => $"{folderPath.TrimEnd('/')}/{fileName}";
 
     private async Task<string?> ReadPackageTextAsync(string path, CancellationToken ct)
     {

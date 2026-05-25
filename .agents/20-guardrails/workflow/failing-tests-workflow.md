@@ -218,6 +218,12 @@ Do not guess.
 
 Read first.
 
+Evidence read order is mandatory:
+
+1. Test result artifacts and test runner output (`.trx`, stdout, stderr, assertion text)
+2. OTel diagnostics and raw payload logs
+3. Generated package files
+
 OTel diagnostics are written by every spawned CLI or agent process:
 
 ```text
@@ -230,10 +236,14 @@ Files to read:
 - `*.metrics.json`, counter snapshots
 - `inbox\`, raw bootstrap, telemetry, and progress payloads
 
-Also read:
+First read:
+- Test result artifacts (`TestResults\*.trx`)
 - Test stdout
 - Test stderr
 - Assertion output
+
+Then read:
+- OTel diagnostics files
 - Relevant generated package files
 
 Trace the failure path:
@@ -465,11 +475,12 @@ A completion claim without this output is invalid.
 
 | Source | Path |
 |--------|------|
+| Test result artifacts (first) | `TestResults\*.trx` |
+| Test stdout/stderr (first) | Captured in test runner console output |
 | OTel logs per test | `.output\workingtests\<TestName>\.otel-diagnostics\*-logs.log` |
 | OTel traces per test | `.output\workingtests\<TestName>\.otel-diagnostics\*-traces.json` |
 | Raw payloads | `.output\workingtests\<TestName>\.otel-diagnostics\inbox\` |
 | Package output | `.output\workingtests\<TestName>\<org>\<project>\` |
-| Test stdout | Captured in test runner console output |
 
 ---
 

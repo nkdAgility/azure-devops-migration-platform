@@ -60,7 +60,7 @@ Repeat Phase A until every failing test from the current failing list passes.
 ```text
 [ ] 1. Run the last relevant suite and collect every failing test by name
 [ ] 2.1 For each failing test, validate it still fails by running it in isolation
-[ ] 2.2 Read .otel-diagnostics logs and test results, DO NOT GUESS
+[ ] 2.2 Read test results first, then .otel-diagnostics logs, DO NOT GUESS
 [ ] 2.3 State root cause with evidence from logs or test output before changing anything
 [ ] 2.4 Apply the smallest possible single fix
 [ ] 2.5 Run that one test again
@@ -194,11 +194,11 @@ Do not soften this. Do not claim partial completion as completion.
 
 | What | Where |
 |------|-------|
-| OTel logs | `.output\workingtests\<TestName>\.otel-diagnostics\*-logs.log` |
+| Test results (first) | `TestResults\*.trx` and test runner console output |
+| OTel logs (after test results) | `.output\workingtests\<TestName>\.otel-diagnostics\*-logs.log` |
 | OTel traces | `.output\workingtests\<TestName>\.otel-diagnostics\*-traces.json` |
 | Raw payloads | `.output\workingtests\<TestName>\.otel-diagnostics\inbox\` |
 | Package output | `.output\workingtests\<TestName>\<org>\<project>\` |
-| Test stdout | Test runner console output |
 
 ---
 
