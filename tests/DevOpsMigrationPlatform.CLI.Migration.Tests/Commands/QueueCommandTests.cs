@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
@@ -519,7 +518,6 @@ public class QueueCommandTests
         ProjectLifecycleRecord? lifecycleRecord = null;
         var lifecycleService = CreateAzureDevOpsProjectLifecycleService();
         string? runtimeConfigPath = null;
-        string? runtimeFixtureZipPath = null;
         try
         {
             var preferredProcessName = await TryResolveProcessNameForExistingProjectAsync(
@@ -535,10 +533,7 @@ public class QueueCommandTests
                 preferredProcessName,
                 CancellationToken.None);
 
-            runtimeConfigPath = CreateLiveImportConfigForProject(
-                orgEnv,
-                lifecycleRecord.ProjectName,
-                out runtimeFixtureZipPath);
+            runtimeConfigPath = CreateLiveImportConfigForProject(lifecycleRecord.ProjectName);
             var runtimeConfig = File.ReadAllText(runtimeConfigPath);
             Assert.IsTrue(runtimeConfig.Contains("\"Strategy\": \"TargetHyperlink\"", StringComparison.Ordinal),
                 "Runtime import config must override WorkItemResolutionStrategy.Strategy to 'TargetHyperlink'.");
@@ -585,8 +580,6 @@ public class QueueCommandTests
         {
             if (!string.IsNullOrWhiteSpace(runtimeConfigPath) && File.Exists(runtimeConfigPath))
                 File.Delete(runtimeConfigPath);
-            if (!string.IsNullOrWhiteSpace(runtimeFixtureZipPath) && File.Exists(runtimeFixtureZipPath))
-                File.Delete(runtimeFixtureZipPath);
 
             if (lifecycleRecord is not null)
                 await lifecycleService.TeardownAsync(lifecycleRecord, CancellationToken.None);
@@ -763,13 +756,9 @@ public class QueueCommandTests
         return queryResult.WorkItems is null ? 0 : queryResult.WorkItems.Count();
     }
 
-    private static string CreateLiveImportConfigForProject(
-        string organisationUrl,
-        string projectName,
-        out string rewrittenFixtureZipPath)
+    private static string CreateLiveImportConfigForProject(string projectName)
     {
         var templatePath = ResolveScenarioTemplatePath("scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture.json");
-        rewrittenFixtureZipPath = CreateRuntimeFixtureZip(templatePath, organisationUrl, projectName);
         var tempConfigPath = Path.Combine(
             Path.GetTempPath(),
             $"SystemTest-Live-Import-AzureDevOps-{Guid.NewGuid():N}.json");
@@ -780,11 +769,8 @@ public class QueueCommandTests
             ?? throw new InvalidOperationException("Scenario template does not contain MigrationPlatform object.");
         var target = migrationPlatform["Target"]?.AsObject()
             ?? throw new InvalidOperationException("Scenario template does not contain Target object.");
-        var package = migrationPlatform["Package"]?.AsObject()
-            ?? throw new InvalidOperationException("Scenario template does not contain Package object.");
 
         target["Project"] = projectName;
-        package["PackagePath"] = rewrittenFixtureZipPath;
 
         var extensions = migrationPlatform["Modules"]?["WorkItems"]?["Extensions"]?.AsObject()
             ?? throw new InvalidOperationException("Scenario template does not contain Modules.WorkItems.Extensions object.");
@@ -799,93 +785,6 @@ public class QueueCommandTests
             root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 
         return tempConfigPath;
-    }
-
-    private static string CreateRuntimeFixtureZip(
-        string scenarioTemplatePath,
-        string organisationUrl,
-        string targetProjectName)
-    {
-        var root = JsonNode.Parse(File.ReadAllText(scenarioTemplatePath))
-            ?? throw new InvalidOperationException($"Could not parse scenario template '{scenarioTemplatePath}'.");
-        var packagePath = root["MigrationPlatform"]?["Package"]?["PackagePath"]?.GetValue<string>()
-            ?? throw new InvalidOperationException("Scenario template does not contain MigrationPlatform.Package.PackagePath.");
-
-        var repoRoot = CliRunner.FindRepoRoot();
-        var sourceZipPath = Path.Combine(repoRoot, packagePath.Replace('/', Path.DirectorySeparatorChar));
-        if (!File.Exists(sourceZipPath))
-            throw new InvalidOperationException($"Fixture zip not found at '{sourceZipPath}'.");
-
-        var tempRoot = Path.Combine(Path.GetTempPath(), $"workitems-fixture-{Guid.NewGuid():N}");
-        var extractPath = Path.Combine(tempRoot, "extract");
-        Directory.CreateDirectory(extractPath);
-
-        ZipFile.ExtractToDirectory(sourceZipPath, extractPath);
-        var revisionFiles = Directory.GetFiles(extractPath, "revision.json", SearchOption.AllDirectories);
-        foreach (var revisionFile in revisionFiles)
-        {
-            var revision = JsonNode.Parse(File.ReadAllText(revisionFile)) as JsonObject;
-            if (revision is null)
-                continue;
-
-            if (revision["fields"] is not JsonArray fields)
-                continue;
-
-            foreach (var fieldNode in fields)
-            {
-                if (fieldNode is not JsonObject field)
-                    continue;
-
-                var referenceName = field["referenceName"]?.GetValue<string>();
-                if (!string.Equals(referenceName, "System.WorkItemType", StringComparison.Ordinal))
-                    continue;
-
-                var typeValue = field["value"]?.GetValue<string>();
-                if (string.Equals(typeValue, "User Story", StringComparison.OrdinalIgnoreCase))
-                    field["value"] = "Task";
-            }
-
-            File.WriteAllText(
-                revisionFile,
-                revision.ToJsonString(new JsonSerializerOptions { WriteIndented = false }));
-        }
-
-        var organisationSlug = ResolveOrganisationSlug(organisationUrl);
-        var scopedRoot = Path.Combine(extractPath, organisationSlug, targetProjectName);
-        Directory.CreateDirectory(scopedRoot);
-        foreach (var moduleFolderName in new[] { "Identities", "Nodes", "Teams", "WorkItems" })
-        {
-            var modulePath = Path.Combine(extractPath, moduleFolderName);
-            if (!Directory.Exists(modulePath))
-                continue;
-
-            var scopedModulePath = Path.Combine(scopedRoot, moduleFolderName);
-            if (Directory.Exists(scopedModulePath))
-                Directory.Delete(scopedModulePath, recursive: true);
-
-            Directory.Move(modulePath, scopedModulePath);
-        }
-
-        var tempZipPath = Path.Combine(Path.GetTempPath(), $"workitems-2items-flat-runtime-{Guid.NewGuid():N}.zip");
-        if (File.Exists(tempZipPath))
-            File.Delete(tempZipPath);
-
-        ZipFile.CreateFromDirectory(extractPath, tempZipPath);
-        Directory.Delete(tempRoot, recursive: true);
-        return tempZipPath;
-    }
-
-    private static string ResolveOrganisationSlug(string organisationUrl)
-    {
-        var uri = new Uri(organisationUrl);
-        if (uri.Host.Equals("dev.azure.com", StringComparison.OrdinalIgnoreCase))
-        {
-            var segment = uri.AbsolutePath.Trim('/').Split('/').FirstOrDefault();
-            if (!string.IsNullOrWhiteSpace(segment))
-                return segment;
-        }
-
-        return uri.Host.Split('.')[0];
     }
 
     private static string ResolveScenarioTemplatePath(string relativePath)
