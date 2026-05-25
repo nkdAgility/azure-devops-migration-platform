@@ -96,6 +96,7 @@ public static class SimulatedServiceCollectionExtensions
         // Team target — in-memory simulation of team creation, keyed for composite dispatch.
         services.AddTeamTarget<SimulatedTeamTarget>("Simulated");
         services.AddProjectLifecycleProvider<SimulatedProjectLifecycleProvider>("Simulated");
+        services.AddProjectProcessProvider<SimulatedProjectProcessProvider>("Simulated");
 
         return services;
     }

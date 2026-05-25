@@ -1,0 +1,20 @@
+name: Orchestrator Guardrails
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+
+jobs:
+  validate-orchestrator:
+    name: Validate orchestrator fail-closed gates
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate orchestrator guardrails
+        shell: pwsh
+        run: pwsh ./scripts/guardrails/validate-orchestrator.ps1 -RepoRoot "${{ github.workspace }}"

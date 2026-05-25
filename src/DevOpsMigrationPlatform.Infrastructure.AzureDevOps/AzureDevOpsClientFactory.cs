@@ -9,8 +9,10 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.TeamFoundation.Work.WebApi;
+using Microsoft.TeamFoundation.WorkItemTracking.Process.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.Operations;
 using Microsoft.VisualStudio.Services.WebApi;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
@@ -54,6 +56,20 @@ internal sealed class AzureDevOpsClientFactory : IAzureDevOpsClientFactory
     {
         var connection = CreateConnection(endpoint);
         return connection.GetClientAsync<WorkHttpClient>(cancellationToken);
+    }
+
+    public Task<OperationsHttpClient> CreateOperationsClientAsync(
+        OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)
+    {
+        var connection = CreateConnection(endpoint);
+        return connection.GetClientAsync<OperationsHttpClient>(cancellationToken);
+    }
+
+    public Task<WorkItemTrackingProcessHttpClient> CreateProcessClientAsync(
+        OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)
+    {
+        var connection = CreateConnection(endpoint);
+        return connection.GetClientAsync<WorkItemTrackingProcessHttpClient>(cancellationToken);
     }
 
     private static VssConnection CreateConnection(OrganisationEndpoint endpoint)

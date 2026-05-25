@@ -37,5 +37,6 @@ public sealed class ProjectLifecycleContext
     public string ConnectorType { get; init; } = string.Empty;
     public string ProjectName { get; init; } = string.Empty;
     public string? NamePrefix { get; init; }
+    public string? ProcessName { get; init; }
     public OrganisationEndpoint Endpoint { get; init; } = new();
 }

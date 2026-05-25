@@ -84,6 +84,7 @@ public static class TfsMigrationAgentServiceExtensions
         services.AddScoped<IRevisionFolderProcessorFactory, RevisionFolderProcessorFactory>();
         services.AddNodeCreator<TfsActiveJobNodeCreator>("TeamFoundationServer");
         services.AddProjectLifecycleProvider<TfsProjectLifecycleProvider>("TeamFoundationServer");
+        services.AddProjectProcessProvider<TfsProjectProcessProvider>("TeamFoundationServer");
 
         // Field transform and node translation tools for import.
         services.AddFieldTransformToolServices();

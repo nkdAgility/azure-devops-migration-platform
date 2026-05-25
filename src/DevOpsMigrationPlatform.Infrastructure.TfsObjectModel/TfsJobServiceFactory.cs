@@ -39,13 +39,16 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
 {
     private readonly ILoggerFactory _loggerFactory;
     private readonly IProjectLifecycleNameGenerator _projectLifecycleNameGenerator;
+    private readonly IProjectProcessService _processService;
 
     public TfsJobServiceFactory(
         ILoggerFactory loggerFactory,
-        IProjectLifecycleNameGenerator projectLifecycleNameGenerator)
+        IProjectLifecycleNameGenerator projectLifecycleNameGenerator,
+        IProjectProcessService processService)
     {
         _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
         _projectLifecycleNameGenerator = projectLifecycleNameGenerator ?? throw new ArgumentNullException(nameof(projectLifecycleNameGenerator));
+        _processService = processService ?? throw new ArgumentNullException(nameof(processService));
     }
 
     /// <summary>
@@ -181,7 +184,7 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
             _loggerFactory.CreateLogger<TfsTeamSource>());
         var projectLifecycleService = new ProjectLifecycleService(
             _projectLifecycleNameGenerator,
-            new TfsProjectLifecycleProvider(),
+            new TfsProjectLifecycleProvider(_processService),
             _loggerFactory.CreateLogger<ProjectLifecycleService>());
 
         return new TfsJobServices(

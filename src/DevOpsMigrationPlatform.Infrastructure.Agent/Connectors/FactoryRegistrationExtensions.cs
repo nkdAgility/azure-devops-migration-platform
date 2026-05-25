@@ -212,4 +212,20 @@ public static class FactoryRegistrationExtensions
         services.TryAddSingleton<ProjectLifecycleProgressEmitter>();
         return services;
     }
+
+    /// <summary>
+    /// Registers a concrete <see cref="IProjectProcessProvider"/> keyed by
+    /// <paramref name="typeKey"/> and ensures <see cref="ProjectProcessService"/> is registered
+    /// as <see cref="IProjectProcessService"/>.
+    /// </summary>
+    public static IServiceCollection AddProjectProcessProvider<T>(
+        this IServiceCollection services,
+        string typeKey)
+        where T : class, IProjectProcessProvider
+    {
+        services.TryAddSingleton<T>();
+        services.AddSingleton(new KeyedProjectProcessProvider(typeKey, typeof(T)));
+        services.TryAddSingleton<IProjectProcessService, ProjectProcessService>();
+        return services;
+    }
 }

@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
@@ -19,7 +20,9 @@ public sealed class AzureDevOpsProjectLifecycleServiceTests
     {
         var sut = new ProjectLifecycleService(
             new ProjectLifecycleNameGenerator(),
-            new AzureDevOpsProjectLifecycleProvider(),
+            new AzureDevOpsProjectLifecycleProvider(
+                createAction: (_, _) => Task.CompletedTask,
+                teardownAction: (_, _) => Task.CompletedTask),
             NullLogger<ProjectLifecycleService>.Instance);
 
         var created = await sut.CreateAsync(new ProjectLifecycleContext
@@ -42,7 +45,7 @@ public sealed class AzureDevOpsProjectLifecycleServiceTests
     {
         var sut = new ProjectLifecycleService(
             new ProjectLifecycleNameGenerator(),
-            new AzureDevOpsProjectLifecycleProvider(),
+            new AzureDevOpsProjectLifecycleProvider(createAction: (_, _) => Task.CompletedTask),
             NullLogger<ProjectLifecycleService>.Instance);
 
         var created = await sut.CreateAsync(new ProjectLifecycleContext
@@ -76,22 +79,24 @@ public sealed class AzureDevOpsProjectLifecycleServiceTests
     }
 
     [TestMethod]
-    public async Task Create_AppliesReadinessDelay_AndTeardownCapturesLatency()
+    public async Task Create_WithExplicitProcessName_AndTeardownCapturesLatency()
     {
         var sut = new ProjectLifecycleService(
             new ProjectLifecycleNameGenerator(),
-            new AzureDevOpsProjectLifecycleProvider(),
+            new AzureDevOpsProjectLifecycleProvider(
+                createAction: (_, _) => Task.CompletedTask,
+                teardownAction: (_, _) => Task.CompletedTask),
             NullLogger<ProjectLifecycleService>.Instance);
 
         var created = await sut.CreateAsync(new ProjectLifecycleContext
         {
-            RunId = "run-delay",
+            RunId = "run-process",
             ConnectorType = "AzureDevOpsServices",
+            ProcessName = "Agile",
             Endpoint = new OrganisationEndpoint
             {
                 Type = "AzureDevOpsServices",
-                ResolvedUrl = "https://dev.azure.com/example",
-                ApiVersion = "delay-ms:15"
+                ResolvedUrl = "https://dev.azure.com/example"
             }
         });
         var tornDown = await sut.TeardownAsync(created);

@@ -49,6 +49,7 @@ public static class ImportServiceCollectionExtensions
         // Classification node creator — creates area/iteration nodes in the target ADO project.
         services.AddNodeCreator<AzureDevOpsNodeCreator>("AzureDevOpsServices");
         services.AddProjectLifecycleProvider<AzureDevOpsProjectLifecycleProvider>("AzureDevOpsServices");
+        services.AddProjectProcessProvider<AzureDevOpsProjectProcessProvider>("AzureDevOpsServices");
         return services;
     }
 }

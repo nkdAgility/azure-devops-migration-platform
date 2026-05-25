@@ -6,6 +6,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.ProjectLifecycle;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Threading.Tasks;
 
 namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests.ProjectLifecycle;
 
@@ -17,7 +18,9 @@ public sealed class TfsProjectLifecycleServiceTests
     {
         var sut = new ProjectLifecycleService(
             new ProjectLifecycleNameGenerator(),
-            new TfsProjectLifecycleProvider(),
+            new TfsProjectLifecycleProvider(
+                createAction: (_, _) => Task.CompletedTask,
+                teardownAction: (_, _) => Task.CompletedTask),
             NullLogger<ProjectLifecycleService>.Instance);
 
         var created = await sut.CreateAsync(new ProjectLifecycleContext
