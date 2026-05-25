@@ -45,6 +45,19 @@ Metric strings use the `platform.<domain>.<phase>.<measure>` convention. Older `
 
 Canonical telemetry types, constants, and DTOs live in the abstractions layer. Context should summarise the model, not duplicate those definitions.
 
+## Project lifecycle visibility fields
+
+Lifecycle-enabled connector runs emit structured outcomes with correlation fields:
+
+- `runId`
+- `connectorType`
+- `projectName`
+- `createResult` / `createFailureReason`
+- `teardownResult` / `teardownBlockingReason`
+- `teardownLatencyMs`
+
+These fields are required for cleanup troubleshooting and rollout measurement of manual cleanup intervention reduction.
+
 
 
 

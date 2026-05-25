@@ -2,7 +2,14 @@
 
 ## 1. Mark a qualifying test
 
-Declare lifecycle eligibility for a connector test (implementation detail: attribute/config marker to be finalized in tasks phase).
+Create an explicit lifecycle eligibility flag for the connector under test:
+
+```csharp
+var eligibility = SystemTestBase.EvaluateLifecycleEligibility(
+    enabled: true,
+    connectorType: "Simulated",
+    namePrefix: "systemtest");
+```
 
 ## 2. Run the test
 
@@ -14,10 +21,10 @@ dotnet test tests\DevOpsMigrationPlatform.Infrastructure.Agent.Tests\DevOpsMigra
 
 ## 3. Expected behavior
 
-1. Before test actions execute, an ephemeral project is created for the run.
-2. The run executes against that created project context.
-3. After run completion (pass or fail), teardown is attempted for the created project.
-4. Lifecycle record output includes create result, execution project identity, teardown result, and blocking reason (if any).
+1. Before test actions execute, `SystemTestContext.SetupLifecycleAsync(...)` creates an ephemeral project for the run.
+2. Test execution binds to `SystemTestContext.ExecutionProjectName`.
+3. After run completion (pass or fail), `SystemTestContext.TeardownLifecycleAsync(...)` attempts teardown.
+4. Lifecycle record output includes create result, execution project identity, teardown result, blocking reason (if any), and latency.
 
 ## 4. Connector coverage expectations
 

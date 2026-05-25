@@ -4,6 +4,10 @@
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
@@ -37,6 +41,9 @@ public class SystemTestContext : IDisposable
     /// Whether Azure DevOps connectivity was verified
     /// </summary>
     public bool ConnectionValidated { get; set; }
+
+    public string? ExecutionProjectName { get; private set; }
+    public ProjectLifecycleRecord? LifecycleRecord { get; private set; }
 
     /// <summary>
     /// Test artifacts that need cleanup
@@ -79,6 +86,44 @@ public class SystemTestContext : IDisposable
     /// Gets test execution duration
     /// </summary>
     public TimeSpan Duration => DateTime.UtcNow - TestStartTime;
+
+    public async Task<bool> SetupLifecycleAsync(
+        IProjectLifecycleService lifecycleService,
+        string connectorType,
+        LifecycleEligibilityFlag eligibility,
+        CancellationToken cancellationToken = default)
+    {
+        if (lifecycleService is null)
+            throw new ArgumentNullException(nameof(lifecycleService));
+        if (!eligibility.IsEligibleForConnector(connectorType))
+            return false;
+
+        var context = new ProjectLifecycleContext
+        {
+            RunId = Guid.NewGuid().ToString("N"),
+            ConnectorType = connectorType,
+            NamePrefix = "systemtest",
+            ProjectName = string.Empty,
+            Endpoint = new OrganisationEndpoint { Type = connectorType, ResolvedUrl = Configuration.OrganizationUrl ?? "https://example.test" }
+        };
+
+        LifecycleRecord = await lifecycleService.CreateAsync(context, cancellationToken);
+        if (LifecycleRecord.CreateResult == ProjectLifecycleCreateResult.Failed)
+            Assert.Fail($"Lifecycle setup failed: {LifecycleRecord.CreateFailureReason}");
+
+        ExecutionProjectName = LifecycleRecord.ProjectName;
+        return true;
+    }
+
+    public async Task TeardownLifecycleAsync(
+        IProjectLifecycleService lifecycleService,
+        CancellationToken cancellationToken = default)
+    {
+        if (lifecycleService is null || LifecycleRecord is null)
+            return;
+
+        LifecycleRecord = await lifecycleService.TeardownAsync(LifecycleRecord, cancellationToken);
+    }
 
     public void Dispose()
     {

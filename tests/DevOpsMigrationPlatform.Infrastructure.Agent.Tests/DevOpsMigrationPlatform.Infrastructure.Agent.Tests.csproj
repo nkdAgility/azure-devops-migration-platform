@@ -40,6 +40,7 @@
     <ExternalFeatureFiles Include="..\..\features\platform\checkpointing\import-cursor-resume.feature" />
     <ExternalFeatureFiles Include="..\..\features\platform\checkpointing\resumable-batching-cursor.feature" />
     <ExternalFeatureFiles Include="..\..\features\platform\package-lock\exclusive-package-lock.feature" />
+    <ExternalFeatureFiles Include="..\..\features\platform\project-lifecycle\ephemeral-project-lifecycle.feature" />
     <ExternalFeatureFiles Include="..\..\features\platform\validation\package-validation.feature" />
     <ExternalFeatureFiles Include="..\..\features\platform\telemetry\progress-sink.feature" />
     <ExternalFeatureFiles Include="..\..\features\export\work-items\revisions\export-work-item-revisions.feature" />

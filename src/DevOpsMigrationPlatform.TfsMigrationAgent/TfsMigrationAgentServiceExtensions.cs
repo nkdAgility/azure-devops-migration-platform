@@ -21,6 +21,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
@@ -28,6 +29,7 @@ using Microsoft.Extensions.Logging;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Export;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.ProjectLifecycle;
 
 namespace DevOpsMigrationPlatform.TfsMigrationAgent;
 
@@ -55,6 +57,7 @@ public static class TfsMigrationAgentServiceExtensions
 
         // Per-job TFS Object Model service factory — creates TFS connections, revision sources,
         // attachment sources, tree readers, and discovery services per job based on the endpoint.
+        services.AddSingleton<IProjectLifecycleNameGenerator, ProjectLifecycleNameGenerator>();
         services.AddSingleton<ITfsJobServiceFactory, TfsJobServiceFactory>();
 
         // Ambient state carrying the current job's TFS services (set by TfsJobAgentWorker before running modules).
@@ -80,6 +83,7 @@ public static class TfsMigrationAgentServiceExtensions
         services.AddSingleton<IIdMapStoreFactory, IdMapStoreFactory>();
         services.AddScoped<IRevisionFolderProcessorFactory, RevisionFolderProcessorFactory>();
         services.AddNodeCreator<TfsActiveJobNodeCreator>("TeamFoundationServer");
+        services.AddProjectLifecycleProvider<TfsProjectLifecycleProvider>("TeamFoundationServer");
 
         // Field transform and node translation tools for import.
         services.AddFieldTransformToolServices();

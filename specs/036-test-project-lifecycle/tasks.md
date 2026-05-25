@@ -20,9 +20,9 @@
 
 **Purpose**: Prepare feature artifacts and test scaffolding entry points.
 
-- [ ] T001 Create lifecycle feature file scaffold in `features/platform/project-lifecycle/ephemeral-project-lifecycle.feature`
-- [ ] T002 Create lifecycle scenario context scaffold in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/ProjectLifecycleScenarioContext.cs`
-- [ ] T003 [P] Create lifecycle step bindings scaffold in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/ProjectLifecycleSteps.cs`
+- [X] T001 Create lifecycle feature file scaffold in `features/platform/project-lifecycle/ephemeral-project-lifecycle.feature`
+- [X] T002 Create lifecycle scenario context scaffold in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/ProjectLifecycleScenarioContext.cs`
+- [X] T003 [P] Create lifecycle step bindings scaffold in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/ProjectLifecycleSteps.cs`
 
 ---
 
@@ -32,13 +32,14 @@
 
 **⚠️ CRITICAL**: Complete this phase before user story work.
 
-- [ ] T004 Define lifecycle seam contract in `src/DevOpsMigrationPlatform.Abstractions.Agent/ProjectLifecycle/IProjectLifecycleService.cs`
-- [ ] T005 Define lifecycle record and status types in `src/DevOpsMigrationPlatform.Abstractions.Agent/ProjectLifecycle/ProjectLifecycleRecord.cs`
-- [ ] T006 Define lifecycle eligibility marker contract in `src/DevOpsMigrationPlatform.Abstractions.Agent/ProjectLifecycle/LifecycleEligibilityFlag.cs`
-- [ ] T007 Implement connector-dispatch lifecycle orchestrator in `src/DevOpsMigrationPlatform.Infrastructure.Agent/ProjectLifecycle/CompositeProjectLifecycleService.cs`
-- [ ] T008 Wire foundational lifecycle DI registrations in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Connectors/FactoryRegistrationExtensions.cs`
-- [ ] T009 [P] Implement run-correlated project naming helper in `src/DevOpsMigrationPlatform.Infrastructure.Agent/ProjectLifecycle/ProjectLifecycleNameGenerator.cs`
-- [ ] T010 [P] Add foundational lifecycle contract tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/CompositeProjectLifecycleServiceTests.cs`
+- [X] T004 Define lifecycle seam contract in `src/DevOpsMigrationPlatform.Abstractions.Agent/ProjectLifecycle/IProjectLifecycleService.cs`
+- [X] T005 Define lifecycle record and status types in `src/DevOpsMigrationPlatform.Abstractions.Agent/ProjectLifecycle/ProjectLifecycleRecord.cs`
+- [X] T006 Define lifecycle eligibility marker contract in `src/DevOpsMigrationPlatform.Abstractions.Agent/ProjectLifecycle/LifecycleEligibilityFlag.cs`
+- [X] T007 Implement connector-dispatch lifecycle orchestrator in `src/DevOpsMigrationPlatform.Infrastructure.Agent/ProjectLifecycle/CompositeProjectLifecycleService.cs`
+- [X] T008 Wire foundational lifecycle DI registrations in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Connectors/FactoryRegistrationExtensions.cs`
+- [X] T009 [P] Implement run-correlated project naming helper in `src/DevOpsMigrationPlatform.Infrastructure.Agent/ProjectLifecycle/ProjectLifecycleNameGenerator.cs`
+- [X] T010 [P] Add foundational lifecycle contract tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/CompositeProjectLifecycleServiceTests.cs`
+- [X] T011 [P] Add architecture boundary guard test to confirm no migration runtime/package behavior changes in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/ProjectLifecycleArchitectureBoundaryTests.cs`
 
 **Checkpoint**: Foundational lifecycle seam is in place; story implementation can proceed.
 
@@ -52,18 +53,20 @@
 
 ### Tests for User Story 1
 
-- [ ] T011 [P] [US1] Add success-path acceptance scenarios in `features/platform/project-lifecycle/ephemeral-project-lifecycle.feature`
-- [ ] T012 [P] [US1] Implement acceptance step definitions for setup/cleanup success in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/ProjectLifecycleSteps.cs`
-- [ ] T013 [P] [US1] Add Simulated connector lifecycle tests in `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/ProjectLifecycle/SimulatedProjectLifecycleServiceTests.cs`
-- [ ] T014 [P] [US1] Add Azure DevOps connector lifecycle success tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/AzureDevOpsProjectLifecycleServiceTests.cs`
+- [X] T012 [P] [US1] Add success-path acceptance scenarios in `features/platform/project-lifecycle/ephemeral-project-lifecycle.feature`
+- [X] T013 [P] [US1] Implement acceptance step definitions for setup/cleanup success in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/ProjectLifecycleSteps.cs`
+- [X] T014 [P] [US1] Add Simulated connector lifecycle success tests in `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/ProjectLifecycle/SimulatedProjectLifecycleServiceTests.cs`
+- [X] T015 [P] [US1] Add Azure DevOps connector lifecycle success tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/AzureDevOpsProjectLifecycleServiceTests.cs`
+- [X] T016 [P] [US1] Add parallel-run naming collision test for run-correlated identity in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/ProjectLifecycleNameGeneratorTests.cs`
+- [X] T017 [P] [US1] Add execution-context binding assertion test in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TestUtilities/SystemTestContextTests.cs`
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Implement Simulated lifecycle adapter in `src/DevOpsMigrationPlatform.Infrastructure.Simulated/ProjectLifecycle/SimulatedProjectLifecycleService.cs`
-- [ ] T016 [US1] Implement Azure DevOps lifecycle adapter create/delete flow in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ProjectLifecycle/AzureDevOpsProjectLifecycleService.cs`
-- [ ] T017 [US1] Register Simulated lifecycle adapter in `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedServiceCollectionExtensions.cs`
-- [ ] T018 [US1] Register Azure DevOps lifecycle adapter in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ImportServiceCollectionExtensions.cs`
-- [ ] T019 [US1] Integrate lifecycle setup/teardown into system test context in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TestUtilities/SystemTestContext.cs`
+- [X] T018 [US1] Implement Simulated lifecycle adapter in `src/DevOpsMigrationPlatform.Infrastructure.Simulated/ProjectLifecycle/SimulatedProjectLifecycleService.cs`
+- [X] T019 [US1] Implement Azure DevOps lifecycle adapter create/delete flow in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ProjectLifecycle/AzureDevOpsProjectLifecycleService.cs`
+- [X] T020 [US1] Register Simulated lifecycle adapter in `src/DevOpsMigrationPlatform.Infrastructure.Simulated/SimulatedServiceCollectionExtensions.cs`
+- [X] T021 [US1] Register Azure DevOps lifecycle adapter in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ImportServiceCollectionExtensions.cs`
+- [X] T022 [US1] Integrate lifecycle setup/teardown and execution project binding in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TestUtilities/SystemTestContext.cs`
 
 **Checkpoint**: User Story 1 is independently testable and delivers MVP value.
 
@@ -77,16 +80,22 @@
 
 ### Tests for User Story 2
 
-- [ ] T020 [P] [US2] Add failure-path cleanup scenarios in `features/platform/project-lifecycle/ephemeral-project-lifecycle.feature`
-- [ ] T021 [P] [US2] Add harness-level cleanup-on-failure tests in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TestUtilities/SystemTestContextTests.cs`
-- [ ] T022 [P] [US2] Add lifecycle record failure outcome tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/ProjectLifecycleRecordTests.cs`
+- [X] T023 [P] [US2] Add failure-path cleanup scenarios in `features/platform/project-lifecycle/ephemeral-project-lifecycle.feature`
+- [X] T024 [P] [US2] Add harness-level cleanup-on-failure tests in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TestUtilities/SystemTestContextTests.cs`
+- [X] T025 [P] [US2] Add lifecycle record failure outcome tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/ProjectLifecycleRecordTests.cs`
+- [X] T026 [P] [US2] Add fail-fast creation failure test in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/AzureDevOpsProjectLifecycleServiceTests.cs`
+- [X] T027 [P] [US2] Add teardown safety test to block deletion of foreign projects in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/CompositeProjectLifecycleServiceTests.cs`
+- [X] T028 [P] [US2] Add permission-denied and partial-cleanup visibility tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/ProjectLifecycleRecordTests.cs`
+- [X] T029 [P] [US2] Add readiness delay and teardown-latency assertion tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/AzureDevOpsProjectLifecycleServiceTests.cs`
 
 ### Implementation for User Story 2
 
-- [ ] T023 [US2] Implement guaranteed teardown execution path in `src/DevOpsMigrationPlatform.Infrastructure.Agent/ProjectLifecycle/CompositeProjectLifecycleService.cs`
-- [ ] T024 [US2] Implement fail-fast project creation error propagation in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ProjectLifecycle/AzureDevOpsProjectLifecycleService.cs`
-- [ ] T025 [US2] Implement teardown blocking-reason capture in `src/DevOpsMigrationPlatform.Abstractions.Agent/ProjectLifecycle/ProjectLifecycleRecord.cs`
-- [ ] T026 [US2] Implement project-readiness retry/timeout policy in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ProjectLifecycle/AzureDevOpsProjectLifecycleService.cs`
+- [X] T030 [US2] Implement guaranteed teardown execution path in `src/DevOpsMigrationPlatform.Infrastructure.Agent/ProjectLifecycle/CompositeProjectLifecycleService.cs`
+- [X] T031 [US2] Implement fail-fast project creation error propagation in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ProjectLifecycle/AzureDevOpsProjectLifecycleService.cs`
+- [X] T032 [US2] Implement teardown blocking-reason and partial-cleanup capture in `src/DevOpsMigrationPlatform.Abstractions.Agent/ProjectLifecycle/ProjectLifecycleRecord.cs`
+- [X] T033 [US2] Implement foreign-project teardown protection in `src/DevOpsMigrationPlatform.Infrastructure.Agent/ProjectLifecycle/CompositeProjectLifecycleService.cs`
+- [X] T034 [US2] Implement readiness retry/timeout policy in `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ProjectLifecycle/AzureDevOpsProjectLifecycleService.cs`
+- [X] T035 [US2] Implement teardown latency measurement output in `src/DevOpsMigrationPlatform.Infrastructure.Agent/ProjectLifecycle/ProjectLifecycleProgressEmitter.cs`
 
 **Checkpoint**: User Stories 1 and 2 are independently functional and resilient to failure paths.
 
@@ -100,16 +109,17 @@
 
 ### Tests for User Story 3
 
-- [ ] T027 [P] [US3] Add connector-eligibility scenarios for Azure DevOps and TFS in `features/platform/project-lifecycle/ephemeral-project-lifecycle.feature`
-- [ ] T028 [P] [US3] Add TFS lifecycle adapter tests in `tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/ProjectLifecycle/TfsProjectLifecycleServiceTests.cs`
-- [ ] T029 [P] [US3] Add lifecycle visibility assertion tests in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/ProjectLifecycle/ProjectLifecycleVisibilityTests.cs`
+- [X] T036 [P] [US3] Add connector-eligibility scenarios for Azure DevOps and TFS in `features/platform/project-lifecycle/ephemeral-project-lifecycle.feature`
+- [X] T037 [P] [US3] Add TFS lifecycle adapter tests in `tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/ProjectLifecycle/TfsProjectLifecycleServiceTests.cs`
+- [X] T038 [P] [US3] Add lifecycle visibility assertion tests in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/ProjectLifecycle/ProjectLifecycleVisibilityTests.cs`
+- [X] T039 [P] [US3] Add connector parity lifecycle record tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/CompositeProjectLifecycleServiceTests.cs`
 
 ### Implementation for User Story 3
 
-- [ ] T030 [US3] Implement TFS lifecycle adapter in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/ProjectLifecycle/TfsProjectLifecycleService.cs`
-- [ ] T031 [US3] Register TFS lifecycle adapter in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/TfsJobServiceFactory.cs`
-- [ ] T032 [US3] Implement eligibility evaluation in test pipeline in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TestUtilities/SystemTestBase.cs`
-- [ ] T033 [US3] Implement structured lifecycle outcome emission in `src/DevOpsMigrationPlatform.Infrastructure.Agent/ProjectLifecycle/ProjectLifecycleProgressEmitter.cs`
+- [X] T040 [US3] Implement TFS lifecycle adapter in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/ProjectLifecycle/TfsProjectLifecycleService.cs`
+- [X] T041 [US3] Register TFS lifecycle adapter in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/TfsJobServiceFactory.cs`
+- [X] T042 [US3] Implement eligibility evaluation in test pipeline in `tests/DevOpsMigrationPlatform.CLI.Migration.Tests/TestUtilities/SystemTestBase.cs`
+- [X] T043 [US3] Implement structured lifecycle outcome emission and correlation fields in `src/DevOpsMigrationPlatform.Infrastructure.Agent/ProjectLifecycle/ProjectLifecycleProgressEmitter.cs`
 
 **Checkpoint**: All user stories independently deliver and connector visibility is complete.
 
@@ -117,12 +127,14 @@
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-**Purpose**: Hardening, documentation, and final validation updates across stories.
+**Purpose**: Hardening, documentation, and rollout measurement coverage.
 
-- [ ] T034 [P] Update operator/testing documentation for lifecycle-enabled tests in `docs/testing-guide.md`
-- [ ] T035 [P] Update connector development guidance for lifecycle parity expectations in `docs/connector-development-guide.md`
-- [ ] T036 [P] Update telemetry context for lifecycle outcome visibility in `.agents/30-context/domains/telemetry-model.md`
-- [ ] T037 Run quickstart alignment updates in `specs/036-test-project-lifecycle/quickstart.md`
+- [X] T044 [P] Update operator/testing documentation for lifecycle-enabled tests in `docs/testing-guide.md`
+- [X] T045 [P] Update connector development guidance for lifecycle parity expectations in `docs/connector-development-guide.md`
+- [X] T046 [P] Update telemetry context for lifecycle outcome visibility and latency tracking in `.agents/30-context/domains/telemetry-model.md`
+- [X] T047 Update quickstart alignment with final task flow in `specs/036-test-project-lifecycle/quickstart.md`
+- [X] T048 Define SC-004 measurement plan for cleanup-intervention reduction in `docs/testing-guide.md`
+- [X] T049 Add cleanup-intervention metric collection script for rollout reporting in `scripts/project-lifecycle/collect-cleanup-metrics.ps1`
 
 ---
 
@@ -133,46 +145,47 @@
 - Phase 1 (Setup): start immediately
 - Phase 2 (Foundational): depends on Phase 1 and blocks all user stories
 - Phase 3 (US1): depends on Phase 2
-- Phase 4 (US2): depends on Phase 2 (can begin after US1 core seam tasks are present; preferred order US1 then US2)
-- Phase 5 (US3): depends on Phase 2 (and on shared lifecycle seam from Phase 2)
+- Phase 4 (US2): depends on Phase 3 adapter baseline for failure-path extensions
+- Phase 5 (US3): depends on Phase 2 and shared lifecycle seam
 - Phase 6 (Polish): depends on completion of desired user stories
 
 ### User Story Dependencies
 
 - **US1 (P1)**: no dependency on other stories after foundational phase
-- **US2 (P2)**: depends on shared lifecycle seam; extends US1 behavior for failure paths
-- **US3 (P3)**: depends on shared lifecycle seam; adds TFS parity and visibility
+- **US2 (P2)**: extends US1 behavior with guaranteed cleanup and failure handling
+- **US3 (P3)**: adds TFS parity and cross-connector visibility over shared seam
 
 ### Within Each User Story
 
-- Implement story tests first, then adapter/service code, then registrations/integration
-- Complete independent story checkpoint before advancing
+- Tests are sequenced before implementation tasks
+- Safety and error-path tests are explicit before behavior changes
+- Story checkpoint must be reached before moving to next priority
 
 ---
 
 ## Parallel Execution Opportunities
 
 - Phase 1: T002 and T003 can run together after T001
-- Phase 2: T009 and T010 are parallel after T004-T008 contracts are in place
-- US1: T011-T014 are parallelizable; T015-T016 parallelizable on separate connector files
-- US2: T020-T022 parallelizable; T024 and T026 share file and should be sequenced
-- US3: T027-T029 parallelizable; T030 and T031 sequenced for TFS adapter + registration
-- Polish: T034-T036 parallelizable
+- Phase 2: T009, T010, and T011 can run in parallel after T004-T008
+- US1: T014, T015, T016, and T017 can run in parallel
+- US2: T024-T029 are parallelizable test tasks across distinct files
+- US3: T037-T039 are parallelizable test tasks
+- Polish: T044, T045, T046, and T048 can run in parallel
 
-## Parallel Example: User Story 1
+## Parallel Example: User Story 2
 
 ```bash
-Task: "T013 [US1] Add Simulated connector lifecycle tests in tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/ProjectLifecycle/SimulatedProjectLifecycleServiceTests.cs"
-Task: "T014 [US1] Add Azure DevOps connector lifecycle success tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/AzureDevOpsProjectLifecycleServiceTests.cs"
-Task: "T016 [US1] Implement Azure DevOps lifecycle adapter create/delete flow in src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/ProjectLifecycle/AzureDevOpsProjectLifecycleService.cs"
+Task: "T026 [US2] Add fail-fast creation failure test in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/AzureDevOpsProjectLifecycleServiceTests.cs"
+Task: "T027 [US2] Add teardown safety test to block deletion of foreign projects in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/CompositeProjectLifecycleServiceTests.cs"
+Task: "T028 [US2] Add permission-denied and partial-cleanup visibility tests in tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/ProjectLifecycle/ProjectLifecycleRecordTests.cs"
 ```
 
 ## Parallel Example: User Story 3
 
 ```bash
-Task: "T028 [US3] Add TFS lifecycle adapter tests in tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/ProjectLifecycle/TfsProjectLifecycleServiceTests.cs"
-Task: "T029 [US3] Add lifecycle visibility assertion tests in tests/DevOpsMigrationPlatform.CLI.Migration.Tests/ProjectLifecycle/ProjectLifecycleVisibilityTests.cs"
-Task: "T030 [US3] Implement TFS lifecycle adapter in src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/ProjectLifecycle/TfsProjectLifecycleService.cs"
+Task: "T037 [US3] Add TFS lifecycle adapter tests in tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/ProjectLifecycle/TfsProjectLifecycleServiceTests.cs"
+Task: "T038 [US3] Add lifecycle visibility assertion tests in tests/DevOpsMigrationPlatform.CLI.Migration.Tests/ProjectLifecycle/ProjectLifecycleVisibilityTests.cs"
+Task: "T040 [US3] Implement TFS lifecycle adapter in src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/ProjectLifecycle/TfsProjectLifecycleService.cs"
 ```
 
 ---
@@ -187,14 +200,13 @@ Task: "T030 [US3] Implement TFS lifecycle adapter in src/DevOpsMigrationPlatform
 
 ### Incremental Delivery
 
-1. US1 (setup/cleanup happy path)
-2. US2 (cleanup-on-failure guarantees)
-3. US3 (connector eligibility + visibility parity)
-4. Polish/documentation updates
+1. US1 (setup/cleanup happy path + collision-safe identity + binding)
+2. US2 (cleanup-on-failure + teardown safety + fail-fast behavior + readiness/latency handling)
+3. US3 (connector eligibility + TFS parity + visibility)
+4. Polish/documentation + rollout measurement coverage
 
 ### Team Parallelization
 
 1. Team completes Setup + Foundational together
-2. Then split: one stream on US2 hardening, one on US3 connector parity
-3. Merge for polish and documentation updates
-
+2. Split by story lane after foundational checkpoint
+3. Merge for cross-cutting polish and rollout metrics tasks

@@ -82,6 +82,16 @@ Use `IResiliencePipelineProvider` for retry. Do not implement retry inline. See 
 - `SystemTest_AzureDevOps` tests (tagged `[TestCategory("SystemTest")]`) use live credentials.
 - Every connector method must be exercised by at least one test.
 
+## Project lifecycle parity expectations
+
+Connector lifecycle support follows the same parity contract as other connector capabilities:
+
+- **Simulated**: deterministic in-memory create/teardown behavior for fast verification.
+- **AzureDevOpsServices**: lifecycle adapter wired through connector registration for setup/cleanup orchestration.
+- **TeamFoundationServer**: lifecycle adapter surfaced through the TFS job service factory for parity in test flows.
+
+Lifecycle adapters must emit run-correlated outcomes and must not delete projects they did not create for the active run.
+
 ## Interfaces
 
 All connector interfaces must be defined in `DevOpsMigrationPlatform.Abstractions`. Concrete implementations live in `DevOpsMigrationPlatform.Infrastructure.*` projects.

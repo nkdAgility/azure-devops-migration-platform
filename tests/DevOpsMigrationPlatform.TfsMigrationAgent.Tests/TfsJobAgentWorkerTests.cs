@@ -721,7 +721,8 @@ internal static class TestTfsJobServicesFactory
             new Mock<IWorkItemExportMetrics>().Object,
             new Mock<IAttachmentDownloadMetrics>().Object,
             new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Tools.IIdentitySource>().Object,
-            new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Tools.ITeamSource>().Object);
+            new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Tools.ITeamSource>().Object,
+            new Mock<DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle.IProjectLifecycleService>().Object);
     }
 }
 

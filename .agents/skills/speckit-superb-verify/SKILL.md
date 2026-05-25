@@ -102,6 +102,26 @@ Unmet requirements: [list them]
 
 ---
 
+## Step 4.1 — Fail-Closed Runtime Evidence Gate
+
+When the verified feature requires connector/API side effects, completion additionally
+requires both evidence classes below:
+
+1. **Call-site evidence**: exact `path:line` for real connector API calls implementing
+   required side effects.
+2. **Runtime-proof evidence**: exact `path:line` tests proving required external state
+   transitions (for example exists -> create -> exists and exists -> delete -> missing).
+
+If either evidence class is missing, STOP and output:
+
+```text
+BLOCKED - guardrail unmet
+```
+
+Do not continue to status synchronization in this case.
+
+---
+
 ## Step 5 — Status Synchronization
 
 Only after all verification checks pass, synchronize the feature spec status to:
