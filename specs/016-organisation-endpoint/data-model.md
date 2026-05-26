@@ -51,7 +51,7 @@
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Type` | `AuthenticationType` | Auth scheme: `Pat`, `Windows`, or `None`. |
+| `Type` | `AuthenticationType` | Auth scheme: `AccessToken`, `Windows`, or `None`. |
 | `ResolvedAccessToken` | `string?` | Effective PAT after `$ENV:VARNAME` expansion. Null for `Windows` auth. |
 
 **Invariants**:

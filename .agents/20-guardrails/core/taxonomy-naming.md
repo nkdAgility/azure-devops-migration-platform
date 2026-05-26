@@ -1,49 +1,46 @@
-# Taxonomy and Naming Guardrail (MUST LOAD FIRST)
+# Runtime Taxonomy Glossary (MUST LOAD FIRST)
 
-This guardrail is mandatory and must be read before any other guardrail.
+This glossary is mandatory and must be read before any other guardrail.
 
-## Canonical Runtime Taxonomy
+## Canonical Taxonomy
 
-Use only the canonical runtime role names below for runtime architecture and implementation decisions:
+- **Module**  
+  Thin phase entrypoint/wrapper that delegates runtime flow.
 
-- **Module**: thin phase entrypoint/wrapper that delegates.
-- **Orchestrator**: owns workflow order, stage boundaries, phase flow, and dispatch.
-- **Processor**: executes one ordered unit of work (for example per revision flow).
-- **Lifecycle**: owns state lifecycle transitions (init/seed/rebuild/checkpoint progression).
-- **Resolver**: owns resolution decisioning and outcome selection.
-- **Strategy**: pluggable behavior variant behind a shared contract.
-- **Adapter**: connector-specific mechanics (SDK/API calls and normalization), no workflow ownership.
-- **Tool**: canonical reusable concern engine (pure behavior seam), not connector mechanics or phase orchestration.
+- **Orchestrator**  
+  Workflow coordinator that defines order, stage boundaries, and phase flow.
 
-## Canonical Chain
+- **Processor**  
+  Unit-work executor for an ordered processing slice (for example per revision flow).
 
-All module runtime flows must preserve:
+- **Lifecycle**  
+  State-transition owner for initialization, seeding, rebuild, and checkpoint progression.
+
+- **Resolver**  
+  Decision owner for resolved/unresolved outcomes and selected resolution result.
+
+- **Strategy**  
+  Pluggable behavior variant behind a shared contract.
+
+- **Adapter**  
+  Connector-specific implementation of external system mechanics and normalization.
+
+- **Tool**  
+  Reusable concern engine used as a shared behavior seam.
+
+## Canonical Runtime Chain
 
 `Module -> Orchestrator(s) -> Package + Adapter(s) + Strategy(s).`
 
-Tools are reusable concern seams consumed by Module/Orchestrator/Processor where applicable. Tools do not replace Orchestrator or Adapter roles.
+## Term Distinctions
 
-## Naming Rules
+- **Orchestrator vs Processor**: orchestrator coordinates flow; processor executes ordered unit work.
+- **Lifecycle vs Resolver**: lifecycle owns state transitions; resolver owns decision outcomes.
+- **Strategy vs Adapter**: strategy defines variant behavior; adapter executes connector-specific mechanics.
+- **Tool vs Orchestrator**: tool provides reusable concern behavior; orchestrator owns runtime sequencing.
 
-1. Runtime type names must scream role intent using canonical names.
-2. A type must not have a generic role name that obscures ownership.
-3. A type must not combine multiple canonical roles unless explicitly approved under change governance.
-4. Renames that improve screaming intent are preferred over keeping ambiguous legacy names.
+## Naming Forms
 
-## Forbidden Patterns
-
-Reject any change that:
-
-- introduces ambiguous role names for runtime types in touched scope
-- uses `Service` for a runtime owner where a canonical role name applies
-- places orchestrator sequencing in Adapter, Strategy, or Tool classes
-- places connector SDK/API mechanics in Module, Orchestrator, Processor, Lifecycle, or Resolver classes
-- introduces alternate concern engines outside canonical Tool/abstraction seams
-
-## Compliance Evidence (Required)
-
-For touched runtime files, PR/task evidence must state:
-
-1. canonical role for each touched type
-2. why each type name matches role ownership
-3. confirmation that flow still preserves canonical chain
+- Interfaces: `I<Domain><Role>` (example: `IWorkItemsOrchestrator`)
+- Implementations: `<Domain><Role>` (example: `WorkItemImportRevisionProcessor`)
+- Role suffixes must reflect glossary taxonomy.

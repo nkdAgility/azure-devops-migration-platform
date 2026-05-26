@@ -1481,7 +1481,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         if (s.Tasks is null)
             return new Markup("[grey]⠋ Initialising — waiting for agent to start…[/]");
 
-        // Tasks received but empty (shouldn't happen in practice) — show legacy detail.
+        // Tasks received but empty (shouldn't happen in practice) — render task details.
         return BuildProgressRenderable(
             s.Completed, s.Skipped, s.TotalWorkItems,
             s.CurrentWiId, s.CurrentWiRevsWritten,

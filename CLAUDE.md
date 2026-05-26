@@ -49,11 +49,12 @@ Agent docs are entrypoint-first:
 - `.agents/90-index/` - quick indexes
 
 Canonical bootstrap sequence:
-1. `.agents/00-entry/manifest.yaml`
-2. `.agents/00-entry/task-profiles.yaml`
-3. `.agents/10-contracts/*.yaml`
-4. Guardrails for the selected profile
-5. Context for the selected profile
+1. `.agents/20-guardrails/core/taxonomy-naming.md` (MUST be loaded first)
+2. `.agents/00-entry/manifest.yaml`
+3. `.agents/00-entry/task-profiles.yaml`
+4. `.agents/10-contracts/*.yaml`
+5. Guardrails for the selected profile
+6. Context for the selected profile
 
 ---
 
@@ -74,6 +75,7 @@ Canonical bootstrap sequence:
    - `.agents/10-contracts/consent-policy.yaml`
 
 2. **Read ALL guardrail files** in `/.agents/20-guardrails/`:
+    - `.agents/20-guardrails/core/taxonomy-naming.md`
     - `.agents/20-guardrails/core/architecture-boundaries.md`
     - `.agents/20-guardrails/core/architecture-perspectives-ethos.md`
     - `.agents/20-guardrails/core/capability-ethos-rules.md`
@@ -159,6 +161,7 @@ If either evidence class is missing, the only valid outcome is:
 
 Core authoritative constraints:
 
+- `/.agents/20-guardrails/core/taxonomy-naming.md`
 - `/.agents/20-guardrails/core/architecture-boundaries.md`
 - `/.agents/20-guardrails/core/architecture-perspectives-ethos.md`
 - `/.agents/20-guardrails/core/capability-ethos-rules.md`
@@ -190,5 +193,5 @@ Core authoritative constraints:
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read:
-`specs/036-test-project-lifecycle/plan.md`
+`specs/037-workitem-resolution-arch/plan.md`
 <!-- SPECKIT END -->

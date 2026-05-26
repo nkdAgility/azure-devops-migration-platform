@@ -35,7 +35,7 @@ Audience: Operators.
 **Symptom:** Job enters `Failed` state.
 
 **Diagnosis:**
-1. Run `devopsmigration manage logs --job <id>` to retrieve structured logs.
+1. Run `devopsmigration manage diagnostics --job <id>` to retrieve structured logs.
 2. Check `.migration/runs/<runId>/logs/progress.ndjson` in the package for per-event progress and `.migration/runs/<runId>/logs/diagnostics.ndjson` for structured diagnostics.
 3. Check `.migration/Logs/` for error-level entries.
 

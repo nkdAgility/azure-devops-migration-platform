@@ -13,7 +13,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 /// </summary>
 public class AttachmentDownloadMetrics : IAttachmentDownloadMetrics
 {
-    // Inline legacy metric names — the old WellKnownMetricNames constants were removed in the v2.0 rename.
+    // Inline metric names because WellKnownMetricNames constants are not used in this net481 path.
     private const string AttachmentAttemptsName = "attachment_download_attempt_total";
     private const string AttachmentSuccessesName = "attachment_download_success_total";
     private const string AttachmentFailuresName = "attachment_download_failure_total";

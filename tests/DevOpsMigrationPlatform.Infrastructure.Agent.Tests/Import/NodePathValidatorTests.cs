@@ -15,6 +15,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Validators;
@@ -230,5 +231,11 @@ public sealed class NodePathValidatorTests
         public required string Url { get; init; }
         public required string Project { get; init; }
         public required string ConnectorType { get; init; }
+
+        public OrganisationEndpoint ToOrganisationEndpoint() => new()
+        {
+            ResolvedUrl = Url,
+            Type = ConnectorType
+        };
     }
 }

@@ -34,7 +34,7 @@ public class WorkItemQueryWindowStrategyTests
 
     private const string Org = "https://dev.azure.com/testorg";
     private const string Project = "TestProject";
-    private const string Pat = "test-pat";
+    private const string AccessToken = "test-pat";
 
     private static readonly OrganisationEndpoint TestEndpoint = new()
     {
@@ -43,7 +43,7 @@ public class WorkItemQueryWindowStrategyTests
         Authentication = new OrganisationEndpointAuthentication
         {
             Type = AuthenticationType.AccessToken,
-            ResolvedAccessToken = Pat
+            ResolvedAccessToken = AccessToken
         }
     };
 
@@ -1243,5 +1243,4 @@ public class WorkItemQueryWindowStrategyTests
         Assert.AreEqual(1, windows.Count);
     }
 }
-
 

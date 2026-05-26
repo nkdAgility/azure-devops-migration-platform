@@ -30,7 +30,6 @@ public sealed class AzureDevOpsEndpointOptions : MigrationEndpointOptions
 
     /// <summary>
     /// Authentication credentials for this endpoint.
-    /// Optional for backwards compatibility; required for inventory and new export/import flows.
     /// </summary>
     public EndpointAuthenticationOptions? Authentication { get; set; }
 

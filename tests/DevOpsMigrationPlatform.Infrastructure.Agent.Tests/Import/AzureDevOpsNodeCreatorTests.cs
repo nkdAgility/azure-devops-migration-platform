@@ -322,5 +322,11 @@ public class AzureDevOpsNodeCreatorTests
         public required string Url { get; init; }
         public required string Project { get; init; }
         public required string ConnectorType { get; init; }
+
+        public OrganisationEndpoint ToOrganisationEndpoint() => new()
+        {
+            ResolvedUrl = Url,
+            Type = ConnectorType
+        };
     }
 }

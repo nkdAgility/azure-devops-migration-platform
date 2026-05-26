@@ -13,8 +13,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent;
 /// <summary>
 /// Minimal <see cref="IControlPlaneAgentClient"/> adapter for the Migration Agent.
 /// Uses the "ControlPlane" named <see cref="HttpClient"/> to call the agent-status endpoint.
-/// Implements <see cref="IControlPlaneAgentClient.IsAgentActiveAsync"/> for stale-lock detection
-/// by <c>PackageLockFileService</c>.
+/// Implements <see cref="IControlPlaneAgentClient.IsAgentActiveAsync"/> for stale-lock detection.
 /// </summary>
 public sealed class AgentControlPlaneClientAdapter : IControlPlaneAgentClient
 {
@@ -54,4 +53,3 @@ public sealed class AgentControlPlaneClientAdapter : IControlPlaneAgentClient
         }
     }
 }
-

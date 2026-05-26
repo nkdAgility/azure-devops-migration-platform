@@ -23,7 +23,7 @@ A single JSON configuration file drives the entire run.
       "Project": "<project>",
       "ApiVersion": "7.1",
       "Authentication": {
-        "Type": "Pat | Windows",
+        "Type": "AccessToken | Windows",
         "AccessToken": "<literal-token> | $ENV:MY_PAT_VAR"
       }
     },
@@ -866,4 +866,3 @@ The `IdentityLookup` tool (`Tools.IdentityLookup`) controls automatic identity r
 ```
 
 > **Relationship to `Modules.Identities.DefaultIdentity`**: The `IdentitiesModule` has its own `DefaultIdentity` field for identities that cannot be resolved via the identity lookup store. The `IdentityLookup.DefaultIdentity` is the fallback at the tool level for any module that calls the tool directly (e.g. `TeamsModule`). If both are set, module-level identity resolution consults the tool first.
-

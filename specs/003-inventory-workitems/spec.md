@@ -246,10 +246,10 @@ The `--all-projects` flag has no effect in this mode; scope is controlled per en
 
 | `type` | Description | Applies to |
 |---|---|---|
-| `Pat` | Personal Access Token | `AzureDevOpsServices` |
+| `AccessToken` | Personal Access Token | `AzureDevOpsServices` |
 | `Windows` | Windows Integrated Auth (Kerberos / NTLM). No token field needed. | `TeamFoundationServer` |
 
-### Token resolution order for `Pat` auth
+### Token resolution order for `AccessToken` auth
 
 The `accessToken` field value is resolved in this order (highest precedence first):
 
@@ -281,7 +281,7 @@ The `accessToken` field value is resolved in this order (highest precedence firs
 - **FR-002**: The command MUST validate the config file on startup and exit with a non-zero code and a clear message if: both `organisations` and `source` are present; neither is present; the config is in Mode 1 with `source.project` null and `--all-projects` is absent; or any required field is missing.
 - **FR-013**: When the config contains an `organisations` array (Mode 2), the command MUST iterate over all entries where `enabled` is `true` (or absent — default `true`) and inventory each one. Entries with `enabled: false` MUST be skipped silently.
 - **FR-014**: For each `organisations` entry, `projects` is optional. If absent or empty the command MUST enumerate all projects in that org/collection. If non-empty the command MUST restrict inventory to only those named projects.
-- **FR-015**: The `accessToken` field in any `authentication` block MUST be resolved as follows: (1) IConfiguration `__`-separator env var override takes highest precedence for `source`/`target` blocks; (2) if the field value starts with `$ENV:VARNAME`, the platform reads env var `VARNAME` at runtime; (3) otherwise the literal value is used. An empty literal with no env var result MUST cause a validation error for `Pat` auth.
+- **FR-015**: The `accessToken` field in any `authentication` block MUST be resolved as follows: (1) IConfiguration `__`-separator env var override takes highest precedence for `source`/`target` blocks; (2) if the field value starts with `$ENV:VARNAME`, the platform reads env var `VARNAME` at runtime; (3) otherwise the literal value is used. An empty literal with no env var result MUST cause a validation error for `AccessToken` auth.
 - **FR-016**: The `--all-projects` flag MUST only affect Mode 1 (`source`-based) configs. In Mode 2 (`organisations`-based) it MUST be ignored.
 - **FR-003**: When `source.type` is `AzureDevOpsServices`, the platform MUST count work items directly from the Azure DevOps REST API using the authenticated call without spawning a subprocess.
 - **FR-004**: When `source.type` is `TeamFoundationServer`, the platform MUST delegate all counting to the `DevOpsMigrationPlatform.CLI.TfsMigration` subprocess via `ExternalToolRunner`. No TFS Object Model assembly MUST be loaded in the .NET 10 process.
@@ -363,4 +363,3 @@ None. `tasks.md` reconciliation marks no task as `— Status: incomplete`.
 - Inventory service/factories: `src/DevOpsMigrationPlatform.Infrastructure.Agent/Discovery/InventoryService.cs`, `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Factories/InventoryServiceFactory.cs`
 - TFS agent path: `src/DevOpsMigrationPlatform.TfsMigrationAgent/TfsJobAgentWorker.cs`
 - Docs alignment: `docs/cli-guide.md`, `docs/configuration-reference.md`, `docs/capabilities-guide.md`
-

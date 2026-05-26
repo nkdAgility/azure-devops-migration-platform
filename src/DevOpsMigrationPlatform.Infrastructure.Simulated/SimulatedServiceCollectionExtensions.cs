@@ -14,6 +14,7 @@ using DevOpsMigrationPlatform.Infrastructure.Simulated.Factories;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.ProjectLifecycle;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -172,6 +173,12 @@ public static class SimulatedServiceCollectionExtensions
         public required string Url { get; init; }
         public required string Project { get; init; }
         public required string ConnectorType { get; init; }
+
+        public OrganisationEndpoint ToOrganisationEndpoint() => new()
+        {
+            ResolvedUrl = Url,
+            Type = ConnectorType
+        };
     }
 
     /// <summary>
@@ -182,6 +189,11 @@ public static class SimulatedServiceCollectionExtensions
         public required string Url { get; init; }
         public required string Project { get; init; }
         public required string ConnectorType { get; init; }
+
+        public OrganisationEndpoint ToOrganisationEndpoint() => new()
+        {
+            ResolvedUrl = Url,
+            Type = ConnectorType
+        };
     }
 }
-

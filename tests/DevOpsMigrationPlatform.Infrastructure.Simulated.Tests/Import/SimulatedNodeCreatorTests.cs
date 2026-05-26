@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -75,5 +76,11 @@ public sealed class SimulatedNodeCreatorTests
         public required string Url { get; init; }
         public required string Project { get; init; }
         public required string ConnectorType { get; init; }
+
+        public OrganisationEndpoint ToOrganisationEndpoint() => new()
+        {
+            ResolvedUrl = Url,
+            Type = ConnectorType
+        };
     }
 }

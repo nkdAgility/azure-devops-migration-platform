@@ -52,8 +52,8 @@ public static class IdentityServiceCollectionExtensions
         // Register the IdentityLookupTool seam used by module import/export paths.
         services.AddIdentityLookupToolServices();
 #else
-        // On NET481 (TFS agent), use the pass-through implementation — identity lookup
-        // is not available on the legacy runtime.
+        // On NET481 (TFS agent), use the pass-through implementation because identity lookup
+        // is unavailable in this runtime path.
         services.TryAddSingleton<IIdentityMappingService, PassThroughIdentityMappingService>();
 #endif
 

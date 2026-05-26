@@ -116,7 +116,7 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
                 .Where(o => !string.IsNullOrWhiteSpace(o.ResolvedUrl))
                 .ToDictionary(
                     o => ExtractOrgSegment(o.ResolvedUrl),
-                    o => (OrgUrl: o.ResolvedUrl.TrimEnd('/'), Pat: o.Authentication?.ResolvedAccessToken ?? ""),
+                    o => (OrgUrl: o.ResolvedUrl.TrimEnd('/'), AccessToken: o.Authentication?.ResolvedAccessToken ?? ""),
                     StringComparer.OrdinalIgnoreCase);
 
             // Shared cache: "orgSegment::guidString" → resolved project name.
@@ -223,7 +223,7 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
         string project,
         LinkCounters counters,
         int totalWorkItems,
-        IReadOnlyDictionary<string, (string OrgUrl, string Pat)> configuredOrgs,
+        IReadOnlyDictionary<string, (string OrgUrl, string AccessToken)> configuredOrgs,
         Dictionary<string, string> projectNameCache,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
@@ -441,7 +441,7 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
     private async Task<string> ResolveTargetProjectAsync(
         string targetOrgSegment,
         string rawProject,
-        IReadOnlyDictionary<string, (string OrgUrl, string Pat)> configuredOrgs,
+        IReadOnlyDictionary<string, (string OrgUrl, string AccessToken)> configuredOrgs,
         Dictionary<string, string> cache,
         CancellationToken cancellationToken)
     {
@@ -464,7 +464,7 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
                     Authentication = new OrganisationEndpointAuthentication
                     {
                         Type = Abstractions.Options.AuthenticationType.AccessToken,
-                        ResolvedAccessToken = creds.Pat
+                        ResolvedAccessToken = creds.AccessToken
                     }
                 }, cancellationToken).ConfigureAwait(false);
             var teamProject = await projectClient.GetProject(
@@ -487,7 +487,7 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
     /// <summary>
     /// Extracts the organisation identifier from an Azure DevOps URL.
     /// For dev.azure.com URLs the first path segment is the org name.
-    /// For legacy visualstudio.com URLs the subdomain is the org name.
+    /// For visualstudio.com URLs the subdomain is the org name.
     /// Falls back to the host if no segment can be determined.
     /// </summary>
     private static string ExtractOrgSegment(string url)

@@ -83,10 +83,6 @@ internal class Program
                     .WithDescription("Display job state and per-module progress for a specific job.")
                     .WithExample("manage", "status", "--job", "550e8400-e29b-41d4-a716-446655440000");
 
-                branch.AddChannelCommand<ManageLogsCommand>("logs")
-                    .WithDescription("[Deprecated] Use 'manage progress' or 'manage diagnostics' instead.")
-                    .WithExample("manage", "logs", "--job", "550e8400-e29b-41d4-a716-446655440000");
-
                 branch.AddChannelCommand<ManageProgressCommand>("progress")
                     .WithDescription("Display a snapshot of ProgressEvent records for a specific job.")
                     .WithExample("manage", "progress", "--job", "550e8400-e29b-41d4-a716-446655440000");
@@ -167,4 +163,3 @@ internal class Program
         return await app.RunAsync(args);
     }
 }
-
