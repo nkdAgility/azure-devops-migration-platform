@@ -18,9 +18,9 @@
 
 **Purpose**: Prepare feature work artifacts and baseline wiring for task execution.
 
-- [ ] T001 Align feature documentation chain in `specs/037-workitem-resolution-arch/{spec.md,plan.md,research.md,data-model.md,quickstart.md}`
-- [ ] T002 [P] Create/update task execution notes in `specs/037-workitem-resolution-arch/contracts/{orchestrator-shape-contract.md,workitems-resolution-service-contract.md}` for implementation traceability
-- [ ] T003 [P] Add/refresh feature linkage in `AGENTS.md` (`SPECKIT START/END` section) to `specs/037-workitem-resolution-arch/plan.md`
+- [X] T001 Align feature documentation chain in `specs/037-workitem-resolution-arch/{spec.md,plan.md,research.md,data-model.md,quickstart.md}`
+- [X] T002 [P] Create/update task execution notes in `specs/037-workitem-resolution-arch/contracts/{orchestrator-shape-contract.md,workitems-resolution-service-contract.md}` for implementation traceability
+- [X] T003 [P] Add/refresh feature linkage in `AGENTS.md` (`SPECKIT START/END` section) to `specs/037-workitem-resolution-arch/plan.md`
 
 ---
 
@@ -30,12 +30,12 @@
 
 **⚠️ CRITICAL**: No user story implementation starts before this phase is complete.
 
-- [ ] T004 Codify canonical runtime chain wording in `.agents/20-guardrails/domains/module-rules.md`
-- [ ] T005 [P] Codify orchestrator first-class contract semantics in `.agents/10-contracts/specs/orchestrator-contract.md`
-- [ ] T006 [P] Align seam/surface catalogs for orchestration in `.agents/10-contracts/{surface-catalog.yaml,seam-catalog.yaml}`
-- [ ] T007 [P] Align context docs for module/orchestrator split in `.agents/30-context/domains/{module-model.md,orchestrator-model.md}`
-- [ ] T008 Add drift reject criteria for module wrapper/orchestrator boundary in `.agents/20-guardrails/domains/module-rules.md`
-- [ ] T009 Validate `.agents` consistency sweep, confirm Class C consent/evidence gate for abstraction-shape changes, and remove contradictory phrasing in `.agents/**/*` references touched by T004-T008
+- [X] T004 Codify canonical runtime chain wording in `.agents/20-guardrails/domains/module-rules.md`
+- [X] T005 [P] Codify orchestrator first-class contract semantics in `.agents/10-contracts/specs/orchestrator-contract.md`
+- [X] T006 [P] Align seam/surface catalogs for orchestration in `.agents/10-contracts/{surface-catalog.yaml,seam-catalog.yaml}`
+- [X] T007 [P] Align context docs for module/orchestrator split in `.agents/30-context/domains/{module-model.md,orchestrator-model.md}`
+- [X] T008 Add drift reject criteria for module wrapper/orchestrator boundary in `.agents/20-guardrails/domains/module-rules.md`
+- [X] T009 Validate `.agents` consistency sweep, confirm Class C consent/evidence gate for abstraction-shape changes, and remove contradictory phrasing in `.agents/**/*` references touched by T004-T008
 
 **Checkpoint**: Guardrail and contract baseline is stable for feature implementation.
 
