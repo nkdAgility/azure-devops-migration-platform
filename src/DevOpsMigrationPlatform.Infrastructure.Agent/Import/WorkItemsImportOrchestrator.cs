@@ -30,7 +30,7 @@ public sealed class WorkItemsImportOrchestrator : IWorkItemsImportOrchestrator, 
     private readonly IWorkItemResolutionStrategyFactory _resolutionStrategyFactory;
     private readonly ICheckpointingServiceFactory _checkpointingFactory;
     private readonly IIdMapStoreFactory _idMapStoreFactory;
-    private readonly IRevisionFolderProcessorFactory _processorFactory;
+    private readonly IWorkItemResolutionProcessorFactory _processorFactory;
     private readonly IIdentityLookupTool? _identityLookupTool;
     private readonly IWorkItemsImportCapabilityValidator _capabilityValidator;
     private readonly IWorkItemsNodeReadinessOrchestrator _nodeReadinessOrchestrator;
@@ -48,7 +48,7 @@ public sealed class WorkItemsImportOrchestrator : IWorkItemsImportOrchestrator, 
         IWorkItemResolutionStrategyFactory resolutionStrategyFactory,
         ICheckpointingServiceFactory checkpointingFactory,
         IIdMapStoreFactory idMapStoreFactory,
-        IRevisionFolderProcessorFactory processorFactory,
+        IWorkItemResolutionProcessorFactory processorFactory,
         IIdentityLookupTool? identityLookupTool,
         IWorkItemsImportCapabilityValidator capabilityValidator,
         IWorkItemsNodeReadinessOrchestrator nodeReadinessOrchestrator,

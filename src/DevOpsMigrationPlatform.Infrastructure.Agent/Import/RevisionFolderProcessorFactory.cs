@@ -14,7 +14,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 /// Creates <see cref="WorkItemResolutionProcessor"/> instances for the given import-time collaborators.
 /// Hides the <see cref="ILoggerFactory"/> dependency from the interface contract.
 /// </summary>
-public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFactory
+public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcessorFactory
 {
     private readonly ILoggerFactory _loggerFactory;
     private readonly IPlatformMetrics? _metrics;
@@ -40,7 +40,7 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
     }
 
     /// <inheritdoc/>
-    public IRevisionFolderProcessor Create(
+    public IWorkItemResolutionProcessor Create(
         IWorkItemImportTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
@@ -50,7 +50,7 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
         => Create(target, idMapStore, checkpointing, identityLookupTool, organisation, project, nodeStructureContext: null);
 
     /// <inheritdoc/>
-    public IRevisionFolderProcessor Create(
+    public IWorkItemResolutionProcessor Create(
         IWorkItemImportTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,

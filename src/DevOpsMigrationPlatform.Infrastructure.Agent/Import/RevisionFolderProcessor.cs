@@ -34,7 +34,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 /// Cursor is written after each stage. On resume, stages already completed for this folder are skipped.
 /// All extension enabled flags are respected: if <c>Revisions: false</c>, the caller must skip this processor.
 /// </summary>
-public class WorkItemResolutionProcessor : IRevisionFolderProcessor
+public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
 {
     private readonly IWorkItemImportTarget _target;
     private readonly IIdMapStore _idMapStore;

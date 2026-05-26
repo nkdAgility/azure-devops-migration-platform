@@ -271,7 +271,7 @@ public sealed class WorkItemsModulePrepareTests
             Mock.Of<IWorkItemResolutionStrategyFactory>(),
             Mock.Of<ICheckpointingServiceFactory>(),
             Mock.Of<IIdMapStoreFactory>(),
-            Mock.Of<IRevisionFolderProcessorFactory>(),
+            Mock.Of<IWorkItemResolutionProcessorFactory>(),
             targetEndpoint.Object,
             identityMappingService: Mock.Of<IIdentityMappingService>(),
             nodeTranslationTool: Mock.Of<INodeTranslationTool>(),

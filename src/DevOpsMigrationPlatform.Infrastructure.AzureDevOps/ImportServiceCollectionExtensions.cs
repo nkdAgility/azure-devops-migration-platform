@@ -45,7 +45,7 @@ public static class ImportServiceCollectionExtensions
         services.AddIdentityLookupToolServices();
         services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();
         services.AddSingleton<IIdMapStoreFactory, IdMapStoreFactory>();
-        services.AddScoped<IRevisionFolderProcessorFactory, RevisionFolderProcessorFactory>();
+        services.AddScoped<IWorkItemResolutionProcessorFactory, RevisionFolderProcessorFactory>();
         // Classification node creator — creates area/iteration nodes in the target ADO project.
         services.AddNodeCreator<AzureDevOpsNodeCreator>("AzureDevOpsServices");
         services.AddProjectLifecycleProvider<AzureDevOpsProjectLifecycleProvider>("AzureDevOpsServices");

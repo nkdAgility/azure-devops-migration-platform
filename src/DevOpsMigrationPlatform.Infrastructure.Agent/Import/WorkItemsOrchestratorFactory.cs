@@ -20,7 +20,7 @@ public sealed class WorkItemsOrchestratorFactory : IWorkItemsOrchestratorFactory
         IWorkItemResolutionStrategyFactory resolutionStrategyFactory,
         ICheckpointingServiceFactory checkpointingFactory,
         IIdMapStoreFactory idMapStoreFactory,
-        IRevisionFolderProcessorFactory processorFactory,
+        IWorkItemResolutionProcessorFactory processorFactory,
         IIdentityLookupTool? identityLookupTool,
         IWorkItemsImportCapabilityValidator capabilityValidator,
         IWorkItemsNodeReadinessOrchestrator nodeReadinessOrchestrator,

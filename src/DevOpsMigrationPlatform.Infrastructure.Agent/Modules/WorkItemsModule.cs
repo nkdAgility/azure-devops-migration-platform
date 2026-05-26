@@ -75,7 +75,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IWorkItemExportOrchestratorFactory _exportOrchestratorFactory;
     private readonly IWorkItemResolutionStrategyFactory _resolutionStrategyFactory;
     private readonly IIdMapStoreFactory _idMapStoreFactory;
-    private readonly IRevisionFolderProcessorFactory _processorFactory;
+    private readonly IWorkItemResolutionProcessorFactory _processorFactory;
     private readonly IIdentityLookupTool? _identityLookupTool;
     private readonly ICheckpointingServiceFactory _checkpointingFactory;
     private readonly ILogger<WorkItemsModule> _logger;
@@ -112,7 +112,7 @@ public sealed class WorkItemsModule : IModule
         IWorkItemResolutionStrategyFactory resolutionStrategyFactory,
         ICheckpointingServiceFactory checkpointingFactory,
         IIdMapStoreFactory idMapStoreFactory,
-        IRevisionFolderProcessorFactory processorFactory,
+        IWorkItemResolutionProcessorFactory processorFactory,
         ITargetEndpointInfo targetEndpointInfo,
         IAttachmentBinarySource? attachmentBinarySource = null,
         IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,

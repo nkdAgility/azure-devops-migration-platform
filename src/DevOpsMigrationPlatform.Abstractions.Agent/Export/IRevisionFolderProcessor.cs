@@ -12,7 +12,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 /// Processes a single revision folder through the WorkItem resolution/import stages
 /// (CreatedOrUpdated → AppliedFields → AppliedLinks → UploadedAttachments → Completed).
 /// </summary>
-public interface IRevisionFolderProcessor
+public interface IWorkItemResolutionProcessor
 {
     /// <summary>
     /// Process a single revision folder, resuming from <paramref name="resumeAtStage"/> if provided.

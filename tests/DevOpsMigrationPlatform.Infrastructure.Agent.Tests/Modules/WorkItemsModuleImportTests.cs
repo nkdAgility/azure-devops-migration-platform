@@ -58,7 +58,7 @@ public sealed class WorkItemsModuleImportTests
             Mock.Of<IWorkItemResolutionStrategyFactory>(),
             Mock.Of<ICheckpointingServiceFactory>(),
             Mock.Of<IIdMapStoreFactory>(),
-            Mock.Of<IRevisionFolderProcessorFactory>(),
+            Mock.Of<IWorkItemResolutionProcessorFactory>(),
             targetEndpoint.Object,
             identityMappingService: null!,
             nodeTranslationTool: Mock.Of<INodeTranslationTool>(),
@@ -91,7 +91,7 @@ public sealed class WorkItemsModuleImportTests
             Mock.Of<IWorkItemResolutionStrategyFactory>(),
             Mock.Of<ICheckpointingServiceFactory>(),
             Mock.Of<IIdMapStoreFactory>(),
-            Mock.Of<IRevisionFolderProcessorFactory>(),
+            Mock.Of<IWorkItemResolutionProcessorFactory>(),
             targetEndpoint.Object,
             identityMappingService: Mock.Of<IIdentityMappingService>(),
             nodeTranslationTool: null!,
@@ -124,7 +124,7 @@ public sealed class WorkItemsModuleImportTests
             Mock.Of<IWorkItemResolutionStrategyFactory>(),
             Mock.Of<ICheckpointingServiceFactory>(),
             Mock.Of<IIdMapStoreFactory>(),
-            Mock.Of<IRevisionFolderProcessorFactory>(),
+            Mock.Of<IWorkItemResolutionProcessorFactory>(),
             targetEndpoint.Object,
             identityMappingService: Mock.Of<IIdentityMappingService>(),
             nodeTranslationTool: Mock.Of<INodeTranslationTool>(),
@@ -252,7 +252,7 @@ public sealed class WorkItemsModuleImportTests
             .Setup(f => f.Create(It.IsAny<System.Data.Common.DbConnection>()))
             .Returns(idMapStore.Object);
 
-        var revisionProcessor = new Mock<IRevisionFolderProcessor>(MockBehavior.Strict);
+        var revisionProcessor = new Mock<IWorkItemResolutionProcessor>(MockBehavior.Strict);
         revisionProcessor
             .Setup(p => p.ProcessAsync(
                 "WorkItems/2026-05-13/638827200000000000-42-0/",
@@ -263,7 +263,7 @@ public sealed class WorkItemsModuleImportTests
             .Callback(() => Assert.IsTrue(nodeReadinessDispatched, "Node readiness must execute before revision replay starts."))
             .Returns(Task.CompletedTask);
 
-        var processorFactory = new Mock<IRevisionFolderProcessorFactory>(MockBehavior.Strict);
+        var processorFactory = new Mock<IWorkItemResolutionProcessorFactory>(MockBehavior.Strict);
         processorFactory
             .Setup(f => f.Create(
                 It.IsAny<IWorkItemImportTarget>(),
@@ -425,7 +425,7 @@ public sealed class WorkItemsModuleImportTests
             .Setup(f => f.Create(It.IsAny<System.Data.Common.DbConnection>()))
             .Returns(idMapStore.Object);
 
-        var revisionProcessor = new Mock<IRevisionFolderProcessor>(MockBehavior.Strict);
+        var revisionProcessor = new Mock<IWorkItemResolutionProcessor>(MockBehavior.Strict);
         revisionProcessor
             .Setup(p => p.ProcessAsync(
                 "WorkItems/2026-05-13/638827200000000000-42-0/",
@@ -436,7 +436,7 @@ public sealed class WorkItemsModuleImportTests
             .Callback(() => Assert.IsTrue(nodeReadinessDispatched, "Source tree replication should execute before revision replay starts."))
             .Returns(Task.CompletedTask);
 
-        var processorFactory = new Mock<IRevisionFolderProcessorFactory>(MockBehavior.Strict);
+        var processorFactory = new Mock<IWorkItemResolutionProcessorFactory>(MockBehavior.Strict);
         processorFactory
             .Setup(f => f.Create(
                 It.IsAny<IWorkItemImportTarget>(),
@@ -571,7 +571,7 @@ public sealed class WorkItemsModuleImportTests
             .Setup(f => f.Create(It.IsAny<System.Data.Common.DbConnection>()))
             .Returns(idMapStore.Object);
 
-        var revisionProcessor = new Mock<IRevisionFolderProcessor>(MockBehavior.Strict);
+        var revisionProcessor = new Mock<IWorkItemResolutionProcessor>(MockBehavior.Strict);
         WorkItemsModuleExtensions? capturedExtensions = null;
         revisionProcessor
             .Setup(p => p.ProcessAsync(
@@ -583,7 +583,7 @@ public sealed class WorkItemsModuleImportTests
             .Callback<string, WorkItemsModuleExtensions, string?, IWorkItemResolutionStrategy, CancellationToken>((_, ext, _, _, _) => capturedExtensions = ext)
             .Returns(Task.CompletedTask);
 
-        var processorFactory = new Mock<IRevisionFolderProcessorFactory>(MockBehavior.Strict);
+        var processorFactory = new Mock<IWorkItemResolutionProcessorFactory>(MockBehavior.Strict);
         processorFactory
             .Setup(f => f.Create(
                 It.IsAny<IWorkItemImportTarget>(),

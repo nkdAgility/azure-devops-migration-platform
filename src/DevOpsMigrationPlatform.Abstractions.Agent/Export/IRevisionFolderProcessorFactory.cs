@@ -12,12 +12,12 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 /// id-map store, checkpointing service, identity lookup tool, and artefact store.
 /// Injected into module classes to avoid constructing infrastructure types directly.
 /// </summary>
-public interface IRevisionFolderProcessorFactory
+public interface IWorkItemResolutionProcessorFactory
 {
     /// <summary>
-    /// Creates a new <see cref="IRevisionFolderProcessor"/> for the given import context.
+    /// Creates a new <see cref="IWorkItemResolutionProcessor"/> for the given import context.
     /// </summary>
-    IRevisionFolderProcessor Create(
+    IWorkItemResolutionProcessor Create(
         IWorkItemImportTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
@@ -26,10 +26,10 @@ public interface IRevisionFolderProcessorFactory
         string project);
 
     /// <summary>
-    /// Creates a new <see cref="IRevisionFolderProcessor"/> with NodeTranslation context
+    /// Creates a new <see cref="IWorkItemResolutionProcessor"/> with NodeTranslation context
     /// for area/iteration path translation.
     /// </summary>
-    IRevisionFolderProcessor Create(
+    IWorkItemResolutionProcessor Create(
         IWorkItemImportTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,

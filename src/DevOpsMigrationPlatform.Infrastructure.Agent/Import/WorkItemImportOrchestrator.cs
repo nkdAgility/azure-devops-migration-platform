@@ -43,7 +43,7 @@ public sealed class WorkItemImportOrchestrator
     private readonly IProgressSink _progressSink;
     private readonly IWorkItemResolutionStrategy _resolutionStrategy;
     private readonly IIdMapStore _idMapStore;
-    private readonly IRevisionFolderProcessor _processor;
+    private readonly IWorkItemResolutionProcessor _processor;
     private readonly IWorkItemImportTarget _target;
     private readonly ILogger<WorkItemImportOrchestrator> _logger;
     private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
@@ -58,7 +58,7 @@ public sealed class WorkItemImportOrchestrator
         IProgressSink progressSink,
         IWorkItemResolutionStrategy resolutionStrategy,
         IIdMapStore idMapStore,
-        IRevisionFolderProcessor processor,
+        IWorkItemResolutionProcessor processor,
         IWorkItemImportTarget target,
         ILogger<WorkItemImportOrchestrator> logger,
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,

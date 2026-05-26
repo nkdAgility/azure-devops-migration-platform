@@ -60,7 +60,7 @@ public class WorkItemRevisionImporterTests
         public Mock<IProgressSink> ProgressSink { get; } = new(MockBehavior.Loose);
         public Mock<IWorkItemResolutionStrategy> ResolutionStrategy { get; } = new(MockBehavior.Strict);
         public Mock<IIdMapStore> IdMapStore { get; } = new(MockBehavior.Strict);
-        public Mock<IRevisionFolderProcessor> Processor { get; } = new(MockBehavior.Strict);
+        public Mock<IWorkItemResolutionProcessor> Processor { get; } = new(MockBehavior.Strict);
         public Mock<IWorkItemImportTarget> Target { get; } = new(MockBehavior.Strict);
         public Mock<IPackageAccess> Package { get; } = PackageTestFactory.CreateLooseMock();
 

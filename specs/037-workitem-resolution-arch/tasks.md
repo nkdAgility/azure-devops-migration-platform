@@ -126,7 +126,7 @@
 - [ ] T033 Run architecture compliance checks and capture outputs for this feature in `specs/037-workitem-resolution-arch/`
 - [ ] T034 Run full relevant test suites for touched scope, execute baseline-vs-post-change comparison for SC-005, and capture evidence in `specs/037-workitem-resolution-arch/`
 - [ ] T035 Confirm no remaining contradiction to canonical chain wording in `.agents/**/*` touched files
-- [ ] T041 Verify screaming architecture naming for touched WorkItems runtime types and remove ambiguous role names in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/*` and `src/DevOpsMigrationPlatform.Abstractions.Agent/*`
+- [X] T041 Verify screaming architecture naming for touched WorkItems runtime types and remove ambiguous role names in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/*` and `src/DevOpsMigrationPlatform.Abstractions.Agent/*`
 
 ---
 

@@ -81,7 +81,7 @@ public static class TfsMigrationAgentServiceExtensions
 
         // Import infrastructure: idmap store, revision processor, node creator for import.
         services.AddSingleton<IIdMapStoreFactory, IdMapStoreFactory>();
-        services.AddScoped<IRevisionFolderProcessorFactory, RevisionFolderProcessorFactory>();
+        services.AddScoped<IWorkItemResolutionProcessorFactory, RevisionFolderProcessorFactory>();
         services.AddNodeCreator<TfsActiveJobNodeCreator>("TeamFoundationServer");
         services.AddProjectLifecycleProvider<TfsProjectLifecycleProvider>("TeamFoundationServer");
         services.AddProjectProcessProvider<TfsProjectProcessProvider>("TeamFoundationServer");
