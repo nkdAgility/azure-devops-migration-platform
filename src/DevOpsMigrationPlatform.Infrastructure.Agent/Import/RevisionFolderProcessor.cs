@@ -34,13 +34,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 /// Cursor is written after each stage. On resume, stages already completed for this folder are skipped.
 /// All extension enabled flags are respected: if <c>Revisions: false</c>, the caller must skip this processor.
 /// </summary>
-public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
+public class WorkItemResolutionProcessor : IRevisionFolderProcessor
 {
     private readonly IWorkItemImportTarget _target;
     private readonly IIdMapStore _idMapStore;
     private readonly ICheckpointingService _checkpointing;
     private readonly IIdentityLookupTool? _identityLookupTool;
-    private readonly ILogger<RevisionFolderProcessor> _logger;
+    private readonly ILogger _logger;
     private readonly string _organisation;
     private readonly string _project;
     private readonly IPlatformMetrics? _metrics;
@@ -60,12 +60,12 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         PropertyNameCaseInsensitive = true
     };
 
-    public RevisionFolderProcessor(
+    public WorkItemResolutionProcessor(
         IWorkItemImportTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
         IIdentityLookupTool? identityLookupTool,
-        ILogger<RevisionFolderProcessor> logger,
+        ILogger logger,
         string organisation,
         string project,
         IPlatformMetrics? metrics = null,

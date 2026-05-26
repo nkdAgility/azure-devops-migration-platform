@@ -9,7 +9,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 /// <summary>
-/// Processes a single revision folder through the four import stages
+/// Processes a single revision folder through the WorkItem resolution/import stages
 /// (CreatedOrUpdated → AppliedFields → AppliedLinks → UploadedAttachments → Completed).
 /// </summary>
 public interface IRevisionFolderProcessor

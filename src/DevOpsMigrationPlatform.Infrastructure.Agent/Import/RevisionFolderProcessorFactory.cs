@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 
 /// <summary>
-/// Creates <see cref="RevisionFolderProcessor"/> instances for the given import-time collaborators.
+/// Creates <see cref="WorkItemResolutionProcessor"/> instances for the given import-time collaborators.
 /// Hides the <see cref="ILoggerFactory"/> dependency from the interface contract.
 /// </summary>
 public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFactory
@@ -58,12 +58,12 @@ public sealed class RevisionFolderProcessorFactory : IRevisionFolderProcessorFac
         string organisation,
         string project,
         ProjectMapping? nodeStructureContext)
-        => new RevisionFolderProcessor(
+        => new WorkItemResolutionProcessor(
             target,
             idMapStore,
             checkpointing,
             identityLookupTool,
-            _loggerFactory.CreateLogger<RevisionFolderProcessor>(),
+            _loggerFactory.CreateLogger<WorkItemResolutionProcessor>(),
             organisation,
             project,
             _metrics,

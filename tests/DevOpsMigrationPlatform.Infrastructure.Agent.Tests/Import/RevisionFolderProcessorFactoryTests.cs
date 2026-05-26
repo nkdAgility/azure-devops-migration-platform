@@ -18,7 +18,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 public class RevisionFolderProcessorFactoryTests
 {
     [TestMethod]
-    public void Create_WithBaseOverload_ReturnsRevisionFolderProcessor()
+    public void Create_WithBaseOverload_ReturnsWorkItemResolutionProcessor()
     {
         var package = new Mock<IPackageAccess>(MockBehavior.Loose);
         var sut = new RevisionFolderProcessorFactory(
@@ -33,11 +33,11 @@ public class RevisionFolderProcessorFactoryTests
             organisation: "https://dev.azure.com/org",
             project: "Project");
 
-        Assert.IsInstanceOfType<RevisionFolderProcessor>(processor);
+        Assert.IsInstanceOfType<WorkItemResolutionProcessor>(processor);
     }
 
     [TestMethod]
-    public void Create_WithNodeTranslationContext_ReturnsRevisionFolderProcessor()
+    public void Create_WithNodeTranslationContext_ReturnsWorkItemResolutionProcessor()
     {
         var package = new Mock<IPackageAccess>(MockBehavior.Loose);
         var nodeOptions = Options.Create(new NodeTranslationOptions
@@ -63,6 +63,6 @@ public class RevisionFolderProcessorFactoryTests
             project: "Project",
             nodeStructureContext: new ProjectMapping("Source", "Target"));
 
-        Assert.IsInstanceOfType<RevisionFolderProcessor>(processor);
+        Assert.IsInstanceOfType<WorkItemResolutionProcessor>(processor);
     }
 }

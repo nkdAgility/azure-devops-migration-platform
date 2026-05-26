@@ -8,7 +8,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 /// <summary>
-/// Creates <see cref="IRevisionFolderProcessor"/> instances wired to a specific import target,
+/// Creates WorkItem resolution processors wired to a specific import target,
 /// id-map store, checkpointing service, identity lookup tool, and artefact store.
 /// Injected into module classes to avoid constructing infrastructure types directly.
 /// </summary>

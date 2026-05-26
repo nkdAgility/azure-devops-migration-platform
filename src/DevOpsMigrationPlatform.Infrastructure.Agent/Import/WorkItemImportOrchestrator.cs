@@ -23,7 +23,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 /// Streaming import loop for work item revision and comment folders.
 /// Enumerates <c>WorkItems/</c> via <see cref="IArtefactStore.EnumerateAsync"/> in strict
 /// lexicographic order, resumes from the last cursor, and delegates each folder to
-/// <see cref="RevisionFolderProcessor"/> (revision folders) or the comment handler (comment folders).
+/// <see cref="WorkItemResolutionProcessor"/> (revision folders) or the comment handler (comment folders).
 ///
 /// Memory guarantee: processes one folder at a time; no in-memory list accumulation.
 /// </summary>
@@ -665,4 +665,3 @@ public sealed class WorkItemImportOrchestrator
         public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }
-
