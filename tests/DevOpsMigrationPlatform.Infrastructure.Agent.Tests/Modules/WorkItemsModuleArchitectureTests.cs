@@ -47,6 +47,23 @@ public sealed class WorkItemsModuleArchitectureTests
             "WorkItemsModule should depend on IWorkItemsOrchestrator.");
     }
 
+    [TestMethod]
+    public void WorkItemsModule_DoesNotInlineConstructWorkItemsImportOrchestrator()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var modulePath = Path.Combine(
+            repoRoot,
+            "src",
+            "DevOpsMigrationPlatform.Infrastructure.Agent",
+            "Modules",
+            "WorkItemsModule.cs");
+
+        var source = File.ReadAllText(modulePath);
+        Assert.IsFalse(
+            source.Contains("new WorkItemsImportOrchestrator(", StringComparison.Ordinal),
+            "WorkItemsModule must consume an import orchestrator abstraction/factory instead of inlining concrete orchestrator construction.");
+    }
+
     private static string GetRepositoryRoot()
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);

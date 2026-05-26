@@ -76,6 +76,7 @@ public static class ModuleServiceCollectionExtensions
 
         services.RegisterWorkItemImportServices(configuration);
         services.TryAddSingleton<IWorkItemExportOrchestratorFactory, WorkItemExportOrchestratorFactory>();
+        services.TryAddSingleton<IWorkItemsOrchestratorFactory, WorkItemsOrchestratorFactory>();
         services.AddScoped<IWorkItemsImportCapabilityValidator, WorkItemsImportCapabilityValidator>();
         services.AddSingleton<IWorkItemsNodeReadinessOrchestrator>(sp =>
             new WorkItemsNodeReadinessOrchestrator(

@@ -81,6 +81,7 @@ public sealed class WorkItemsModule : IModule
     private readonly ILogger<WorkItemsModule> _logger;
     private readonly ILogger<WorkItemImportOrchestrator> _orchestratorLogger;
     private readonly IWorkItemsOrchestrator _workItemsOrchestrator;
+    private readonly IWorkItemsOrchestratorFactory _workItemsOrchestratorFactory;
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IInventoryOrchestrator? _inventoryOrchestrator;
     private readonly IPlatformMetrics? _metrics;
@@ -130,6 +131,7 @@ public sealed class WorkItemsModule : IModule
         IFieldTransformTool? fieldTransformTool = null,
         IOptions<WorkItemImportOptions>? workItemImportOptions = null,
         IWorkItemExportOrchestratorFactory? exportOrchestratorFactory = null,
+        IWorkItemsOrchestratorFactory? workItemsOrchestratorFactory = null,
         IWorkItemsOrchestrator? workItemsOrchestrator = null,
         IIdentityLookupTool? identityLookupTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
@@ -163,8 +165,9 @@ public sealed class WorkItemsModule : IModule
         _nodeTranslationTool = nodeTranslationTool ?? throw new ArgumentNullException(nameof(nodeTranslationTool));
         _fieldTransformTool = fieldTransformTool ?? throw new ArgumentNullException(nameof(fieldTransformTool));
         _workItemImportOptions = workItemImportOptions;
+        _workItemsOrchestratorFactory = workItemsOrchestratorFactory ?? new WorkItemsOrchestratorFactory();
         _workItemsOrchestrator = workItemsOrchestrator
-            ?? new WorkItemsImportOrchestrator(
+            ?? _workItemsOrchestratorFactory.Create(
                 _importTargetFactory,
                 _resolutionStrategyFactory,
                 _checkpointingFactory,
