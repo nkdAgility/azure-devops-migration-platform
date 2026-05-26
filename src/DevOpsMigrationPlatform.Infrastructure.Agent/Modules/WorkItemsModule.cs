@@ -72,6 +72,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
     private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
     private readonly IWorkItemImportTargetFactory _importTargetFactory;
+    private readonly IWorkItemExportOrchestratorFactory _exportOrchestratorFactory;
     private readonly IWorkItemResolutionStrategyFactory _resolutionStrategyFactory;
     private readonly IIdMapStoreFactory _idMapStoreFactory;
     private readonly IRevisionFolderProcessorFactory _processorFactory;
@@ -128,6 +129,7 @@ public sealed class WorkItemsModule : IModule
         INodeTranslationTool? nodeTranslationTool = null,
         IFieldTransformTool? fieldTransformTool = null,
         IOptions<WorkItemImportOptions>? workItemImportOptions = null,
+        IWorkItemExportOrchestratorFactory? exportOrchestratorFactory = null,
         IWorkItemsImportOrchestrator? workItemsImportOrchestrator = null,
         IIdentityLookupTool? identityLookupTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
@@ -139,6 +141,7 @@ public sealed class WorkItemsModule : IModule
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
         _orchestratorLogger = orchestratorLogger ?? throw new ArgumentNullException(nameof(orchestratorLogger));
+        _exportOrchestratorFactory = exportOrchestratorFactory ?? new WorkItemExportOrchestratorFactory();
         _importTargetFactory = importTargetFactory ?? throw new ArgumentNullException(nameof(importTargetFactory));
         _resolutionStrategyFactory = resolutionStrategyFactory ?? throw new ArgumentNullException(nameof(resolutionStrategyFactory));
         _idMapStoreFactory = idMapStoreFactory ?? throw new ArgumentNullException(nameof(idMapStoreFactory));
@@ -509,7 +512,7 @@ public sealed class WorkItemsModule : IModule
         var inlineFactory = (IWorkItemCommentSourceFactory?)null;
 #endif
 
-        var orchestrator = new WorkItemExportOrchestrator(
+        var orchestrator = _exportOrchestratorFactory.Create(
             context.Package,
             orgSlug,
             project,
@@ -520,7 +523,6 @@ public sealed class WorkItemsModule : IModule
             _attachmentBinarySource,
 #endif
             context.ProgressSink,
-            endpoint: null, // Connectors now resolve from DI
             inlineCommentSourceFactory: inlineFactory,
             fetchService: allFilters.Count > 0 ? _fetchService : null,
             filterOptions: allFilters.Count > 0 ? allFilters : null,

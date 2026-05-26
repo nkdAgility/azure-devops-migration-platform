@@ -40,7 +40,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 /// are made for filtered-out items.
 /// </para>
 /// </summary>
-public sealed class WorkItemExportOrchestrator
+public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -1108,5 +1108,4 @@ public sealed class WorkItemExportOrchestrator
             _ => $"{bytes} B"
         };
 }
-
 

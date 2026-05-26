@@ -78,7 +78,7 @@
 ### Tests for User Story 2
 
 - [ ] T018 [P] [US2] Add architecture boundary tests for WorkItems module/orchestrator split in `tests/DevOpsMigrationPlatform.Tests/Architecture/WorkItemsOrchestrationBoundaryTests.cs`
-- [ ] T019 [P] [US2] Add tests to assert no inline concrete WorkItems export orchestrator construction in module wrapper in `tests/DevOpsMigrationPlatform.Tests/Agent/Modules/WorkItemsModule*Tests.cs`
+- [X] T019 [P] [US2] Add tests to assert no inline concrete WorkItems export orchestrator construction in module wrapper in `tests/DevOpsMigrationPlatform.Tests/Agent/Modules/WorkItemsModule*Tests.cs`
 
 ### Implementation for User Story 2
 
