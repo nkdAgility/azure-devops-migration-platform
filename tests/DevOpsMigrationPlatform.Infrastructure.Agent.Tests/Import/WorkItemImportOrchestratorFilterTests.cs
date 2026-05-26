@@ -314,12 +314,12 @@ public class WorkItemImportOrchestratorFilterTests
                 It.IsAny<CancellationToken>()))
             .Returns(() => ToPayload(DefaultRevisionJson($"{folder.TrimEnd('/')}/revision.json")));
 
-        var processor = new RevisionFolderProcessor(
+        var processor = new WorkItemResolutionProcessor(
             _mockTarget.Object,
             _mockIdMap.Object,
             _mockCps.Object,
             (IIdentityLookupTool?)null,
-            NullLogger<RevisionFolderProcessor>.Instance,
+            NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
             package: _mockPackage.Object);
@@ -348,12 +348,12 @@ public class WorkItemImportOrchestratorFilterTests
     private WorkItemImportOrchestrator BuildOrchestrator(
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null)
     {
-        var processor = new RevisionFolderProcessor(
+        var processor = new WorkItemResolutionProcessor(
             _mockTarget.Object,
             _mockIdMap.Object,
             _mockCps.Object,
             (IIdentityLookupTool?)null,
-            NullLogger<RevisionFolderProcessor>.Instance,
+            NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
             package: _mockPackage.Object);

@@ -36,14 +36,14 @@ public class ImportIdentityResolutionContext
         MockPackage = PackageTestFactory.CreateLooseMock();
     }
 
-    public RevisionFolderProcessor BuildProcessor()
+    public WorkItemResolutionProcessor BuildProcessor()
     {
-        return new RevisionFolderProcessor(
+        return new WorkItemResolutionProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
             MockCheckpointing.Object,
             MockIdentityMapping.Object,
-            NullLogger<RevisionFolderProcessor>.Instance,
+            NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
             package: MockPackage.Object);

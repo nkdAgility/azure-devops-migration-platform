@@ -16,7 +16,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 
 /// <summary>
 /// Shared scenario state for Prevent Duplicate Work Items step definitions.
-/// Builds a real <see cref="RevisionFolderProcessor"/> with mocked dependencies.
+/// Builds a real <see cref="WorkItemResolutionProcessor"/> with mocked dependencies.
 /// </summary>
 public class PreventDuplicateWorkItemsContext
 {
@@ -50,14 +50,14 @@ public class PreventDuplicateWorkItemsContext
         MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
     }
 
-    public RevisionFolderProcessor BuildProcessor()
+    public WorkItemResolutionProcessor BuildProcessor()
     {
-        return new RevisionFolderProcessor(
+        return new WorkItemResolutionProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
             MockCheckpointing.Object,
             (IIdentityLookupTool?)null,
-            NullLogger<RevisionFolderProcessor>.Instance,
+            NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
             package: MockPackage.Object);

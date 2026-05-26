@@ -62,7 +62,7 @@
 - [ ] T017 [US1] Wire checkpoint/stage progression consistency for deterministic resume in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/{WorkItemsOrchestrator.cs,ImportWorkItemStateStore.cs}`
 - [ ] T036 [US1] Preserve existing field/node default policy behavior in deterministic resolution flow in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/RevisionFolderProcessor.cs`
 - [ ] T037 [P] [US1] Add regression tests for field/node default policy preservation in `tests/DevOpsMigrationPlatform.Tests/Agent/Import/*DefaultPolicy*Tests.cs`
-- [ ] T040 [US1] Rename/split revision processor to `WorkItemResolutionProcessor` and align call sites in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/{RevisionFolderProcessor.cs,WorkItemsOrchestrator.cs}`
+- [X] T040 [US1] Rename/split revision processor to `WorkItemResolutionProcessor` and align call sites in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/{RevisionFolderProcessor.cs,WorkItemsOrchestrator.cs}`
 - [ ] T042 [US1] Make startup policy assembly explicit in `WorkItemsOrchestrator` before revision dispatch in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemsOrchestrator.cs`
 
 **Checkpoint**: User Story 1 is independently deterministic and resumable.

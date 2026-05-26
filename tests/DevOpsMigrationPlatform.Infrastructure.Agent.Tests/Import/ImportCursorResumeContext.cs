@@ -38,7 +38,7 @@ public class ImportCursorResumeContext
     /// <summary>All folders in the package.</summary>
     public List<string> AllFolderPaths { get; set; } = new();
 
-    /// <summary>Folder paths actually fed to RevisionFolderProcessor.</summary>
+    /// <summary>Folder paths actually fed to WorkItemResolutionProcessor.</summary>
     public List<string> ProcessedFolders { get; } = new();
 
     /// <summary>The cursor that was deleted (captured by DeleteCursorAsync).</summary>
@@ -72,12 +72,12 @@ public class ImportCursorResumeContext
 
     public WorkItemImportOrchestrator BuildOrchestrator()
     {
-        var processor = new RevisionFolderProcessor(
+        var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
             CheckpointingService,
             (IIdentityLookupTool?)null,
-            NullLogger<RevisionFolderProcessor>.Instance,
+            NullLogger<WorkItemResolutionProcessor>.Instance,
             EndpointUrl,
             ProjectName,
             package: MockPackage.Object);

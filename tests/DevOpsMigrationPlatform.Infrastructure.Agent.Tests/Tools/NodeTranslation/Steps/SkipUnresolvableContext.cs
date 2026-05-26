@@ -217,7 +217,7 @@ public class SkipUnresolvableContext
 
 
 
-        var processor = new RevisionFolderProcessor(
+        var processor = new WorkItemResolutionProcessor(
 
             TargetMock.Object,
 
@@ -227,7 +227,7 @@ public class SkipUnresolvableContext
 
             IdentityMappingMock.Object,
 
-            NullLogger<RevisionFolderProcessor>.Instance,
+            NullLogger<WorkItemResolutionProcessor>.Instance,
 
             Organisation,
 

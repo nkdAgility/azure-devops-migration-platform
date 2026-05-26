@@ -48,12 +48,12 @@ public class WorkItemResolutionStrategiesContext
 
     public WorkItemImportOrchestrator BuildOrchestrator()
     {
-        var processor = new RevisionFolderProcessor(
+        var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
             MockCheckpointing.Object,
             (IIdentityLookupTool?)null,
-            NullLogger<RevisionFolderProcessor>.Instance,
+            NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
             package: MockPackage.Object);

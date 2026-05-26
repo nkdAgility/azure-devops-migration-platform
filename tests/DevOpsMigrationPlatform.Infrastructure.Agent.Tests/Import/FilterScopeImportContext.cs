@@ -43,8 +43,8 @@ public class FilterScopeImportContext
 
     public WorkItemImportOrchestrator BuildOrchestrator()
     {
-        var processorLogger = NullLogger<RevisionFolderProcessor>.Instance;
-        var processor = new RevisionFolderProcessor(
+        var processorLogger = NullLogger<WorkItemResolutionProcessor>.Instance;
+        var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
             MockCheckpointing.Object,

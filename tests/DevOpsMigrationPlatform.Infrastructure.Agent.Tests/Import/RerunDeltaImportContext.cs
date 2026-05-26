@@ -75,12 +75,12 @@ public class RerunDeltaImportContext
 
     public WorkItemImportOrchestrator BuildOrchestrator()
     {
-        var processor = new RevisionFolderProcessor(
+        var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
             CheckpointingService,
             (IIdentityLookupTool?)null,
-            NullLogger<RevisionFolderProcessor>.Instance,
+            NullLogger<WorkItemResolutionProcessor>.Instance,
             EndpointUrl,
             ProjectName,
             package: MockPackage.Object);

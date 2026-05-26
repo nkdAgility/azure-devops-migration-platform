@@ -19,7 +19,7 @@ using Moq;
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 
 [TestClass]
-public class RevisionFolderProcessorTests
+public class WorkItemResolutionProcessorTests
 {
     private static readonly string _minimalRevisionJson =
         """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"}],"Attachments":[],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
@@ -52,13 +52,13 @@ public class RevisionFolderProcessorTests
             .Returns<string>(id => id);
     }
 
-    private RevisionFolderProcessor CreateSut()
-        => new RevisionFolderProcessor(
+    private WorkItemResolutionProcessor CreateSut()
+        => new WorkItemResolutionProcessor(
             _mockTarget.Object,
             _mockIdMapStore.Object,
             _mockCheckpointing.Object,
             _mockIdentityMapping.Object,
-            NullLogger<RevisionFolderProcessor>.Instance,
+            NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
             package: _mockPackage.Object);
@@ -357,12 +357,12 @@ public class RevisionFolderProcessorTests
             .Setup(t => t.TranslatePath("System.AreaPath", @"External\Area", It.IsAny<ProjectMapping>()))
             .Returns(new PathTranslation(@"External\Area", false, false, true));
 
-        var sut = new RevisionFolderProcessor(
+        var sut = new WorkItemResolutionProcessor(
             _mockTarget.Object,
             _mockIdMapStore.Object,
             _mockCheckpointing.Object,
             _mockIdentityMapping.Object,
-            NullLogger<RevisionFolderProcessor>.Instance,
+            NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
             nodeStructureTool: nodeTranslationTool.Object,
