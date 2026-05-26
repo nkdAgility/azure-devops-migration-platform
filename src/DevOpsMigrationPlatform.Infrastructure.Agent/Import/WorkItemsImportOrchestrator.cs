@@ -86,7 +86,8 @@ public sealed class WorkItemsImportOrchestrator : IWorkItemsImportOrchestrator, 
 
         var orgUrl = _targetEndpointInfo.Url;
         var project = _targetEndpointInfo.Project;
-        var ext = ApplyImportReplayLevers(WorkItemsModuleExtensions.FromOptions(_moduleOptions.Value));
+        var startupPolicy = AssembleStartupPolicy(job);
+        var ext = startupPolicy.Extensions;
 
         _logger.LogInformation(
             "[WorkItems] Importing into {OrgUrl}/{Project} (revisions={Revisions}, links={Links}, attachments={Attachments}, comments={Comments})",
@@ -119,7 +120,7 @@ public sealed class WorkItemsImportOrchestrator : IWorkItemsImportOrchestrator, 
             sourceProjectName,
             nodeStructureContext);
 
-        var importFilters = ext.IncludeFilters.Concat(ext.ExcludeFilters).ToList();
+        var importFilters = startupPolicy.ImportFilters;
         var orchestrator = new WorkItemImportOrchestrator(
             context.Package,
             _sourceEndpointInfo.OrganisationSlug,
@@ -136,8 +137,7 @@ public sealed class WorkItemsImportOrchestrator : IWorkItemsImportOrchestrator, 
             jobId: job.JobId);
         var revisionImporter = new WorkItemRevisionImporter(orchestrator);
 
-        var resumeMode = job.Resume?.Mode ?? ResumeMode.Auto;
-        await revisionImporter.ExecuteAsync(ext, resumeMode, ct).ConfigureAwait(false);
+        await revisionImporter.ExecuteAsync(ext, startupPolicy.ResumeMode, ct).ConfigureAwait(false);
 
         _logger.LogInformation("[WorkItems] Import complete.");
         return TaskExecutionResult.Completed();
@@ -183,4 +183,20 @@ public sealed class WorkItemsImportOrchestrator : IWorkItemsImportOrchestrator, 
             ExcludeFilters = ext.ExcludeFilters
         };
     }
+
+    private ImportStartupPolicy AssembleStartupPolicy(Job job)
+    {
+        var extensions = ApplyImportReplayLevers(WorkItemsModuleExtensions.FromOptions(_moduleOptions.Value));
+        var importFilters = extensions.IncludeFilters.Concat(extensions.ExcludeFilters).ToList();
+        var resumeMode = job.Resume?.Mode ?? ResumeMode.Auto;
+        return new ImportStartupPolicy(
+            extensions,
+            importFilters,
+            resumeMode);
+    }
+
+    private sealed record ImportStartupPolicy(
+        WorkItemsModuleExtensions Extensions,
+        System.Collections.Generic.List<WorkItemFieldFilterOptions> ImportFilters,
+        ResumeMode ResumeMode);
 }
