@@ -104,6 +104,34 @@ public class WorkItemResolutionProcessor : IRevisionFolderProcessor
     }
 
     /// <summary>
+    /// Initializes id-map lifecycle state and strategy seeding before revision dispatch begins.
+    /// </summary>
+    public async Task InitializeAsync(IWorkItemResolutionStrategy resolutionStrategy, CancellationToken ct)
+    {
+        _ = resolutionStrategy ?? throw new ArgumentNullException(nameof(resolutionStrategy));
+        await _idMapStore.InitializeAsync(ct).ConfigureAwait(false);
+        await resolutionStrategy.SeedAsync(_idMapStore, ct).ConfigureAwait(false);
+
+        var staleMappings = await _idMapStore.CheckIntegrityAsync(
+            (tid, token) => _target.WorkItemExistsAsync(tid, token),
+            ct).ConfigureAwait(false);
+        foreach (var stale in staleMappings)
+        {
+            _logger.LogWarning(
+                "[WorkItems] Integrity check: source {SourceId} → target {TargetId} is stale (target no longer exists).",
+                stale.SourceId,
+                stale.TargetId);
+        }
+
+        if (staleMappings.Count > 0)
+        {
+            _logger.LogWarning(
+                "[WorkItems] Integrity check complete: {Count} stale mapping(s) found. Import will continue.",
+                staleMappings.Count);
+        }
+    }
+
+    /// <summary>
     /// Process a single revision folder, resuming from <paramref name="resumeAtStage"/> if provided.
     /// </summary>
     /// <param name="folderPath">Relative folder path, e.g. <c>WorkItems/2026-01-15/638760000000000001-42-3</c>.</param>

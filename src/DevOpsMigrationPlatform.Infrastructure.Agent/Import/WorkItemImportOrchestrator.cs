@@ -109,24 +109,14 @@ public sealed class WorkItemImportOrchestrator
             string.IsNullOrEmpty(lastProcessed) ? "(start)" : lastProcessed,
             lastStage ?? "(none)");
 
-        // Seed idmap from target strategy
-        await _idMapStore.InitializeAsync(ct).ConfigureAwait(false);
-        await _resolutionStrategy.SeedAsync(_idMapStore, ct).ConfigureAwait(false);
-
-        // Integrity check: warn about stale mappings before import begins (non-blocking)
-        var staleMappings = await _idMapStore.CheckIntegrityAsync(
-            (tid, token) => _target.WorkItemExistsAsync(tid, token), ct).ConfigureAwait(false);
-        foreach (var stale in staleMappings)
+        if (_processor is WorkItemResolutionProcessor resolutionProcessor)
         {
-            _logger.LogWarning(
-                "[WorkItems] Integrity check: source {SourceId} → target {TargetId} is stale (target no longer exists).",
-                stale.SourceId, stale.TargetId);
+            await resolutionProcessor.InitializeAsync(_resolutionStrategy, ct).ConfigureAwait(false);
         }
-        if (staleMappings.Count > 0)
+        else
         {
-            _logger.LogWarning(
-                "[WorkItems] Integrity check complete: {Count} stale mapping(s) found. Import will continue.",
-                staleMappings.Count);
+            await _idMapStore.InitializeAsync(ct).ConfigureAwait(false);
+            await _resolutionStrategy.SeedAsync(_idMapStore, ct).ConfigureAwait(false);
         }
 
         int foldersProcessed = 0;
