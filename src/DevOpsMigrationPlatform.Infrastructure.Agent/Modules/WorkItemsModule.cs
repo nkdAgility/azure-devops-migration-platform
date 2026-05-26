@@ -80,7 +80,7 @@ public sealed class WorkItemsModule : IModule
     private readonly ICheckpointingServiceFactory _checkpointingFactory;
     private readonly ILogger<WorkItemsModule> _logger;
     private readonly ILogger<WorkItemImportOrchestrator> _orchestratorLogger;
-    private readonly IWorkItemsImportOrchestrator _workItemsImportOrchestrator;
+    private readonly IWorkItemsOrchestrator _workItemsOrchestrator;
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IInventoryOrchestrator? _inventoryOrchestrator;
     private readonly IPlatformMetrics? _metrics;
@@ -130,7 +130,7 @@ public sealed class WorkItemsModule : IModule
         IFieldTransformTool? fieldTransformTool = null,
         IOptions<WorkItemImportOptions>? workItemImportOptions = null,
         IWorkItemExportOrchestratorFactory? exportOrchestratorFactory = null,
-        IWorkItemsImportOrchestrator? workItemsImportOrchestrator = null,
+        IWorkItemsOrchestrator? workItemsOrchestrator = null,
         IIdentityLookupTool? identityLookupTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
         IEnumerable<IImportFailurePattern>? importFailurePatterns = null,
@@ -163,7 +163,7 @@ public sealed class WorkItemsModule : IModule
         _nodeTranslationTool = nodeTranslationTool ?? throw new ArgumentNullException(nameof(nodeTranslationTool));
         _fieldTransformTool = fieldTransformTool ?? throw new ArgumentNullException(nameof(fieldTransformTool));
         _workItemImportOptions = workItemImportOptions;
-        _workItemsImportOrchestrator = workItemsImportOrchestrator
+        _workItemsOrchestrator = workItemsOrchestrator
             ?? new WorkItemsImportOrchestrator(
                 _importTargetFactory,
                 _resolutionStrategyFactory,
@@ -552,7 +552,7 @@ public sealed class WorkItemsModule : IModule
 
     public async Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct)
     {
-        return await _workItemsImportOrchestrator.ExecuteAsync(context, ct).ConfigureAwait(false);
+        return await _workItemsOrchestrator.ExecuteAsync(context, ct).ConfigureAwait(false);
     }
 
 #if !NET481

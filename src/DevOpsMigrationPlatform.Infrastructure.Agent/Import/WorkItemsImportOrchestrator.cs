@@ -24,7 +24,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 /// <summary>
 /// Default WorkItems import orchestration extracted from WorkItemsModule.
 /// </summary>
-public sealed class WorkItemsImportOrchestrator : IWorkItemsImportOrchestrator
+public sealed class WorkItemsImportOrchestrator : IWorkItemsImportOrchestrator, IWorkItemsOrchestrator
 {
     private readonly IWorkItemImportTargetFactory _importTargetFactory;
     private readonly IWorkItemResolutionStrategyFactory _resolutionStrategyFactory;
@@ -184,4 +184,3 @@ public sealed class WorkItemsImportOrchestrator : IWorkItemsImportOrchestrator
         };
     }
 }
-

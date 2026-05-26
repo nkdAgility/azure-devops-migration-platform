@@ -82,9 +82,9 @@
 
 ### Implementation for User Story 2
 
-- [ ] T020 [US2] Introduce single orchestration abstraction contract `IWorkItemsOrchestrator` in `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IWorkItemsOrchestrator.cs`
-- [ ] T021 [US2] Refactor `WorkItemsModule` to consume only `IWorkItemsOrchestrator` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs`
-- [ ] T022 [US2] Register single `IWorkItemsOrchestrator` abstraction in DI wiring in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/ModuleServiceCollectionExtensions.cs`
+- [X] T020 [US2] Introduce single orchestration abstraction contract `IWorkItemsOrchestrator` in `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IWorkItemsOrchestrator.cs`
+- [X] T021 [US2] Refactor `WorkItemsModule` to consume only `IWorkItemsOrchestrator` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs`
+- [X] T022 [US2] Register single `IWorkItemsOrchestrator` abstraction in DI wiring in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/ModuleServiceCollectionExtensions.cs`
 - [ ] T023 [US2] Keep inventory path layering explicit (orchestrator vs wrapper) by clarifying internal role naming/docs in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Discovery/{InventoryOrchestrator.cs,InventoryService.cs}`
 - [ ] T043 [US2] Narrow `IWorkItemResolutionStrategy` usage to connector find/get behavior and strategy provenance semantics while keeping cache/idmap lifecycle in `WorkItemResolutionService` in `src/DevOpsMigrationPlatform.Abstractions.Agent/Import/IWorkItemResolutionStrategy.cs` and `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemResolutionService.cs`
 

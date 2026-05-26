@@ -83,7 +83,7 @@ public static class ModuleServiceCollectionExtensions
                 sp.GetService<INodesOrchestrator>(),
                 sp.GetService<IPlatformMetrics>(),
                 sp.GetRequiredService<ILogger<WorkItemsModule>>()));
-        services.AddScoped<IWorkItemsImportOrchestrator>(sp =>
+        services.AddScoped<WorkItemsImportOrchestrator>(sp =>
             new WorkItemsImportOrchestrator(
                 sp.GetRequiredService<IWorkItemImportTargetFactory>(),
                 sp.GetRequiredService<IWorkItemResolutionStrategyFactory>(),
@@ -101,6 +101,8 @@ public static class ModuleServiceCollectionExtensions
                 sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<WorkItemsModuleOptions>>(),
                 sp.GetService<Microsoft.Extensions.Options.IOptions<WorkItemImportOptions>>(),
                 sp.GetService<Microsoft.Extensions.Options.IOptions<NodesModuleOptions>>()));
+        services.AddScoped<IWorkItemsImportOrchestrator>(sp => sp.GetRequiredService<WorkItemsImportOrchestrator>());
+        services.AddScoped<IWorkItemsOrchestrator>(sp => sp.GetRequiredService<WorkItemsImportOrchestrator>());
         services.AddTransient<IModule, WorkItemsModule>();
         return services;
     }
