@@ -42,6 +42,7 @@ public class MigrationPackageOptions
     /// <summary>
     /// Path to a pre-built zip file to use as the package source (import only).
     /// When set, the zip is extracted into <see cref="WorkingDirectory"/> before processing.
+    /// Entry paths are preserved exactly as stored in the fixture archive.
     /// </summary>
     public string? PackagePath { get; set; }
 }

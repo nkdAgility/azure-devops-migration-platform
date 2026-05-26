@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
@@ -22,6 +23,18 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import;
 /// </summary>
 public sealed class TfsWorkItemImportTarget : IWorkItemImportTarget
 {
+    private static readonly HashSet<string> s_excludedFieldReferences = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "System.TeamProject",
+        "System.State",
+        "System.CreatedDate",
+        "System.ChangedDate",
+        "System.CreatedBy",
+        "System.ChangedBy",
+        "System.RevisedDate",
+        "System.AuthorizedDate"
+    };
+
     private readonly WorkItemStore _store;
     private readonly string _project;
     private readonly ILogger<TfsWorkItemImportTarget> _logger;
@@ -50,7 +63,14 @@ public sealed class TfsWorkItemImportTarget : IWorkItemImportTarget
 
         ApplyFields(workItem, fields);
 
-        workItem.Save();
+        try
+        {
+            workItem.Save();
+        }
+        catch (ValidationException ex)
+        {
+            throw new ValidationException($"{ex.Message}. Invalid fields: {DescribeInvalidFields(workItem)}");
+        }
 
         _logger.LogDebug("[TFS Import] Created work item {Id} of type '{Type}'.",
             workItem.Id, workItemType);
@@ -72,7 +92,14 @@ public sealed class TfsWorkItemImportTarget : IWorkItemImportTarget
 
         var workItem = _store.GetWorkItem(targetWorkItemId);
         ApplyFields(workItem, fields);
-        workItem.Save();
+        try
+        {
+            workItem.Save();
+        }
+        catch (ValidationException ex)
+        {
+            throw new ValidationException($"{ex.Message}. Invalid fields: {DescribeInvalidFields(workItem)}");
+        }
 
         return Task.CompletedTask;
     }
@@ -313,6 +340,8 @@ public sealed class TfsWorkItemImportTarget : IWorkItemImportTarget
         {
             if (string.IsNullOrWhiteSpace(field.ReferenceName))
                 continue;
+            if (s_excludedFieldReferences.Contains(field.ReferenceName))
+                continue;
 
             try
             {
@@ -323,5 +352,31 @@ public sealed class TfsWorkItemImportTarget : IWorkItemImportTarget
                 // Best-effort: skip fields that can't be set (e.g. read-only or unknown fields).
             }
         }
+    }
+
+    private static string DescribeInvalidFields(WorkItem workItem)
+    {
+        var builder = new StringBuilder();
+        foreach (Field field in workItem.Fields)
+        {
+            if (field.IsValid)
+            {
+                continue;
+            }
+
+            if (builder.Length > 0)
+            {
+                builder.Append("; ");
+            }
+
+            builder.Append(field.ReferenceName);
+            builder.Append("=");
+            builder.Append(field.Value?.ToString() ?? "<null>");
+            builder.Append(" (");
+            builder.Append(field.Status);
+            builder.Append(')');
+        }
+
+        return builder.Length == 0 ? "<none>" : builder.ToString();
     }
 }

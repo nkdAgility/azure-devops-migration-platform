@@ -339,6 +339,50 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestMethod]
+    public async Task OnJobAsync_Import_RunsPrepareBeforeImportPhaseExecution()
+    {
+        var module = new Mock<IModule>();
+        module.SetupGet(m => m.Name).Returns("WorkItems");
+        module.SetupGet(m => m.DependsOn).Returns(Array.Empty<ModuleDependency>());
+        module.SetupGet(m => m.SupportsInventory).Returns(false);
+        module.SetupGet(m => m.SupportsExport).Returns(true);
+        module.SetupGet(m => m.SupportsPrepare).Returns(true);
+        module.SetupGet(m => m.SupportsImport).Returns(true);
+        module.SetupGet(m => m.SupportsValidate).Returns(false);
+
+        var sequence = new MockSequence();
+        module
+            .InSequence(sequence)
+            .Setup(m => m.PrepareAsync(It.IsAny<PrepareContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TaskExecutionResult.Completed());
+        _planExecutor
+            .InSequence(sequence)
+            .Setup(executor => executor.ExecuteImportPhaseAsync(
+                It.IsAny<JobTaskList>(),
+                It.IsAny<IReadOnlyDictionary<string, IModule>>(),
+                It.IsAny<ImportContext>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var worker = CreateWorker([module.Object]);
+        var job = CreateJob(JobKind.Import);
+
+        await JobAgentWorkerTestHelper.InvokeJobAsync(
+            worker,
+            job,
+            CreateControlPlaneClient(),
+            "lease-import-order",
+            CancellationToken.None);
+
+        module.Verify(m => m.PrepareAsync(It.IsAny<PrepareContext>(), It.IsAny<CancellationToken>()), Times.Once);
+        _planExecutor.Verify(executor => executor.ExecuteImportPhaseAsync(
+            It.IsAny<JobTaskList>(),
+            It.IsAny<IReadOnlyDictionary<string, IModule>>(),
+            It.IsAny<ImportContext>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [TestMethod]
     public async Task OnJobAsync_Dependencies_EmitsJobReadyAfterPushingTaskList()
     {
         var progressEvents = new List<ProgressEvent>();

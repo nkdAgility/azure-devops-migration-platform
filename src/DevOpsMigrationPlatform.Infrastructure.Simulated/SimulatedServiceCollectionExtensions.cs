@@ -12,6 +12,7 @@ using DevOpsMigrationPlatform.Infrastructure.Simulated.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Factories;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
+using DevOpsMigrationPlatform.Infrastructure.Simulated.ProjectLifecycle;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -94,6 +95,8 @@ public static class SimulatedServiceCollectionExtensions
 
         // Team target — in-memory simulation of team creation, keyed for composite dispatch.
         services.AddTeamTarget<SimulatedTeamTarget>("Simulated");
+        services.AddProjectLifecycleProvider<SimulatedProjectLifecycleProvider>("Simulated");
+        services.AddProjectProcessProvider<SimulatedProjectProcessProvider>("Simulated");
 
         return services;
     }

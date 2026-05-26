@@ -272,6 +272,77 @@ public class WorkItemImportOrchestratorFilterTests
             Times.AtLeastOnce);
     }
 
+    [TestMethod]
+    public async Task ImportAsync_WhenScopedRevisionLookupMisses_FallsBackToDirectPathLookup()
+    {
+        AddRevisionFolder(wiId: 42, revIndex: 0, areaPath: @"MyOrg\TeamA");
+        var folder = _folders[0];
+
+        _mockPackage
+            .Setup(p => p.EnumerateContentAsync(
+                It.Is<PackageContentContext>(c =>
+                    c.IsCollectionRequest &&
+                    string.Equals(c.Module, "WorkItems", StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(c.Organisation, "unknown", StringComparison.OrdinalIgnoreCase)),
+                It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken ct) => ToAsyncEnumerable(Array.Empty<string>(), ct));
+
+        _mockPackage
+            .Setup(p => p.EnumerateContentAsync(
+                It.Is<PackageContentContext>(c =>
+                    c.IsCollectionRequest &&
+                    string.Equals(c.Module, "WorkItems", StringComparison.OrdinalIgnoreCase) &&
+                    string.IsNullOrWhiteSpace(c.Organisation)),
+                It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken ct) => ToAsyncEnumerable(new[] { folder }, ct));
+
+        _mockPackage
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c =>
+                    string.Equals(c.Module, "WorkItems", StringComparison.OrdinalIgnoreCase) &&
+                    c.Address != null &&
+                    c.Address.RelativePath.EndsWith("revision.json", StringComparison.OrdinalIgnoreCase)),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PackagePayload?)null);
+
+        _mockPackage
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c =>
+                    c.Address != null &&
+                    c.Address.RelativePath.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase) &&
+                    c.Address.RelativePath.EndsWith("revision.json", StringComparison.OrdinalIgnoreCase)),
+                It.IsAny<CancellationToken>()))
+            .Returns(() => ToPayload(DefaultRevisionJson($"{folder.TrimEnd('/')}/revision.json")));
+
+        var processor = new RevisionFolderProcessor(
+            _mockTarget.Object,
+            _mockIdMap.Object,
+            _mockCps.Object,
+            (IIdentityLookupTool?)null,
+            NullLogger<RevisionFolderProcessor>.Instance,
+            "https://dev.azure.com/contoso",
+            "Shop",
+            package: _mockPackage.Object);
+
+        var orchestrator = new WorkItemImportOrchestrator(
+            _mockPackage.Object,
+            "unknown",
+            string.Empty,
+            _mockCps.Object,
+            _mockProgress.Object,
+            _mockStrategy.Object,
+            _mockIdMap.Object,
+            processor,
+            _mockTarget.Object,
+            NullLogger<WorkItemImportOrchestrator>.Instance);
+
+        await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
+
+        _mockTarget.Verify(
+            t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private WorkItemImportOrchestrator BuildOrchestrator(

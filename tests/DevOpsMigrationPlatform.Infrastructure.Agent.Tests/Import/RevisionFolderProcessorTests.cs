@@ -135,6 +135,37 @@ public class RevisionFolderProcessorTests
         _mockTarget.Verify(t => t.UpdateFieldsAsync(77, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [TestMethod]
+    public async Task ProcessAsync_WhenScopedRevisionLookupMisses_FallsBackToDirectRelativePath()
+    {
+        var suffixPath = "2024-01-01/00000638000000000001-1-0/revision.json";
+        var fullPath = $"{Folder}/revision.json";
+
+        _mockPackage
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address != null && string.Equals(c.Address.RelativePath, suffixPath, StringComparison.Ordinal)),
+                It.IsAny<CancellationToken>()))
+            .Returns(() => ToPayload(null));
+
+        _mockPackage
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Address != null && string.Equals(c.Address.RelativePath, fullPath, StringComparison.Ordinal)),
+                It.IsAny<CancellationToken>()))
+            .Returns(() => ToPayload(_minimalRevisionJson));
+
+        SetupPackageText($"{Folder}/comment.json", null);
+        SetupNoMapping();
+        SetupTargetCreate(newTargetId: 10);
+        SetupCursorWrites();
+        SetupResolutionStrategyNoOp();
+        SetupTargetFieldsAndLinks(targetId: 10);
+
+        var sut = CreateSut();
+        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        _mockTarget.Verify(t => t.UpdateFieldsAsync(10, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     // ── ProcessAsync_WhenLinksDisabled_SkipsStageC ────────────────────────────
 
     [TestMethod]

@@ -195,6 +195,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
 
         var outputPath = Path.Combine(Path.GetFullPath(ExpandPath(packagePath)), PackagePathResolver.ExtractOrgFolderName(orgUrl), project);
+        var errorsJsonPath = Path.Combine(outputPath, "errors.json");
         console.MarkupLine(isSimulated
             ? "[blue]ℹ[/] Importing into [bold]Simulated[/] target"
             : $"[blue]ℹ[/] Importing into [bold]{Markup.Escape(orgUrl)}[/] / [bold]{Markup.Escape(project)}[/]");
@@ -265,6 +266,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         {
             jobFailed = true;
             ShowError(console, ex.Message);
+            ShowError(console, $"Import failed. Check errors.json in the package root for details: {errorsJsonPath}");
         }
         catch (OperationCanceledException)
         {
@@ -278,7 +280,20 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
 
         await followCts.CancelAsync();
+        if (File.Exists(errorsJsonPath))
+        {
+            ShowError(console, $"Import encountered errors. Check errors.json in the package root for details: {errorsJsonPath}");
+            return 1;
+        }
+
         if (jobFailed) return 1;
+
+        if (TryGetBlockingPrepareFindings(outputPath, out var blockingFindings))
+        {
+            await WriteErrorsJsonFromPrepareFindingsAsync(errorsJsonPath, blockingFindings, cancellationToken).ConfigureAwait(false);
+            ShowError(console, $"Import blocked by prepare findings. Check errors.json in the package root for details: {errorsJsonPath}");
+            return 1;
+        }
 
         if (lastEvt is not null)
         {
@@ -291,6 +306,69 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
 
         return 0;
+    }
+
+    private static bool TryGetBlockingPrepareFindings(string outputPath, out List<string> blockingFindings)
+    {
+        blockingFindings = [];
+
+        try
+        {
+            var prepareReportPath = Path.Combine(outputPath, "WorkItems", "prepare-report.json");
+            if (!File.Exists(prepareReportPath))
+                return false;
+
+            using var doc = JsonDocument.Parse(File.ReadAllText(prepareReportPath));
+            if (!doc.RootElement.TryGetProperty("ImportReadinessReport", out var readiness)
+                || readiness.ValueKind != JsonValueKind.Object
+                || !readiness.TryGetProperty("BlockingFindings", out var findings)
+                || findings.ValueKind != JsonValueKind.Array)
+            {
+                return false;
+            }
+
+            foreach (var finding in findings.EnumerateArray())
+            {
+                if (finding.TryGetProperty("Message", out var messageElement)
+                    && messageElement.ValueKind == JsonValueKind.String)
+                {
+                    var message = messageElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(message))
+                        blockingFindings.Add(message!);
+                }
+            }
+
+            return blockingFindings.Count > 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static async Task WriteErrorsJsonFromPrepareFindingsAsync(
+        string errorsJsonPath,
+        IReadOnlyList<string> blockingFindings,
+        CancellationToken cancellationToken)
+    {
+        var errorPayload = new
+        {
+            generatedAt = DateTimeOffset.UtcNow,
+            taskId = "prepare.workitems.readiness",
+            errors = blockingFindings.Select(message => new
+            {
+                phase = "Prepare",
+                module = "WorkItems",
+                message,
+                exceptionType = nameof(MigrationException)
+            }).ToArray()
+        };
+
+        var json = JsonSerializer.Serialize(errorPayload, new JsonSerializerOptions { WriteIndented = true });
+        var directory = Path.GetDirectoryName(errorsJsonPath);
+        if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
+            Directory.CreateDirectory(directory);
+        await File.WriteAllTextAsync(errorsJsonPath, json, cancellationToken).ConfigureAwait(false);
     }
 
 

@@ -4,6 +4,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using DevOpsMigrationPlatform.Abstractions.Options;
 
@@ -140,5 +141,21 @@ public abstract class SystemTestBase
         Console.WriteLine($"System test environment validated for '{testName}'");
 
         return context;
+    }
+
+    public static LifecycleEligibilityFlag EvaluateLifecycleEligibility(
+        bool enabled,
+        string connectorType,
+        string? namePrefix = null)
+    {
+        if (!enabled)
+            return LifecycleEligibilityFlag.Disabled;
+
+        return new LifecycleEligibilityFlag
+        {
+            IsEnabled = true,
+            Connectors = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { connectorType },
+            NamePrefix = namePrefix
+        };
     }
 }

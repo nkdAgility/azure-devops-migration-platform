@@ -180,3 +180,21 @@ What every test must prove:
 - [.agents/20-guardrails/workflow/testing-rules.md](../.agents/20-guardrails/workflow/testing-rules.md) — enforced testing constraints
 - [.agents/20-guardrails/workflow/test-first-workflow.md](../.agents/20-guardrails/workflow/test-first-workflow.md) — exact tests-first workflow contract
 
+## Lifecycle-enabled connector tests
+
+For project-lifecycle scenarios, mark tests with explicit lifecycle eligibility and ensure the run:
+
+1. Creates a run-correlated ephemeral project name before the main assertions execute.
+2. Binds execution to that created project identity.
+3. Always attempts teardown in a finally path, including when the test body fails.
+4. Emits a lifecycle record with create result, teardown result, blocking reason (if any), and teardown latency.
+
+### SC-004 measurement plan (cleanup intervention reduction)
+
+Track manual cleanup interventions before and after rollout:
+
+- **Source**: lifecycle outcome logs (`ProjectLifecycle outcome ...`) and operator incident notes.
+- **Metric**: count of runs requiring human cleanup follow-up per week.
+- **Target**: reduce manual cleanup interventions by at least 50% over the first two reporting windows.
+- **Collection**: run `scripts/project-lifecycle/collect-cleanup-metrics.ps1` against test logs and publish weekly trend snapshots.
+

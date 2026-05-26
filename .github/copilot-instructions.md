@@ -1,4 +1,4 @@
-# Copilot Instructions
+﻿# Copilot Instructions
 
 **Follow [agents.md](../.agents/agents.md) for all guardrails, technology stack, and architectural constraints.**
 
@@ -10,6 +10,27 @@ For ad-hoc tasks, follow the mandatory guardrails validation in `agents.md`.
 ## NEVER Auto-Commit
 
 Do NOT run `git commit` or `git push` unless the user explicitly asks.
+
+---
+
+## FAIL-CLOSED Runtime Evidence Gate (MANDATORY)
+
+Do not declare implementation complete unless required runtime evidence is present.
+
+When a feature requires connector/API side effects (for example create/delete/update
+operations against ADO/TFS/Simulated endpoints), passing hooks, unit tests, or
+architecture checks are NOT sufficient by themselves.
+
+Required completion evidence:
+
+1. **Call-site evidence**: exact `path:line` references for real connector API calls
+   performing the required side effects.
+2. **Runtime-proof evidence**: exact `path:line` tests proving external state transitions
+   (for example exists -> create -> exists, and exists -> delete -> missing).
+3. **Verdict**: `PASS` only when both evidence classes are present; otherwise output
+   `BLOCKED - guardrail unmet`.
+
+If either evidence class is missing, STOP and report `BLOCKED - guardrail unmet`.
 
 ---
 

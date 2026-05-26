@@ -6,6 +6,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.ProjectLifecycle;
 using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
@@ -47,6 +48,8 @@ public static class ImportServiceCollectionExtensions
         services.AddScoped<IRevisionFolderProcessorFactory, RevisionFolderProcessorFactory>();
         // Classification node creator — creates area/iteration nodes in the target ADO project.
         services.AddNodeCreator<AzureDevOpsNodeCreator>("AzureDevOpsServices");
+        services.AddProjectLifecycleProvider<AzureDevOpsProjectLifecycleProvider>("AzureDevOpsServices");
+        services.AddProjectProcessProvider<AzureDevOpsProjectProcessProvider>("AzureDevOpsServices");
         return services;
     }
 }

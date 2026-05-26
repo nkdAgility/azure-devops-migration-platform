@@ -1066,7 +1066,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                 {
                     Module = handlerName,
                     Stage = $"{task.TaskKind}.Failed",
-                    Message = $"{handlerName} {task.TaskKind} failed: {ex.Message}",
+                    Message = $"{handlerName} {task.TaskKind} failed: {ex.Message}. Check errors.json in the package root for details.",
                     Timestamp = updated.CompletedAt!.Value,
                     TaskId = task.Id,
                     TaskStatus = JobTaskStatus.Failed

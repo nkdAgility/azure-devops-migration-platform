@@ -23,6 +23,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 /// </summary>
 internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget, IDisposable
 {
+    private static readonly HashSet<string> s_nonWritableFieldReferences = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "System.TeamProject",
+        "System.State"
+    };
+
     private readonly WorkItemTrackingHttpClient _witClient;
     private readonly string _project;
     private readonly SemaphoreSlim _workItemTypeCacheLock = new(1, 1);
@@ -340,12 +346,17 @@ internal sealed class AzureDevOpsWorkItemImportTarget : IWorkItemImportTarget, I
 
     // --- Helpers ---
 
-    private static JsonPatchDocument BuildFieldPatch(IReadOnlyList<PlatformWorkItemField> fields, Operation op)
+    private static JsonPatchDocument BuildFieldPatch(
+        IReadOnlyList<PlatformWorkItemField> fields,
+        Operation op,
+        IReadOnlySet<string>? additionalExcludedFieldReferences = null)
     {
         var doc = new JsonPatchDocument();
         foreach (var field in fields)
         {
             if (string.IsNullOrWhiteSpace(field.ReferenceName)) continue;
+            if (s_nonWritableFieldReferences.Contains(field.ReferenceName)) continue;
+            if (additionalExcludedFieldReferences?.Contains(field.ReferenceName) == true) continue;
             doc.Add(new JsonPatchOperation
             {
                 Operation = op,

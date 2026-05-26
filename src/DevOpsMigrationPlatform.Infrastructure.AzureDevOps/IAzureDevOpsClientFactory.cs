@@ -7,7 +7,9 @@ using DevOpsMigrationPlatform.Abstractions;
 using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.TeamFoundation.Work.WebApi;
+using Microsoft.TeamFoundation.WorkItemTracking.Process.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
+using Microsoft.VisualStudio.Services.Operations;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 
@@ -21,7 +23,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 /// are Azure DevOps SDK types. Moving this interface to <c>Abstractions</c> would introduce
 /// an SDK package dependency on the domain layer, violating the layering constraint.
 /// </remarks>
-internal interface IAzureDevOpsClientFactory
+public interface IAzureDevOpsClientFactory
 {
     /// <summary>Returns a <see cref="ProjectHttpClient"/> authenticated against <paramref name="endpoint"/>.</summary>
     Task<ProjectHttpClient> CreateProjectClientAsync(
@@ -41,5 +43,13 @@ internal interface IAzureDevOpsClientFactory
 
     /// <summary>Returns a <see cref="WorkHttpClient"/> authenticated against <paramref name="endpoint"/>.</summary>
     Task<WorkHttpClient> CreateWorkClientAsync(
+        OrganisationEndpoint endpoint, CancellationToken cancellationToken = default);
+
+    /// <summary>Returns an <see cref="OperationsHttpClient"/> authenticated against <paramref name="endpoint"/>.</summary>
+    Task<OperationsHttpClient> CreateOperationsClientAsync(
+        OrganisationEndpoint endpoint, CancellationToken cancellationToken = default);
+
+    /// <summary>Returns a <see cref="WorkItemTrackingProcessHttpClient"/> authenticated against <paramref name="endpoint"/>.</summary>
+    Task<WorkItemTrackingProcessHttpClient> CreateProcessClientAsync(
         OrganisationEndpoint endpoint, CancellationToken cancellationToken = default);
 }

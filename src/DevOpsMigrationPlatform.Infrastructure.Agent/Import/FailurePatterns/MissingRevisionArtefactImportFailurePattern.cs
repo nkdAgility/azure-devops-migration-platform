@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Import;
-using DevOpsMigrationPlatform.Abstractions.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import.FailurePatterns;
 
@@ -20,15 +19,10 @@ internal sealed class MissingRevisionArtefactImportFailurePattern : IImportFailu
         CancellationToken cancellationToken)
     {
         var hasRevision = false;
-        await foreach (var artefactPath in context.PrepareContext.Package.EnumerateContentAsync(
-                           new PackageContentContext(PackageContentKind.Collection, Address: new RelativePathAddress("WorkItems/"), IsCollectionRequest: true),
-                           cancellationToken).ConfigureAwait(false))
+        await foreach (var _ in WorkItemsPrepareRevisionReader.EnumerateAsync(context.PrepareContext.Package, cancellationToken).ConfigureAwait(false))
         {
-            if (artefactPath.EndsWith("/revision.json", System.StringComparison.Ordinal))
-            {
-                hasRevision = true;
-                break;
-            }
+            hasRevision = true;
+            break;
         }
 
         if (hasRevision)
@@ -47,9 +41,5 @@ internal sealed class MissingRevisionArtefactImportFailurePattern : IImportFailu
         ];
     }
 
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
-    }
 }
 

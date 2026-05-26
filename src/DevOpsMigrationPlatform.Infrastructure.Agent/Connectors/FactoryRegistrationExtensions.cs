@@ -4,9 +4,11 @@
 using System;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+using DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -190,6 +192,40 @@ public static class FactoryRegistrationExtensions
         services.TryAddSingleton<T>();
         services.AddSingleton(new KeyedWorkItemDiscoveryService(typeKey, typeof(T)));
         services.TryAddSingleton<IWorkItemDiscoveryService, CompositeWorkItemDiscoveryService>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a concrete <see cref="IProjectLifecycleProvider"/> keyed by
+    /// <paramref name="typeKey"/> and ensures <see cref="ProjectLifecycleService"/> is registered
+    /// as <see cref="IProjectLifecycleService"/>.
+    /// </summary>
+    public static IServiceCollection AddProjectLifecycleProvider<T>(
+        this IServiceCollection services,
+        string typeKey)
+        where T : class, IProjectLifecycleProvider
+    {
+        services.TryAddSingleton<T>();
+        services.AddSingleton(new KeyedProjectLifecycleProvider(typeKey, typeof(T)));
+        services.TryAddSingleton<IProjectLifecycleService, ProjectLifecycleService>();
+        services.TryAddSingleton<IProjectLifecycleNameGenerator, ProjectLifecycleNameGenerator>();
+        services.TryAddSingleton<ProjectLifecycleProgressEmitter>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a concrete <see cref="IProjectProcessProvider"/> keyed by
+    /// <paramref name="typeKey"/> and ensures <see cref="ProjectProcessService"/> is registered
+    /// as <see cref="IProjectProcessService"/>.
+    /// </summary>
+    public static IServiceCollection AddProjectProcessProvider<T>(
+        this IServiceCollection services,
+        string typeKey)
+        where T : class, IProjectProcessProvider
+    {
+        services.TryAddSingleton<T>();
+        services.AddSingleton(new KeyedProjectProcessProvider(typeKey, typeof(T)));
+        services.TryAddSingleton<IProjectProcessService, ProjectProcessService>();
         return services;
     }
 }

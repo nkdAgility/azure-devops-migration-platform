@@ -173,6 +173,14 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Confirm the implementation follows the technical plan
    - Report final status with summary of completed work
 
+9.1. **Fail-closed runtime evidence gate (MANDATORY)**:
+   - When requirements include connector/API side effects, completion MUST include:
+     - call-site evidence (`path:line`) for real side-effect API calls
+     - runtime-proof test evidence (`path:line`) proving external state transitions
+   - Green hooks/tests are insufficient without these two evidence classes.
+   - If either class is missing, STOP and report exactly:
+     `BLOCKED - guardrail unmet`
+
 Note: This command assumes a complete task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `/speckit-tasks` first to regenerate the task list.
 
 10. **Check for extension hooks**: After completion validation, check if `.specify/extensions.yml` exists in the project root.

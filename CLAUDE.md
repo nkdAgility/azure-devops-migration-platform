@@ -1,4 +1,4 @@
-# agents.md
+﻿# agents.md
 
 # Azure DevOps Migration Platform - Agent Entry Point
 
@@ -144,6 +144,19 @@ After each logical unit of work:
 3. Fix non-compliance before claiming completion.
 4. Enforce failure-first testing order: maintain a known-fail queue, run/fix failing tests individually until queue is empty, then run slice/full suites.
 
+### Hard Stop Evidence Gate (Fail-Closed)
+
+For any feature that requires real connector/API side effects, completion is blocked
+unless both evidence classes are present:
+
+1. **Call-site evidence**: exact `path:line` for real connector API calls implementing
+   required side effects.
+2. **Runtime-proof evidence**: exact `path:line` tests proving required external state
+   transitions (for example exists -> create -> exists and exists -> delete -> missing).
+
+If either evidence class is missing, the only valid outcome is:
+`BLOCKED - guardrail unmet`.
+
 Core authoritative constraints:
 
 - `/.agents/20-guardrails/core/architecture-boundaries.md`
@@ -176,5 +189,6 @@ Core authoritative constraints:
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+shell commands, and other important information, read:
+`specs/036-test-project-lifecycle/plan.md`
 <!-- SPECKIT END -->

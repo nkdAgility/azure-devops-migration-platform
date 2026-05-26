@@ -166,6 +166,13 @@ Also evaluate whether the task set is ready for a strict TDD gate:
 - Are tasks ordered so foundational setup does not force speculative production code before tests?
 - Are broad tasks split enough that one failing test can drive one meaningful increment?
 
+Additionally enforce this fail-closed redline:
+
+- If the spec requires connector/API side effects, tasks MUST explicitly include
+  runtime-proof checks of external state transitions (for example exists -> create -> exists,
+  exists -> delete -> missing) per applicable connector.
+- If those tasks are missing, mark as `✗ Gap` and set readiness to `NOT READY`.
+
 ---
 
 ### Step 6 — Summary and Decision

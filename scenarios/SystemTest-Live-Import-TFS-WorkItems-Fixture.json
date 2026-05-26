@@ -52,6 +52,37 @@
           }
         }
       }
+    },
+    "Tools": {
+      "FieldTransform": {
+        "Enabled": true,
+        "TransformGroups": [
+          {
+            "Name": "MapFixtureWorkItemType",
+            "Enabled": true,
+            "Transforms": [
+              {
+                "Type": "MapValue",
+                "Enabled": true,
+                "Field": "System.WorkItemType",
+                "ValueMap": {
+                  "User Story": "Product Backlog Item"
+                }
+              },
+              {
+                "Type": "ExcludeField",
+                "Enabled": true,
+                "Field": "System.AreaPath"
+              },
+              {
+                "Type": "ExcludeField",
+                "Enabled": true,
+                "Field": "System.IterationPath"
+              }
+            ]
+          }
+        ]
+      }
     }
   }
 }

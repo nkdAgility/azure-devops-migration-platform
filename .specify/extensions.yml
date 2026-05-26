@@ -72,7 +72,15 @@ hooks:
     description: 'Catches missing or under-specified tasks at planning time. Produces
       a requirement coverage and TDD-readiness report. Bridge-native logic.
 
-      '
+       '
+    condition: null
+  - extension: nkda-core-tasks-architecture-compliance
+    command: nkda-core-tasks-architecture-compliance
+    enabled: true
+    optional: false
+    description: Design-time compliance review for tasks.md — validates task-level implementation
+      coverage against spec.md and plan.md across all five architecture perspectives plus
+      constitution and guardrails before implementation begins
     condition: null
   - extension: git
     command: speckit.git.commit
@@ -104,6 +112,14 @@ hooks:
     description: Scan every modified .cs file for O-1 spans, O-2 metrics, O-3 structured
       logging, and O-4 progress events — implement any missing instrumentation before
       proceeding
+    condition: null
+  - extension: nkda-core-implementation-architecture-compliance
+    command: nkda-core-implementation-architecture-compliance
+    enabled: true
+    optional: false
+    description: Implementation-time architecture compliance review — validates changed
+      code against all five architecture perspectives plus constitution and guardrails
+      before completion gates
     condition: null
   - extension: nkda-archimprove-test-validity
     command: nkda-archimprove-test-validity

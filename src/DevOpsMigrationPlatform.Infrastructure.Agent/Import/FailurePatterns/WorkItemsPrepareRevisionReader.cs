@@ -19,14 +19,10 @@ internal static class WorkItemsPrepareRevisionReader
         IPackageAccess package,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        await foreach (var artefactPath in package.EnumerateContentAsync(
-                           new PackageContentContext(
-                               PackageContentKind.Collection,
-                               Address: new RelativePathAddress("WorkItems/"),
-                               IsCollectionRequest: true),
-                           cancellationToken).ConfigureAwait(false))
+        var seenRevisionPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await foreach (var artefactPath in EnumerateCandidateRevisionPathsAsync(package, cancellationToken).ConfigureAwait(false))
         {
-            if (!artefactPath.EndsWith("/revision.json", System.StringComparison.Ordinal))
+            if (!seenRevisionPaths.Add(artefactPath))
             {
                 continue;
             }
@@ -73,6 +69,54 @@ internal static class WorkItemsPrepareRevisionReader
                 revision,
                 null);
         }
+    }
+
+    private static async IAsyncEnumerable<string> EnumerateCandidateRevisionPathsAsync(
+        IPackageAccess package,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await foreach (var path in EnumerateByPrefixAsync(package, "WorkItems/", cancellationToken).ConfigureAwait(false))
+        {
+            yield return path;
+        }
+
+        await foreach (var path in EnumerateByPrefixAsync(package, string.Empty, cancellationToken).ConfigureAwait(false))
+        {
+            yield return path;
+        }
+    }
+
+    private static async IAsyncEnumerable<string> EnumerateByPrefixAsync(
+        IPackageAccess package,
+        string prefix,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await foreach (var artefactPath in package.EnumerateContentAsync(
+                           new PackageContentContext(
+                               PackageContentKind.Collection,
+                               Address: new RelativePathAddress(prefix),
+                               IsCollectionRequest: true),
+                           cancellationToken).ConfigureAwait(false))
+        {
+            if (!artefactPath.EndsWith("/revision.json", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!IsWorkItemsRevisionPath(artefactPath))
+            {
+                continue;
+            }
+
+            yield return artefactPath;
+        }
+    }
+
+    private static bool IsWorkItemsRevisionPath(string artefactPath)
+    {
+        var normalized = artefactPath.Replace('\\', '/').TrimStart('/');
+        return normalized.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase)
+               || normalized.IndexOf("/WorkItems/", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private static async Task<string?> ReadPackageTextAsync(IPackageAccess package, string relativePath, CancellationToken cancellationToken)

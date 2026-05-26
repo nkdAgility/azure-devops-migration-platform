@@ -5,15 +5,18 @@ using System;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
+using DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Attachments;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Export;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Options;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.ProjectLifecycle;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.Client;
@@ -35,10 +38,17 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
 {
     private readonly ILoggerFactory _loggerFactory;
+    private readonly IProjectLifecycleNameGenerator _projectLifecycleNameGenerator;
+    private readonly IProjectProcessService _processService;
 
-    public TfsJobServiceFactory(ILoggerFactory loggerFactory)
+    public TfsJobServiceFactory(
+        ILoggerFactory loggerFactory,
+        IProjectLifecycleNameGenerator projectLifecycleNameGenerator,
+        IProjectProcessService processService)
     {
         _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
+        _projectLifecycleNameGenerator = projectLifecycleNameGenerator ?? throw new ArgumentNullException(nameof(projectLifecycleNameGenerator));
+        _processService = processService ?? throw new ArgumentNullException(nameof(processService));
     }
 
     /// <summary>
@@ -172,6 +182,10 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
         var teamSource = new TfsTeamSource(
             collection,
             _loggerFactory.CreateLogger<TfsTeamSource>());
+        var projectLifecycleService = new ProjectLifecycleService(
+            _projectLifecycleNameGenerator,
+            new TfsProjectLifecycleProvider(_processService),
+            _loggerFactory.CreateLogger<ProjectLifecycleService>());
 
         return new TfsJobServices(
             collection,
@@ -187,7 +201,8 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
             exportMetrics,
             attachmentMetrics,
             identitySource,
-            teamSource);
+            teamSource,
+            projectLifecycleService);
     }
 
     public void Dispose()
@@ -212,6 +227,7 @@ public sealed class TfsJobServices : IDisposable
     public TeamFoundationServerEndpointOptions Endpoint { get; }
     public IIdentitySource IdentitySource { get; }
     public ITeamSource TeamSource { get; }
+    public IProjectLifecycleService ProjectLifecycleService { get; }
 
     public IWorkItemExportMetrics ExportMetrics { get; }
     public IAttachmentDownloadMetrics AttachmentMetrics { get; }
@@ -232,7 +248,8 @@ public sealed class TfsJobServices : IDisposable
         IWorkItemExportMetrics exportMetrics,
         IAttachmentDownloadMetrics attachmentMetrics,
         IIdentitySource identitySource,
-        ITeamSource teamSource)
+        ITeamSource teamSource,
+        IProjectLifecycleService projectLifecycleService)
     {
         _collection = collection;
         WorkItemStore = workItemStore;
@@ -248,6 +265,7 @@ public sealed class TfsJobServices : IDisposable
         AttachmentMetrics = attachmentMetrics;
         IdentitySource = identitySource;
         TeamSource = teamSource;
+        ProjectLifecycleService = projectLifecycleService;
     }
 
     public void Dispose()
