@@ -17,7 +17,7 @@ These rules are mandatory for all configuration-related code.
 
 6. `Source.Type` must be a known registered source type. Adding a new source type requires updating the schema and `docs/capabilities-guide.md`.
 7. `Target.Type` must be a known registered target type.
-8. Authentication blocks must support at minimum: `Pat`, `Windows` (TFS), `ManagedIdentity`.
+8. Authentication blocks must support at minimum: `AccessToken`, `Windows` (TFS), `ManagedIdentity`.
 
 ## Defaults
 
@@ -39,7 +39,6 @@ These rules are mandatory for all configuration-related code.
 - [coding-standards.md](../core/coding-standards.md) — IOptions<T> pattern
 - [docs/configuration-reference.md](../../../docs/configuration-reference.md) — full schema reference
 - [docs/configuration-guide.md](../../../docs/configuration-guide.md) — operator configuration guide
-
 
 
 

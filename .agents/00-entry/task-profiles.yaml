@@ -2,6 +2,7 @@ version: 1
 profiles:
   package-runtime:
     guardrails:
+      - ".agents/20-guardrails/core/taxonomy-naming.md"
       - ".agents/20-guardrails/core/architecture-boundaries.md"
       - ".agents/20-guardrails/core/architecture-perspectives-ethos.md"
       - ".agents/20-guardrails/core/capability-ethos-rules.md"
@@ -22,6 +23,7 @@ profiles:
       - ".agents/30-context/domains/orchestrator-model.md"
   cli-tui:
     guardrails:
+      - ".agents/20-guardrails/core/taxonomy-naming.md"
       - ".agents/20-guardrails/core/architecture-boundaries.md"
       - ".agents/20-guardrails/core/architecture-perspectives-ethos.md"
       - ".agents/20-guardrails/core/capability-ethos-rules.md"
@@ -39,6 +41,7 @@ profiles:
       - ".agents/30-context/domains/job-lifecycle.md"
   control-plane:
     guardrails:
+      - ".agents/20-guardrails/core/taxonomy-naming.md"
       - ".agents/20-guardrails/core/architecture-boundaries.md"
       - ".agents/20-guardrails/core/architecture-perspectives-ethos.md"
       - ".agents/20-guardrails/core/capability-ethos-rules.md"
@@ -56,6 +59,7 @@ profiles:
       - ".agents/30-context/domains/telemetry-model.md"
   connectors:
     guardrails:
+      - ".agents/20-guardrails/core/taxonomy-naming.md"
       - ".agents/20-guardrails/core/architecture-boundaries.md"
       - ".agents/20-guardrails/core/architecture-perspectives-ethos.md"
       - ".agents/20-guardrails/core/capability-ethos-rules.md"
@@ -74,6 +78,7 @@ profiles:
       - ".agents/30-context/domains/capability-seam-contract.md"
   docs-only:
     guardrails:
+      - ".agents/20-guardrails/core/taxonomy-naming.md"
       - ".agents/20-guardrails/workflow/documentation-rules.md"
     context:
       - ".agents/30-context/README.md"
