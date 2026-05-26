@@ -45,3 +45,18 @@ surfaces:
       - "extensions (policy-only)"
     forbidden:
       - "Parallel transform engines in wrappers/orchestrators"
+  orchestration:
+    concern: "Runtime workflow sequencing and stage orchestration"
+    surface: "I*Orchestrator abstractions"
+    contract_doc: ".agents/10-contracts/specs/orchestrator-contract.md"
+    owners:
+      - "Abstractions.Agent orchestration contracts"
+      - "Infrastructure.Agent orchestrator implementations"
+    allowed_callers:
+      - "JobAgentWorker"
+      - "phase execution flows"
+      - "module orchestration wrappers"
+    forbidden:
+      - "Connector SDK calls inside orchestrators"
+      - "Parallel runtime orchestration entrypoints for same concern"
+      - "Ad-hoc package routing or filesystem access from orchestrators"

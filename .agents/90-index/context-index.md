@@ -23,6 +23,7 @@
 - `.agents/30-context/domains/ui-mode-summary.md`
 - `.agents/30-context/domains/cli-commands.md`
 - `.agents/30-context/domains/capability-seam-contract.md`
+- `.agents/30-context/domains/orchestrator-model.md`
 - `.agents/30-context/domains/decision-records-summary.md`
 
 ## Architecture
@@ -30,4 +31,3 @@
 - `.agents/30-context/architecture/readme.md`
 - `.agents/30-context/architecture/agent-task-execution.md`
 - `.agents/30-context/architecture/module-anatomy.md`
-

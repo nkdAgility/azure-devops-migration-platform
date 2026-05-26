@@ -19,6 +19,7 @@ profiles:
       - ".agents/30-context/domains/checkpointing-summary.md"
       - ".agents/30-context/domains/workitems-format-summary.md"
       - ".agents/30-context/domains/capability-seam-contract.md"
+      - ".agents/30-context/domains/orchestrator-model.md"
   cli-tui:
     guardrails:
       - ".agents/20-guardrails/core/architecture-boundaries.md"
