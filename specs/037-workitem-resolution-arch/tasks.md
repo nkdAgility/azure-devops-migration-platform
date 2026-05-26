@@ -55,9 +55,9 @@
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Implement/complete shared resolution lifecycle service in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemResolutionService.cs`
-- [ ] T014 [US1] Refactor `WorkItemsOrchestrator` to delegate resolution lifecycle to shared service in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemsOrchestrator.cs`
-- [ ] T015 [US1] Refactor resolution processor flow to resolve through shared processor lifecycle before create/update/replay in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/RevisionFolderProcessor.cs`
+- [ ] T013 [US1] Implement/complete shared resolution lifecycle processor in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/RevisionFolderProcessor.cs`
+- [ ] T014 [US1] Refactor `WorkItemsImportOrchestrator` to delegate startup resolution lifecycle to the resolution processor in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemsImportOrchestrator.cs`
+- [X] T015 [US1] Refactor resolution processor flow to resolve through shared processor lifecycle before create/update/replay in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/RevisionFolderProcessor.cs`
 - [ ] T016 [US1] Ensure mandatory stage markers are emitted for import flow in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/{WorkItemsOrchestrator.cs,RevisionFolderProcessor.cs}`
 - [ ] T017 [US1] Wire checkpoint/stage progression consistency for deterministic resume in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/{WorkItemsOrchestrator.cs,ImportWorkItemStateStore.cs}`
 - [ ] T036 [US1] Preserve existing field/node default policy behavior in deterministic resolution flow in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/RevisionFolderProcessor.cs`
