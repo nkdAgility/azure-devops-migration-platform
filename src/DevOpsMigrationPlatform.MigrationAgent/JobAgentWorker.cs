@@ -740,23 +740,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     }
                 }
 
-                if (runImport)
-                {
-                    // Execute import phase using the plan executor.
-                    var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
-                    var importOk = await planExecutor.ExecuteImportPhaseAsync(
-                        executionPlan, moduleMap, importContext, ct).ConfigureAwait(false);
-
-                    failed = !importOk;
-
-                    if (isBoth && importOk)
-                    {
-                        await phaseTracker.WritePhaseRecordAsync(
-                            new JobPhaseRecord { ExportCompleted = true, ImportCompleted = true, UpdatedAt = DateTimeOffset.UtcNow },
-                            ct).ConfigureAwait(false);
-                    }
-                }
-
                 if (runPrepare)
                 {
                     var jobAnalysers = jobScope.ServiceProvider.GetServices<IAnalyser>().ToList();
@@ -797,6 +780,29 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                                 ExportCompleted = phaseRecord.ExportCompleted,
                                 PrepareCompleted = true,
                                 ImportCompleted = phaseRecord.ImportCompleted,
+                                UpdatedAt = DateTimeOffset.UtcNow
+                            },
+                            ct).ConfigureAwait(false);
+                    }
+                }
+
+                if (runImport)
+                {
+                    // Execute import phase using the plan executor.
+                    var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
+                    var importOk = await planExecutor.ExecuteImportPhaseAsync(
+                        executionPlan, moduleMap, importContext, ct).ConfigureAwait(false);
+
+                    failed = !importOk;
+
+                    if (isBoth && importOk)
+                    {
+                        await phaseTracker.WritePhaseRecordAsync(
+                            new JobPhaseRecord
+                            {
+                                ExportCompleted = true,
+                                PrepareCompleted = runPrepare || phaseRecord.PrepareCompleted,
+                                ImportCompleted = true,
                                 UpdatedAt = DateTimeOffset.UtcNow
                             },
                             ct).ConfigureAwait(false);

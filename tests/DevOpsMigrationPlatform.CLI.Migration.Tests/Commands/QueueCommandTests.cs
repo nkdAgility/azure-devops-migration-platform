@@ -503,6 +503,7 @@ public class QueueCommandTests
     {
         const int expectedImportedWorkItemCount = 2;
         const string sourceFixtureType = "User Story";
+        const string sourceFixtureState = "Active";
 
         // ── Guard ─────────────────────────────────────────────────────────
         var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");
@@ -535,7 +536,19 @@ public class QueueCommandTests
                 lifecycleRecord.ProjectName,
                 CancellationToken.None);
             var mappedTargetType = ResolveTargetWorkItemTypeForFixture(sourceFixtureType, availableTypes);
-            runtimeConfigPath = CreateLiveImportConfigForProject(lifecycleRecord.ProjectName, sourceFixtureType, mappedTargetType);
+            var availableStates = await GetWorkItemStateNamesAsync(
+                orgEnv,
+                patEnv,
+                lifecycleRecord.ProjectName,
+                mappedTargetType,
+                CancellationToken.None);
+            var mappedTargetState = ResolveTargetStateForFixture(sourceFixtureState, availableStates);
+            runtimeConfigPath = CreateLiveImportConfigForProject(
+                lifecycleRecord.ProjectName,
+                sourceFixtureType,
+                mappedTargetType,
+                sourceFixtureState,
+                mappedTargetState);
             var runtimeConfig = File.ReadAllText(runtimeConfigPath);
             Assert.IsTrue(runtimeConfig.Contains("\"Strategy\": \"TargetHyperlink\"", StringComparison.Ordinal),
                 "Runtime import config must override WorkItemResolutionStrategy.Strategy to 'TargetHyperlink'.");
@@ -813,7 +826,30 @@ public class QueueCommandTests
         return sourceFixtureType;
     }
 
-    private static string CreateLiveImportConfigForProject(string projectName, string sourceType, string targetType)
+    private static string ResolveTargetStateForFixture(
+        string sourceFixtureState,
+        IReadOnlyCollection<string> availableStates)
+    {
+        if (availableStates.Contains(sourceFixtureState, StringComparer.OrdinalIgnoreCase))
+            return sourceFixtureState;
+
+        if (availableStates.Contains("New", StringComparer.OrdinalIgnoreCase))
+            return "New";
+
+        var fallbackState = availableStates.FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(fallbackState))
+            return fallbackState;
+
+        Assert.Fail("Temporary target project work item type has no available states to map fixture value.");
+        return sourceFixtureState;
+    }
+
+    private static string CreateLiveImportConfigForProject(
+        string projectName,
+        string sourceType,
+        string targetType,
+        string sourceState,
+        string targetState)
     {
         var templatePath = ResolveScenarioTemplatePath("scenarios/SystemTest-Live-Import-AzureDevOps-WorkItems-Fixture.json");
         var tempConfigPath = Path.Combine(
@@ -858,6 +894,26 @@ public class QueueCommandTests
                                 {
                                     [sourceType] = targetType
                                 }
+                            },
+                            new JsonObject
+                            {
+                                ["Type"] = "MapValue",
+                                ["Enabled"] = true,
+                                ["Field"] = "System.TeamProject",
+                                ["ValueMap"] = new JsonObject
+                                {
+                                    ["FixtureProject"] = projectName
+                                }
+                            },
+                            new JsonObject
+                            {
+                                ["Type"] = "MapValue",
+                                ["Enabled"] = true,
+                                ["Field"] = "System.State",
+                                ["ValueMap"] = new JsonObject
+                                {
+                                    [sourceState] = targetState
+                                }
                             }
                         }
                     }
@@ -870,6 +926,34 @@ public class QueueCommandTests
             root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 
         return tempConfigPath;
+    }
+
+    private static async Task<IReadOnlyCollection<string>> GetWorkItemStateNamesAsync(
+        string organisationUrl,
+        string accessToken,
+        string projectName,
+        string workItemType,
+        CancellationToken cancellationToken)
+    {
+        var endpoint = new OrganisationEndpoint
+        {
+            Type = "AzureDevOpsServices",
+            ResolvedUrl = organisationUrl,
+            Authentication = new OrganisationEndpointAuthentication
+            {
+                Type = AuthenticationType.AccessToken,
+                ResolvedAccessToken = accessToken
+            }
+        };
+
+        var clientFactory = new TestAzureDevOpsClientFactory();
+        var workItemClient = await clientFactory.CreateWorkItemClientAsync(endpoint, cancellationToken);
+        var typeDefinition = await workItemClient.GetWorkItemTypeAsync(projectName, workItemType, cancellationToken: cancellationToken);
+        return typeDefinition.States
+            .Select(state => state.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     private static string ResolveScenarioTemplatePath(string relativePath)

@@ -236,6 +236,52 @@ public sealed class WorkItemTypeValidatorTests
         target.VerifyNoOtherCalls();
     }
 
+    [TestMethod]
+    public async Task EvaluateAsync_ReadsScopedWorkItemsRevisions_WhenRootWorkItemsFolderIsEmpty()
+    {
+        const string scopedRevision = "simulated_example_com/RoundtripProject/WorkItems/2026-05-13/638827200000000002-44-0/revision.json";
+
+        var package = PackageTestFactory.CreateLooseMock();
+        package
+            .Setup(p => p.EnumerateContentAsync(
+                It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath == "WorkItems/"),
+                It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => EnumerateManyAsync([]));
+        package
+            .Setup(p => p.EnumerateContentAsync(
+                It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath == string.Empty),
+                It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => EnumerateManyAsync([scopedRevision]));
+        package
+            .Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(
+                CreatePayload(new WorkItemRevision
+                {
+                    Fields = [new WorkItemField { ReferenceName = "System.WorkItemType", Value = "Bug" }]
+                })));
+
+        var target = new Mock<IWorkItemTypeReadinessTarget>(MockBehavior.Strict);
+        target
+            .Setup(t => t.WorkItemTypeExistsAsync("Bug", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var targetFactory = new Mock<IWorkItemTypeReadinessTargetFactory>(MockBehavior.Strict);
+        targetFactory
+            .Setup(f => f.CreateAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(target.Object);
+
+        var sut = new WorkItemTypeValidator(targetFactory.Object);
+
+        var findings = await sut.EvaluateAsync(
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions()),
+            CancellationToken.None);
+
+        Assert.AreEqual(0, findings.Count);
+        targetFactory.Verify(f => f.CreateAsync(It.IsAny<CancellationToken>()), Times.Once);
+        target.Verify(t => t.WorkItemTypeExistsAsync("Bug", It.IsAny<CancellationToken>()), Times.Once);
+        target.VerifyNoOtherCalls();
+    }
+
     private static PrepareContext CreatePrepareContext(IPackageAccess package)
     {
         var targetEndpoint = new Mock<ITargetEndpointInfo>();

@@ -452,6 +452,23 @@ public sealed class WorkItemImportOrchestrator
                 IsCollectionRequest: true);
 
             await foreach (var folderPath in EnumerateWorkItemFoldersFromContextAsync(rootContext, ct).ConfigureAwait(false))
+            {
+                yieldedAny = true;
+                yield return folderPath;
+            }
+        }
+
+        if (!yieldedAny)
+        {
+            _logger.LogInformation(
+                "[WorkItems] No revision/comment folders found via module contexts; falling back to direct WorkItems/ address enumeration.");
+
+            var addressedContext = new PackageContentContext(
+                PackageContentKind.Collection,
+                Address: new RelativePathAddress("WorkItems/"),
+                IsCollectionRequest: true);
+
+            await foreach (var folderPath in EnumerateWorkItemFoldersFromContextAsync(addressedContext, ct).ConfigureAwait(false))
                 yield return folderPath;
         }
     }
@@ -531,6 +548,13 @@ public sealed class WorkItemImportOrchestrator
         var payload = await _package.RequestContentAsync(
             CreateArtefactContext(path),
             ct).ConfigureAwait(false);
+        if (payload is null)
+        {
+            var fallbackContext = new PackageContentContext(
+                PackageContentKind.Artefact,
+                Address: new RelativePathAddress(path));
+            payload = await _package.RequestContentAsync(fallbackContext, ct).ConfigureAwait(false);
+        }
         if (payload is null)
             return null;
 
@@ -635,5 +659,10 @@ public sealed class WorkItemImportOrchestrator
             Stage = CursorStage.Completed,
             UpdatedAt = DateTimeOffset.UtcNow
         }, ct);
+
+    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    {
+        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+    }
 }
 

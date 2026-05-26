@@ -131,6 +131,19 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         }
 
         var revision = ParseRevision(revisionJson, folderPath);
+        var importFields = revision.Fields;
+        if (_fieldTransformTool != null && _fieldTransformTool.IsEnabledForPhase(FieldTransformPhase.Import))
+        {
+            var workItemTypeForTransform = GetWorkItemType(importFields);
+            var fieldDict = FieldsToDict(importFields);
+            var transformResult = _fieldTransformTool.ApplyTransforms(
+                fieldDict,
+                new FieldTransformContext(revision.WorkItemId, revision.RevisionIndex, workItemTypeForTransform, FieldTransformPhase.Import));
+            importFields = DictToFields(transformResult.Fields);
+            _logger.LogDebug(
+                "[WorkItems] Applied {ActionCount} field transform actions to source WI {WorkItemId} revision {RevisionIndex}.",
+                transformResult.Actions.Count, revision.WorkItemId, revision.RevisionIndex);
+        }
 
         // Record import-side payload complexity metrics.
         if (_metrics != null)
@@ -175,8 +188,13 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
 
             if (targetId is null)
             {
-                var workItemType = GetWorkItemType(revision.Fields);
-                var result = await _target.CreateWorkItemAsync(workItemType, revision.Fields, ct).ConfigureAwait(false);
+                var workItemType = GetWorkItemType(importFields);
+                var createFields = importFields
+                    .Where(field =>
+                        !string.Equals(field.ReferenceName, "System.TeamProject", StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(field.ReferenceName, "System.State", StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+                var result = await _target.CreateWorkItemAsync(workItemType, createFields, ct).ConfigureAwait(false);
                 targetId = result.TargetWorkItemId;
                 await _idMapStore.SetWorkItemMappingAsync(revision.WorkItemId, targetId.Value, ct).ConfigureAwait(false);
                 await resolutionStrategy.WriteProvenanceAsync(revision.WorkItemId, targetId.Value, ct).ConfigureAwait(false);
@@ -200,7 +218,7 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
             // Identity resolution — NOTE: IIdentityMappingService.Resolve is synchronous per the existing interface.
             // Full identity mapping logic is added in T031 (US4). For now, pass fields as-is.
             var identityResolutionContext = new IdentityResolutionContext();
-            var fields = ApplyIdentityResolution(revision.Fields, identityResolutionContext);
+            var fields = ApplyIdentityResolution(importFields, identityResolutionContext);
 
             // Embedded images — upload and rewrite URLs if extension enabled
             if (ext.EmbeddedImages.Enabled && revision.EmbeddedImages.Count > 0)
@@ -208,20 +226,6 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
                 fields = await _embeddedImageReplayService
                     .RewriteFieldValuesAsync(fields, revision.EmbeddedImages, folderPath, ReadPackageBinaryAsync, ct)
                     .ConfigureAwait(false);
-            }
-
-            // Field transforms — apply if tool is registered and enabled for Import phase
-            if (_fieldTransformTool != null && _fieldTransformTool.IsEnabledForPhase(FieldTransformPhase.Import))
-            {
-                var workItemType = GetWorkItemType(revision.Fields);
-                var fieldDict = FieldsToDict(fields);
-                var transformResult = _fieldTransformTool.ApplyTransforms(
-                    fieldDict,
-                    new FieldTransformContext(revision.WorkItemId, revision.RevisionIndex, workItemType, FieldTransformPhase.Import));
-                fields = DictToFields(transformResult.Fields);
-                _logger.LogDebug(
-                    "[WorkItems] Applied {ActionCount} field transform actions to source WI {WorkItemId} revision {RevisionIndex}.",
-                    transformResult.Actions.Count, revision.WorkItemId, revision.RevisionIndex);
             }
 
             // NodeTranslation path translation
@@ -433,6 +437,13 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
             CreateArtefactContext(path),
             ct).ConfigureAwait(false);
         if (payload is null)
+        {
+            var fallbackContext = new PackageContentContext(
+                PackageContentKind.Artefact,
+                Address: new RelativePathAddress(path));
+            payload = await _package.RequestContentAsync(fallbackContext, ct).ConfigureAwait(false);
+        }
+        if (payload is null)
             return null;
 
         if (payload.Content.CanSeek)
@@ -446,9 +457,16 @@ public sealed class RevisionFolderProcessor : IRevisionFolderProcessor
         if (_package is null)
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
-        return await _package.RequestContentBinaryAsync(
+        var payload = await _package.RequestContentBinaryAsync(
             CreateArtefactContext(path),
             ct).ConfigureAwait(false);
+        if (payload is not null)
+            return payload;
+
+        var fallbackContext = new PackageContentContext(
+            PackageContentKind.Artefact,
+            Address: new RelativePathAddress(path));
+        return await _package.RequestContentBinaryAsync(fallbackContext, ct).ConfigureAwait(false);
     }
 
     private async Task<ISet<string>?> EnumerateAttachmentBinariesAsync(string folderPath, CancellationToken ct)

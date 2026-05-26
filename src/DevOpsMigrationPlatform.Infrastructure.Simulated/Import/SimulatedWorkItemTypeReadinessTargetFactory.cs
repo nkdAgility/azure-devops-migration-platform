@@ -13,6 +13,17 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
 
 public sealed class SimulatedWorkItemTypeReadinessTargetFactory : IWorkItemTypeReadinessTargetFactory
 {
+    private static readonly string[] s_defaultKnownWorkItemTypes =
+    [
+        "Bug",
+        "Task",
+        "User Story",
+        "Feature",
+        "Epic",
+        "Issue",
+        "Product Backlog Item"
+    ];
+
     private readonly IOptions<SimulatedEndpointOptions> _options;
 
     public SimulatedWorkItemTypeReadinessTargetFactory(IOptions<SimulatedEndpointOptions> options)
@@ -31,7 +42,9 @@ public sealed class SimulatedWorkItemTypeReadinessTargetFactory : IWorkItemTypeR
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        IWorkItemTypeReadinessTarget target = new SimulatedWorkItemTypeReadinessTarget(configuredTypes);
+        IWorkItemTypeReadinessTarget target = configuredTypes.Length == 0
+            ? new SimulatedWorkItemTypeReadinessTarget(s_defaultKnownWorkItemTypes)
+            : new SimulatedWorkItemTypeReadinessTarget(configuredTypes);
         return Task.FromResult(target);
     }
 }
