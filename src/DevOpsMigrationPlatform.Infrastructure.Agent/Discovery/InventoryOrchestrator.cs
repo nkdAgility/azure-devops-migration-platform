@@ -32,7 +32,9 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 /// <summary>
 /// Orchestrates inventory data collection: consumes an <see cref="IAsyncEnumerable{InventoryProgressEvent}"/>
 /// stream from <see cref="IInventoryService"/> and handles CSV/JSON writing, checkpointing,
-/// progress events, metrics, and snapshots. Both <c>InventoryModule</c> (single-source export)
+/// progress events, metrics, and snapshots. The orchestrator owns lifecycle/persistence concerns,
+/// while <see cref="IInventoryService"/> remains adapter-facing discovery/query logic only.
+/// Both <c>InventoryModule</c> (single-source export)
 /// and <c>InventoryDiscoveryModule</c> (multi-org standalone) delegate to this orchestrator.
 /// </summary>
 internal sealed class InventoryOrchestrator : IInventoryOrchestrator
@@ -827,4 +829,3 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         });
     }
 }
-
