@@ -88,6 +88,13 @@ public sealed class WorkItemsImportOrchestrator : IWorkItemsImportOrchestrator, 
         var project = _targetEndpointInfo.Project;
         var startupPolicy = AssembleStartupPolicy(job);
         var ext = startupPolicy.Extensions;
+        context.ProgressSink.Emit(new ProgressEvent
+        {
+            Module = "WorkItems",
+            Stage = "StartupPolicy",
+            Message = "Assembled WorkItems startup policy.",
+            Timestamp = DateTimeOffset.UtcNow
+        });
 
         _logger.LogInformation(
             "[WorkItems] Importing into {OrgUrl}/{Project} (revisions={Revisions}, links={Links}, attachments={Attachments}, comments={Comments})",
@@ -109,6 +116,13 @@ public sealed class WorkItemsImportOrchestrator : IWorkItemsImportOrchestrator, 
         await _nodeReadinessOrchestrator
             .EnsureReadyAsync(nodeReadinessContext, replicateSourceTree, context, _sourceEndpointInfo.OrganisationSlug, sourceProjectName, ct)
             .ConfigureAwait(false);
+        context.ProgressSink.Emit(new ProgressEvent
+        {
+            Module = "WorkItems",
+            Stage = "NodeReadiness",
+            Message = "Completed WorkItems node readiness checks.",
+            Timestamp = DateTimeOffset.UtcNow
+        });
 
         var nodeStructureContext = new ProjectMapping(sourceProjectName, project);
         var processor = _processorFactory.Create(
@@ -137,6 +151,13 @@ public sealed class WorkItemsImportOrchestrator : IWorkItemsImportOrchestrator, 
             jobId: job.JobId);
         var revisionImporter = new WorkItemRevisionImporter(orchestrator);
 
+        context.ProgressSink.Emit(new ProgressEvent
+        {
+            Module = "WorkItems",
+            Stage = "RevisionDispatch",
+            Message = "Dispatching revision import.",
+            Timestamp = DateTimeOffset.UtcNow
+        });
         await revisionImporter.ExecuteAsync(ext, startupPolicy.ResumeMode, ct).ConfigureAwait(false);
 
         _logger.LogInformation("[WorkItems] Import complete.");

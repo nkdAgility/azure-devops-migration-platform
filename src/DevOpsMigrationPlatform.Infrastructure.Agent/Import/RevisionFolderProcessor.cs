@@ -192,6 +192,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         // Stage A — CreatedOrUpdated
         if (ShouldRunStage(CursorStage.CreatedOrUpdated, resumeAtStage))
         {
+            _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.CreatedOrUpdated, folderPath);
             var targetId = await _idMapStore.GetTargetWorkItemIdAsync(revision.WorkItemId, ct).ConfigureAwait(false);
 
             if (targetId is null)
@@ -243,6 +244,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         // Stage B — AppliedFields
         if (ShouldRunStage(CursorStage.AppliedFields, resumeAtStage))
         {
+            _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.AppliedFields, folderPath);
             // Identity resolution — NOTE: IIdentityMappingService.Resolve is synchronous per the existing interface.
             // Full identity mapping logic is added in T031 (US4). For now, pass fields as-is.
             var identityResolutionContext = new IdentityResolutionContext();
@@ -276,6 +278,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         // Stage C — AppliedLinks
         if (ext.LinksEnabled && ShouldRunStage(CursorStage.AppliedLinks, resumeAtStage))
         {
+            _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.AppliedLinks, folderPath);
             await _target.AddLinksAsync(
                 resolvedTargetId,
                 revision.RelatedLinks,
@@ -293,6 +296,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         // Stage D — UploadedAttachments
         if (ext.AttachmentsEnabled && ShouldRunStage(CursorStage.UploadedAttachments, resumeAtStage))
         {
+            _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.UploadedAttachments, folderPath);
             await _attachmentReplayService
                 .ReplayAsync(
                     revision,
@@ -317,6 +321,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         }
 
         // Final cursor — Completed
+        _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.Completed, folderPath);
         await WriteCursorAsync(folderPath, CursorStage.Completed, ct).ConfigureAwait(false);
     }
 
