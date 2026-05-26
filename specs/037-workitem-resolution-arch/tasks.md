@@ -57,12 +57,12 @@
 
 - [ ] T013 [US1] Implement/complete shared resolution lifecycle service in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemResolutionService.cs`
 - [ ] T014 [US1] Refactor `WorkItemsOrchestrator` to delegate resolution lifecycle to shared service in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemsOrchestrator.cs`
-- [ ] T015 [US1] Refactor revision processor flow to resolve through shared service before create/update/replay in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/RevisionFolderProcessor.cs`
+- [ ] T015 [US1] Refactor resolution processor flow to resolve through shared processor lifecycle before create/update/replay in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/RevisionFolderProcessor.cs`
 - [ ] T016 [US1] Ensure mandatory stage markers are emitted for import flow in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/{WorkItemsOrchestrator.cs,RevisionFolderProcessor.cs}`
 - [ ] T017 [US1] Wire checkpoint/stage progression consistency for deterministic resume in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/{WorkItemsOrchestrator.cs,ImportWorkItemStateStore.cs}`
-- [ ] T036 [US1] Preserve existing field/node default policy behavior in deterministic resolution flow in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/{WorkItemResolutionService.cs,RevisionFolderProcessor.cs}`
+- [ ] T036 [US1] Preserve existing field/node default policy behavior in deterministic resolution flow in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/RevisionFolderProcessor.cs`
 - [ ] T037 [P] [US1] Add regression tests for field/node default policy preservation in `tests/DevOpsMigrationPlatform.Tests/Agent/Import/*DefaultPolicy*Tests.cs`
-- [ ] T040 [US1] Rename/split revision processor to `WorkItemImportRevisionProcessor` and align call sites in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/{RevisionFolderProcessor.cs,WorkItemImportRevisionProcessor.cs,WorkItemsOrchestrator.cs}`
+- [ ] T040 [US1] Rename/split revision processor to `WorkItemResolutionProcessor` and align call sites in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/{RevisionFolderProcessor.cs,WorkItemsOrchestrator.cs}`
 - [ ] T042 [US1] Make startup policy assembly explicit in `WorkItemsOrchestrator` before revision dispatch in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemsOrchestrator.cs`
 
 **Checkpoint**: User Story 1 is independently deterministic and resumable.
