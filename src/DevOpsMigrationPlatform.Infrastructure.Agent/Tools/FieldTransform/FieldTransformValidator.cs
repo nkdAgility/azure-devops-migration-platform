@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -190,8 +191,11 @@ public sealed class FieldTransformValidator : IFieldTransformValidator
             return;
         }
 
-        if (!sourceDefMap.TryGetValue(rule.SourceField, out var sourceDef) ||
-            !sourceDefMap.TryGetValue(rule.TargetField, out var targetDef))
+        var sourceField = rule.SourceField!;
+        var targetField = rule.TargetField!;
+
+        if (!sourceDefMap.TryGetValue(sourceField, out var sourceDef) ||
+            !sourceDefMap.TryGetValue(targetField, out var targetDef))
         {
             return;
         }
@@ -201,9 +205,9 @@ public sealed class FieldTransformValidator : IFieldTransformValidator
             entries.Add(new FieldTransformValidationEntry(
                 groupName,
                 transformName,
-                rule.TargetField,
+                targetField,
                 FieldTransformValidationSeverity.Warning,
-                $"Potential type incompatibility: '{rule.SourceField}' ({sourceDef.Type}) to '{rule.TargetField}' ({targetDef.Type})."));
+                $"Potential type incompatibility: '{sourceField}' ({sourceDef.Type}) to '{targetField}' ({targetDef.Type})."));
         }
     }
 
@@ -224,7 +228,9 @@ public sealed class FieldTransformValidator : IFieldTransformValidator
             return;
         }
 
-        if (!sourceDefMap.TryGetValue(rule.Field, out var sourceDef) ||
+        var fieldName = rule.Field!;
+
+        if (!sourceDefMap.TryGetValue(fieldName, out var sourceDef) ||
             sourceDef.AllowedValues == null ||
             sourceDef.AllowedValues.Count == 0)
         {
@@ -233,14 +239,15 @@ public sealed class FieldTransformValidator : IFieldTransformValidator
 
         foreach (var mappedValue in rule.ValueMap.Values)
         {
-            if (!sourceDef.AllowedValues.Contains(mappedValue, StringComparer.OrdinalIgnoreCase))
+            if (!sourceDef.AllowedValues.Any(allowed =>
+                string.Equals(allowed, mappedValue, StringComparison.OrdinalIgnoreCase)))
             {
                 entries.Add(new FieldTransformValidationEntry(
                     groupName,
                     transformName,
-                    rule.Field,
+                    fieldName,
                     FieldTransformValidationSeverity.Warning,
-                    $"Mapped value '{mappedValue}' is not in allowed values for '{rule.Field}'."));
+                    $"Mapped value '{mappedValue}' is not in allowed values for '{fieldName}'."));
             }
         }
     }
