@@ -1,6 +1,6 @@
 ---
 name: nkda-testdsl-autonomous
-description: Use when the user wants a single autonomous entrypoint that migrates one Reqnroll feature family to internal DSL without manually running each phase.
+description: Use when the user wants a single autonomous entrypoint that migrates one or more Reqnroll feature families to internal DSL without manually running each phase.
 ---
 
 # Skill: NKDA Test DSL Autonomous
@@ -20,7 +20,7 @@ Where `{feature}` is one of:
 
 ## Required Behavior
 
-Run this sequence for exactly one feature family:
+Run this sequence for each selected feature family:
 
 1. `nkda-testdsl-feature-assessment`
 2. `nkda-testdsl-dsl-design`
@@ -28,16 +28,23 @@ Run this sequence for exactly one feature family:
 4. `nkda-testdsl-feature-conversion`
 5. `nkda-testdsl-refactor`
 6. `nkda-testdsl-verification`
-7. `nkda-testdsl-next-feature-selection`
+7. `nkda-testdsl-next-feature-selection` (after the final selected family is completed)
 
 ## Input Handling
 
-- If `{feature}` is provided, use it directly.
-- If `{feature}` is missing, run `nkda-testdsl-next-feature-selection` to select one, then continue.
+- If `{feature}` is a feature family name, feature file path, or step file path, resolve it to one feature family and run the sequence once.
+- If `{feature}` is a folder, resolve every `.feature` file under that folder, map each file to its feature family, then run the sequence once per family until the folder scope is exhausted.
+- If `{feature}` is missing, run `nkda-testdsl-next-feature-selection` to select one family, then continue.
 
 ## Stopping Rules
 
-Stop after one feature family.
+Stop after all selected families complete.
+
+For folder input:
+
+- process families in deterministic path order
+- skip duplicate family resolutions
+- stop when every resolved family has completed or when an early-stop condition is met
 
 Stop early if:
 
@@ -45,4 +52,3 @@ Stop early if:
 - behaviour parity cannot be established
 - conversion requires unplanned production behaviour changes
 - failures cannot be resolved in feature-family scope
-

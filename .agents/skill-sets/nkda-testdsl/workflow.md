@@ -29,7 +29,7 @@
 
 ## Autonomous Workflow
 
-Autonomous execution runs the seven phases in order for exactly one feature family:
+Autonomous execution runs the seven phases in order for each selected feature family:
 
 1. assessment
 2. dsl design
@@ -37,7 +37,7 @@ Autonomous execution runs the seven phases in order for exactly one feature fami
 4. conversion
 5. refactor
 6. verification
-7. next-feature recommendation
+7. next-feature recommendation (after the final selected family)
 
 ## Entry Point
 
@@ -55,6 +55,13 @@ Invoke it as:
 - named feature family
 
 If `{feature}` is omitted, `nkda-testdsl-autonomous` must run `nkda-testdsl-next-feature-selection` first and then continue the full loop.
+
+If `{feature}` is a folder, `nkda-testdsl-autonomous` must:
+
+1. resolve all `.feature` files under that folder
+2. map them to feature families
+3. process each unique family in deterministic path order
+4. run the full six conversion phases per family, then run next-feature-selection after the final family
 
 ## Phase Gates
 
@@ -93,7 +100,7 @@ A family is complete only when:
 
 ### Stop Gate
 
-Autonomous execution stops after one family or sooner if:
+Autonomous execution stops after all selected families are complete, or sooner if:
 
 - behaviour parity cannot be established
 - conversion requires unplanned production behaviour changes
