@@ -378,6 +378,74 @@ public class WorkItemResolutionProcessorTests
     }
 
     [TestMethod]
+    public async Task ProcessAsync_WhenNodeTranslationToolIsNotConfigured_PreservesOriginalNodeFields()
+    {
+        var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"},{"ReferenceName":"System.AreaPath","Value":"External\\Area"},{"ReferenceName":"System.IterationPath","Value":"External\\Iteration"}],"Attachments":[],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
+        SetupPackageText($"{Folder}/revision.json", json);
+        SetupPackageText($"{Folder}/comment.json", null);
+        SetupNoMapping();
+        SetupTargetCreate(newTargetId: 10);
+        SetupCursorWrites();
+        SetupResolutionStrategyNoOp();
+
+        IReadOnlyList<WorkItemField>? capturedFields = null;
+        _mockTarget
+            .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
+            .Callback<int, IReadOnlyList<WorkItemField>, CancellationToken>((_, fields, _) => capturedFields = fields)
+            .Returns(Task.CompletedTask);
+        _mockTarget
+            .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockIdMapStore
+            .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(10);
+        _mockTarget
+            .Setup(t => t.WorkItemExistsAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var sut = CreateSut();
+        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        Assert.IsNotNull(capturedFields);
+        Assert.AreEqual(@"External\Area", capturedFields!.Single(f => f.ReferenceName == "System.AreaPath").Value);
+        Assert.AreEqual(@"External\Iteration", capturedFields.Single(f => f.ReferenceName == "System.IterationPath").Value);
+        _mockIdMapStore.Verify(s => s.RecordSkippedRevisionAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [TestMethod]
+    public async Task ProcessAsync_WhenFieldTransformToolIsNotConfigured_PreservesInputFieldValues()
+    {
+        var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"},{"ReferenceName":"System.Title","Value":"Title Before Import"}],"Attachments":[],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
+        SetupPackageText($"{Folder}/revision.json", json);
+        SetupPackageText($"{Folder}/comment.json", null);
+        SetupNoMapping();
+        SetupTargetCreate(newTargetId: 10);
+        SetupCursorWrites();
+        SetupResolutionStrategyNoOp();
+
+        IReadOnlyList<WorkItemField>? capturedFields = null;
+        _mockTarget
+            .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
+            .Callback<int, IReadOnlyList<WorkItemField>, CancellationToken>((_, fields, _) => capturedFields = fields)
+            .Returns(Task.CompletedTask);
+        _mockTarget
+            .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockIdMapStore
+            .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(10);
+        _mockTarget
+            .Setup(t => t.WorkItemExistsAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var sut = CreateSut();
+        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        Assert.IsNotNull(capturedFields);
+        Assert.AreEqual("Title Before Import", capturedFields!.Single(f => f.ReferenceName == "System.Title").Value);
+    }
+
+    [TestMethod]
     public async Task ProcessAsync_WhenRevisionJsonUsesAttachmentMetadataAliases_ReplaysAttachmentUsingParsedMetadata()
     {
         var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"}],"Attachments":[{"id":"att-1","name":"evidence.zip","contentType":"application/zip","size":12,"binaryFile":"attachments/evidence.zip"}],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
