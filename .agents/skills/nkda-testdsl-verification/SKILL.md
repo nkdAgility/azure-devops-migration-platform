@@ -16,5 +16,5 @@ description: Use when conversion and refactor are done and parity, artefact remo
 ## Required Verdict
 
 - `PASS` when parity and completion conditions are met
-- `BLOCKED` when any completion condition is missing
-
+- `BLOCKED` when any completion prerequisite is missing
+- `FAIL` when parity checks run and defects or regressions are found

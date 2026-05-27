@@ -21,3 +21,15 @@ Score each candidate on:
 3. removal of Reqnroll surface area
 4. test determinism feasibility
 
+## Stop Conditions
+
+Stop and report `needs-more-evidence` when:
+
+- feature and step files cannot be matched with confidence
+- evidence for candidate scoring is incomplete
+- evidence is contradictory across candidate families
+
+Stop and report `no-recommendation` when:
+
+- top candidates are tied within one point after scoring
+- risk and reuse signals conflict and no deterministic tie-break is available

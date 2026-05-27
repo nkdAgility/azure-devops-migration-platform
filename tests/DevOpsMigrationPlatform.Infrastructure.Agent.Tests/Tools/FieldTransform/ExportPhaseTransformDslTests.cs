@@ -36,7 +36,7 @@ public class ExportPhaseTransformDslTests
             .WithEnabledTransform()
             .Evaluate();
 
-        result.ShouldBeDisabledForExport();
+        result.ShouldBeDisabledForExportAndImport();
     }
 
     [TestMethod]
@@ -148,6 +148,12 @@ internal static class FieldTransformPhaseAssertions
     public static void ShouldBeDisabledForExport(this FieldTransformPhaseEvaluation evaluation)
     {
         Assert.IsFalse(evaluation.IsEnabledForExport, "Expected Export phase to be disabled.");
+    }
+
+    public static void ShouldBeDisabledForExportAndImport(this FieldTransformPhaseEvaluation evaluation)
+    {
+        Assert.IsFalse(evaluation.IsEnabledForExport, "Expected Export phase to be disabled.");
+        Assert.IsFalse(evaluation.IsEnabledForImport, "Expected Import phase to be disabled.");
     }
 
     public static void ShouldBeEnabledForExportAndImport(this FieldTransformPhaseEvaluation evaluation)

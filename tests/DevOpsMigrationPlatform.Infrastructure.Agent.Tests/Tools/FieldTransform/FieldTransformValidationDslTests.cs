@@ -46,7 +46,8 @@ public class FieldTransformValidationDslTests
         var result = await FieldTransformValidationScenario
             .Create()
             .WithSourceField("System.Title", "String")
-            .WithCopyTransform("System.Title", "System.Title")
+            .WithSourceField("Custom.StoryPoints", "Integer")
+            .WithCopyTransform("System.Title", "Custom.StoryPoints")
             .RunAsync();
 
         result.ShouldHaveEntriesCollection();
@@ -194,6 +195,8 @@ internal static class FieldTransformValidationAssertions
 
     public static void ShouldHaveEntriesCollection(this FieldTransformValidationResult result)
     {
+        Assert.IsNotNull(result.Report, "Expected validation report to be present.");
         Assert.IsNotNull(result.Report.Entries, "Expected entries collection to be present.");
+        Assert.IsTrue(result.Report.Entries.Count > 0, "Expected at least one entry in the report.");
     }
 }

@@ -166,6 +166,81 @@ public sealed class FieldTransformValidator : IFieldTransformValidator
                             fieldRef, groupName, transformName);
                     }
                 }
+
+                ValidateCopyTypeCompatibility(entries, sourceDefMap, groupName, transformName, rule);
+                ValidateMapValueTargets(entries, sourceDefMap, groupName, transformName, rule);
+            }
+        }
+    }
+
+    private static void ValidateCopyTypeCompatibility(
+        List<FieldTransformValidationEntry> entries,
+        IReadOnlyDictionary<string, FieldDefinition> sourceDefMap,
+        string groupName,
+        string transformName,
+        FieldTransformRuleOptions rule)
+    {
+        if (!string.Equals(rule.Type, "Copy", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(rule.SourceField) || string.IsNullOrWhiteSpace(rule.TargetField))
+        {
+            return;
+        }
+
+        if (!sourceDefMap.TryGetValue(rule.SourceField, out var sourceDef) ||
+            !sourceDefMap.TryGetValue(rule.TargetField, out var targetDef))
+        {
+            return;
+        }
+
+        if (!string.Equals(sourceDef.Type, targetDef.Type, StringComparison.OrdinalIgnoreCase))
+        {
+            entries.Add(new FieldTransformValidationEntry(
+                groupName,
+                transformName,
+                rule.TargetField,
+                FieldTransformValidationSeverity.Warning,
+                $"Potential type incompatibility: '{rule.SourceField}' ({sourceDef.Type}) to '{rule.TargetField}' ({targetDef.Type})."));
+        }
+    }
+
+    private static void ValidateMapValueTargets(
+        List<FieldTransformValidationEntry> entries,
+        IReadOnlyDictionary<string, FieldDefinition> sourceDefMap,
+        string groupName,
+        string transformName,
+        FieldTransformRuleOptions rule)
+    {
+        if (!string.Equals(rule.Type, "MapValue", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(rule.Field) || rule.ValueMap == null || rule.ValueMap.Count == 0)
+        {
+            return;
+        }
+
+        if (!sourceDefMap.TryGetValue(rule.Field, out var sourceDef) ||
+            sourceDef.AllowedValues == null ||
+            sourceDef.AllowedValues.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var mappedValue in rule.ValueMap.Values)
+        {
+            if (!sourceDef.AllowedValues.Contains(mappedValue, StringComparer.OrdinalIgnoreCase))
+            {
+                entries.Add(new FieldTransformValidationEntry(
+                    groupName,
+                    transformName,
+                    rule.Field,
+                    FieldTransformValidationSeverity.Warning,
+                    $"Mapped value '{mappedValue}' is not in allowed values for '{rule.Field}'."));
             }
         }
     }

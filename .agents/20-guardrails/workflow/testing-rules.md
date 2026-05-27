@@ -9,11 +9,11 @@ MSTest conventions, test naming, and organisation. See also: [coding-standards.m
 | Priority | Category | Marker | Speed | Use |
 | --- | --- | --- | --- | --- |
 | 1 (highest) | Unit Tests | `[TestClass]`/`[TestMethod]` | < 50 ms | All logic, branching, transforms. No I/O, no DI. |
-| 2 | Feature Tests (Reqnroll) | `[Binding]` + `.feature` | < 500 ms | Behaviour scenarios with in-memory fakes/mocks. |
+| 2 | Behavioural Tests (Internal DSL + MSTest) | code-first MSTest behavioural tests | < 500 ms | Default behavioural coverage for new tests. |
 | 3 | Simulated System Tests | `[TestCategory("SystemTest_Simulated")]` | < 10 s | End-to-end with `Simulated` connector. No network. |
 | 4 (lowest) | Live System Tests | `[TestCategory("SystemTest")]`/`[TestCategory("SystemTest_Live")]` | < 60 s | Requires live ADO/TFS. Environment-gated. |
 
-**Principles:** Fast validation is the goal. Push tests downward (can it be a unit test?). Live tests are a last resort. Simulated replaces live where possible. CI gates run Unit + Feature by default.
+**Principles:** Fast validation is the goal. Push tests downward (can it be a unit test?). Live tests are a last resort. Simulated replaces live where possible. CI gates run Unit + Behavioural by default.
 
 **Anti-patterns (instant reject):** Simulated/Live test for logic with no external dependency. Feature test with real I/O when mocks suffice. New Live test without proving lower level can't cover it. Feature/Simulated/Live outnumbering Unit tests.
 
@@ -42,16 +42,19 @@ tests/<Project>.Tests/<Area>/<Feature>Steps.cs                 ← legacy Reqnro
 
 - Unit test class: `<ClassName>Tests`
 - Unit test method: `<MethodName>_<Condition>_<ExpectedResult>` (PascalCase)
-- Step definition class: `<FeatureName>Steps` (maps to `Feature:` name, PascalCase, `Steps` suffix)
-- Step methods: PascalCase action name. `[Given]`/`[When]`/`[Then]` attribute string must exactly match `.feature` step text.
+- Legacy-only Reqnroll step definition class: `<FeatureName>Steps` (maps to `Feature:` name, PascalCase, `Steps` suffix)
+- Legacy-only Reqnroll step methods: PascalCase action name. `[Given]`/`[When]`/`[Then]` attribute string must exactly match `.feature` step text.
 
 ---
 
 ## Step Definitions
 
+Legacy-only (`Reqnroll` / `[Binding]`) guidance:
+
 - Constructor-injected shared context object for communication between steps.
 - `(.*)` for string captures, `(\d+)` for integers.
 - Steps MUST NOT call each other directly — communicate via context only.
+- No new `[Binding]` step definitions in migrated areas.
 
 ---
 
@@ -156,6 +159,5 @@ Every CLI command MUST have `[TestCategory("SystemTest")]` test that:
 | `queue` (`Mode: Inventory`) | `InventoryCommandTests` | Records against live ADO |
 | `migrate` (Simulated) | `SimulatedMigrationCommandTests` | `WorkItems/`, `Checkpoints/`, `Logs/progress.jsonl` |
 | `queue` (`Mode: Export`, TFS source) | (environment-gated: requires live TFS) | — |
-
 
 
