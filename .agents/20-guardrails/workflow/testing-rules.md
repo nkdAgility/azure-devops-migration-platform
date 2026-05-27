@@ -9,11 +9,11 @@ MSTest conventions, test naming, and organisation. See also: [coding-standards.m
 | Priority | Category | Marker | Speed | Use |
 | --- | --- | --- | --- | --- |
 | 1 (highest) | Unit Tests | `[TestClass]`/`[TestMethod]` | < 50 ms | All logic, branching, transforms. No I/O, no DI. |
-| 2 | Feature Tests (Reqnroll) | `[Binding]` + `.feature` | < 500 ms | Behaviour scenarios with in-memory fakes/mocks. |
+| 2 | Behavioural Tests (Internal DSL + MSTest) | code-first MSTest behavioural tests | < 500 ms | Default behavioural coverage for new tests. |
 | 3 | Simulated System Tests | `[TestCategory("SystemTest_Simulated")]` | < 10 s | End-to-end with `Simulated` connector. No network. |
 | 4 (lowest) | Live System Tests | `[TestCategory("SystemTest")]`/`[TestCategory("SystemTest_Live")]` | < 60 s | Requires live ADO/TFS. Environment-gated. |
 
-**Principles:** Fast validation is the goal. Push tests downward (can it be a unit test?). Live tests are a last resort. Simulated replaces live where possible. CI gates run Unit + Feature by default.
+**Principles:** Fast validation is the goal. Push tests downward (can it be a unit test?). Live tests are a last resort. Simulated replaces live where possible. CI gates run Unit + Behavioural by default.
 
 **Anti-patterns (instant reject):** Simulated/Live test for logic with no external dependency. Feature test with real I/O when mocks suffice. New Live test without proving lower level can't cover it. Feature/Simulated/Live outnumbering Unit tests.
 
@@ -21,17 +21,19 @@ MSTest conventions, test naming, and organisation. See also: [coding-standards.m
 
 ## Framework
 
-- **BDD:** Reqnroll (`Reqnroll.MSTest`). Reads `.feature` files, generates test runner glue.
-- **Unit runner:** MSTest only. No xUnit, NUnit.
-- Async steps: `async Task` return type (not `async void`).
+- Unit runner: MSTest only.
+- Code-first behavioural tests: use `tests/DevOpsMigrationPlatform.Testing` internal DSL.
+- Legacy BDD: Reqnroll remains only for feature families not yet migrated.
+- New feature behaviour must not be added as `.feature` files unless explicitly approved.
+- Do not add new `[Binding]`, `[Given]`, `[When]`, or `[Then]` classes for migrated areas.
 
 ### Layer structure
 
 ```text
-features/<operation>[/<connector>/<module>]/<feature>.feature  ← Gherkin
-tests/<Project>.Tests/<Area>/<Feature>Steps.cs                ← Reqnroll [Binding]
-tests/<Project>.Tests/<Area>/<Feature>Context.cs              ← shared context/mocks
-tests/<Project>.Tests/<Area>/<ClassName>Tests.cs              ← plain MSTest unit tests
+tests/DevOpsMigrationPlatform.Testing/<Domain>/...             ← reusable typed DSL
+tests/<Project>.Tests/<Area>/<Behaviour>Tests.cs               ← code-first MSTest behavioural tests
+features/<operation>/...                                       ← legacy Reqnroll feature files pending migration only
+tests/<Project>.Tests/<Area>/<Feature>Steps.cs                 ← legacy Reqnroll step definitions pending migration only
 ```
 
 ---
@@ -40,16 +42,19 @@ tests/<Project>.Tests/<Area>/<ClassName>Tests.cs              ← plain MSTest u
 
 - Unit test class: `<ClassName>Tests`
 - Unit test method: `<MethodName>_<Condition>_<ExpectedResult>` (PascalCase)
-- Step definition class: `<FeatureName>Steps` (maps to `Feature:` name, PascalCase, `Steps` suffix)
-- Step methods: PascalCase action name. `[Given]`/`[When]`/`[Then]` attribute string must exactly match `.feature` step text.
+- Legacy-only Reqnroll step definition class: `<FeatureName>Steps` (maps to `Feature:` name, PascalCase, `Steps` suffix)
+- Legacy-only Reqnroll step methods: PascalCase action name. `[Given]`/`[When]`/`[Then]` attribute string must exactly match `.feature` step text.
 
 ---
 
 ## Step Definitions
 
+Legacy-only (`Reqnroll` / `[Binding]`) guidance:
+
 - Constructor-injected shared context object for communication between steps.
 - `(.*)` for string captures, `(\d+)` for integers.
 - Steps MUST NOT call each other directly — communicate via context only.
+- No new `[Binding]` step definitions in migrated areas.
 
 ---
 
@@ -154,7 +159,5 @@ Every CLI command MUST have `[TestCategory("SystemTest")]` test that:
 | `queue` (`Mode: Inventory`) | `InventoryCommandTests` | Records against live ADO |
 | `migrate` (Simulated) | `SimulatedMigrationCommandTests` | `WorkItems/`, `Checkpoints/`, `Logs/progress.jsonl` |
 | `queue` (`Mode: Export`, TFS source) | (environment-gated: requires live TFS) | — |
-
-
 
 
