@@ -21,17 +21,19 @@ MSTest conventions, test naming, and organisation. See also: [coding-standards.m
 
 ## Framework
 
-- **BDD:** Reqnroll (`Reqnroll.MSTest`). Reads `.feature` files, generates test runner glue.
-- **Unit runner:** MSTest only. No xUnit, NUnit.
-- Async steps: `async Task` return type (not `async void`).
+- Unit runner: MSTest only.
+- Code-first behavioural tests: use `tests/DevOpsMigrationPlatform.Testing` internal DSL.
+- Legacy BDD: Reqnroll remains only for feature families not yet migrated.
+- New feature behaviour must not be added as `.feature` files unless explicitly approved.
+- Do not add new `[Binding]`, `[Given]`, `[When]`, or `[Then]` classes for migrated areas.
 
 ### Layer structure
 
 ```text
-features/<operation>[/<connector>/<module>]/<feature>.feature  ← Gherkin
-tests/<Project>.Tests/<Area>/<Feature>Steps.cs                ← Reqnroll [Binding]
-tests/<Project>.Tests/<Area>/<Feature>Context.cs              ← shared context/mocks
-tests/<Project>.Tests/<Area>/<ClassName>Tests.cs              ← plain MSTest unit tests
+tests/DevOpsMigrationPlatform.Testing/<Domain>/...             ← reusable typed DSL
+tests/<Project>.Tests/<Area>/<Behaviour>Tests.cs               ← code-first MSTest behavioural tests
+features/<operation>/...                                       ← legacy Reqnroll feature files pending migration only
+tests/<Project>.Tests/<Area>/<Feature>Steps.cs                 ← legacy Reqnroll step definitions pending migration only
 ```
 
 ---
@@ -154,7 +156,6 @@ Every CLI command MUST have `[TestCategory("SystemTest")]` test that:
 | `queue` (`Mode: Inventory`) | `InventoryCommandTests` | Records against live ADO |
 | `migrate` (Simulated) | `SimulatedMigrationCommandTests` | `WorkItems/`, `Checkpoints/`, `Logs/progress.jsonl` |
 | `queue` (`Mode: Export`, TFS source) | (environment-gated: requires live TFS) | — |
-
 
 
 
