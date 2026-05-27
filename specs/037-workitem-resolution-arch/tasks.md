@@ -49,8 +49,8 @@
 
 ### Tests for User Story 1
 
-- [ ] T010 [P] [US1] Add/extend unit tests for deterministic sequence enforcement in `tests/DevOpsMigrationPlatform.Tests/Agent/Import/WorkItemsOrchestrator*Tests.cs`
-- [ ] T011 [P] [US1] Add/extend system simulated test for mixed mapped/unmapped revision behavior and stale-mapping recovery in `tests/DevOpsMigrationPlatform.SystemTests/WorkItems/Import/*Deterministic*Tests.cs`
+- [X] T010 [P] [US1] Add/extend unit tests for deterministic sequence enforcement in `tests/DevOpsMigrationPlatform.Tests/Agent/Import/WorkItemsOrchestrator*Tests.cs`
+- [X] T011 [P] [US1] Add/extend system simulated test for mixed mapped/unmapped revision behavior and stale-mapping recovery in `tests/DevOpsMigrationPlatform.SystemTests/WorkItems/Import/*Deterministic*Tests.cs`
 - [X] T012 [US1] Add/extend resume stage transition test coverage in `tests/DevOpsMigrationPlatform.Tests/Agent/Import/RevisionFolderProcessor*Tests.cs`
 
 ### Implementation for User Story 1
@@ -59,7 +59,7 @@
 - [X] T014 [US1] Refactor `WorkItemsImportOrchestrator` to delegate startup resolution lifecycle to the resolution processor in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemsImportOrchestrator.cs`
 - [X] T015 [US1] Refactor resolution processor flow to resolve through shared processor lifecycle before create/update/replay in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/RevisionFolderProcessor.cs`
 - [X] T016 [US1] Ensure mandatory stage markers are emitted for import flow in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/{WorkItemsOrchestrator.cs,RevisionFolderProcessor.cs}`
-- [ ] T017 [US1] Wire checkpoint/stage progression consistency for deterministic resume in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/{WorkItemsOrchestrator.cs,ImportWorkItemStateStore.cs}`
+- [X] T017 [US1] Wire checkpoint/stage progression consistency for deterministic resume in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/{WorkItemsOrchestrator.cs,ImportWorkItemStateStore.cs}`
 - [X] T036 [US1] Preserve existing field/node default policy behavior in deterministic resolution flow in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/RevisionFolderProcessor.cs`
 - [X] T037 [P] [US1] Add regression tests for field/node default policy preservation in `tests/DevOpsMigrationPlatform.Tests/Agent/Import/*DefaultPolicy*Tests.cs`
 - [X] T040 [US1] Rename/split revision processor to `WorkItemResolutionProcessor` and align call sites in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/{RevisionFolderProcessor.cs,WorkItemsOrchestrator.cs}`
@@ -100,18 +100,18 @@
 
 ### Tests for User Story 3
 
-- [ ] T024 [P] [US3] Add/extend simulated parity tests for resolution modes in `tests/DevOpsMigrationPlatform.SystemTests/WorkItems/Import/Simulated/*Resolution*Tests.cs`
-- [ ] T025 [P] [US3] Add/extend AzureDevOps parity tests in `tests/DevOpsMigrationPlatform.SystemTests.AzureDevOps/WorkItems/Import/*Resolution*Tests.cs`
-- [ ] T026 [P] [US3] Add/extend TFS parity tests in `tests/DevOpsMigrationPlatform.SystemTests/WorkItems/Import/Tfs/*Resolution*Tests.cs`
-- [ ] T038 [P] [US3] Add deterministic multi-candidate tie-break tests across connectors in `tests/DevOpsMigrationPlatform.SystemTests/WorkItems/Import/*CandidateTieBreak*Tests.cs`
-- [ ] T039 [P] [US3] Add mid-stream cache rebuild resume-equivalence tests across connectors in `tests/DevOpsMigrationPlatform.SystemTests/WorkItems/Import/*CacheRebuildResume*Tests.cs`
+- [X] T024 [P] [US3] Add/extend simulated parity tests for resolution modes in `tests/DevOpsMigrationPlatform.SystemTests/WorkItems/Import/Simulated/*Resolution*Tests.cs`
+- [X] T025 [P] [US3] Add/extend AzureDevOps parity tests in `tests/DevOpsMigrationPlatform.SystemTests.AzureDevOps/WorkItems/Import/*Resolution*Tests.cs`
+- [X] T026 [P] [US3] Add/extend TFS parity tests in `tests/DevOpsMigrationPlatform.SystemTests/WorkItems/Import/Tfs/*Resolution*Tests.cs`
+- [X] T038 [P] [US3] Add deterministic multi-candidate tie-break tests across connectors in `tests/DevOpsMigrationPlatform.SystemTests/WorkItems/Import/*CandidateTieBreak*Tests.cs`
+- [X] T039 [P] [US3] Add mid-stream cache rebuild resume-equivalence tests across connectors in `tests/DevOpsMigrationPlatform.SystemTests/WorkItems/Import/*CacheRebuildResume*Tests.cs`
 
 ### Implementation for User Story 3
 
-- [ ] T027 [US3] Implement/complete TFS resolution strategy path(s) for supported lookup modes in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Import/*ResolutionStrategy*.cs`
-- [ ] T028 [US3] Align strategy factory routing across adapters in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemResolutionStrategyFactory.cs`
-- [ ] T029 [US3] Remove/replace no-op strategy fallback where adapter capability exists in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/NullResolutionStrategy.cs`
-- [ ] T030 [US3] Validate adapter parity behavior and warning semantics for unsupported capabilities in `src/DevOpsMigrationPlatform.Infrastructure.{AzureDevOps,Simulated,TfsObjectModel}/Import/*`
+- [X] T027 [US3] Implement/complete TFS resolution strategy path(s) for supported lookup modes in `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Import/*ResolutionStrategy*.cs`
+- [X] T028 [US3] Align strategy factory routing across adapters in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemResolutionStrategyFactory.cs`
+- [X] T029 [US3] Remove/replace no-op strategy fallback where adapter capability exists in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/NullResolutionStrategy.cs`
+- [X] T030 [US3] Validate adapter parity behavior and warning semantics for unsupported capabilities in `src/DevOpsMigrationPlatform.Infrastructure.{AzureDevOps,Simulated,TfsObjectModel}/Import/*`
 
 **Checkpoint**: All supported adapters follow equivalent orchestration for resolution modes.
 
@@ -121,11 +121,11 @@
 
 **Purpose**: Finalize cross-cutting architecture, observability, docs, and verification.
 
-- [ ] T031 [P] Update architecture documentation and context for final implemented shape in `.agents/10-contracts/specs/orchestrator-contract.md` and `.agents/30-context/domains/{module-model.md,orchestrator-model.md}`
-- [ ] T032 [P] Update feature docs with delivered behavior and evidence links in `specs/037-workitem-resolution-arch/{spec.md,plan.md,research.md,quickstart.md}`
+- [X] T031 [P] Update architecture documentation and context for final implemented shape in `.agents/10-contracts/specs/orchestrator-contract.md` and `.agents/30-context/domains/{module-model.md,orchestrator-model.md}`
+- [X] T032 [P] Update feature docs with delivered behavior and evidence links in `specs/037-workitem-resolution-arch/{spec.md,plan.md,research.md,quickstart.md}`
 - [ ] T033 Run architecture compliance checks and capture outputs for this feature in `specs/037-workitem-resolution-arch/`
 - [ ] T034 Run full relevant test suites for touched scope, execute baseline-vs-post-change comparison for SC-005, and capture evidence in `specs/037-workitem-resolution-arch/`
-- [ ] T035 Confirm no remaining contradiction to canonical chain wording in `.agents/**/*` touched files
+- [X] T035 Confirm no remaining contradiction to canonical chain wording in `.agents/**/*` touched files
 - [X] T041 Verify screaming architecture naming for touched WorkItems runtime types and remove ambiguous role names in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/*` and `src/DevOpsMigrationPlatform.Abstractions.Agent/*`
 
 ---

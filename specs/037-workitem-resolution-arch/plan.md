@@ -33,7 +33,7 @@ Primary implementation intent:
 
 **Testing**:
 - MSTest
-- Reqnroll.MSTest + Moq (strict)
+- Code-first/internal DSL style tests + Moq (strict)
 - `SystemTest_Simulated`, `SystemTest_AzureDevOps`, and TFS coverage where supported
 
 **Target Platform**:
@@ -142,3 +142,15 @@ tests/
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
 | None | N/A | N/A |
+
+## Delivered behavior and evidence links
+
+- Deterministic mixed resolution outcomes with stale mapping handling:
+  - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/WorkItemImportOrchestratorFilterTests.cs`
+- Connector strategy parity coverage:
+  - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/AzureDevOpsResolutionStrategyFactoryTests.cs`
+  - `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/Import/SimulatedResolutionStrategyFactoryTests.cs`
+  - `tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsResolutionStrategyFactoryTests.cs`
+- Fail-closed unsupported strategy semantics in connector factories:
+  - `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Import/SimulatedResolutionStrategyFactory.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Import/TfsResolutionStrategyFactory.cs`

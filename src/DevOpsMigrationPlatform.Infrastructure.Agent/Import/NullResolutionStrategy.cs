@@ -8,8 +8,8 @@ using DevOpsMigrationPlatform.Abstractions;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Import;
 
 /// <summary>
-/// No-op <see cref="IWorkItemResolutionStrategy"/> used when no provenance lookup is
-/// required — for example when the target is <c>"Simulated"</c>.
+/// No-op <see cref="IWorkItemResolutionStrategy"/> used only when the active connector
+/// intentionally selects idmap-only resolution.
 /// <list type="bullet">
 ///   <item><see cref="SeedAsync"/> is a no-op.</item>
 ///   <item><see cref="ResolveSingleAsync"/> always returns <see langword="null"/> (create new).</item>

@@ -48,6 +48,10 @@ public class WorkItemImportOrchestratorFilterTests
 
         _mockStrategy.Setup(s => s.SeedAsync(It.IsAny<IIdMapStore>(), It.IsAny<CancellationToken>()))
                      .Returns(Task.CompletedTask);
+        _mockStrategy.Setup(s => s.ResolveSingleAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                     .ReturnsAsync((int?)null);
+        _mockStrategy.Setup(s => s.WriteProvenanceAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                     .Returns(Task.CompletedTask);
 
         _mockIdMap.Setup(s => s.InitializeAsync(It.IsAny<CancellationToken>()))
                   .Returns(Task.CompletedTask);
@@ -60,6 +64,8 @@ public class WorkItemImportOrchestratorFilterTests
         _mockIdMap.Setup(s => s.GetLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
                   .ReturnsAsync((int?)null);
         _mockIdMap.Setup(s => s.UpdateLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                  .Returns(Task.CompletedTask);
+        _mockIdMap.Setup(s => s.RecordSkippedRevisionAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                   .Returns(Task.CompletedTask);
 
         _mockTarget.Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
@@ -213,6 +219,21 @@ public class WorkItemImportOrchestratorFilterTests
     }
 
     [TestMethod]
+    public async Task ImportAsync_WhenSameFolderAppearsTwice_SkipsDuplicateWithinSameRun()
+    {
+        AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
+        _folders.Add(_folders[0]);
+
+        var orchestrator = BuildOrchestrator();
+        await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
+
+        _mockTarget.Verify(
+            t => t.UpdateFieldsAsync(1, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            Times.Once,
+            "A duplicate folder entry should be skipped after cursor progression is updated in-run.");
+    }
+
+    [TestMethod]
     public async Task ImportAsync_WhenFoldersAreNotLexicographicallyAscending_ThrowsInvalidOperationException()
     {
         AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
@@ -225,6 +246,51 @@ public class WorkItemImportOrchestratorFilterTests
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
             () => orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task ImportAsync_WithMixedMappedUnmappedAndStaleMappings_UsesDeterministicOutcomes()
+    {
+        AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
+        AddRevisionFolder(wiId: 2, revIndex: 0, areaPath: @"MyOrg\TeamA");
+        AddRevisionFolder(wiId: 3, revIndex: 0, areaPath: @"MyOrg\TeamA");
+
+        var updatedIdsInOrder = new List<int>();
+        _mockTarget
+            .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
+            .Callback<int, IReadOnlyList<WorkItemField>, CancellationToken>((id, _, _) => updatedIdsInOrder.Add(id))
+            .Returns(Task.CompletedTask);
+
+        // WI 1: existing valid mapping -> update existing
+        _mockIdMap.Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
+                  .ReturnsAsync(1);
+
+        // WI 2: unmapped -> create and map -> update created
+        _mockIdMap.SetupSequence(s => s.GetTargetWorkItemIdAsync(2, It.IsAny<CancellationToken>()))
+                  .ReturnsAsync((int?)null)
+                  .ReturnsAsync(202);
+        _mockTarget.Setup(t => t.CreateWorkItemAsync("Task", It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
+                   .ReturnsAsync(new ImportedWorkItemResult { TargetWorkItemId = 202, IsNewlyCreated = true });
+        _mockIdMap.Setup(s => s.SetWorkItemMappingAsync(2, 202, It.IsAny<CancellationToken>()))
+                  .Returns(Task.CompletedTask);
+
+        // WI 3: stale mapping to deleted target -> skip and continue
+        _mockIdMap.Setup(s => s.GetTargetWorkItemIdAsync(3, It.IsAny<CancellationToken>()))
+                  .ReturnsAsync(303);
+        _mockTarget.Setup(t => t.WorkItemExistsAsync(303, It.IsAny<CancellationToken>()))
+                   .ReturnsAsync(false);
+
+        var orchestrator = BuildOrchestrator();
+        await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
+
+        CollectionAssert.AreEqual(
+            new[] { 1, 202 },
+            updatedIdsInOrder,
+            "Mapped, then created work items should be replayed in deterministic folder order.");
+        _mockIdMap.Verify(
+            s => s.RecordSkippedRevisionAsync(3, "TargetWorkItemDeleted", It.IsAny<CancellationToken>()),
+            Times.Once,
+            "Stale mapping should be recorded and skipped.");
     }
 
     [TestMethod]

@@ -42,3 +42,19 @@
 
 After tasks are generated and architecture checks pass, proceed with:
 - `/speckit-tasks`
+
+## 7. Delivered evidence links
+
+1. Deterministic mixed-outcome orchestrator behavior:
+   `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/WorkItemImportOrchestratorFilterTests.cs`
+2. Connector strategy parity tests:
+   `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/AzureDevOpsResolutionStrategyFactoryTests.cs`
+   `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/Import/SimulatedResolutionStrategyFactoryTests.cs`
+   `tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsResolutionStrategyFactoryTests.cs`
+3. Connector fail-closed strategy handling:
+   `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Import/SimulatedResolutionStrategyFactory.cs`
+   `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Import/TfsResolutionStrategyFactory.cs`
+4. Updated architecture/context wording:
+   `.agents/10-contracts/specs/orchestrator-contract.md`
+   `.agents/30-context/domains/orchestrator-model.md`
+   `.agents/30-context/domains/module-model.md`

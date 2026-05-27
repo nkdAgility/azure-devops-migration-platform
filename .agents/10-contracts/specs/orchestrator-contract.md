@@ -28,6 +28,8 @@ Canonical contract for orchestrators as a first-class architecture element.
 8. Module orchestrator abstractions must expose symmetric phase methods (`ExportAsync`, `PrepareAsync`, `ImportAsync`, `ValidateAsync`) in a single contract shape.
 9. Compile-time phase method guards that remove Import/Export methods by runtime target are forbidden on orchestrator abstraction contracts.
 10. Adapter support differences (ADO/TFS/Simulated) are implemented in adapter implementations and capability behavior, not by splitting orchestrator abstraction shapes.
+11. WorkItems import must assemble startup policy first, then execute node readiness, then deterministic revision dispatch, with runtime-visible stage markers for each boundary.
+12. Resolution strategy selection is fail-closed: explicit unsupported strategy values must error for the active connector; `NullResolutionStrategy` is valid only when the connector intentionally uses idmap-only resolution.
 
 ## Responsibility Split
 

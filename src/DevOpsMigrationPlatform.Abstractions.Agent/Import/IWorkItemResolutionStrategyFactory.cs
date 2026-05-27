@@ -15,7 +15,8 @@ public sealed record WorkItemResolutionStrategyOptions
 {
     /// <summary>
     /// Strategy identifier. Recognised values: <c>"TargetField"</c>, <c>"TargetHyperlink"</c>.
-    /// Empty or unrecognised values fall through to <c>NullResolutionStrategy</c>.
+    /// Empty value uses connector default resolution behavior.
+    /// Non-empty value must be recognised by the selected connector factory.
     /// </summary>
     public string Strategy { get; init; } = string.Empty;
 

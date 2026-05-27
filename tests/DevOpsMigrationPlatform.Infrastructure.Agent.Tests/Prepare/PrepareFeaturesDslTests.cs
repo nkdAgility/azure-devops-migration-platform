@@ -512,7 +512,7 @@ public sealed class PrepareFeaturesDslTests
             Mock.Of<Abstractions.Agent.Import.IWorkItemResolutionStrategyFactory>(),
             Mock.Of<ICheckpointingServiceFactory>(),
             Mock.Of<IIdMapStoreFactory>(),
-            Mock.Of<IRevisionFolderProcessorFactory>(),
+            Mock.Of<IWorkItemResolutionProcessorFactory>(),
             CreateTargetEndpoint(connectorType),
             identityMappingService: Mock.Of<Abstractions.Agent.Identity.IIdentityMappingService>(),
             nodeTranslationTool: Mock.Of<Abstractions.Agent.Tools.INodeTranslationTool>(),

@@ -35,6 +35,8 @@ Module methods delegate workflow sequencing to orchestrator abstractions for the
 - Module wrapper: configuration/endpoints resolution, phase entrypoint, delegation.
 - Orchestrator: ordered workflow, stage boundaries, checkpoint/resume flow, progress/metrics emission.
 - Adapter implementations: external ADO/TFS/Simulated mechanics behind abstractions.
+- WorkItems import sequencing remains orchestrator-owned: startup policy -> node readiness -> deterministic revision dispatch.
+- Resolution strategy behavior remains connector-owned; unsupported explicit strategy values fail closed, while idmap-only paths use `NullResolutionStrategy` by explicit connector choice.
 
 ## Capture Dispatch
 
@@ -90,5 +92,4 @@ Every module operation must satisfy all four telemetry obligations (O-1 through 
 - A module failure must not crash other modules.
 - Module code does not hold references to other module instances.
 - Module service registration uses DI extension methods in the module assembly.
-
 

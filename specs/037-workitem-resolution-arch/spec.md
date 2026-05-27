@@ -2,7 +2,7 @@
 
 **Feature Branch**: `037-workitem-resolution-arch`  
 **Created**: 2026-05-26  
-**Status**: Draft  
+**Status**: Implementing  
 **Input**: User description: "Update default spec to architecture: introduce WorkItemResolutionService wrapper, centralize cache management, and align connector boundaries."
 
 ## Clarifications
@@ -114,3 +114,18 @@ As a migration operator using different target connectors, I need equivalent res
 - Connector APIs already support the required lookup operations for at least one equivalent strategy path per supported connector.
 - Existing policy defaults for field filtering and node translation remain the authoritative behavior and are not being redesigned in this feature.
 - The feature is scoped to work item import orchestration and resolution behavior; unrelated migration phases are out of scope.
+
+## Delivered behavior and evidence links
+
+- Deterministic mixed-outcome revision routing and stale mapping handling:
+  - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/WorkItemImportOrchestratorFilterTests.cs`
+- Connector strategy parity tests and fail-closed unsupported strategy behavior:
+  - `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/AzureDevOpsResolutionStrategyFactoryTests.cs`
+  - `tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/Import/SimulatedResolutionStrategyFactoryTests.cs`
+  - `tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsResolutionStrategyFactoryTests.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Import/SimulatedResolutionStrategyFactory.cs`
+  - `src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Import/TfsResolutionStrategyFactory.cs`
+- Updated orchestration and boundary wording:
+  - `.agents/10-contracts/specs/orchestrator-contract.md`
+  - `.agents/30-context/domains/orchestrator-model.md`
+  - `.agents/30-context/domains/module-model.md`

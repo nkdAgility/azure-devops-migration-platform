@@ -133,7 +133,7 @@ public sealed class ServicesFeaturesDslTests
             resolutionStrategyFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Import.IWorkItemResolutionStrategyFactory>(),
             checkpointingFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing.ICheckpointingServiceFactory>(),
             idMapStoreFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Storage.IIdMapStoreFactory>(),
-            processorFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Export.IRevisionFolderProcessorFactory>(),
+            processorFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Export.IWorkItemResolutionProcessorFactory>(),
             targetEndpointInfo: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Context.ITargetEndpointInfo>(),
             identityMappingService: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Identity.IIdentityMappingService>(),
             nodeTranslationTool: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Tools.INodeTranslationTool>(),
@@ -261,7 +261,7 @@ public sealed class ServicesFeaturesDslTests
     }
 
     private static (
-        RevisionFolderProcessor Processor,
+        WorkItemResolutionProcessor Processor,
         Mock<DevOpsMigrationPlatform.Abstractions.Agent.Import.IWorkItemImportTarget> Target,
         Mock<IIdentityLookupTool> IdentityTool)
         CreateRevisionProcessor(string fieldName, string fieldValue, Action<Mock<IIdentityLookupTool>> toolSetup)
@@ -348,12 +348,12 @@ public sealed class ServicesFeaturesDslTests
             .Setup(s => s.WriteProvenanceAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var processor = new RevisionFolderProcessor(
+        var processor = new WorkItemResolutionProcessor(
             target.Object,
             idMap.Object,
             checkpointing.Object,
             identityTool.Object,
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<RevisionFolderProcessor>.Instance,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
             package: package.Object);

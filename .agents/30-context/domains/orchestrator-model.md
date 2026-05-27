@@ -34,6 +34,14 @@ Orchestrators define the authoritative runtime workflow for a concern: sequencin
 5. Orchestrator persists cursor/state/progress through package abstractions.
 6. Orchestrator emits stage outcomes and telemetry.
 
+### WorkItems import workflow
+
+1. Assemble startup policy.
+2. Execute node readiness.
+3. Dispatch deterministic revision import.
+4. Emit stage markers: `StartupPolicy`, `NodeReadiness`, `RevisionDispatch`.
+5. Keep resolution strategy behavior connector-owned and fail-closed for unsupported explicit strategy values.
+
 ## Invariants
 
 - Preserve Source -> Files -> Target.

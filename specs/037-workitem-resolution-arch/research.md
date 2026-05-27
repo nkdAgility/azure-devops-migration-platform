@@ -85,3 +85,17 @@
 
 **Alternatives considered**:
 - Treat as internal refactor only: rejected when public abstraction signatures/surfaces change.
+
+---
+
+## Decision 7: Resolution strategy fallback semantics
+
+**Decision**: Keep resolution strategy selection connector-owned and fail-closed for explicit unsupported strategy values; allow `NullResolutionStrategy` only for intentional idmap-only selection.
+
+**Rationale**:
+- Avoids silent no-op behavior when strategy configuration is explicit but unsupported.
+- Preserves deterministic import behavior and clearer operator diagnostics.
+- Keeps connector capability boundaries explicit while preserving shared orchestration flow.
+
+**Alternatives considered**:
+- Silent fallback to no-op for unknown strategy values: rejected because it can hide misconfiguration and degrade deterministic outcomes.
