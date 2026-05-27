@@ -46,8 +46,6 @@
     <ExternalFeatureFiles Include="..\..\features\export\work-items\revisions\export-work-item-revisions.feature" />
     <ExternalFeatureFiles Include="..\..\features\export\work-items\links\export-work-item-links.feature" />
     <ExternalFeatureFiles Include="..\..\features\export\work-items\attachments\export-attachments.feature" />
-    <ExternalFeatureFiles Include="..\..\features\services\identity-mapping\identity-mapping.feature" />
-    <ExternalFeatureFiles Include="..\..\features\services\identity-mapping\import-identity-resolution.feature" />
     <ExternalFeatureFiles Include="..\..\features\inventory\work-items\filter-scope-inventory.feature" />
     <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\import-work-item-revisions.feature" />
     <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\streaming-memory-safety.feature" />
@@ -79,6 +77,12 @@
 
   <Target Name="PrepareReqnrollFeatureFiles" BeforeTargets="UpdateFeatureFilesInProject">
     <MakeDir Directories="$(ProjectDir)Features" />
+    <ItemGroup>
+      <_ExpectedFeatureCopies Include="@(ExternalFeatureFiles->'$(ProjectDir)Features\%(Filename)%(Extension)')" />
+      <_ExistingFeatureCopies Include="$(ProjectDir)Features\*.feature" />
+      <_StaleFeatureCopies Include="@(_ExistingFeatureCopies)" Exclude="@(_ExpectedFeatureCopies)" />
+    </ItemGroup>
+    <Delete Files="@(_StaleFeatureCopies)" />
     <Copy SourceFiles="@(ExternalFeatureFiles)"
           DestinationFolder="$(ProjectDir)Features"
           SkipUnchangedFiles="true" />
