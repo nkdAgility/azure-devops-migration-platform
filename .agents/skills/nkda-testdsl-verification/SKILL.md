@@ -9,6 +9,7 @@ description: Use when conversion and refactor are done and parity, artefact remo
 
 - verify behavioural parity mapping
 - verify converted tests are code-first MSTest and non-vacuous
+- remove migrated Reqnroll artefacts for the converted family when verification is `PASS` (`.feature`, generated `.feature.cs`, and legacy `*Steps.cs` files tied to that family)
 - verify Reqnroll artefact removal status
 - verify completion conditions in `contracts.md`
 - produce `.output/nkda-testdsl/<feature-family>/06-verification.md`

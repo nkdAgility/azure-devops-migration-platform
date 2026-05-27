@@ -1180,15 +1180,33 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             if (string.IsNullOrWhiteSpace(url))
                 continue;
 
+            var authType = AuthenticationType.None;
+            var authTypeRaw = child["Authentication:Type"];
+            if (!string.IsNullOrWhiteSpace(authTypeRaw) &&
+                Enum.TryParse<AuthenticationType>(authTypeRaw, ignoreCase: true, out var parsedType))
+            {
+                authType = parsedType;
+            }
+
             var orgEndpoint = new OrganisationEndpoint
             {
                 Type = child["Type"] ?? "Unknown",
-                ResolvedUrl = url!
+                ResolvedUrl = ConfigTokenResolver.Resolve(url) ?? url!,
+                ApiVersion = child["ApiVersion"],
+                Authentication = new OrganisationEndpointAuthentication
+                {
+                    Type = authType,
+                    ResolvedAccessToken = ConfigTokenResolver.Resolve(child["Authentication:AccessToken"])
+                }
             };
             organisations.Add(new ScopedOrganisationEndpoint
             {
                 Endpoint = new ConfigOrganisationEndpointOptions(orgEndpoint),
-                Projects = new List<string>()
+                Projects = child.GetSection("Projects")
+                    .GetChildren()
+                    .Select(p => p.Value)
+                    .Where(p => !string.IsNullOrWhiteSpace(p))
+                    .ToList()!
             });
         }
 
