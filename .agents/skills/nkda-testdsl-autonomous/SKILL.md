@@ -28,7 +28,8 @@ Run this sequence for each selected feature family:
 4. `nkda-testdsl-feature-conversion`
 5. `nkda-testdsl-refactor`
 6. `nkda-testdsl-verification`
-7. `nkda-testdsl-next-feature-selection` (after the final selected family is completed)
+7. Remove migrated Reqnroll artefacts for that family (`.feature`, generated `.feature.cs`, and legacy `*Steps.cs` files tied to the converted family) only after verification returns `PASS`
+8. `nkda-testdsl-next-feature-selection` (after the final selected family is completed)
 
 ## Input Handling
 
@@ -52,3 +53,4 @@ Stop early if:
 - behaviour parity cannot be established
 - conversion requires unplanned production behaviour changes
 - failures cannot be resolved in feature-family scope
+- verification does not return `PASS` for the family (do not remove legacy artefacts)
