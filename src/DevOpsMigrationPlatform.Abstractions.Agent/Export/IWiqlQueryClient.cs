@@ -8,7 +8,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 /// <summary>
 /// Abstracts the single WIQL query operation needed by
-/// <see cref="DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export.WorkItemQueryWindowStrategy"/>
+/// <see cref="DevOpsMigrationPlatform.Infrastructure.AzureDevOps.WorkItems.Revisions.WorkItemQueryWindowStrategy"/>
 /// so that the strategy can be unit-tested without a live Azure DevOps connection.
 /// </summary>
 public interface IWiqlQueryClient

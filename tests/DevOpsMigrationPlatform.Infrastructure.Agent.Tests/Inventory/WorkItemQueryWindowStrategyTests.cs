@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.WorkItems.Revisions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -1243,4 +1243,3 @@ public class WorkItemQueryWindowStrategyTests
         Assert.AreEqual(1, windows.Count);
     }
 }
-

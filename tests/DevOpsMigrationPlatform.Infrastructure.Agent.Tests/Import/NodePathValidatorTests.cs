@@ -18,7 +18,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Validators;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Nodes;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
 using Microsoft.Extensions.Logging.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;

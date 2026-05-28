@@ -5,7 +5,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Nodes;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.TeamFoundation.Server;
 using Microsoft.VisualStudio.TestTools.UnitTesting;

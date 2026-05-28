@@ -4,7 +4,7 @@
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Configuration;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Validators;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemType;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;

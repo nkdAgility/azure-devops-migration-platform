@@ -16,7 +16,8 @@ using Microsoft.VisualStudio.Services.WebApi;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Discovery;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Dependencies;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Platform.AzureDevOpsAccess;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Dependencies;
 

@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
+using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
+using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Platform.AzureDevOpsAccess;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.WorkItems.Revisions;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.WorkItems.WorkItemResolution;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Inventory;
+
+public static class InventoryServiceCollectionExtensions
+{
+    /// <summary>
+    /// Registers all Azure DevOps inventory services and binds <see cref="MigrationPlatformOptions"/>
+    /// from the <c>MigrationPlatform</c> configuration section.
+    /// Also registers <see cref="IInventoryServiceFactory"/> and <see cref="InventoryDiscoveryModule"/>
+    /// for agent-side use where organisations come from a <see cref="DevOpsMigrationPlatform.Abstractions.DiscoveryJob"/>.
+    /// </summary>
+    public static IServiceCollection AddAzureDevOpsInventory(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddOptions<MigrationPlatformOptions>().Bind(configuration.GetSection("MigrationPlatform"));
+        services.AddSingleton<IAzureDevOpsClientFactory, AzureDevOpsClientFactory>();
+        services.AddSingleton<IWiqlQueryClientFactory, AzureDevOpsWiqlQueryClientFactory>();
+        services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
+        services.AddSingleton<IWorkItemFetchService, AzureDevOpsWorkItemFetchService>();
+        services.AddWorkItemDiscoveryService<AzureDevOpsWorkItemDiscoveryService>("AzureDevOpsServices");
+        services.AddSingleton<IProjectDiscoveryService, AzureDevOpsProjectDiscoveryService>();
+        services.AddSingleton<IRepoDiscoveryService, AzureDevOpsRepoDiscoveryService>();
+        services.AddSingleton<IInventoryService, InventoryService>();
+        services.AddSingleton<IInventoryServiceFactory, InventoryServiceFactory>();
+        // Keyed registration — resolves when connector type is "AzureDevOpsServices" or "TeamFoundationServer".
+        services.AddKeyedSingleton<IInventoryServiceFactory, InventoryServiceFactory>("AzureDevOpsServices");
+        services.AddKeyedSingleton<IInventoryServiceFactory, InventoryServiceFactory>("TeamFoundationServer");
+        return services;
+    }
+}
