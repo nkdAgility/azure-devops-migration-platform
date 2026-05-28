@@ -27,9 +27,14 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using Microsoft.Extensions.Logging;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Export;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.JobLifecycle.TfsExecution;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Identity;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Nodes;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.ProjectLifecycle;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.Revisions;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.WorkItemType;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.WorkItemResolution;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Teams;
 
 namespace DevOpsMigrationPlatform.TfsMigrationAgent;
 

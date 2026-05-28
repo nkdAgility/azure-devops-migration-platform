@@ -88,8 +88,8 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                     WellKnownServiceNames.TfsMigrationAgent,
                     new[]
                     {
-                        Infrastructure.TfsObjectModel.Telemetry.MigrationPlatformActivitySources.WorkItemExport.Name,
-                        Infrastructure.TfsObjectModel.Telemetry.MigrationPlatformActivitySources.AttachmentDownload.Name
+                        Infrastructure.TfsObjectModel.JobLifecycle.Telemetry.MigrationPlatformActivitySources.WorkItemExport.Name,
+                        Infrastructure.TfsObjectModel.JobLifecycle.Telemetry.MigrationPlatformActivitySources.AttachmentDownload.Name
                     });
             });
 

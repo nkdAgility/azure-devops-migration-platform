@@ -19,6 +19,7 @@ using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 using DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Platform.AzureDevOpsAccess;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.ProjectLifecycle;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.TeamFoundation.Core.WebApi;

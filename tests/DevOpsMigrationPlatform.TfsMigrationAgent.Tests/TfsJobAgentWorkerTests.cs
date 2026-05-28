@@ -30,7 +30,8 @@ using Microsoft.Extensions.DependencyInjection;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Options;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.JobLifecycle.TfsExecution;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Platform.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -168,7 +169,7 @@ public class TfsJobAgentWorkerTests
             _phaseTrackingFactory.Object,
             _flushables,
             _tfsServiceFactory.Object,
-            new DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.ActiveTfsJobServices(),
+            new DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.JobLifecycle.TfsExecution.ActiveTfsJobServices(),
             new DevOpsMigrationPlatform.Infrastructure.Agent.Context.CurrentJobEndpointAccessor(),
             _logger,
             package ?? _package.Object);

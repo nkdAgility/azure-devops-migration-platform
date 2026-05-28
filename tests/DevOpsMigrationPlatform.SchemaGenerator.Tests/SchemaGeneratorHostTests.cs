@@ -17,6 +17,8 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityLookup;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.WorkItems.Revisions;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.WorkItems.WorkItemResolution;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using DevOpsMigrationPlatform.Infrastructure.Simulated;
 using Microsoft.Extensions.DependencyInjection;
