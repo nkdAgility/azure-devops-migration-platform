@@ -171,8 +171,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var isSimulated = string.Equals(targetType, "Simulated", StringComparison.Ordinal);
         var orgUrl = EnvironmentVariableResolver.Resolve(
             GetJsonString(mp, "Target", "Url") ?? (isSimulated ? "https://simulated.example.com" : null),
-            "Target.Url");
-        var project = GetJsonString(mp, "Target", "Project") ?? (isSimulated ? "SimulatedProject" : null);
+            "Target.Url")?.Trim();
+        var project = (GetJsonString(mp, "Target", "Project") ?? (isSimulated ? "SimulatedProject" : null))?.Trim();
         var packagePath = GetJsonString(mp, "Package", "WorkingDirectory") ?? string.Empty;
         var createPackage = GetJsonBool(mp, false, "Package", "CreatePackage");
 

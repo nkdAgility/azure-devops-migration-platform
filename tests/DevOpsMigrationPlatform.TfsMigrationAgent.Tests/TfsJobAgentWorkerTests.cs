@@ -210,6 +210,47 @@ public class TfsJobAgentWorkerTests
     }
 
     [TestMethod]
+    public void SetImportEndpointContext_ResolvesAndTrimsEnvironmentBackedTargetUrl()
+    {
+        const string envName = "DMP_TEST_TFS_IMPORT_URL";
+        Environment.SetEnvironmentVariable(envName, "  https://dev.azure.com/nkdagility-preview/  ");
+        try
+        {
+            var worker = CreateWorker();
+            var config = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["MigrationPlatform:Target:Type"] = "TeamFoundationServer",
+                    ["MigrationPlatform:Target:Url"] = $"$ENV:{envName}",
+                    ["MigrationPlatform:Target:Project"] = " migrationTest5 ",
+                    ["MigrationPlatform:Target:Authentication:AccessToken"] = " token-value "
+                })
+                .Build();
+
+            var method = typeof(TfsJobAgentWorker).GetMethod(
+                "SetImportEndpointContext",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            Assert.IsNotNull(method, "Expected private SetImportEndpointContext method to exist.");
+            method.Invoke(worker, new object[] { config });
+
+            var accessorField = typeof(TfsJobAgentWorker).GetField(
+                "_endpointAccessor",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            Assert.IsNotNull(accessorField, "Expected private _endpointAccessor field to exist.");
+
+            var accessor = (ICurrentJobEndpointAccessor?)accessorField.GetValue(worker);
+            Assert.IsNotNull(accessor);
+            Assert.IsNotNull(accessor.Target);
+            Assert.AreEqual("https://dev.azure.com/nkdagility-preview/", accessor.Target.Url);
+            Assert.AreEqual("migrationTest5", accessor.Target.Project);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(envName, null);
+        }
+    }
+
+    [TestMethod]
     public async Task OnMigrationJob_NonExportMode_SignalsFail()
     {
         // Arrange

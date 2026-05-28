@@ -10,6 +10,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import;
+using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -89,6 +90,40 @@ public sealed class TfsResolutionStrategyFactoryTests
                 Mock.Of<IWorkItemTarget>(),
                 new TestTargetEndpointInfo(),
                 CancellationToken.None));
+    }
+
+    [TestMethod]
+    public void TeamFoundationServerEndpointOptions_ResolvedUrl_TrimsEnvironmentValue()
+    {
+        const string envName = "DMP_TEST_TFS_ENDPOINT_URL";
+        Environment.SetEnvironmentVariable(envName, "  http://tfs.example.local:8080/tfs/DefaultCollection  ");
+        try
+        {
+            var options = new TeamFoundationServerEndpointOptions { Url = $"$ENV:{envName}" };
+
+            Assert.AreEqual("http://tfs.example.local:8080/tfs/DefaultCollection", options.ResolvedUrl);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(envName, null);
+        }
+    }
+
+    [TestMethod]
+    public void TeamFoundationServerOrganisationEntry_ResolvedUrl_TrimsEnvironmentValue()
+    {
+        const string envName = "DMP_TEST_TFS_ORG_URL";
+        Environment.SetEnvironmentVariable(envName, "  http://tfs.example.local:8080/tfs/DefaultCollection  ");
+        try
+        {
+            var entry = new TeamFoundationServerOrganisationEntry { Url = $"$ENV:{envName}" };
+
+            Assert.AreEqual("http://tfs.example.local:8080/tfs/DefaultCollection", entry.ResolvedUrl);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(envName, null);
+        }
     }
 
     private sealed class TestTargetEndpointInfo : ITargetEndpointInfo

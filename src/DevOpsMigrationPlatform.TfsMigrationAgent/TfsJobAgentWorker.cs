@@ -310,12 +310,12 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     /// </summary>
     private void SetImportEndpointContext(IConfiguration packageConfig)
     {
-        var url = packageConfig["MigrationPlatform:Target:Url"];
-        var project = packageConfig["MigrationPlatform:Target:Project"];
-        var connectorType = packageConfig["MigrationPlatform:Target:Type"];
-        var accessToken =
+        var url = ConfigTokenResolver.Resolve(packageConfig["MigrationPlatform:Target:Url"])?.Trim();
+        var project = packageConfig["MigrationPlatform:Target:Project"]?.Trim();
+        var connectorType = packageConfig["MigrationPlatform:Target:Type"]?.Trim();
+        var accessToken = ConfigTokenResolver.Resolve(
             packageConfig["MigrationPlatform:Target:Authentication:AccessToken"]
-            ?? packageConfig["MigrationPlatform:Target:Authentication:Token"];
+            ?? packageConfig["MigrationPlatform:Target:Authentication:Token"])?.Trim();
 
         if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(connectorType))
         {

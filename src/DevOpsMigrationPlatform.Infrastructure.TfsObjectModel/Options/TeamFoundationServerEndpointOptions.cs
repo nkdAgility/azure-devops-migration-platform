@@ -18,7 +18,7 @@ public sealed class TeamFoundationServerEndpointOptions : MigrationEndpointOptio
     public string Url { get; set; } = string.Empty;
 
     /// <summary>The effective URL after <c>$ENV:VARNAME</c> expansion.</summary>
-    public string ResolvedUrl => ConfigTokenResolver.Resolve(Url) ?? string.Empty;
+    public string ResolvedUrl => (ConfigTokenResolver.Resolve(Url) ?? string.Empty).Trim();
 
     /// <summary>Team project name.</summary>
     public string Project { get; set; } = string.Empty;
