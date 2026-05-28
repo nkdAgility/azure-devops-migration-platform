@@ -553,8 +553,8 @@ Or restore the local manifest:
         if (-not $inJson -and $line -match '^\s*\{') { $inJson = $true }
         if ($inJson) {
             $jsonLines += $line
-            $depth += ($line.ToCharArray() | Where-Object { $_ -eq '{' }).Count
-            $depth -= ($line.ToCharArray() | Where-Object { $_ -eq '}' }).Count
+            $depth += [regex]::Matches($line, '\{').Count
+            $depth -= [regex]::Matches($line, '\}').Count
             if ($depth -le 0) { break }
         }
     }
