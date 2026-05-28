@@ -356,7 +356,7 @@ Platform
 ### Import
 
 - `Import/AzureDevOpsWorkItemTarget*.cs` -> `WorkItems/WorkItemResolution/`
-- `Import/AzureDevOpsWorkItemTypeReadinessTarget*.cs` -> `WorkItems/WorkItemResolution/`
+- `Import/AzureDevOpsWorkItemTypeReadinessTarget*.cs` -> `WorkItems/WorkItemType/`
 - `Import/AzureDevOpsResolutionStrategyFactory.cs` -> `WorkItems/WorkItemResolution/AzureDevOpsResolutionStrategyFactory.cs`
 - `Import/TargetFieldResolutionStrategy.cs` + `Import/TargetHyperlinkResolutionStrategy.cs` -> `WorkItems/WorkItemResolution/`
 - `Import/AzureDevOpsNodeCreator.cs` -> `Nodes/AzureDevOpsNodeCreator.cs`
@@ -459,9 +459,10 @@ Platform
 ### Import
 
 - `Import/TfsWorkItemTarget.cs` -> `WorkItems/WorkItemResolution/`
-- `Import/TfsWorkItemTypeReadinessTarget.cs` -> `WorkItems/WorkItemResolution/`
+- `Import/TfsWorkItemTypeReadinessTarget.cs` -> `WorkItems/WorkItemType/`
 - `Import/TfsResolutionStrategyFactory.cs` + `Import/TfsTargetFieldResolutionStrategy.cs` -> `WorkItems/WorkItemResolution/`
-- `Import/TfsActiveJobWorkItemTargetFactory.cs` + `Import/TfsActiveJobWorkItemTypeReadinessTargetFactory.cs` -> `WorkItems/WorkItemResolution/`
+- `Import/TfsActiveJobWorkItemTargetFactory.cs` -> `WorkItems/WorkItemResolution/`
+- `Import/TfsActiveJobWorkItemTypeReadinessTargetFactory.cs` -> `WorkItems/WorkItemType/`
 - `Import/TfsNodeCreator.cs` + `Import/TfsActiveJobNodeCreator.cs` -> `Nodes/`
 
 ### Root files and technical support
@@ -581,29 +582,29 @@ This section captures what must change in tests when the folder/namespace reorg 
 
 Apply these renames in `using` statements, fully-qualified names, and string-based type references:
 
-- `DevOpsMigrationPlatform.Abstractions.Agent.Export` -> concern namespace (`...WorkItems.Export`, `...Attachments.Export`, or `...JobLifecycle.*`) based on ownership
-- `DevOpsMigrationPlatform.Abstractions.Agent.Discovery` -> `...Inventory` or `...Dependencies` (or concern-specific destination)
+- `DevOpsMigrationPlatform.Abstractions.Agent.Export` -> concern namespace (`...WorkItems.Revisions`, `...Attachments`, or `...JobLifecycle.*`) based on ownership
+- `DevOpsMigrationPlatform.Abstractions.Agent.Discovery` -> concern namespace (`...Inventory`, `...Dependencies`, or `...WorkItems.WorkItemResolution`)
 - `DevOpsMigrationPlatform.Abstractions.Agent.Modules` -> concern namespace (`...Identity`, `...Nodes`, `...Teams`, `...WorkItems`) or `...JobLifecycle.Execution` for runtime composition contracts
-- `DevOpsMigrationPlatform.Abstractions.Agent.Tools` -> concern namespace (`...Identity.Lookup`, `...Nodes.Translation`, `...WorkItems.FieldTransform`)
+- `DevOpsMigrationPlatform.Abstractions.Agent.Tools` -> concern namespace (`...Identity`, `...Nodes`, `...WorkItems`) and existing concern seams
 - `DevOpsMigrationPlatform.Abstractions.Agent.Validation` -> concern validation namespace first; `...Platform.Validation` only when cross-cutting
 - `DevOpsMigrationPlatform.Abstractions.Agent.Lease` -> `...JobLifecycle.Lease`
 
-- `DevOpsMigrationPlatform.Infrastructure.Agent.Export` -> concern-owned namespace (`...WorkItems.Export`, `...Attachments.Export`, etc.)
-- `DevOpsMigrationPlatform.Infrastructure.Agent.Import` -> concern-owned namespace (`...WorkItems.Import`, `...Nodes.Import`, `...Attachments.Import`)
-- `DevOpsMigrationPlatform.Infrastructure.Agent.Discovery` -> `...Inventory` / `...Dependencies` / concern-owned destination
+- `DevOpsMigrationPlatform.Infrastructure.Agent.Export` -> concern-owned namespace (`...WorkItems.Revisions`, `...Attachments`, `...Inventory`, `...Dependencies`)
+- `DevOpsMigrationPlatform.Infrastructure.Agent.Import` -> concern-owned namespace (`...WorkItems.WorkItemResolution`, `...WorkItems.WorkItemType`, `...Nodes`, `...Attachments`)
+- `DevOpsMigrationPlatform.Infrastructure.Agent.Discovery` -> concern-owned namespace (`...Inventory`, `...Dependencies`, `...WorkItems.WorkItemResolution`)
 - `DevOpsMigrationPlatform.Infrastructure.Agent.Modules` -> concern namespace or `...JobLifecycle.Execution` when truly runtime composition
-- `DevOpsMigrationPlatform.Infrastructure.Agent.Tools` -> concern namespace
+- `DevOpsMigrationPlatform.Infrastructure.Agent.Tools` -> concern namespace (`...Identity`, `...Nodes`, `...WorkItems`, `...Platform` only when cross-cutting)
 - `DevOpsMigrationPlatform.Infrastructure.Agent.Validation` -> concern validation namespace first; `...Platform.Validation` only when cross-cutting
 
-- `DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Discovery` -> `...Inventory` / `...Dependencies` / concern-owned destination
-- `DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export` -> concern-owned export namespace
-- `DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import` -> concern-owned import namespace
+- `DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Discovery` -> concern-owned namespace (`...Inventory`, `...Dependencies`, `...WorkItems.WorkItemResolution`)
+- `DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export` -> concern-owned namespace (`...WorkItems.Revisions`, `...Nodes`, `...Identity`, `...Teams`)
+- `DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import` -> concern-owned namespace (`...WorkItems.WorkItemResolution`, `...WorkItems.WorkItemType`, `...Nodes`)
 - `DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Factories` -> concern-owned factories (or `Platform` only if cross-cutting across concerns)
 
-- `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Discovery` -> `...Inventory` / concern-owned destination
-- `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Export` -> concern-owned export namespace
-- `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import` -> concern-owned import namespace
-- `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Extensions` -> concern-owned extension namespace first (for example `...WorkItems.Export.Extensions`)
+- `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Discovery` -> concern-owned namespace (`...Inventory`, `...WorkItems.WorkItemResolution`)
+- `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Export` -> concern-owned namespace (`...WorkItems.Revisions`, `...Nodes`, `...Identity`, `...Teams`)
+- `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import` -> concern-owned namespace (`...WorkItems.WorkItemResolution`, `...WorkItems.WorkItemType`, `...Nodes`)
+- `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Extensions` -> concern-owned extension namespace first (for example `...WorkItems.Revisions.Extensions`)
 - `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Options` -> concern-owned configuration first; `Platform.Configuration` only when truly cross-cutting
 - `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Models` -> concern-owned model namespace
 - `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry` -> concern telemetry namespace (`...WorkItems.Telemetry`, `...Attachments.Telemetry`, `...JobLifecycle.Telemetry`) per ownership
