@@ -123,8 +123,8 @@
 
 - [X] T031 [P] Update architecture documentation and context for final implemented shape in `.agents/10-contracts/specs/orchestrator-contract.md` and `.agents/30-context/domains/{module-model.md,orchestrator-model.md}`
 - [X] T032 [P] Update feature docs with delivered behavior and evidence links in `specs/037-workitem-resolution-arch/{spec.md,plan.md,research.md,quickstart.md}`
-- [ ] T033 Run architecture compliance checks and capture outputs for this feature in `specs/037-workitem-resolution-arch/`
-- [ ] T034 Run full relevant test suites for touched scope, execute baseline-vs-post-change comparison for SC-005, and capture evidence in `specs/037-workitem-resolution-arch/`
+- [X] T033 Run architecture compliance checks and capture outputs for this feature in `specs/037-workitem-resolution-arch/`
+- [X] T034 Run full relevant test suites for touched scope, execute baseline-vs-post-change comparison for SC-005, and capture evidence in `specs/037-workitem-resolution-arch/`
 - [X] T035 Confirm no remaining contradiction to canonical chain wording in `.agents/**/*` touched files
 - [X] T041 Verify screaming architecture naming for touched WorkItems runtime types and remove ambiguous role names in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/*` and `src/DevOpsMigrationPlatform.Abstractions.Agent/*`
 

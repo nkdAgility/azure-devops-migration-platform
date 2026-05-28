@@ -1,0 +1,87 @@
+Feature: 037-workitem-resolution-arch
+Date: 2026-05-27
+
+T033 - Implementation architecture compliance
+===========================================
+
+Changed implementation scope (HEAD):
+- src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Import/TfsResolutionStrategyFactory.cs
+- src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Import/TfsTargetFieldResolutionStrategy.cs
+- src/DevOpsMigrationPlatform.Infrastructure.Simulated/Import/SimulatedResolutionStrategyFactory.cs
+- src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/NullResolutionStrategy.cs
+- src/DevOpsMigrationPlatform.Abstractions.Agent/Import/IWorkItemResolutionStrategyFactory.cs
+- tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/AzureDevOpsResolutionStrategyFactoryTests.cs
+- tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/Import/SimulatedResolutionStrategyFactoryTests.cs
+- tests/DevOpsMigrationPlatform.TfsMigrationAgent.Tests/TfsResolutionStrategyFactoryTests.cs
+- tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/SqliteIdMapStoreTests.cs
+
+Perspective checks:
+1. Modular monolith: PASS
+   - WorkItems orchestration remains inside module/orchestrator boundaries.
+   - Evidence: src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs and
+     src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemsOrchestratorFactory.cs.
+
+2. Clean architecture: PASS
+   - Contracts remain in Abstractions; connector implementations remain in Infrastructure.
+   - Evidence: src/DevOpsMigrationPlatform.Abstractions.Agent/Import/IWorkItemResolutionStrategyFactory.cs,
+     src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Import/TfsTargetFieldResolutionStrategy.cs.
+
+3. Hexagonal boundaries: PASS
+   - External API calls are adapter-contained and invoked via strategy interfaces.
+   - Evidence: TFS API call sites in src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Import/TfsTargetFieldResolutionStrategy.cs:53,67,101,115.
+
+4. Vertical slice integrity: PASS
+   - WorkItems import resolution behavior and tests changed together in the same slice.
+   - Evidence: src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Import/* and
+     tests/DevOpsMigrationPlatform.*.Tests/Import/*ResolutionStrategy*.
+
+5. Screaming architecture: PASS
+   - Runtime role names reflect intent (WorkItemResolutionProcessor, *ResolutionStrategyFactory, TfsTargetFieldResolutionStrategy).
+   - Evidence: changed type names and tests referencing those roles.
+
+6. Deterministic/resume behavior: PASS
+   - Deterministic first-seen tie-break and resume-equivalent rebuild behavior validated at idmap seam.
+   - Evidence: tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/SqliteIdMapStoreTests.cs:166-219.
+
+Seam/surface checks:
+- Strategy factory seam (`IWorkItemResolutionStrategyFactory`): PASS
+- Resolution strategy seam (`IWorkItemResolutionStrategy`): PASS
+- Idmap seam (`IIdMapStore`): PASS
+- No wrapper/orchestrator bypass detected in changed scope: PASS
+
+Reachable stubs/placeholders check:
+- Searched for NotImplementedException/placeholder/stub patterns in touched runtime surfaces.
+- No reachable stub/placeholder path found in changed runtime files.
+
+T034 - Test evidence and baseline/post comparison
+=================================================
+
+Baseline full-suite run (before this slice):
+- total=1399, passed=1399, failed=0
+
+Post-change full-suite run (after this slice):
+- total=1411, passed=1411, failed=0
+
+Result:
+- No regressions introduced (failed remained 0).
+- Added deterministic tie-break/resume-equivalence coverage in:
+  tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/SqliteIdMapStoreTests.cs:166-219.
+
+Fail-closed runtime evidence gate
+================================
+
+Call-site evidence (real connector side effects):
+- src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Import/TfsTargetFieldResolutionStrategy.cs:53
+  QueryByWiqlAsync (target lookup seed)
+- src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Import/TfsTargetFieldResolutionStrategy.cs:67
+  GetWorkItemsAsync (target candidate retrieval)
+- src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Import/TfsTargetFieldResolutionStrategy.cs:115
+  UpdateFieldsAsync (target provenance write side effect)
+
+Runtime-proof evidence (state transitions):
+- tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/WorkItemImportOrchestratorFilterTests.cs:252-294
+  proves mapped update, unmapped create->map->update, stale mapping -> skip path.
+- tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/SqliteIdMapStoreTests.cs:166-219
+  proves deterministic candidate tie-break and resume-equivalent cache rebuild behavior.
+
+Verdict: PASS
