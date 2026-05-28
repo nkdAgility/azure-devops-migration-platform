@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;

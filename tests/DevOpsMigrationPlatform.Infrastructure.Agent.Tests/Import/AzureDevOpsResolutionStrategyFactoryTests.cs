@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
@@ -29,7 +29,7 @@ public sealed class AzureDevOpsResolutionStrategyFactoryTests
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
             sut.CreateAsync(
                 new WorkItemResolutionStrategyOptions(),
-                Mock.Of<IWorkItemImportTarget>(),
+                Mock.Of<IWorkItemTarget>(),
                 new TestTargetEndpointInfo(),
                 CancellationToken.None));
     }
@@ -42,7 +42,7 @@ public sealed class AzureDevOpsResolutionStrategyFactoryTests
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
             sut.CreateAsync(
                 new WorkItemResolutionStrategyOptions { Strategy = "TargetField", FieldName = "Custom.SourceId" },
-                Mock.Of<IWorkItemImportTarget>(),
+                Mock.Of<IWorkItemTarget>(),
                 new TestTargetEndpointInfo(),
                 CancellationToken.None));
     }
@@ -89,7 +89,7 @@ public sealed class AzureDevOpsResolutionStrategyFactoryTests
     }
 
     private static AzureDevOpsResolutionStrategyFactory CreateSut(
-        out AzureDevOpsWorkItemImportTarget target,
+        out AzureDevOpsWorkItemTarget target,
         out WorkItemTrackingHttpClient witClient,
         out Mock<IAzureDevOpsClientFactory> clientFactory)
     {
@@ -102,7 +102,7 @@ public sealed class AzureDevOpsResolutionStrategyFactoryTests
             .Setup(f => f.CreateWorkItemClientAsync(It.IsAny<OrganisationEndpoint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(witClient);
 
-        target = new AzureDevOpsWorkItemImportTarget(witClient, "Shop", "https://dev.azure.com/contoso");
+        target = new AzureDevOpsWorkItemTarget(witClient, "Shop", "https://dev.azure.com/contoso");
         return new AzureDevOpsResolutionStrategyFactory(
             clientFactory.Object,
             NullLogger<TargetFieldResolutionStrategy>.Instance);

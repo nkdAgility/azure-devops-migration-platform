@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using DevOpsMigrationPlatform.Abstractions.Storage;

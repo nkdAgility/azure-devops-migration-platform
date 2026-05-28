@@ -78,18 +78,18 @@ public static class SimulatedServiceCollectionExtensions
     /// <summary>
     /// Registers Simulated import services:
     /// <list type="bullet">
-    ///   <item><see cref="SimulatedWorkItemImportTargetFactory"/> as a keyed import target factory for <c>"Simulated"</c>.</item>
-    ///   <item><see cref="SimulatedResolutionStrategyFactory"/> for <see cref="SimulatedWorkItemImportTarget"/> targets.</item>
+    ///   <item><see cref="SimulatedWorkItemTargetFactory"/> as a keyed import target factory for <c>"Simulated"</c>.</item>
+    ///   <item><see cref="SimulatedResolutionStrategyFactory"/> for <see cref="SimulatedWorkItemTarget"/> targets.</item>
     /// </list>
     /// </summary>
-    public static IServiceCollection AddSimulatedWorkItemImport(this IServiceCollection services)
+    public static IServiceCollection AddSimulatedWorkItem(this IServiceCollection services)
     {
         // Register import target factory as keyed entry in the composite dispatcher
-        services.AddImportTargetFactory<SimulatedWorkItemImportTargetFactory>("Simulated");
+        services.AddImportTargetFactory<SimulatedWorkItemTargetFactory>("Simulated");
         services.AddWorkItemTypeReadinessTargetFactory<SimulatedWorkItemTypeReadinessTargetFactory>("Simulated");
 
         // Register resolution strategy factory — always returns NullResolutionStrategy
-        services.AddResolutionStrategyFactory<SimulatedResolutionStrategyFactory, SimulatedWorkItemImportTarget>();
+        services.AddResolutionStrategyFactory<SimulatedResolutionStrategyFactory, SimulatedWorkItemTarget>();
 
         // Classification node creator — in-memory simulation of node creation.
         services.AddNodeCreator<SimulatedNodeCreator>("Simulated");
@@ -120,12 +120,12 @@ public static class SimulatedServiceCollectionExtensions
     /// <summary>
     /// Registers all Simulated connector services (export, import, and dependency analysis).
     /// Convenience method that calls <see cref="AddSimulatedWorkItemExport"/>,
-    /// <see cref="AddSimulatedWorkItemImport"/>, and <see cref="AddSimulatedDependencyAnalysis"/>.
+    /// <see cref="AddSimulatedWorkItem"/>, and <see cref="AddSimulatedDependencyAnalysis"/>.
     /// </summary>
     public static IServiceCollection AddSimulatedServices(this IServiceCollection services)
     {
         services.AddSimulatedWorkItemExport();
-        services.AddSimulatedWorkItemImport();
+        services.AddSimulatedWorkItem();
         services.AddSimulatedDependencyAnalysis();
         services.AddSimulatedEndpointInfo();
         return services;

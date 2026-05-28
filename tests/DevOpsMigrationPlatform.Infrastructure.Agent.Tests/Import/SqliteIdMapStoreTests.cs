@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;

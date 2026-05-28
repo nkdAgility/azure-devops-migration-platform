@@ -246,7 +246,7 @@ public class StreamingImportReplaySteps
     [Then("only target-side API calls are made")]
     public void ThenOnlyTargetSideApiCallsAreMade()
     {
-        // IWorkItemImportTarget wraps all target SDK calls. Source system is not referenced
+        // IWorkItemTarget wraps all target SDK calls. Source system is not referenced
         // by any import-side type.
         _ctx.MockTarget.Verify(
             t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),

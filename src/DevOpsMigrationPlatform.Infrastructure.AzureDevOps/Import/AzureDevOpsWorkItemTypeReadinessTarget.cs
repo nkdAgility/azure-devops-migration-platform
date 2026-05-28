@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;

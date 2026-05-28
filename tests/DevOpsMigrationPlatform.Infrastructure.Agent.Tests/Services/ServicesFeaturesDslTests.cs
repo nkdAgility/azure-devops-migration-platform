@@ -17,7 +17,7 @@ using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Configuration;
@@ -128,9 +128,9 @@ public sealed class ServicesFeaturesDslTests
             logger: Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemsModule>.Instance,
             options: Microsoft.Extensions.Options.Options.Create(new WorkItemsModuleOptions()),
             sourceEndpointInfo: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Context.ISourceEndpointInfo>(),
-            orchestratorLogger: Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemImportOrchestrator>.Instance,
-            importTargetFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Import.IWorkItemImportTargetFactory>(),
-            resolutionStrategyFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Import.IWorkItemResolutionStrategyFactory>(),
+            orchestratorLogger: Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemOrchestrator>.Instance,
+            importTargetFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemTargetFactory>(),
+            resolutionStrategyFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemResolutionStrategyFactory>(),
             checkpointingFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing.ICheckpointingServiceFactory>(),
             idMapStoreFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Storage.IIdMapStoreFactory>(),
             processorFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Export.IWorkItemResolutionProcessorFactory>(),
@@ -262,11 +262,11 @@ public sealed class ServicesFeaturesDslTests
 
     private static (
         WorkItemResolutionProcessor Processor,
-        Mock<DevOpsMigrationPlatform.Abstractions.Agent.Import.IWorkItemImportTarget> Target,
+        Mock<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemTarget> Target,
         Mock<IIdentityLookupTool> IdentityTool)
         CreateRevisionProcessor(string fieldName, string fieldValue, Action<Mock<IIdentityLookupTool>> toolSetup)
     {
-        var target = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Import.IWorkItemImportTarget>(MockBehavior.Strict);
+        var target = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemTarget>(MockBehavior.Strict);
         var idMap = new Mock<IIdMapStore>(MockBehavior.Strict);
         var checkpointing = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing.ICheckpointingService>(MockBehavior.Strict);
         var identityTool = new Mock<IIdentityLookupTool>(MockBehavior.Strict);

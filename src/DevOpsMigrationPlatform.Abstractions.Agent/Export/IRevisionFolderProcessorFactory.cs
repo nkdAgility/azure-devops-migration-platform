@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -18,7 +18,7 @@ public interface IWorkItemResolutionProcessorFactory
     /// Creates a new <see cref="IWorkItemResolutionProcessor"/> for the given import context.
     /// </summary>
     IWorkItemResolutionProcessor Create(
-        IWorkItemImportTarget target,
+        IWorkItemTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
         IIdentityLookupTool? identityLookupTool,
@@ -30,7 +30,7 @@ public interface IWorkItemResolutionProcessorFactory
     /// for area/iteration path translation.
     /// </summary>
     IWorkItemResolutionProcessor Create(
-        IWorkItemImportTarget target,
+        IWorkItemTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
         IIdentityLookupTool? identityLookupTool,

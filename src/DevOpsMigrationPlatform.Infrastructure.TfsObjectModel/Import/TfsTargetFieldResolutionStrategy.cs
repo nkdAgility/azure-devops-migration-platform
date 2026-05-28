@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
@@ -22,13 +22,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import;
 public sealed class TfsTargetFieldResolutionStrategy : IWorkItemResolutionStrategy
 {
     private readonly WorkItemTrackingHttpClient _witClient;
-    private readonly IWorkItemImportTarget _target;
+    private readonly IWorkItemTarget _target;
     private readonly string _project;
     private readonly string _fieldName;
 
     public TfsTargetFieldResolutionStrategy(
         WorkItemTrackingHttpClient witClient,
-        IWorkItemImportTarget target,
+        IWorkItemTarget target,
         string project,
         string fieldName)
     {

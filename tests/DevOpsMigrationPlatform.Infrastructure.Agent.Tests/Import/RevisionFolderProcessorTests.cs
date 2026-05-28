@@ -10,7 +10,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -27,7 +27,7 @@ public class WorkItemResolutionProcessorTests
     private const string Folder = "WorkItems/2024-01-01/00000638000000000001-1-0";
 
     private Mock<ICheckpointingService> _mockCheckpointing = null!;
-    private Mock<IWorkItemImportTarget> _mockTarget = null!;
+    private Mock<IWorkItemTarget> _mockTarget = null!;
     private Mock<IIdMapStore> _mockIdMapStore = null!;
     private Mock<IIdentityLookupTool> _mockIdentityMapping = null!;
     private Mock<IWorkItemResolutionStrategy> _mockResolutionStrategy = null!;
@@ -37,7 +37,7 @@ public class WorkItemResolutionProcessorTests
     public void Setup()
     {
         _mockCheckpointing = new Mock<ICheckpointingService>(MockBehavior.Strict);
-        _mockTarget = new Mock<IWorkItemImportTarget>(MockBehavior.Strict);
+        _mockTarget = new Mock<IWorkItemTarget>(MockBehavior.Strict);
         _mockIdMapStore = new Mock<IIdMapStore>(MockBehavior.Strict);
         _mockIdentityMapping = new Mock<IIdentityLookupTool>(MockBehavior.Loose);
         _mockResolutionStrategy = new Mock<IWorkItemResolutionStrategy>(MockBehavior.Strict);

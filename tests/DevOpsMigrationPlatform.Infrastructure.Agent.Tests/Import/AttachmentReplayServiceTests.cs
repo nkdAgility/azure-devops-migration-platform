@@ -5,7 +5,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -18,7 +18,7 @@ public class AttachmentReplayServiceTests
     [TestMethod]
     public async Task ReplayAsync_UploadsUnmappedAttachment_AndPersistsMapping()
     {
-        var target = new Mock<IWorkItemImportTarget>(MockBehavior.Strict);
+        var target = new Mock<IWorkItemTarget>(MockBehavior.Strict);
         var idMapStore = new Mock<IIdMapStore>(MockBehavior.Strict);
         var revision = new WorkItemRevision
         {
@@ -60,7 +60,7 @@ public class AttachmentReplayServiceTests
     [TestMethod]
     public async Task ReplayAsync_WhenAttachmentBinaryNotInEnumeratedSet_SkipsUpload()
     {
-        var target = new Mock<IWorkItemImportTarget>(MockBehavior.Strict);
+        var target = new Mock<IWorkItemTarget>(MockBehavior.Strict);
         var idMapStore = new Mock<IIdMapStore>(MockBehavior.Strict);
         var revision = new WorkItemRevision
         {

@@ -38,7 +38,7 @@ internal sealed class AzureDevOpsResolutionStrategyFactory : IWorkItemResolution
     /// <inheritdoc/>
     public async Task<IWorkItemResolutionStrategy> CreateAsync(
         WorkItemResolutionStrategyOptions options,
-        IWorkItemImportTarget target,
+        IWorkItemTarget target,
         ITargetEndpointInfo endpoint,
         CancellationToken ct)
     {
@@ -51,9 +51,9 @@ internal sealed class AzureDevOpsResolutionStrategyFactory : IWorkItemResolution
                 "WorkItemResolutionStrategy.strategy must be configured for import jobs. " +
                 "Supported values: \"TargetField\", \"TargetHyperlink\".");
 
-        if (target is not AzureDevOpsWorkItemImportTarget adoTarget)
+        if (target is not AzureDevOpsWorkItemTarget adoTarget)
             throw new InvalidOperationException(
-                $"AzureDevOpsResolutionStrategyFactory requires an AzureDevOpsWorkItemImportTarget " +
+                $"AzureDevOpsResolutionStrategyFactory requires an AzureDevOpsWorkItemTarget " +
                 $"but received {target.GetType().Name}.");
 
         var orgEndpoint = endpoint.ToOrganisationEndpoint();

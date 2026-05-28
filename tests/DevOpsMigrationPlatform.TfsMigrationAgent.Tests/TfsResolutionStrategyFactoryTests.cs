@@ -6,9 +6,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -26,7 +26,7 @@ public sealed class TfsResolutionStrategyFactoryTests
 
         var strategy = await factory.CreateAsync(
             options,
-            Mock.Of<IWorkItemImportTarget>(),
+            Mock.Of<IWorkItemTarget>(),
             new TestTargetEndpointInfo(),
             CancellationToken.None);
 
@@ -42,7 +42,7 @@ public sealed class TfsResolutionStrategyFactoryTests
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
             factory.CreateAsync(
                 options,
-                Mock.Of<IWorkItemImportTarget>(),
+                Mock.Of<IWorkItemTarget>(),
                 new TestTargetEndpointInfo(),
                 CancellationToken.None));
     }
@@ -55,7 +55,7 @@ public sealed class TfsResolutionStrategyFactoryTests
 
         var strategy = await factory.CreateAsync(
             options,
-            Mock.Of<IWorkItemImportTarget>(),
+            Mock.Of<IWorkItemTarget>(),
             new TestTargetEndpointInfo(),
             CancellationToken.None);
 
@@ -71,7 +71,7 @@ public sealed class TfsResolutionStrategyFactoryTests
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
             factory.CreateAsync(
                 options,
-                Mock.Of<IWorkItemImportTarget>(),
+                Mock.Of<IWorkItemTarget>(),
                 new TestTargetEndpointInfo(),
                 CancellationToken.None));
     }

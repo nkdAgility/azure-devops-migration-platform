@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Factories;

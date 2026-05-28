@@ -9,7 +9,7 @@ using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.ProjectLifecycle;
 using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityLookup;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -26,7 +26,7 @@ public static class ImportServiceCollectionExtensions
     /// <summary>
     /// Registers:
     /// <list type="bullet">
-    ///   <item><see cref="IWorkItemImportTargetFactory"/> as <see cref="AzureDevOpsWorkItemImportTargetFactory"/>
+    ///   <item><see cref="IWorkItemTargetFactory"/> as <see cref="AzureDevOpsWorkItemTargetFactory"/>
     ///   keyed to <c>"AzureDevOpsServices"</c>.</item>
     ///   <item><see cref="IWorkItemResolutionStrategyFactory"/> as <see cref="AzureDevOpsResolutionStrategyFactory"/>.</item>
     ///   <item><see cref="IIdentityMappingService"/> as <see cref="PassThroughIdentityMappingService"/>.</item>
@@ -34,13 +34,13 @@ public static class ImportServiceCollectionExtensions
     /// Requires <see cref="IAzureDevOpsClientFactory"/> to already be registered
     /// (provided by <c>AddAzureDevOpsWorkItemExport</c>).
     /// </summary>
-    public static IServiceCollection AddAzureDevOpsWorkItemImport(this IServiceCollection services)
+    public static IServiceCollection AddAzureDevOpsWorkItem(this IServiceCollection services)
     {
         // Register ADO import target factory as a keyed entry in the composite dispatcher
-        services.AddImportTargetFactory<AzureDevOpsWorkItemImportTargetFactory>("AzureDevOpsServices");
+        services.AddImportTargetFactory<AzureDevOpsWorkItemTargetFactory>("AzureDevOpsServices");
         services.AddWorkItemTypeReadinessTargetFactory<AzureDevOpsWorkItemTypeReadinessTargetFactory>("AzureDevOpsServices");
         // Register ADO resolution strategy factory as a keyed entry in the composite dispatcher
-        services.AddResolutionStrategyFactory<AzureDevOpsResolutionStrategyFactory, AzureDevOpsWorkItemImportTarget>();
+        services.AddResolutionStrategyFactory<AzureDevOpsResolutionStrategyFactory, AzureDevOpsWorkItemTarget>();
         services.TryAddSingleton<IIdentityMappingService, PassThroughIdentityMappingService>();
         services.AddIdentityLookupToolServices();
         services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();

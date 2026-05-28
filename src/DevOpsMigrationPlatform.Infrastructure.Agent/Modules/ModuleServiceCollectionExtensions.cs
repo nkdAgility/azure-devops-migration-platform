@@ -2,7 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
@@ -11,9 +11,9 @@ using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Configuration;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Extensions;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Configuration;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
@@ -65,7 +65,7 @@ public static class ModuleServiceCollectionExtensions
 #if NET7_0_OR_GREATER
         // Register schema entry for migration.schema.json generation
         services.AddSchemaEntry<WorkItemsModuleOptions>("Work items export/import module configuration");
-        services.AddSchemaEntry<WorkItemImportOptions>("Work item import replay lever configuration");
+        services.AddSchemaEntry<WorkItemOptions>("Work item import replay lever configuration");
 #endif
         services.TryAddSingleton<ICurrentPackageConfigAccessor, CurrentPackageConfigAccessor>();
         services.AddOptions<WorkItemsModuleOptions>()
@@ -74,7 +74,7 @@ public static class ModuleServiceCollectionExtensions
                 state.Current?.GetSection(WorkItemsModuleOptions.SectionName).Bind(opts);
             });
 
-        services.RegisterWorkItemImportServices(configuration);
+        services.RegisterWorkItemServices(configuration);
         services.TryAddSingleton<IWorkItemExportOrchestratorFactory, WorkItemExportOrchestratorFactory>();
         services.TryAddSingleton<IWorkItemsOrchestratorFactory, WorkItemsOrchestratorFactory>();
         services.AddScoped<IWorkItemsImportCapabilityValidator, WorkItemsImportCapabilityValidator>();
@@ -84,9 +84,9 @@ public static class ModuleServiceCollectionExtensions
                 sp.GetService<INodesOrchestrator>(),
                 sp.GetService<IPlatformMetrics>(),
                 sp.GetRequiredService<ILogger<WorkItemsModule>>()));
-        services.AddScoped<WorkItemsImportOrchestrator>(sp =>
-            new WorkItemsImportOrchestrator(
-                sp.GetRequiredService<IWorkItemImportTargetFactory>(),
+        services.AddScoped<WorkItemOrchestrator>(sp =>
+            new WorkItemOrchestrator(
+                sp.GetRequiredService<IWorkItemTargetFactory>(),
                 sp.GetRequiredService<IWorkItemResolutionStrategyFactory>(),
                 sp.GetRequiredService<ICheckpointingServiceFactory>(),
                 sp.GetRequiredService<IIdMapStoreFactory>(),
@@ -95,15 +95,14 @@ public static class ModuleServiceCollectionExtensions
                 sp.GetRequiredService<IWorkItemsImportCapabilityValidator>(),
                 sp.GetRequiredService<IWorkItemsNodeReadinessOrchestrator>(),
                 sp.GetService<IPlatformMetrics>(),
-                sp.GetRequiredService<ILogger<WorkItemImportOrchestrator>>(),
+                sp.GetRequiredService<ILogger<WorkItemOrchestrator>>(),
                 sp.GetRequiredService<ILogger<WorkItemsModule>>(),
                 sp.GetRequiredService<ISourceEndpointInfo>(),
                 sp.GetRequiredService<ITargetEndpointInfo>(),
                 sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<WorkItemsModuleOptions>>(),
-                sp.GetService<Microsoft.Extensions.Options.IOptions<WorkItemImportOptions>>(),
+                sp.GetService<Microsoft.Extensions.Options.IOptions<WorkItemOptions>>(),
                 sp.GetService<Microsoft.Extensions.Options.IOptions<NodesModuleOptions>>()));
-        services.AddScoped<IWorkItemsImportOrchestrator>(sp => sp.GetRequiredService<WorkItemsImportOrchestrator>());
-        services.AddScoped<IWorkItemsOrchestrator>(sp => sp.GetRequiredService<WorkItemsImportOrchestrator>());
+        services.AddScoped<IWorkItemsOrchestrator>(sp => sp.GetRequiredService<WorkItemOrchestrator>());
         services.AddTransient<IModule, WorkItemsModule>();
         return services;
     }

@@ -9,7 +9,7 @@ using Microsoft.Extensions.Hosting;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
@@ -19,7 +19,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
@@ -73,11 +73,11 @@ public static class TfsMigrationAgentServiceExtensions
         services.TryAddSingleton<IWorkItemTypeReadinessTargetFactory>(sp => sp.GetRequiredService<TfsActiveJobWorkItemTypeReadinessTargetFactory>());
 
         // TFS work item import target — creates work items in the TFS/ADO target via TFS Object Model.
-        services.AddSingleton<TfsActiveJobWorkItemImportTargetFactory>();
-        services.AddImportTargetFactory<TfsActiveJobWorkItemImportTargetFactory>("TeamFoundationServer");
+        services.AddSingleton<TfsActiveJobWorkItemTargetFactory>();
+        services.AddImportTargetFactory<TfsActiveJobWorkItemTargetFactory>("TeamFoundationServer");
 
         // TFS work item resolution strategy — idmap-based duplicate detection, no external lookup needed.
-        services.AddResolutionStrategyFactory<TfsResolutionStrategyFactory, TfsWorkItemImportTarget>();
+        services.AddResolutionStrategyFactory<TfsResolutionStrategyFactory, TfsWorkItemTarget>();
 
         // Import infrastructure: idmap store, revision processor, node creator for import.
         services.AddSingleton<IIdMapStoreFactory, IdMapStoreFactory>();

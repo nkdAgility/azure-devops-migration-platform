@@ -3,7 +3,7 @@
 
 using DevOpsMigrationPlatform.Abstractions;
 
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 
@@ -11,7 +11,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 
 using DevOpsMigrationPlatform.Abstractions.Storage;
 
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 
@@ -61,7 +61,7 @@ public class SkipUnresolvableContext
 
 
 
-    public Mock<IWorkItemImportTarget> TargetMock { get; } = new(MockBehavior.Loose);
+    public Mock<IWorkItemTarget> TargetMock { get; } = new(MockBehavior.Loose);
 
     public Mock<IIdMapStore> IdMapStoreMock { get; } = new(MockBehavior.Loose);
 

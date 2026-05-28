@@ -5,7 +5,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 #if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityLookup;

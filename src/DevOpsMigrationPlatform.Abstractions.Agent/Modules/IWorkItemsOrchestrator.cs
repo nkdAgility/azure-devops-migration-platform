@@ -3,7 +3,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 

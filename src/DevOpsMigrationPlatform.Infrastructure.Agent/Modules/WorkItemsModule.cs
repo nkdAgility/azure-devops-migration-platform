@@ -13,7 +13,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
@@ -24,9 +24,9 @@ using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Configuration;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import.FailurePatterns;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Configuration;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.FailurePatterns;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
@@ -71,7 +71,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IWorkItemRevisionSourceFactory _sourceFactory;
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
     private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
-    private readonly IWorkItemImportTargetFactory _importTargetFactory;
+    private readonly IWorkItemTargetFactory _importTargetFactory;
     private readonly IWorkItemExportOrchestratorFactory _exportOrchestratorFactory;
     private readonly IWorkItemResolutionStrategyFactory _resolutionStrategyFactory;
     private readonly IIdMapStoreFactory _idMapStoreFactory;
@@ -79,7 +79,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IIdentityLookupTool? _identityLookupTool;
     private readonly ICheckpointingServiceFactory _checkpointingFactory;
     private readonly ILogger<WorkItemsModule> _logger;
-    private readonly ILogger<WorkItemImportOrchestrator> _orchestratorLogger;
+    private readonly ILogger<WorkItemOrchestrator> _orchestratorLogger;
     private readonly IWorkItemsOrchestrator _workItemsOrchestrator;
     private readonly IWorkItemsOrchestratorFactory _workItemsOrchestratorFactory;
     private readonly IWorkItemFetchService? _fetchService;
@@ -100,15 +100,15 @@ public sealed class WorkItemsModule : IModule
     private readonly IIdentityMappingService? _identityMappingService;
     private readonly INodeTranslationTool? _nodeTranslationTool;
     private readonly IFieldTransformTool _fieldTransformTool;
-    private readonly IOptions<WorkItemImportOptions>? _workItemImportOptions;
+    private readonly IOptions<WorkItemOptions>? _workItemImportOptions;
 
     public WorkItemsModule(
         IWorkItemRevisionSourceFactory sourceFactory,
         ILogger<WorkItemsModule> logger,
         IOptions<WorkItemsModuleOptions> options,
         ISourceEndpointInfo sourceEndpointInfo,
-        ILogger<WorkItemImportOrchestrator> orchestratorLogger,
-        IWorkItemImportTargetFactory importTargetFactory,
+        ILogger<WorkItemOrchestrator> orchestratorLogger,
+        IWorkItemTargetFactory importTargetFactory,
         IWorkItemResolutionStrategyFactory resolutionStrategyFactory,
         ICheckpointingServiceFactory checkpointingFactory,
         IIdMapStoreFactory idMapStoreFactory,
@@ -129,7 +129,7 @@ public sealed class WorkItemsModule : IModule
         IIdentityMappingService? identityMappingService = null,
         INodeTranslationTool? nodeTranslationTool = null,
         IFieldTransformTool? fieldTransformTool = null,
-        IOptions<WorkItemImportOptions>? workItemImportOptions = null,
+        IOptions<WorkItemOptions>? workItemImportOptions = null,
         IWorkItemExportOrchestratorFactory? exportOrchestratorFactory = null,
         IWorkItemsOrchestratorFactory? workItemsOrchestratorFactory = null,
         IWorkItemsOrchestrator? workItemsOrchestrator = null,
@@ -572,7 +572,7 @@ public sealed class WorkItemsModule : IModule
             replayOptions.EmbeddedImageReplay ||
             replayOptions.FieldTransform;
 
-        // Preserve current defaults when WorkItemImport options are not explicitly configured.
+        // Preserve current defaults when WorkItem options are not explicitly configured.
         if (!hasExplicitLeverConfig)
             return ext;
 

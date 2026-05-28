@@ -4,7 +4,7 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -34,7 +34,7 @@ public class EmbeddedImageReplayServiceTests
             }
         };
 
-        var target = new Mock<IWorkItemImportTarget>(MockBehavior.Strict);
+        var target = new Mock<IWorkItemTarget>(MockBehavior.Strict);
         target
             .Setup(t => t.UploadEmbeddedImageAsync("img1.png", It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("https://target.example/image.png");
@@ -66,7 +66,7 @@ public class EmbeddedImageReplayServiceTests
             }
         };
 
-        var target = new Mock<IWorkItemImportTarget>(MockBehavior.Strict);
+        var target = new Mock<IWorkItemTarget>(MockBehavior.Strict);
         target
             .Setup(t => t.UploadEmbeddedImageAsync("images/flow.png", It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("https://target.example/images/flow.png");

@@ -48,7 +48,7 @@ public sealed class WorkItemsModuleArchitectureTests
     }
 
     [TestMethod]
-    public void WorkItemsModule_DoesNotInlineConstructWorkItemsImportOrchestrator()
+    public void WorkItemsModule_DoesNotInlineConstructWorkItemOrchestrator()
     {
         var repoRoot = GetRepositoryRoot();
         var modulePath = Path.Combine(
@@ -60,7 +60,7 @@ public sealed class WorkItemsModuleArchitectureTests
 
         var source = File.ReadAllText(modulePath);
         Assert.IsFalse(
-            source.Contains("new WorkItemsImportOrchestrator(", StringComparison.Ordinal),
+            source.Contains("new WorkItemOrchestrator(", StringComparison.Ordinal),
             "WorkItemsModule must consume an import orchestrator abstraction/factory instead of inlining concrete orchestrator construction.");
     }
 

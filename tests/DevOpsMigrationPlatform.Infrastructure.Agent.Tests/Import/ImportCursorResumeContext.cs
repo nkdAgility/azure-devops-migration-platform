@@ -9,7 +9,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -28,7 +28,7 @@ public class ImportCursorResumeContext
     public Mock<IProgressSink> MockProgressSink { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
-    public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
+    public Mock<IWorkItemTarget> MockTarget { get; } = new(MockBehavior.Strict);
     public Mock<ICurrentJobEndpointAccessor> MockEndpointAccessor { get; } = new(MockBehavior.Strict);
     public Mock<IPackageAccess> MockPackage { get; }
 
@@ -70,7 +70,7 @@ public class ImportCursorResumeContext
             .Returns(ValueTask.CompletedTask);
     }
 
-    public WorkItemImportOrchestrator BuildOrchestrator()
+    public WorkItemOrchestrator BuildOrchestrator()
     {
         var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
@@ -82,7 +82,7 @@ public class ImportCursorResumeContext
             ProjectName,
             package: MockPackage.Object);
 
-        return new WorkItemImportOrchestrator(
+        return new WorkItemOrchestrator(
             MockPackage.Object,
             EndpointUrl,
             ProjectName,
@@ -92,6 +92,6 @@ public class ImportCursorResumeContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemImportOrchestrator>.Instance);
+            NullLogger<WorkItemOrchestrator>.Instance);
     }
 }

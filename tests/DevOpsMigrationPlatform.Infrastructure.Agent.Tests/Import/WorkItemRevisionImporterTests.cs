@@ -7,10 +7,10 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -61,7 +61,7 @@ public class WorkItemRevisionImporterTests
         public Mock<IWorkItemResolutionStrategy> ResolutionStrategy { get; } = new(MockBehavior.Strict);
         public Mock<IIdMapStore> IdMapStore { get; } = new(MockBehavior.Strict);
         public Mock<IWorkItemResolutionProcessor> Processor { get; } = new(MockBehavior.Strict);
-        public Mock<IWorkItemImportTarget> Target { get; } = new(MockBehavior.Strict);
+        public Mock<IWorkItemTarget> Target { get; } = new(MockBehavior.Strict);
         public Mock<IPackageAccess> Package { get; } = PackageTestFactory.CreateLooseMock();
 
         public ImporterFixture()
@@ -110,7 +110,7 @@ public class WorkItemRevisionImporterTests
 
         public WorkItemRevisionImporter CreateImporter()
         {
-            var orchestrator = new WorkItemImportOrchestrator(
+            var orchestrator = new WorkItemOrchestrator(
                 Package.Object,
                 "https://dev.azure.com/contoso",
                 "Shop",
@@ -120,7 +120,7 @@ public class WorkItemRevisionImporterTests
                 IdMapStore.Object,
                 Processor.Object,
                 Target.Object,
-                NullLogger<WorkItemImportOrchestrator>.Instance);
+                NullLogger<WorkItemOrchestrator>.Instance);
 
             return new WorkItemRevisionImporter(orchestrator);
         }

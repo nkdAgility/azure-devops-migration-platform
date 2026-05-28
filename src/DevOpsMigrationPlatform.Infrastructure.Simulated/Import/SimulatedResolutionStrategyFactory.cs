@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
 
@@ -20,7 +20,7 @@ public sealed class SimulatedResolutionStrategyFactory : IWorkItemResolutionStra
     /// <inheritdoc/>
     public Task<IWorkItemResolutionStrategy> CreateAsync(
         WorkItemResolutionStrategyOptions options,
-        IWorkItemImportTarget target,
+        IWorkItemTarget target,
         ITargetEndpointInfo endpoint,
         CancellationToken ct)
     {

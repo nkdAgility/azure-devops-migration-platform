@@ -49,7 +49,7 @@ public static class Program
         // Register all connector services
         services.AddSimulatedServices();
         services.AddAzureDevOpsWorkItemExport();
-        services.AddAzureDevOpsWorkItemImport();
+        services.AddAzureDevOpsWorkItem();
 
         // T019: Register TFS endpoint type for the discriminated union schema.
         // TFS targets net481 only and cannot call AddSchemaEntry<T>() directly,

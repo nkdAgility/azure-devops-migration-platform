@@ -6,7 +6,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -26,7 +26,7 @@ public class RevisionFolderProcessorFactoryTests
             package.Object);
 
         var processor = sut.Create(
-            target: Mock.Of<IWorkItemImportTarget>(),
+            target: Mock.Of<IWorkItemTarget>(),
             idMapStore: Mock.Of<IIdMapStore>(),
             checkpointing: Mock.Of<ICheckpointingService>(),
             identityLookupTool: null,
@@ -55,7 +55,7 @@ public class RevisionFolderProcessorFactoryTests
             nodeStructureOptions: nodeOptions);
 
         var processor = sut.Create(
-            target: Mock.Of<IWorkItemImportTarget>(),
+            target: Mock.Of<IWorkItemTarget>(),
             idMapStore: Mock.Of<IIdMapStore>(),
             checkpointing: Mock.Of<ICheckpointingService>(),
             identityLookupTool: Mock.Of<IIdentityLookupTool>(),

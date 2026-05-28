@@ -12,13 +12,13 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -507,9 +507,9 @@ public sealed class PrepareFeaturesDslTests
             NullLogger<WorkItemsModule>.Instance,
             Options.Create(new WorkItemsModuleOptions()),
             CreateSourceEndpoint(connectorType),
-            NullLogger<WorkItemImportOrchestrator>.Instance,
-            Mock.Of<Abstractions.Agent.Import.IWorkItemImportTargetFactory>(),
-            Mock.Of<Abstractions.Agent.Import.IWorkItemResolutionStrategyFactory>(),
+            NullLogger<WorkItemOrchestrator>.Instance,
+            Mock.Of<Abstractions.Agent.WorkItems.IWorkItemTargetFactory>(),
+            Mock.Of<Abstractions.Agent.WorkItems.IWorkItemResolutionStrategyFactory>(),
             Mock.Of<ICheckpointingServiceFactory>(),
             Mock.Of<IIdMapStoreFactory>(),
             Mock.Of<IWorkItemResolutionProcessorFactory>(),

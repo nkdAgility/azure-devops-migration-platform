@@ -21,7 +21,7 @@ using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -141,8 +141,8 @@ public sealed class WorkItemsModuleInventoryTests
             logger ?? NullLogger<WorkItemsModule>.Instance,
             Options.Create(new WorkItemsModuleOptions()),
             sourceEndpoint.Object,
-            NullLogger<WorkItemImportOrchestrator>.Instance,
-            Mock.Of<IWorkItemImportTargetFactory>(),
+            NullLogger<WorkItemOrchestrator>.Instance,
+            Mock.Of<IWorkItemTargetFactory>(),
             Mock.Of<IWorkItemResolutionStrategyFactory>(),
             Mock.Of<ICheckpointingServiceFactory>(),
             Mock.Of<IIdMapStoreFactory>(),

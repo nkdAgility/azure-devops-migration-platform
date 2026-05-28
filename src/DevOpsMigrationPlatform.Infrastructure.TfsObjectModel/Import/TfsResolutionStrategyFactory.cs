@@ -6,9 +6,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.VisualStudio.Services.Client;
 using Microsoft.VisualStudio.Services.Common;
@@ -24,7 +24,7 @@ public sealed class TfsResolutionStrategyFactory : IWorkItemResolutionStrategyFa
     /// <inheritdoc/>
     public Task<IWorkItemResolutionStrategy> CreateAsync(
         WorkItemResolutionStrategyOptions options,
-        IWorkItemImportTarget target,
+        IWorkItemTarget target,
         ITargetEndpointInfo endpoint,
         CancellationToken ct)
     {

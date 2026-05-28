@@ -7,7 +7,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import.Configuration;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Configuration;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 
