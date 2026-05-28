@@ -17,7 +17,7 @@ using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Configuration;
@@ -128,12 +128,12 @@ public sealed class ServicesFeaturesDslTests
             logger: Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemsModule>.Instance,
             options: Microsoft.Extensions.Options.Options.Create(new WorkItemsModuleOptions()),
             sourceEndpointInfo: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Context.ISourceEndpointInfo>(),
-            orchestratorLogger: Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemImportOrchestrator>.Instance,
-            importTargetFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Import.IWorkItemImportTargetFactory>(),
-            resolutionStrategyFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Import.IWorkItemResolutionStrategyFactory>(),
+            orchestratorLogger: Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemsImportRuntime>.Instance,
+            importTargetFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemTargetFactory>(),
+            resolutionStrategyFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemResolutionStrategyFactory>(),
             checkpointingFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing.ICheckpointingServiceFactory>(),
             idMapStoreFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Storage.IIdMapStoreFactory>(),
-            processorFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Export.IRevisionFolderProcessorFactory>(),
+            processorFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Export.IWorkItemResolutionProcessorFactory>(),
             targetEndpointInfo: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Context.ITargetEndpointInfo>(),
             identityMappingService: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Identity.IIdentityMappingService>(),
             nodeTranslationTool: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Tools.INodeTranslationTool>(),
@@ -261,12 +261,12 @@ public sealed class ServicesFeaturesDslTests
     }
 
     private static (
-        RevisionFolderProcessor Processor,
-        Mock<DevOpsMigrationPlatform.Abstractions.Agent.Import.IWorkItemImportTarget> Target,
+        WorkItemResolutionProcessor Processor,
+        Mock<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemTarget> Target,
         Mock<IIdentityLookupTool> IdentityTool)
         CreateRevisionProcessor(string fieldName, string fieldValue, Action<Mock<IIdentityLookupTool>> toolSetup)
     {
-        var target = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Import.IWorkItemImportTarget>(MockBehavior.Strict);
+        var target = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemTarget>(MockBehavior.Strict);
         var idMap = new Mock<IIdMapStore>(MockBehavior.Strict);
         var checkpointing = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing.ICheckpointingService>(MockBehavior.Strict);
         var identityTool = new Mock<IIdentityLookupTool>(MockBehavior.Strict);
@@ -348,12 +348,12 @@ public sealed class ServicesFeaturesDslTests
             .Setup(s => s.WriteProvenanceAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var processor = new RevisionFolderProcessor(
+        var processor = new WorkItemResolutionProcessor(
             target.Object,
             idMap.Object,
             checkpointing.Object,
             identityTool.Object,
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<RevisionFolderProcessor>.Instance,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
             package: package.Object);

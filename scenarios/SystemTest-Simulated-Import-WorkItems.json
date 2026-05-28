@@ -25,6 +25,9 @@
       "WorkItems": {
         "Enabled": true,
         "Extensions": {
+          "WorkItemResolutionStrategy": {
+            "Strategy": ""
+          },
           "Revisions": {
             "Enabled": true
           },

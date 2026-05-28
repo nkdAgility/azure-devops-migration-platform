@@ -16,7 +16,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 public class IdMapIntegrityCheckContext
 {
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
-    public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
+    public Mock<IWorkItemTarget> MockTarget { get; } = new(MockBehavior.Strict);
 
     /// <summary>Mappings seeded into the mock idmap.db.</summary>
     public List<IdMapEntry> ConfiguredMappings { get; } = new();

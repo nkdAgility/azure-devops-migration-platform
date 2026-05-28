@@ -6,7 +6,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -18,7 +18,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 public class RevisionFolderProcessorFactoryTests
 {
     [TestMethod]
-    public void Create_WithBaseOverload_ReturnsRevisionFolderProcessor()
+    public void Create_WithBaseOverload_ReturnsWorkItemResolutionProcessor()
     {
         var package = new Mock<IPackageAccess>(MockBehavior.Loose);
         var sut = new RevisionFolderProcessorFactory(
@@ -26,18 +26,18 @@ public class RevisionFolderProcessorFactoryTests
             package.Object);
 
         var processor = sut.Create(
-            target: Mock.Of<IWorkItemImportTarget>(),
+            target: Mock.Of<IWorkItemTarget>(),
             idMapStore: Mock.Of<IIdMapStore>(),
             checkpointing: Mock.Of<ICheckpointingService>(),
             identityLookupTool: null,
             organisation: "https://dev.azure.com/org",
             project: "Project");
 
-        Assert.IsInstanceOfType<RevisionFolderProcessor>(processor);
+        Assert.IsInstanceOfType<WorkItemResolutionProcessor>(processor);
     }
 
     [TestMethod]
-    public void Create_WithNodeTranslationContext_ReturnsRevisionFolderProcessor()
+    public void Create_WithNodeTranslationContext_ReturnsWorkItemResolutionProcessor()
     {
         var package = new Mock<IPackageAccess>(MockBehavior.Loose);
         var nodeOptions = Options.Create(new NodeTranslationOptions
@@ -55,7 +55,7 @@ public class RevisionFolderProcessorFactoryTests
             nodeStructureOptions: nodeOptions);
 
         var processor = sut.Create(
-            target: Mock.Of<IWorkItemImportTarget>(),
+            target: Mock.Of<IWorkItemTarget>(),
             idMapStore: Mock.Of<IIdMapStore>(),
             checkpointing: Mock.Of<ICheckpointingService>(),
             identityLookupTool: Mock.Of<IIdentityLookupTool>(),
@@ -63,6 +63,6 @@ public class RevisionFolderProcessorFactoryTests
             project: "Project",
             nodeStructureContext: new ProjectMapping("Source", "Target"));
 
-        Assert.IsInstanceOfType<RevisionFolderProcessor>(processor);
+        Assert.IsInstanceOfType<WorkItemResolutionProcessor>(processor);
     }
 }

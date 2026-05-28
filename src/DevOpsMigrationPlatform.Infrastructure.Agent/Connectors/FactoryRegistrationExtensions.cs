@@ -7,7 +7,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,25 +17,25 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 
 /// <summary>
 /// Extension methods for registering connector-specific factory implementations with the
-/// composite dispatchers <see cref="CompositeWorkItemImportTargetFactory"/> and
+/// composite dispatchers <see cref="CompositeWorkItemTargetFactory"/> and
 /// <see cref="CompositeWorkItemRevisionSourceFactory"/>.
 /// </summary>
 public static class FactoryRegistrationExtensions
 {
     /// <summary>
-    /// Registers a concrete <see cref="IWorkItemImportTargetFactory"/> implementation
-    /// and ensures the <see cref="CompositeWorkItemImportTargetFactory"/> dispatcher is
-    /// registered as <see cref="IWorkItemImportTargetFactory"/>.
+    /// Registers a concrete <see cref="IWorkItemTargetFactory"/> implementation
+    /// and ensures the <see cref="CompositeWorkItemTargetFactory"/> dispatcher is
+    /// registered as <see cref="IWorkItemTargetFactory"/>.
     /// </summary>
     public static IServiceCollection AddImportTargetFactory<TFactory>(
         this IServiceCollection services,
         string typeKey)
-        where TFactory : class, IWorkItemImportTargetFactory
+        where TFactory : class, IWorkItemTargetFactory
     {
         services.TryAddSingleton<TFactory>();
         services.AddSingleton(sp =>
-            new KeyedWorkItemImportTargetFactory(typeKey, sp.GetRequiredService<TFactory>()));
-        services.TryAddSingleton<IWorkItemImportTargetFactory, CompositeWorkItemImportTargetFactory>();
+            new KeyedWorkItemTargetFactory(typeKey, sp.GetRequiredService<TFactory>()));
+        services.TryAddSingleton<IWorkItemTargetFactory, CompositeWorkItemTargetFactory>();
         return services;
     }
 
@@ -84,7 +84,7 @@ public static class FactoryRegistrationExtensions
     public static IServiceCollection AddResolutionStrategyFactory<TFactory, TTarget>(
         this IServiceCollection services)
         where TFactory : class, IWorkItemResolutionStrategyFactory
-        where TTarget : IWorkItemImportTarget
+        where TTarget : IWorkItemTarget
     {
         services.TryAddSingleton<TFactory>();
         services.AddSingleton(sp =>

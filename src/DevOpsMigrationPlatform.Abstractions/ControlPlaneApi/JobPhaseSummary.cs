@@ -8,7 +8,7 @@ namespace DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 
 /// <summary>
 /// Summarises one ordered phase within a <see cref="JobTaskList"/> while preserving the
-/// existing flat task list used by executors and legacy clients.
+/// existing flat task list used by executors and API consumers.
 /// </summary>
 public sealed record JobPhaseSummary
 {

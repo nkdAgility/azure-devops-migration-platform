@@ -15,7 +15,7 @@ These discrepancies were authored for the original direct-command design. Reposi
 - **Source doc**: `docs/configuration-reference.md`
 - **Section**: "Full Schema" — `source` block
 - **Issue**: The `source` section schema shows only `type`, `orgOrCollection`, `project`, and `apiVersion`. There is no `authentication` block. The spec introduces a required `authentication` sub-object with `type` and `accessToken` (for PAT, where the value is a literal or a `$ENV:VARNAME` prefixed string) or `type: Windows` (for TFS integrated auth). Without this, operators have no documented way to provide credentials in the config file and would be forced to use CLI arguments, which violates the coding standards.
-- **Suggested update**: Add an `authentication` block to the `source` (and symmetrically `target`) example in `docs/configuration-reference.md`, documenting the `Pat` and `Windows` types. Add a description row to the Top-Level Fields table clarifying that credentials MUST be in the config file, not CLI arguments. Also document the three-layer token resolution order: IConfiguration `__`-separator env var override → `$ENV:VARNAME` prefix → literal value.
+- **Suggested update**: Add an `authentication` block to the `source` (and symmetrically `target`) example in `docs/configuration-reference.md`, documenting the `AccessToken` and `Windows` types. Add a description row to the Top-Level Fields table clarifying that credentials MUST be in the config file, not CLI arguments. Also document the three-layer token resolution order: IConfiguration `__`-separator env var override → `$ENV:VARNAME` prefix → literal value.
 
 ---
 

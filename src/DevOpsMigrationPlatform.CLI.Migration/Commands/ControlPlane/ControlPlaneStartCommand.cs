@@ -32,11 +32,6 @@ public sealed class ControlPlaneStartCommand : AsyncCommand<ControlPlaneStartCom
         [CommandOption("--url")]
         [Description("Control Plane base URL. Default: http://localhost:5100")]
         public string? Url { get; init; }
-
-        [CommandOption("--port")]
-        [Description("Legacy alias for the URL port. Ignored when --url is provided. Default: 5100.")]
-        [DefaultValue(5100)]
-        public int Port { get; init; } = 5100;
     }
 
     protected override async Task<int> ExecuteAsync(
@@ -44,7 +39,7 @@ public sealed class ControlPlaneStartCommand : AsyncCommand<ControlPlaneStartCom
         Settings settings,
         CancellationToken cancellationToken = default)
     {
-        if (!TryResolveBaseUrl(settings.Url, settings.Port, out var baseUrl, out var validationError))
+        if (!TryResolveBaseUrl(settings.Url, out var baseUrl, out var validationError))
         {
             AnsiConsole.MarkupLine($"[red]✗ {Markup.Escape(validationError!)}[/]");
             return 1;
@@ -99,13 +94,13 @@ public sealed class ControlPlaneStartCommand : AsyncCommand<ControlPlaneStartCom
         return process.ExitCode;
     }
 
-    private static bool TryResolveBaseUrl(string? rawUrl, int port, out string? baseUrl, out string? error)
+    private static bool TryResolveBaseUrl(string? rawUrl, out string? baseUrl, out string? error)
     {
         baseUrl = null;
         error = null;
 
         var candidate = string.IsNullOrWhiteSpace(rawUrl)
-            ? $"http://localhost:{port}"
+            ? "http://localhost:5100"
             : rawUrl.Trim();
 
         if (!Uri.TryCreate(candidate, UriKind.Absolute, out var parsed))

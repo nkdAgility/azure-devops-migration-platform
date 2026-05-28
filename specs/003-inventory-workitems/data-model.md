@@ -15,7 +15,7 @@ Replaces the missing auth section in `MigrationEndpointOptions`.
 | `Type` | `string` | `"AccessToken"` or `"Windows"` |
 | `AccessToken` | `string?` | Literal value or `$ENV:VARNAME` prefix. Resolved by `TokenResolver`. |
 
-Validation: for `Pat`, resolved token must be non-empty after resolution.
+Validation: for `AccessToken`, resolved token must be non-empty after resolution.
 
 ---
 
@@ -60,7 +60,7 @@ Validation (run at startup):
 - Mode 1, `Source.Project` null/empty, `--all-projects` not passed → error.
 - Mode 2, list empty → error.
 - Mode 2, any enabled entry missing `Type` or `Url` → error.
-- Mode 1, `Pat` auth, resolved token empty → error.
+- Mode 1, `AccessToken` auth, resolved token empty → error.
 
 ---
 

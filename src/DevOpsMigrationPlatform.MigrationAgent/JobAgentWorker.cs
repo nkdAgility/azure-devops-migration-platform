@@ -239,8 +239,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     private static bool TryBuildSourceEndpoint(IConfiguration packageConfig, out ISourceEndpointInfo endpoint)
     {
-        var url = ConfigTokenResolver.Resolve(packageConfig["MigrationPlatform:Source:Url"]);
-        var project = packageConfig["MigrationPlatform:Source:Project"];
+        var url = ConfigTokenResolver.Resolve(packageConfig["MigrationPlatform:Source:Url"])?.Trim();
+        var project = packageConfig["MigrationPlatform:Source:Project"]?.Trim();
         var connectorType = packageConfig["MigrationPlatform:Source:Type"];
 
         if (string.IsNullOrWhiteSpace(connectorType))
@@ -263,8 +263,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     private static bool TryBuildTargetEndpoint(IConfiguration packageConfig, out ITargetEndpointInfo endpoint)
     {
-        var url = ConfigTokenResolver.Resolve(packageConfig["MigrationPlatform:Target:Url"]);
-        var project = packageConfig["MigrationPlatform:Target:Project"];
+        var url = ConfigTokenResolver.Resolve(packageConfig["MigrationPlatform:Target:Url"])?.Trim();
+        var project = packageConfig["MigrationPlatform:Target:Project"]?.Trim();
         var connectorType = packageConfig["MigrationPlatform:Target:Type"];
 
         if (string.IsNullOrWhiteSpace(connectorType))
@@ -1097,4 +1097,3 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         public override string GetResolvedUrl() => endpoint.ResolvedUrl;
     }
 }
-

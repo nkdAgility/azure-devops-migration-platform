@@ -2,6 +2,7 @@
 
 ## Core
 
+- `.agents/20-guardrails/core/taxonomy-naming.md` **(load first)**
 - `.agents/20-guardrails/core/architecture-boundaries.md`
 - `.agents/20-guardrails/core/architecture-perspectives-ethos.md`
 - `.agents/20-guardrails/core/capability-ethos-rules.md`
@@ -34,4 +35,3 @@
 - `.agents/20-guardrails/workflow/documentation-rules.md`
 - `.agents/20-guardrails/workflow/delivery-quality-rules.md`
 - `.agents/20-guardrails/workflow/engineering-nonfunctional-rules.md`
-

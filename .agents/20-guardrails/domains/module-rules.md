@@ -23,14 +23,14 @@ Checklist for every new or modified module. All items mandatory unless marked op
 - Resume: skip folders ≤ cursor lexicographically. Resume incomplete stage.
 - First run: cursor absent → start from beginning.
 
-## 4. IModule Implementation — Three-Layer Pattern
+## 4. IModule Implementation — Canonical Runtime Chain
 
-All modules follow the mandatory **Module → Orchestrator → Service** pattern:
+All modules follow the mandatory **Module -> Orchestrator(s) -> Package + Adapter(s) + Strategy(s).** pattern:
 
-```
+```text
 Module (thin wrapper: ~100–130 lines)
   → Orchestrator (business logic: checkpointing, progress, metrics, enumeration, resume)
-    → Service / Source / Target (connector-specific SDK/API calls)
+    → Package + Adapter(s) + Strategy(s)
 ```
 
 ### Module Layer (thin wrapper)
@@ -40,6 +40,8 @@ Module (thin wrapper: ~100–130 lines)
 - Resolves config and endpoints, then delegates to the orchestrator.
 - Contains **no business logic** — only configuration/endpoints resolution and delegation.
 - Constructor-injected: `IOptions<T>`, `ILogger<T>`, `ISourceEndpointInfo`, `ITargetEndpointInfo`, orchestrator interface, connector services.
+- Module wrappers must not instantiate concrete orchestrators with `new`; orchestrator creation is DI-owned.
+- Module wrappers must not inline orchestration loops, cursor progression, stage sequencing, or replay ordering logic.
 
 ### Orchestrator Layer (business logic)
 - Interface declared in `Abstractions.Agent` (e.g. `INodesOrchestrator`, `ITeamsOrchestrator`).
@@ -48,12 +50,14 @@ Module (thin wrapper: ~100–130 lines)
 - Handles: checkpointing (cursor read/write via `ICheckpointingServiceFactory`), progress events (`IProgressSink`), metrics (OTel `ActivitySource` + `IMigrationMetrics`), CSV/JSON writing, enumeration loops, resume logic.
 - Receives connector services as method parameters (not constructor-injected), so the same orchestrator can work with any connector.
 - Must consume canonical capability seams (tools/services) for concern logic; must not implement parallel engines for concerns already owned by a seam.
+- Module orchestrator abstractions must keep one symmetric phase shape (`ExportAsync`, `PrepareAsync`, `ImportAsync`, `ValidateAsync`).
+- Runtime/connector differences are handled in connector implementations and capability behavior, not by changing orchestrator abstraction method shape.
 
-### Service Layer (external calls)
-- Connector-specific SDK/API calls behind abstraction interfaces (e.g. `ITeamSource`, `IIdentitySource`, `IClassificationTreeCapture`).
-- One implementation per connector (AzureDevOps, TFS, Simulated).
-- Injected into the module by DI, passed to the orchestrator at call time.
-- Extension or policy adapters in this layer must stay thin (application policy/orchestration only) and must not become alternate concern engines.
+### Package + Adapter + Strategy Layer
+- Package reads/writes go through package boundary abstractions.
+- Adapter-specific SDK/API calls stay in adapters.
+- Strategy behavior is invoked by orchestrators for concern-specific decision paths.
+- Adapter and strategy policies must stay thin and must not become alternate concern engines.
 
 ## 5. Inventory
 
@@ -128,10 +132,12 @@ Module counter added to `MigrationCounters` → MUST have row in `QueueCommand.B
 ## Quick Reject
 
 Reject module if:
-- Does not follow Module → Orchestrator → Service pattern.
+- Does not follow Module -> Orchestrator(s) -> Package + Adapter(s) + Strategy(s). pattern.
 - Orchestrator interface missing from `Abstractions.Agent`.
 - Module contains business logic (checkpointing, enumeration, metrics) instead of delegating to orchestrator.
 - Orchestrator instantiated via `new` instead of DI injection.
+- Module wrapper declares or owns sequencing policy that belongs in orchestrator flow.
+- Orchestrator abstraction shape diverges from the symmetric phase contract without approved contract change evidence.
 - Missing any of O-1..O-5.
 - Connector stub/placeholder remains.
 - Test asserts only "no exception" or `count >= 0`.
@@ -139,7 +145,4 @@ Reject module if:
 - State outside root `.migration/` or project `/{org}/{project}/.migration/`.
 - Missing `DependsOn` declaration.
 - `ExportAsync`/`ImportAsync` completes with count=0 without emitting Warning log.
-
-
-
 

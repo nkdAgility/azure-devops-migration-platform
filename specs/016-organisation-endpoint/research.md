@@ -73,7 +73,7 @@ Update it as part of FR-007 (implementation updates). It's not an Abstractions-l
 
 ---
 
-## Research Task 4: `DiscoveryJobAuthentication.Type` — currently hardcoded to "Pat"
+## Research Task 4: `DiscoveryJobAuthentication.Type` — currently hardcoded to "AccessToken"
 
 ### Context
 

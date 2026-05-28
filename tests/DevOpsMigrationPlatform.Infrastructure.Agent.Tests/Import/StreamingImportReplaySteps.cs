@@ -215,7 +215,7 @@ public class StreamingImportReplaySteps
     [Then("the assigned-to value is resolved via the configured identity mapping")]
     public void ThenAssignedToIsResolvedViaIdentityMapping()
     {
-        // IIdentityMappingService.ResolveAsync is called inside RevisionFolderProcessor Stage B.
+        // IIdentityMappingService.ResolveAsync is called inside WorkItemResolutionProcessor Stage B.
         // Full assertion is in the Identity Resolution feature. Here we verify UpdateFieldsAsync was called.
         _ctx.MockTarget.Verify(
             t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
@@ -246,7 +246,7 @@ public class StreamingImportReplaySteps
     [Then("only target-side API calls are made")]
     public void ThenOnlyTargetSideApiCallsAreMade()
     {
-        // IWorkItemImportTarget wraps all target SDK calls. Source system is not referenced
+        // IWorkItemTarget wraps all target SDK calls. Source system is not referenced
         // by any import-side type.
         _ctx.MockTarget.Verify(
             t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),

@@ -50,13 +50,11 @@ public static class WellKnownTagNames
         /// <summary>
         /// Work item integer ID. HIGH CARDINALITY — traces and logs only, never use as a metric tag.
         /// </summary>
-        [System.Obsolete("WorkItemId is HIGH CARDINALITY and must not be used as a metric tag. Use in traces and logs only.")]
         public const string Id = "workitem.id";
 
         /// <summary>
         /// Revision index within a work item. HIGH CARDINALITY — traces and logs only, never use as a metric tag.
         /// </summary>
-        [System.Obsolete("RevisionIndex is HIGH CARDINALITY and must not be used as a metric tag. Use in traces and logs only.")]
         public const string RevisionIndex = "revision.index";
     }
 

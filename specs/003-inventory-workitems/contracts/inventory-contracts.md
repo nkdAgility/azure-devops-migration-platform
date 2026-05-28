@@ -21,7 +21,7 @@ Version: `1.0` (same `configVersion` field as migration config)
     "project": "<name> | null",
     "apiVersion": "<version>",
     "authentication": {
-      "type": "Pat | Windows",
+      "type": "AccessToken | Windows",
       "accessToken": "<literal> | $ENV:<VARNAME>"
     }
   }
@@ -80,7 +80,7 @@ Fields per entry:
 | `projects` | No | `[]` | Empty/absent = all projects in org |
 | `apiVersion` | Yes | — | Pinned version |
 | `authentication.type` | Yes | — | `"AccessToken"` or `"Windows"` |
-| `authentication.accessToken` | Yes for Pat | — | Literal or `$ENV:VARNAME` |
+| `authentication.accessToken` | Yes for AccessToken | — | Literal or `$ENV:VARNAME` |
 
 IConfiguration `__`-path overrides do **not** reach `organisations[n]` entries. Use `$ENV:VARNAME` for per-entry env refs.
 
@@ -92,7 +92,7 @@ IConfiguration `__`-path overrides do **not** reach `organisations[n]` entries. 
 | Neither set | `"Config error: Config must contain either a 'source' block (Mode 1) or an 'organisations' array (Mode 2)."` |
 | Mode 1, project null, no `--all-projects` | `"Config error: 'source.project' is not set. Specify a project in the config or pass --all-projects to inventory the whole organisation."` |
 | Mode 2, array empty | `"Config error: 'organisations' array is empty."` |
-| Pat auth, resolved token empty | `"Config error: PAT for '{url}' resolved to an empty string. Set 'authentication.accessToken' to a literal value or '$ENV:VARNAME'."` |
+| AccessToken auth, resolved token empty | `"Config error: access token for '{url}' resolved to an empty string. Set 'authentication.accessToken' to a literal value or '$ENV:VARNAME'."` |
 
 ### CSV output schema (`discovery-summary.csv`)
 

@@ -3,7 +3,7 @@
 
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -24,7 +24,7 @@ public class FilterScopeImportContext
     public Mock<IProgressSink> MockProgressSink { get; } = new(MockBehavior.Loose);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
-    public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Loose);
+    public Mock<IWorkItemTarget> MockTarget { get; } = new(MockBehavior.Loose);
     public Mock<IPackageAccess> MockPackage { get; }
 
     public WorkItemsModuleExtensions Extensions { get; set; } = new WorkItemsModuleExtensions();
@@ -41,10 +41,10 @@ public class FilterScopeImportContext
         MockPackage = PackageTestFactory.CreateLooseMock();
     }
 
-    public WorkItemImportOrchestrator BuildOrchestrator()
+    public WorkItemsImportRuntime BuildOrchestrator()
     {
-        var processorLogger = NullLogger<RevisionFolderProcessor>.Instance;
-        var processor = new RevisionFolderProcessor(
+        var processorLogger = NullLogger<WorkItemResolutionProcessor>.Instance;
+        var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
             MockCheckpointing.Object,
@@ -54,7 +54,7 @@ public class FilterScopeImportContext
             "Shop",
             package: MockPackage.Object);
 
-        return new WorkItemImportOrchestrator(
+        return new WorkItemsImportRuntime(
             MockPackage.Object,
             "https://dev.azure.com/contoso",
             "Shop",
@@ -64,7 +64,7 @@ public class FilterScopeImportContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemImportOrchestrator>.Instance,
+            NullLogger<WorkItemsImportRuntime>.Instance,
             filterOptions: FilterOptions.Count > 0 ? FilterOptions : null);
     }
 

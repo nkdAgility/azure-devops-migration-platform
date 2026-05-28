@@ -9,6 +9,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
+using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
@@ -212,6 +213,12 @@ public static class ExportServiceCollectionExtensions
         public required string Url { get; init; }
         public required string Project { get; init; }
         public required string ConnectorType { get; init; }
+
+        public OrganisationEndpoint ToOrganisationEndpoint() => new()
+        {
+            ResolvedUrl = Url,
+            Type = ConnectorType
+        };
     }
 
     /// <summary>
@@ -222,5 +229,11 @@ public static class ExportServiceCollectionExtensions
         public required string Url { get; init; }
         public required string Project { get; init; }
         public required string ConnectorType { get; init; }
+
+        public OrganisationEndpoint ToOrganisationEndpoint() => new()
+        {
+            ResolvedUrl = Url,
+            Type = ConnectorType
+        };
     }
 }

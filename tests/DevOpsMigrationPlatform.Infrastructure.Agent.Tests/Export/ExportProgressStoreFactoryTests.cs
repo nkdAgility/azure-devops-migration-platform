@@ -17,7 +17,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Export;
 public class ExportProgressStoreFactoryTests
 {
     [TestMethod]
-    public async Task CreateFromPackageUri_WhenGivenRelativePath_InitializesSqliteUnderAbsolutePackageRoot()
+    public async Task Create_WhenGivenResolvedDatabasePath_InitializesSqlite()
     {
         var rootName = Path.Combine("TestResults", Guid.NewGuid().ToString("N"));
         var relativePackageRoot = Path.Combine(rootName, "package-root");
@@ -31,7 +31,7 @@ public class ExportProgressStoreFactoryTests
         try
         {
             var sut = new ExportProgressStoreFactory();
-            store = sut.CreateFromPackageUri(relativePackageRoot);
+            store = sut.Create(expectedDbPath);
 
             await store.InitializeAsync(CancellationToken.None).ConfigureAwait(false);
 
@@ -53,11 +53,11 @@ public class ExportProgressStoreFactoryTests
     }
 
     [TestMethod]
-    public async Task CreateFromPackageUri_WhenWindowsPathExceedsMaxPath_StillInitializesSqlite()
+    public async Task Create_WhenWindowsPathExceedsMaxPath_StillInitializesSqlite()
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            Assert.Inconclusive("This regression is specific to native SQLite path handling on Windows.");
+            Assert.Inconclusive("This test requires Windows.");
         }
 
         var rootName = Path.Combine(
@@ -78,7 +78,7 @@ public class ExportProgressStoreFactoryTests
             Assert.IsTrue(expectedDbPath.Length >= 260, $"Expected long path, got length {expectedDbPath.Length}");
 
             var sut = new ExportProgressStoreFactory();
-            store = sut.CreateFromPackageUri(relativePackageRoot);
+            store = sut.Create(expectedDbPath);
 
             await store.InitializeAsync(CancellationToken.None).ConfigureAwait(false);
 

@@ -1,28 +1,36 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
 
 /// <summary>
 /// <see cref="IWorkItemResolutionStrategyFactory"/> for the Simulated connector.
-/// Always returns a <see cref="NullResolutionStrategy"/> — no external service is needed.
+/// Uses <see cref="NullResolutionStrategy"/> when no explicit strategy is configured.
+/// Simulated targets currently do not support explicit provenance lookup strategies.
 /// </summary>
 public sealed class SimulatedResolutionStrategyFactory : IWorkItemResolutionStrategyFactory
 {
     /// <inheritdoc/>
     public Task<IWorkItemResolutionStrategy> CreateAsync(
         WorkItemResolutionStrategyOptions options,
-        IWorkItemImportTarget target,
+        IWorkItemTarget target,
         ITargetEndpointInfo endpoint,
         CancellationToken ct)
     {
-        return Task.FromResult<IWorkItemResolutionStrategy>(new NullResolutionStrategy());
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (string.IsNullOrWhiteSpace(options.Strategy))
+            return Task.FromResult<IWorkItemResolutionStrategy>(new NullResolutionStrategy());
+
+        throw new InvalidOperationException(
+            $"WorkItemResolutionStrategy.strategy '{options.Strategy}' is not supported for Simulated targets. " +
+            "Leave strategy empty to use idmap-only resolution.");
     }
 }
-

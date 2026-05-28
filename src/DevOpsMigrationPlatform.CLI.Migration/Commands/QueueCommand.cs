@@ -171,8 +171,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var isSimulated = string.Equals(targetType, "Simulated", StringComparison.Ordinal);
         var orgUrl = EnvironmentVariableResolver.Resolve(
             GetJsonString(mp, "Target", "Url") ?? (isSimulated ? "https://simulated.example.com" : null),
-            "Target.Url");
-        var project = GetJsonString(mp, "Target", "Project") ?? (isSimulated ? "SimulatedProject" : null);
+            "Target.Url")?.Trim();
+        var project = (GetJsonString(mp, "Target", "Project") ?? (isSimulated ? "SimulatedProject" : null))?.Trim();
         var packagePath = GetJsonString(mp, "Package", "WorkingDirectory") ?? string.Empty;
         var createPackage = GetJsonBool(mp, false, "Package", "CreatePackage");
 
@@ -1481,7 +1481,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         if (s.Tasks is null)
             return new Markup("[grey]⠋ Initialising — waiting for agent to start…[/]");
 
-        // Tasks received but empty (shouldn't happen in practice) — show legacy detail.
+        // Tasks received but empty (shouldn't happen in practice) — render task details.
         return BuildProgressRenderable(
             s.Completed, s.Skipped, s.TotalWorkItems,
             s.CurrentWiId, s.CurrentWiRevsWritten,

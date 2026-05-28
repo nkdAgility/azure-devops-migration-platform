@@ -19,7 +19,7 @@ public sealed class TeamFoundationServerOrganisationEntry : OrganisationEntry
     public string Url { get; set; } = string.Empty;
 
     /// <summary>The effective URL after <c>$ENV:VARNAME</c> expansion.</summary>
-    public string ResolvedUrl => ConfigTokenResolver.Resolve(Url) ?? Url;
+    public string ResolvedUrl => (ConfigTokenResolver.Resolve(Url) ?? Url).Trim();
 
     /// <summary>Pinned REST API version (e.g. <c>7.1</c>).</summary>
     public string? ApiVersion { get; set; }

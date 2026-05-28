@@ -80,7 +80,7 @@ internal sealed class AzureDevOpsWorkItemFetchService : IWorkItemFetchService
                         wi.Id ?? 0,
                         fields);
 
-                    if (PassesFilters(item, scope.FilterOptions))
+                    if (WorkItemFieldFilterEvaluator.PassesFilters(item, scope.FilterOptions))
                     {
                         lastYieldedId = item.Id;
                         totalYielded++;
@@ -134,15 +134,6 @@ internal sealed class AzureDevOpsWorkItemFetchService : IWorkItemFetchService
             await scope.ContinuationCheckpointWriter(completionToken, cancellationToken).ConfigureAwait(false);
         }
     }
-
-    /// <summary>
-    /// Delegates to the shared <see cref="WorkItemFieldFilterEvaluator.PassesFilters"/>.
-    /// Kept as an internal static for backward compatibility with tests.
-    /// </summary>
-    internal static bool PassesFilters(
-        FetchedWorkItem item,
-        IReadOnlyList<WorkItemFieldFilterOptions>? filters) =>
-        WorkItemFieldFilterEvaluator.PassesFilters(item, filters);
 
     /// <inheritdoc />
     public Task<ResumeDecision> EvaluateResumeDecisionAsync(

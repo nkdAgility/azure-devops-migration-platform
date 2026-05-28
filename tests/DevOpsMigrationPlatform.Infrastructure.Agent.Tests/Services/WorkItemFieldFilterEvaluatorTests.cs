@@ -3,7 +3,6 @@
 
 using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
-using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Export;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Services;
@@ -15,14 +14,14 @@ public class WorkItemFieldFilterEvaluatorTests
     public void PassesFilters_NullFilters_ReturnsTrue()
     {
         var item = MakeItem(("System.WorkItemType", "Bug"));
-        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, null));
+        Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, null));
     }
 
     [TestMethod]
     public void PassesFilters_EmptyFilters_ReturnsTrue()
     {
         var item = MakeItem(("System.WorkItemType", "Bug"));
-        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, new List<WorkItemFieldFilterOptions>()));
+        Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, new List<WorkItemFieldFilterOptions>()));
     }
 
     [TestMethod]
@@ -33,7 +32,7 @@ public class WorkItemFieldFilterEvaluatorTests
         {
             new("System.WorkItemType", FilterOperator.Equals, "bug")
         };
-        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -44,7 +43,7 @@ public class WorkItemFieldFilterEvaluatorTests
         {
             new("System.WorkItemType", FilterOperator.Equals, "Bug")
         };
-        Assert.IsFalse(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -55,7 +54,7 @@ public class WorkItemFieldFilterEvaluatorTests
         {
             new("System.WorkItemType", FilterOperator.NotEquals, "Bug")
         };
-        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -66,7 +65,7 @@ public class WorkItemFieldFilterEvaluatorTests
         {
             new("System.WorkItemType", FilterOperator.NotEquals, "Bug")
         };
-        Assert.IsFalse(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -77,7 +76,7 @@ public class WorkItemFieldFilterEvaluatorTests
         {
             new("System.Title", FilterOperator.Contains, "login page")
         };
-        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -88,7 +87,7 @@ public class WorkItemFieldFilterEvaluatorTests
         {
             new("System.Title", FilterOperator.Contains, "login page")
         };
-        Assert.IsFalse(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -102,7 +101,7 @@ public class WorkItemFieldFilterEvaluatorTests
             new("System.WorkItemType", FilterOperator.Equals, "Bug"),
             new("System.State", FilterOperator.Equals, "Active")
         };
-        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -116,7 +115,7 @@ public class WorkItemFieldFilterEvaluatorTests
             new("System.WorkItemType", FilterOperator.Equals, "Bug"),
             new("System.State", FilterOperator.Equals, "Active")
         };
-        Assert.IsFalse(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -127,7 +126,7 @@ public class WorkItemFieldFilterEvaluatorTests
         {
             new("System.WorkItemType", FilterOperator.Equals, "Bug")
         };
-        Assert.IsFalse(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -138,7 +137,7 @@ public class WorkItemFieldFilterEvaluatorTests
         {
             new("System.WorkItemType", FilterOperator.NotEquals, "Bug")
         };
-        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -150,7 +149,7 @@ public class WorkItemFieldFilterEvaluatorTests
         {
             new("System.Description", FilterOperator.Equals, null)
         };
-        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -161,7 +160,7 @@ public class WorkItemFieldFilterEvaluatorTests
         {
             new("System.Description", FilterOperator.Equals, null)
         };
-        Assert.IsFalse(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     // --- Regex / NotRegex ---
@@ -174,7 +173,7 @@ public class WorkItemFieldFilterEvaluatorTests
         {
             new("System.WorkItemType", FilterOperator.Regex, "^Bug$")
         };
-        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -185,7 +184,7 @@ public class WorkItemFieldFilterEvaluatorTests
         {
             new("System.WorkItemType", FilterOperator.Regex, "^bug$")
         };
-        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -196,7 +195,7 @@ public class WorkItemFieldFilterEvaluatorTests
         {
             new("System.WorkItemType", FilterOperator.Regex, "^Bug$")
         };
-        Assert.IsFalse(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -207,7 +206,7 @@ public class WorkItemFieldFilterEvaluatorTests
         {
             new("System.Title", FilterOperator.Regex, "login.*bug")
         };
-        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -218,7 +217,7 @@ public class WorkItemFieldFilterEvaluatorTests
         {
             new("System.WorkItemType", FilterOperator.Regex, "^Bug$")
         };
-        Assert.IsFalse(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -229,7 +228,7 @@ public class WorkItemFieldFilterEvaluatorTests
         {
             new("System.WorkItemType", FilterOperator.NotRegex, "^Bug$")
         };
-        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -240,7 +239,7 @@ public class WorkItemFieldFilterEvaluatorTests
         {
             new("System.WorkItemType", FilterOperator.NotRegex, "^Bug$")
         };
-        Assert.IsFalse(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -252,7 +251,7 @@ public class WorkItemFieldFilterEvaluatorTests
             new("System.WorkItemType", FilterOperator.NotRegex, "^Bug$")
         };
         // Absent field = does not match = passes NotRegex
-        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -266,7 +265,7 @@ public class WorkItemFieldFilterEvaluatorTests
             new("System.WorkItemType", FilterOperator.Regex, "^Bug$"),     // include
             new("System.State", FilterOperator.NotRegex, "^Closed$")       // exclude closed items
         };
-        Assert.IsTrue(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     [TestMethod]
@@ -280,7 +279,7 @@ public class WorkItemFieldFilterEvaluatorTests
             new("System.WorkItemType", FilterOperator.Regex, "^Bug$"),     // include
             new("System.State", FilterOperator.NotRegex, "^Closed$")       // exclude closed items
         };
-        Assert.IsFalse(AzureDevOpsWorkItemFetchService.PassesFilters(item, filters));
+        Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
     private static FetchedWorkItem MakeItem(params (string Key, object? Value)[] fields)

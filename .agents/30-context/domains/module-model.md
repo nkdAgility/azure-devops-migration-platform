@@ -2,6 +2,10 @@
 
 Compressed module model for agents. See `docs/module-development-guide.md` for the full guide.
 
+## Canonical Runtime Chain
+
+`Module -> Orchestrator(s) -> Package + Adapter(s) + Strategy(s).`
+
 ## Purpose
 
 A module is a self-contained unit of migration logic for a single data type (e.g. WorkItems, Teams, Nodes, Identities). Modules are the only extension point for adding new capabilities.
@@ -11,6 +15,8 @@ A module is a self-contained unit of migration logic for a single data type (e.g
 - Modules must not call other modules.
 - Modules must not call connectors from other modules.
 - Modules must not access the filesystem directly — package-facing access goes through `IPackageAccess` (with `IArtefactStore`/`IStateStore` beneath the boundary).
+- Modules are phase boundaries and dispatch points; orchestration sequencing belongs in orchestrators.
+- Modules must not own checkpoint loops, stage sequencing, or replay ordering logic.
 
 ## Execution Shape
 
@@ -21,6 +27,16 @@ Every module implements `IModule : ICapture`, which exposes:
 - `PrepareAsync(context, cancellationToken)` — validates target
 - `ImportAsync(context, cancellationToken)` — reads from package and pushes to target
 - `ValidateAsync(context, cancellationToken)` — compares source and target
+
+Module methods delegate workflow sequencing to orchestrator abstractions for the same concern.
+
+## Module vs Orchestrator Split
+
+- Module wrapper: configuration/endpoints resolution, phase entrypoint, delegation.
+- Orchestrator: ordered workflow, stage boundaries, checkpoint/resume flow, progress/metrics emission.
+- Adapter implementations: external ADO/TFS/Simulated mechanics behind abstractions.
+- WorkItems import sequencing remains orchestrator-owned: startup policy -> node readiness -> deterministic revision dispatch.
+- Resolution strategy behavior remains connector-owned; unsupported explicit strategy values fail closed, while idmap-only paths use `NullResolutionStrategy` by explicit connector choice.
 
 ## Capture Dispatch
 
@@ -76,7 +92,4 @@ Every module operation must satisfy all four telemetry obligations (O-1 through 
 - A module failure must not crash other modules.
 - Module code does not hold references to other module instances.
 - Module service registration uses DI extension methods in the module assembly.
-
-
-
 

@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
@@ -22,8 +22,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Context;
 /// </summary>
 /// <remarks>
 /// Dispatch is driven by <see cref="JobTask.TaskKind"/>, not by <c>Phase</c>.
-/// Use <see cref="ExecuteTasksAsync"/> for all job kinds. The phase-specific
-/// methods are kept for backward compatibility and delegate internally.
+/// Use <see cref="ExecuteTasksAsync"/> for all job kinds.
 /// </remarks>
 public interface IJobPlanExecutor
 {

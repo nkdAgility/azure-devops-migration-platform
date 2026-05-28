@@ -3,11 +3,8 @@
 
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
-// ── Legacy compatibility type (kept for OrganisationEntry and InventoryService until they are migrated) ──
-
 /// <summary>
 /// A scope entry used by inventory/organisation-level configuration.
-/// Retained for backward compatibility with <see cref="OrganisationEntry.Scopes"/>.
 /// </summary>
 public sealed class MigrationPlatformOptionsScope
 {

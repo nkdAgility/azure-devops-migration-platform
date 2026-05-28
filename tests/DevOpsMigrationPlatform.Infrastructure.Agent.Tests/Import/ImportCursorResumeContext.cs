@@ -9,7 +9,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -28,7 +28,7 @@ public class ImportCursorResumeContext
     public Mock<IProgressSink> MockProgressSink { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
-    public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
+    public Mock<IWorkItemTarget> MockTarget { get; } = new(MockBehavior.Strict);
     public Mock<ICurrentJobEndpointAccessor> MockEndpointAccessor { get; } = new(MockBehavior.Strict);
     public Mock<IPackageAccess> MockPackage { get; }
 
@@ -38,7 +38,7 @@ public class ImportCursorResumeContext
     /// <summary>All folders in the package.</summary>
     public List<string> AllFolderPaths { get; set; } = new();
 
-    /// <summary>Folder paths actually fed to RevisionFolderProcessor.</summary>
+    /// <summary>Folder paths actually fed to WorkItemResolutionProcessor.</summary>
     public List<string> ProcessedFolders { get; } = new();
 
     /// <summary>The cursor that was deleted (captured by DeleteCursorAsync).</summary>
@@ -70,19 +70,19 @@ public class ImportCursorResumeContext
             .Returns(ValueTask.CompletedTask);
     }
 
-    public WorkItemImportOrchestrator BuildOrchestrator()
+    public WorkItemsImportRuntime BuildOrchestrator()
     {
-        var processor = new RevisionFolderProcessor(
+        var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
             CheckpointingService,
             (IIdentityLookupTool?)null,
-            NullLogger<RevisionFolderProcessor>.Instance,
+            NullLogger<WorkItemResolutionProcessor>.Instance,
             EndpointUrl,
             ProjectName,
             package: MockPackage.Object);
 
-        return new WorkItemImportOrchestrator(
+        return new WorkItemsImportRuntime(
             MockPackage.Object,
             EndpointUrl,
             ProjectName,
@@ -92,6 +92,6 @@ public class ImportCursorResumeContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemImportOrchestrator>.Instance);
+            NullLogger<WorkItemsImportRuntime>.Instance);
     }
 }

@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 /// <summary>
-/// Creates <see cref="IRevisionFolderProcessor"/> instances wired to a specific import target,
+/// Creates WorkItem resolution processors wired to a specific import target,
 /// id-map store, checkpointing service, identity lookup tool, and artefact store.
 /// Injected into module classes to avoid constructing infrastructure types directly.
 /// </summary>
-public interface IRevisionFolderProcessorFactory
+public interface IWorkItemResolutionProcessorFactory
 {
     /// <summary>
-    /// Creates a new <see cref="IRevisionFolderProcessor"/> for the given import context.
+    /// Creates a new <see cref="IWorkItemResolutionProcessor"/> for the given import context.
     /// </summary>
-    IRevisionFolderProcessor Create(
-        IWorkItemImportTarget target,
+    IWorkItemResolutionProcessor Create(
+        IWorkItemTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
         IIdentityLookupTool? identityLookupTool,
@@ -26,11 +26,11 @@ public interface IRevisionFolderProcessorFactory
         string project);
 
     /// <summary>
-    /// Creates a new <see cref="IRevisionFolderProcessor"/> with NodeTranslation context
+    /// Creates a new <see cref="IWorkItemResolutionProcessor"/> with NodeTranslation context
     /// for area/iteration path translation.
     /// </summary>
-    IRevisionFolderProcessor Create(
-        IWorkItemImportTarget target,
+    IWorkItemResolutionProcessor Create(
+        IWorkItemTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
         IIdentityLookupTool? identityLookupTool,

@@ -28,14 +28,14 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 internal sealed class TargetFieldResolutionStrategy : IWorkItemResolutionStrategy
 {
     private readonly WorkItemTrackingHttpClient _witClient;
-    private readonly IWorkItemImportTarget _target;
+    private readonly IWorkItemTarget _target;
     private readonly string _project;
     private readonly string _fieldName;
     private readonly ILogger<TargetFieldResolutionStrategy> _logger;
 
     public TargetFieldResolutionStrategy(
         WorkItemTrackingHttpClient witClient,
-        IWorkItemImportTarget target,
+        IWorkItemTarget target,
         string project,
         string fieldName,
         ILogger<TargetFieldResolutionStrategy> logger)

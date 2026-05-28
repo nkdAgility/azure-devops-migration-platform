@@ -4,16 +4,21 @@
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
-using DevOpsMigrationPlatform.Abstractions.Agent.Import;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 /// <summary>
-/// Processes a single revision folder through the four import stages
+/// Processes a single revision folder through the WorkItem resolution/import stages
 /// (CreatedOrUpdated → AppliedFields → AppliedLinks → UploadedAttachments → Completed).
 /// </summary>
-public interface IRevisionFolderProcessor
+public interface IWorkItemResolutionProcessor
 {
+    /// <summary>
+    /// Initialize resolution lifecycle state before processing revision folders.
+    /// </summary>
+    Task InitializeAsync(IWorkItemResolutionStrategy resolutionStrategy, CancellationToken ct);
+
     /// <summary>
     /// Process a single revision folder, resuming from <paramref name="resumeAtStage"/> if provided.
     /// </summary>

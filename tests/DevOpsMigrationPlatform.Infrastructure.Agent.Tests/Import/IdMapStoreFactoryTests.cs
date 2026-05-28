@@ -4,7 +4,7 @@
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using Microsoft.Data.Sqlite;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -55,16 +55,15 @@ public class IdMapStoreFactoryTests
     }
 
     [TestMethod]
-    public async Task CreateFromPackageUri_FileUri_ResolvesCheckpointsIdMapPath()
+    public async Task Create_FromResolvedDatabasePath_InitializesIdMapDatabase()
     {
         var sut = new IdMapStoreFactory();
-        var packageUri = $"file:///{_tempRoot.Replace('\\', '/')}";
+        var dbPath = Path.Combine(_tempRoot, ".migration", "Checkpoints", "idmap.db");
 
-        await using var store = sut.CreateFromPackageUri(packageUri);
+        await using var store = sut.Create(dbPath);
         await store.InitializeAsync(CancellationToken.None);
 
-        var expectedPath = Path.Combine(_tempRoot, ".migration", "Checkpoints", "idmap.db");
-        Assert.IsTrue(File.Exists(expectedPath));
+        Assert.IsTrue(File.Exists(dbPath));
     }
 
     [TestMethod]

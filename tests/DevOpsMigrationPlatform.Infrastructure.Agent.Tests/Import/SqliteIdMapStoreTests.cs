@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
@@ -160,6 +160,63 @@ public class SqliteIdMapStoreTests
 
         var result = await store.GetTargetWorkItemIdAsync(5, CancellationToken.None);
         Assert.AreEqual(50, result, "Existing mapping should not be overwritten by seed.");
+    }
+
+    [TestMethod]
+    public async Task SeedWorkItemMappingsAsync_WhenDuplicateCandidatesExist_UsesDeterministicFirstMapping()
+    {
+        foreach (var connectorType in new[] { "AzureDevOpsServices", "TeamFoundationServer", "Simulated" })
+        {
+            await using var store = CreateAndInitialise();
+            await store.InitializeAsync(CancellationToken.None);
+
+            var entries = new[]
+            {
+                new IdMapEntry { SourceId = 42, TargetId = 420 },
+                new IdMapEntry { SourceId = 42, TargetId = 421 }
+            };
+
+            await store.SeedWorkItemMappingsAsync(entries.ToAsyncEnumerable(CancellationToken.None), CancellationToken.None);
+
+            var mapped = await store.GetTargetWorkItemIdAsync(42, CancellationToken.None);
+            Assert.AreEqual(420, mapped, $"{connectorType} tie-break must be deterministic and preserve first-seen mapping.");
+        }
+    }
+
+    [TestMethod]
+    public async Task SeedWorkItemMappingsAsync_WhenCacheRebuildRunsAgain_PreservesResumeEquivalentMappings()
+    {
+        foreach (var connectorType in new[] { "AzureDevOpsServices", "TeamFoundationServer", "Simulated" })
+        {
+            await using (var firstRunStore = CreateAndInitialise())
+            {
+                await firstRunStore.InitializeAsync(CancellationToken.None);
+                await firstRunStore.SetWorkItemMappingAsync(7, 700, CancellationToken.None);
+
+                var firstRunSeed = new[]
+                {
+                    new IdMapEntry { SourceId = 7, TargetId = 701 },
+                    new IdMapEntry { SourceId = 8, TargetId = 800 }
+                };
+                await firstRunStore.SeedWorkItemMappingsAsync(firstRunSeed.ToAsyncEnumerable(CancellationToken.None), CancellationToken.None);
+            }
+
+            await using var resumedStore = new SqliteIdMapStore(_tempDbPath);
+            await resumedStore.InitializeAsync(CancellationToken.None);
+
+            var rebuildSeed = new[]
+            {
+                new IdMapEntry { SourceId = 7, TargetId = 702 },
+                new IdMapEntry { SourceId = 8, TargetId = 801 }
+            };
+            await resumedStore.SeedWorkItemMappingsAsync(rebuildSeed.ToAsyncEnumerable(CancellationToken.None), CancellationToken.None);
+
+            var source7 = await resumedStore.GetTargetWorkItemIdAsync(7, CancellationToken.None);
+            var source8 = await resumedStore.GetTargetWorkItemIdAsync(8, CancellationToken.None);
+
+            Assert.AreEqual(700, source7, $"{connectorType} rebuild/resume must preserve pre-existing source mapping.");
+            Assert.AreEqual(800, source8, $"{connectorType} rebuild/resume must preserve first-seeded mapping from prior run.");
+        }
     }
 }
 

@@ -33,7 +33,7 @@ Compressed configuration model for agents. See `docs/configuration-reference.md`
 ## Authentication Conventions
 
 - `AccessToken` uses `$ENV:VARNAME` syntax for environment variable resolution.
-- `Authentication.Type` values: `Pat`, `Windows`, `ManagedIdentity`.
+- `Authentication.Type` values: `AccessToken`, `Windows`, `ManagedIdentity`.
 - `Windows` is TFS-only.
 
 ## Rules
@@ -42,6 +42,5 @@ Compressed configuration model for agents. See `docs/configuration-reference.md`
 - Breaking changes require a `ConfigVersion` bump and an upgrader.
 - New properties must be added to `migration.schema.json`.
 - No undocumented properties.
-
 
 

@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -23,6 +24,7 @@ public sealed class CliRunner
     private const string ControlPlaneExeName = "DevOpsMigrationPlatform.ControlPlaneHost.exe";
     private const string MigrationAgentExeName = "DevOpsMigrationPlatform.MigrationAgent.exe";
     private const string TfsMigrationAgentExeName = "tfsmigration.exe";
+    private static readonly ConcurrentDictionary<string, string> _testStorageByName = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Root folder (relative to the repo root) used by system tests as their working directory.
@@ -159,11 +161,17 @@ public sealed class CliRunner
         bool cleanOutputFolder = false,
         CancellationToken cancellationToken = default)
     {
-        var testStorage = Path.Combine(TestWorkingFolder, testName);
+        string testStorage;
+        if (cleanOutputFolder || !_testStorageByName.TryGetValue(testName, out testStorage!))
+        {
+            testStorage = Path.Combine(TestWorkingFolder, $"{testName}-{DateTime.UtcNow:yyyyMMddHHmmssfff}");
+            _testStorageByName[testName] = testStorage;
+        }
+
         var outputDir = Path.GetFullPath(Path.Combine(FindRepoRoot(), testStorage));
 
         if (cleanOutputFolder && Directory.Exists(outputDir))
-            Directory.Delete(outputDir, recursive: true);
+            await DeleteDirectoryWithRetryAsync(outputDir, cancellationToken).ConfigureAwait(false);
 
         var mergedEnv = new Dictionary<string, string>(env ?? new Dictionary<string, string>())
         {
@@ -172,6 +180,34 @@ public sealed class CliRunner
 
         var result = await RunAsync(args, env: mergedEnv, timeout: timeout, cancellationToken: cancellationToken);
         return new TestCliResult(result, outputDir);
+    }
+
+    private static async Task DeleteDirectoryWithRetryAsync(string path, CancellationToken cancellationToken)
+    {
+        const int maxAttempts = 8;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                if (!Directory.Exists(path))
+                    return;
+
+                Directory.Delete(path, recursive: true);
+                return;
+            }
+            catch (IOException) when (attempt < maxAttempts)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(250 * attempt), cancellationToken).ConfigureAwait(false);
+            }
+            catch (UnauthorizedAccessException) when (attempt < maxAttempts)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(250 * attempt), cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        Directory.Delete(path, recursive: true);
     }
 
     /// <summary>

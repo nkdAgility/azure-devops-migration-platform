@@ -11,7 +11,6 @@ global using DevOpsMigrationPlatform.Abstractions.Configuration;
 global using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 global using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 global using DevOpsMigrationPlatform.Abstractions.Agent.Export;
-global using DevOpsMigrationPlatform.Abstractions.Agent.Import;
 global using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 global using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 global using DevOpsMigrationPlatform.Abstractions.Storage;

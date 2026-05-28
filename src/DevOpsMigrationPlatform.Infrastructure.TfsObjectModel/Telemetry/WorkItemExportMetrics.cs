@@ -14,7 +14,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 /// </summary>
 public class WorkItemExportMetrics : IWorkItemExportMetrics
 {
-    // Inline legacy metric names — the old WellKnownMetricNames constants were removed in the v2.0 rename.
+    // Inline metric names because WellKnownMetricNames constants are not used in this net481 path.
     private const string WorkItemsExportedName = "work_item_exported_total";
     private const string RevisionsExportedName = "revision_exported_total";
     private const string RevisionErrorsName = "revision_export_errors_total";

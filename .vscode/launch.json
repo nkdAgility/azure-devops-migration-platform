@@ -545,23 +545,6 @@
             "preLaunchTask": "build-migration-cli"
         },
         {
-            "name": "📋 Migration CLI: Manage Logs (Follow) [deprecated]",
-            "type": "coreclr",
-            "request": "launch",
-            "program": "${workspaceFolder}/src/DevOpsMigrationPlatform.CLI.Migration/bin/Debug/net10.0/devopsmigration.exe",
-            "args": [
-                "manage",
-                "logs",
-                "--job",
-                "00000000-0000-0000-0000-000000000001",
-                "--follow"
-            ],
-            "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "stopAtEntry": false,
-            "preLaunchTask": "build-migration-cli"
-        },
-        {
             "name": "📋 Migration CLI: Manage Diagnostics",
             "type": "coreclr",
             "request": "launch",

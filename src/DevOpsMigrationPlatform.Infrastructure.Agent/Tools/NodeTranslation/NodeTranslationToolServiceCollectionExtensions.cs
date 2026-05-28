@@ -24,7 +24,7 @@ public static class NodeTranslationToolServiceCollectionExtensions
     /// <para>
     /// <see cref="INodeCreator"/> and <see cref="IClassificationTreeReader"/> are
     /// connector-specific and must be registered by the connector DI
-    /// (e.g. <c>AddAzureDevOpsWorkItemImport</c>, <c>AddSimulatedWorkItemImport</c>,
+    /// (e.g. <c>AddAzureDevOpsWorkItem</c>, <c>AddSimulatedWorkItem</c>,
     /// <c>TfsClassificationTreeReader</c>).
     /// </para>
     /// <para>

@@ -11,7 +11,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Telemetry;
 public static class MigrationPlatformActivitySources
 {
     public static readonly ActivitySource WorkItemExport = new ActivitySource("DevOpsMigrationPlatform.WorkItemExport");
-    public static readonly ActivitySource WorkItemImport = new ActivitySource("DevOpsMigrationPlatform.WorkItemImport");
+    public static readonly ActivitySource WorkItem = new ActivitySource("DevOpsMigrationPlatform.WorkItem");
     public static readonly ActivitySource AttachmentDownload = new ActivitySource("DevOpsMigrationPlatform.AttachmentDownload");
     public static readonly ActivitySource GitMigration = new ActivitySource("DevOpsMigrationPlatform.GitMigration");
 }

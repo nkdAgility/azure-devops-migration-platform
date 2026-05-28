@@ -7,7 +7,7 @@ using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -16,13 +16,13 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 
 /// <summary>
 /// Shared scenario state for Prevent Duplicate Work Items step definitions.
-/// Builds a real <see cref="RevisionFolderProcessor"/> with mocked dependencies.
+/// Builds a real <see cref="WorkItemResolutionProcessor"/> with mocked dependencies.
 /// </summary>
 public class PreventDuplicateWorkItemsContext
 {
     public Mock<ICheckpointingService> MockCheckpointing { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
-    public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
+    public Mock<IWorkItemTarget> MockTarget { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
     internal Mock<ITestArtefactStore> MockArtefactStore { get; } = new(MockBehavior.Loose);
     public Mock<IPackageAccess> MockPackage { get; }
@@ -50,14 +50,14 @@ public class PreventDuplicateWorkItemsContext
         MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
     }
 
-    public RevisionFolderProcessor BuildProcessor()
+    public WorkItemResolutionProcessor BuildProcessor()
     {
-        return new RevisionFolderProcessor(
+        return new WorkItemResolutionProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
             MockCheckpointing.Object,
             (IIdentityLookupTool?)null,
-            NullLogger<RevisionFolderProcessor>.Instance,
+            NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
             package: MockPackage.Object);

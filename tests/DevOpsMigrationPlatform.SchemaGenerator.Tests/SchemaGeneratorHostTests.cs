@@ -62,7 +62,7 @@ public sealed class SchemaGeneratorHostTests
         var services = new ServiceCollection();
         services.AddSimulatedServices();
         services.AddAzureDevOpsWorkItemExport();
-        services.AddAzureDevOpsWorkItemImport();
+        services.AddAzureDevOpsWorkItem();
         services.AddIdentitiesModule(new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
         services.AddNodesModule(new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
         services.AddTeamsModule(new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());

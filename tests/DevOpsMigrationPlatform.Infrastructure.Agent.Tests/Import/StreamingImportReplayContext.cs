@@ -8,7 +8,7 @@ using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Import;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -24,7 +24,7 @@ public class StreamingImportReplayContext
     public Mock<IProgressSink> MockProgressSink { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
-    public Mock<IWorkItemImportTarget> MockTarget { get; } = new(MockBehavior.Strict);
+    public Mock<IWorkItemTarget> MockTarget { get; } = new(MockBehavior.Strict);
     internal Mock<ITestArtefactStore> MockArtefactStore { get; } = new(MockBehavior.Loose);
     public Mock<IPackageAccess> MockPackage { get; }
 
@@ -44,10 +44,10 @@ public class StreamingImportReplayContext
         MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
     }
 
-    public WorkItemImportOrchestrator BuildOrchestrator()
+    public WorkItemsImportRuntime BuildOrchestrator()
     {
-        var processorLogger = NullLogger<RevisionFolderProcessor>.Instance;
-        var processor = new RevisionFolderProcessor(
+        var processorLogger = NullLogger<WorkItemResolutionProcessor>.Instance;
+        var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
             MockCheckpointing.Object,
@@ -57,7 +57,7 @@ public class StreamingImportReplayContext
             "Shop",
             package: MockPackage.Object);
 
-        return new WorkItemImportOrchestrator(
+        return new WorkItemsImportRuntime(
             MockPackage.Object,
             "https://dev.azure.com/contoso",
             "Shop",
@@ -67,7 +67,7 @@ public class StreamingImportReplayContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemImportOrchestrator>.Instance);
+            NullLogger<WorkItemsImportRuntime>.Instance);
     }
 
     /// <summary>

@@ -26,3 +26,12 @@ seams:
       - "WorkItems field policy adapters"
     prohibited_parallel_entrypoints:
       - "Independent field transform pipelines"
+  orchestration:
+    owner: "I*Orchestrator abstractions"
+    contract_doc: ".agents/10-contracts/specs/orchestrator-contract.md"
+    policy_layers:
+      - "Phase-specific orchestration wrappers"
+      - "Module-specific orchestration adapters"
+    prohibited_parallel_entrypoints:
+      - "Duplicate orchestration pipelines for the same runtime concern"
+      - "Bypass execution paths that skip canonical orchestrator contracts"

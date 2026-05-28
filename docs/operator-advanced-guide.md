@@ -69,7 +69,7 @@ A `JobAdmissionException` with a clear message is returned if any check fails.
 |---|---|
 | Job list | `devopsmigration manage list` or TUI job list |
 | Job details | `devopsmigration manage status --job <id>` |
-| Structured logs | `devopsmigration manage logs --job <id>` |
+| Structured logs | `devopsmigration manage diagnostics --job <id>` |
 | Real-time progress | `devopsmigration queue ... --follow` or TUI |
 | Agent health | `GET /health` on the Control Plane or agent |
 

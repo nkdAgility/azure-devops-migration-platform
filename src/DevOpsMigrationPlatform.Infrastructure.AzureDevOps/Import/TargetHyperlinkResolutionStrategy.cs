@@ -21,7 +21,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Import;
 internal sealed class TargetHyperlinkResolutionStrategy : IWorkItemResolutionStrategy
 {
     private readonly WorkItemTrackingHttpClient _witClient;
-    private readonly IWorkItemImportTarget _target;
+    private readonly IWorkItemTarget _target;
     private readonly string _project;
     private readonly string _urlPattern;
     private readonly Regex? _urlRegex;
@@ -35,7 +35,7 @@ internal sealed class TargetHyperlinkResolutionStrategy : IWorkItemResolutionStr
     /// </param>
     public TargetHyperlinkResolutionStrategy(
         WorkItemTrackingHttpClient witClient,
-        IWorkItemImportTarget target,
+        IWorkItemTarget target,
         string project,
         string urlPattern)
     {

@@ -15,11 +15,10 @@ using Microsoft.Extensions.Options;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 
 /// <summary>
-/// Platform-agnostic inventory orchestrator. Iterates all configured organisations
-/// and delegates work-item discovery to <see cref="IWorkItemDiscoveryService"/>,
-/// project enumeration to <see cref="IProjectDiscoveryService"/>,
-/// and repository counting to <see cref="IRepoDiscoveryService"/>.
-/// Each CLI host registers the appropriate implementations for its backend.
+/// Platform-agnostic inventory discovery service. Iterates all configured organisations
+/// and discovers project/work-item/repository counts through adapter-facing discovery
+/// dependencies. This type does not write package state, checkpoints, or progress output;
+/// orchestration and persistence are handled by <see cref="InventoryOrchestrator"/>.
 /// </summary>
 public sealed class InventoryService : IInventoryService
 {
