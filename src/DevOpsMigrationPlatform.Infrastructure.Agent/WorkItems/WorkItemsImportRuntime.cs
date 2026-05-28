@@ -24,9 +24,9 @@ using Microsoft.Extensions.Options;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 
 /// <summary>
-/// Default WorkItems import orchestration extracted from WorkItemsModule.
+/// Default WorkItems import orchestration.
 /// </summary>
-public sealed class WorkItemOrchestrator : IWorkItemsOrchestrator
+public sealed class WorkItemsImportRuntime
 {
     private readonly IWorkItemTargetFactory _importTargetFactory;
     private readonly IWorkItemResolutionStrategyFactory _resolutionStrategyFactory;
@@ -37,7 +37,7 @@ public sealed class WorkItemOrchestrator : IWorkItemsOrchestrator
     private readonly IWorkItemsImportCapabilityValidator _capabilityValidator;
     private readonly IWorkItemsNodeReadinessOrchestrator _nodeReadinessOrchestrator;
     private readonly IPlatformMetrics? _metrics;
-    private readonly ILogger<WorkItemOrchestrator> _orchestratorLogger;
+    private readonly ILogger<WorkItemsImportRuntime> _orchestratorLogger;
     private readonly ILogger _logger;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
     private readonly ITargetEndpointInfo _targetEndpointInfo;
@@ -46,7 +46,7 @@ public sealed class WorkItemOrchestrator : IWorkItemsOrchestrator
     private readonly IOptions<NodesModuleOptions>? _nodesModuleOptions;
     private readonly WorkItemStreamOrchestrator? _streamOrchestrator;
 
-    public WorkItemOrchestrator(
+    public WorkItemsImportRuntime(
         IWorkItemTargetFactory importTargetFactory,
         IWorkItemResolutionStrategyFactory resolutionStrategyFactory,
         ICheckpointingServiceFactory checkpointingFactory,
@@ -56,7 +56,7 @@ public sealed class WorkItemOrchestrator : IWorkItemsOrchestrator
         IWorkItemsImportCapabilityValidator capabilityValidator,
         IWorkItemsNodeReadinessOrchestrator nodeReadinessOrchestrator,
         IPlatformMetrics? metrics,
-        ILogger<WorkItemOrchestrator> orchestratorLogger,
+        ILogger<WorkItemsImportRuntime> orchestratorLogger,
         ILogger logger,
         ISourceEndpointInfo sourceEndpointInfo,
         ITargetEndpointInfo targetEndpointInfo,
@@ -83,7 +83,7 @@ public sealed class WorkItemOrchestrator : IWorkItemsOrchestrator
         _streamOrchestrator = null;
     }
 
-    public WorkItemOrchestrator(
+    public WorkItemsImportRuntime(
         IPackageAccess package,
         string organisation,
         string project,
@@ -93,7 +93,7 @@ public sealed class WorkItemOrchestrator : IWorkItemsOrchestrator
         IIdMapStore idMapStore,
         IWorkItemResolutionProcessor processor,
         IWorkItemTarget target,
-        ILogger<WorkItemOrchestrator> logger,
+        ILogger<WorkItemsImportRuntime> logger,
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
         IPlatformMetrics? metrics = null,
         string? jobId = null)
@@ -136,12 +136,17 @@ public sealed class WorkItemOrchestrator : IWorkItemsOrchestrator
         CancellationToken ct)
     {
         if (_streamOrchestrator is null)
-            throw new InvalidOperationException("This WorkItemOrchestrator instance was not constructed for streaming import.");
+            throw new InvalidOperationException("This WorkItemsImportRuntime instance was not constructed for streaming import.");
 
         return _streamOrchestrator.ImportAsync(ext, resumeMode, ct);
     }
 
-    public async Task<TaskExecutionResult> ExecuteAsync(ImportContext context, CancellationToken ct)
+    public Task<TaskExecutionResult> ExecuteAsync(ImportContext context, CancellationToken ct)
+    {
+        return ImportAsync(context, ct);
+    }
+
+    public async Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct)
     {
         var job = context.Job;
         _capabilityValidator.Validate();
@@ -197,7 +202,7 @@ public sealed class WorkItemOrchestrator : IWorkItemsOrchestrator
             nodeStructureContext);
 
         var importFilters = startupPolicy.ImportFilters;
-        var orchestrator = new WorkItemOrchestrator(
+        var orchestrator = new WorkItemsImportRuntime(
             context.Package,
             _sourceEndpointInfo.OrganisationSlug,
             sourceProjectName,

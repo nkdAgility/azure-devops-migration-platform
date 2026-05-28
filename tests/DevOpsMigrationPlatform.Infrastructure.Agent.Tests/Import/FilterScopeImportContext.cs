@@ -41,7 +41,7 @@ public class FilterScopeImportContext
         MockPackage = PackageTestFactory.CreateLooseMock();
     }
 
-    public WorkItemOrchestrator BuildOrchestrator()
+    public WorkItemsImportRuntime BuildOrchestrator()
     {
         var processorLogger = NullLogger<WorkItemResolutionProcessor>.Instance;
         var processor = new WorkItemResolutionProcessor(
@@ -54,7 +54,7 @@ public class FilterScopeImportContext
             "Shop",
             package: MockPackage.Object);
 
-        return new WorkItemOrchestrator(
+        return new WorkItemsImportRuntime(
             MockPackage.Object,
             "https://dev.azure.com/contoso",
             "Shop",
@@ -64,7 +64,7 @@ public class FilterScopeImportContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemOrchestrator>.Instance,
+            NullLogger<WorkItemsImportRuntime>.Instance,
             filterOptions: FilterOptions.Count > 0 ? FilterOptions : null);
     }
 

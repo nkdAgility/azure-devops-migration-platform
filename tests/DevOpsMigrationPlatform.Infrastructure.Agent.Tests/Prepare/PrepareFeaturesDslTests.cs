@@ -507,7 +507,7 @@ public sealed class PrepareFeaturesDslTests
             NullLogger<WorkItemsModule>.Instance,
             Options.Create(new WorkItemsModuleOptions()),
             CreateSourceEndpoint(connectorType),
-            NullLogger<WorkItemOrchestrator>.Instance,
+            NullLogger<WorkItemsImportRuntime>.Instance,
             Mock.Of<Abstractions.Agent.WorkItems.IWorkItemTargetFactory>(),
             Mock.Of<Abstractions.Agent.WorkItems.IWorkItemResolutionStrategyFactory>(),
             Mock.Of<ICheckpointingServiceFactory>(),

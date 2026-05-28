@@ -3,9 +3,13 @@
 
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Configuration;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using Microsoft.Extensions.Logging;
@@ -25,14 +29,24 @@ public sealed class WorkItemsOrchestratorFactory : IWorkItemsOrchestratorFactory
         IWorkItemsImportCapabilityValidator capabilityValidator,
         IWorkItemsNodeReadinessOrchestrator nodeReadinessOrchestrator,
         IPlatformMetrics? metrics,
-        ILogger<WorkItemOrchestrator> orchestratorLogger,
+        ILogger<WorkItemsImportRuntime> orchestratorLogger,
         ILogger<WorkItemsModule> moduleLogger,
         ISourceEndpointInfo sourceEndpointInfo,
         ITargetEndpointInfo targetEndpointInfo,
         IOptions<WorkItemsModuleOptions> options,
         IOptions<WorkItemOptions>? workItemImportOptions,
-        IOptions<NodesModuleOptions>? nodesModuleOptions)
-        => new WorkItemOrchestrator(
+        IOptions<NodesModuleOptions>? nodesModuleOptions,
+        IWorkItemRevisionSourceFactory sourceFactory,
+        IAttachmentBinarySource? attachmentBinarySource,
+        IWorkItemCommentSourceFactory? inlineCommentSourceFactory,
+        IWorkItemFetchService? fetchService,
+        IWorkItemExportOrchestratorFactory exportOrchestratorFactory,
+        IWorkItemDiscoveryService? discoveryService,
+        IExportProgressStoreFactory? exportProgressStoreFactory,
+        IReferencedPathTracker? referencedPathTracker,
+        ImportPreparer importPreparer)
+    {
+        var importOrchestrator = new WorkItemsImportRuntime(
             importTargetFactory,
             resolutionStrategyFactory,
             checkpointingFactory,
@@ -49,4 +63,22 @@ public sealed class WorkItemsOrchestratorFactory : IWorkItemsOrchestratorFactory
             options,
             workItemImportOptions,
             nodesModuleOptions);
+
+        return new WorkItemsOrchestrator(
+            sourceFactory,
+            attachmentBinarySource,
+            inlineCommentSourceFactory,
+            fetchService,
+            exportOrchestratorFactory,
+            checkpointingFactory,
+            moduleLogger,
+            metrics,
+            discoveryService,
+            exportProgressStoreFactory,
+            referencedPathTracker,
+            options,
+            sourceEndpointInfo,
+            importPreparer,
+            importOrchestrator);
+    }
 }

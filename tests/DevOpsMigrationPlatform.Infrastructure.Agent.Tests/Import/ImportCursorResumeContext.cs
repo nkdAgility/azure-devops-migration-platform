@@ -70,7 +70,7 @@ public class ImportCursorResumeContext
             .Returns(ValueTask.CompletedTask);
     }
 
-    public WorkItemOrchestrator BuildOrchestrator()
+    public WorkItemsImportRuntime BuildOrchestrator()
     {
         var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
@@ -82,7 +82,7 @@ public class ImportCursorResumeContext
             ProjectName,
             package: MockPackage.Object);
 
-        return new WorkItemOrchestrator(
+        return new WorkItemsImportRuntime(
             MockPackage.Object,
             EndpointUrl,
             ProjectName,
@@ -92,6 +92,6 @@ public class ImportCursorResumeContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemOrchestrator>.Instance);
+            NullLogger<WorkItemsImportRuntime>.Instance);
     }
 }

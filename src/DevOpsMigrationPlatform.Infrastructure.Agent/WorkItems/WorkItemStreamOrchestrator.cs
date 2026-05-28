@@ -45,7 +45,7 @@ public sealed class WorkItemStreamOrchestrator
     private readonly IIdMapStore _idMapStore;
     private readonly IWorkItemResolutionProcessor _processor;
     private readonly IWorkItemTarget _target;
-    private readonly ILogger<WorkItemOrchestrator> _logger;
+    private readonly ILogger<WorkItemsImportRuntime> _logger;
     private readonly IReadOnlyList<WorkItemFieldFilterOptions>? _filterOptions;
     private readonly IPlatformMetrics? _metrics;
     private readonly string? _jobId;
@@ -60,7 +60,7 @@ public sealed class WorkItemStreamOrchestrator
         IIdMapStore idMapStore,
         IWorkItemResolutionProcessor processor,
         IWorkItemTarget target,
-        ILogger<WorkItemOrchestrator> logger,
+        ILogger<WorkItemsImportRuntime> logger,
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
         IPlatformMetrics? metrics = null,
         string? jobId = null)

@@ -3,6 +3,8 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
+using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
@@ -12,8 +14,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 /// </summary>
 public interface IWorkItemsOrchestrator
 {
-    /// <summary>
-    /// Execute the WorkItems import flow for the current context.
-    /// </summary>
-    Task<TaskExecutionResult> ExecuteAsync(ImportContext context, CancellationToken ct);
+    Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct);
+    Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct);
+    Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct);
+    Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct);
 }

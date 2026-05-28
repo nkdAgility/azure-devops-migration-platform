@@ -60,7 +60,7 @@ public sealed class WorkItemsModuleArchitectureTests
 
         var source = File.ReadAllText(modulePath);
         Assert.IsFalse(
-            source.Contains("new WorkItemOrchestrator(", StringComparison.Ordinal),
+            source.Contains("new WorkItemsImportRuntime(", StringComparison.Ordinal),
             "WorkItemsModule must consume an import orchestrator abstraction/factory instead of inlining concrete orchestrator construction.");
     }
 

@@ -33,6 +33,17 @@ This draft follows the repository’s screaming-architecture and seam guardrails
 - Configuration rule: only **cross-cutting configuration** may live under `Platform`.
 - Configuration rule: if configuration is specific to a business concern, it must live under `<BusinessConcern>/Configuration` (for example `WorkItems/Configuration`, `Identity/Configuration`, `Teams/Configuration`, `Nodes/Configuration`, `Attachments/Configuration`).
 
+### Platform placement test (mandatory)
+
+Before placing any file under `Platform/*`, the plan must pass all checks:
+
+1. The file is used by at least two business concerns.
+2. The file does not encode a single concern workflow.
+3. The file cannot be cleanly owned by `WorkItems`, `Identity`, `Teams`, `Nodes`, `Attachments`, `Inventory`, `Dependencies`, or `JobLifecycle`.
+4. The reason is written inline in this move plan.
+
+If any check fails, the file must move under the owning business concern.
+
 ## Scope
 
 Project: `src/DevOpsMigrationPlatform.Infrastructure.Agent`
@@ -57,6 +68,11 @@ Teams
 WorkItems
 Platform
 ```
+
+### Capability rationale
+
+- `Inventory` and `Dependencies` are treated here as first-class capabilities, not technical phase buckets.
+- They own distinct domain outputs and contracts (inventory cataloguing vs dependency analysis), so they remain explicit top-level concerns in this draft.
 
 ## Top-level rename/move plan
 
@@ -120,8 +136,20 @@ Platform
 - `Connectors/CompositeWorkItemDiscoveryService.cs` -> `WorkItems/`
 - `Connectors/FactoryRegistrationExtensions.cs` -> `JobLifecycle/ModuleExecution/FactoryRegistrationExtensions.cs` (or concern-specific registration files if split)
 - `Context/*` -> `JobLifecycle/Context/*`
-- `Storage/*` -> `Platform/PackageState/*` only when cross-cutting; otherwise move to owning concern
-- `Telemetry/*` -> `Platform/Telemetry/*`
+- `Storage/*` -> `Platform/PackageState/*` only when all Platform placement checks pass; otherwise move to owning concern
+- `Telemetry/*` -> split by owner:
+  - Work item telemetry -> `WorkItems/Telemetry/*`
+  - Attachment telemetry -> `Attachments/Telemetry/*`
+  - Job/control-plane telemetry orchestration -> `JobLifecycle/Telemetry/*`
+
+### Root runtime files (explicit coverage)
+
+- `AgentControlPlaneClientAdapter.cs` -> `JobLifecycle/ControlPlane/AgentControlPlaneClientAdapter.cs`
+- `AgentWorkerBase.cs` -> `JobLifecycle/Execution/AgentWorkerBase.cs`
+- `CoreAgentServiceExtensions.cs` -> `JobLifecycle/Composition/CoreAgentServiceExtensions.cs`
+- `ModulePipelineWorkerBase.cs` -> `JobLifecycle/Execution/ModulePipelineWorkerBase.cs`
+- `PackageConfigServiceCollectionExtensions.cs` -> `JobLifecycle/Configuration/PackageConfigServiceCollectionExtensions.cs`
+- `GlobalUsings.cs` -> remains project root (no concern ownership change)
 
 ### Tools
 
@@ -235,8 +263,15 @@ Platform
 - `Validation/ValidationContext.cs` -> `Platform/Validation/ValidationContext.cs`
 - `Polyfills/IsExternalInit.cs`, `Polyfills/RequiredMemberAttribute.cs` -> `Platform/Polyfills/`
 - `Lease/ActiveLeaseState.cs` -> `JobLifecycle/Lease/ActiveLeaseState.cs`
-- `Storage/*` -> `Platform/PackageState/*` only when truly cross-cutting; otherwise move to owning concern
-- `Telemetry/*` -> `Platform/Telemetry/*`
+- `Storage/*` -> `Platform/PackageState/*` only when all Platform placement checks pass; otherwise move to owning concern
+- `Telemetry/*` -> split by owner:
+  - Work item telemetry contracts -> `WorkItems/Telemetry/*`
+  - Attachment telemetry contracts -> `Attachments/Telemetry/*`
+  - Job lifecycle telemetry contracts -> `JobLifecycle/Telemetry/*`
+
+### Root contract files (explicit coverage)
+
+- `AgentInstanceIdHolder.cs` -> `JobLifecycle/Identity/AgentInstanceIdHolder.cs`
 
 ## Keep as-is at top level
 
@@ -284,6 +319,11 @@ WorkItems
 Platform
 ```
 
+### Capability rationale
+
+- `Inventory` and `Dependencies` are treated here as first-class capabilities, not technical phase buckets.
+- They own distinct domain outputs and contracts (inventory cataloguing vs dependency analysis), so they remain explicit top-level concerns in this draft.
+
 ## Top-level rename/move plan
 
 | Current top-level | Action | Target |
@@ -330,6 +370,7 @@ Platform
 - `Attachments/*` remains in `Attachments/`
 - `ProjectLifecycle/*` remains in `ProjectLifecycle/`
 - `AzureDevOpsClientFactory.cs`, `IAzureDevOpsClientFactory.cs`, `AzureDevOpsRetryPolicy.cs` -> `Platform/AzureDevOpsAccess/`
+- (Platform justification) these are connector access primitives shared across multiple AzureDevOps business concerns and cannot be owned by one concern without duplication.
 - `InventoryServiceCollectionExtensions.cs` -> `Inventory/InventoryServiceCollectionExtensions.cs`
 - `DependencyServiceCollectionExtensions.cs` -> `Dependencies/DependencyServiceCollectionExtensions.cs`
 - `ExportServiceCollectionExtensions.cs` -> `WorkItems/Export/ExportServiceCollectionExtensions.cs`
@@ -377,10 +418,14 @@ JobLifecycle
 Nodes
 ProjectLifecycle
 Teams
-Telemetry
 WorkItems
 Platform
 ```
+
+### Capability rationale
+
+- `Inventory` and `Dependencies` are treated here as first-class capabilities, not technical phase buckets.
+- They own distinct domain outputs and contracts (inventory cataloguing vs dependency analysis), so they remain explicit top-level concerns in this draft.
 
 ## Top-level rename/move plan
 
@@ -391,6 +436,7 @@ Platform
 | `Import` | Remove phase bucket | `WorkItems`, `Nodes` |
 | `Extensions` | Remove technical bucket | `Platform/TfsObjectModelExtensions` |
 | `Options` | Remove technical bucket | `Platform/Configuration` |
+| `Telemetry` | Split by owning concern | `WorkItems/Telemetry`, `Attachments/Telemetry`, `JobLifecycle/Telemetry` |
 | `Models` | Remove generic bucket | place near owning concern |
 
 ## Detailed mapping
@@ -425,11 +471,13 @@ Platform
 - `TfsClassificationTreeReader.cs` -> `Nodes/`
 - `TfsAttachmentBinarySource.cs`, `TfsAttachmentRegistry.cs`, `Attachments/TfsAttachmentDownloader.cs` -> `Attachments/`
 - `ProjectLifecycle/*` remains in `ProjectLifecycle/`
-- `Telemetry/*` remains in `Telemetry/`
+- `Telemetry/WorkItemExportMetrics.cs` -> `WorkItems/Telemetry/WorkItemExportMetrics.cs`
+- `Telemetry/AttachmentDownloadMetrics.cs` -> `Attachments/Telemetry/AttachmentDownloadMetrics.cs`
+- `Telemetry/MigrationPlatformActivitySources.cs` -> `JobLifecycle/Telemetry/MigrationPlatformActivitySources.cs`
 - `Options/*` -> `Platform/Configuration/` (cross-cutting connector configuration only)
 - `Extensions/WorkItemStoreExtensions.cs` -> `WorkItems/Export/Extensions/WorkItemStoreExtensions.cs`
 - `Models/WorkItemFromChunk.cs` -> `WorkItems/Export/Models/WorkItemFromChunk.cs`
-- `ITfsJobServiceFactory.cs`, `TfsJobServiceFactory.cs`, `ActiveTfsJobServices.cs`, `MigrationPlatformHost.cs` -> `JobLifecycle/TfsRuntime/`
+- `ITfsJobServiceFactory.cs`, `TfsJobServiceFactory.cs`, `ActiveTfsJobServices.cs`, `MigrationPlatformHost.cs` -> `JobLifecycle/TfsExecution/`
 
 ## Keep as-is at top level
 
@@ -441,7 +489,6 @@ Platform
 - `Nodes`
 - `ProjectLifecycle`
 - `Teams`
-- `Telemetry`
 - `WorkItems`
 
 ## Notes

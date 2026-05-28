@@ -40,7 +40,7 @@ public class RebuildIdMapFromTargetContext
         MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
     }
 
-    public WorkItemOrchestrator BuildOrchestrator()
+    public WorkItemsImportRuntime BuildOrchestrator()
     {
         var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
@@ -52,7 +52,7 @@ public class RebuildIdMapFromTargetContext
             "Shop",
             package: MockPackage.Object);
 
-        return new WorkItemOrchestrator(
+        return new WorkItemsImportRuntime(
             MockPackage.Object,
             "https://dev.azure.com/contoso",
             "Shop",
@@ -62,7 +62,7 @@ public class RebuildIdMapFromTargetContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemOrchestrator>.Instance);
+            NullLogger<WorkItemsImportRuntime>.Instance);
     }
 
     public static async IAsyncEnumerable<T> ToAsyncEnumerable<T>(

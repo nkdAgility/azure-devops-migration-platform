@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System.Linq;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
@@ -14,6 +15,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Configuration;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.FailurePatterns;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
@@ -84,8 +86,8 @@ public static class ModuleServiceCollectionExtensions
                 sp.GetService<INodesOrchestrator>(),
                 sp.GetService<IPlatformMetrics>(),
                 sp.GetRequiredService<ILogger<WorkItemsModule>>()));
-        services.AddScoped<WorkItemOrchestrator>(sp =>
-            new WorkItemOrchestrator(
+        services.AddScoped<WorkItemsImportRuntime>(sp =>
+            new WorkItemsImportRuntime(
                 sp.GetRequiredService<IWorkItemTargetFactory>(),
                 sp.GetRequiredService<IWorkItemResolutionStrategyFactory>(),
                 sp.GetRequiredService<ICheckpointingServiceFactory>(),
@@ -95,14 +97,48 @@ public static class ModuleServiceCollectionExtensions
                 sp.GetRequiredService<IWorkItemsImportCapabilityValidator>(),
                 sp.GetRequiredService<IWorkItemsNodeReadinessOrchestrator>(),
                 sp.GetService<IPlatformMetrics>(),
-                sp.GetRequiredService<ILogger<WorkItemOrchestrator>>(),
+                sp.GetRequiredService<ILogger<WorkItemsImportRuntime>>(),
                 sp.GetRequiredService<ILogger<WorkItemsModule>>(),
                 sp.GetRequiredService<ISourceEndpointInfo>(),
                 sp.GetRequiredService<ITargetEndpointInfo>(),
                 sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<WorkItemsModuleOptions>>(),
                 sp.GetService<Microsoft.Extensions.Options.IOptions<WorkItemOptions>>(),
                 sp.GetService<Microsoft.Extensions.Options.IOptions<NodesModuleOptions>>()));
-        services.AddScoped<IWorkItemsOrchestrator>(sp => sp.GetRequiredService<WorkItemOrchestrator>());
+        services.AddScoped<ImportPreparer>(sp =>
+        {
+            var patterns = sp.GetServices<IImportFailurePattern>()?.ToArray();
+            var resolved = patterns is { Length: > 0 }
+                ? patterns
+                : new IImportFailurePattern[]
+                {
+                    new MissingRevisionArtefactImportFailurePattern(),
+                    new InvalidRevisionPayloadImportFailurePattern(),
+                    new MissingAttachmentBinaryImportFailurePattern(),
+                    new MissingEmbeddedImageBinaryImportFailurePattern(),
+                    new FieldTransformCompatibilityImportFailurePattern()
+                };
+            return new ImportPreparer(
+                sp.GetRequiredService<IOptions<WorkItemsModuleOptions>>(),
+                resolved);
+        });
+        services.AddScoped<WorkItemsOrchestrator>(sp =>
+            new WorkItemsOrchestrator(
+                sp.GetRequiredService<IWorkItemRevisionSourceFactory>(),
+                sp.GetService<IAttachmentBinarySource>(),
+                sp.GetService<IWorkItemCommentSourceFactory>(),
+                sp.GetService<IWorkItemFetchService>(),
+                sp.GetRequiredService<IWorkItemExportOrchestratorFactory>(),
+                sp.GetRequiredService<ICheckpointingServiceFactory>(),
+                sp.GetRequiredService<ILogger<WorkItemsModule>>(),
+                sp.GetService<IPlatformMetrics>(),
+                sp.GetService<IWorkItemDiscoveryService>(),
+                sp.GetService<IExportProgressStoreFactory>(),
+                sp.GetService<IReferencedPathTracker>(),
+                sp.GetRequiredService<IOptions<WorkItemsModuleOptions>>(),
+                sp.GetRequiredService<ISourceEndpointInfo>(),
+                sp.GetRequiredService<ImportPreparer>(),
+                sp.GetRequiredService<WorkItemsImportRuntime>()));
+        services.AddScoped<IWorkItemsOrchestrator>(sp => sp.GetRequiredService<WorkItemsOrchestrator>());
         services.AddTransient<IModule, WorkItemsModule>();
         return services;
     }

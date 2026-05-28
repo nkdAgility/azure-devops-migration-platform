@@ -141,7 +141,7 @@ public sealed class WorkItemsModuleInventoryTests
             logger ?? NullLogger<WorkItemsModule>.Instance,
             Options.Create(new WorkItemsModuleOptions()),
             sourceEndpoint.Object,
-            NullLogger<WorkItemOrchestrator>.Instance,
+            NullLogger<WorkItemsImportRuntime>.Instance,
             Mock.Of<IWorkItemTargetFactory>(),
             Mock.Of<IWorkItemResolutionStrategyFactory>(),
             Mock.Of<ICheckpointingServiceFactory>(),

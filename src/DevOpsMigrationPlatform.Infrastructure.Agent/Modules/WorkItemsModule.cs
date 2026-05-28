@@ -79,7 +79,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IIdentityLookupTool? _identityLookupTool;
     private readonly ICheckpointingServiceFactory _checkpointingFactory;
     private readonly ILogger<WorkItemsModule> _logger;
-    private readonly ILogger<WorkItemOrchestrator> _orchestratorLogger;
+    private readonly ILogger<WorkItemsImportRuntime> _orchestratorLogger;
     private readonly IWorkItemsOrchestrator _workItemsOrchestrator;
     private readonly IWorkItemsOrchestratorFactory _workItemsOrchestratorFactory;
     private readonly IWorkItemFetchService? _fetchService;
@@ -107,7 +107,7 @@ public sealed class WorkItemsModule : IModule
         ILogger<WorkItemsModule> logger,
         IOptions<WorkItemsModuleOptions> options,
         ISourceEndpointInfo sourceEndpointInfo,
-        ILogger<WorkItemOrchestrator> orchestratorLogger,
+        ILogger<WorkItemsImportRuntime> orchestratorLogger,
         IWorkItemTargetFactory importTargetFactory,
         IWorkItemResolutionStrategyFactory resolutionStrategyFactory,
         ICheckpointingServiceFactory checkpointingFactory,
@@ -165,7 +165,14 @@ public sealed class WorkItemsModule : IModule
         _nodeTranslationTool = nodeTranslationTool ?? throw new ArgumentNullException(nameof(nodeTranslationTool));
         _fieldTransformTool = fieldTransformTool ?? throw new ArgumentNullException(nameof(fieldTransformTool));
         _workItemImportOptions = workItemImportOptions;
+        _identityLookupTool = identityLookupTool;
         _workItemsOrchestratorFactory = workItemsOrchestratorFactory ?? new WorkItemsOrchestratorFactory();
+        _repoDiscoveryService = repoDiscoveryService;
+        var resolvedFailurePatterns = importFailurePatterns?.ToArray();
+        resolvedFailurePatterns = resolvedFailurePatterns is { Length: > 0 }
+            ? resolvedFailurePatterns
+            : CreateDefaultImportFailurePatterns().ToArray();
+        _importPreparer = importPreparer ?? new ImportPreparer(_options, resolvedFailurePatterns);
         _workItemsOrchestrator = workItemsOrchestrator
             ?? _workItemsOrchestratorFactory.Create(
                 _importTargetFactory,
@@ -183,14 +190,16 @@ public sealed class WorkItemsModule : IModule
                 _targetEndpointInfo,
                 _options,
                 _workItemImportOptions,
-                _nodesModuleOptions);
-        _identityLookupTool = identityLookupTool;
-        _repoDiscoveryService = repoDiscoveryService;
-        var resolvedFailurePatterns = importFailurePatterns?.ToArray();
-        resolvedFailurePatterns = resolvedFailurePatterns is { Length: > 0 }
-            ? resolvedFailurePatterns
-            : CreateDefaultImportFailurePatterns().ToArray();
-        _importPreparer = importPreparer ?? new ImportPreparer(_options, resolvedFailurePatterns);
+                _nodesModuleOptions,
+                _sourceFactory,
+                _attachmentBinarySource,
+                _inlineCommentSourceFactory,
+                _fetchService,
+                _exportOrchestratorFactory,
+                _discoveryService,
+                _exportProgressStoreFactory,
+                _referencedPathTracker,
+                _importPreparer);
     }
 
     public async Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
@@ -375,70 +384,7 @@ public sealed class WorkItemsModule : IModule
 
     public async Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct)
     {
-        using var activity = s_activitySource.StartActivity("prepare.workitems");
-        activity?.SetTag("job.id", context.Job.JobId);
-        activity?.SetTag("module", Name);
-
-        _logger.LogInformation("Preparing {Module}", Name);
-        context.ProgressSink?.Emit(new ProgressEvent
-        {
-            Module = Name,
-            Stage = "Preparing",
-            Message = $"Preparing {Name}",
-            Timestamp = DateTimeOffset.UtcNow
-        });
-
-        var tags = new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } };
-        PrepareReport report;
-        var stopwatch = Stopwatch.StartNew();
-        try
-        {
-            report = await _importPreparer.PrepareAsync(context, ct).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _metrics?.RecordPrepareWorkItemsError(tags);
-            _logger.LogError(ex, "[WorkItems] Prepare phase dispatch failed.");
-            throw new InvalidOperationException("[WorkItems] Prepare phase dispatch failed.", ex);
-        }
-        finally
-        {
-            stopwatch.Stop();
-        }
-
-        _metrics?.RecordPrepareWorkItemsResolved(report.ResolvedCount, tags);
-        _metrics?.RecordPrepareWorkItemsUnresolved(report.UnresolvedCount, tags);
-        _metrics?.RecordPrepareWorkItemsDuration(stopwatch.Elapsed.TotalMilliseconds, tags);
-        await WritePackageTextAsync(context.Package, "WorkItems/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
-        if (report.ImportReadinessReport is not null)
-        {
-            await WritePackageTextAsync(
-                    context.Package,
-                    ".migration/Readiness/workitems-import-readiness.json",
-                    JsonSerializer.Serialize(report.ImportReadinessReport),
-                    ct)
-                .ConfigureAwait(false);
-        }
-
-        _logger.LogInformation(
-            "Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms",
-            Name,
-            report.ResolvedCount,
-            report.UnresolvedCount,
-            stopwatch.ElapsedMilliseconds);
-        context.ProgressSink?.Emit(new ProgressEvent
-        {
-            Module = Name,
-            Stage = "Prepared",
-            Message = $"{Name} prepare complete",
-            Timestamp = DateTimeOffset.UtcNow
-        });
-
-        return TaskExecutionResult.Completed();
+        return await _workItemsOrchestrator.PrepareAsync(context, ct).ConfigureAwait(false);
     }
 
     private static IReadOnlyList<IImportFailurePattern> CreateDefaultImportFailurePatterns()
@@ -456,106 +402,12 @@ public sealed class WorkItemsModule : IModule
     /// <inheritdoc/>
     public async Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct)
     {
-        using var activity = s_activitySource.StartActivity("workitems.export");
-
-        var job = context.Job;
-
-        var orgUrl = _sourceEndpointInfo.Url;
-        var orgSlug = _sourceEndpointInfo.OrganisationSlug;
-        var project = _sourceEndpointInfo.Project;
-
-#if !NET481
-        var ext = WorkItemsModuleExtensions.FromOptions(_options.Value);
-
-        using (_logger.BeginDataScope(DataClassification.Customer))
-        {
-            _logger.LogInformation(
-                "[WorkItems] Exporting from {OrgUrl}/{Project} (attachments={AttachmentsEnabled}, comments={CommentsEnabled})",
-                orgUrl, project, ext.AttachmentsEnabled, ext.Comments.Enabled);
-        }
-
-        // Option C — warn when config enables a feature but the backing service is absent.
-        if (ext.AttachmentsEnabled && _attachmentBinarySource == null)
-            _logger.LogWarning("[WorkItems] AttachmentsEnabled is true but no IAttachmentBinarySource is registered — attachment binaries will NOT be written to the package. Register a connector-specific IAttachmentBinarySource to enable attachment export.");
-        if (ext.Comments.Enabled && _inlineCommentSourceFactory == null)
-            _logger.LogWarning("[WorkItems] Comments.Enabled is true but no IWorkItemCommentSourceFactory is registered — inline comments will NOT be exported. Register a connector-specific IWorkItemCommentSourceFactory to enable comment export.");
-
-        // Build combined filter options (include as Regex + exclude as NotRegex).
-        var allFilters = ext.IncludeFilters.Concat(ext.ExcludeFilters).ToList();
-
-        if (allFilters.Count > 0 && _fetchService == null)
-            _logger.LogWarning("[WorkItems] IncludeFilters/ExcludeFilters are configured but no IWorkItemFetchService is registered — filters will be ignored and all work items will be exported. Register a connector-specific IWorkItemFetchService to enable filtered export.");
-#else
-        // net481: use defaults — attachments enabled, no filters, no comments.
-        _logger.LogInformation("[WorkItems] Exporting from {OrgUrl}/{Project} (attachments=true, comments=false)", orgUrl, project);
-        var wiqlQuery = (string?)null;
-        var discoveryService481 = _discoveryService;
-        var allFilters = new System.Collections.Generic.List<WorkItemFieldFilterOptions>();
-#endif
-
-        // NOTE: Connectors now resolve their own credentials from DI; no need to pass endpoint options.
-        var source = await _sourceFactory
-            .CreateAsync(ct)
-            .ConfigureAwait(false);
-
-#if !NET481
-        if (_referencedPathTracker is null)
-            _logger.LogWarning("[WorkItems] IReferencedPathTracker is not available — referenced path tracking will be skipped.");
-
-        if (_referencedPathTracker is not null)
-            await _referencedPathTracker.InitializeAsync(context.Package, orgSlug, project, ct).ConfigureAwait(false);
-#endif
-
-        var checkpointingService = _checkpointingFactory.Create(context.Package);
-
-        // Comments extension gates inline comment fetching.
-#if !NET481
-        var inlineFactory = ext.Comments.Enabled ? _inlineCommentSourceFactory : null;
-#else
-        var inlineFactory = (IWorkItemCommentSourceFactory?)null;
-#endif
-
-        var orchestrator = _exportOrchestratorFactory.Create(
-            context.Package,
-            orgSlug,
-            project,
-            checkpointingService,
-#if !NET481
-            ext.AttachmentsEnabled ? _attachmentBinarySource : null,
-#else
-            _attachmentBinarySource,
-#endif
-            context.ProgressSink,
-            inlineCommentSourceFactory: inlineFactory,
-            fetchService: allFilters.Count > 0 ? _fetchService : null,
-            filterOptions: allFilters.Count > 0 ? allFilters : null,
-            metrics: _metrics,
-            jobId: job.JobId,
-            logger: _logger,
-            taskId: context.TaskId,
-#if !NET481
-            wiqlQuery: ext.Query,
-            discoveryService: _discoveryService,
-            exportProgressStoreFactory: _exportProgressStoreFactory,
-             packageUri: job.Package.PackageUri,
-            referencedPathTracker: _referencedPathTracker
-#else
-            wiqlQuery: wiqlQuery,
-            discoveryService: discoveryService481,
-            exportProgressStoreFactory: _exportProgressStoreFactory,
-            packageUri: job.Package.PackageUri
-#endif
-            );
-
-        await orchestrator.ExportAsync(source, ct).ConfigureAwait(false);
-
-        _logger.LogInformation("[WorkItems] Export complete.");
-        return TaskExecutionResult.Completed();
+        return await _workItemsOrchestrator.ExportAsync(context, ct).ConfigureAwait(false);
     }
 
     public async Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct)
     {
-        return await _workItemsOrchestrator.ExecuteAsync(context, ct).ConfigureAwait(false);
+        return await _workItemsOrchestrator.ImportAsync(context, ct).ConfigureAwait(false);
     }
 
 #if !NET481
@@ -605,33 +457,7 @@ public sealed class WorkItemsModule : IModule
 
     public async Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct)
     {
-        var job = context.Job;
-
-        // Only perform package-side validation for Import
-        if (job.Kind != JobKind.Import)
-            return TaskExecutionResult.Skipped("WorkItems package validation applies only to import jobs.");
-
-        // Tier 2: Verify the WorkItems/ prefix has at least one revision folder
-        var found = false;
-        await foreach (var path in context.Package.EnumerateContentAsync(
-                           new PackageContentContext(PackageContentKind.Collection, Address: new RelativePathAddress("WorkItems/"), IsCollectionRequest: true),
-                           ct).ConfigureAwait(false))
-        {
-            found = true;
-            break;
-        }
-
-        if (!found)
-        {
-            context.Errors.Add(new ValidationError
-            {
-                Path = "WorkItems/",
-                Message = "The package contains no work item revision folders under WorkItems/. " +
-                          "Ensure an export has been run before attempting import."
-            });
-        }
-
-        return TaskExecutionResult.Completed();
+        return await _workItemsOrchestrator.ValidateAsync(context, ct).ConfigureAwait(false);
     }
 
     private static async Task WritePackageTextAsync(IPackageAccess package, string relativePath, string content, CancellationToken cancellationToken)

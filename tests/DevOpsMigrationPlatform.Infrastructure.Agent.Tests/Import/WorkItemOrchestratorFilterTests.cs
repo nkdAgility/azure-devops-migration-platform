@@ -390,7 +390,7 @@ public class WorkItemOrchestratorFilterTests
             "Shop",
             package: _mockPackage.Object);
 
-        var orchestrator = new WorkItemOrchestrator(
+        var orchestrator = new WorkItemsImportRuntime(
             _mockPackage.Object,
             "unknown",
             string.Empty,
@@ -400,7 +400,7 @@ public class WorkItemOrchestratorFilterTests
             _mockIdMap.Object,
             processor,
             _mockTarget.Object,
-            NullLogger<WorkItemOrchestrator>.Instance);
+            NullLogger<WorkItemsImportRuntime>.Instance);
 
         await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
 
@@ -411,7 +411,7 @@ public class WorkItemOrchestratorFilterTests
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private WorkItemOrchestrator BuildOrchestrator(
+    private WorkItemsImportRuntime BuildOrchestrator(
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null)
     {
         var processor = new WorkItemResolutionProcessor(
@@ -424,7 +424,7 @@ public class WorkItemOrchestratorFilterTests
             "Shop",
             package: _mockPackage.Object);
 
-        return new WorkItemOrchestrator(
+        return new WorkItemsImportRuntime(
             _mockPackage.Object,
             "https://dev.azure.com/contoso",
             "Shop",
@@ -434,7 +434,7 @@ public class WorkItemOrchestratorFilterTests
             _mockIdMap.Object,
             processor,
             _mockTarget.Object,
-            NullLogger<WorkItemOrchestrator>.Instance,
+            NullLogger<WorkItemsImportRuntime>.Instance,
             filterOptions: filterOptions);
     }
 

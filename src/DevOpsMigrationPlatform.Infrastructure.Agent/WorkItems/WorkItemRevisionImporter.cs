@@ -14,9 +14,9 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 /// </summary>
 public sealed class WorkItemRevisionImporter
 {
-    private readonly WorkItemOrchestrator _orchestrator;
+    private readonly WorkItemsImportRuntime _orchestrator;
 
-    public WorkItemRevisionImporter(WorkItemOrchestrator orchestrator)
+    public WorkItemRevisionImporter(WorkItemsImportRuntime orchestrator)
     {
         _orchestrator = orchestrator ?? throw new ArgumentNullException(nameof(orchestrator));
     }

@@ -128,7 +128,7 @@ public sealed class ServicesFeaturesDslTests
             logger: Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemsModule>.Instance,
             options: Microsoft.Extensions.Options.Options.Create(new WorkItemsModuleOptions()),
             sourceEndpointInfo: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Context.ISourceEndpointInfo>(),
-            orchestratorLogger: Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemOrchestrator>.Instance,
+            orchestratorLogger: Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemsImportRuntime>.Instance,
             importTargetFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemTargetFactory>(),
             resolutionStrategyFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemResolutionStrategyFactory>(),
             checkpointingFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing.ICheckpointingServiceFactory>(),

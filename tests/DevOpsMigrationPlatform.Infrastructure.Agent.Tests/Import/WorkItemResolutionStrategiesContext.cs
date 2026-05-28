@@ -46,7 +46,7 @@ public class WorkItemResolutionStrategiesContext
         MockPackage = PackageTestFactory.CreateLooseMock();
     }
 
-    public WorkItemOrchestrator BuildOrchestrator()
+    public WorkItemsImportRuntime BuildOrchestrator()
     {
         var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
@@ -58,7 +58,7 @@ public class WorkItemResolutionStrategiesContext
             "Shop",
             package: MockPackage.Object);
 
-        return new WorkItemOrchestrator(
+        return new WorkItemsImportRuntime(
             MockPackage.Object,
             "https://dev.azure.com/contoso",
             "Shop",
@@ -68,6 +68,6 @@ public class WorkItemResolutionStrategiesContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemOrchestrator>.Instance);
+            NullLogger<WorkItemsImportRuntime>.Instance);
     }
 }

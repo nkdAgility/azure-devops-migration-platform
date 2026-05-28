@@ -73,7 +73,7 @@ public class RerunDeltaImportContext
             package: MockPackage.Object);
     }
 
-    public WorkItemOrchestrator BuildOrchestrator()
+    public WorkItemsImportRuntime BuildOrchestrator()
     {
         var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
@@ -85,7 +85,7 @@ public class RerunDeltaImportContext
             ProjectName,
             package: MockPackage.Object);
 
-        return new WorkItemOrchestrator(
+        return new WorkItemsImportRuntime(
             MockPackage.Object,
             EndpointUrl,
             ProjectName,
@@ -95,7 +95,7 @@ public class RerunDeltaImportContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemOrchestrator>.Instance);
+            NullLogger<WorkItemsImportRuntime>.Instance);
     }
 
     public static async IAsyncEnumerable<string> ToAsyncEnumerable(

@@ -44,7 +44,7 @@ public class StreamingImportReplayContext
         MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
     }
 
-    public WorkItemOrchestrator BuildOrchestrator()
+    public WorkItemsImportRuntime BuildOrchestrator()
     {
         var processorLogger = NullLogger<WorkItemResolutionProcessor>.Instance;
         var processor = new WorkItemResolutionProcessor(
@@ -57,7 +57,7 @@ public class StreamingImportReplayContext
             "Shop",
             package: MockPackage.Object);
 
-        return new WorkItemOrchestrator(
+        return new WorkItemsImportRuntime(
             MockPackage.Object,
             "https://dev.azure.com/contoso",
             "Shop",
@@ -67,7 +67,7 @@ public class StreamingImportReplayContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemOrchestrator>.Instance);
+            NullLogger<WorkItemsImportRuntime>.Instance);
     }
 
     /// <summary>

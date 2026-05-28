@@ -110,7 +110,7 @@ public class WorkItemRevisionImporterTests
 
         public WorkItemRevisionImporter CreateImporter()
         {
-            var orchestrator = new WorkItemOrchestrator(
+            var orchestrator = new WorkItemsImportRuntime(
                 Package.Object,
                 "https://dev.azure.com/contoso",
                 "Shop",
@@ -120,7 +120,7 @@ public class WorkItemRevisionImporterTests
                 IdMapStore.Object,
                 Processor.Object,
                 Target.Object,
-                NullLogger<WorkItemOrchestrator>.Instance);
+                NullLogger<WorkItemsImportRuntime>.Instance);
 
             return new WorkItemRevisionImporter(orchestrator);
         }
