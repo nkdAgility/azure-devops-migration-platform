@@ -294,6 +294,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         if (string.IsNullOrWhiteSpace(raw))
             return AuthenticationType.None;
 
+        if (string.Equals(raw, "Pat", StringComparison.OrdinalIgnoreCase))
+            return AuthenticationType.AccessToken;
+
         if (Enum.TryParse<AuthenticationType>(raw, ignoreCase: true, out var parsed))
             return parsed;
 

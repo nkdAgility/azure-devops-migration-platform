@@ -27,7 +27,7 @@ Checklist for every new or modified module. All items mandatory unless marked op
 
 All modules follow the mandatory **Module -> Orchestrator(s) -> Package + Adapter(s) + Strategy(s).** pattern:
 
-```
+```text
 Module (thin wrapper: ~100–130 lines)
   → Orchestrator (business logic: checkpointing, progress, metrics, enumeration, resume)
     → Package + Adapter(s) + Strategy(s)
@@ -145,5 +145,4 @@ Reject module if:
 - State outside root `.migration/` or project `/{org}/{project}/.migration/`.
 - Missing `DependsOn` declaration.
 - `ExportAsync`/`ImportAsync` completes with count=0 without emitting Warning log.
-
 

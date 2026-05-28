@@ -49,21 +49,21 @@
 
 ### Tests for User Story 1
 
-- [X] T010 [P] [US1] Add/extend unit tests for deterministic sequence enforcement in `tests/DevOpsMigrationPlatform.Tests/Agent/Import/WorkItemsOrchestrator*Tests.cs`
-- [X] T011 [P] [US1] Add/extend system simulated test for mixed mapped/unmapped revision behavior and stale-mapping recovery in `tests/DevOpsMigrationPlatform.SystemTests/WorkItems/Import/*Deterministic*Tests.cs`
-- [X] T012 [US1] Add/extend resume stage transition test coverage in `tests/DevOpsMigrationPlatform.Tests/Agent/Import/RevisionFolderProcessor*Tests.cs`
+- [X] T010 [P] [US1] Add/extend unit tests for deterministic sequence enforcement in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/WorkItemOrchestrator*Tests.cs`
+- [X] T011 [P] [US1] Add/extend system simulated test for mixed mapped/unmapped revision behavior and stale-mapping recovery in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/*Deterministic*Tests.cs`
+- [X] T012 [US1] Add/extend resume stage transition test coverage in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/WorkItemResolutionProcessor*Tests.cs`
 
 ### Implementation for User Story 1
 
-- [X] T013 [US1] Implement/complete shared resolution lifecycle processor in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/RevisionFolderProcessor.cs`
-- [X] T014 [US1] Refactor `WorkItemsImportOrchestrator` to delegate startup resolution lifecycle to the resolution processor in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemsImportOrchestrator.cs`
-- [X] T015 [US1] Refactor resolution processor flow to resolve through shared processor lifecycle before create/update/replay in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/RevisionFolderProcessor.cs`
-- [X] T016 [US1] Ensure mandatory stage markers are emitted for import flow in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/{WorkItemsOrchestrator.cs,RevisionFolderProcessor.cs}`
-- [X] T017 [US1] Wire checkpoint/stage progression consistency for deterministic resume in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/{WorkItemsOrchestrator.cs,ImportWorkItemStateStore.cs}`
-- [X] T036 [US1] Preserve existing field/node default policy behavior in deterministic resolution flow in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/RevisionFolderProcessor.cs`
-- [X] T037 [P] [US1] Add regression tests for field/node default policy preservation in `tests/DevOpsMigrationPlatform.Tests/Agent/Import/*DefaultPolicy*Tests.cs`
-- [X] T040 [US1] Rename/split revision processor to `WorkItemResolutionProcessor` and align call sites in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/{RevisionFolderProcessor.cs,WorkItemsOrchestrator.cs}`
-- [X] T042 [US1] Make startup policy assembly explicit in `WorkItemsOrchestrator` before revision dispatch in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Import/WorkItemsOrchestrator.cs`
+- [X] T013 [US1] Implement/complete shared resolution lifecycle processor in `src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/RevisionFolderProcessor.cs`
+- [X] T014 [US1] Refactor `WorkItemsImportOrchestrator` to delegate startup resolution lifecycle to the resolution processor in `src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/WorkItemOrchestrator.cs`
+- [X] T015 [US1] Refactor resolution processor flow to resolve through shared processor lifecycle before create/update/replay in `src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/RevisionFolderProcessor.cs`
+- [X] T016 [US1] Ensure mandatory stage markers are emitted for import flow in `src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/{WorkItemsImportRuntime.cs,RevisionFolderProcessor.cs}`
+- [X] T017 [US1] Wire checkpoint/stage progression consistency for deterministic resume in `src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/{WorkItemsImportRuntime.cs,ImportWorkItemStateStore.cs}`
+- [X] T036 [US1] Preserve existing field/node default policy behavior in deterministic resolution flow in `src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/RevisionFolderProcessor.cs`
+- [X] T037 [P] [US1] Add regression tests for field/node default policy preservation in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/*DefaultPolicy*Tests.cs`
+- [X] T040 [US1] Rename/split revision processor to `WorkItemResolutionProcessor` and align call sites in `src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/{RevisionFolderProcessor.cs,WorkItemsImportRuntime.cs}`
+- [X] T042 [US1] Make startup policy assembly explicit in `WorkItemsOrchestrator` before revision dispatch in `src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/WorkItemsImportRuntime.cs`
 
 **Checkpoint**: User Story 1 is independently deterministic and resumable.
 
@@ -77,8 +77,8 @@
 
 ### Tests for User Story 2
 
-- [X] T018 [P] [US2] Add architecture boundary tests for WorkItems module/orchestrator split in `tests/DevOpsMigrationPlatform.Tests/Architecture/WorkItemsOrchestrationBoundaryTests.cs`
-- [X] T019 [P] [US2] Add tests to assert no inline concrete WorkItems export orchestrator construction in module wrapper in `tests/DevOpsMigrationPlatform.Tests/Agent/Modules/WorkItemsModule*Tests.cs`
+- [X] T018 [P] [US2] Add architecture boundary tests for WorkItems module/orchestrator split in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/WorkItemsModuleArchitectureTests.cs`
+- [X] T019 [P] [US2] Add tests to assert no inline concrete WorkItems export orchestrator construction in module wrapper in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/WorkItemsModule*Tests.cs`
 
 ### Implementation for User Story 2
 

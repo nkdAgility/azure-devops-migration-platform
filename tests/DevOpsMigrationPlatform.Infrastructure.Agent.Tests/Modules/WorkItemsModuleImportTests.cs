@@ -254,6 +254,11 @@ public sealed class WorkItemsModuleImportTests
 
         var revisionProcessor = new Mock<IWorkItemResolutionProcessor>(MockBehavior.Strict);
         revisionProcessor
+            .Setup(p => p.InitializeAsync(
+                It.IsAny<IWorkItemResolutionStrategy>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        revisionProcessor
             .Setup(p => p.ProcessAsync(
                 "WorkItems/2026-05-13/638827200000000000-42-0/",
                 It.IsAny<WorkItemsModuleExtensions>(),
@@ -427,6 +432,11 @@ public sealed class WorkItemsModuleImportTests
 
         var revisionProcessor = new Mock<IWorkItemResolutionProcessor>(MockBehavior.Strict);
         revisionProcessor
+            .Setup(p => p.InitializeAsync(
+                It.IsAny<IWorkItemResolutionStrategy>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        revisionProcessor
             .Setup(p => p.ProcessAsync(
                 "WorkItems/2026-05-13/638827200000000000-42-0/",
                 It.IsAny<WorkItemsModuleExtensions>(),
@@ -572,6 +582,11 @@ public sealed class WorkItemsModuleImportTests
             .Returns(idMapStore.Object);
 
         var revisionProcessor = new Mock<IWorkItemResolutionProcessor>(MockBehavior.Strict);
+        revisionProcessor
+            .Setup(p => p.InitializeAsync(
+                It.IsAny<IWorkItemResolutionStrategy>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
         WorkItemsModuleExtensions? capturedExtensions = null;
         revisionProcessor
             .Setup(p => p.ProcessAsync(

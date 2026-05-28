@@ -75,6 +75,8 @@ Call-site evidence (real connector side effects):
   QueryByWiqlAsync (target lookup seed)
 - src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Import/TfsTargetFieldResolutionStrategy.cs:67
   GetWorkItemsAsync (target candidate retrieval)
+- src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Import/TfsTargetFieldResolutionStrategy.cs:101
+  QueryByWiqlAsync (single-item target lookup)
 - src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Import/TfsTargetFieldResolutionStrategy.cs:115
   UpdateFieldsAsync (target provenance write side effect)
 

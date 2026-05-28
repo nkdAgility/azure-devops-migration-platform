@@ -109,15 +109,7 @@ public sealed class WorkItemStreamOrchestrator
             string.IsNullOrEmpty(lastProcessed) ? "(start)" : lastProcessed,
             lastStage ?? "(none)");
 
-        if (_processor is WorkItemResolutionProcessor resolutionProcessor)
-        {
-            await resolutionProcessor.InitializeAsync(_resolutionStrategy, ct).ConfigureAwait(false);
-        }
-        else
-        {
-            await _idMapStore.InitializeAsync(ct).ConfigureAwait(false);
-            await _resolutionStrategy.SeedAsync(_idMapStore, ct).ConfigureAwait(false);
-        }
+        await _processor.InitializeAsync(_resolutionStrategy, ct).ConfigureAwait(false);
 
         int foldersProcessed = 0;
         int workItemsProcessed = 0;

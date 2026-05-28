@@ -57,7 +57,7 @@ public class ExportProgressStoreFactoryTests
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            Assert.Fail("This test requires Windows.");
+            Assert.Inconclusive("This test requires Windows.");
         }
 
         var rootName = Path.Combine(

@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -21,6 +22,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Import;
 /// </summary>
 public sealed class TfsTargetFieldResolutionStrategy : IWorkItemResolutionStrategy
 {
+    private static readonly Regex FieldNamePattern = new(@"^[A-Za-z0-9_.-]+$", RegexOptions.Compiled);
     private readonly WorkItemTrackingHttpClient _witClient;
     private readonly IWorkItemTarget _target;
     private readonly string _project;
@@ -41,10 +43,12 @@ public sealed class TfsTargetFieldResolutionStrategy : IWorkItemResolutionStrate
     /// <inheritdoc/>
     public async Task SeedAsync(IIdMapStore idMapStore, CancellationToken ct)
     {
+        EnsureValidFieldName();
+        var safeProject = EscapeWiqlLiteral(_project);
         var wiql = new Wiql
         {
             Query = $"SELECT [System.Id], [{_fieldName}] FROM WorkItems " +
-                    $"WHERE [System.TeamProject] = '{_project}' " +
+                    $"WHERE [System.TeamProject] = '{safeProject}' " +
                     $"AND [{_fieldName}] <> '' " +
                     $"ORDER BY [System.Id]"
         };
@@ -90,10 +94,12 @@ public sealed class TfsTargetFieldResolutionStrategy : IWorkItemResolutionStrate
     /// <inheritdoc/>
     public async Task<int?> ResolveSingleAsync(int sourceWorkItemId, CancellationToken ct)
     {
+        EnsureValidFieldName();
+        var safeProject = EscapeWiqlLiteral(_project);
         var wiql = new Wiql
         {
             Query = $"SELECT [System.Id] FROM WorkItems " +
-                    $"WHERE [System.TeamProject] = '{_project}' " +
+                    $"WHERE [System.TeamProject] = '{safeProject}' " +
                     $"AND [{_fieldName}] = '{sourceWorkItemId}'"
         };
 
@@ -114,4 +120,12 @@ public sealed class TfsTargetFieldResolutionStrategy : IWorkItemResolutionStrate
 
         await _target.UpdateFieldsAsync(targetWorkItemId, fields, ct).ConfigureAwait(false);
     }
+
+    private void EnsureValidFieldName()
+    {
+        if (!FieldNamePattern.IsMatch(_fieldName))
+            throw new InvalidOperationException($"Invalid field name '{_fieldName}' for WIQL.");
+    }
+
+    private static string EscapeWiqlLiteral(string value) => value.Replace("'", "''");
 }
