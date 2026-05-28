@@ -63,6 +63,21 @@ public sealed class TfsResolutionStrategyFactoryTests
     }
 
     [TestMethod]
+    public async Task CreateAsync_WhenTargetEndpointUrlHasWhitespace_StillReturnsTfsTargetFieldResolutionStrategy()
+    {
+        var factory = new TfsResolutionStrategyFactory();
+        var options = new WorkItemResolutionStrategyOptions { Strategy = "TargetField", FieldName = "Custom.SourceId" };
+
+        var strategy = await factory.CreateAsync(
+            options,
+            Mock.Of<IWorkItemTarget>(),
+            new WhitespaceTargetEndpointInfo(),
+            CancellationToken.None);
+
+        Assert.IsInstanceOfType(strategy, typeof(TfsTargetFieldResolutionStrategy));
+    }
+
+    [TestMethod]
     public async Task CreateAsync_WhenTargetFieldWithoutFieldName_ThrowsInvalidOperationException()
     {
         var factory = new TfsResolutionStrategyFactory();
@@ -79,6 +94,15 @@ public sealed class TfsResolutionStrategyFactoryTests
     private sealed class TestTargetEndpointInfo : ITargetEndpointInfo
     {
         public string Url => "http://tfs.example.local:8080/tfs/DefaultCollection";
+        public string Project => "Demo";
+        public string ConnectorType => "TeamFoundationServer";
+        public string OrganisationSlug => "defaultcollection";
+        public OrganisationEndpoint ToOrganisationEndpoint() => new() { ResolvedUrl = Url, Type = ConnectorType };
+    }
+
+    private sealed class WhitespaceTargetEndpointInfo : ITargetEndpointInfo
+    {
+        public string Url => "  http://tfs.example.local:8080/tfs/DefaultCollection  ";
         public string Project => "Demo";
         public string ConnectorType => "TeamFoundationServer";
         public string OrganisationSlug => "defaultcollection";

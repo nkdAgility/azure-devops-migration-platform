@@ -48,7 +48,8 @@ public sealed class TfsResolutionStrategyFactory : IWorkItemResolutionStrategyFa
                 "WorkItemResolutionStrategy.FieldName must be configured when strategy is \"TargetField\" for TeamFoundationServer targets.");
 
         var orgEndpoint = endpoint.ToOrganisationEndpoint();
-        if (string.IsNullOrWhiteSpace(orgEndpoint.ResolvedUrl))
+        var resolvedUrl = orgEndpoint.ResolvedUrl?.Trim();
+        if (string.IsNullOrWhiteSpace(resolvedUrl))
             throw new InvalidOperationException("TeamFoundationServer target endpoint URL was not provided.");
 
         VssCredentials credentials = orgEndpoint.Authentication.Type == AuthenticationType.AccessToken &&
@@ -56,7 +57,7 @@ public sealed class TfsResolutionStrategyFactory : IWorkItemResolutionStrategyFa
             ? new VssCredentials(new VssBasicCredential(string.Empty, orgEndpoint.Authentication.ResolvedAccessToken))
             : new VssClientCredentials(true);
 
-        var witClient = new WorkItemTrackingHttpClient(new Uri(orgEndpoint.ResolvedUrl), credentials);
+        var witClient = new WorkItemTrackingHttpClient(new Uri(resolvedUrl), credentials);
 
         return Task.FromResult<IWorkItemResolutionStrategy>(
             new TfsTargetFieldResolutionStrategy(witClient, target, endpoint.Project, options.FieldName));
