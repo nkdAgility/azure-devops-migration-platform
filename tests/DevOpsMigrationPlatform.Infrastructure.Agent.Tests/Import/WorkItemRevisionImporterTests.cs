@@ -99,6 +99,11 @@ public class WorkItemRevisionImporterTests
                 .Returns((PackageContentContext _, CancellationToken ct) => ToAsyncEnumerable(new[] { FolderPath }, ct));
 
             Processor
+                .Setup(p => p.InitializeAsync(
+                    ResolutionStrategy.Object,
+                    It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            Processor
                 .Setup(p => p.ProcessAsync(
                     FolderPath,
                     It.IsAny<WorkItemsModuleExtensions>(),
