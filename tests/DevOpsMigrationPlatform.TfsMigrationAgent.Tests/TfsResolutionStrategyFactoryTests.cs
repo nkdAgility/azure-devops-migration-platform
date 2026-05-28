@@ -9,6 +9,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Platform.Configuration;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.WorkItemResolution;
 using Microsoft.VisualStudio.TestTools.UnitTesting;

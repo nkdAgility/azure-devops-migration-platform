@@ -14,6 +14,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 

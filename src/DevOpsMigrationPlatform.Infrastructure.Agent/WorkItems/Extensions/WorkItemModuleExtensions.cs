@@ -3,8 +3,12 @@
 
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Configuration;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.FailurePatterns;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Validators;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments.ImportFailures;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Identity;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Nodes;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions.ImportFailures;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemType;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;

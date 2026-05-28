@@ -14,7 +14,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Validators;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;

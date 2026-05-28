@@ -115,8 +115,10 @@ Platform
 - `Import/*WorkItem*` -> `WorkItems/WorkItemResolution/`
 - `Import/*Node*` -> `Nodes/Import/`
 - `Import/*Attachment*` and `Import/*EmbeddedImage*` -> `Attachments/Import/`
-- `Import/FailurePatterns/*` -> `WorkItems/FailurePatterns/`
-- `Import/Validators/*` -> concern-specific `*/Validation/` (prefer `WorkItems/Validation/` and `Nodes/Validation/`)
+- `Import/FailurePatterns/*` -> concern-owned folders:
+  - revision failures -> `WorkItems/Revisions/ImportFailures/`
+  - attachment/image failures -> `WorkItems/Attachments/ImportFailures/`
+- `Import/Validators/*` -> concern-owned folders (for example `WorkItems/Nodes/`, `WorkItems/Identity/`, `WorkItems/WorkItemType/`)
 
 ### Modules
 

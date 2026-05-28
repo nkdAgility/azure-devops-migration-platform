@@ -20,6 +20,8 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Identity;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;

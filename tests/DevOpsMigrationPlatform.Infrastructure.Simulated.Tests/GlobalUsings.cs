@@ -19,3 +19,4 @@ global using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 global using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 global using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 global using DevOpsMigrationPlatform.Abstractions.Telemetry;
+global using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;

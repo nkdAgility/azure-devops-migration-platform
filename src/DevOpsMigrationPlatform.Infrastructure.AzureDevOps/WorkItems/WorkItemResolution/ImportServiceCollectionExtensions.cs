@@ -11,6 +11,8 @@ using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.WorkItems.WorkItemType;
 using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Identity;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityLookup;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

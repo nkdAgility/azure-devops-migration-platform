@@ -18,6 +18,8 @@ using Microsoft.Extensions.Logging;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 #if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 #endif
@@ -1108,4 +1110,3 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
             _ => $"{bytes} B"
         };
 }
-

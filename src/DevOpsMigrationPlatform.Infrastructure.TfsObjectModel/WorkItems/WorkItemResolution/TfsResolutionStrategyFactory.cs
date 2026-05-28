@@ -9,6 +9,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.VisualStudio.Services.Client;
 using Microsoft.VisualStudio.Services.Common;
