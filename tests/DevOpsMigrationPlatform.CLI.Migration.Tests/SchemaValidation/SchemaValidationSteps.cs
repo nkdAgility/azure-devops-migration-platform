@@ -17,6 +17,7 @@ using Reqnroll;
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.SchemaValidation;
 
 [Binding]
+[TestCategory("SystemTest")]
 [TestCategory("SystemTest_Simulated")]
 public sealed class SchemaValidationSteps
 {

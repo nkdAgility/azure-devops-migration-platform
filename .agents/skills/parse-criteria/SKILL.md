@@ -51,6 +51,9 @@ Convert the Feature name to a `[TestClass]` name:
 ### Step 5 — Produce the structured plan
 
 Output the plan in the format defined in [README.md](README.md).
+Include required categories in the plan metadata:
+- Pure unit tests: `UnitTest`
+- DSL tests: `DomainTest` + `SystemTest` + exactly one subtype (`SystemTest_Live`, `SystemTest_Smoke`, `SystemTest_Simulated`)
 
 ## Constraints
 
@@ -58,4 +61,3 @@ Output the plan in the format defined in [README.md](README.md).
 - Do not produce C# code in this step — that is the Test Generation Agent's responsibility.
 - If a step is ambiguous (e.g., "the system does the right thing"), flag it and ask for clarification.
 - Never produce a test plan that would require violating [agents/architecture-boundaries.md](../../../.agents/20-guardrails/core/architecture-boundaries.md).
-

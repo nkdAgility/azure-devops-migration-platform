@@ -22,6 +22,9 @@ using DevOpsMigrationPlatform.Abstractions;    // adjust namespace as needed
 namespace DevOpsMigrationPlatform.<Area>.Tests.<Feature>;
 
 [Binding]
+[TestCategory("DomainTest")]
+[TestCategory("SystemTest")]
+[TestCategory("SystemTest_Simulated")]
 public class <FeatureName>Steps
 {
     private readonly <FeatureName>Context _ctx;
@@ -124,3 +127,5 @@ public void ThenRevisionsAreProcessedOneAtATime()
 5. One `Steps.cs` and one `Context.cs` per feature.
 6. The `[Binding]` class must not be `static` and must not hold static mutable fields.
 7. Step attribute regex must exactly match the `.feature` file step text — mismatches cause "no matching step definition" errors at runtime.
+8. Pure unit tests must always include `[TestCategory("UnitTest")]`.
+9. Every DSL `.feature` file must include `@DomainTest`, `@SystemTest`, and exactly one of `@SystemTest_Live`, `@SystemTest_Smoke`, or `@SystemTest_Simulated`.

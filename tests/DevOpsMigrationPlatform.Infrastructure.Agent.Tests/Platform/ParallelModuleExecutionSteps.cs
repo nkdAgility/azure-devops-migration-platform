@@ -23,6 +23,7 @@ public sealed class ParallelModuleExecutionContext
 }
 
 [Binding]
+[TestCategory("SystemTest")]
 [TestCategory("SystemTest_Simulated")]
 public sealed class ParallelModuleExecutionSteps
 {
