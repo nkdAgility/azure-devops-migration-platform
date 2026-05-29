@@ -141,7 +141,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             {
                 _logger.LogError(ex,
                     "Config file not found in {PackageUri} for job {JobId}. Re-submit the job via CLI.",
-                    job.Package.PackageUri, job.JobId);
+                    PackageState.CurrentPackageUri ?? "(unknown)", job.JobId);
                 await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
                 _currentPackageConfigAccessor.Clear();
                 _currentJobContextAccessor.Clear();

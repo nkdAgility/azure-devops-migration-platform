@@ -196,6 +196,41 @@ public class QueueCommandTests
             "Queue progress should render the explicit Analyse stage in addition to the task name when summary phases are present.");
     }
 
+    [TestMethod]
+    public void TryResolveLocalPackagePath_WithHttpUri_ReturnsNull()
+    {
+        var method = typeof(QueueCommand).GetMethod("TryResolveLocalPackagePath", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(method, "TryResolveLocalPackagePath method was not found.");
+
+        var result = method!.Invoke(null, new object?[] { "https://example.blob.core.windows.net/packages/migration" }) as string;
+
+        Assert.IsNull(result, "Non-file absolute URIs must not be treated as local filesystem paths.");
+    }
+
+    [TestMethod]
+    public void TryResolveLocalPackagePath_WithRelativePath_ReturnsFullPath()
+    {
+        var method = typeof(QueueCommand).GetMethod("TryResolveLocalPackagePath", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(method, "TryResolveLocalPackagePath method was not found.");
+
+        var result = method!.Invoke(null, new object?[] { @".\artifacts\package" }) as string;
+        var expected = Path.GetFullPath(@".\artifacts\package");
+
+        Assert.AreEqual(expected, result, "Relative package paths must resolve to a full local path.");
+    }
+
+    [TestMethod]
+    public void FormatPackageLocationForDisplay_WithQueryString_RemovesQuery()
+    {
+        var method = typeof(QueueCommand).GetMethod("FormatPackageLocationForDisplay", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(method, "FormatPackageLocationForDisplay method was not found.");
+
+        var result = method!.Invoke(null, new object?[] { "https://account.blob.core.windows.net/container/package.zip?sv=2024-01-01&sig=secret" }) as string;
+
+        Assert.AreEqual("https://account.blob.core.windows.net/container/package.zip", result,
+            "Display path must remove URL query strings to avoid leaking credentials.");
+    }
+
     private static int CountOccurrences(string text, string value)
     {
         var count = 0;

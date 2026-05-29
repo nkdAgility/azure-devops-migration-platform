@@ -155,6 +155,7 @@ public sealed class InMemoryStateStore : ITestStateStore
 }
 
 [Binding]
+[TestCategory("SystemTest")]
 [TestCategory("SystemTest_Simulated")]
 public sealed class PlanDrivenExecutionSteps
 {

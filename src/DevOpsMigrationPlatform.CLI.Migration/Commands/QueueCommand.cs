@@ -173,8 +173,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             GetJsonString(mp, "Target", "Url") ?? (isSimulated ? "https://simulated.example.com" : null),
             "Target.Url")?.Trim();
         var project = (GetJsonString(mp, "Target", "Project") ?? (isSimulated ? "SimulatedProject" : null))?.Trim();
-        var packagePath = GetJsonString(mp, "Package", "WorkingDirectory") ?? string.Empty;
-        var createPackage = GetJsonBool(mp, false, "Package", "CreatePackage");
+        if (!JobPackageUriResolver.TryResolveFromConfigPayload(rawJson, out var packageUri))
+        {
+            ShowError(console, "Package location is required for import.");
+            return 1;
+        }
 
         if (string.IsNullOrWhiteSpace(orgUrl))
         {
@@ -188,18 +191,12 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             return 1;
         }
 
-        if (string.IsNullOrWhiteSpace(packagePath))
-        {
-            ShowError(console, "Package.WorkingDirectory is required for import.");
-            return 1;
-        }
-
-        var outputPath = Path.Combine(Path.GetFullPath(ExpandPath(packagePath)), PackagePathResolver.ExtractOrgFolderName(orgUrl), project);
-        var errorsJsonPath = Path.Combine(outputPath, "errors.json");
+        var localPackagePath = TryResolveLocalPackagePath(packageUri!);
+        var errorsJsonPath = localPackagePath is null ? null : Path.Combine(localPackagePath, "errors.json");
         console.MarkupLine(isSimulated
             ? "[blue]ℹ[/] Importing into [bold]Simulated[/] target"
             : $"[blue]ℹ[/] Importing into [bold]{Markup.Escape(orgUrl)}[/] / [bold]{Markup.Escape(project)}[/]");
-        console.MarkupLine($"[blue]ℹ[/] Package path   : [blue]{Markup.Escape(outputPath)}[/]");
+        console.MarkupLine($"[blue]ℹ[/] Package path   : [blue]{Markup.Escape(FormatPackageLocationForDisplay(packageUri!))}[/]");
 
         var job = new Job
         {
@@ -207,11 +204,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             Kind = JobKind.Import,
             ConfigPayload = rawJson,
             Connectors = GetConnectors(mp),
-            Package = new JobPackage
-            {
-                PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
-                CreatePackage = createPackage
-            },
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
             Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
         };
@@ -266,7 +258,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         {
             jobFailed = true;
             ShowError(console, ex.Message);
-            ShowError(console, $"Import failed. Check errors.json in the package root for details: {errorsJsonPath}");
+            if (errorsJsonPath is not null)
+                ShowError(console, $"Import failed. Check errors.json in the package root for details: {errorsJsonPath}");
         }
         catch (OperationCanceledException)
         {
@@ -280,7 +273,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
 
         await followCts.CancelAsync();
-        if (File.Exists(errorsJsonPath))
+        if (errorsJsonPath is not null && File.Exists(errorsJsonPath))
         {
             ShowError(console, $"Import encountered errors. Check errors.json in the package root for details: {errorsJsonPath}");
             return 1;
@@ -288,10 +281,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         if (jobFailed) return 1;
 
-        if (TryGetBlockingPrepareFindings(outputPath, out var blockingFindings))
+        if (localPackagePath is not null && TryGetBlockingPrepareFindings(localPackagePath, out var blockingFindings))
         {
-            await WriteErrorsJsonFromPrepareFindingsAsync(errorsJsonPath, blockingFindings, cancellationToken).ConfigureAwait(false);
-            ShowError(console, $"Import blocked by prepare findings. Check errors.json in the package root for details: {errorsJsonPath}");
+            if (errorsJsonPath is not null)
+            {
+                await WriteErrorsJsonFromPrepareFindingsAsync(errorsJsonPath, blockingFindings, cancellationToken).ConfigureAwait(false);
+                ShowError(console, $"Import blocked by prepare findings. Check errors.json in the package root for details: {errorsJsonPath}");
+            }
             return 1;
         }
 
@@ -398,16 +394,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         using var doc = JsonDocument.Parse(rawJson);
         var mp = doc.RootElement.GetProperty("MigrationPlatform");
 
-        var packagePath = GetJsonString(mp, "Package", "WorkingDirectory") ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(packagePath))
+        if (!JobPackageUriResolver.TryResolveFromConfigPayload(rawJson, out var packageUri))
         {
-            ShowError(console, "Package.WorkingDirectory is required for prepare.");
+            ShowError(console, "Package location is required for prepare.");
             return 1;
         }
 
-        var createPackage = GetJsonBool(mp, false, "Package", "CreatePackage");
-        var outputPath = Path.GetFullPath(ExpandPath(packagePath));
-        console.MarkupLine($"[blue]ℹ[/] Preparing package at [blue]{Markup.Escape(outputPath)}[/]");
+        console.MarkupLine($"[blue]ℹ[/] Preparing package at [blue]{Markup.Escape(FormatPackageLocationForDisplay(packageUri!))}[/]");
 
         var job = new Job
         {
@@ -415,11 +408,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             Kind = JobKind.Prepare,
             ConfigPayload = rawJson,
             Connectors = GetConnectors(mp),
-            Package = new JobPackage
-            {
-                PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
-                CreatePackage = createPackage
-            },
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
             Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
         };
@@ -522,20 +510,30 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         return el.ValueKind == JsonValueKind.String ? el.GetString() : null;
     }
 
-    private static bool GetJsonBool(JsonElement root, bool defaultValue, params string[] path)
+    private static string FormatPackageLocationForDisplay(string packageUri)
     {
-        var el = root;
-        foreach (var key in path)
-        {
-            if (!el.TryGetProperty(key, out el))
-                return defaultValue;
-        }
+        if (string.IsNullOrWhiteSpace(packageUri))
+            return packageUri;
 
-        return el.ValueKind == JsonValueKind.True;
+        var value = packageUri.Trim();
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || string.IsNullOrEmpty(uri.Query))
+            return value;
+
+        var sanitized = new UriBuilder(uri) { Query = string.Empty }.Uri.ToString();
+        return sanitized.TrimEnd('?');
     }
 
-    private static string ExpandPath(string path) =>
-        Environment.ExpandEnvironmentVariables(path);
+    private static string? TryResolveLocalPackagePath(string packageUri)
+    {
+        if (string.IsNullOrWhiteSpace(packageUri))
+            return null;
+
+        var value = packageUri.Trim();
+        if (Uri.TryCreate(value, UriKind.Absolute, out var uri))
+            return uri.IsFile ? Path.GetFullPath(uri.LocalPath) : null;
+
+        return Path.GetFullPath(value);
+    }
 
     private static ConnectorType[] GetConnectors(JsonElement mp)
     {
@@ -610,16 +608,14 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             GetJsonString(mp, "Source", "Url") ?? "https://simulated.example.com",
             "Source.Url");
         var project = GetJsonString(mp, "Source", "Project") ?? "SimulatedProject";
-        var packagePath = GetJsonString(mp, "Package", "WorkingDirectory") ?? string.Empty;
-        var createPackage = GetJsonBool(mp, false, "Package", "CreatePackage");
-
-        var outputPath = Path.Combine(
-            Path.GetFullPath(ExpandPath(packagePath)),
-            PackagePathResolver.ExtractOrgFolderName(orgUrl),
-            project);
+        if (!JobPackageUriResolver.TryResolveFromConfigPayload(rawJson, out var packageUri))
+        {
+            ShowError(console, "Package location is required for export.");
+            return 1;
+        }
 
         console.MarkupLine("[blue]ℹ[/] Exporting from [bold]Simulated[/] source");
-        console.MarkupLine($"[blue]ℹ[/] Package path  : [blue]{Markup.Escape(outputPath)}[/]");
+        console.MarkupLine($"[blue]ℹ[/] Package path  : [blue]{Markup.Escape(FormatPackageLocationForDisplay(packageUri!))}[/]");
 
         var job = new Job
         {
@@ -627,11 +623,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             Kind = JobKind.Export,
             ConfigPayload = rawJson,
             Connectors = GetConnectors(mp),
-            Package = new JobPackage
-            {
-                PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
-                CreatePackage = createPackage
-            },
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
             Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
         };
@@ -724,8 +715,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var orgUrl = EnvironmentVariableResolver.Resolve(GetJsonString(mp, "Source", "Url"), "Source.Url");
         var project = GetJsonString(mp, "Source", "Project");
-        var packagePath = GetJsonString(mp, "Package", "WorkingDirectory") ?? string.Empty;
-        var createPackage = GetJsonBool(mp, false, "Package", "CreatePackage");
+        if (!JobPackageUriResolver.TryResolveFromConfigPayload(rawJson, out var packageUri))
+        {
+            ShowError(console, "Package location is required for export.");
+            return 1;
+        }
 
         if (string.IsNullOrWhiteSpace(orgUrl))
         {
@@ -739,13 +733,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             return 1;
         }
 
-        var outputPath = Path.Combine(
-            Path.GetFullPath(ExpandPath(packagePath)),
-            PackagePathResolver.ExtractOrgFolderName(orgUrl),
-            project);
-
         console.MarkupLine($"[blue]ℹ[/] Exporting from [bold]{Markup.Escape(orgUrl)}[/] / [bold]{Markup.Escape(project)}[/]");
-        console.MarkupLine($"[blue]ℹ[/] Package path  : [blue]{Markup.Escape(outputPath)}[/]");
+        console.MarkupLine($"[blue]ℹ[/] Package path  : [blue]{Markup.Escape(FormatPackageLocationForDisplay(packageUri!))}[/]");
 
         var job = new Job
         {
@@ -753,11 +742,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             Kind = JobKind.Export,
             ConfigPayload = rawJson,
             Connectors = GetConnectors(mp),
-            Package = new JobPackage
-            {
-                PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
-                CreatePackage = createPackage
-            },
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
             Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
         };
@@ -1002,15 +986,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         using var doc = JsonDocument.Parse(rawJson);
         var mp = doc.RootElement.GetProperty("MigrationPlatform");
 
-        var packagePath = GetJsonString(mp, "Package", "WorkingDirectory") ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(packagePath))
+        if (!JobPackageUriResolver.TryResolveFromConfigPayload(rawJson, out var packageUri))
         {
-            ShowError(console, "Package.WorkingDirectory is required. Set it in the config file.");
+            ShowError(console, "Package location is required. Set it in the config file.");
             return 1;
         }
-
-        var outputPath = Path.GetFullPath(ExpandPath(packagePath));
-        var packageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}";
 
         var orgCount = 0;
         if (mp.TryGetProperty("Organisations", out var orgsEl) && orgsEl.ValueKind == JsonValueKind.Array)
@@ -1023,7 +1003,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
 
         console.MarkupLine($"[blue]ℹ[/] Submitting {kind} job for [bold]{orgCount}[/] organisation(s).");
-        console.MarkupLine($"[blue]ℹ[/] Output path: [blue]{Markup.Escape(outputPath)}[/]");
+        console.MarkupLine($"[blue]ℹ[/] Output path: [blue]{Markup.Escape(FormatPackageLocationForDisplay(packageUri!))}[/]");
 
         var job = new Job
         {
@@ -1032,7 +1012,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             Kind = kind,
             ConfigPayload = rawJson,
             Connectors = GetDiscoveryConnectors(mp),
-            Package = new JobPackage { PackageUri = packageUri },
             Diagnostics = new JobDiagnostics { MinimumLevel = settings.Level },
             Resume = settings.ForceFresh ? new JobResume { Mode = ResumeMode.ForceFresh } : null
         };

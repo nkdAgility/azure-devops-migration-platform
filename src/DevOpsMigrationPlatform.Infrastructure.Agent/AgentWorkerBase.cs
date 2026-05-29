@@ -168,6 +168,16 @@ public abstract class AgentWorkerBase : BackgroundService
 
         try
         {
+            if (!JobPackageUriResolver.TryResolveFromConfigPayload(lease.Job.ConfigPayload, out var packageUri))
+            {
+                _logger.LogError(
+                    "Job {JobId} is missing MigrationPlatform.Package location in ConfigPayload.",
+                    lease.Job.JobId);
+                await SignalTerminalAsync(controlPlane, lease.LeaseId, "fail", ct).ConfigureAwait(false);
+                return;
+            }
+
+            _packageState.CurrentPackageUri = packageUri;
             await OnJobAsync(lease.Job, controlPlane, lease.LeaseId, ct).ConfigureAwait(false);
         }
         finally

@@ -13,7 +13,7 @@ internal interface IPackageStoreFactory
     /// Resolves the package URI and returns matched store instances.
     /// </summary>
     /// <param name="packageUri">
-    /// The <c>PackageUri</c> from <see cref="JobPackage"/>, e.g.
+    /// The resolved package URI from <c>MigrationPlatform:Package</c>, e.g.
     /// <c>file:///C:/output/my-package</c>.
     /// </param>
     (IArtefactStore ArtefactStore, IStateStore StateStore) Create(string packageUri);

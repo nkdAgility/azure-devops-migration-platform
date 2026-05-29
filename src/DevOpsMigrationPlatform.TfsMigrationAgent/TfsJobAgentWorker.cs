@@ -272,7 +272,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
 
         _currentTfsServices = _tfsServiceFactory.CreateForEndpoint(source);
         _activeTfsJobServices.Current = _currentTfsServices;
-        _currentPackageUri = job.Package.PackageUri ?? ".";
+        _currentPackageUri = PackageState.CurrentPackageUri ?? ".";
 
         // Update plan file to mark TFS export task as Running (best-effort).
         await UpdatePlanTaskStatusAsync("export.workitems", JobTaskStatus.Running, ct)
@@ -467,7 +467,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         {
             _logger.LogError(ex,
                 "Config file not found in {PackageUri}. Re-submit the job via CLI.",
-                job.Package.PackageUri);
+                PackageState.CurrentPackageUri ?? "(unknown)");
             await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
             return;
         }

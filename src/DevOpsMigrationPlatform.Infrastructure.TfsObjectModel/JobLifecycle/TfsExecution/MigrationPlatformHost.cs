@@ -137,9 +137,9 @@ public static class MigrationPlatformHost
                 var state = new ActivePackageState();
                 state.CurrentJob = new Job
                 {
-                    JobId = "tfs-subprocess",
-                    Package = new JobPackage { PackageUri = settings.OutputFolder }
+                    JobId = "tfs-subprocess"
                 };
+                state.CurrentPackageUri = settings.OutputFolder;
                 return state;
             });
             services.AddPackageBoundaryServices();

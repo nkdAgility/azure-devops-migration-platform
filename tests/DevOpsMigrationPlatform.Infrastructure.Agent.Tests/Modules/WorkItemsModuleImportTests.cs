@@ -320,7 +320,7 @@ public sealed class WorkItemsModuleImportTests
                 {
                     JobId = "job-import-1",
                     Kind = JobKind.Import,
-                    Package = new JobPackage { PackageUri = "file:///package" },
+                    ConfigPayload = "{\"MigrationPlatform\":{\"Package\":{\"WorkingDirectory\":\"file:///package\"}}}",
                     Resume = new JobResume { Mode = ResumeMode.Auto }
                 },
                 Package = package.Object,
@@ -500,7 +500,7 @@ public sealed class WorkItemsModuleImportTests
                 {
                     JobId = "job-import-1",
                     Kind = JobKind.Import,
-                    Package = new JobPackage { PackageUri = "file:///package" },
+                    ConfigPayload = "{\"MigrationPlatform\":{\"Package\":{\"WorkingDirectory\":\"file:///package\"}}}",
                     Resume = new JobResume { Mode = ResumeMode.Auto }
                 },
                 Package = package.Object,
@@ -671,7 +671,7 @@ public sealed class WorkItemsModuleImportTests
                 {
                     JobId = "job-import-levers-1",
                     Kind = JobKind.Import,
-                    Package = new JobPackage { PackageUri = "file:///package" },
+                    ConfigPayload = "{\"MigrationPlatform\":{\"Package\":{\"WorkingDirectory\":\"file:///package\"}}}",
                     Resume = new JobResume { Mode = ResumeMode.Auto }
                 },
                 Package = package.Object,
