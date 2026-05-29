@@ -23,7 +23,9 @@ Where `{feature}` is one of:
 1. Build a deterministic worklist of `.feature` files in scope.
 2. For each `.feature` file, resolve its feature family and determine whether it is already adapted to DSL before attempting conversion.
 3. Convert every file that is not already adapted and can be converted safely.
-4. Produce a final status summary that includes both totals and per-file outcomes.
+4. For scenarios with missing step implementations, generate intent-derived tests instead of skipping them.
+5. Apply a test-validity gate to intent-derived tests and require `USEFUL` or `HIGH VALUE` classification.
+6. Produce a final status summary that includes both totals and per-file outcomes.
 
 Run this sequence for each selected feature family that is not already adapted:
 
@@ -35,6 +37,8 @@ Run this sequence for each selected feature family that is not already adapted:
 6. `nkda-testdsl-verification`
 7. Remove migrated Reqnroll artefacts for that family (`.feature`, generated `.feature.cs`, and legacy `*Steps.cs` files tied to the converted family) only after verification returns `PASS`
 8. `nkda-testdsl-next-feature-selection` (after the final selected family is completed)
+
+`nkda-testdsl-verification` must include: converted/affected tests passing first, followed by a full repository test-suite rerun.
 
 ### Already-Adapted Check
 
@@ -61,6 +65,8 @@ At the end of every autonomous run, output:
    - resolved feature family
    - status (`already-adapted`, `converted`, `skipped`, `blocked`, or `failed`)
    - concise reason
+   - intent-derived tests created count
+   - intent-derived tests passing validity gate count
    - converted artefact reference when applicable (`04-conversion-summary.md` and `06-verification.md`)
 
 ## Stopping Rules
@@ -79,4 +85,4 @@ Stop early if:
 - the folder/file scope cannot be enumerated or resolved
 - a required shared input is missing for the entire run
 
-For per-family failures (including unmatched steps, parity gaps, unplanned production behaviour changes, unresolved failures, or verification not returning `PASS`), mark the affected family `blocked` or `failed` and continue with remaining families.
+For per-family failures (including unmatched steps where intent cannot be inferred safely, parity gaps, unplanned production behaviour changes, unresolved failures, intent-derived tests failing validity gate, or verification not returning `PASS`), mark the affected family `blocked` or `failed` and continue with remaining families.

@@ -75,6 +75,7 @@ Before design, identify:
 - step implementation map
 - context state map
 - assertion quality map
+- missing-step intent backlog (scenarios requiring intent-derived tests)
 - migration risks
 
 If feature files and step files cannot be matched, stop and report.
@@ -86,11 +87,13 @@ Before conversion, define:
 - target test examples
 - DSL public surface
 - builder/runner/assertion split
+- business-capability grouping model for converted tests and DSL entry points
 - deletion plan for legacy artefacts
 
 ### Conversion Gate
 
 Before deleting Reqnroll artefacts, equivalent code-first MSTest behaviour coverage must exist.
+Missing-step scenarios must be converted into intent-derived tests or explicitly blocked with reason.
 
 ### Verification Gate
 
@@ -98,7 +101,10 @@ A family is complete only when:
 
 - parity map is complete
 - Reqnroll artefacts are removed or explicitly retained for unmigrated scope
-- relevant test command is recorded in verification output
+- converted/affected tests are green
+- intent-derived tests meet test-validity threshold (`USEFUL` or `HIGH VALUE`, >= 16/25)
+- full repository test suite is rerun after converted tests are green
+- test commands, outcomes, and validity scores are recorded in verification output
 
 ### Stop Gate
 

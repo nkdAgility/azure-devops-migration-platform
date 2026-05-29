@@ -21,4 +21,4 @@ description: Use when assessment output is complete and a typed internal DSL sur
 - no Reqnroll dependency
 - no string-matched step APIs
 - behaviour-first naming
-
+- group DSL surface and target tests by business capability in the system under test, not by migration phase buckets
