@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+phase="${1:-}"
+target_ref="refs/heads/fix-up-some-stuff"
+zero_oid="0000000000000000000000000000000000000000"
+
+# Bypass only when intentionally requested.
+if [[ "${ALLOW_GIT_REF_REWRITE:-}" == "1" ]]; then
+  exit 0
+fi
+
+# Only block during the transaction validation phase.
+if [[ "$phase" != "prepared" ]]; then
+  exit 0
+fi
+
+while read -r old_oid new_oid ref_name; do
+  if [[ "$ref_name" != "$target_ref" ]]; then
+    continue
+  fi
+
+  # Do not allow create/delete on protected branch ref.
+  if [[ "$old_oid" == "$zero_oid" || "$new_oid" == "$zero_oid" ]]; then
+    echo "Blocked: create/delete of $target_ref is disabled." >&2
+    echo "Bypass once: ALLOW_GIT_REF_REWRITE=1 git <command>" >&2
+    exit 1
+  fi
+
+  # Allow only fast-forward updates for this branch ref.
+  if ! git merge-base --is-ancestor "$old_oid" "$new_oid"; then
+    echo "Blocked: non-fast-forward update to $target_ref." >&2
+    echo "This blocks git reset, git branch -f, and checkout/switch force rewrites." >&2
+    echo "Bypass once: ALLOW_GIT_REF_REWRITE=1 git <command>" >&2
+    exit 1
+  fi
+done
+
+exit 0

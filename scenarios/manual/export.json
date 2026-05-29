@@ -1,0 +1,44 @@
+{
+  "MigrationPlatform": {
+    "ConfigVersion": "1.0",
+    "Policies": {
+      "Retries": {
+        "Max": 8
+      },
+      "Throttle": {
+        "MaxConcurrency": 4
+      },
+      "Checkpoints": {
+        "Interval": 60
+      }
+    },
+    "Environment": {
+      "Type": "Standalone",
+      "ControlPlane": {
+        "BaseUrl": "http://localhost:5100"
+      }
+    },
+    "Mode": "Export",
+    "Source": {
+      "Type": "AzureDevOpsServices",
+      "Url": "$ENV:AZDEVOPS_SYSTEM_TEST_ORG",
+      "Project": "migrationTest5",
+      "Authentication": {
+        "Type": "AccessToken",
+        "AccessToken": "$ENV:AZDEVOPS_SYSTEM_TEST_PAT"
+      }
+    },
+    "Package": {
+      "WorkingDirectory": "%userprofile%\\source\\Tools\\MigrationPlatform\\manual\\export\\",
+      "CreatePackage": true
+    },
+    "Modules": {
+      "WorkItems": {
+        "Enabled": true,
+        "Scope": {
+          "Query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.Id]"
+        }
+      }
+    }
+  }
+}

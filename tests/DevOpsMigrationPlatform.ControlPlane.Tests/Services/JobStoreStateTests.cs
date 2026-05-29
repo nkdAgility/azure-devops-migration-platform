@@ -11,7 +11,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.ControlPlane.Tests.Services;
 
 [TestClass]
-[TestCategory("Unit")]
+[TestCategory("UnitTest")]
 public class JobStoreStateTests
 {
     private static Job CreateJob(string id) =>
@@ -123,3 +123,4 @@ public class JobStoreStateTests
         Assert.AreEqual("Queued", r2.State);
     }
 }
+

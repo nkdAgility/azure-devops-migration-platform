@@ -11,7 +11,7 @@ using Spectre.Console.Testing;
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 
 [TestClass]
-[TestCategory("Unit")]
+[TestCategory("UnitTest")]
 public class PrintJobSubmittedTests
 {
     [TestMethod]
@@ -80,3 +80,4 @@ internal sealed class TestControlPlaneCommandBase : ControlPlaneCommandBase<DevO
         System.Threading.CancellationToken cancellationToken = default)
         => System.Threading.Tasks.Task.FromResult(0);
 }
+

@@ -32,11 +32,12 @@ public class IdentityMappingContext
     {
         var packageState = new ActivePackageState
         {
+            CurrentPackageUri = $"file:///{packageRoot.Replace(Path.DirectorySeparatorChar, '/')}",
             CurrentJob = new Job
             {
                 JobId = jobId,
                 Kind = JobKind.Import,
-                Package = new JobPackage { PackageUri = $"file:///{packageRoot.Replace(Path.DirectorySeparatorChar, '/')}" }
+                ConfigPayload = $"{{\"MigrationPlatform\":{{\"Package\":{{\"WorkingDirectory\":\"{packageRoot.Replace("\\", "\\\\")}\"}}}}}}"
             }
         };
         return new ActivePackageAccess(packageState, new PackagePathRouter(), NullLogger<ActivePackageAccess>.Instance);

@@ -99,7 +99,7 @@ public class TfsJobAgentWorkerTests
         _package = new Mock<IPackageAccess>(MockBehavior.Loose);
         _checkpointer = new Mock<ICheckpointingService>();
         _leaseState = new ActiveLeaseState();
-        _packageState = new ActivePackageState();
+        _packageState = new ActivePackageState { CurrentPackageUri = "." };
         _logger = NullLogger<TfsJobAgentWorker>.Instance;
 
         _flushables = new IFlushable[]
@@ -192,7 +192,6 @@ public class TfsJobAgentWorkerTests
         {
             JobId = "test-job-1",
             Kind = JobKind.Export,
-            Package = new JobPackage { PackageUri = "." }
         };
 
         var worker = CreateWorker();
@@ -259,7 +258,6 @@ public class TfsJobAgentWorkerTests
         {
             JobId = "test-job-2",
             Kind = JobKind.Import,
-            Package = new JobPackage { PackageUri = "." }
         };
 
         var worker = CreateWorker();
@@ -286,7 +284,6 @@ public class TfsJobAgentWorkerTests
         {
             JobId = "test-job-3",
             Kind = JobKind.Export,
-            Package = new JobPackage { PackageUri = "." }
         };
 
         var mockRevisionSource = new Mock<IWorkItemRevisionSource>();
@@ -346,7 +343,6 @@ public class TfsJobAgentWorkerTests
         {
             JobId = "test-job-pkg-plan",
             Kind = JobKind.Export,
-            Package = new JobPackage { PackageUri = "." }
         };
 
         var mockRevisionSource = new Mock<IWorkItemRevisionSource>();
@@ -416,7 +412,6 @@ public class TfsJobAgentWorkerTests
         {
             JobId = "test-job-state-plan",
             Kind = JobKind.Export,
-            Package = new JobPackage { PackageUri = "." }
         };
 
         var mockRevisionSource = new Mock<IWorkItemRevisionSource>();
@@ -481,7 +476,6 @@ public class TfsJobAgentWorkerTests
         {
             JobId = "test-job-4",
             Kind = JobKind.Export,
-            Package = new JobPackage { PackageUri = "." },
             Resume = new JobResume { Mode = ResumeMode.ForceFresh }
         };
 
@@ -539,7 +533,6 @@ public class TfsJobAgentWorkerTests
         {
             JobId = "test-job-5",
             Kind = JobKind.Export,
-            Package = new JobPackage { PackageUri = "." }
         };
 
         _tfsServiceFactory
@@ -568,7 +561,6 @@ public class TfsJobAgentWorkerTests
         {
             JobId = "disc-job-1",
             Kind = JobKind.Inventory,
-            Package = new JobPackage { PackageUri = "." }
         };
 
         var worker = CreateWorker();
@@ -592,7 +584,6 @@ public class TfsJobAgentWorkerTests
         {
             JobId = "disc-job-2",
             Kind = JobKind.Inventory,
-            Package = new JobPackage { PackageUri = "." }
         };
 
         var mockDiscovery = new Mock<IWorkItemDiscoveryService>();

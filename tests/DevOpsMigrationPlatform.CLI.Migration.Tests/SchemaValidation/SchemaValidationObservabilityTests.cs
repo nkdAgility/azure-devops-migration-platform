@@ -28,7 +28,7 @@ public sealed class SchemaValidationObservabilityTests
     }
 
     [TestMethod]
-    [TestCategory("Unit")]
+    [TestCategory("UnitTest")]
     public void Validate_WithUnknownKey_LogsErrorWithJsonPathAndConstraint()
     {
         // Arrange
@@ -76,7 +76,7 @@ public sealed class SchemaValidationObservabilityTests
     }
 
     [TestMethod]
-    [TestCategory("Unit")]
+    [TestCategory("UnitTest")]
     public void Validate_WithMissingRequired_LogsErrorWithJsonPath()
     {
         // Arrange
@@ -135,7 +135,7 @@ public sealed class SchemaValidationObservabilityTests
     }
 
     [TestMethod]
-    [TestCategory("Unit")]
+    [TestCategory("UnitTest")]
     public void Validate_WithValidConfig_ReturnsEmptyList()
     {
         // Arrange
@@ -188,7 +188,7 @@ public sealed class SchemaValidationObservabilityTests
     }
 
     [TestMethod]
-    [TestCategory("Unit")]
+    [TestCategory("UnitTest")]
     public void Validate_WithAbsentSchema_ReturnsEmptyList()
     {
         // Arrange
@@ -216,3 +216,4 @@ public sealed class SchemaValidationObservabilityTests
         Assert.AreEqual(0, errors.Count, "Expected empty list when schema is absent (proceed with warning)");
     }
 }
+

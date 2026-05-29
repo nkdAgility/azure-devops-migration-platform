@@ -11,6 +11,7 @@ description: Use when an approved DSL design exists and reusable test infrastruc
 - extract only concepts needed by the selected family
 - separate scenarios, builders, runners, results, assertions, and fixtures
 - keep behaviour unchanged
+- keep `00-scenario-test-inventory.md` in sync with any renamed planned test surfaces
 - produce `.output/nkda-testdsl/<feature-family>/03-extraction-summary.md`
 
 ## Rules
@@ -18,4 +19,3 @@ description: Use when an approved DSL design exists and reusable test infrastruc
 - no speculative abstractions
 - no production behaviour changes
 - no Reqnroll APIs
-

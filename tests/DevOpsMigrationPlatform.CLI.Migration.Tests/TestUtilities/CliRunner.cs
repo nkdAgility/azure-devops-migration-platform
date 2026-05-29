@@ -114,13 +114,14 @@ public sealed class CliRunner
             var slnx = Path.Combine(dir.FullName, "DevOpsMigrationPlatform.slnx");
             if (File.Exists(slnx))
             {
-                // Prefer the net10.0 Debug build; fall back to Release.
+                // Prefer Release so staged test runs use the same fresh binaries as build.ps1.
+                // Keep Debug as fallback for local-only developer workflows.
                 var candidates = new[]
                 {
                     Path.Combine(dir.FullName, "src", "DevOpsMigrationPlatform.CLI.Migration",
-                                 "bin", "Debug", "net10.0", ExeName),
-                    Path.Combine(dir.FullName, "src", "DevOpsMigrationPlatform.CLI.Migration",
                                  "bin", "Release", "net10.0", ExeName),
+                    Path.Combine(dir.FullName, "src", "DevOpsMigrationPlatform.CLI.Migration",
+                                 "bin", "Debug", "net10.0", ExeName),
                 };
 
                 foreach (var candidate in candidates)
@@ -366,8 +367,8 @@ public sealed class CliRunner
     {
         var candidates = new[]
         {
-            Path.Combine(repoRoot, "src", projectName, "bin", "Debug", "net10.0", exeName),
             Path.Combine(repoRoot, "src", projectName, "bin", "Release", "net10.0", exeName),
+            Path.Combine(repoRoot, "src", projectName, "bin", "Debug", "net10.0", exeName),
         };
 
         foreach (var candidate in candidates)

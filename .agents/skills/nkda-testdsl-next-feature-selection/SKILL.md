@@ -8,6 +8,7 @@ description: Use when one feature-family migration is complete and the next fami
 ## Responsibilities
 
 - inspect remaining feature families
+- inspect each family's `00-scenario-test-inventory.md` where present
 - score candidates for DSL reuse, risk reduction, and observability
 - recommend exactly one next family
 - produce `.output/nkda-testdsl/<feature-family>/07-next-feature-recommendation.md`
@@ -20,12 +21,14 @@ Score each candidate on:
 2. behaviour risk reduction
 3. removal of Reqnroll surface area
 4. test determinism feasibility
+5. unresolved scenario inventory risk (count and severity of `unmatched`/`non-compliant` rows)
 
 ## Stop Conditions
 
 Stop and report `needs-more-evidence` when:
 
 - feature and step files cannot be matched with confidence
+- scenario inventory evidence is missing or stale for high-priority candidates
 - evidence for candidate scoring is incomplete
 - evidence is contradictory across candidate families
 

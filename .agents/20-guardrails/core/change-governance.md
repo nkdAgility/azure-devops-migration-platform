@@ -28,6 +28,8 @@ Missing consent evidence is a hard fail.
 Reject any change that:
 
 - omits class assignment for a surface-impacting change
+- skips activity classification from `.agents/10-contracts/routing-catalog.yaml`
+- investigates outside matched `first_surfaces` before route-first inspection
 - labels a change as A/B while introducing contract-level surface change
 - applies Class C changes without explicit operator consent evidence
 - updates contracts without synchronized ADR and tests
@@ -40,7 +42,6 @@ Reject any change that:
 - `.agents/20-guardrails/core/architecture-perspectives-ethos.md`
 - `.agents/20-guardrails/workflow/test-first-workflow.md`
 - `.agents/20-guardrails/workflow/definition-of-done.md`
-
 
 
 

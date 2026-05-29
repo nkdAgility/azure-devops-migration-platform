@@ -164,13 +164,13 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             wiqlQuery: ext.Query,
             discoveryService: _discoveryService,
             exportProgressStoreFactory: _exportProgressStoreFactory,
-            packageUri: job.Package.PackageUri,
+            packageUri: null,
             referencedPathTracker: _referencedPathTracker
 #else
             wiqlQuery: wiqlQuery,
             discoveryService: discoveryService481,
             exportProgressStoreFactory: _exportProgressStoreFactory,
-            packageUri: job.Package.PackageUri
+            packageUri: null
 #endif
             );
 

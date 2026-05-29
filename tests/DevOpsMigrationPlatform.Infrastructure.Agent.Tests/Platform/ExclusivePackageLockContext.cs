@@ -42,10 +42,10 @@ public class ExclusivePackageLockContext : IDisposable
     {
         var state = new ActivePackageState
         {
+            CurrentPackageUri = $"file:///{TempDir.Replace(Path.DirectorySeparatorChar, '/')}",
             CurrentJob = new Job
             {
-                JobId = "lock-test-job",
-                Package = new JobPackage { PackageUri = $"file:///{TempDir.Replace(Path.DirectorySeparatorChar, '/')}" }
+                JobId = "lock-test-job"
             }
         };
 

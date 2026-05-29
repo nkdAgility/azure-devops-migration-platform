@@ -18,6 +18,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Storage;
 public sealed class ActivePackageState
 {
     private volatile Job? _currentJob;
+    private volatile string? _currentPackageUri;
     private volatile string? _cachedRunId;
 
     /// <summary>
@@ -36,6 +37,15 @@ public sealed class ActivePackageState
                 _cachedRunId = null;
             }
         }
+    }
+
+    /// <summary>
+    /// The effective package URI for the current job.
+    /// </summary>
+    public string? CurrentPackageUri
+    {
+        get => _currentPackageUri;
+        set => _currentPackageUri = value;
     }
 
     /// <summary>
@@ -77,6 +87,7 @@ public sealed class ActivePackageState
     public void Clear()
     {
         _currentJob = null;
+        _currentPackageUri = null;
         _cachedRunId = null;
     }
 }

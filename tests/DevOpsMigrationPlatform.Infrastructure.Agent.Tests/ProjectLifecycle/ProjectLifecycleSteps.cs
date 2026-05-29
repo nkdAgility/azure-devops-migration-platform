@@ -15,6 +15,7 @@ using Reqnroll;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.ProjectLifecycle;
 
 [Binding]
+[TestCategory("SystemTest")]
 [TestCategory("SystemTest_Simulated")]
 public sealed class ProjectLifecycleSteps
 {
