@@ -217,7 +217,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         {
             Logger.LogError(ex,
                 "Config file not found: {PackageUri}. Re-submit the job via CLI.",
-                job.Package.PackageUri);
+                PackageState.CurrentPackageUri ?? "(unknown)");
             await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
             CurrentPackageConfig.Clear();
             return;

@@ -418,7 +418,7 @@ public sealed class JobAgentWorkerDispatchTests
         {
             JobId = "job-Dependencies",
             Kind = JobKind.Dependencies,
-            Package = new JobPackage { PackageUri = "." },
+            ConfigPayload = "{\"MigrationPlatform\":{\"Package\":{\"WorkingDirectory\":\".\"}}}",
             Resume = new JobResume
             {
                 Mode = ResumeMode.ForceFresh
@@ -709,7 +709,7 @@ public sealed class JobAgentWorkerDispatchTests
         {
             JobId = "job-Export",
             Kind = JobKind.Export,
-            Package = new JobPackage { PackageUri = "." },
+            ConfigPayload = "{\"MigrationPlatform\":{\"Package\":{\"WorkingDirectory\":\".\"}}}",
             Resume = new JobResume
             {
                 Mode = ResumeMode.ForceFresh
@@ -768,7 +768,7 @@ public sealed class JobAgentWorkerDispatchTests
         {
             JobId = $"job-{kind}",
             Kind = kind,
-            Package = new JobPackage { PackageUri = "." },
+            ConfigPayload = "{\"MigrationPlatform\":{\"Package\":{\"WorkingDirectory\":\".\"}}}",
         };
     }
 

@@ -20,11 +20,12 @@ internal static class ActivePackageTestFactory
     {
         var state = new ActivePackageState
         {
+            CurrentPackageUri = packageRoot,
             CurrentJob = new Job
             {
                 JobId = jobId,
                 Kind = kind,
-                Package = new JobPackage { PackageUri = packageRoot }
+                ConfigPayload = $"{{\"MigrationPlatform\":{{\"Package\":{{\"WorkingDirectory\":\"{packageRoot.Replace("\\", "\\\\")}\"}}}}}}"
             }
         };
 

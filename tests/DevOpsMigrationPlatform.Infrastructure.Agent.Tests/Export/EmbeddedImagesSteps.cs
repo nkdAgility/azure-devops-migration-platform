@@ -360,11 +360,12 @@ public class EmbeddedImagesSteps
     {
         var packageState = new ActivePackageState
         {
+            CurrentPackageUri = $"file:///{packageRoot.Replace(Path.DirectorySeparatorChar, '/')}",
             CurrentJob = new Job
             {
                 JobId = jobId,
                 Kind = JobKind.Export,
-                Package = new JobPackage { PackageUri = $"file:///{packageRoot.Replace(Path.DirectorySeparatorChar, '/')}" }
+                ConfigPayload = $"{{\"MigrationPlatform\":{{\"Package\":{{\"WorkingDirectory\":\"{packageRoot.Replace("\\", "\\\\")}\"}}}}}}"
             }
         };
         return new ActivePackageAccess(packageState, new PackagePathRouter(), NullLogger<ActivePackageAccess>.Instance);
@@ -393,4 +394,3 @@ public class EmbeddedImagesContext
     public int DownloadCallCount { get; set; }
     public string? ExternalImageUrl { get; set; }
 }
-
