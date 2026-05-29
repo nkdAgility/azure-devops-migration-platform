@@ -86,6 +86,9 @@ public sealed class JobAgentWorkerDispatchTests
     {
         _packagePreparer = new Mock<IPackagePreparer>();
         _package = new Mock<IPackageAccess>();
+        _package
+            .Setup(p => p.RequestMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PackageMetaResult("memory://migration-config.json", null));
         _progressSink = new Mock<IProgressSink>();
         _checkpointingFactory = new Mock<ICheckpointingServiceFactory>();
         _phaseTrackingFactory = new Mock<IPhaseTrackingServiceFactory>();
