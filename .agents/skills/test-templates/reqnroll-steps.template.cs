@@ -6,6 +6,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 using Reqnroll;
 using Moq;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;    // adjust namespace as needed
@@ -37,6 +38,9 @@ public class FEATURENAMEContext
 // ── Step Definitions ──────────────────────────────────────────────────────────
 
 [Binding]
+[TestCategory("DomainTest")]
+[TestCategory("SystemTest")]
+[TestCategory("SystemTest_Simulated")]
 public class FEATURENAMESteps
 {
     private readonly FEATURENAMEContext _ctx;

@@ -28,4 +28,4 @@ Two `.cs` files placed at `tests/<Project>.Tests/<Area>/`:
 - `<FeatureName>Steps.cs` — compiles, all steps throw `PendingStepException` (Reqnroll marks them pending/failing).
 - `<FeatureName>Context.cs` — holds mocks and the system-under-test.
 - Mocks all infrastructure via `Mock<T>` (Moq).
-
+- Generated DSL tests must carry `DomainTest` and system categories (`SystemTest` + one of `SystemTest_Live`/`SystemTest_Smoke`/`SystemTest_Simulated`).
