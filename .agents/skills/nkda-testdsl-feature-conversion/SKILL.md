@@ -8,9 +8,13 @@ description: Use when one feature family is ready to be converted from Reqnroll 
 ## Responsibilities
 
 - consume `01-feature-assessment.md` and `02-dsl-design.md`
+- consume and update `00-scenario-test-inventory.md`
 - create code-first MSTest tests that preserve behaviour
 - place converted tests into business-focused groupings that mirror the system-under-test capability boundaries
 - for missing-step scenarios, generate intent-derived code-first tests instead of skipping those scenarios
+- map every converted scenario to concrete test method(s) with `path:line` evidence
+- apply required test tags to each converted test using existing repository tag conventions
+- record expected tags, actual tags, and compliance per scenario row in the running inventory
 - remove `.feature` project inclusion after equivalent coverage exists
 - remove obsolete step/context files only after parity is established
 - produce `.output/nkda-testdsl/<feature-family>/04-conversion-summary.md`
@@ -24,3 +28,5 @@ Stop and report if:
 - failures cannot be resolved in scope
 - only pipeline-phase grouping (Inventory/Export/Import/Validate style) is available and business-focused grouping cannot be established
 - missing-step intent cannot be inferred with enough confidence to create a deterministic behaviour test
+- any scenario in `00-scenario-test-inventory.md` remains `unmatched` after conversion
+- converted tests are missing required tags or have non-compliant tags

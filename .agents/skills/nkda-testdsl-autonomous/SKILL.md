@@ -25,7 +25,9 @@ Where `{feature}` is one of:
 3. Convert every file that is not already adapted and can be converted safely.
 4. For scenarios with missing step implementations, generate intent-derived tests instead of skipping them.
 5. Apply a test-validity gate to intent-derived tests and require `USEFUL` or `HIGH VALUE` classification.
-6. Produce a final status summary that includes both totals and per-file outcomes.
+6. Maintain a running scenario inventory per feature family at `.output/nkda-testdsl/<feature-family>/00-scenario-test-inventory.md`.
+7. Require each scenario row to record mapped test(s), mapping status, expected tags, actual tags, and tag compliance.
+8. Produce a final status summary that includes both totals and per-file outcomes.
 
 Run this sequence for each selected feature family that is not already adapted:
 
@@ -67,6 +69,8 @@ At the end of every autonomous run, output:
    - concise reason
    - intent-derived tests created count
    - intent-derived tests passing validity gate count
+   - scenario inventory counts (`matched`, `partial`, `unmatched`)
+   - tag compliance counts (`compliant`, `non-compliant`, `unknown`)
    - converted artefact reference when applicable (`04-conversion-summary.md` and `06-verification.md`)
 
 ## Stopping Rules
@@ -85,4 +89,4 @@ Stop early if:
 - the folder/file scope cannot be enumerated or resolved
 - a required shared input is missing for the entire run
 
-For per-family failures (including unmatched steps where intent cannot be inferred safely, parity gaps, unplanned production behaviour changes, unresolved failures, intent-derived tests failing validity gate, or verification not returning `PASS`), mark the affected family `blocked` or `failed` and continue with remaining families.
+For per-family failures (including unmatched steps where intent cannot be inferred safely, parity gaps, unplanned production behaviour changes, unresolved failures, intent-derived tests failing validity gate, scenario inventory rows that remain `unmatched`, non-compliant test tags, or verification not returning `PASS`), mark the affected family `blocked` or `failed` and continue with remaining families.

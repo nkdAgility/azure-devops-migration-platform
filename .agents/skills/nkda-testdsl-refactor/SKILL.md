@@ -11,10 +11,11 @@ description: Use when one conversion slice is complete and the internal DSL need
 - improve naming and ownership boundaries
 - keep builders, runners, and assertions separated
 - avoid speculative abstraction for unmigrated families
+- update `00-scenario-test-inventory.md` when refactor renames tests or moves test ownership
+- preserve per-scenario tag compliance while refactoring
 - produce `.output/nkda-testdsl/<feature-family>/05-refactor-summary.md`
 
 ## Rules
 
 - preserve passing converted tests
 - no production behaviour changes
-
