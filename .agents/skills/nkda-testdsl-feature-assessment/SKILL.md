@@ -10,6 +10,7 @@ description: Use when selecting one Reqnroll feature family to map behaviour, hi
 - inspect selected `.feature` file(s), `*Steps.cs`, and related context files
 - map scenarios to observable behaviours
 - map step methods to hidden operations
+- identify scenarios where step implementations are missing and extract test intent from feature wording plus available context/state mappings
 - identify assertion quality and vacuous checks
 - propose required DSL concepts
 - produce `.output/nkda-testdsl/<feature-family>/01-feature-assessment.md`
@@ -25,5 +26,5 @@ Use these sections:
 4. Context State Map
 5. Assertion Quality
 6. Proposed DSL Concepts
-7. Migration Recommendation
-
+7. Missing-Step Intent Backlog
+8. Migration Recommendation

@@ -1,0 +1,75 @@
+version: 1
+default_policy:
+  mode: "fail-closed"
+  rule: "Classify activity first; inspect first_surfaces before any cross-domain search."
+activities:
+  package:
+    intent: "Package shape and output files"
+    triggers:
+      - "output files"
+      - "folder structure"
+      - "nested folder"
+      - "package path"
+      - "package shape"
+      - "manifest in package"
+    first_surfaces:
+      - "src/DevOpsMigrationPlatform.Infrastructure.Agent/Package/*"
+      - "src/**/Package*"
+      - ".agents/30-context/domains/package-manager.md"
+      - ".agents/30-context/domains/migration-package-concept.md"
+    escalation_order:
+      - "agent"
+      - "control-plane"
+  agent:
+    intent: "Runtime execution behavior across package, ADO, and TFS flows"
+    triggers:
+      - "execution"
+      - "phase run"
+      - "job execution"
+      - "export runtime"
+      - "prepare runtime"
+      - "import runtime"
+      - "validate runtime"
+      - "ado"
+      - "tfs"
+    first_surfaces:
+      - "src/DevOpsMigrationPlatform.MigrationAgent/*"
+      - "src/DevOpsMigrationPlatform.Infrastructure.Agent/*"
+      - ".agents/30-context/domains/job-lifecycle.md"
+    escalation_order:
+      - "package"
+      - "connectors"
+      - "control-plane"
+  control-plane:
+    intent: "Control plane communications and job signaling"
+    triggers:
+      - "communications"
+      - "submit job"
+      - "follow logs"
+      - "status stream"
+      - "dispatch"
+      - "client server"
+    first_surfaces:
+      - "src/DevOpsMigrationPlatform.ControlPlane/*"
+      - "src/DevOpsMigrationPlatform.CLI.Migration/Services/*ControlPlane*"
+      - ".agents/30-context/domains/control-plane-concept.md"
+    escalation_order:
+      - "agent"
+      - "cli"
+  cli:
+    intent: "CLI rendering, parsing, and command parameter behavior"
+    triggers:
+      - "render"
+      - "command line params"
+      - "flags"
+      - "option parsing"
+      - "command validation"
+      - "console output"
+    first_surfaces:
+      - "src/DevOpsMigrationPlatform.CLI.*/Commands/*"
+      - "src/DevOpsMigrationPlatform.CLI.*/Infrastructure/*"
+      - ".agents/30-context/domains/cli-commands.md"
+      - ".agents/30-context/domains/ui-mode-summary.md"
+    escalation_order:
+      - "agent"
+      - "control-plane"

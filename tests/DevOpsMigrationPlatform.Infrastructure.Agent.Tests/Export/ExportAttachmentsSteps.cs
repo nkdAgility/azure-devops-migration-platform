@@ -52,14 +52,12 @@ public class ExportAttachmentsSteps
 
         var packageState = new ActivePackageState
         {
+            CurrentPackageUri = $"file:///{_ctx.PackageRoot.Replace(Path.DirectorySeparatorChar, '/')}",
             CurrentJob = new Job
             {
                 JobId = "export-attachments-test",
                 Kind = JobKind.Export,
-                Package = new JobPackage
-                {
-                    PackageUri = $"file:///{_ctx.PackageRoot.Replace(Path.DirectorySeparatorChar, '/')}"
-                }
+                ConfigPayload = $"{{\"MigrationPlatform\":{{\"Package\":{{\"WorkingDirectory\":\"{_ctx.PackageRoot.Replace("\\", "\\\\")}\"}}}}}}"
             }
         };
 

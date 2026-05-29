@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent;
+using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using Microsoft.Extensions.DependencyInjection;
@@ -338,11 +339,22 @@ internal sealed class ActivePackageAccess : IPackageAccess
 
     private string RequireLocalRoot()
     {
-        var packageUri = _activePackageState.CurrentJob?.Package?.PackageUri
-            ?? throw new PackageOperationException("PKG_STORE_UNAVAILABLE", "No active package store is available.");
-        if (packageUri.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
-            return System.IO.Path.GetFullPath(packageUri.Substring("file:///".Length).Replace('/', System.IO.Path.DirectorySeparatorChar));
-        return System.IO.Path.GetFullPath(packageUri);
+        var packageUri = _activePackageState.CurrentPackageUri;
+        if (string.IsNullOrWhiteSpace(packageUri)
+            && _activePackageState.CurrentJob is { } job
+            && JobPackageUriResolver.TryResolveFromConfigPayload(job.ConfigPayload, out var resolvedPackageUri))
+        {
+            packageUri = resolvedPackageUri;
+            _activePackageState.CurrentPackageUri = resolvedPackageUri;
+        }
+
+        if (string.IsNullOrWhiteSpace(packageUri))
+            throw new PackageOperationException("PKG_STORE_UNAVAILABLE", "No active package store is available.");
+
+        var finalPackageUri = packageUri!;
+        if (finalPackageUri.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
+            return System.IO.Path.GetFullPath(finalPackageUri.Substring("file:///".Length).Replace('/', System.IO.Path.DirectorySeparatorChar));
+        return System.IO.Path.GetFullPath(finalPackageUri);
     }
 
     private static async Task<string> ReadUtf8Async(Stream stream, CancellationToken cancellationToken)

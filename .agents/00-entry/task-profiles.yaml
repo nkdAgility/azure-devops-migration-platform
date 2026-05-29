@@ -1,4 +1,8 @@
 version: 1
+routing:
+  contract: ".agents/10-contracts/routing-catalog.yaml"
+  rule: "Classify activity by trigger and inspect first_surfaces first."
+  fail_closed_on_no_match: true
 profiles:
   package-runtime:
     guardrails:

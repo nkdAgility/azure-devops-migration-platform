@@ -28,11 +28,12 @@ internal sealed class InMemoryPackageAccess : IPackageAccess, IDisposable
 
         var state = new ActivePackageState
         {
+            CurrentPackageUri = _root,
             CurrentJob = new Job
             {
                 JobId = "test-job",
                 Kind = JobKind.Export,
-                Package = new JobPackage { PackageUri = _root }
+                ConfigPayload = $"{{\"MigrationPlatform\":{{\"Package\":{{\"WorkingDirectory\":\"{_root.Replace("\\", "\\\\")}\"}}}}}}"
             }
         };
 

@@ -49,13 +49,17 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
         if (config is null)
             return 1;
 
-        var outputPath = Path.GetFullPath(config.Package.ExpandedPath);
         var configPayload = await File.ReadAllTextAsync(
             Path.GetFullPath(GetConfigurationPath(settings) ?? settings.ConfigFile!),
             cancellationToken);
+        if (!JobPackageUriResolver.TryResolveFromConfigPayload(configPayload, out var packageUri))
+        {
+            console.MarkupLine("[red]✗[/] Package configuration is required.");
+            return 1;
+        }
 
         console.MarkupLine("[blue]ℹ[/] Running end-to-end preparation check…");
-        console.MarkupLine($"[blue]ℹ[/] Package path: [blue]{Markup.Escape(outputPath)}[/]");
+        console.MarkupLine($"[blue]ℹ[/] Package path: [blue]{Markup.Escape(packageUri!)}[/]");
 
         var job = new Job
         {
@@ -68,11 +72,6 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
                 "AzureDevOpsServices" => new[] { ConnectorType.AzureDevOps },
                 "Simulated" => new[] { ConnectorType.Simulated },
                 _ => Array.Empty<ConnectorType>()
-            },
-            Package = new JobPackage
-            {
-                PackageUri = $"file:///{outputPath.Replace(Path.DirectorySeparatorChar, '/')}",
-                CreatePackage = false
             }
         };
 

@@ -1,0 +1,31 @@
+{
+  "MigrationPlatform": {
+    "ConfigVersion": "1.0",
+    "Mode": "Inventory",
+    "Policies": {
+      "Retries": {
+        "Max": 8
+      },
+      "Throttle": {
+        "MaxConcurrency": 4
+      },
+      "Checkpoints": {
+        "Interval": 60
+      }
+    },
+    "Package": {
+      "WorkingDirectory": "%userprofile%\\source\\Tools\\MigrationPlatform\\manual\\org"
+    },
+    "Organisations": [
+      {
+        "Type": "AzureDevOpsServices",
+        "Url": "$ENV:AZDEVOPS_SYSTEM_TEST_ORG",
+        "Projects": [],
+        "Authentication": {
+          "Type": "AccessToken",
+          "AccessToken": "$ENV:AZDEVOPS_SYSTEM_TEST_PAT"
+        }
+      }
+    ]
+  }
+}

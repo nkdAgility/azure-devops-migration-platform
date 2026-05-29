@@ -23,7 +23,7 @@ public sealed class AgentWorkerBaseLeaseCoordinationTests
         {
             JobId = "job-dispatch-failure",
             Kind = JobKind.Export,
-            Package = new JobPackage { PackageUri = "file:///tmp/package" }
+            ConfigPayload = "{\"MigrationPlatform\":{\"Package\":{\"WorkingDirectory\":\"file:///tmp/package\"}}}"
         };
 
         using var client = new HttpClient(new SingleLeaseResponseHandler("lease-dispatch-failure", job))

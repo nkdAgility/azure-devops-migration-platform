@@ -36,9 +36,6 @@ public class Job
     /// </summary>
     public ConnectorType[] Connectors { get; init; } = [];
 
-    /// <summary>Output location. Always a URI — file:/// for standalone, Azure Blob HTTPS URL for hosted.</summary>
-    public JobPackage Package { get; init; } = new();
-
     /// <summary>Optional diagnostics configuration for the agent's log sinks.</summary>
     public JobDiagnostics? Diagnostics { get; init; }
 
