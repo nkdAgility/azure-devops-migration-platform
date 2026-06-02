@@ -61,9 +61,10 @@ If `{feature}` is a folder, `nkda-testdsl-autonomous` must:
 1. resolve all `.feature` files under that folder
 2. map them to feature families
 3. check each family for already-adapted state before conversion
-4. process each unique family in deterministic path order
-5. run the full six conversion phases only for families that are not already adapted, then run next-feature-selection after the final family
-6. output final totals and per-`.feature` status (already-adapted, converted, skipped, blocked, failed)
+4. classify the wiring state of each not-yet-adapted family (`wired`, `miswired`, `unwired`); `miswired`/`unwired` families are valid candidates and are built from intent, not skipped
+5. process each unique family in deterministic path order
+6. run the full six conversion phases only for families that are not already adapted, then run next-feature-selection after the final family
+7. output final totals and per-`.feature` status (already-adapted, converted, built-from-intent, skipped, blocked, failed) with wiring state
 
 ## Phase Gates
 
@@ -93,14 +94,16 @@ Before conversion, define:
 ### Conversion Gate
 
 Before deleting Reqnroll artefacts, equivalent code-first MSTest behaviour coverage must exist.
-Missing-step scenarios must be converted into intent-derived tests or explicitly blocked with reason.
+Before building any test, the existing test corpus must be searched for equivalent coverage; `pre-existing` scenarios map to the existing test, `partial-existing` scenarios extend it, and only `to-build` scenarios get a new test. No duplicate coverage may be created.
+Missing-step scenarios with no pre-existing coverage must be converted into intent-derived tests or explicitly blocked with reason.
 
 ### Verification Gate
 
 A family is complete only when:
 
-- parity map is complete
-- Reqnroll artefacts are removed or explicitly retained for unmigrated scope
+- for `wired` families, the parity map is complete; for `miswired`/`unwired` families, intent coverage is complete and every assertion is confirmed against observed production behaviour (no parity baseline existed)
+- no duplicate coverage was created: `pre-existing` scenarios map to existing tests and no newly built test re-asserts already-covered behaviour
+- Reqnroll artefacts are removed or explicitly retained for unmigrated scope, scoped to wiring state (`unwired` has no bindings or generated test to remove)
 - converted/affected tests are green
 - intent-derived tests meet test-validity threshold (`USEFUL` or `HIGH VALUE`, >= 16/25)
 - full repository test suite is rerun after converted tests are green
@@ -113,4 +116,4 @@ Autonomous execution stops after all selected families are complete, or sooner i
 - scope cannot be resolved for the entire run
 - required shared inputs are missing for the entire run
 
-Per-family failures (for example parity gaps or unresolved family-scope failures) are recorded as `blocked`/`failed`, and execution continues with remaining families so the run converts everything it can.
+A `miswired` or `unwired` wiring state is not by itself a failure; those families are built from intent. Per-family failures (for example parity gaps for `wired` families, assertions that cannot be confirmed against observed production behaviour or unresolved intent-vs-behaviour conflicts for `miswired`/`unwired` families, or unresolved family-scope failures) are recorded as `blocked`/`failed`, and execution continues with remaining families so the run converts everything it can.
