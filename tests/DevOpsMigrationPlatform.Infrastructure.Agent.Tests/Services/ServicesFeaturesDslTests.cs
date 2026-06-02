@@ -36,7 +36,9 @@ public sealed class ServicesFeaturesDslTests
         var sut = new FileSystemIdentityMappingService(
             new Dictionary<string, string> { ["jsmith@source.example.com"] = "john.smith@target.example.com" },
             "migration-bot@target.example.com",
-            package);
+            package,
+            "test-org",
+            "test-project");
 
         var resolved = sut.Resolve("jsmith@source.example.com");
 
@@ -59,14 +61,16 @@ public sealed class ServicesFeaturesDslTests
         var sut = new FileSystemIdentityMappingService(
             new Dictionary<string, string>(),
             "migration-bot@target.example.com",
-            package.Object);
+            package.Object,
+            "test-org",
+            "test-project");
 
         var resolved = sut.Resolve("legacy@old.example.com");
         await sut.FlushWarningsAsync(CancellationToken.None);
 
         Assert.AreEqual("migration-bot@target.example.com", resolved);
         Assert.IsTrue(
-            persistedPaths.Any(p => p.Contains(".migration/identity-warnings/", StringComparison.Ordinal)),
+            persistedPaths.Any(p => p.Contains("identity-warnings/", StringComparison.Ordinal)),
             "Expected unresolved identity warning artefact.");
     }
 

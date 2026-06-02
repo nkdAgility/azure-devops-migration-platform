@@ -35,7 +35,7 @@ public sealed class WorkItemsModulePrepareTests
     private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
 
     private static PackageContentContext ContentAt(string path)
-        => new(PackageContentKind.Artefact, Address: new TestPackageAddress(path));
+        => new(PackageContentKind.Artefact, "test-org", "test-project", "WorkItems", Address: new TestPackageAddress(path));
 
     [TestMethod]
     public async Task PrepareAsync_WritesBlockingFindings_WhenAttachmentAndImageBinariesAreMissing()

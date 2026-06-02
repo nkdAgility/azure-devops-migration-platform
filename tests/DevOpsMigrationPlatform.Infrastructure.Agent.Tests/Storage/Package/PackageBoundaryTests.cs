@@ -22,11 +22,11 @@ public sealed class PackageBoundaryTests
     public async Task ExistsAsync_ReturnsTrue_WhenContentPathExists()
     {
         var store = new InMemoryPackageAccess();
-        await store.WriteAsync("WorkItems/entry.json", "{}", CancellationToken.None);
+        await store.WriteAsync("test-org/test-project/WorkItems/entry.json", "{}", CancellationToken.None);
         var (sut, _) = ActivePackageTestFactory.Create(store);
 
         var exists = await sut.ContentExistsAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("WorkItems/entry.json")),
+            new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "WorkItems", Address: new TestPackageAddress("entry.json")),
             CancellationToken.None);
 
         Assert.IsTrue(exists);
@@ -36,32 +36,32 @@ public sealed class PackageBoundaryTests
     public async Task EnumerateAsync_YieldsLexicographicStoreEntries()
     {
         var store = new InMemoryPackageAccess();
-        await store.WriteAsync("WorkItems/b.json", "{}", CancellationToken.None);
-        await store.WriteAsync("WorkItems/a.json", "{}", CancellationToken.None);
+        await store.WriteAsync("test-org/test-project/WorkItems/b.json", "{}", CancellationToken.None);
+        await store.WriteAsync("test-org/test-project/WorkItems/a.json", "{}", CancellationToken.None);
         var (sut, _) = ActivePackageTestFactory.Create(store);
 
         var entries = new List<string>();
         await foreach (var item in sut.EnumerateContentAsync(
-            new PackageContentContext(PackageContentKind.Collection, Address: new TestPackageAddress("WorkItems")),
+            new PackageContentContext(PackageContentKind.Collection, "test-org", "test-project", "WorkItems", Address: new TestPackageAddress("")),
             CancellationToken.None))
             entries.Add(item);
 
-        CollectionAssert.AreEquivalent(new[] { "WorkItems/a.json", "WorkItems/b.json" }, entries.ToArray());
+        CollectionAssert.AreEquivalent(new[] { "test-org/test-project/WorkItems/a.json", "test-org/test-project/WorkItems/b.json" }, entries.ToArray());
     }
 
     [TestMethod]
     public async Task AppendAsync_AppendsContentToExistingFile()
     {
         var store = new InMemoryPackageAccess();
-        await store.WriteAsync("Identities/descriptors.jsonl", "one\n", CancellationToken.None);
+        await store.WriteAsync("test-org/test-project/Identities/descriptors.jsonl", "one\n", CancellationToken.None);
         var (sut, _) = ActivePackageTestFactory.Create(store);
 
         await sut.AppendContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("Identities/descriptors.jsonl")),
+            new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "Identities", Address: new TestPackageAddress("descriptors.jsonl")),
             new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("two\n"))),
             CancellationToken.None);
 
-        Assert.AreEqual("one\ntwo\n", await store.ReadAsync("Identities/descriptors.jsonl", CancellationToken.None));
+        Assert.AreEqual("one\ntwo\n", await store.ReadAsync("test-org/test-project/Identities/descriptors.jsonl", CancellationToken.None));
     }
 
     [TestMethod]

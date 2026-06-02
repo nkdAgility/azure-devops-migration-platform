@@ -613,7 +613,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         // FileSystem today and Azure Blob Storage in the future.
         if (runImport)
         {
-            await _packagePreparer.PrepareForImportAsync(_package, planConfig, ct)
+            await _packagePreparer.PrepareForImportAsync(planConfig, ct)
                 .ConfigureAwait(false);
         }
 

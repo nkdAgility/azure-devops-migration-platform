@@ -395,7 +395,15 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     {
         try
         {
-            var json = await ReadPackageTextAsync(package, "inventory.json", ct).ConfigureAwait(false);
+            var resolved = ResolvePackage(package);
+            var payload = await resolved.RequestIndexAsync(
+                new PackageIndexContext("inventory.json"),
+                ct).ConfigureAwait(false);
+            if (payload is null)
+                return null;
+            if (payload.Content.CanSeek) payload.Content.Position = 0;
+            using var rdr = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+            var json = await rdr.ReadToEndAsync().ConfigureAwait(false);
             if (json is null)
                 return null;
 
@@ -453,8 +461,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             var orgUrl = task.OrganisationUrl!;
             var projectName = task.ProjectName!;
             var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
-            var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, projectName);
-            projectInventory = await ProjectInventoryFile.ReadAsync(resolvedPackage, projectPath, ct).ConfigureAwait(false);
+            projectInventory = await ProjectInventoryFile.ReadAsync(resolvedPackage, orgSlug, projectName, ct).ConfigureAwait(false);
         }
 
         var inventoryReport = await TryReadInventoryReportAsync(resolvedPackage, ct).ConfigureAwait(false);
@@ -1105,39 +1112,22 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         }
     }
 
-    private static async Task<string?> ReadPackageTextAsync(IPackageAccess? package, string relativePath, CancellationToken ct)
-    {
-        var resolved = ResolvePackage(package);
-        var payload = await resolved.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
-            ct).ConfigureAwait(false);
-        if (payload is null)
-            return null;
-
-        if (payload.Content.CanSeek)
-            payload.Content.Position = 0;
-        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
-        return await reader.ReadToEndAsync().ConfigureAwait(false);
-    }
-
     private static async Task<string?> ReadPlanStateAsync(IPackageAccess? package, string key, CancellationToken ct)
     {
+        if (!string.Equals(key, ".migration/plan.json", StringComparison.Ordinal))
+            throw new InvalidOperationException($"ReadPlanStateAsync called with unexpected key '{key}'. Only '.migration/plan.json' is supported.");
+
         var resolved = ResolvePackage(package);
-        if (string.Equals(key, ".migration/plan.json", StringComparison.Ordinal))
-        {
-            var planMeta = await resolved.RequestMetaAsync(
-                new PackageMetaContext(PackageMetaKind.ExecutionPlan),
-                ct).ConfigureAwait(false);
-            if (planMeta.Payload is null)
-                return null;
+        var planMeta = await resolved.RequestMetaAsync(
+            new PackageMetaContext(PackageMetaKind.ExecutionPlan),
+            ct).ConfigureAwait(false);
+        if (planMeta.Payload is null)
+            return null;
 
-            if (planMeta.Payload.Content.CanSeek)
-                planMeta.Payload.Content.Position = 0;
-            using var reader = new StreamReader(planMeta.Payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
-            return await reader.ReadToEndAsync().ConfigureAwait(false);
-        }
-
-        return await ReadPackageTextAsync(resolved, key, ct).ConfigureAwait(false);
+        if (planMeta.Payload.Content.CanSeek)
+            planMeta.Payload.Content.Position = 0;
+        using var reader = new StreamReader(planMeta.Payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
     private static async Task WritePlanStateAsync(IPackageAccess? package, string key, string value, CancellationToken ct)
@@ -1153,15 +1143,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             return;
         }
 
-        await resolved.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(key)),
-            new PackagePayload(stream),
-            ct).ConfigureAwait(false);
-    }
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+        throw new InvalidOperationException($"WritePlanStateAsync called with unexpected key '{key}'. Only '.migration/plan.json' is supported.");
     }
 
     private static async Task WriteErrorsJsonAsync(
@@ -1193,9 +1175,9 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             };
             var json = JsonSerializer.Serialize(record, new JsonSerializerOptions { WriteIndented = true });
             using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
-            await package.PersistContentAsync(
-                new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress("errors.json")),
-                new PackagePayload(stream, "application/json"),
+            await package.PersistMetaAsync(
+                new PackageMetaContext(PackageMetaKind.JobErrors),
+                new PackageMetaPayload(stream),
                 CancellationToken.None).ConfigureAwait(false);
         }
         catch

@@ -23,24 +23,28 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Nodes;
 /// </summary>
 public sealed class NodeReadinessOrchestrator
 {
-    private const string ReferencedPathsPath = "Nodes/referenced-paths.json";
-    private const string SourceTreePath = "Nodes/source-tree.json";
+    private const string ReferencedPathsFile = "referenced-paths.json";
+    private const string SourceTreeFile = "source-tree.json";
+    private const string ModuleName = "Nodes";
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
     private static readonly JsonSerializerOptions s_jsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly IPackageAccess _packageAccess;
     private readonly INodeTranslationTool _nodeTranslationTool;
     private readonly INodeCreator _nodeCreator;
-    private readonly ReferencedPathsFromWorkItemsStrategy _referencedPathsFromWorkItemsStrategy;
     private readonly ILogger<NodeReadinessOrchestrator> _logger;
     private readonly NodeTranslationOptions? _nodeTranslationOptions;
     private readonly IImportCreatedNodeStateStore? _importCreatedNodeStateStore;
+    private readonly string _organisation;
+    private readonly string _project;
 
     public NodeReadinessOrchestrator(
         IPackageAccess packageAccess,
         INodeTranslationTool nodeTranslationTool,
         INodeCreator nodeCreator,
         ILogger<NodeReadinessOrchestrator> logger,
+        string organisation,
+        string project,
         IOptions<NodeTranslationOptions>? nodeTranslationOptions = null,
         IImportCreatedNodeStateStore? importCreatedNodeStateStore = null)
     {
@@ -48,9 +52,10 @@ public sealed class NodeReadinessOrchestrator
         _nodeTranslationTool = nodeTranslationTool ?? throw new ArgumentNullException(nameof(nodeTranslationTool));
         _nodeCreator = nodeCreator ?? throw new ArgumentNullException(nameof(nodeCreator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _organisation = organisation ?? throw new ArgumentNullException(nameof(organisation));
+        _project = project ?? throw new ArgumentNullException(nameof(project));
         _nodeTranslationOptions = nodeTranslationOptions?.Value;
         _importCreatedNodeStateStore = importCreatedNodeStateStore;
-        _referencedPathsFromWorkItemsStrategy = new ReferencedPathsFromWorkItemsStrategy(_packageAccess, _logger);
     }
 
     public async Task ExecuteAsync(
@@ -79,10 +84,15 @@ public sealed class NodeReadinessOrchestrator
             }
         }
 
-        var referenced = await ReadArtifactAsync<ReferencedPathsArtifact>(ReferencedPathsPath, ct).ConfigureAwait(false);
+        var referenced = await ReadArtifactAsync<ReferencedPathsArtifact>(ReferencedPathsFile, ct).ConfigureAwait(false);
         if (referenced is null)
         {
-            referenced = await _referencedPathsFromWorkItemsStrategy
+            var referencedPathsStrategy = new ReferencedPathsFromWorkItemsStrategy(
+                _packageAccess,
+                _logger,
+                _organisation,
+                _project);
+            referenced = await referencedPathsStrategy
                 .CollectDistinctPathsAsync(ct)
                 .ConfigureAwait(false);
         }
@@ -108,7 +118,7 @@ public sealed class NodeReadinessOrchestrator
 
         if (replicateSourceTree)
         {
-            var snapshot = await ReadArtifactAsync<ClassificationTreeSnapshot>(SourceTreePath, ct).ConfigureAwait(false);
+            var snapshot = await ReadArtifactAsync<ClassificationTreeSnapshot>(SourceTreeFile, ct).ConfigureAwait(false);
             if (snapshot is not null)
             {
                 await EnsureTranslatedPathsAsync(
@@ -226,10 +236,17 @@ public sealed class NodeReadinessOrchestrator
             $"Set SkipOnUnresolvable{(isArea ? "Area" : "Iteration")}: true to skip instead.");
     }
 
-    private async Task<T?> ReadArtifactAsync<T>(string relativePath, CancellationToken ct)
+    private async Task<T?> ReadArtifactAsync<T>(string fileName, CancellationToken ct)
     {
         var payload = await _packageAccess
-            .RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)), ct)
+            .RequestContentAsync(
+                new PackageContentContext(
+                    PackageContentKind.Artefact,
+                    Organisation: _organisation,
+                    Project: _project,
+                    Module: ModuleName,
+                    Address: new RelativePathAddress(fileName)),
+                ct)
             .ConfigureAwait(false);
 
         if (payload is not null)
@@ -237,39 +254,40 @@ public sealed class NodeReadinessOrchestrator
             return await DeserializeArtifactAsync<T>(payload, ct).ConfigureAwait(false);
         }
 
-        var metadataPayload = await EnumerateClassificationMetadataAsync(relativePath, ct).ConfigureAwait(false);
+        var metadataPayload = await EnumerateClassificationMetadataAsync(fileName, ct).ConfigureAwait(false);
         if (metadataPayload is null)
             return default;
 
         return await DeserializeArtifactAsync<T>(metadataPayload, ct).ConfigureAwait(false);
     }
 
-    private async Task<PackagePayload?> EnumerateClassificationMetadataAsync(string relativePath, CancellationToken ct)
+    private async Task<PackagePayload?> EnumerateClassificationMetadataAsync(string fileName, CancellationToken ct)
     {
-        var normalizedPath = relativePath.Replace('\\', '/');
-        var separatorIndex = normalizedPath.LastIndexOf('/');
-        if (separatorIndex <= 0 || separatorIndex >= normalizedPath.Length - 1)
-            return null;
-
-        var parentPath = normalizedPath.Substring(0, separatorIndex);
-        var fileName = normalizedPath.Substring(separatorIndex + 1);
-
         await foreach (var enumeratedPath in _packageAccess.EnumerateContentAsync(
                            new PackageContentContext(
                                PackageContentKind.Collection,
-                               Address: new RelativePathAddress(parentPath),
+                               Organisation: _organisation,
+                               Project: _project,
+                               Module: ModuleName,
                                IsCollectionRequest: true),
                            ct).ConfigureAwait(false))
         {
             var normalizedEnumeratedPath = enumeratedPath.Replace('\\', '/');
-            var candidatePath = normalizedEnumeratedPath.EndsWith($"/{fileName}", StringComparison.OrdinalIgnoreCase)
-                ? normalizedEnumeratedPath
+            var candidateFileName = normalizedEnumeratedPath.EndsWith($"/{fileName}", StringComparison.OrdinalIgnoreCase)
+                ? fileName
                 : null;
-            if (candidatePath is null)
+            if (candidateFileName is null)
                 continue;
 
             var payload = await _packageAccess
-                .RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(candidatePath)), ct)
+                .RequestContentAsync(
+                    new PackageContentContext(
+                        PackageContentKind.Artefact,
+                        Organisation: _organisation,
+                        Project: _project,
+                        Module: ModuleName,
+                        Address: new RelativePathAddress(candidateFileName)),
+                    ct)
                 .ConfigureAwait(false);
             if (payload is not null)
                 return payload;
@@ -293,9 +311,4 @@ public sealed class NodeReadinessOrchestrator
 
     private static string BuildNodeKey(ClassificationNodeType nodeType, string path)
         => $"{nodeType}:{path}";
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
-    }
 }

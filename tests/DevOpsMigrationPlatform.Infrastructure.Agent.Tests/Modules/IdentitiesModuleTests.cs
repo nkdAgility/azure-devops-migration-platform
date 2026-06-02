@@ -42,7 +42,7 @@ public class IdentitiesModuleTests
     private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
 
     private static PackageContentContext ContentAt(string path)
-        => new(PackageContentKind.Artefact, Address: new TestPackageAddress(path));
+        => new(PackageContentKind.Artefact, "test-org", "test-project", "Identities", Address: new TestPackageAddress(path));
 
     private static IdentitiesModule CreateModule(
         IdentitiesModuleOptions? options = null,

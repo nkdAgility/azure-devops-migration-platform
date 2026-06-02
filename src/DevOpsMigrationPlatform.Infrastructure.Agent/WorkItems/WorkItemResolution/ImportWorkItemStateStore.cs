@@ -19,7 +19,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolut
 
 public sealed class ImportWorkItemStateStore : IAsyncDisposable, IImportCreatedNodeStateStore
 {
-    private const string CursorPath = ".migration/Checkpoints/workitems-import.cursor.json";
+    private static readonly PackageMetaContext CursorContext =
+        new(PackageMetaKind.CheckpointCursor, Action: "import", Module: "workitems");
     private static readonly TimeSpan CursorWriteSla = TimeSpan.FromMilliseconds(500);
     private readonly IPackageAccess _package;
     private readonly SemaphoreSlim _idMapInitializeGate = new(initialCount: 1, maxCount: 1);
@@ -36,9 +37,8 @@ public sealed class ImportWorkItemStateStore : IAsyncDisposable, IImportCreatedN
     public async Task<CursorEntry?> ReadCursorAsync(CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
-        var payload = await _package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(CursorPath)),
-            cancellationToken).ConfigureAwait(false);
+        var result = await _package.RequestMetaAsync(CursorContext, cancellationToken).ConfigureAwait(false);
+        var payload = result.Payload;
         if (payload is null)
             return null;
 
@@ -65,9 +65,9 @@ public sealed class ImportWorkItemStateStore : IAsyncDisposable, IImportCreatedN
         timeoutTokenSource.CancelAfter(CursorWriteSla);
         try
         {
-            await _package.PersistContentAsync(
-                new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(CursorPath)),
-                new PackagePayload(stream, "application/json"),
+            await _package.PersistMetaAsync(
+                CursorContext,
+                new PackageMetaPayload(stream),
                 timeoutTokenSource.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
@@ -399,10 +399,6 @@ public sealed class ImportWorkItemStateStore : IAsyncDisposable, IImportCreatedN
         command.Parameters.Add(parameter);
     }
 
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath { get; } = relativePath;
-    }
 }
 
 public readonly record struct ImportResumeDecision(bool ShouldSkip, string? ResumeAtStage)

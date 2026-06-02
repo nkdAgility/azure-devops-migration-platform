@@ -111,7 +111,7 @@ public sealed class DependencyAnalyserTests
     private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
 
     private static PackageContentContext ContentAt(string path)
-        => new(PackageContentKind.Artefact, Address: new TestPackageAddress(path));
+        => new(PackageContentKind.Artefact, "test-org", "test-project", "Dependencies", Address: new TestPackageAddress(path));
 
     private static DependencyAnalyser CreateAnalyser(
         ILogger<DependencyAnalyser>? logger = null,

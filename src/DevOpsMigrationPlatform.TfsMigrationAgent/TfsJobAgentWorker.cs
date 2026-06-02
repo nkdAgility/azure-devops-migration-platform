@@ -189,7 +189,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
             // Extract fixture archive into package store if PackagePath is set.
             var preparer = jobScope.ServiceProvider.GetService<IPackagePreparer>();
             if (preparer != null)
-                await preparer.PrepareForImportAsync(PackageAccess, packageConfig, ct).ConfigureAwait(false);
+                await preparer.PrepareForImportAsync(packageConfig, ct).ConfigureAwait(false);
 
             // Build (or resume) the execution plan and persist it to the package.
             var executionPlan = await planBuilder

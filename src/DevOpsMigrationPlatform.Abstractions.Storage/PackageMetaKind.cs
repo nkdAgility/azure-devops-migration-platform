@@ -16,6 +16,8 @@ public enum PackageMetaKind
     PrepareProbe,
     RunConfigSnapshot,
     ExportProgressDb,
-    IdMapDb
+    IdMapDb,
+    WorkItemsImportReadiness,
+    JobErrors
 }
 

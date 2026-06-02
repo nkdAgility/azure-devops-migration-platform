@@ -45,7 +45,9 @@ public class ReferencedPathsFromWorkItemsStrategyTests
 
         var strategy = new ReferencedPathsFromWorkItemsStrategy(
             package.Object,
-            NullLogger<ReferencedPathsFromWorkItemsStrategy>.Instance);
+            NullLogger<ReferencedPathsFromWorkItemsStrategy>.Instance,
+            "test-org",
+            "test-project");
 
         var result = await strategy.CollectDistinctPathsAsync(CancellationToken.None);
 
@@ -99,7 +101,9 @@ public class ReferencedPathsFromWorkItemsStrategyTests
 
         var strategy = new ReferencedPathsFromWorkItemsStrategy(
             package.Object,
-            NullLogger<ReferencedPathsFromWorkItemsStrategy>.Instance);
+            NullLogger<ReferencedPathsFromWorkItemsStrategy>.Instance,
+            "test-org",
+            "test-project");
 
         var result = await strategy.CollectDistinctPathsAsync(CancellationToken.None);
 
@@ -129,7 +133,7 @@ public class ReferencedPathsFromWorkItemsStrategyTests
         var payload = new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false), "application/json");
 
         await packageAccess.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress(path)),
+            new PackageContentContext(PackageContentKind.Artefact, Organisation: "test-org", Project: "test-project", Module: "WorkItems", Address: new TestPackageAddress(path)),
             payload,
             CancellationToken.None);
     }

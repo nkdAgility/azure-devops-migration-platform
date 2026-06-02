@@ -121,8 +121,11 @@ public static class ModuleServiceCollectionExtensions
                     new MissingEmbeddedImageBinaryImportFailurePattern(),
                     new FieldTransformCompatibilityImportFailurePattern()
                 };
+            var sourceEndpointInfo = sp.GetRequiredService<ISourceEndpointInfo>();
             return new ImportPreparer(
                 sp.GetRequiredService<IOptions<WorkItemsModuleOptions>>(),
+                sourceEndpointInfo.OrganisationSlug,
+                sourceEndpointInfo.Project,
                 resolved);
         });
         services.AddScoped<WorkItemsOrchestrator>(sp =>

@@ -39,16 +39,11 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 /// </summary>
 internal sealed class InventoryOrchestrator : IInventoryOrchestrator
 {
-    private static string OrgCsvOutputPathFor(string orgSlug)
-        => $"{orgSlug}/inventory.csv";
+    private static PackageIndexContext OrgCsvIndexFor(string orgSlug)
+        => new("inventory.csv", Organisation: orgSlug);
 
-    private static string OrgJsonOutputPathFor(string orgSlug)
-        => $"{orgSlug}/inventory.json";
-
-    // Aggregate paths (all orgs combined).
-    private static string CsvOutputPath => "inventory.csv";
-
-    private static string JsonOutputPath => "inventory.json";
+    // Aggregate index (all orgs combined).
+    private static PackageIndexContext RootCsvIndex => new("inventory.csv");
 
     private readonly ILogger _logger;
     private readonly IPlatformMetrics? _metrics;
@@ -88,9 +83,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
 
         var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(context.SourceEndpoint?.ResolvedUrl ?? "unknown");
         var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? "unknown";
-        var csvOutputPath = OrgCsvOutputPathFor(orgSlug);
-        var jsonOutputPath = OrgJsonOutputPathFor(orgSlug);
-        var aggregateJsonPath = JsonOutputPath;
+        var csvOutputContext = OrgCsvIndexFor(orgSlug);
 
         _logger.LogInformation("Inventory orchestrator starting for job {JobId}, module {Module}.", job.JobId, moduleName);
 
@@ -119,7 +112,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         // Reload completed projects from existing CSV for resume support.
         if (isResuming)
         {
-            var existingCsv = await ReadPackageTextAsync(package, csvOutputPath, ct).ConfigureAwait(false);
+            var existingCsv = await ReadInventoryCsvAsync(package, csvOutputContext, ct).ConfigureAwait(false);
             if (existingCsv is not null)
             {
                 var lines = existingCsv.Split('\n');
@@ -222,8 +215,8 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
                 // Flush CSV to disk at the checkpoint interval even mid-project.
                 if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
                 {
-                    await WritePackageTextAsync(package, csvOutputPath, csvBuilder.ToString(), "text/csv", ct).ConfigureAwait(false);
-                    await WriteInventoryJsonAsync(package, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
+                    await WriteInventoryCsvAsync(package, csvOutputContext, csvBuilder.ToString(), ct).ConfigureAwait(false);
+                    await WriteInventoryJsonAsync(package, orgSlug, orgProjectData, ct).ConfigureAwait(false);
                     lastCheckpoint = DateTime.UtcNow;
                     _logger.LogDebug("Inventory mid-project flush at checkpoint interval.");
                 }
@@ -272,11 +265,9 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
 
             // Write per-project inventory file: {orgSlug}/{project}/inventory.json
             var evtOrgSlug = PackagePathResolver.DeriveInventoryOrgSlug(evt.Url);
-            var projectPath = PackagePathResolver.ProjectInventoryPath(evtOrgSlug, evt.ProjectName);
             await ProjectInventoryFile.MergeAsync(
-                package, projectPath,
+                package, evtOrgSlug, evt.ProjectName,
                 orgUrl: evt.Url,
-                project: evt.ProjectName,
                 workItems: evt.WorkItemsCount,
                 revisions: evt.RevisionsCount,
                 repos: evt.ReposCount,
@@ -330,8 +321,8 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             });
 
             // Flush CSV and JSON after every completed project.
-            await WritePackageTextAsync(package, csvOutputPath, csvBuilder.ToString(), "text/csv", ct).ConfigureAwait(false);
-            await WriteInventoryJsonAsync(package, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
+            await WriteInventoryCsvAsync(package, csvOutputContext, csvBuilder.ToString(), ct).ConfigureAwait(false);
+            await WriteInventoryJsonAsync(package, orgSlug, orgProjectData, ct).ConfigureAwait(false);
             lastCompletedProjectKey = projectKey;
             lastCompletedProjectUrl = evt.Url;
             lastCompletedProjectName = evt.ProjectName;
@@ -377,9 +368,9 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         }
 
         // Final write — per-org CSV/JSON and rolling aggregate.
-        await WritePackageTextAsync(package, csvOutputPath, csvBuilder.ToString(), "text/csv", ct).ConfigureAwait(false);
-        await WriteInventoryJsonAsync(package, jsonOutputPath, orgProjectData, ct).ConfigureAwait(false);
-        await MergeAndWriteAggregateAsync(package, aggregateJsonPath, orgProjectData, ct).ConfigureAwait(false);
+        await WriteInventoryCsvAsync(package, csvOutputContext, csvBuilder.ToString(), ct).ConfigureAwait(false);
+        await WriteInventoryJsonAsync(package, orgSlug, orgProjectData, ct).ConfigureAwait(false);
+        await MergeAndWriteAggregateAsync(package, orgProjectData, ct).ConfigureAwait(false);
 
         if (!string.IsNullOrWhiteSpace(lastCompletedProjectKey) &&
             !string.IsNullOrWhiteSpace(lastCompletedProjectUrl) &&
@@ -427,7 +418,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     {
         _ = moduleName;
 
-        var existingCsv = await ReadPackageTextAsync(package, CsvOutputPath, ct).ConfigureAwait(false);
+        var existingCsv = await ReadInventoryCsvAsync(package, RootCsvIndex, ct).ConfigureAwait(false);
         if (existingCsv is null)
             return null;
 
@@ -451,7 +442,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
 
     private static async Task WriteInventoryJsonAsync(
         IPackageAccess package,
-        string jsonOutputPath,
+        string orgSlug,
         Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> orgProjectData,
         CancellationToken ct)
     {
@@ -499,7 +490,11 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             WriteIndented = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
-        await WritePackageTextAsync(package, jsonOutputPath, json, "application/json", ct).ConfigureAwait(false);
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
+        await package.PersistIndexAsync(
+            new PackageIndexContext("inventory.json", Organisation: orgSlug),
+            new PackagePayload(stream, "application/json"),
+            ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -510,14 +505,13 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     /// </summary>
     private static async Task MergeAndWriteAggregateAsync(
         IPackageAccess package,
-        string aggregatePath,
         Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>> currentOrgData,
         CancellationToken ct)
     {
         var mergedData = new Dictionary<string, List<(string, long, long, int, bool, string?)>>(StringComparer.OrdinalIgnoreCase);
 
         // Load previously-written orgs so they are preserved in the aggregate.
-        var existingJson = await ReadPackageTextAsync(package, aggregatePath, ct).ConfigureAwait(false);
+        var existingJson = await ReadRootInventoryAsync(package, ct).ConfigureAwait(false);
         if (existingJson is not null)
         {
             try
@@ -591,13 +585,17 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             WriteIndented = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
-        await WritePackageTextAsync(package, aggregatePath, json, "application/json", ct).ConfigureAwait(false);
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
+        await package.PersistIndexAsync(
+            new PackageIndexContext("inventory.json"),
+            new PackagePayload(stream, "application/json"),
+            ct).ConfigureAwait(false);
     }
 
-    private static async Task<string?> ReadPackageTextAsync(IPackageAccess package, string relativePath, CancellationToken ct)
+    private static async Task<string?> ReadRootInventoryAsync(IPackageAccess package, CancellationToken ct)
     {
-        var payload = await package.RequestContentAsync(
-            CreatePackageContentContext(relativePath),
+        var payload = await package.RequestIndexAsync(
+            new PackageIndexContext("inventory.json"),
             ct).ConfigureAwait(false);
         if (payload is null)
             return null;
@@ -608,23 +606,22 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
         return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
-    private static async Task WritePackageTextAsync(IPackageAccess package, string relativePath, string content, string contentType, CancellationToken ct)
+    private static async Task<string?> ReadInventoryCsvAsync(IPackageAccess package, PackageIndexContext context, CancellationToken ct)
     {
-        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
-        await package.PersistContentAsync(
-            CreatePackageContentContext(relativePath),
-            new PackagePayload(stream, contentType),
-            ct).ConfigureAwait(false);
+        var payload = await package.RequestIndexAsync(context, ct).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
-    private static PackageContentContext CreatePackageContentContext(string relativePath)
-        => new(
-            PackageContentKind.Artefact,
-            Address: new RelativePathAddress(relativePath));
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    private static async Task WriteInventoryCsvAsync(IPackageAccess package, PackageIndexContext context, string content, CancellationToken ct)
     {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
+        await package.PersistIndexAsync(context, new PackagePayload(stream, "text/csv"), ct).ConfigureAwait(false);
     }
 
     private static IReadOnlyList<ScopedOrganisationEndpoint> BuildScopedOrganisations(

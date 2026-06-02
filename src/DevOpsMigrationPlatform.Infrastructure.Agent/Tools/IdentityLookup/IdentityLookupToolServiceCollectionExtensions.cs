@@ -35,6 +35,7 @@ public static class IdentityLookupToolServiceCollectionExtensions
         // Singleton to satisfy singleton consumers in the planning pipeline.
         services.AddSingleton<IdentityLookupTool>(sp => new IdentityLookupTool(
             sp.GetRequiredService<IOptions<IdentityLookupOptions>>(),
+            sp.GetRequiredService<ISourceEndpointInfo>(),
             sp.GetService<ILogger<IdentityLookupTool>>(),
             sp.GetRequiredService<IPackageAccess>()));
         services.AddSingleton<IIdentityLookupTool>(sp => sp.GetRequiredService<IdentityLookupTool>());

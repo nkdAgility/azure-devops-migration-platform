@@ -26,7 +26,7 @@ public class IdentityMappingContext
         PackageRoot = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(PackageRoot);
         Package = CreatePackageAccess(PackageRoot, "identity-mapping-tests");
-        Sut = new FileSystemIdentityMappingService(Mappings, FallbackIdentity, Package);
+        Sut = new FileSystemIdentityMappingService(Mappings, FallbackIdentity, Package, "test-org", "test-project");
     }
     private static IPackageAccess CreatePackageAccess(string packageRoot, string jobId)
     {

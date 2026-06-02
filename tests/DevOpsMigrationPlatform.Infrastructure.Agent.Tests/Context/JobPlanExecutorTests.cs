@@ -272,7 +272,7 @@ public sealed class JobPlanExecutorTests
         var package = PackageTestFactory.CreateLooseMock().Object;
         var executor = CreateExecutor(package: package);
         await package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress(PackagePathTestHelper.InventoryCompleteFile)),
+            new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "TestModule", Address: new TestPackageAddress(PackagePathTestHelper.InventoryCompleteFile)),
             new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes("{}"), writable: false)),
             CancellationToken.None);
 
@@ -293,7 +293,7 @@ public sealed class JobPlanExecutorTests
         });
 
         await package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("inventory.json")),
+            new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "TestModule", Address: new TestPackageAddress("inventory.json")),
             new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(inventoryJson), writable: false)),
             CancellationToken.None);
 
@@ -427,7 +427,7 @@ public sealed class JobPlanExecutorTests
 
         var package = PackageTestFactory.CreateLooseMock().Object;
         await package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("inventory.json")),
+            new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "TestModule", Address: new TestPackageAddress("inventory.json")),
             new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(inventoryJson), writable: false)),
             CancellationToken.None);
         var executor = CreateExecutor(progressSink: progressSink.Object, package: package);

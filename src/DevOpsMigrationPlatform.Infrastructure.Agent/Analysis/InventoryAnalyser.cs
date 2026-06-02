@@ -56,7 +56,7 @@ public sealed class InventoryAnalyser : IAnalyser
         {
             // Read the InventoryReport written by InventoryOrchestrator (root inventory.json).
             // It contains org/project structure with WorkItems/Revisions/Repos counts.
-            var rootJson = await ReadPackageTextAsync(context.Package, PackagePathResolver.RootInventoryPath, ct).ConfigureAwait(false);
+            var rootJson = await ReadRootInventoryAsync(context.Package, ct).ConfigureAwait(false);
 
             InventoryReport? report = null;
             if (!string.IsNullOrWhiteSpace(rootJson))
@@ -75,8 +75,7 @@ public sealed class InventoryAnalyser : IAnalyser
 
                 foreach (var project in org.Projects)
                 {
-                    var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project.Name);
-                    var perProject = await ProjectInventoryFile.ReadAsync(context.Package, projectPath, ct).ConfigureAwait(false);
+                    var perProject = await ProjectInventoryFile.ReadAsync(context.Package, orgSlug, project.Name, ct).ConfigureAwait(false);
 
                     updatedProjects.Add(project with
                     {
@@ -105,10 +104,9 @@ public sealed class InventoryAnalyser : IAnalyser
 
                 // Write per-org inventory file.
                 var orgReport = new InventoryReport { GeneratedAt = DateTimeOffset.UtcNow, Totals = orgTotals, Organisations = new[] { updatedOrg } };
-                var orgPath = PackagePathResolver.OrgInventoryPath(orgSlug);
-                await WritePackageTextAsync(
+                await WriteInventoryAsync(
                     context.Package,
-                    orgPath,
+                    new PackageIndexContext("inventory.json", Organisation: orgSlug),
                     JsonSerializer.Serialize(orgReport, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
                     ct).ConfigureAwait(false);
             }
@@ -132,7 +130,7 @@ public sealed class InventoryAnalyser : IAnalyser
             };
 
             var finalJson = JsonSerializer.Serialize(finalReport, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
-            await WritePackageTextAsync(context.Package, PackagePathResolver.RootInventoryPath, finalJson, ct).ConfigureAwait(false);
+            await WriteInventoryAsync(context.Package, new PackageIndexContext("inventory.json"), finalJson, ct).ConfigureAwait(false);
 
             // Write root CSV summarising all orgs/projects.
             var csvLines = new System.Text.StringBuilder();
@@ -141,7 +139,7 @@ public sealed class InventoryAnalyser : IAnalyser
                 foreach (var p in org.Projects)
                     csvLines.AppendLine($"{org.Url},{p.Name},{p.WorkItems},{p.Revisions},{p.Repos},{p.Identities},{p.Nodes},{p.Teams},{p.IsComplete}");
 
-            await WritePackageTextAsync(context.Package, "inventory.csv", csvLines.ToString(), ct).ConfigureAwait(false);
+            await WriteInventoryAsync(context.Package, new PackageIndexContext("inventory.csv"), csvLines.ToString(), ct).ConfigureAwait(false);
 
             var total = rootTotals.WorkItems + rootTotals.Identities + rootTotals.Nodes + rootTotals.Teams;
             if (total == 0)
@@ -182,32 +180,23 @@ public sealed class InventoryAnalyser : IAnalyser
         return TaskExecutionResult.Completed();
     }
 
-    private static async Task<string?> ReadPackageTextAsync(IPackageAccess package, string relativePath, CancellationToken cancellationToken)
+    private static async Task<string?> ReadRootInventoryAsync(IPackageAccess package, CancellationToken cancellationToken)
     {
-        var payload = await package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
+        var payload = await package.RequestIndexAsync(
+            new PackageIndexContext("inventory.json"),
             cancellationToken).ConfigureAwait(false);
         if (payload is null)
             return null;
 
         if (payload.Content.CanSeek)
             payload.Content.Position = 0;
-
         using var reader = new System.IO.StreamReader(payload.Content, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
         return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
-    private static async Task WritePackageTextAsync(IPackageAccess package, string relativePath, string content, CancellationToken cancellationToken)
+    private static async Task WriteInventoryAsync(IPackageAccess package, PackageIndexContext context, string content, CancellationToken cancellationToken)
     {
         using var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(content), writable: false);
-        await package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
-            new PackagePayload(stream, "application/json"),
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+        await package.PersistIndexAsync(context, new PackagePayload(stream, "application/json"), cancellationToken).ConfigureAwait(false);
     }
 }

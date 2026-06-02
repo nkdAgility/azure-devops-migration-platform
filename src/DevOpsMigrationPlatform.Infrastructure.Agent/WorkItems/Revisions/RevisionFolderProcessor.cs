@@ -469,13 +469,6 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
             CreateArtefactContext(path),
             ct).ConfigureAwait(false);
         if (payload is null)
-        {
-            var fallbackContext = new PackageContentContext(
-                PackageContentKind.Artefact,
-                Address: new RelativePathAddress(path));
-            payload = await _package.RequestContentAsync(fallbackContext, ct).ConfigureAwait(false);
-        }
-        if (payload is null)
             return null;
 
         if (payload.Content.CanSeek)
@@ -489,16 +482,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         if (_package is null)
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
-        var payload = await _package.RequestContentBinaryAsync(
-            CreateArtefactContext(path),
-            ct).ConfigureAwait(false);
-        if (payload is not null)
-            return payload;
-
-        var fallbackContext = new PackageContentContext(
-            PackageContentKind.Artefact,
-            Address: new RelativePathAddress(path));
-        return await _package.RequestContentBinaryAsync(fallbackContext, ct).ConfigureAwait(false);
+        return await _package.RequestContentBinaryAsync(CreateArtefactContext(path), ct).ConfigureAwait(false);
     }
 
     private async Task<ISet<string>?> EnumerateAttachmentBinariesAsync(string folderPath, CancellationToken ct)
@@ -507,10 +491,14 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
         var binaryPaths = new HashSet<string>(StringComparer.Ordinal);
+        var withinModule = StripModulePrefix(folderPath.Replace('\\', '/').TrimEnd('/'));
         var paths = _package.EnumerateContentAsync(
             new PackageContentContext(
                 PackageContentKind.Collection,
-                Address: new RelativePathAddress($"{folderPath.Replace('\\', '/').TrimEnd('/')}/"),
+                Organisation: _organisation,
+                Project: _project,
+                Module: "WorkItems",
+                Address: new RelativePathAddress(withinModule),
                 IsCollectionRequest: true),
             ct);
         if (paths is null)
@@ -553,12 +541,15 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
 
     private static string GetRevisionFolderPath(string path)
     {
-        var normalized = path.Replace('\\', '/').TrimEnd('/');
-        if (normalized.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase))
-            normalized = normalized.Substring("WorkItems/".Length);
-
+        var normalized = StripModulePrefix(path.Replace('\\', '/').TrimEnd('/'));
         var lastSlash = normalized.LastIndexOf('/');
         return lastSlash >= 0 ? normalized.Substring(0, lastSlash) : normalized;
+    }
+
+    private static string StripModulePrefix(string path)
+    {
+        var wiIdx = path.LastIndexOf("WorkItems/", StringComparison.OrdinalIgnoreCase);
+        return wiIdx >= 0 ? path.Substring(wiIdx + "WorkItems/".Length) : path;
     }
 
     private static string GetFileName(string path)
@@ -666,8 +657,4 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         return false;
     }
 
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
-    }
 }

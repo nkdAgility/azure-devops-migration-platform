@@ -8,8 +8,8 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Storage;
+using DevOpsMigrationPlatform.Abstractions.Validation;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Validation;
 
@@ -29,10 +29,14 @@ public class PackageValidator : IPackageValidator
     };
 
     private readonly IPackageAccess _package;
+    private readonly string _organisation;
+    private readonly string _project;
 
-    public PackageValidator(IPackageAccess package)
+    public PackageValidator(IPackageAccess package, string organisation, string project)
     {
         _package = package ?? throw new ArgumentNullException(nameof(package));
+        _organisation = organisation ?? throw new ArgumentNullException(nameof(organisation));
+        _project = project ?? throw new ArgumentNullException(nameof(project));
     }
 
     public async Task<ValidationResult> ValidateAsync(CancellationToken cancellationToken)
@@ -41,7 +45,7 @@ public class PackageValidator : IPackageValidator
 
         errors.AddRange(await ValidateManifestAsync(cancellationToken).ConfigureAwait(false));
 
-        await foreach (var path in EnumeratePackageContentAsync("WorkItems/", cancellationToken))
+        await foreach (var path in EnumerateWorkItemsAsync(cancellationToken))
         {
             if (!path.EndsWith("revision.json", StringComparison.OrdinalIgnoreCase)) continue;
             var err = await ValidateRevisionAsync(path, cancellationToken).ConfigureAwait(false);
@@ -54,7 +58,7 @@ public class PackageValidator : IPackageValidator
     private async Task<IReadOnlyList<ValidationError>> ValidateManifestAsync(CancellationToken cancellationToken)
     {
         var errors = new List<ValidationError>();
-        var raw = await ReadPackageTextAsync("manifest.json", cancellationToken).ConfigureAwait(false);
+        var raw = await ReadManifestTextAsync(cancellationToken).ConfigureAwait(false);
 
         if (raw == null)
         {
@@ -89,7 +93,7 @@ public class PackageValidator : IPackageValidator
 
     private async Task<ValidationError?> ValidateRevisionAsync(string path, CancellationToken cancellationToken)
     {
-        var raw = await ReadPackageTextAsync(path, cancellationToken).ConfigureAwait(false);
+        var raw = await ReadWorkItemTextAsync(path, cancellationToken).ConfigureAwait(false);
         if (raw == null)
             return new ValidationError { Path = path, Message = "File not found." };
 
@@ -110,14 +114,15 @@ public class PackageValidator : IPackageValidator
         return null;
     }
 
-    private async IAsyncEnumerable<string> EnumeratePackageContentAsync(
-        string relativePath,
+    private async IAsyncEnumerable<string> EnumerateWorkItemsAsync(
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var paths = _package.EnumerateContentAsync(
             new PackageContentContext(
                 PackageContentKind.Collection,
-                Address: new RelativePathAddress(relativePath),
+                Organisation: _organisation,
+                Project: _project,
+                Module: "WorkItems",
                 IsCollectionRequest: true),
             cancellationToken);
         if (paths is null)
@@ -127,10 +132,10 @@ public class PackageValidator : IPackageValidator
             yield return path;
     }
 
-    private async Task<string?> ReadPackageTextAsync(string relativePath, CancellationToken cancellationToken)
+    private async Task<string?> ReadManifestTextAsync(CancellationToken cancellationToken)
     {
-        var payload = await _package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
+        var payload = await _package.RequestIndexAsync(
+            new PackageIndexContext("manifest.json", Organisation: _organisation, Project: _project),
             cancellationToken).ConfigureAwait(false);
         if (payload is null)
             return null;
@@ -141,8 +146,43 @@ public class PackageValidator : IPackageValidator
         return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    private async Task<string?> ReadWorkItemTextAsync(string artefactPath, CancellationToken cancellationToken)
     {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+        var withinModulePath = StripWorkItemsModulePrefix(artefactPath);
+        var payload = await _package.RequestContentAsync(
+            new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: _organisation,
+                Project: _project,
+                Module: "WorkItems",
+                Address: new RelativePathAddress(withinModulePath)),
+            cancellationToken).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Strips the leading "{org}/{project}/WorkItems/" or "WorkItems/" prefix from a full path
+    /// returned by <see cref="IPackageAccess.EnumerateContentAsync"/>, returning just the
+    /// within-module relative path segment.
+    /// </summary>
+    private string StripWorkItemsModulePrefix(string artefactPath)
+    {
+        var normalized = artefactPath.Replace('\\', '/').TrimStart('/');
+
+        var scopedPrefix = $"{_organisation}/{_project}/WorkItems/";
+        if (normalized.StartsWith(scopedPrefix, StringComparison.OrdinalIgnoreCase))
+            return normalized.Substring(scopedPrefix.Length);
+
+        const string barePrefix = "WorkItems/";
+        if (normalized.StartsWith(barePrefix, StringComparison.OrdinalIgnoreCase))
+            return normalized.Substring(barePrefix.Length);
+
+        return normalized;
     }
 }

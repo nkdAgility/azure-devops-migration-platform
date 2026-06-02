@@ -412,8 +412,17 @@ internal static class PackageTestFactory
         return relativePath.EndsWith("/", StringComparison.Ordinal) ? relativePath : $"{relativePath}/";
     }
 
+    private static readonly PackagePathRouter ContentPathRouter = new();
+
     private static string ResolveContentPath(PackageContentContext context)
     {
+        // Structural content kinds (inventory/dependency) carry their scope on the context,
+        // not on an address. Route them through the production router so writes-by-kind and
+        // reads-by-address resolve to the same key. Artefact/Collection retain the legacy
+        // address+module resolution used throughout the test suite.
+        if (context.Kind is not (PackageContentKind.Artefact or PackageContentKind.Collection))
+            return ContentPathRouter.ResolveContentPath(context);
+
         var relativePath = context.Address?.RelativePath ?? string.Empty;
         var module = context.Module ?? string.Empty;
 

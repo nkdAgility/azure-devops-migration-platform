@@ -6,6 +6,5 @@ namespace DevOpsMigrationPlatform.Abstractions.Storage;
 public enum PackageContentKind
 {
     Artefact = 0,
-    Collection = 1,
-    Manifest = 2
+    Collection = 1
 }

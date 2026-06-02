@@ -586,12 +586,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         var packagedProjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (package is not null)
         {
-            await foreach (var path in package.EnumerateContentAsync(
-                new PackageContentContext(
-                    PackageContentKind.Collection,
-                    Address: new RelativePathAddress(string.Empty),
-                    IsCollectionRequest: true),
-                ct).ConfigureAwait(false))
+            await foreach (var path in package.EnumerateAllAsync(ct).ConfigureAwait(false))
             {
                 var segments = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
                 if (segments.Length < 3
@@ -1256,11 +1251,6 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             packageConfig["MigrationPlatform:Target:Url"] ?? string.Empty,
             packageConfig["MigrationPlatform:Target:Project"] ?? string.Empty,
             packageConfig["MigrationPlatform:Target:Type"] ?? string.Empty);
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
-    }
 
     private sealed class ConfigSourceEndpointInfo(string url, string project, string connectorType) : ISourceEndpointInfo
     {

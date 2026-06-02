@@ -131,7 +131,7 @@ public class NodeTranslationValidationContext
 
         var tool = new NodeTranslationTool(Options.Create(opts), NullLogger<NodeTranslationTool>.Instance);
 
-        var validator = new NodeTranslationValidator(Options.Create(opts), tool);
+        var validator = new NodeTranslationValidator(Options.Create(opts), tool, "test-org", "test-project");
 
         var context = new ProjectMapping("SourceProject", "TargetProject");
 
@@ -171,7 +171,7 @@ public class NodeTranslationValidationContext
 
 
 
-        var validator = new NodeTranslationValidator(Options.Create(optsWithInvalidRegex), toolMock.Object);
+        var validator = new NodeTranslationValidator(Options.Create(optsWithInvalidRegex), toolMock.Object, "test-org", "test-project");
 
         var context = new ProjectMapping("SourceProject", "TargetProject");
 

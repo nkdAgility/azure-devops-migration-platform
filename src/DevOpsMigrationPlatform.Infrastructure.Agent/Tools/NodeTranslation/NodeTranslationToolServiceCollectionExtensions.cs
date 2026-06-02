@@ -57,7 +57,9 @@ public static class NodeTranslationToolServiceCollectionExtensions
         services.AddSingleton<INodeTranslationTool>(sp => sp.GetRequiredService<NodeTranslationTool>());
         services.AddScoped<INodeTranslationValidator>(sp => new NodeTranslationValidator(
             sp.GetRequiredService<IOptions<NodeTranslationOptions>>(),
-            sp.GetRequiredService<INodeTranslationTool>()));
+            sp.GetRequiredService<INodeTranslationTool>(),
+            sp.GetRequiredService<ISourceEndpointInfo>().OrganisationSlug,
+            sp.GetRequiredService<ISourceEndpointInfo>().Project));
         // T012: ReferencedPathTracker is Scoped so the same path set is shared within one job
         // (scope) and isolated across jobs.
         services.AddScoped<ReferencedPathTracker>();

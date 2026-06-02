@@ -220,15 +220,20 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         _metrics?.RecordPrepareWorkItemsResolved(report.ResolvedCount, tags);
         _metrics?.RecordPrepareWorkItemsUnresolved(report.UnresolvedCount, tags);
         _metrics?.RecordPrepareWorkItemsDuration(stopwatch.Elapsed.TotalMilliseconds, tags);
-        await WritePackageTextAsync(context.Package, "WorkItems/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
+        var org = _sourceEndpointInfo.OrganisationSlug;
+        var project = _sourceEndpointInfo.Project;
+        await WritePackageTextAsync(
+            context.Package,
+            new PackageContentContext(PackageContentKind.Artefact, Organisation: org, Project: project, Module: "WorkItems", Address: new RelativePathAddress("prepare-report.json")),
+            JsonSerializer.Serialize(report),
+            ct).ConfigureAwait(false);
         if (report.ImportReadinessReport is not null)
         {
-            await WritePackageTextAsync(
-                    context.Package,
-                    ".migration/Readiness/workitems-import-readiness.json",
-                    JsonSerializer.Serialize(report.ImportReadinessReport),
-                    ct)
-                .ConfigureAwait(false);
+            using var stream = new System.IO.MemoryStream(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(report.ImportReadinessReport)), writable: false);
+            await context.Package.PersistMetaAsync(
+                new PackageMetaContext(PackageMetaKind.WorkItemsImportReadiness),
+                new PackageMetaPayload(stream),
+                ct).ConfigureAwait(false);
         }
 
         _logger.LogInformation(
@@ -261,7 +266,11 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
 
         var found = false;
         await foreach (var _ in context.Package.EnumerateContentAsync(
-                           new PackageContentContext(PackageContentKind.Collection, Address: new RelativePathAddress("WorkItems/"), IsCollectionRequest: true),
+                           new PackageContentContext(PackageContentKind.Collection,
+                               Organisation: _sourceEndpointInfo.OrganisationSlug,
+                               Project: _sourceEndpointInfo.Project,
+                               Module: "WorkItems",
+                               IsCollectionRequest: true),
                            ct).ConfigureAwait(false))
         {
             found = true;
@@ -280,17 +289,9 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         return TaskExecutionResult.Completed();
     }
 
-    private static async Task WritePackageTextAsync(IPackageAccess package, string relativePath, string content, CancellationToken cancellationToken)
+    private static async Task WritePackageTextAsync(IPackageAccess package, PackageContentContext context, string content, CancellationToken cancellationToken)
     {
         using var stream = new System.IO.MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
-        await package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
-            new PackagePayload(stream, "application/json"),
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+        await package.PersistContentAsync(context, new PackagePayload(stream, "application/json"), cancellationToken).ConfigureAwait(false);
     }
 }

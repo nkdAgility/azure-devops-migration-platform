@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-using System;
 using System.IO;
 using System.IO.Compression;
 using System.Threading;
@@ -14,26 +13,27 @@ namespace DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 
 /// <summary>
 /// <see cref="IPackagePreparer"/> implementation that reads a fixture ZIP from the local
-/// filesystem and streams every entry into the target <see cref="IPackageAccess"/> via
-/// <see cref="IPackageAccess.PersistContentStreamAsync"/>.
+/// filesystem and streams every entry directly into the injected <see cref="IArtefactStore"/>.
 ///
 /// <para>
-/// The destination writes are storage-agnostic — this implementation works with both
-/// <see cref="FileSystemArtefactStore"/> and a future <c>AzureBlobArtefactStore</c>.
+/// Writes bypass the typed routing surface (<see cref="IPackageAccess"/>) because a fixture
+/// ZIP is an already-valid package: every entry path is already correctly scoped at the
+/// source. Writing directly to the store preserves the archive structure verbatim.
 /// </para>
 /// </summary>
 internal sealed class ZipPackagePreparer : IPackagePreparer
 {
+    private readonly IArtefactStore _store;
     private readonly ILogger<ZipPackagePreparer> _logger;
 
-    public ZipPackagePreparer(ILogger<ZipPackagePreparer> logger)
+    public ZipPackagePreparer(IArtefactStore store, ILogger<ZipPackagePreparer> logger)
     {
+        _store = store;
         _logger = logger;
     }
 
     /// <inheritdoc/>
     public async Task PrepareForImportAsync(
-        IPackageAccess packageAccess,
         IConfiguration packageConfig,
         CancellationToken cancellationToken)
     {
@@ -56,29 +56,17 @@ internal sealed class ZipPackagePreparer : IPackagePreparer
         using var archive = ZipFile.OpenRead(resolvedZipPath);
         foreach (var entry in archive.Entries)
         {
-            // Skip directory entries — FullName ends with '/' per ZIP specification.
             if (entry.FullName.EndsWith("/") || entry.FullName.EndsWith("\\"))
                 continue;
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Fixture ZIP structure is canonical import input. Do not rewrite/move entry paths:
-            // extract each entry exactly as provided in the archive.
             using var entryStream = entry.Open();
-            await packageAccess.PersistContentStreamAsync(
-                new PackageContentContext(PackageContentKind.Artefact, Address: new ZipEntryAddress(entry.FullName)),
-                entryStream,
-                contentType: null,
-                cancellationToken).ConfigureAwait(false);
+            await _store.WriteStreamAsync(entry.FullName, entryStream, cancellationToken).ConfigureAwait(false);
             count++;
         }
 
         _logger.LogInformation(
             "Extracted {Count} files from fixture {ZipPath} into package store.", count, resolvedZipPath);
-    }
-
-    private sealed class ZipEntryAddress(string fullName) : IPackageContentAddress
-    {
-        public string RelativePath => fullName;
     }
 }

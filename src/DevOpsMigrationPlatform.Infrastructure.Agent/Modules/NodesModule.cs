@@ -123,10 +123,9 @@ public sealed class NodesModule : IModule
             {
                 count = await _reader.CountNodesAsync(project, ct).ConfigureAwait(false);
 
-                var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
                 await ProjectInventoryFile.MergeAsync(
-                    context.Package, projectPath,
-                    orgUrl: orgUrl, project: project,
+                    context.Package, orgSlug, project,
+                    orgUrl: orgUrl,
                     nodes: count, ct: ct).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -184,7 +183,7 @@ public sealed class NodesModule : IModule
         var stopwatch = Stopwatch.StartNew();
         _PlatformMetrics?.RecordPrepareNodesResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
         _PlatformMetrics?.RecordPrepareNodesUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
-        await PersistPackageTextAsync(context.Package, "Nodes/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
+        await PersistPackageTextAsync(context.Package, Name, _sourceEndpointInfo.OrganisationSlug, _sourceEndpointInfo.Project, "prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
         stopwatch.Stop();
 
         _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", Name, report.ResolvedCount, report.UnresolvedCount, stopwatch.ElapsedMilliseconds);
@@ -251,17 +250,12 @@ public sealed class NodesModule : IModule
         return TaskExecutionResult.Completed();
     }
 
-    private static async Task PersistPackageTextAsync(IPackageAccess package, string relativePath, string content, CancellationToken ct)
+    private static async Task PersistPackageTextAsync(IPackageAccess package, string module, string organisation, string project, string relativePath, string content, CancellationToken ct)
     {
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
         await package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
+            new PackageContentContext(PackageContentKind.Artefact, Module: module, Organisation: organisation, Project: project, Address: new RelativePathAddress(relativePath)),
             new PackagePayload(stream, "application/json"),
             ct).ConfigureAwait(false);
-    }
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

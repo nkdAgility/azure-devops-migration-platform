@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
@@ -141,10 +142,9 @@ public sealed class TeamsModule : IModule
                 await foreach (var _ in _teamSource.EnumerateTeamsAsync(project, ct).ConfigureAwait(false))
                     count++;
 
-                var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
                 await ProjectInventoryFile.MergeAsync(
-                    context.Package, projectPath,
-                    orgUrl: orgUrl, project: project,
+                    context.Package, orgSlug, project,
+                    orgUrl: orgUrl,
                     teams: count, ct: ct).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -191,7 +191,7 @@ public sealed class TeamsModule : IModule
         using (var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(report)), writable: false))
         {
             await context.Package.PersistContentAsync(
-                new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress("Teams/prepare-report.json")),
+                new PackageContentContext(PackageContentKind.Artefact, Module: Name, Organisation: _sourceEndpointInfo.OrganisationSlug, Project: _sourceEndpointInfo.Project, Address: new RelativePathAddress("prepare-report.json")),
                 new PackagePayload(stream, "application/json"),
                 ct).ConfigureAwait(false);
         }
@@ -261,8 +261,4 @@ public sealed class TeamsModule : IModule
         return TaskExecutionResult.Completed();
     }
 
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
-    }
 }

@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Identity;
@@ -27,14 +28,18 @@ internal sealed class IdentityMappingValidator(IIdentityMappingService identityM
     {
         var mappingJson = await ReadPackageTextAsync(
             context.PrepareContext.Package,
-            "Identities/mapping.json",
+            context.Organisation,
+            context.Project,
+            "mapping.json",
             cancellationToken).ConfigureAwait(false);
         identityMappingService.LoadMappingOverrides(mappingJson);
         var explicitMappings = ParseExplicitMappings(mappingJson);
 
         var descriptorsJson = await ReadPackageTextAsync(
             context.PrepareContext.Package,
-            "Identities/descriptors.jsonl",
+            context.Organisation,
+            context.Project,
+            "descriptors.jsonl",
             cancellationToken).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(descriptorsJson))
         {
@@ -125,10 +130,20 @@ internal sealed class IdentityMappingValidator(IIdentityMappingService identityM
         }
     }
 
-    private static async Task<string?> ReadPackageTextAsync(IPackageAccess package, string relativePath, CancellationToken cancellationToken)
+    private static async Task<string?> ReadPackageTextAsync(
+        IPackageAccess package,
+        string organisation,
+        string project,
+        string fileName,
+        CancellationToken cancellationToken)
     {
         var payload = await package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
+            new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: organisation,
+                Project: project,
+                Module: "Identities",
+                Address: new RelativePathAddress(fileName)),
             cancellationToken).ConfigureAwait(false);
         if (payload is null)
         {
@@ -142,10 +157,5 @@ internal sealed class IdentityMappingValidator(IIdentityMappingService identityM
 
         using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
         return await reader.ReadToEndAsync().ConfigureAwait(false);
-    }
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

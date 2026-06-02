@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
+using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Configuration;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments.ImportFailures;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Identity;
@@ -9,8 +12,10 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Nodes;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions.ImportFailures;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemType;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
@@ -46,7 +51,19 @@ public static class WorkItemModuleExtensions
         services.AddTransient<IImportFailurePattern, IdentityMappingValidator>();
         services.AddSingleton<ImportWorkItemStateStore>();
         services.AddSingleton<IImportCreatedNodeStateStore>(serviceProvider => serviceProvider.GetRequiredService<ImportWorkItemStateStore>());
-        services.AddSingleton<NodeReadinessOrchestrator>();
+        services.AddSingleton<NodeReadinessOrchestrator>(sp =>
+        {
+            var sourceEndpointInfo = sp.GetRequiredService<ISourceEndpointInfo>();
+            return new NodeReadinessOrchestrator(
+                sp.GetRequiredService<IPackageAccess>(),
+                sp.GetRequiredService<INodeTranslationTool>(),
+                sp.GetRequiredService<INodeCreator>(),
+                sp.GetRequiredService<ILogger<NodeReadinessOrchestrator>>(),
+                sourceEndpointInfo.OrganisationSlug,
+                sourceEndpointInfo.Project,
+                sp.GetService<IOptions<NodeTranslationOptions>>(),
+                sp.GetService<IImportCreatedNodeStateStore>());
+        });
 
         return services;
     }

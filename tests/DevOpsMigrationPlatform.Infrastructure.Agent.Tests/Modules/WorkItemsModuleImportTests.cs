@@ -197,7 +197,9 @@ public sealed class WorkItemsModuleImportTests
             package.Object,
             nodeTranslationTool.Object,
             nodeCreator.Object,
-            NullLogger<NodeReadinessOrchestrator>.Instance);
+            NullLogger<NodeReadinessOrchestrator>.Instance,
+            "test-org",
+            "test-project");
 
         var importTargetFactory = new Mock<IWorkItemTargetFactory>(MockBehavior.Strict);
         importTargetFactory
@@ -375,7 +377,9 @@ public sealed class WorkItemsModuleImportTests
             package.Object,
             nodeTranslationTool.Object,
             nodeCreator.Object,
-            NullLogger<NodeReadinessOrchestrator>.Instance);
+            NullLogger<NodeReadinessOrchestrator>.Instance,
+            "test-org",
+            "test-project");
 
         var importTargetFactory = new Mock<IWorkItemTargetFactory>(MockBehavior.Strict);
         importTargetFactory

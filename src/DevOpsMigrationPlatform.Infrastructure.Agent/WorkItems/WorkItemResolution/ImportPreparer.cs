@@ -10,6 +10,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments.ImportFailures;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions.ImportFailures;
 using Microsoft.Extensions.Options;
@@ -25,18 +26,24 @@ public sealed class ImportPreparer
 
     private readonly WorkItemsModuleOptions _workItemsOptions;
     private readonly IReadOnlyList<IImportFailurePattern> _importFailurePatterns;
+    private readonly string _organisation;
+    private readonly string _project;
 
     public ImportPreparer(
         IOptions<WorkItemsModuleOptions> workItemsOptions,
+        string organisation,
+        string project,
         IEnumerable<IImportFailurePattern>? importFailurePatterns = null)
     {
         _workItemsOptions = workItemsOptions.Value;
+        _organisation = organisation ?? throw new ArgumentNullException(nameof(organisation));
+        _project = project ?? throw new ArgumentNullException(nameof(project));
         _importFailurePatterns = importFailurePatterns?.ToArray() ?? [];
     }
 
     public async Task<PrepareReport> PrepareAsync(PrepareContext context, CancellationToken cancellationToken)
     {
-        var importFailurePatternContext = new ImportFailurePatternContext(context, _workItemsOptions);
+        var importFailurePatternContext = new ImportFailurePatternContext(context, _workItemsOptions, _organisation, _project);
         var failureFindings = new List<ImportFailureFinding>();
         foreach (var pattern in _importFailurePatterns)
         {
@@ -151,11 +158,11 @@ public sealed class ImportPreparer
         return findings;
     }
 
-    private static async Task<int> CountRevisionArtefactsAsync(PrepareContext context, CancellationToken cancellationToken)
+    private async Task<int> CountRevisionArtefactsAsync(PrepareContext context, CancellationToken cancellationToken)
     {
         var resolvedCount = 0;
         await foreach (var artefactPath in context.Package.EnumerateContentAsync(
-                           new PackageContentContext(PackageContentKind.Collection, Address: new RelativePathAddress("WorkItems/"), IsCollectionRequest: true),
+                           new PackageContentContext(PackageContentKind.Collection, Organisation: _organisation, Project: _project, Module: ModuleName, IsCollectionRequest: true),
                            cancellationToken).ConfigureAwait(false))
         {
             if (artefactPath.EndsWith("/revision.json", StringComparison.Ordinal))
@@ -165,10 +172,5 @@ public sealed class ImportPreparer
         }
 
         return resolvedCount;
-    }
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

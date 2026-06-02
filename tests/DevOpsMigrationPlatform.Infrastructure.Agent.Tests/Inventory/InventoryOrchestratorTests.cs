@@ -56,7 +56,7 @@ public sealed class InventoryOrchestratorTests
             ct: CancellationToken.None);
 
         var completionPayload = await package.Object.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress(PackagePathTestHelper.InventoryCompleteFile)),
+            new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "TestModule", Address: new TestPackageAddress(PackagePathTestHelper.InventoryCompleteFile)),
             CancellationToken.None);
         Assert.IsNull(completionPayload, "Inventory must not write the completion marker.");
     }
@@ -98,7 +98,7 @@ public sealed class InventoryOrchestratorTests
         Assert.AreEqual("TestProject", cursor.LastProcessed);
 
         var legacyPayload = await package.Object.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress(PackagePathTestHelper.CursorFile("inventory.workitems"))),
+            new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "TestModule", Address: new TestPackageAddress(PackagePathTestHelper.CursorFile("inventory.workitems"))),
             CancellationToken.None);
         Assert.IsNull(legacyPayload, "Inventory must not write the legacy root cursor key.");
     }

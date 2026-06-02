@@ -30,11 +30,15 @@ public sealed class NodeTranslationValidator : INodeTranslationValidator
 
     private readonly NodeTranslationOptions _options;
     private readonly INodeTranslationTool _tool;
+    private readonly string _organisation;
+    private readonly string _project;
 
-    public NodeTranslationValidator(IOptions<NodeTranslationOptions> options, INodeTranslationTool tool)
+    public NodeTranslationValidator(IOptions<NodeTranslationOptions> options, INodeTranslationTool tool, string organisation, string project)
     {
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _tool = tool ?? throw new ArgumentNullException(nameof(tool));
+        _organisation = organisation ?? throw new ArgumentNullException(nameof(organisation));
+        _project = project ?? throw new ArgumentNullException(nameof(project));
     }
 
     /// <inheritdoc/>
@@ -60,7 +64,7 @@ public sealed class NodeTranslationValidator : INodeTranslationValidator
         }
 
         var payload = await package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress("Nodes/referenced-paths.json")),
+            new PackageContentContext(PackageContentKind.Artefact, Organisation: _organisation, Project: _project, Module: "Nodes", Address: new RelativePathAddress("referenced-paths.json")),
             ct).ConfigureAwait(false);
         if (payload is null)
         {
@@ -142,10 +146,5 @@ public sealed class NodeTranslationValidator : INodeTranslationValidator
                 malformed.Add(mapping.Match);
             }
         }
-    }
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

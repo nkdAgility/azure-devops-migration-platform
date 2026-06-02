@@ -23,7 +23,7 @@ public sealed class PackageBoundaryErrorContractTests
 
         var ex = await Assert.ThrowsExactlyAsync<PackageOperationException>(
             () => sut.RequestContentAsync(
-                new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("analysis/dependencies.csv")),
+                new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "TestModule", Address: new TestPackageAddress("analysis/dependencies.csv")),
                 CancellationToken.None).AsTask());
 
         Assert.AreEqual("PKG_STORE_UNAVAILABLE", ex.Code);
@@ -35,9 +35,9 @@ public sealed class PackageBoundaryErrorContractTests
         var (sut, _) = ActivePackageTestFactory.Create(new InMemoryPackageAccess());
 
         var ex = await Assert.ThrowsExactlyAsync<PackageValidationException>(
-            () => sut.RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact), CancellationToken.None).AsTask());
+            () => sut.RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "TestModule"), CancellationToken.None).AsTask());
 
-        Assert.AreEqual("PKG_ROUTE_REQUIRED", ex.Code);
+        Assert.AreEqual("PKG_ADDRESS_REQUIRED", ex.Code);
     }
 
     [TestMethod]

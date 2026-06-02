@@ -48,9 +48,9 @@ internal static class ProjectInventoryFile
     /// </summary>
     public static async Task MergeAsync(
         IPackageAccess package,
-        string path,
+        string orgSlug,
+        string projectName,
         string? orgUrl = null,
-        string? project = null,
         long? workItems = null,
         long? revisions = null,
         int? repos = null,
@@ -61,13 +61,13 @@ internal static class ProjectInventoryFile
         string? error = null,
         CancellationToken ct = default)
     {
-        var existing = await ReadAsync(package, path, ct).ConfigureAwait(false);
+        var existing = await ReadAsync(package, orgSlug, projectName, ct).ConfigureAwait(false);
 
         var updated = existing with
         {
             GeneratedAt = DateTimeOffset.UtcNow,
             OrgUrl = orgUrl ?? existing.OrgUrl,
-            Project = project ?? existing.Project,
+            Project = projectName,
             WorkItems = workItems ?? existing.WorkItems,
             Revisions = revisions ?? existing.Revisions,
             Repos = repos ?? existing.Repos,
@@ -79,19 +79,20 @@ internal static class ProjectInventoryFile
         };
 
         using var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(updated, s_writeOpts)), writable: false);
-        await package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(path)),
+        await package.PersistIndexAsync(
+            new PackageIndexContext("inventory.json", Organisation: orgSlug, Project: projectName),
             new PackagePayload(stream, "application/json"),
             ct).ConfigureAwait(false);
     }
 
     public static async Task<ProjectInventoryData> ReadAsync(
         IPackageAccess package,
-        string path,
+        string orgSlug,
+        string projectName,
         CancellationToken ct)
     {
-        var payload = await package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(path)),
+        var payload = await package.RequestIndexAsync(
+            new PackageIndexContext("inventory.json", Organisation: orgSlug, Project: projectName),
             ct).ConfigureAwait(false);
         if (payload is null)
             return new ProjectInventoryData { GeneratedAt = DateTimeOffset.UtcNow };
@@ -107,10 +108,5 @@ internal static class ProjectInventoryFile
         {
             return new ProjectInventoryData { GeneratedAt = DateTimeOffset.UtcNow };
         }
-    }
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

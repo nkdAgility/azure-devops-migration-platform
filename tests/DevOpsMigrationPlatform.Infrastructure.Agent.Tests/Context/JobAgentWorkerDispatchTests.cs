@@ -141,7 +141,7 @@ public sealed class JobAgentWorkerDispatchTests
         };
 
         _packagePreparer
-            .Setup(preparer => preparer.PrepareForImportAsync(It.IsAny<IPackageAccess>(), It.IsAny<IConfiguration>(), It.IsAny<CancellationToken>()))
+            .Setup(preparer => preparer.PrepareForImportAsync(It.IsAny<IConfiguration>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         _checkpointingFactory

@@ -416,45 +416,8 @@ public sealed class WorkItemStreamOrchestrator
             Module: "WorkItems",
             IsCollectionRequest: true);
 
-        var yieldedAny = false;
         await foreach (var folderPath in EnumerateWorkItemFoldersFromContextAsync(scopedContext, ct).ConfigureAwait(false))
-        {
-            yieldedAny = true;
             yield return folderPath;
-        }
-
-        if (!yieldedAny && (!string.IsNullOrWhiteSpace(_organisation) || !string.IsNullOrWhiteSpace(_project)))
-        {
-            _logger.LogInformation(
-                "[WorkItems] No revision/comment folders found under source scope {Org}/{Project}/WorkItems; falling back to root WorkItems/.",
-                _organisation,
-                _project);
-
-            var rootContext = new PackageContentContext(
-                PackageContentKind.Collection,
-                Module: "WorkItems",
-                IsCollectionRequest: true);
-
-            await foreach (var folderPath in EnumerateWorkItemFoldersFromContextAsync(rootContext, ct).ConfigureAwait(false))
-            {
-                yieldedAny = true;
-                yield return folderPath;
-            }
-        }
-
-        if (!yieldedAny)
-        {
-            _logger.LogInformation(
-                "[WorkItems] No revision/comment folders found via module contexts; falling back to direct WorkItems/ address enumeration.");
-
-            var addressedContext = new PackageContentContext(
-                PackageContentKind.Collection,
-                Address: new RelativePathAddress("WorkItems/"),
-                IsCollectionRequest: true);
-
-            await foreach (var folderPath in EnumerateWorkItemFoldersFromContextAsync(addressedContext, ct).ConfigureAwait(false))
-                yield return folderPath;
-        }
     }
 
     private async IAsyncEnumerable<string> EnumerateWorkItemFoldersFromContextAsync(
@@ -533,13 +496,6 @@ public sealed class WorkItemStreamOrchestrator
             CreateArtefactContext(path),
             ct).ConfigureAwait(false);
         if (payload is null)
-        {
-            var fallbackContext = new PackageContentContext(
-                PackageContentKind.Artefact,
-                Address: new RelativePathAddress(path));
-            payload = await _package.RequestContentAsync(fallbackContext, ct).ConfigureAwait(false);
-        }
-        if (payload is null)
             return null;
 
         if (payload.Content.CanSeek)
@@ -571,9 +527,9 @@ public sealed class WorkItemStreamOrchestrator
     private static string GetRevisionFolderPath(string path)
     {
         var normalized = path.Replace('\\', '/').TrimEnd('/');
-        if (normalized.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase))
-            normalized = normalized.Substring("WorkItems/".Length);
-
+        var wiIdx = normalized.LastIndexOf("WorkItems/", StringComparison.OrdinalIgnoreCase);
+        if (wiIdx >= 0)
+            normalized = normalized.Substring(wiIdx + "WorkItems/".Length);
         var lastSlash = normalized.LastIndexOf('/');
         return lastSlash >= 0 ? normalized.Substring(0, lastSlash) : normalized;
     }
@@ -644,8 +600,4 @@ public sealed class WorkItemStreamOrchestrator
             UpdatedAt = DateTimeOffset.UtcNow
         }, ct);
 
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
-    }
 }

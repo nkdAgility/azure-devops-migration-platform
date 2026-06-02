@@ -54,7 +54,7 @@ public sealed class IdentityMappingValidatorTests
         var sut = new IdentityMappingValidator(identityMappingService.Object);
 
         var findings = await sut.EvaluateAsync(
-            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions()),
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions(), "testorg", "testproject"),
             CancellationToken.None);
 
         Assert.AreEqual(1, findings.Count);
@@ -94,7 +94,7 @@ public sealed class IdentityMappingValidatorTests
         var sut = new IdentityMappingValidator(identityMappingService.Object);
 
         var findings = await sut.EvaluateAsync(
-            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions()),
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions(), "testorg", "testproject"),
             CancellationToken.None);
 
         Assert.AreEqual(1, findings.Count);
@@ -131,7 +131,7 @@ public sealed class IdentityMappingValidatorTests
         var sut = new IdentityMappingValidator(identityMappingService.Object);
 
         var findings = await sut.EvaluateAsync(
-            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions()),
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions(), "testorg", "testproject"),
             CancellationToken.None);
 
         Assert.AreEqual(0, findings.Count);
@@ -168,7 +168,7 @@ public sealed class IdentityMappingValidatorTests
         var sut = new IdentityMappingValidator(identityMappingService.Object);
 
         var findings = await sut.EvaluateAsync(
-            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions()),
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions(), "testorg", "testproject"),
             CancellationToken.None);
 
         Assert.AreEqual(2, findings.Count);
@@ -192,7 +192,7 @@ public sealed class IdentityMappingValidatorTests
         var sut = new IdentityMappingValidator(identityMappingService.Object);
 
         var findings = await sut.EvaluateAsync(
-            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions()),
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions(), "testorg", "testproject"),
             CancellationToken.None);
 
         Assert.AreEqual(0, findings.Count);

@@ -177,17 +177,17 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
 
         var jobJson = JsonSerializer.Serialize(job, AgentJsonOptions);
         using var jobStream = new MemoryStream(Encoding.UTF8.GetBytes(jobJson), writable: false);
-        await PackageAccess.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress($".migration/runs/{runId}/job.json")),
-            new PackagePayload(jobStream, "application/json"),
+        await PackageAccess.PersistMetaAsync(
+            new PackageMetaContext(PackageMetaKind.JobDescriptor),
+            new PackageMetaPayload(jobStream),
             ct).ConfigureAwait(false);
 
         if (!string.IsNullOrWhiteSpace(job.ConfigPayload))
         {
             using var cfgStream = new MemoryStream(Encoding.UTF8.GetBytes(job.ConfigPayload!), writable: false);
-            await PackageAccess.PersistContentAsync(
-                new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress($".migration/runs/{runId}/config.json")),
-                new PackagePayload(cfgStream, "application/json"),
+            await PackageAccess.PersistMetaAsync(
+                new PackageMetaContext(PackageMetaKind.RunConfigSnapshot),
+                new PackageMetaPayload(cfgStream),
                 ct).ConfigureAwait(false);
         }
     }
@@ -280,8 +280,4 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
             .ConfigureAwait(false);
     }
 
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
-    }
 }

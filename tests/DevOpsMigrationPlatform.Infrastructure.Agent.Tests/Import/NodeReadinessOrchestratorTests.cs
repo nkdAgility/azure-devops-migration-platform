@@ -51,7 +51,9 @@ public class NodeReadinessOrchestratorTests
             packageMock.Object,
             translationTool.Object,
             creator.Object,
-            NullLogger<NodeReadinessOrchestrator>.Instance);
+            NullLogger<NodeReadinessOrchestrator>.Instance,
+            "test-org",
+            "test-project");
 
         await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
 
@@ -103,7 +105,9 @@ public class NodeReadinessOrchestratorTests
             packageMock.Object,
             translationTool.Object,
             creator.Object,
-            NullLogger<NodeReadinessOrchestrator>.Instance);
+            NullLogger<NodeReadinessOrchestrator>.Instance,
+            "test-org",
+            "test-project");
 
         await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
 
@@ -153,7 +157,9 @@ public class NodeReadinessOrchestratorTests
             packageMock.Object,
             translationTool.Object,
             creator.Object,
-            NullLogger<NodeReadinessOrchestrator>.Instance);
+            NullLogger<NodeReadinessOrchestrator>.Instance,
+            "test-org",
+            "test-project");
 
         await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: true, CancellationToken.None);
 
@@ -219,7 +225,9 @@ public class NodeReadinessOrchestratorTests
             packageMock.Object,
             translationTool.Object,
             creator.Object,
-            NullLogger<NodeReadinessOrchestrator>.Instance);
+            NullLogger<NodeReadinessOrchestrator>.Instance,
+            "test-org",
+            "test-project");
 
         await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: true, CancellationToken.None);
 
@@ -237,7 +245,9 @@ public class NodeReadinessOrchestratorTests
             packageMock.Object,
             translationTool.Object,
             creator.Object,
-            NullLogger<NodeReadinessOrchestrator>.Instance);
+            NullLogger<NodeReadinessOrchestrator>.Instance,
+            "test-org",
+            "test-project");
 
         await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: true, CancellationToken.None);
 
@@ -265,6 +275,8 @@ public class NodeReadinessOrchestratorTests
             translationTool.Object,
             creator.Object,
             NullLogger<NodeReadinessOrchestrator>.Instance,
+            "test-org",
+            "test-project",
             Options.Create(new NodeTranslationOptions { SkipOnUnresolvableArea = true }));
 
         await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
@@ -314,6 +326,8 @@ public class NodeReadinessOrchestratorTests
             translationTool.Object,
             creator.Object,
             NullLogger<NodeReadinessOrchestrator>.Instance,
+            "test-org",
+            "test-project",
             importCreatedNodeStateStore: checkpointService);
 
         await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
@@ -367,6 +381,8 @@ public class NodeReadinessOrchestratorTests
             translationTool.Object,
             creator.Object,
             NullLogger<NodeReadinessOrchestrator>.Instance,
+            "test-org",
+            "test-project",
             importCreatedNodeStateStore: checkpointService);
 
         await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
@@ -416,6 +432,8 @@ public class NodeReadinessOrchestratorTests
             translationTool.Object,
             creator.Object,
             NullLogger<NodeReadinessOrchestrator>.Instance,
+            "test-org",
+            "test-project",
             importCreatedNodeStateStore: checkpointService);
 
         await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
@@ -453,6 +471,8 @@ public class NodeReadinessOrchestratorTests
             translationTool.Object,
             creator.Object,
             NullLogger<NodeReadinessOrchestrator>.Instance,
+            "test-org",
+            "test-project",
             importCreatedNodeStateStore: checkpointService);
 
         await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);

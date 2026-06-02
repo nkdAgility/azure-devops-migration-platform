@@ -118,10 +118,9 @@ public sealed class IdentitiesModule : IModule
                 await foreach (var _ in _identitySource.EnumerateIdentitiesAsync(project, ct).ConfigureAwait(false))
                     count++;
 
-                var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
                 await ProjectInventoryFile.MergeAsync(
-                    context.Package, projectPath,
-                    orgUrl: orgUrl, project: project,
+                    context.Package, orgSlug, project,
+                    orgUrl: orgUrl,
                     identities: count, ct: ct).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -190,7 +189,15 @@ public sealed class IdentitiesModule : IModule
         _PlatformMetrics?.RecordPrepareIdentitiesResolved(report.ResolvedCount, tags);
         _PlatformMetrics?.RecordPrepareIdentitiesUnresolved(report.UnresolvedCount, tags);
 
-        await PersistPackageTextAsync(context.Package, "Identities/prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
+        await PersistPackageTextAsync(
+            context.Package,
+            new PackageContentContext(PackageContentKind.Artefact,
+                Organisation: _sourceEndpointInfo.OrganisationSlug,
+                Project: _sourceEndpointInfo.Project,
+                Module: "Identities",
+                Address: new RelativePathAddress("prepare-report.json")),
+            JsonSerializer.Serialize(report),
+            ct).ConfigureAwait(false);
 
         _logger.LogInformation(
             "Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms",
@@ -226,7 +233,7 @@ public sealed class IdentitiesModule : IModule
         }
 
         await _orchestrator.ExportAsync(
-            _identitySource, context, _sourceEndpointInfo.Project,
+            _identitySource, context, _sourceEndpointInfo.OrganisationSlug, _sourceEndpointInfo.Project,
             _checkpointingFactory, ct).ConfigureAwait(false);
 
         return TaskExecutionResult.Completed();
@@ -248,7 +255,7 @@ public sealed class IdentitiesModule : IModule
         }
 
         await _orchestrator.ImportAsync(
-            _identityLookupTool, context, _checkpointingFactory, ct).ConfigureAwait(false);
+            _identityLookupTool, context, _sourceEndpointInfo.OrganisationSlug, _sourceEndpointInfo.Project, _checkpointingFactory, ct).ConfigureAwait(false);
 
         return TaskExecutionResult.Completed();
 #endif
@@ -259,7 +266,7 @@ public sealed class IdentitiesModule : IModule
     {
         await _orchestrator.ValidateAsync(
             context.Package,
-            _sourceEndpointInfo.Url,
+            _sourceEndpointInfo.OrganisationSlug,
             _sourceEndpointInfo.Project,
             context,
             ct).ConfigureAwait(false);
@@ -267,17 +274,9 @@ public sealed class IdentitiesModule : IModule
         return TaskExecutionResult.Completed();
     }
 
-    private static async Task PersistPackageTextAsync(IPackageAccess package, string relativePath, string content, CancellationToken ct)
+    private static async Task PersistPackageTextAsync(IPackageAccess package, PackageContentContext context, string content, CancellationToken ct)
     {
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
-        await package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
-            new PackagePayload(stream, "application/json"),
-            ct).ConfigureAwait(false);
-    }
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+        await package.PersistContentAsync(context, new PackagePayload(stream, "application/json"), ct).ConfigureAwait(false);
     }
 }

@@ -31,7 +31,7 @@ public class PackageValidationContext
         Directory.CreateDirectory(PackageRoot);
         RealStore = new FileSystemArtefactStore(PackageRoot);
         Package = PackageTestFactory.CreateDelegatingMock(RealStore).Object;
-        Sut = new PackageValidator(Package);
+        Sut = new PackageValidator(Package, "test-org", "test-project");
     }
 
     public void WritePackageFile(string relativePath, string content)

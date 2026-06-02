@@ -21,6 +21,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Nodes;
 /// </summary>
 internal sealed class ReferencedPathsFromWorkItemsStrategy
 {
+    private const string WorkItemsModule = "WorkItems";
+
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -28,11 +30,19 @@ internal sealed class ReferencedPathsFromWorkItemsStrategy
 
     private readonly IPackageAccess _packageAccess;
     private readonly ILogger _logger;
+    private readonly string _organisation;
+    private readonly string _project;
 
-    public ReferencedPathsFromWorkItemsStrategy(IPackageAccess packageAccess, ILogger logger)
+    public ReferencedPathsFromWorkItemsStrategy(
+        IPackageAccess packageAccess,
+        ILogger logger,
+        string organisation,
+        string project)
     {
         _packageAccess = packageAccess ?? throw new ArgumentNullException(nameof(packageAccess));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _organisation = organisation ?? throw new ArgumentNullException(nameof(organisation));
+        _project = project ?? throw new ArgumentNullException(nameof(project));
     }
 
     public async Task<ReferencedPathsArtifact> CollectDistinctPathsAsync(CancellationToken ct)
@@ -40,10 +50,18 @@ internal sealed class ReferencedPathsFromWorkItemsStrategy
         var areaPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var iterationPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        // Prefix stripped when converting an enumerated full path back to a within-module relative path.
+        // Enumerated paths from a scoped Collection context are returned as full package-relative paths
+        // of the form "{organisation}/{project}/WorkItems/…", so we strip that prefix before constructing
+        // the Artefact context.
+        var modulePrefix = $"{_organisation}/{_project}/{WorkItemsModule}/";
+
         await foreach (var path in _packageAccess.EnumerateContentAsync(
                            new PackageContentContext(
                                PackageContentKind.Collection,
-                               Address: new RelativePathAddress("WorkItems/"),
+                               Organisation: _organisation,
+                               Project: _project,
+                               Module: WorkItemsModule,
                                IsCollectionRequest: true),
                            ct).ConfigureAwait(false))
         {
@@ -51,8 +69,21 @@ internal sealed class ReferencedPathsFromWorkItemsStrategy
             if (revisionPath is null)
                 continue;
 
+            // Strip the "{organisation}/{project}/WorkItems/" prefix to obtain the within-module path.
+            var normalizedRevisionPath = revisionPath.Replace('\\', '/');
+            var withinModulePath = normalizedRevisionPath.StartsWith(modulePrefix, StringComparison.OrdinalIgnoreCase)
+                ? normalizedRevisionPath.Substring(modulePrefix.Length)
+                : normalizedRevisionPath;
+
             var payload = await _packageAccess
-                .RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(revisionPath)), ct)
+                .RequestContentAsync(
+                    new PackageContentContext(
+                        PackageContentKind.Artefact,
+                        Organisation: _organisation,
+                        Project: _project,
+                        Module: WorkItemsModule,
+                        Address: new RelativePathAddress(withinModulePath)),
+                    ct)
                 .ConfigureAwait(false);
 
             if (payload is null)
@@ -122,8 +153,4 @@ internal sealed class ReferencedPathsFromWorkItemsStrategy
         return lastSlash >= 0 ? trimmed.Substring(lastSlash + 1) : trimmed;
     }
 
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
-    }
 }

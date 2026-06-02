@@ -54,6 +54,8 @@ public sealed class ImportPreparerTests
 
         var sut = new ImportPreparer(
             Options.Create(new WorkItemsModuleOptions()),
+            "myorg",
+            "ProjectA",
             [new StaticPattern(findings)]);
 
         var report = await sut.PrepareAsync(CreateContext(package.Object), CancellationToken.None);
@@ -81,6 +83,8 @@ public sealed class ImportPreparerTests
 
         var sut = new ImportPreparer(
             Options.Create(new WorkItemsModuleOptions()),
+            "myorg",
+            "ProjectA",
             [new StaticPattern([])]);
 
         var report = await sut.PrepareAsync(CreateContext(package.Object), CancellationToken.None);
@@ -116,6 +120,8 @@ public sealed class ImportPreparerTests
 
         var sut = new ImportPreparer(
             Options.Create(new WorkItemsModuleOptions()),
+            "myorg",
+            "ProjectA",
             [new StaticPattern(findings)]);
 
         var report = await sut.PrepareAsync(CreateContext(package.Object), CancellationToken.None);
@@ -159,6 +165,8 @@ public sealed class ImportPreparerTests
 
         var sut = new ImportPreparer(
             Options.Create(new WorkItemsModuleOptions()),
+            "myorg",
+            "ProjectA",
             [patternA, patternB]);
 
         var report = await sut.PrepareAsync(CreateContext(package.Object), CancellationToken.None);

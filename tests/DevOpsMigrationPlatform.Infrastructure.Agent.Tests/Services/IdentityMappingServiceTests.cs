@@ -35,7 +35,7 @@ public class IdentityMappingServiceTests
     private FileSystemIdentityMappingService MakeSut(
         Dictionary<string, string>? mappings = null,
         string fallback = "bot@target.example.com")
-        => new(mappings ?? new(), fallback, PackageTestFactory.CreateDelegatingMock(_store).Object);
+        => new(mappings ?? new(), fallback, PackageTestFactory.CreateDelegatingMock(_store).Object, "test-org", "test-project");
 
     [TestMethod]
     public void Resolve_WhenMappingExists_ReturnsMappedIdentity()

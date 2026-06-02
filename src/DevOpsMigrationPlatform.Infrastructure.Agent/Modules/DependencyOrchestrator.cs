@@ -36,7 +36,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// </summary>
 internal sealed class DependencyOrchestrator : IDependencyOrchestrator
 {
-    private const string RootCsvPath = "dependencies.csv";
     private const string ModuleName = "Dependencies";
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Discovery);
@@ -90,7 +89,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         // ── Pre-count: load inventory.json for grand totals ──────────────────
         long grandTotalWorkItems = 0;
         InventoryReport? inventoryReport = null;
-        var inventoryJson = await ReadPackageTextAsync("inventory.json", ct).ConfigureAwait(false);
+        var inventoryJson = await ReadIndexTextAsync(new PackageIndexContext("inventory.json"), ct).ConfigureAwait(false);
         if (inventoryJson is not null)
         {
             try
@@ -276,7 +275,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
                         // New org seen — flush the previous org's CSV if any.
                         if (currentOrgFolder is not null && currentOrgCsvBuilder.Length > 0)
                         {
-                            await WritePackageTextAsync($"{currentOrgFolder}/dependencies.csv", currentOrgCsvBuilder.ToString(), ct).ConfigureAwait(false);
+                            await WriteOrgDependenciesAsync(currentOrgFolder, currentOrgCsvBuilder.ToString(), ct).ConfigureAwait(false);
                             _logger.LogDebug("Flushed org-level dependencies CSV for {Org} (on org transition from DependencyFoundEvent).", currentOrgFolder);
                         }
                         currentOrgFolder = recOrgFolder;
@@ -357,17 +356,18 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
 
                         if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
                         {
-                            await WritePackageTextAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+                            await WriteRootDependenciesAsync(csvBuilder.ToString(), ct).ConfigureAwait(false);
 
                             // Also flush the current project's partial CSV.
                             var midOrgFolder = PackagePathResolver.ExtractOrgFolderName(heartbeat.OrganisationUrl);
-                            var midProjectFolder = $"{midOrgFolder}/{PackagePathResolver.Sanitise(heartbeat.ProjectName)}";
+                            var midProject = PackagePathResolver.Sanitise(heartbeat.ProjectName);
+                            var midProjectFolder = $"{midOrgFolder}/{midProject}";
                             if (perProjectCsv.TryGetValue(midProjectFolder, out var midProjCsv))
-                                await WritePackageTextAsync($"{midProjectFolder}/dependencies.csv", midProjCsv.ToString(), ct).ConfigureAwait(false);
+                                await WriteProjectDependenciesAsync(midOrgFolder, midProject, midProjCsv.ToString(), ct).ConfigureAwait(false);
 
                             // Also flush the current org's partial CSV.
                             if (currentOrgFolder is not null && currentOrgCsvBuilder.Length > 0)
-                                await WritePackageTextAsync($"{currentOrgFolder}/dependencies.csv", currentOrgCsvBuilder.ToString(), ct).ConfigureAwait(false);
+                                await WriteOrgDependenciesAsync(currentOrgFolder, currentOrgCsvBuilder.ToString(), ct).ConfigureAwait(false);
 
                             lastCheckpoint = DateTime.UtcNow;
                             _logger.LogDebug("Dependencies mid-project flush at checkpoint interval.");
@@ -383,7 +383,8 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
                                 heartbeat.ProjectName, heartbeat.OrganisationUrl, heartbeat.ExternalLinksFound);
 
                         var hbOrgFolder = PackagePathResolver.ExtractOrgFolderName(heartbeat.OrganisationUrl);
-                        var hbProjectFolder = $"{hbOrgFolder}/{PackagePathResolver.Sanitise(heartbeat.ProjectName)}";
+                        var hbProject = PackagePathResolver.Sanitise(heartbeat.ProjectName);
+                        var hbProjectFolder = $"{hbOrgFolder}/{hbProject}";
 
                         // Organisation transition tracking (metrics only — CSV accumulator
                         // transitions are handled by the DependencyFoundEvent handler).
@@ -466,19 +467,19 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
                         // Flush per-project CSV to artefact store.
                         if (perProjectCsv.TryGetValue(hbProjectFolder, out var completedProjCsv))
                         {
-                            await WritePackageTextAsync($"{hbProjectFolder}/dependencies.csv", completedProjCsv.ToString(), ct).ConfigureAwait(false);
+                            await WriteProjectDependenciesAsync(hbOrgFolder, hbProject, completedProjCsv.ToString(), ct).ConfigureAwait(false);
                             _logger.LogDebug("Flushed per-project dependencies CSV for {Project}.", hbProjectFolder);
                         }
 
                         // Flush org-level CSV at every project boundary so it stays current.
                         if (currentOrgFolder is not null && currentOrgCsvBuilder.Length > 0)
                         {
-                            await WritePackageTextAsync($"{currentOrgFolder}/dependencies.csv", currentOrgCsvBuilder.ToString(), ct).ConfigureAwait(false);
+                            await WriteOrgDependenciesAsync(currentOrgFolder, currentOrgCsvBuilder.ToString(), ct).ConfigureAwait(false);
                             _logger.LogDebug("Flushed org-level dependencies CSV for {Org} at project boundary.", currentOrgFolder);
                         }
 
                         // Flush root CSV at every project boundary.
-                        await WritePackageTextAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+                        await WriteRootDependenciesAsync(csvBuilder.ToString(), ct).ConfigureAwait(false);
                     }
                     break;
             }
@@ -487,7 +488,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
             // Checkpoint cursor at the configured interval for resume support.
             if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
             {
-                await WritePackageTextAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+                await WriteRootDependenciesAsync(csvBuilder.ToString(), ct).ConfigureAwait(false);
                 lastCheckpoint = DateTime.UtcNow;
 
                 // Push aggregate metrics to Channel 2 snapshot store
@@ -502,7 +503,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
             // Flush the last org's CSV.
             if (currentOrgFolder is not null && currentOrgCsvBuilder.Length > 0)
             {
-                await WritePackageTextAsync($"{currentOrgFolder}/dependencies.csv", currentOrgCsvBuilder.ToString(), ct).ConfigureAwait(false);
+                await WriteOrgDependenciesAsync(currentOrgFolder, currentOrgCsvBuilder.ToString(), ct).ConfigureAwait(false);
                 _logger.LogDebug("Flushed final org-level dependencies CSV for {Org}.", currentOrgFolder);
             }
 
@@ -519,7 +520,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         }
 
         // Final write of root CSV.
-        await WritePackageTextAsync(RootCsvPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+        await WriteRootDependenciesAsync(csvBuilder.ToString(), ct).ConfigureAwait(false);
 
         // Generate grouped CSV, Mermaid diagrams, and per-project transitive graphs.
         await GenerateAnalysisOutputsAsync(csvBuilder.ToString(), ct).ConfigureAwait(false);
@@ -619,7 +620,8 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         var checkpointIdentity = StateCursorIdentity.Build("dependencies", "dependencies");
 
         var orgFolder = PackagePathResolver.ExtractOrgFolderName(orgUrl);
-        var projectFolder = $"{orgFolder}/{PackagePathResolver.Sanitise(project)}";
+        var projectSegment = PackagePathResolver.Sanitise(project);
+        var projectFolder = $"{orgFolder}/{projectSegment}";
         var outputPath = $"{projectFolder}/dependencies.csv";
 
         using var activity = ActivitySource.StartActivity("capture.dependencies.project", ActivityKind.Internal);
@@ -657,7 +659,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         totalWorkItems = savedCursor?.TotalWorkItems ?? 0;
         var lastPersistedAt = DateTimeOffset.UtcNow;
 
-        var existingCsv = await ReadPackageTextAsync(outputPath, ct).ConfigureAwait(false);
+        var existingCsv = await ReadProjectDependenciesAsync(orgFolder, projectSegment, ct).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(existingCsv))
         {
             LoadExistingProjectCsv(existingCsv!, csvBuilder, out linksFound, out crossProjectCount, out crossOrgCount);
@@ -665,7 +667,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
 
         async Task PersistProjectStateAsync(string stage, CancellationToken cancellationToken)
         {
-            await WritePackageTextAsync(outputPath, csvBuilder.ToString(), cancellationToken).ConfigureAwait(false);
+            await WriteProjectDependenciesAsync(orgFolder, projectSegment, csvBuilder.ToString(), cancellationToken).ConfigureAwait(false);
 
             var cursor = new CursorEntry
             {
@@ -773,7 +775,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
             }
         }
 
-        await WritePackageTextAsync(outputPath, csvBuilder.ToString(), ct).ConfigureAwait(false);
+        await WriteProjectDependenciesAsync(orgFolder, projectSegment, csvBuilder.ToString(), ct).ConfigureAwait(false);
         await checkpointing.DeleteContinuationTokenAsync(checkpointIdentity, ct).ConfigureAwait(false);
         await checkpointing.WriteCursorAsync(checkpointIdentity, new CursorEntry
         {
@@ -1187,19 +1189,20 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         }
 
         // Write root CSV (ensures it exists even if it was somehow deleted)
-        await WritePackageTextAsync(RootCsvPath, rootCsvContent, ct).ConfigureAwait(false);
+        await WriteRootDependenciesAsync(rootCsvContent, ct).ConfigureAwait(false);
 
-        // Write per-org CSVs
+        // Write per-org CSVs (keyed by org folder)
         foreach (var kvp in perOrg)
         {
-            await WritePackageTextAsync($"{kvp.Key}/dependencies.csv", kvp.Value.ToString(), ct).ConfigureAwait(false);
+            await WriteOrgDependenciesAsync(kvp.Key, kvp.Value.ToString(), ct).ConfigureAwait(false);
             _logger.LogInformation("Regenerated org-level dependencies CSV for {Org}.", kvp.Key);
         }
 
-        // Write per-project CSVs
+        // Write per-project CSVs (keyed by "{orgFolder}/{project}")
         foreach (var kvp in perProject)
         {
-            await WritePackageTextAsync($"{kvp.Key}/dependencies.csv", kvp.Value.ToString(), ct).ConfigureAwait(false);
+            var (projOrgFolder, projProjectFolder) = SplitProjectFolderKey(kvp.Key);
+            await WriteProjectDependenciesAsync(projOrgFolder, projProjectFolder, kvp.Value.ToString(), ct).ConfigureAwait(false);
             _logger.LogDebug("Regenerated per-project dependencies CSV for {Project}.", kvp.Key);
         }
 
@@ -1302,7 +1305,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
             $"{rec.LinkCount},{rec.LinkScope},{rec.GroupId}," +
             $"{FormatOptionalDate(rec.MostRecentLinkDate)},{FormatOptionalDate(rec.MostRecentSourceWorkItemChangedDate)}");
         }
-        await WritePackageTextAsync("discovery-project-dependencies.csv", groupedCsv.ToString(), ct).ConfigureAwait(false);
+        await WriteIndexTextAsync(new PackageIndexContext("discovery-project-dependencies.csv"), groupedCsv.ToString(), ct).ConfigureAwait(false);
         _logger.LogInformation("Wrote discovery-project-dependencies.csv with {PairCount} project pairs.", records.Count);
 
         // ── Step 3: Write overall Mermaid diagram ────────────────────────
@@ -1313,7 +1316,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         mermaidContent.AppendLine("```mermaid");
         mermaidContent.Append(diagramBuilder.Build());
         mermaidContent.AppendLine("```");
-        await WritePackageTextAsync("discovery-project-dependencies.md", mermaidContent.ToString(), ct).ConfigureAwait(false);
+        await WriteIndexTextAsync(new PackageIndexContext("discovery-project-dependencies.md"), mermaidContent.ToString(), ct).ConfigureAwait(false);
         _logger.LogInformation("Wrote discovery-project-dependencies.md (overall Mermaid diagram).");
 
         // ── Step 4: Build grouped data for transitive walker ─────────────
@@ -1365,7 +1368,7 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
             projectMermaid.Append(transitiveBuilder.Build());
             projectMermaid.AppendLine("```");
 
-            await WritePackageTextAsync($"{key}/dependency-graph.md", projectMermaid.ToString(), ct).ConfigureAwait(false);
+            await WriteIndexTextAsync(new PackageIndexContext("dependency-graph.md", Organisation: orgName, Project: projectName), projectMermaid.ToString(), ct).ConfigureAwait(false);
             _logger.LogDebug("Wrote transitive dependency graph for {Project}.", key);
         }
 
@@ -1400,6 +1403,18 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
             }
         }
         return null;
+    }
+
+    /// <summary>
+    /// Splits a <c>"{orgFolder}/{project}"</c> bucket key into its organisation folder and
+    /// project segments for routing through the project-scoped package content kinds.
+    /// </summary>
+    private static (string OrgFolder, string ProjectFolder) SplitProjectFolderKey(string key)
+    {
+        var slashIdx = key.IndexOf('/');
+        return slashIdx < 0
+            ? (key, string.Empty)
+            : (key.Substring(0, slashIdx), key.Substring(slashIdx + 1));
     }
 
     /// <summary>
@@ -1456,14 +1471,12 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         return fields;
     }
 
-    private async Task<string?> ReadPackageTextAsync(string relativePath, CancellationToken ct)
+    private async Task<string?> ReadIndexTextAsync(PackageIndexContext context, CancellationToken ct)
     {
         if (_package is null)
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
-        var payload = await _package.RequestContentAsync(
-            CreatePackageContentContext(relativePath),
-            ct).ConfigureAwait(false);
+        var payload = await _package.RequestIndexAsync(context, ct).ConfigureAwait(false);
         if (payload is null)
             return null;
 
@@ -1473,27 +1486,32 @@ internal sealed class DependencyOrchestrator : IDependencyOrchestrator
         return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
-    private async Task WritePackageTextAsync(string relativePath, string content, CancellationToken ct)
+    private async Task WriteIndexTextAsync(PackageIndexContext context, string content, CancellationToken ct)
     {
         if (_package is null)
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
-        await _package.PersistContentAsync(
-            CreatePackageContentContext(relativePath),
-            new PackagePayload(stream, "text/csv"),
+        await _package.PersistIndexAsync(
+            context,
+            new PackagePayload(stream, "text/plain"),
             ct).ConfigureAwait(false);
     }
 
-    private static PackageContentContext CreatePackageContentContext(string relativePath)
-        => new(
-            PackageContentKind.Artefact,
-            Address: new RelativePathAddress(relativePath));
+    // ── Typed routing helpers for the structural dependency outputs ──────────
+    // Scope flows through the PackageIndexContext (Organisation/Project), not an
+    // address, so the package router maps each structural file to its canonical path.
+    private Task WriteRootDependenciesAsync(string content, CancellationToken ct)
+        => WriteIndexTextAsync(new PackageIndexContext("dependencies.csv"), content, ct);
 
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
-    }
+    private Task WriteOrgDependenciesAsync(string orgFolder, string content, CancellationToken ct)
+        => WriteIndexTextAsync(new PackageIndexContext("dependencies.csv", Organisation: orgFolder), content, ct);
+
+    private Task WriteProjectDependenciesAsync(string orgFolder, string projectFolder, string content, CancellationToken ct)
+        => WriteIndexTextAsync(new PackageIndexContext("dependencies.csv", Organisation: orgFolder, Project: projectFolder), content, ct);
+
+    private Task<string?> ReadProjectDependenciesAsync(string orgFolder, string projectFolder, CancellationToken ct)
+        => ReadIndexTextAsync(new PackageIndexContext("dependencies.csv", Organisation: orgFolder, Project: projectFolder), ct);
 
     private sealed class OrganisationMigrationEndpointOptions : MigrationEndpointOptions
     {
