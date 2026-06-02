@@ -32,7 +32,8 @@ public sealed class ActiveJobSourceEndpointInfo : ISourceEndpointInfo
     public string OrganisationSlug
         => !string.IsNullOrWhiteSpace(Url)
             ? EndpointSlugHelper.ExtractSlug(Url)
-            : PackagePathResolver.Sanitise((ConnectorType ?? "unknown").ToLowerInvariant());
+            : PackagePathResolver.Sanitise(
+                (string.IsNullOrWhiteSpace(ConnectorType) ? "unknown" : ConnectorType).ToLowerInvariant());
 
     public OrganisationEndpoint ToOrganisationEndpoint()
         => _accessor.Source?.ToOrganisationEndpoint() ?? new OrganisationEndpoint();

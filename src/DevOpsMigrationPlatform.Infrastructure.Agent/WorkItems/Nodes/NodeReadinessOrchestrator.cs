@@ -302,8 +302,8 @@ public sealed class NodeReadinessOrchestrator
                 .RequestContentAsync(
                     new PackageContentContext(
                         PackageContentKind.Artefact,
-                        Organisation: _organisation,
-                        Project: _project,
+                        Organisation: organisation,
+                        Project: project,
                         Module: ModuleName,
                         Address: new RelativePathAddress(candidateFileName)),
                     ct)
