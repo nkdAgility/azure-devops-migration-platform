@@ -106,11 +106,13 @@ public sealed class WorkItemsModuleInventoryTests
         sourceEndpoint.SetupGet(s => s.Project).Returns("ProjectA");
         sourceEndpoint.SetupGet(s => s.Url).Returns("https://source.example");
         sourceEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
+        sourceEndpoint.SetupGet(s => s.OrganisationSlug).Returns("test-org");
 
         var targetEndpoint = new Mock<ITargetEndpointInfo>();
         targetEndpoint.SetupGet(s => s.Project).Returns("ProjectA");
         targetEndpoint.SetupGet(s => s.Url).Returns("https://target.example");
         targetEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
+        targetEndpoint.SetupGet(s => s.OrganisationSlug).Returns("test-target-org");
 
         var orchestrator = new Mock<IInventoryOrchestrator>(MockBehavior.Strict);
         orchestrator

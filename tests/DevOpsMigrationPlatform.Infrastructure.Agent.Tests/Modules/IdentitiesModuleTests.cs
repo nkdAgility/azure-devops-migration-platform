@@ -76,6 +76,7 @@ public class IdentitiesModuleTests
         mock.SetupGet(x => x.Url).Returns("https://dev.azure.com/test");
         mock.SetupGet(x => x.Project).Returns(sourceProject);
         mock.SetupGet(x => x.ConnectorType).Returns("Simulated");
+        mock.SetupGet(x => x.OrganisationSlug).Returns("test");
         return mock.Object;
     }
 
@@ -115,7 +116,7 @@ public class IdentitiesModuleTests
         var storeMock = PackageTestFactory.CreateLooseMock();
         var appendedContent = new System.Text.StringBuilder();
         storeMock
-            .Setup(p => p.AppendContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Identities/descriptors.jsonl"), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
+            .Setup(p => p.AppendContentAsync(It.Is<PackageContentContext>(c => c.Module == "Identities" && c.Address!.RelativePath == "descriptors.jsonl"), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
             .Callback<PackageContentContext, PackagePayload, CancellationToken>((_, payload, _) =>
             {
                 payload.Content.Position = 0;
@@ -137,7 +138,7 @@ public class IdentitiesModuleTests
 
         // Assert — AppendAsync should have been called twice (once per identity)
         storeMock.Verify(
-            p => p.AppendContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Identities/descriptors.jsonl"), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()),
+            p => p.AppendContentAsync(It.Is<PackageContentContext>(c => c.Module == "Identities" && c.Address!.RelativePath == "descriptors.jsonl"), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()),
             Times.Exactly(2));
 
         var lines = appendedContent.ToString().Split('\n', System.StringSplitOptions.RemoveEmptyEntries);
@@ -201,7 +202,7 @@ public class IdentitiesModuleTests
 
         var storeMock = PackageTestFactory.CreateLooseMock();
         storeMock
-            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Identities/descriptors.jsonl"), It.IsAny<CancellationToken>()))
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Module == "Identities" && c.Address!.RelativePath == "descriptors.jsonl"), It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(line + "\n")))));
 
         var module = CreateModule(package: storeMock.Object);
@@ -235,7 +236,7 @@ public class IdentitiesModuleTests
         // Arrange
         var storeMock = PackageTestFactory.CreateLooseMock();
         storeMock
-            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Identities/descriptors.jsonl"), It.IsAny<CancellationToken>()))
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Module == "Identities" && c.Address!.RelativePath == "descriptors.jsonl"), It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("{\"descriptor\":\"d1\"}\nnot-valid-json\n")))));
 
         var module = CreateModule(package: storeMock.Object);
@@ -258,7 +259,7 @@ public class IdentitiesModuleTests
 
         var storeMock = PackageTestFactory.CreateLooseMock();
         storeMock
-            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "Identities/descriptors.jsonl"), It.IsAny<CancellationToken>()))
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Module == "Identities" && c.Address!.RelativePath == "descriptors.jsonl"), It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(line + "\n")))));
 
         var module = CreateModule(package: storeMock.Object);

@@ -416,7 +416,23 @@ public sealed class WorkItemStreamOrchestrator
             Module: "WorkItems",
             IsCollectionRequest: true);
 
+        var yieldedAny = false;
         await foreach (var folderPath in EnumerateWorkItemFoldersFromContextAsync(scopedContext, ct).ConfigureAwait(false))
+        {
+            yieldedAny = true;
+            yield return folderPath;
+        }
+
+        if (yieldedAny)
+            yield break;
+
+        var legacyContext = new PackageContentContext(
+            PackageContentKind.Collection,
+            Organisation: string.Empty,
+            Project: string.Empty,
+            Module: "WorkItems",
+            IsCollectionRequest: true);
+        await foreach (var folderPath in EnumerateWorkItemFoldersFromContextAsync(legacyContext, ct).ConfigureAwait(false))
             yield return folderPath;
     }
 

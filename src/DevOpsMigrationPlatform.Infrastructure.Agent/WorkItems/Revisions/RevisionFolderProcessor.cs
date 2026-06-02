@@ -465,9 +465,16 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         if (_package is null)
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
-        var payload = await _package.RequestContentAsync(
-            CreateArtefactContext(path),
-            ct).ConfigureAwait(false);
+        var payload = await _package.RequestContentAsync(CreateArtefactContext(path), ct).ConfigureAwait(false);
+        if (payload is null)
+        {
+            foreach (var fallbackContext in CreateLegacyArtefactContexts(path))
+            {
+                payload = await _package.RequestContentAsync(fallbackContext, ct).ConfigureAwait(false);
+                if (payload is not null)
+                    break;
+            }
+        }
         if (payload is null)
             return null;
 
@@ -482,7 +489,18 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         if (_package is null)
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
-        return await _package.RequestContentBinaryAsync(CreateArtefactContext(path), ct).ConfigureAwait(false);
+        var payload = await _package.RequestContentBinaryAsync(CreateArtefactContext(path), ct).ConfigureAwait(false);
+        if (payload is not null)
+            return payload;
+
+        foreach (var fallbackContext in CreateLegacyArtefactContexts(path))
+        {
+            payload = await _package.RequestContentBinaryAsync(fallbackContext, ct).ConfigureAwait(false);
+            if (payload is not null)
+                return payload;
+        }
+
+        return null;
     }
 
     private async Task<ISet<string>?> EnumerateAttachmentBinariesAsync(string folderPath, CancellationToken ct)
@@ -537,6 +555,27 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
             Project: _project,
             Module: "WorkItems",
             Address: new WorkItemAttachmentAddress(GetRevisionFolderPath(path), GetFileName(path)));
+    }
+
+    private static IEnumerable<PackageContentContext> CreateLegacyArtefactContexts(string path)
+    {
+        var normalized = path.Replace('\\', '/').TrimStart('/');
+        yield return new PackageContentContext(
+            PackageContentKind.Artefact,
+            Organisation: string.Empty,
+            Project: string.Empty,
+            Module: string.Empty,
+            Address: new RelativePathAddress(normalized));
+
+        if (!normalized.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: string.Empty,
+                Project: string.Empty,
+                Module: string.Empty,
+                Address: new RelativePathAddress($"WorkItems/{normalized}"));
+        }
     }
 
     private static string GetRevisionFolderPath(string path)

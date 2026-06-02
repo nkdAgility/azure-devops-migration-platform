@@ -493,11 +493,21 @@ public class NodeReadinessOrchestratorTests
     {
         var mock = new Mock<IPackageAccess>(MockBehavior.Strict);
         mock.Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address != null && string.Equals(c.Address.RelativePath.Replace('\\', '/'), "Nodes/referenced-paths.json", StringComparison.Ordinal)),
+                It.Is<PackageContentContext>(c =>
+                    c.Module == "Nodes" &&
+                    c.Organisation == "test-org" &&
+                    c.Project == "test-project" &&
+                    c.Address != null &&
+                    string.Equals(c.Address.RelativePath.Replace('\\', '/'), "referenced-paths.json", StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()))
             .Returns(() => ValueTask.FromResult(CreatePayload(referencedPaths)));
         mock.Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address != null && string.Equals(c.Address.RelativePath.Replace('\\', '/'), "Nodes/source-tree.json", StringComparison.Ordinal)),
+                It.Is<PackageContentContext>(c =>
+                    c.Module == "Nodes" &&
+                    c.Organisation == "test-org" &&
+                    c.Project == "test-project" &&
+                    c.Address != null &&
+                    string.Equals(c.Address.RelativePath.Replace('\\', '/'), "source-tree.json", StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()))
             .Returns(() => ValueTask.FromResult(CreatePayload(sourceTree)));
         mock.Setup(p => p.ContentExistsAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))

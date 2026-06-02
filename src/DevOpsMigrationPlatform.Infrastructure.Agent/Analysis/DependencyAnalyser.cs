@@ -23,8 +23,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 
 public sealed class DependencyAnalyser : IOrganisationsAnalyser
 {
-    private const string AnalysisCsvPath = "dependency-analysis.csv";
-    private const string AnalysisMermaidPath = "dependency-analysis.mmd";
+    private const string AnalysisCsvPath = "dependencies.csv";
+    private const string AnalysisMermaidPath = "dependencies.mmd";
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Discovery);
     private readonly IDependencyDiscoveryServiceFactory _dependencyFactory;
@@ -312,4 +312,3 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
             cancellationToken).ConfigureAwait(false);
     }
 }
-

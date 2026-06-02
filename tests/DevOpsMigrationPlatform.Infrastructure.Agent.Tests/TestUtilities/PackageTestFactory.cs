@@ -69,11 +69,23 @@ internal static class PackageTestFactory
                 return ValueTask.FromResult(new PackageMetaResult(key, new PackageMetaPayload(new System.IO.MemoryStream(bytes, writable: false))));
             });
         package
+            .Setup(p => p.RequestIndexAsync(It.IsAny<PackageIndexContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageIndexContext context, CancellationToken _) =>
+            {
+                var key = ResolveIndexPath(context);
+                if (!contentStore.TryGetValue(key, out var bytes))
+                    return ValueTask.FromResult<PackagePayload?>(null);
+                return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new System.IO.MemoryStream(bytes, writable: false)));
+            });
+        package
             .Setup(p => p.ContentExistsAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext context, CancellationToken _) => ValueTask.FromResult(contentStore.ContainsKey(ResolveContentPath(context))));
         package
             .Setup(p => p.EnumerateContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext context, CancellationToken _) => EnumerateByPrefixAsync(contentStore.Keys, NormalizeCollectionPrefix(context)));
+        package
+            .Setup(p => p.EnumerateAllAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken _) => EnumerateAllAsync(contentStore.Keys));
         package
             .Setup(p => p.PersistContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext context, PackagePayload payload, CancellationToken _) =>
@@ -86,6 +98,13 @@ internal static class PackageTestFactory
             .Returns((PackageContentContext context, System.IO.Stream payload, string? _, CancellationToken _) =>
             {
                 contentStore[ResolveContentPath(context)] = ReadAllBytes(payload);
+                return ValueTask.CompletedTask;
+            });
+        package
+            .Setup(p => p.PersistIndexAsync(It.IsAny<PackageIndexContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageIndexContext context, PackagePayload payload, CancellationToken _) =>
+            {
+                contentStore[ResolveIndexPath(context)] = ReadAllBytes(payload.Content);
                 return ValueTask.CompletedTask;
             });
         package
@@ -147,6 +166,9 @@ internal static class PackageTestFactory
             .Returns((PackageContentContext context, CancellationToken ct)
                 => artefactStore.EnumerateAsync(NormalizeCollectionPrefix(context), ct));
         package
+            .Setup(p => p.EnumerateAllAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken ct) => artefactStore.EnumerateAsync(string.Empty, ct));
+        package
             .Setup(p => p.RequestContentBinaryAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns(async (PackageContentContext context, CancellationToken ct) =>
             {
@@ -156,6 +178,15 @@ internal static class PackageTestFactory
                 if (stream.CanSeek)
                     stream.Position = 0;
                 return stream;
+            });
+        package
+            .Setup(p => p.RequestIndexAsync(It.IsAny<PackageIndexContext>(), It.IsAny<CancellationToken>()))
+            .Returns(async (PackageIndexContext context, CancellationToken ct) =>
+            {
+                var content = await artefactStore.ReadAsync(ResolveIndexPath(context), ct).ConfigureAwait(false);
+                if (content is null)
+                    return null;
+                return new PackagePayload(new System.IO.MemoryStream(Encoding.UTF8.GetBytes(content), writable: false), "application/json");
             });
         package
             .Setup(p => p.PersistContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
@@ -170,6 +201,13 @@ internal static class PackageTestFactory
             {
                 var bytes = ReadAllBytes(payload);
                 await artefactStore.WriteBinaryAsync(ResolveContentPath(context), bytes, ct).ConfigureAwait(false);
+            });
+        package
+            .Setup(p => p.PersistIndexAsync(It.IsAny<PackageIndexContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
+            .Returns(async (PackageIndexContext context, PackagePayload payload, CancellationToken ct) =>
+            {
+                var text = Encoding.UTF8.GetString(ReadAllBytes(payload.Content));
+                await artefactStore.WriteAsync(ResolveIndexPath(context), text, ct).ConfigureAwait(false);
             });
         package
             .Setup(p => p.AppendContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
@@ -224,6 +262,9 @@ internal static class PackageTestFactory
             .Returns((PackageContentContext context, CancellationToken ct)
                 => artefactStore.EnumerateAsync(NormalizeCollectionPrefix(context), ct));
         package
+            .Setup(p => p.EnumerateAllAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken ct) => artefactStore.EnumerateAsync(string.Empty, ct));
+        package
             .Setup(p => p.RequestContentBinaryAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns(async (PackageContentContext context, CancellationToken ct) =>
             {
@@ -233,6 +274,15 @@ internal static class PackageTestFactory
                 if (stream.CanSeek)
                     stream.Position = 0;
                 return stream;
+            });
+        package
+            .Setup(p => p.RequestIndexAsync(It.IsAny<PackageIndexContext>(), It.IsAny<CancellationToken>()))
+            .Returns(async (PackageIndexContext context, CancellationToken ct) =>
+            {
+                var content = await artefactStore.ReadAsync(ResolveIndexPath(context), ct).ConfigureAwait(false);
+                if (content is null)
+                    return null;
+                return new PackagePayload(new System.IO.MemoryStream(Encoding.UTF8.GetBytes(content), writable: false), "application/json");
             });
         package
             .Setup(p => p.PersistContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
@@ -247,6 +297,13 @@ internal static class PackageTestFactory
             {
                 var bytes = ReadAllBytes(payload);
                 await artefactStore.WriteBinaryAsync(ResolveContentPath(context), bytes, ct).ConfigureAwait(false);
+            });
+        package
+            .Setup(p => p.PersistIndexAsync(It.IsAny<PackageIndexContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
+            .Returns(async (PackageIndexContext context, PackagePayload payload, CancellationToken ct) =>
+            {
+                var text = Encoding.UTF8.GetString(ReadAllBytes(payload.Content));
+                await artefactStore.WriteAsync(ResolveIndexPath(context), text, ct).ConfigureAwait(false);
             });
         package
             .Setup(p => p.AppendContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
@@ -295,12 +352,28 @@ internal static class PackageTestFactory
                 return new PackageMetaResult(key, new PackageMetaPayload(new System.IO.MemoryStream(Encoding.UTF8.GetBytes(content), writable: false), "application/json"));
             });
         package
+            .Setup(p => p.RequestIndexAsync(It.IsAny<PackageIndexContext>(), It.IsAny<CancellationToken>()))
+            .Returns(async (PackageIndexContext context, CancellationToken ct) =>
+            {
+                var content = await stateStore.ReadAsync(ResolveIndexPath(context), ct).ConfigureAwait(false);
+                if (content is null)
+                    return null;
+                return new PackagePayload(new System.IO.MemoryStream(Encoding.UTF8.GetBytes(content), writable: false), "application/json");
+            });
+        package
             .Setup(p => p.PersistMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<PackageMetaPayload>(), It.IsAny<CancellationToken>()))
             .Returns(async (PackageMetaContext context, PackageMetaPayload payload, CancellationToken ct) =>
             {
                 var key = ResolveMetaPath(context);
                 var text = Encoding.UTF8.GetString(ReadAllBytes(payload.Content));
                 await stateStore.WriteAsync(key, text, ct).ConfigureAwait(false);
+            });
+        package
+            .Setup(p => p.PersistIndexAsync(It.IsAny<PackageIndexContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
+            .Returns(async (PackageIndexContext context, PackagePayload payload, CancellationToken ct) =>
+            {
+                var text = Encoding.UTF8.GetString(ReadAllBytes(payload.Content));
+                await stateStore.WriteAsync(ResolveIndexPath(context), text, ct).ConfigureAwait(false);
             });
         package
             .Setup(p => p.ResetMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()))
@@ -355,6 +428,9 @@ internal static class PackageTestFactory
             .Setup(p => p.EnumerateContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns(EmptyAsync());
         package
+            .Setup(p => p.EnumerateAllAsync(It.IsAny<CancellationToken>()))
+            .Returns(EmptyAsync());
+        package
             .Setup(p => p.RequestContentBinaryAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult<System.IO.Stream?>(null));
         package
@@ -403,6 +479,14 @@ internal static class PackageTestFactory
         yield break;
     }
 
+    private static async IAsyncEnumerable<string> EnumerateAllAsync(IEnumerable<string> keys)
+    {
+        foreach (var key in keys)
+            yield return key;
+
+        yield break;
+    }
+
     private static string NormalizeCollectionPrefix(PackageContentContext context)
     {
         var relativePath = ResolveContentPath(context);
@@ -441,6 +525,9 @@ internal static class PackageTestFactory
         return $"{normalizedModule}/{normalizedPath}";
     }
 
+    private static string ResolveIndexPath(PackageIndexContext context)
+        => ContentPathRouter.ResolveIndexPath(context);
+
     private static string ResolveMetaPath(PackageMetaContext context)
         => context.Kind switch
         {
@@ -450,6 +537,7 @@ internal static class PackageTestFactory
             PackageMetaKind.InventoryCompletionMarker => ".migration/inventory.complete.json",
             PackageMetaKind.PrepareReport => ".migration/prepare-report.json",
             PackageMetaKind.PrepareProbe => ".migration/prepare-probe.json",
+            PackageMetaKind.WorkItemsImportReadiness => ".migration/Readiness/workitems-import-readiness.json",
             PackageMetaKind.CheckpointCursor => $".migration/{(context.Action ?? throw new InvalidOperationException("Action is required for checkpoint cursor metadata.")).ToLowerInvariant()}.{(context.Module ?? throw new InvalidOperationException("Module is required for checkpoint cursor metadata.")).ToLowerInvariant()}.cursor.json",
             PackageMetaKind.ContinuationToken => $".migration/{(context.Action ?? throw new InvalidOperationException("Action is required for continuation metadata.")).ToLowerInvariant()}.{(context.Module ?? throw new InvalidOperationException("Module is required for continuation metadata.")).ToLowerInvariant()}.continuation.json",
             PackageMetaKind.JobDescriptor => context.RelatedToRun

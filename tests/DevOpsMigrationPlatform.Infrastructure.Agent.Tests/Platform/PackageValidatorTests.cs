@@ -194,14 +194,14 @@ public class PackageValidatorTests
 
         public ValueTask<PackagePayload?> RequestContentAsync(PackageContentContext context, CancellationToken cancellationToken)
         {
-            var path = context.Address?.RelativePath ?? string.Empty;
+            var path = ResolveContentPath(context);
             if (!_files.TryGetValue(path, out var content))
                 return ValueTask.FromResult<PackagePayload?>(null);
             return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(content))));
         }
 
         public ValueTask<bool> ContentExistsAsync(PackageContentContext context, CancellationToken cancellationToken)
-            => ValueTask.FromResult(_files.ContainsKey(context.Address?.RelativePath ?? string.Empty));
+            => ValueTask.FromResult(_files.ContainsKey(ResolveContentPath(context)));
 
         public async IAsyncEnumerable<string> EnumerateContentAsync(
             PackageContentContext context,
@@ -257,7 +257,11 @@ public class PackageValidatorTests
         {
             var path = IndexPath(context);
             if (!_files.TryGetValue(path, out var content))
-                return ValueTask.FromResult<PackagePayload?>(null);
+            {
+                // Backward-compat for tests that still seed root-level index files.
+                if (!_files.TryGetValue(context.FileName, out content))
+                    return ValueTask.FromResult<PackagePayload?>(null);
+            }
             return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(content))));
         }
 
@@ -277,6 +281,38 @@ public class PackageValidatorTests
             if (!string.IsNullOrWhiteSpace(context.Project)) segments.Add(context.Project!);
             segments.Add(context.FileName);
             return string.Join("/", segments);
+        }
+
+        private string ResolveContentPath(PackageContentContext context)
+        {
+            var relativePath = context.Address?.RelativePath ?? string.Empty;
+            if (_files.ContainsKey(relativePath))
+                return relativePath;
+
+            var segments = new List<string>(capacity: 4);
+            if (!string.IsNullOrWhiteSpace(context.Organisation))
+                segments.Add(context.Organisation!);
+            if (!string.IsNullOrWhiteSpace(context.Project))
+                segments.Add(context.Project!);
+            if (!string.IsNullOrWhiteSpace(context.Module))
+                segments.Add(context.Module!);
+            if (!string.IsNullOrWhiteSpace(relativePath))
+                segments.Add(relativePath);
+
+            var scopedPath = string.Join("/", segments);
+            if (_files.ContainsKey(scopedPath))
+                return scopedPath;
+
+            if (!string.IsNullOrWhiteSpace(context.Module))
+            {
+                var modulePath = string.IsNullOrWhiteSpace(relativePath)
+                    ? context.Module!
+                    : $"{context.Module}/{relativePath}";
+                if (_files.ContainsKey(modulePath))
+                    return modulePath;
+            }
+
+            return relativePath;
         }
 
         public ValueTask<PackageMetaResult> RequestMetaAsync(PackageMetaContext context, CancellationToken cancellationToken)

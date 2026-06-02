@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
 using System.IO;
 using System.IO.Compression;
 using System.Threading;
@@ -23,12 +24,17 @@ namespace DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 /// </summary>
 internal sealed class ZipPackagePreparer : IPackagePreparer
 {
-    private readonly IArtefactStore _store;
+    private readonly IPackageStoreFactory _packageStoreFactory;
+    private readonly ActivePackageState _packageState;
     private readonly ILogger<ZipPackagePreparer> _logger;
 
-    public ZipPackagePreparer(IArtefactStore store, ILogger<ZipPackagePreparer> logger)
+    public ZipPackagePreparer(
+        IPackageStoreFactory packageStoreFactory,
+        ActivePackageState packageState,
+        ILogger<ZipPackagePreparer> logger)
     {
-        _store = store;
+        _packageStoreFactory = packageStoreFactory;
+        _packageState = packageState;
         _logger = logger;
     }
 
@@ -52,6 +58,14 @@ internal sealed class ZipPackagePreparer : IPackagePreparer
 
         _logger.LogInformation("Extracting package fixture {ZipPath} into package store.", resolvedZipPath);
 
+        var packageUri = _packageState.CurrentPackageUri;
+        if (string.IsNullOrWhiteSpace(packageUri))
+        {
+            throw new InvalidOperationException(
+                "Active package URI is not set. Package fixtures can only be prepared within an active leased job.");
+        }
+
+        var (store, _) = _packageStoreFactory.Create(packageUri!);
         int count = 0;
         using var archive = ZipFile.OpenRead(resolvedZipPath);
         foreach (var entry in archive.Entries)
@@ -62,7 +76,7 @@ internal sealed class ZipPackagePreparer : IPackagePreparer
             cancellationToken.ThrowIfCancellationRequested();
 
             using var entryStream = entry.Open();
-            await _store.WriteStreamAsync(entry.FullName, entryStream, cancellationToken).ConfigureAwait(false);
+            await store.WriteStreamAsync(entry.FullName, entryStream, cancellationToken).ConfigureAwait(false);
             count++;
         }
 

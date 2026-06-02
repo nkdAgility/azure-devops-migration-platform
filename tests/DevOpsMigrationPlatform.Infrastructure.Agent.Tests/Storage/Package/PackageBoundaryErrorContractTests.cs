@@ -30,14 +30,15 @@ public sealed class PackageBoundaryErrorContractTests
     }
 
     [TestMethod]
-    public async Task RequestAsync_MissingRoute_ThrowsPackageValidationExceptionWithStableCode()
+    public async Task RequestAsync_MissingRoute_ReturnsNullPayload()
     {
         var (sut, _) = ActivePackageTestFactory.Create(new InMemoryPackageAccess());
 
-        var ex = await Assert.ThrowsExactlyAsync<PackageValidationException>(
-            () => sut.RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "TestModule"), CancellationToken.None).AsTask());
+        var payload = await sut.RequestContentAsync(
+            new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "TestModule"),
+            CancellationToken.None);
 
-        Assert.AreEqual("PKG_ADDRESS_REQUIRED", ex.Code);
+        Assert.IsNull(payload);
     }
 
     [TestMethod]
@@ -54,5 +55,4 @@ public sealed class PackageBoundaryErrorContractTests
         Assert.AreEqual("PKG_RUN_ID_REQUIRED", ex.Code);
     }
 }
-
 

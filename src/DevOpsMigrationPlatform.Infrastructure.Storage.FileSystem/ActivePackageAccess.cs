@@ -137,7 +137,7 @@ internal sealed class ActivePackageAccess : IPackageAccess
         CancellationToken cancellationToken = default)
     {
         var store = RequireStore();
-        var path = _router.ResolveMetaPath(context);
+        var path = ResolveMetaPath(context);
         return await ObserveAsync(
             "request-meta",
             path,
@@ -284,7 +284,7 @@ internal sealed class ActivePackageAccess : IPackageAccess
         CancellationToken cancellationToken = default)
     {
         var store = RequireStore();
-        var authoritativePath = _router.ResolveMetaPath(context);
+        var authoritativePath = ResolveMetaPath(context);
         await ObserveAsync(
             "persist-meta",
             authoritativePath,
@@ -295,7 +295,7 @@ internal sealed class ActivePackageAccess : IPackageAccess
 
                 if (context.RelatedToRun && !string.IsNullOrWhiteSpace(_activePackageState.CurrentRunId))
                 {
-                    var runAuditPath = _router.ResolveMetaPath(context, _activePackageState.CurrentRunId, runAudit: true);
+                    var runAuditPath = ResolveMetaPath(context, runAudit: true);
                     await store.WriteAsync(runAuditPath, content, cancellationToken).ConfigureAwait(false);
                 }
 
@@ -309,7 +309,7 @@ internal sealed class ActivePackageAccess : IPackageAccess
         CancellationToken cancellationToken = default)
     {
         var store = RequireStateStore();
-        var path = _router.ResolveMetaPath(context);
+        var path = ResolveMetaPath(context);
         await ObserveAsync(
             "delete-meta",
             path,
@@ -382,6 +382,17 @@ internal sealed class ActivePackageAccess : IPackageAccess
         }
 
         return _lazyStateStore;
+    }
+
+    private string ResolveMetaPath(PackageMetaContext context, bool runAudit = false)
+    {
+        var runId = _activePackageState.CurrentRunId;
+        if (context.Kind == PackageMetaKind.RunConfigSnapshot && string.IsNullOrWhiteSpace(runId))
+        {
+            runId = DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmss");
+        }
+
+        return _router.ResolveMetaPath(context, runId, runAudit);
     }
 
     private string RequireLocalRoot()

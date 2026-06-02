@@ -97,8 +97,8 @@ public sealed class DependencyAnalyserTests
 
         await analyser.AnalyseAsync(CreateContext(package: package.Object), CancellationToken.None);
 
-        var csvPayload = await package.Object.RequestContentAsync(ContentAt("analysis/dependencies.csv"), CancellationToken.None);
-        var mmdPayload = await package.Object.RequestContentAsync(ContentAt("analysis/dependencies.mmd"), CancellationToken.None);
+        var csvPayload = await package.Object.RequestIndexAsync(new PackageIndexContext("dependencies.csv"), CancellationToken.None);
+        var mmdPayload = await package.Object.RequestIndexAsync(new PackageIndexContext("dependencies.mmd"), CancellationToken.None);
         var csv = csvPayload is not null ? new StreamReader(csvPayload.Content).ReadToEnd() : null;
         var mmd = mmdPayload is not null ? new StreamReader(mmdPayload.Content).ReadToEnd() : null;
 
@@ -107,11 +107,6 @@ public sealed class DependencyAnalyserTests
         Assert.IsNotNull(mmd);
         Assert.IsTrue(mmd!.Contains("graph TD"));
     }
-
-    private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
-
-    private static PackageContentContext ContentAt(string path)
-        => new(PackageContentKind.Artefact, "test-org", "test-project", "Dependencies", Address: new TestPackageAddress(path));
 
     private static DependencyAnalyser CreateAnalyser(
         ILogger<DependencyAnalyser>? logger = null,
@@ -138,7 +133,10 @@ public sealed class DependencyAnalyserTests
                     var content = "SourceId,TargetId,SourceProject,SourceOrganisationUrl,SourceWorkItemType,TargetWorkItemType,TargetProject,TargetOrganisationUrl,TargetId\n"
                         + string.Join('\n', csvRows)
                         + '\n';
-                    await context.Package.PersistContentAsync(ContentAt("dependencies.csv"), new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(content))), ct);
+                    await context.Package.PersistIndexAsync(
+                        new PackageIndexContext("dependencies.csv"),
+                        new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(content))),
+                        ct);
                 });
 
         return new DependencyAnalyser(
@@ -167,8 +165,8 @@ public sealed class DependencyAnalyserTests
         // Arrange: a store that enumerates paths but ReadAsync returns null for them (simulates
         // a capture task that ran but did not write the CSV file).
         var package = PackageTestFactory.CreateLooseMock();
-        package.Setup(p => p.EnumerateContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
-            .Returns((PackageContentContext _, CancellationToken _) => GetGhostPathsAsync());
+        package.Setup(p => p.EnumerateAllAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken _) => GetGhostPathsAsync());
 
         var logger = new Mock<ILogger<DependencyAnalyser>>(MockBehavior.Loose);
 
@@ -187,7 +185,10 @@ public sealed class DependencyAnalyserTests
             .Returns<IDependencyDiscoveryService, OrganisationsAnalyseContext, JobPolicies, int, CancellationToken>(
                 async (_, context, _, _, ct) =>
                 {
-                    await context.Package.PersistContentAsync(ContentAt("dependencies.csv"), new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("header\n"))), ct);
+                    await context.Package.PersistIndexAsync(
+                        new PackageIndexContext("dependencies.csv"),
+                        new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("header\n"))),
+                        ct);
                 });
 
         var analyser = new DependencyAnalyser(factory.Object, orchestrator.Object, logger.Object);
@@ -205,8 +206,10 @@ public sealed class DependencyAnalyserTests
                 It.IsAny<System.Exception?>(),
                 It.IsAny<System.Func<It.IsAnyType, System.Exception?, string>>()),
             Times.Exactly(2));
-        Assert.IsFalse(await package.Object.ContentExistsAsync(ContentAt("dependencies.csv"), CancellationToken.None), "Consolidated root dependency output must not be written when required inputs are missing.");
-        Assert.IsFalse(await package.Object.ContentExistsAsync(ContentAt("analysis/dependencies.csv"), CancellationToken.None), "Analysis dependency output must not be written when required inputs are missing.");
+        var consolidatedPayload = await package.Object.RequestIndexAsync(new PackageIndexContext("dependencies.csv"), CancellationToken.None);
+        var mermaidPayload = await package.Object.RequestIndexAsync(new PackageIndexContext("dependencies.mmd"), CancellationToken.None);
+        Assert.IsNull(consolidatedPayload, "Consolidated root dependency output must not be written when required inputs are missing.");
+        Assert.IsNull(mermaidPayload, "Dependency Mermaid output must not be written when required inputs are missing.");
     }
 
     private static async IAsyncEnumerable<string> GetGhostPathsAsync()

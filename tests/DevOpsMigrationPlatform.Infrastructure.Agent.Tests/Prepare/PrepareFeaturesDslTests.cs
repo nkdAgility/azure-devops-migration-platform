@@ -355,7 +355,9 @@ public sealed class PrepareFeaturesDslTests
     {
         public void ShouldContainReport(string path)
         {
-            Assert.IsTrue(paths.Contains(path), $"Expected persisted report at '{path}'.");
+            Assert.IsTrue(
+                paths.Any(candidate => candidate.EndsWith(path, StringComparison.OrdinalIgnoreCase)),
+                $"Expected persisted report at '{path}'.");
         }
     }
 
@@ -368,8 +370,9 @@ public sealed class PrepareFeaturesDslTests
 
         public void ShouldReportWarningReadiness()
         {
-            Assert.IsTrue(persistedPaths.Contains("WorkItems/prepare-report.json"));
-            var report = JsonSerializer.Deserialize<PrepareReport>(persistedContent["WorkItems/prepare-report.json"]);
+            var reportPath = persistedPaths.FirstOrDefault(path => path.EndsWith("WorkItems/prepare-report.json", StringComparison.OrdinalIgnoreCase));
+            Assert.IsFalse(string.IsNullOrWhiteSpace(reportPath));
+            var report = JsonSerializer.Deserialize<PrepareReport>(persistedContent[reportPath!]);
             Assert.IsNotNull(report);
             Assert.AreEqual(WorkItemsPrepareReadinessResult.Ready, report.Readiness);
             Assert.AreEqual(1, report.UnresolvedCount);
@@ -429,7 +432,8 @@ public sealed class PrepareFeaturesDslTests
             .Setup(p => p.EnumerateContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext context, CancellationToken _) =>
             {
-                if (context.Address?.RelativePath.Equals("WorkItems/", StringComparison.OrdinalIgnoreCase) == true)
+                if (context.IsCollectionRequest &&
+                    string.Equals(context.Module, "WorkItems", StringComparison.OrdinalIgnoreCase))
                 {
                     return EnumeratePathsAsync(["WorkItems/2026-05-13/638827200000000000-42-0/revision.json"]);
                 }
@@ -444,7 +448,7 @@ public sealed class PrepareFeaturesDslTests
                 It.IsAny<CancellationToken>()))
             .Callback<PackageContentContext, PackagePayload, CancellationToken>((ctx, payload, _) =>
             {
-                var path = ctx.Address?.RelativePath ?? string.Empty;
+                var path = ComposePersistedPath(ctx);
                 persistedPaths.Add(path);
                 payload.Content.Position = 0;
                 using var reader = new StreamReader(payload.Content, Encoding.UTF8, false, 1024, leaveOpen: true);
@@ -458,6 +462,21 @@ public sealed class PrepareFeaturesDslTests
             .ReturnsAsync(true);
 
         return package;
+    }
+
+    private static string ComposePersistedPath(PackageContentContext context)
+    {
+        var segments = new List<string>();
+        if (!string.IsNullOrWhiteSpace(context.Organisation))
+            segments.Add(context.Organisation!);
+        if (!string.IsNullOrWhiteSpace(context.Project))
+            segments.Add(context.Project!);
+        if (!string.IsNullOrWhiteSpace(context.Module))
+            segments.Add(context.Module!);
+        if (!string.IsNullOrWhiteSpace(context.Address?.RelativePath))
+            segments.Add(context.Address.RelativePath);
+
+        return string.Join("/", segments);
     }
 
     private static async IAsyncEnumerable<string> EnumeratePathsAsync(IEnumerable<string> paths)

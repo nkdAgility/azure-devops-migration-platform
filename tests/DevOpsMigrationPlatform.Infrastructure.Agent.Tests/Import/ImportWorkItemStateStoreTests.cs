@@ -33,14 +33,15 @@ public class ImportWorkItemStateStoreTests
 
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c =>
-                    c.Kind == PackageContentKind.Artefact &&
-                    c.Address != null &&
-                    c.Address.RelativePath == ".migration/Checkpoints/workitems-import.cursor.json"),
+            .Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c =>
+                    c.Kind == PackageMetaKind.CheckpointCursor &&
+                    c.Action == "import" &&
+                    c.Module == "workitems"),
                 It.IsAny<CancellationToken>()))
-            .Returns(new ValueTask<PackagePayload?>(new PackagePayload(
-                new MemoryStream(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(expected))), "application/json")));
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(
+                ".migration/import.workitems.cursor.json",
+                new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(expected))), "application/json"))));
 
         var sut = new ImportWorkItemStateStore(package.Object);
 
@@ -65,14 +66,14 @@ public class ImportWorkItemStateStoreTests
 
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.PersistContentAsync(
-                It.Is<PackageContentContext>(c =>
-                    c.Kind == PackageContentKind.Artefact &&
-                    c.Address != null &&
-                    c.Address.RelativePath == ".migration/Checkpoints/workitems-import.cursor.json"),
-                It.IsAny<PackagePayload>(),
+            .Setup(p => p.PersistMetaAsync(
+                It.Is<PackageMetaContext>(c =>
+                    c.Kind == PackageMetaKind.CheckpointCursor &&
+                    c.Action == "import" &&
+                    c.Module == "workitems"),
+                It.IsAny<PackageMetaPayload>(),
                 It.IsAny<CancellationToken>()))
-            .Callback<PackageContentContext, PackagePayload, CancellationToken>((_, payload, _) =>
+            .Callback<PackageMetaContext, PackageMetaPayload, CancellationToken>((_, payload, _) =>
             {
                 using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
                 var json = reader.ReadToEnd();
@@ -102,11 +103,11 @@ public class ImportWorkItemStateStoreTests
 
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
-            .Setup(p => p.PersistContentAsync(
-                It.IsAny<PackageContentContext>(),
-                It.IsAny<PackagePayload>(),
+            .Setup(p => p.PersistMetaAsync(
+                It.IsAny<PackageMetaContext>(),
+                It.IsAny<PackageMetaPayload>(),
                 It.IsAny<CancellationToken>()))
-            .Returns(async (PackageContentContext _, PackagePayload _, CancellationToken token) =>
+            .Returns(async (PackageMetaContext _, PackageMetaPayload _, CancellationToken token) =>
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(750), token);
             });
