@@ -22,6 +22,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Export;
 [Scope(Feature = "Export Attachments")]
 public class ExportAttachmentsSteps
 {
+    private const string TestOrganisation = "test-org";
+    private const string TestProject = "test-project";
     private readonly ExportAttachmentsContext _ctx;
 
     public ExportAttachmentsSteps(ExportAttachmentsContext ctx) => _ctx = ctx;
@@ -64,8 +66,8 @@ public class ExportAttachmentsSteps
         _ctx.Package = new ActivePackageAccess(packageState, new PackagePathRouter(), NullLogger<ActivePackageAccess>.Instance);
         _ctx.Sut = new WorkItemExportOrchestrator(
             _ctx.Package,
-            string.Empty,
-            string.Empty,
+            TestOrganisation,
+            TestProject,
             _ctx.MockCheckpointingService.Object,
             _ctx.AttachmentSource);
     }
@@ -74,7 +76,12 @@ public class ExportAttachmentsSteps
         => WorkItemExportOrchestrator.BuildFolderPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate);
 
     private string AbsoluteFolderPath(WorkItemRevision rev)
-        => Path.Combine(_ctx.PackageRoot!, "WorkItems", FolderPath(rev).Replace('/', Path.DirectorySeparatorChar));
+        => Path.Combine(
+            _ctx.PackageRoot!,
+            TestOrganisation,
+            TestProject,
+            "WorkItems",
+            FolderPath(rev).Replace('/', Path.DirectorySeparatorChar));
 
     // ── Background ────────────────────────────────────────────────────────────
 

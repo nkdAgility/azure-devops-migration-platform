@@ -31,13 +31,27 @@ public class PackageValidationContext
         Directory.CreateDirectory(PackageRoot);
         RealStore = new FileSystemArtefactStore(PackageRoot);
         Package = PackageTestFactory.CreateDelegatingMock(RealStore).Object;
-        Sut = new PackageValidator(Package);
+        Sut = new PackageValidator(Package, "test-org", "test-project");
     }
 
     public void WritePackageFile(string relativePath, string content)
     {
-        var full = System.IO.Path.Combine(PackageRoot!, relativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
+        var scopedPath = ResolveScopedPath(relativePath);
+        var full = System.IO.Path.Combine(PackageRoot!, scopedPath.Replace('/', System.IO.Path.DirectorySeparatorChar));
         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(full)!);
         System.IO.File.WriteAllText(full, content);
+    }
+
+    private static string ResolveScopedPath(string relativePath)
+    {
+        var normalized = relativePath.Replace('\\', '/').TrimStart('/');
+
+        if (string.Equals(normalized, "manifest.json", System.StringComparison.OrdinalIgnoreCase))
+            return "test-org/test-project/manifest.json";
+
+        if (normalized.StartsWith("WorkItems/", System.StringComparison.OrdinalIgnoreCase))
+            return normalized;
+
+        return normalized;
     }
 }

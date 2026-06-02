@@ -132,7 +132,7 @@ public sealed class AnalysisDslFeatureTests
 
             await analyser.AnalyseAsync(CreateDependencyContext(_connectorType, package.Object), CancellationToken.None);
 
-            var csv = await ReadTextAsync(package.Object, "analysis/dependencies.csv");
+            var csv = await ReadIndexTextAsync(package.Object, "dependencies.csv");
             return new DependencyAnalysisResult(csv, logger.Entries);
         }
 
@@ -164,8 +164,8 @@ public sealed class AnalysisDslFeatureTests
                         var content = "SourceId,TargetId,SourceProject,SourceOrganisationUrl,SourceWorkItemType,TargetWorkItemType,TargetProject,TargetOrganisationUrl,TargetId\n"
                             + string.Join('\n', csvRows)
                             + '\n';
-                        await context.Package.PersistContentAsync(
-                            ContentAt("dependencies.csv"),
+                        await context.Package.PersistIndexAsync(
+                            new PackageIndexContext("dependencies.csv"),
                             new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(content))),
                             ct);
                     });
@@ -178,9 +178,9 @@ public sealed class AnalysisDslFeatureTests
     {
         public void ShouldProduceDependenciesCsvWithAtLeastOneDataRow()
         {
-            Assert.IsFalse(string.IsNullOrWhiteSpace(DependenciesCsv), "Expected analysis/dependencies.csv to be written.");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(DependenciesCsv), "Expected dependencies.csv to be written.");
             var rowCount = DependenciesCsv!.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length - 1;
-            Assert.IsTrue(rowCount >= 1, "Expected analysis/dependencies.csv to contain at least one data row.");
+            Assert.IsTrue(rowCount >= 1, "Expected dependencies.csv to contain at least one data row.");
         }
 
         public void ShouldEmitZeroOutputWarning()
@@ -223,8 +223,8 @@ public sealed class AnalysisDslFeatureTests
                 },
                 CancellationToken.None);
 
-            var json = await ReadTextAsync(package.Object, "inventory.json");
-            var csv = await ReadTextAsync(package.Object, "inventory.csv");
+            var json = await ReadIndexTextAsync(package.Object, "inventory.json");
+            var csv = await ReadIndexTextAsync(package.Object, "inventory.csv");
             return new InventoryAnalysisResult(json, csv, logger.Entries, _includeProjectInventory);
         }
 
@@ -316,7 +316,7 @@ public sealed class AnalysisDslFeatureTests
     private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
 
     private static PackageContentContext ContentAt(string path)
-        => new(PackageContentKind.Artefact, Address: new TestPackageAddress(path));
+        => new(PackageContentKind.Artefact, "test-org", "test-project", "TestModule", Address: new TestPackageAddress(path));
 
     private static OrganisationsAnalyseContext CreateDependencyContext(string connectorType, IPackageAccess package)
         => new()
@@ -343,9 +343,31 @@ public sealed class AnalysisDslFeatureTests
         return await reader.ReadToEndAsync();
     }
 
+    private static async Task<string?> ReadIndexTextAsync(IPackageAccess package, string name)
+    {
+        var payload = await package.RequestIndexAsync(new PackageIndexContext(name), CancellationToken.None);
+        if (payload is null)
+            return null;
+
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+        return await reader.ReadToEndAsync();
+    }
+
     private static async Task WriteTextAsync(IPackageAccess package, string path, string content)
     {
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
-        await package.PersistContentAsync(ContentAt(path), new PackagePayload(stream), CancellationToken.None);
+        await package.PersistIndexAsync(CreateIndexContext(path), new PackagePayload(stream), CancellationToken.None);
+    }
+
+    private static PackageIndexContext CreateIndexContext(string path)
+    {
+        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return segments.Length switch
+        {
+            1 => new PackageIndexContext(segments[0]),
+            2 => new PackageIndexContext(segments[1], Organisation: segments[0]),
+            3 => new PackageIndexContext(segments[2], Organisation: segments[0], Project: segments[1]),
+            _ => throw new InvalidOperationException($"Unsupported index path format for test helper: {path}")
+        };
     }
 }

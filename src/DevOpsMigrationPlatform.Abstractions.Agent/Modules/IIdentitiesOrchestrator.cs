@@ -22,6 +22,7 @@ public interface IIdentitiesOrchestrator
     Task ExportAsync(
         IIdentitySource identitySource,
         ExportContext context,
+        string organisation,
         string project,
         ICheckpointingServiceFactory? checkpointingFactory,
         CancellationToken ct);
@@ -30,6 +31,8 @@ public interface IIdentitiesOrchestrator
     Task ImportAsync(
         IIdentityLookupTool? identityLookupTool,
         ImportContext context,
+        string organisation,
+        string project,
         ICheckpointingServiceFactory? checkpointingFactory,
         CancellationToken ct);
 #endif

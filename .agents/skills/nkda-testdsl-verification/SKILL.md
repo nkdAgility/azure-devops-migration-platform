@@ -7,16 +7,19 @@ description: Use when conversion and refactor are done and parity, artefact remo
 
 ## Responsibilities
 
-- verify behavioural parity mapping
+- read the wiring state recorded by assessment and apply the matching verification mode
+- verify behavioural parity mapping for `wired` families
+- for `miswired`/`unwired` families, verify intent coverage and that every assertion is confirmed against observed production behaviour (no parity baseline existed and none may be claimed)
 - verify converted tests are code-first MSTest and non-vacuous
 - score intent-derived tests with the test-validity model and confirm each is `USEFUL` or `HIGH VALUE` (>= 16/25)
 - verify `00-scenario-test-inventory.md` has no `unmatched` scenarios for the converted family
+- verify no duplicate coverage was created: every `pre-existing` scenario maps to the prior test (not a new copy), and no newly built test re-asserts behaviour an existing test already covered
 - verify each mapped scenario row has concrete test evidence (`path:line`)
 - verify expected vs actual test tags are compliant for every mapped scenario
 - verify newly converted tests for the feature family are passing
 - after converted tests are passing, run the full repository test suite and record the result
-- remove migrated Reqnroll artefacts for the converted family when verification is `PASS` (`.feature`, generated `.feature.cs`, and legacy `*Steps.cs` files tied to that family)
-- verify Reqnroll artefact removal status
+- remove migrated Reqnroll artefacts when verification is `PASS`, scoped to wiring state: for `wired`, the `.feature`, generated `.feature.cs`, and legacy `*Steps.cs` tied to the family; for `miswired`, the dead non-executing `*Steps.cs` and the retired `.feature` (there is no generated `.feature.cs`); for `unwired`, the retired `.feature` only (no bindings or generated test exist)
+- verify Reqnroll artefact removal status for the artefacts that existed for that wiring state
 - verify completion conditions in `contracts.md`
 - produce `.output/nkda-testdsl/<feature-family>/06-verification.md`
 
@@ -30,6 +33,7 @@ description: Use when conversion and refactor are done and parity, artefact remo
 
 ## Required Verdict
 
-- `PASS` when parity and completion conditions are met, intent-derived tests are `USEFUL`/`HIGH VALUE`, scenario inventory has no `unmatched` rows, all mapped tests are tag-compliant, and the full repository test suite passes after converted tests are green
+- `PASS` (`wired`) when parity and completion conditions are met, intent-derived tests are `USEFUL`/`HIGH VALUE`, scenario inventory has no `unmatched` rows, all mapped tests are tag-compliant, and the full repository test suite passes after converted tests are green
+- `PASS` (`miswired`/`unwired`) when intent coverage is complete, every assertion is confirmed against observed production behaviour, no intent-vs-behaviour conflict remains unresolved, intent-derived tests are `USEFUL`/`HIGH VALUE`, scenario inventory has no `unmatched` rows, all tests are tag-compliant, the new tests are registered and executing, and the full repository test suite passes after they are green
 - `BLOCKED` when any completion prerequisite is missing
 - `FAIL` when parity checks run and defects or regressions are found

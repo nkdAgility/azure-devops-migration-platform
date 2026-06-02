@@ -423,38 +423,11 @@ public sealed class WorkItemStreamOrchestrator
             yield return folderPath;
         }
 
-        if (!yieldedAny && (!string.IsNullOrWhiteSpace(_organisation) || !string.IsNullOrWhiteSpace(_project)))
-        {
-            _logger.LogInformation(
-                "[WorkItems] No revision/comment folders found under source scope {Org}/{Project}/WorkItems; falling back to root WorkItems/.",
-                _organisation,
-                _project);
+        if (yieldedAny)
+            yield break;
 
-            var rootContext = new PackageContentContext(
-                PackageContentKind.Collection,
-                Module: "WorkItems",
-                IsCollectionRequest: true);
-
-            await foreach (var folderPath in EnumerateWorkItemFoldersFromContextAsync(rootContext, ct).ConfigureAwait(false))
-            {
-                yieldedAny = true;
-                yield return folderPath;
-            }
-        }
-
-        if (!yieldedAny)
-        {
-            _logger.LogInformation(
-                "[WorkItems] No revision/comment folders found via module contexts; falling back to direct WorkItems/ address enumeration.");
-
-            var addressedContext = new PackageContentContext(
-                PackageContentKind.Collection,
-                Address: new RelativePathAddress("WorkItems/"),
-                IsCollectionRequest: true);
-
-            await foreach (var folderPath in EnumerateWorkItemFoldersFromContextAsync(addressedContext, ct).ConfigureAwait(false))
-                yield return folderPath;
-        }
+        await foreach (var folderPath in EnumerateWorkItemFoldersFromAllContentAsync(ct).ConfigureAwait(false))
+            yield return folderPath;
     }
 
     private async IAsyncEnumerable<string> EnumerateWorkItemFoldersFromContextAsync(
@@ -473,6 +446,35 @@ public sealed class WorkItemStreamOrchestrator
                 continue;
             var folderPath = candidateFolderPath;
 
+            if (previousPath is not null && string.CompareOrdinal(folderPath, previousPath) < 0)
+            {
+                throw new InvalidOperationException(
+                    $"WorkItems package enumeration must be lexicographic ascending. Previous='{previousPath}', Current='{folderPath}'.");
+            }
+
+            if (string.Equals(folderPath, previousPath, StringComparison.Ordinal))
+                continue;
+
+            previousPath = folderPath;
+            yield return folderPath;
+        }
+    }
+
+    private async IAsyncEnumerable<string> EnumerateWorkItemFoldersFromAllContentAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+    {
+        var allPaths = _package.EnumerateAllAsync(ct);
+        if (allPaths is null)
+            yield break;
+
+        string? previousPath = null;
+        await foreach (var path in allPaths.ConfigureAwait(false))
+        {
+            var candidateFolderPath = TryGetImportFolderPath(path);
+            if (candidateFolderPath is null || candidateFolderPath.Length == 0)
+                continue;
+
+            var folderPath = candidateFolderPath;
             if (previousPath is not null && string.CompareOrdinal(folderPath, previousPath) < 0)
             {
                 throw new InvalidOperationException(
@@ -533,13 +535,6 @@ public sealed class WorkItemStreamOrchestrator
             CreateArtefactContext(path),
             ct).ConfigureAwait(false);
         if (payload is null)
-        {
-            var fallbackContext = new PackageContentContext(
-                PackageContentKind.Artefact,
-                Address: new RelativePathAddress(path));
-            payload = await _package.RequestContentAsync(fallbackContext, ct).ConfigureAwait(false);
-        }
-        if (payload is null)
             return null;
 
         if (payload.Content.CanSeek)
@@ -571,9 +566,9 @@ public sealed class WorkItemStreamOrchestrator
     private static string GetRevisionFolderPath(string path)
     {
         var normalized = path.Replace('\\', '/').TrimEnd('/');
-        if (normalized.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase))
-            normalized = normalized.Substring("WorkItems/".Length);
-
+        var wiIdx = normalized.LastIndexOf("WorkItems/", StringComparison.OrdinalIgnoreCase);
+        if (wiIdx >= 0)
+            normalized = normalized.Substring(wiIdx + "WorkItems/".Length);
         var lastSlash = normalized.LastIndexOf('/');
         return lastSlash >= 0 ? normalized.Substring(0, lastSlash) : normalized;
     }
@@ -644,8 +639,4 @@ public sealed class WorkItemStreamOrchestrator
             UpdatedAt = DateTimeOffset.UtcNow
         }, ct);
 
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
-    }
 }

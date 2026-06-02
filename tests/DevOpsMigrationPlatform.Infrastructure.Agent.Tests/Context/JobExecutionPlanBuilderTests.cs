@@ -229,10 +229,8 @@ public sealed class JobExecutionPlanBuilderTests
     {
         var package = PackageTestFactory.CreateLooseMock();
         package
-            .Setup(p => p.EnumerateContentAsync(
-                It.Is<PackageContentContext>(c => c.IsCollectionRequest && c.Address!.RelativePath == string.Empty),
-                It.IsAny<CancellationToken>()))
-            .Returns((PackageContentContext _, CancellationToken _) => EnumeratePathsAsync(
+            .Setup(p => p.EnumerateAllAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken _) => EnumeratePathsAsync(
             [
                 "simulated/PackagedProject/Nodes/source-tree.json",
                 "simulated/PackagedProject/WorkItems/00000000000001-1-0/revision.json"

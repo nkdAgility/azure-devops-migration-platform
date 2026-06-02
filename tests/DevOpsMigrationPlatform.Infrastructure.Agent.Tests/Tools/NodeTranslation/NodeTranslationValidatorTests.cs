@@ -95,7 +95,7 @@ public class NodeTranslationValidatorTests
 
         var tool = new NodeTranslationTool(Options.Create(opts), NullLogger<NodeTranslationTool>.Instance);
 
-        var validator = new NodeTranslationValidator(Options.Create(opts), tool);
+        var validator = new NodeTranslationValidator(Options.Create(opts), tool, "test-org", "test-project");
 
         return (validator, packageMock);
 
@@ -283,7 +283,7 @@ public class NodeTranslationValidatorTests
 
 
 
-        var validator = new NodeTranslationValidator(Options.Create(opts), toolMock.Object);
+        var validator = new NodeTranslationValidator(Options.Create(opts), toolMock.Object, "test-org", "test-project");
 
 
 

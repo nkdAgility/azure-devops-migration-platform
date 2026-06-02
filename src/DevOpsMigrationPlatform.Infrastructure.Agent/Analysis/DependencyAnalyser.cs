@@ -23,8 +23,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 
 public sealed class DependencyAnalyser : IOrganisationsAnalyser
 {
-    private const string AnalysisCsvPath = "analysis/dependencies.csv";
-    private const string AnalysisMermaidPath = "analysis/dependencies.mmd";
+    private const string AnalysisCsvPath = "dependencies.csv";
+    private const string AnalysisMermaidPath = "dependencies.mmd";
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Discovery);
     private readonly IDependencyDiscoveryServiceFactory _dependencyFactory;
@@ -81,9 +81,7 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
 
         // Fan-in: consolidate canonical per-project {org}/{project}/dependencies.csv files.
         var perProjectPaths = new System.Collections.Generic.List<string>();
-        await foreach (var path in context.Package.EnumerateContentAsync(
-                           new PackageContentContext(PackageContentKind.Collection, Address: new RelativePathAddress(string.Empty), IsCollectionRequest: true),
-                           ct).ConfigureAwait(false))
+        await foreach (var path in context.Package.EnumerateAllAsync(ct).ConfigureAwait(false))
         {
             if (IsPerProjectDependencyPath(path))
                 perProjectPaths.Add(path);
@@ -101,7 +99,7 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
             var missingRequiredInputs = 0;
             foreach (var path in perProjectPaths) // already lexicographic per EnumerateAsync contract
             {
-                var content = await ReadPackageTextAsync(context.Package, path, ct).ConfigureAwait(false);
+                var content = await ReadPerProjectIndexAsync(context.Package, path, ct).ConfigureAwait(false);
                 if (content is null)
                 {
                     // Edge Case EC-5: capture task may have failed to write this file.
@@ -130,7 +128,7 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
             }
 
             csv = consolidated.ToString();
-            await WritePackageTextAsync(context.Package, "dependencies.csv", csv, ct).ConfigureAwait(false);
+            await PersistIndexTextAsync(context.Package, new PackageIndexContext("dependencies.csv"), csv, ct).ConfigureAwait(false);
             _logger.LogInformation(
                 "Consolidated {FileCount} per-project dependency files for {JobId}.",
                 perProjectPaths.Count, context.Job.JobId);
@@ -148,14 +146,14 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
                 policies,
                 policies.CheckpointIntervalSeconds,
                 ct).ConfigureAwait(false);
-            csv = await ReadPackageTextAsync(context.Package, "dependencies.csv", ct).ConfigureAwait(false);
+            csv = await RequestIndexTextAsync(context.Package, new PackageIndexContext("dependencies.csv"), ct).ConfigureAwait(false);
         }
 
         if (!string.IsNullOrWhiteSpace(csv))
-            await WritePackageTextAsync(context.Package, AnalysisCsvPath, csv!, ct).ConfigureAwait(false);
+            await PersistIndexTextAsync(context.Package, new PackageIndexContext(AnalysisCsvPath), csv!, ct).ConfigureAwait(false);
 
         var mermaid = BuildMermaid(csv);
-        await WritePackageTextAsync(context.Package, AnalysisMermaidPath, mermaid, ct).ConfigureAwait(false);
+        await PersistIndexTextAsync(context.Package, new PackageIndexContext(AnalysisMermaidPath), mermaid, ct).ConfigureAwait(false);
 
         var tags = new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } };
         _metrics?.RecordDependenciesAnalyseDuration(sw.Elapsed.TotalMilliseconds, tags);
@@ -273,11 +271,28 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
     private static string Sanitize(string value)
         => string.Concat(value.Select(ch => char.IsLetterOrDigit(ch) ? ch : '_'));
 
-    private static async Task<string?> ReadPackageTextAsync(IPackageAccess package, string relativePath, CancellationToken cancellationToken)
+    /// <summary>
+    /// Reads a per-project index file discovered via <see cref="IPackageAccess.EnumerateAllAsync"/>.
+    /// The path is expected to have the form <c>{org}/{project}/{fileName}</c>; this method
+    /// decomposes it into the <see cref="PackageIndexContext"/> required by
+    /// <see cref="IPackageAccess.RequestIndexAsync"/>.
+    /// </summary>
+    private static async Task<string?> ReadPerProjectIndexAsync(IPackageAccess package, string path, CancellationToken cancellationToken)
     {
-        var payload = await package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
-            cancellationToken).ConfigureAwait(false);
+        var segments = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length < 3)
+            return null;
+
+        var org = segments[0];
+        var project = segments[1];
+        var fileName = segments[2];
+        var context = new PackageIndexContext(fileName, Organisation: org, Project: project);
+        return await RequestIndexTextAsync(package, context, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<string?> RequestIndexTextAsync(IPackageAccess package, PackageIndexContext context, CancellationToken cancellationToken)
+    {
+        var payload = await package.RequestIndexAsync(context, cancellationToken).ConfigureAwait(false);
         if (payload is null)
             return null;
 
@@ -288,18 +303,12 @@ public sealed class DependencyAnalyser : IOrganisationsAnalyser
         return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
-    private static async Task WritePackageTextAsync(IPackageAccess package, string relativePath, string content, CancellationToken cancellationToken)
+    private static async Task PersistIndexTextAsync(IPackageAccess package, PackageIndexContext context, string content, CancellationToken cancellationToken)
     {
         using var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(content), writable: false);
-        await package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
-            new PackagePayload(stream, "application/json"),
+        await package.PersistIndexAsync(
+            context,
+            new PackagePayload(stream, "text/csv"),
             cancellationToken).ConfigureAwait(false);
     }
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
-    }
 }
-

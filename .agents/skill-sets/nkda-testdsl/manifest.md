@@ -17,7 +17,7 @@
 | nkda-testdsl-refactor | `.agents/skills/nkda-testdsl-refactor/SKILL.md` | Refactors DSL and converted tests for reuse and clarity after one migration slice. |
 | nkda-testdsl-verification | `.agents/skills/nkda-testdsl-verification/SKILL.md` | Verifies behaviour parity, test quality, and migration completion conditions for a feature family. |
 | nkda-testdsl-next-feature-selection | `.agents/skills/nkda-testdsl-next-feature-selection/SKILL.md` | Selects the next best feature family based on reuse, risk, and migration value. |
-| nkda-testdsl-autonomous | `.agents/skills/nkda-testdsl-autonomous/SKILL.md` | Single entrypoint that runs migration across selected feature families, skips already-adapted families, and reports per-`.feature` final status. |
+| nkda-testdsl-autonomous | `.agents/skills/nkda-testdsl-autonomous/SKILL.md` | Single entrypoint that runs migration across selected feature families, classifies each as `wired`/`miswired`/`unwired`, skips already-adapted families, builds the tests that should have existed for `miswired`/`unwired` families, and reports per-`.feature` final status. |
 
 ## Workflow Order
 

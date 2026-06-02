@@ -83,6 +83,15 @@ internal sealed class InMemoryPackageAccess : IPackageAccess, IDisposable
     public ValueTask<PackageMetaResult> RequestMetaAsync(PackageMetaContext context, CancellationToken cancellationToken = default)
         => _package.RequestMetaAsync(context, cancellationToken);
 
+    public ValueTask<PackagePayload?> RequestIndexAsync(PackageIndexContext context, CancellationToken cancellationToken = default)
+        => _package.RequestIndexAsync(context, cancellationToken);
+
+    public IAsyncEnumerable<string> EnumerateAllAsync(CancellationToken cancellationToken = default)
+        => _package.EnumerateAllAsync(cancellationToken);
+
+    public ValueTask PersistIndexAsync(PackageIndexContext context, PackagePayload payload, CancellationToken cancellationToken = default)
+        => _package.PersistIndexAsync(context, payload, cancellationToken);
+
     public ValueTask<DbConnection> OpenNativeDatabaseAsync(PackageMetaKind kind, CancellationToken cancellationToken = default)
         => _package.OpenNativeDatabaseAsync(kind, cancellationToken);
 

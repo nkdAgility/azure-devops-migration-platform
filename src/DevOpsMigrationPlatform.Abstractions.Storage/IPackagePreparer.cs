@@ -9,30 +9,22 @@ namespace DevOpsMigrationPlatform.Abstractions.Storage;
 
 /// <summary>
 /// Prepares a package for import by materialising any external fixture referenced in
-/// <c>MigrationPlatform:Package:PackagePath</c> into the target <see cref="IPackageAccess"/>.
+/// <c>MigrationPlatform:Package:PackagePath</c> into the package store.
 ///
 /// <para>
-/// This abstraction decouples fixture extraction from the job worker and allows future
-/// implementations (e.g. Azure Blob Storage) to stream entries without any filesystem coupling.
-/// All writes go through <see cref="IPackageAccess.PersistContentStreamAsync"/> so the destination is
-/// storage-backend agnostic.
+/// Implementations take their storage dependency at construction time. The interface
+/// exposes only configuration and cancellation — callers do not need to know whether
+/// the underlying store is filesystem, Azure Blob, or otherwise.
 /// </para>
 /// </summary>
 public interface IPackagePreparer
 {
     /// <summary>
     /// Inspects <paramref name="packageConfig"/> for a fixture path and, if present,
-    /// streams all entries from the fixture into <paramref name="packageAccess"/>.
+    /// extracts all entries from the fixture into the underlying store.
     /// If no <c>PackagePath</c> is configured, this method is a no-op.
     /// </summary>
-    /// <param name="packageAccess">The destination package boundary for the extracted entries.</param>
-    /// <param name="packageConfig">
-    /// The loaded <c>migration-config.json</c> configuration.
-    /// The value at <c>MigrationPlatform:Package:PackagePath</c> is the source fixture path.
-    /// </param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     Task PrepareForImportAsync(
-        IPackageAccess packageAccess,
         IConfiguration packageConfig,
         CancellationToken cancellationToken);
 }

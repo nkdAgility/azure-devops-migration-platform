@@ -23,16 +23,22 @@ public class FileSystemIdentityMappingService : IIdentityMappingService
     private readonly IReadOnlyDictionary<string, string> _mappings;
     private readonly string _fallbackIdentity;
     private readonly IPackageAccess _package;
+    private readonly string _organisation;
+    private readonly string _project;
     private readonly List<string> _unmapped = new();
 
     public FileSystemIdentityMappingService(
         IReadOnlyDictionary<string, string> mappings,
         string fallbackIdentity,
-        IPackageAccess package)
+        IPackageAccess package,
+        string organisation,
+        string project)
     {
         _mappings = mappings ?? throw new ArgumentNullException(nameof(mappings));
         _fallbackIdentity = fallbackIdentity ?? throw new ArgumentNullException(nameof(fallbackIdentity));
         _package = package ?? throw new ArgumentNullException(nameof(package));
+        _organisation = organisation ?? throw new ArgumentNullException(nameof(organisation));
+        _project = project ?? throw new ArgumentNullException(nameof(project));
     }
 
     /// <inheritdoc/>
@@ -57,7 +63,8 @@ public class FileSystemIdentityMappingService : IIdentityMappingService
     public IReadOnlyList<string> UnmappedIdentities => _unmapped.ToList();
 
     /// <summary>
-    /// Writes one warning log entry per unmapped identity to <c>.migration/identity-warnings/</c>
+    /// Writes one warning log entry per unmapped identity to
+    /// <c>{org}/{project}/Identities/identity-warnings/</c>
     /// via <see cref="IPackageAccess"/> and clears the unmapped list.
     /// </summary>
     public async Task FlushWarningsAsync(CancellationToken cancellationToken)
@@ -66,16 +73,14 @@ public class FileSystemIdentityMappingService : IIdentityMappingService
         {
             var ctx = new PackageContentContext(
                 PackageContentKind.Artefact,
-                Address: new RelativePathAddress($".migration/identity-warnings/{Uri.EscapeDataString(identity)}.log"));
+                Organisation: _organisation,
+                Project: _project,
+                Module: "Identities",
+                Address: new RelativePathAddress($"identity-warnings/{Uri.EscapeDataString(identity)}.log"));
             var bytes = Encoding.UTF8.GetBytes($"WARN: No identity mapping for '{identity}'. Fell back to '{_fallbackIdentity}'.");
             using var stream = new MemoryStream(bytes, writable: false);
             await _package.PersistContentAsync(ctx, new PackagePayload(stream, "text/plain"), cancellationToken).ConfigureAwait(false);
         }
         _unmapped.Clear();
-    }
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

@@ -108,6 +108,14 @@ internal sealed class ActivePackageAccess : IPackageAccess
             yield return item;
     }
 
+    public async IAsyncEnumerable<string> EnumerateAllAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var store = RequireStore();
+        await foreach (var item in store.EnumerateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
+            yield return item;
+    }
+
     public async ValueTask<Stream?> RequestContentBinaryAsync(
         PackageContentContext context,
         CancellationToken cancellationToken = default)
@@ -129,7 +137,7 @@ internal sealed class ActivePackageAccess : IPackageAccess
         CancellationToken cancellationToken = default)
     {
         var store = RequireStore();
-        var path = _router.ResolveMetaPath(context);
+        var path = ResolveMetaPath(context);
         return await ObserveAsync(
             "request-meta",
             path,
@@ -144,6 +152,45 @@ internal sealed class ActivePackageAccess : IPackageAccess
                 return new PackageMetaResult(path, payload);
             },
             context.Kind.ToString()).ConfigureAwait(false);
+    }
+
+    public async ValueTask<PackagePayload?> RequestIndexAsync(
+        PackageIndexContext context,
+        CancellationToken cancellationToken = default)
+    {
+        var store = RequireStore();
+        var path = _router.ResolveIndexPath(context);
+        return await ObserveAsync(
+            "request-index",
+            path,
+            async () =>
+            {
+                var content = await store.ReadAsync(path, cancellationToken).ConfigureAwait(false);
+                if (content is null)
+                    return null;
+
+                return new PackagePayload(
+                    new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false),
+                    "application/json");
+            }).ConfigureAwait(false);
+    }
+
+    public async ValueTask PersistIndexAsync(
+        PackageIndexContext context,
+        PackagePayload payload,
+        CancellationToken cancellationToken = default)
+    {
+        var store = RequireStore();
+        var path = _router.ResolveIndexPath(context);
+        await ObserveAsync(
+            "persist-index",
+            path,
+            async () =>
+            {
+                var content = await ReadUtf8Async(payload.Content, cancellationToken).ConfigureAwait(false);
+                await store.WriteAsync(path, content, cancellationToken).ConfigureAwait(false);
+                return true;
+            }).ConfigureAwait(false);
     }
 
     public ValueTask<System.Data.Common.DbConnection> OpenNativeDatabaseAsync(
@@ -237,7 +284,7 @@ internal sealed class ActivePackageAccess : IPackageAccess
         CancellationToken cancellationToken = default)
     {
         var store = RequireStore();
-        var authoritativePath = _router.ResolveMetaPath(context);
+        var authoritativePath = ResolveMetaPath(context);
         await ObserveAsync(
             "persist-meta",
             authoritativePath,
@@ -248,7 +295,7 @@ internal sealed class ActivePackageAccess : IPackageAccess
 
                 if (context.RelatedToRun && !string.IsNullOrWhiteSpace(_activePackageState.CurrentRunId))
                 {
-                    var runAuditPath = _router.ResolveMetaPath(context, _activePackageState.CurrentRunId, runAudit: true);
+                    var runAuditPath = ResolveMetaPath(context, runAudit: true);
                     await store.WriteAsync(runAuditPath, content, cancellationToken).ConfigureAwait(false);
                 }
 
@@ -262,7 +309,7 @@ internal sealed class ActivePackageAccess : IPackageAccess
         CancellationToken cancellationToken = default)
     {
         var store = RequireStateStore();
-        var path = _router.ResolveMetaPath(context);
+        var path = ResolveMetaPath(context);
         await ObserveAsync(
             "delete-meta",
             path,
@@ -335,6 +382,17 @@ internal sealed class ActivePackageAccess : IPackageAccess
         }
 
         return _lazyStateStore;
+    }
+
+    private string ResolveMetaPath(PackageMetaContext context, bool runAudit = false)
+    {
+        var runId = _activePackageState.CurrentRunId;
+        if (context.Kind == PackageMetaKind.RunConfigSnapshot && string.IsNullOrWhiteSpace(runId))
+        {
+            runId = DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmss");
+        }
+
+        return _router.ResolveMetaPath(context, runId, runAudit);
     }
 
     private string RequireLocalRoot()

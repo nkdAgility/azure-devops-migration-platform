@@ -44,7 +44,7 @@ public sealed class PackageBoundaryErrorObservabilityTests
         var runId = active.CurrentRunId!;
 
         await Assert.ThrowsAsync<IOException>(() => sut.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("WorkItems/42.json")),
+            new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "WorkItems", Address: new TestPackageAddress("42.json")),
             new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("{\"id\":42}"))),
             CancellationToken.None).AsTask());
 

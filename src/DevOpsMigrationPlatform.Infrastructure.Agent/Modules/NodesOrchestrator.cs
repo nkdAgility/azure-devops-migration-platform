@@ -531,7 +531,8 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
                 Project: project,
                 Module: ModuleName,
                 Address: new ReplicationProgressAddress()),
-            _ => new(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath))
+            _ => throw new InvalidOperationException(
+                $"Unknown Nodes package path '{relativePath}'. Add an explicit case to CreatePackageContentContext.")
         };
 
     private sealed class ReferencedPathsContentAddress : IPackageContentAddress
@@ -542,10 +543,5 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
     private sealed class ReplicationProgressAddress : IPackageContentAddress
     {
         public string RelativePath => "replication-progress.json";
-    }
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

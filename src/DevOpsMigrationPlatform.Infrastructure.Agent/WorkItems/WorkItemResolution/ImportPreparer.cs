@@ -10,6 +10,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments.ImportFailures;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions.ImportFailures;
 using Microsoft.Extensions.Options;
@@ -25,18 +26,25 @@ public sealed class ImportPreparer
 
     private readonly WorkItemsModuleOptions _workItemsOptions;
     private readonly IReadOnlyList<IImportFailurePattern> _importFailurePatterns;
+    private readonly string _defaultOrganisation;
+    private readonly string _defaultProject;
 
     public ImportPreparer(
         IOptions<WorkItemsModuleOptions> workItemsOptions,
+        string organisation,
+        string project,
         IEnumerable<IImportFailurePattern>? importFailurePatterns = null)
     {
         _workItemsOptions = workItemsOptions.Value;
+        _defaultOrganisation = organisation ?? throw new ArgumentNullException(nameof(organisation));
+        _defaultProject = project ?? throw new ArgumentNullException(nameof(project));
         _importFailurePatterns = importFailurePatterns?.ToArray() ?? [];
     }
 
     public async Task<PrepareReport> PrepareAsync(PrepareContext context, CancellationToken cancellationToken)
     {
-        var importFailurePatternContext = new ImportFailurePatternContext(context, _workItemsOptions);
+        var (organisation, project) = ResolveScope(context);
+        var importFailurePatternContext = new ImportFailurePatternContext(context, _workItemsOptions, organisation, project);
         var failureFindings = new List<ImportFailureFinding>();
         foreach (var pattern in _importFailurePatterns)
         {
@@ -66,7 +74,7 @@ public sealed class ImportPreparer
             artefactFindings,
             fieldTransformFindings);
 
-        var resolvedCount = await CountRevisionArtefactsAsync(context, cancellationToken).ConfigureAwait(false);
+        var resolvedCount = await CountRevisionArtefactsAsync(context, organisation, project, cancellationToken).ConfigureAwait(false);
         return new PrepareReport
         {
             ModuleName = ModuleName,
@@ -151,11 +159,11 @@ public sealed class ImportPreparer
         return findings;
     }
 
-    private static async Task<int> CountRevisionArtefactsAsync(PrepareContext context, CancellationToken cancellationToken)
+    private async Task<int> CountRevisionArtefactsAsync(PrepareContext context, string organisation, string project, CancellationToken cancellationToken)
     {
         var resolvedCount = 0;
         await foreach (var artefactPath in context.Package.EnumerateContentAsync(
-                           new PackageContentContext(PackageContentKind.Collection, Address: new RelativePathAddress("WorkItems/"), IsCollectionRequest: true),
+                           new PackageContentContext(PackageContentKind.Collection, Organisation: organisation, Project: project, Module: ModuleName, IsCollectionRequest: true),
                            cancellationToken).ConfigureAwait(false))
         {
             if (artefactPath.EndsWith("/revision.json", StringComparison.Ordinal))
@@ -167,8 +175,29 @@ public sealed class ImportPreparer
         return resolvedCount;
     }
 
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    private (string Organisation, string Project) ResolveScope(PrepareContext context)
     {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+        var organisation = _defaultOrganisation;
+        if (string.IsNullOrWhiteSpace(organisation))
+        {
+            organisation = context.TargetEndpoint.OrganisationSlug;
+        }
+
+        var project = _defaultProject;
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = context.TargetEndpoint.Project;
+        }
+
+        if (string.IsNullOrWhiteSpace(organisation))
+        {
+            organisation = "unknown";
+        }
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = "unknown";
+        }
+
+        return (organisation, project);
     }
 }

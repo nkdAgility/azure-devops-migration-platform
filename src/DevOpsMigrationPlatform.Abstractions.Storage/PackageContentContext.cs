@@ -5,8 +5,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Storage;
 
 public sealed record PackageContentContext(
     PackageContentKind Kind,
-    string? Organisation = null,
-    string? Project = null,
-    string? Module = null,
+    string Organisation,
+    string Project,
+    string Module,
     IPackageContentAddress? Address = null,
     bool IsCollectionRequest = false);

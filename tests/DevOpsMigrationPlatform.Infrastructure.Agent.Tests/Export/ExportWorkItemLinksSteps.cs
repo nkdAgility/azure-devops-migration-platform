@@ -23,6 +23,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Export;
 [Scope(Feature = "Export Work Item Links")]
 public class ExportWorkItemLinksSteps
 {
+    private const string TestOrganisation = "test-org";
+    private const string TestProject = "test-project";
     private readonly ExportWorkItemLinksContext _ctx;
 
     public ExportWorkItemLinksSteps(ExportWorkItemLinksContext ctx) => _ctx = ctx;
@@ -85,13 +87,13 @@ public class ExportWorkItemLinksSteps
             }
         };
         _ctx.Package = new ActivePackageAccess(packageState, new PackagePathRouter(), NullLogger<ActivePackageAccess>.Instance);
-        _ctx.Sut = new WorkItemExportOrchestrator(_ctx.Package, string.Empty, string.Empty, _ctx.MockCheckpointingService.Object);
+        _ctx.Sut = new WorkItemExportOrchestrator(_ctx.Package, TestOrganisation, TestProject, _ctx.MockCheckpointingService.Object);
     }
 
     private string RevisionJsonPath(int workItemId, int revisionIndex, DateTimeOffset changedDate)
     {
         var folder = WorkItemExportOrchestrator.BuildFolderPath(workItemId, revisionIndex, changedDate);
-        return Path.Combine(_ctx.PackageRoot!, "WorkItems", folder.Replace('/', Path.DirectorySeparatorChar), "revision.json");
+        return Path.Combine(_ctx.PackageRoot!, TestOrganisation, TestProject, "WorkItems", folder.Replace('/', Path.DirectorySeparatorChar), "revision.json");
     }
 
     // ── Background ────────────────────────────────────────────────────────────

@@ -363,6 +363,10 @@ public class WorkItemOrchestratorFilterTests
             .Returns((PackageContentContext _, CancellationToken ct) => ToAsyncEnumerable(new[] { folder }, ct));
 
         _mockPackage
+            .Setup(p => p.EnumerateAllAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken ct) => ToAsyncEnumerable(new[] { folder }, ct));
+
+        _mockPackage
             .Setup(p => p.RequestContentAsync(
                 It.Is<PackageContentContext>(c =>
                     string.Equals(c.Module, "WorkItems", StringComparison.OrdinalIgnoreCase) &&
@@ -374,8 +378,9 @@ public class WorkItemOrchestratorFilterTests
         _mockPackage
             .Setup(p => p.RequestContentAsync(
                 It.Is<PackageContentContext>(c =>
+                    string.Equals(c.Module, "WorkItems", StringComparison.OrdinalIgnoreCase) &&
+                    string.IsNullOrWhiteSpace(c.Organisation) &&
                     c.Address != null &&
-                    c.Address.RelativePath.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase) &&
                     c.Address.RelativePath.EndsWith("revision.json", StringComparison.OrdinalIgnoreCase)),
                 It.IsAny<CancellationToken>()))
             .Returns(() => ToPayload(DefaultRevisionJson($"{folder.TrimEnd('/')}/revision.json")));

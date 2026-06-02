@@ -35,12 +35,13 @@ public sealed class WorkItemsModulePrepareTests
     private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
 
     private static PackageContentContext ContentAt(string path)
-        => new(PackageContentKind.Artefact, Address: new TestPackageAddress(path));
+        => new(PackageContentKind.Artefact, "test-org", "test-project", "WorkItems", Address: new TestPackageAddress(path));
 
     [TestMethod]
     public async Task PrepareAsync_WritesBlockingFindings_WhenAttachmentAndImageBinariesAreMissing()
     {
         var revisionPath = "WorkItems/2026-05-13/638827200000000000-42-0/revision.json";
+        var revisionRelativePath = revisionPath.Substring("WorkItems/".Length);
         var revisionJson = JsonSerializer.Serialize(CreateRevisionWithArtefacts());
         string? writtenReport = null;
         string? writtenReadinessReport = null;
@@ -48,10 +49,14 @@ public sealed class WorkItemsModulePrepareTests
         var package = PackageTestFactory.CreateLooseMock();
         CapturePrepareReports(package, s => writtenReport = s, s => writtenReadinessReport = s);
         package
-            .Setup(p => p.EnumerateContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath.StartsWith("WorkItems/")), It.IsAny<CancellationToken>()))
+            .Setup(p => p.EnumerateContentAsync(
+                It.Is<PackageContentContext>(c => c.IsCollectionRequest && c.Module == "WorkItems"),
+                It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext _, CancellationToken _) => EnumerateSingleAsync(revisionPath));
         package
-            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == revisionPath), It.IsAny<CancellationToken>()))
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Module == "WorkItems" && c.Address!.RelativePath == revisionRelativePath),
+                It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(revisionJson)))));
 
         var module = CreateModule();
@@ -98,6 +103,7 @@ public sealed class WorkItemsModulePrepareTests
     public async Task PrepareAsync_WritesResolvedReport_WhenRevisionArtefactsArePresent()
     {
         var revisionPath = "WorkItems/2026-05-13/638827200000000000-42-0/revision.json";
+        var revisionRelativePath = revisionPath.Substring("WorkItems/".Length);
         var revisionJson = JsonSerializer.Serialize(CreateRevisionWithArtefacts());
         string? writtenReport = null;
         string? writtenReadinessReport = null;
@@ -105,10 +111,14 @@ public sealed class WorkItemsModulePrepareTests
         var package = PackageTestFactory.CreateLooseMock();
         CapturePrepareReports(package, s => writtenReport = s, s => writtenReadinessReport = s);
         package
-            .Setup(p => p.EnumerateContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath.StartsWith("WorkItems/")), It.IsAny<CancellationToken>()))
+            .Setup(p => p.EnumerateContentAsync(
+                It.Is<PackageContentContext>(c => c.IsCollectionRequest && c.Module == "WorkItems"),
+                It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext _, CancellationToken _) => EnumerateSingleAsync(revisionPath));
         package
-            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == revisionPath), It.IsAny<CancellationToken>()))
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Module == "WorkItems" && c.Address!.RelativePath == revisionRelativePath),
+                It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(revisionJson)))));
         package
             .Setup(p => p.ContentExistsAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
@@ -147,16 +157,21 @@ public sealed class WorkItemsModulePrepareTests
     public async Task PrepareAsync_WritesFieldTransformFinding_WhenConfiguredFieldIsMissingFromExportedRevisions()
     {
         var revisionPath = "WorkItems/2026-05-13/638827200000000000-42-0/revision.json";
+        var revisionRelativePath = revisionPath.Substring("WorkItems/".Length);
         string? writtenReport = null;
         string? writtenReadinessReport = null;
 
         var package = PackageTestFactory.CreateLooseMock();
         CapturePrepareReports(package, s => writtenReport = s, s => writtenReadinessReport = s);
         package
-            .Setup(p => p.EnumerateContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath.StartsWith("WorkItems/")), It.IsAny<CancellationToken>()))
+            .Setup(p => p.EnumerateContentAsync(
+                It.Is<PackageContentContext>(c => c.IsCollectionRequest && c.Module == "WorkItems"),
+                It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext _, CancellationToken _) => EnumerateSingleAsync(revisionPath));
         package
-            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == revisionPath), It.IsAny<CancellationToken>()))
+            .Setup(p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Module == "WorkItems" && c.Address!.RelativePath == revisionRelativePath),
+                It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("{}")))));
 
         var module = CreateModule(
@@ -255,11 +270,13 @@ public sealed class WorkItemsModulePrepareTests
         sourceEndpoint.SetupGet(s => s.Project).Returns("ProjectA");
         sourceEndpoint.SetupGet(s => s.Url).Returns("https://source.example");
         sourceEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
+        sourceEndpoint.SetupGet(s => s.OrganisationSlug).Returns("test-org");
 
         var targetEndpoint = new Mock<ITargetEndpointInfo>();
         targetEndpoint.SetupGet(s => s.Project).Returns("ProjectA");
         targetEndpoint.SetupGet(s => s.Url).Returns("https://target.example");
         targetEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
+        targetEndpoint.SetupGet(s => s.OrganisationSlug).Returns("test-target-org");
 
         return new WorkItemsModule(
             Mock.Of<IWorkItemRevisionSourceFactory>(),
@@ -308,7 +325,11 @@ public sealed class WorkItemsModulePrepareTests
     {
         package
             .Setup(p => p.PersistContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == "WorkItems/prepare-report.json"),
+                It.Is<PackageContentContext>(c =>
+                    c.Module == "WorkItems" &&
+                    c.Organisation == "test-org" &&
+                    c.Project == "ProjectA" &&
+                    c.Address!.RelativePath == "prepare-report.json"),
                 It.IsAny<PackagePayload>(),
                 It.IsAny<CancellationToken>()))
             .Callback<PackageContentContext, PackagePayload, CancellationToken>((_, payload, _) =>
@@ -321,11 +342,11 @@ public sealed class WorkItemsModulePrepareTests
             .Returns(ValueTask.CompletedTask);
 
         package
-            .Setup(p => p.PersistContentAsync(
-                It.Is<PackageContentContext>(c => c.Address!.RelativePath == ".migration/Readiness/workitems-import-readiness.json"),
-                It.IsAny<PackagePayload>(),
+            .Setup(p => p.PersistMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.WorkItemsImportReadiness),
+                It.IsAny<PackageMetaPayload>(),
                 It.IsAny<CancellationToken>()))
-            .Callback<PackageContentContext, PackagePayload, CancellationToken>((_, payload, _) =>
+            .Callback<PackageMetaContext, PackageMetaPayload, CancellationToken>((_, payload, _) =>
             {
                 payload.Content.Position = 0;
                 using var reader = new StreamReader(payload.Content, Encoding.UTF8, false, 1024, true);
@@ -355,4 +376,3 @@ public sealed class WorkItemsModulePrepareTests
             => Task.FromException<IReadOnlyList<ImportFailureFinding>>(exception);
     }
 }
-

@@ -26,12 +26,28 @@ public interface IPackageAccess
         PackageContentContext context,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Enumerates every path in the package regardless of scope. Use only for
+    /// whole-package discovery (analysis, plan building). All typed reads/writes
+    /// must go through the scoped family (Content/Index/Meta).
+    /// </summary>
+    IAsyncEnumerable<string> EnumerateAllAsync(CancellationToken cancellationToken = default);
+
     ValueTask<Stream?> RequestContentBinaryAsync(
         PackageContentContext context,
         CancellationToken cancellationToken = default);
 
     ValueTask<PackageMetaResult> RequestMetaAsync(
         PackageMetaContext context,
+        CancellationToken cancellationToken = default);
+
+    ValueTask<PackagePayload?> RequestIndexAsync(
+        PackageIndexContext context,
+        CancellationToken cancellationToken = default);
+
+    ValueTask PersistIndexAsync(
+        PackageIndexContext context,
+        PackagePayload payload,
         CancellationToken cancellationToken = default);
 
     ValueTask<System.Data.Common.DbConnection> OpenNativeDatabaseAsync(

@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
@@ -38,6 +39,8 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
     private readonly IdentityLookupOptions _options;
     private readonly ILogger<IdentityLookupTool> _logger;
     private readonly IPackageAccess _package;
+    private readonly string _organisation;
+    private readonly string _project;
 
     private Dictionary<string, string> _overrides = new(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> _allUniqueNames = new(StringComparer.OrdinalIgnoreCase);
@@ -46,10 +49,14 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
 
     public IdentityLookupTool(
         IOptions<IdentityLookupOptions> options,
+        ISourceEndpointInfo sourceEndpointInfo,
         ILogger<IdentityLookupTool>? logger = null,
         IPackageAccess? package = null)
     {
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        if (sourceEndpointInfo is null) throw new ArgumentNullException(nameof(sourceEndpointInfo));
+        _organisation = sourceEndpointInfo.OrganisationSlug;
+        _project = sourceEndpointInfo.Project;
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<IdentityLookupTool>.Instance;
         _package = package ?? throw new ArgumentNullException(nameof(package));
     }
@@ -59,7 +66,7 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
     {
         using var activity = s_activitySource.StartActivity("identities.lookup.initialize");
         // Read descriptors
-        var descriptorsContent = await ReadPackageTextAsync("Identities/descriptors.jsonl", ct).ConfigureAwait(false);
+        var descriptorsContent = await ReadPackageTextAsync("descriptors.jsonl", ct).ConfigureAwait(false);
         var allUniqueNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (descriptorsContent is not null)
@@ -85,7 +92,7 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
         }
 
         // Read mapping overrides
-        var mappingContent = await ReadPackageTextAsync("Identities/mapping.json", ct).ConfigureAwait(false);
+        var mappingContent = await ReadPackageTextAsync("mapping.json", ct).ConfigureAwait(false);
         var overrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         if (!string.IsNullOrWhiteSpace(mappingContent))
@@ -145,7 +152,7 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
         if (unresolved.Count == 0) return;
 
         var content = JsonSerializer.Serialize(unresolved, s_jsonOptions);
-        await WritePackageTextAsync("Identities/unresolved.json", content, ct).ConfigureAwait(false);
+        await WritePackageTextAsync("unresolved.json", content, ct).ConfigureAwait(false);
 
         _logger.LogWarning(
             "[IdentityLookup] {Count} identit{Suffix} have no explicit mapping — written to Identities/unresolved.json.",
@@ -155,7 +162,7 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
     private async Task<string?> ReadPackageTextAsync(string relativePath, CancellationToken ct)
     {
         var payload = await _package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
+            new PackageContentContext(PackageContentKind.Artefact, Organisation: _organisation, Project: _project, Module: "Identities", Address: new RelativePathAddress(relativePath)),
             ct).ConfigureAwait(false);
         if (payload is null)
             return null;
@@ -170,13 +177,8 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
     {
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
         await _package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
+            new PackageContentContext(PackageContentKind.Artefact, Organisation: _organisation, Project: _project, Module: "Identities", Address: new RelativePathAddress(relativePath)),
             new PackagePayload(stream, "application/json"),
             ct).ConfigureAwait(false);
-    }
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
     }
 }

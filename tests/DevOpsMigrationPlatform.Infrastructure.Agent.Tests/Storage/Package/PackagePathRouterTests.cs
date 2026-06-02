@@ -59,9 +59,70 @@ public sealed class PackagePathRouterTests
         Assert.AreEqual("PKG_ADDRESS_INVALID", ex.Code);
     }
 
+    [TestMethod]
+    public void ResolveIndexPath_RootDependencies_UsesPackageRootCsv()
+    {
+        var sut = new PackagePathRouter();
+        var path = sut.ResolveIndexPath(new PackageIndexContext("dependencies.csv"));
+        Assert.AreEqual("dependencies.csv", path);
+    }
+
+    [TestMethod]
+    public void ResolveIndexPath_OrgDependencies_UsesOrgScopedCsv()
+    {
+        var sut = new PackagePathRouter();
+        var path = sut.ResolveIndexPath(new PackageIndexContext("dependencies.csv", Organisation: "acme"));
+        Assert.AreEqual("acme/dependencies.csv", path);
+    }
+
+    [TestMethod]
+    public void ResolveIndexPath_ProjectDependencies_UsesProjectScopedCsv()
+    {
+        var sut = new PackagePathRouter();
+        var path = sut.ResolveIndexPath(new PackageIndexContext("dependencies.csv", Organisation: "acme", Project: "myproject"));
+        Assert.AreEqual("acme/myproject/dependencies.csv", path);
+    }
+
+    [TestMethod]
+    public void ResolveIndexPath_RootDependencyGraphArtefacts_UseStructuralRootPaths()
+    {
+        var sut = new PackagePathRouter();
+        Assert.AreEqual(
+            "discovery-project-dependencies.csv",
+            sut.ResolveIndexPath(new PackageIndexContext("discovery-project-dependencies.csv")));
+        Assert.AreEqual(
+            "discovery-project-dependencies.md",
+            sut.ResolveIndexPath(new PackageIndexContext("discovery-project-dependencies.md")));
+    }
+
+    [TestMethod]
+    public void ResolveIndexPath_ProjectDependencyGraph_UsesProjectScopedMarkdown()
+    {
+        var sut = new PackagePathRouter();
+        var path = sut.ResolveIndexPath(new PackageIndexContext("dependency-graph.md", Organisation: "org", Project: "ProjectA"));
+        Assert.AreEqual("org/ProjectA/dependency-graph.md", path);
+    }
+
+    [TestMethod]
+    public void ResolveIndexPath_ProjectScoped_WithoutOrganisation_Throws()
+    {
+        var sut = new PackagePathRouter();
+        var ex = Assert.ThrowsExactly<PackageValidationException>(
+            () => sut.ResolveIndexPath(new PackageIndexContext("dependencies.csv", Project: "myproject")));
+        Assert.AreEqual("PKG_INDEX_SCOPE_REQUIRED", ex.Code);
+    }
+
+    [TestMethod]
+    public void ResolveIndexPath_PathInFileName_ThrowsValidationException()
+    {
+        var sut = new PackagePathRouter();
+        var ex = Assert.ThrowsExactly<PackageValidationException>(
+            () => sut.ResolveIndexPath(new PackageIndexContext("sub/dependencies.csv")));
+        Assert.AreEqual("PKG_INDEX_FILENAME_INVALID", ex.Code);
+    }
+
     private sealed class TestAddress(string relativePath) : IPackageContentAddress
     {
         public string RelativePath { get; } = relativePath;
     }
 }
-

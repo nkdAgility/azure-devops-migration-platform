@@ -139,17 +139,22 @@ public class WorkItemResolutionProcessorTests
     public async Task ProcessAsync_WhenScopedRevisionLookupMisses_FallsBackToDirectRelativePath()
     {
         var suffixPath = "2024-01-01/00000638000000000001-1-0/revision.json";
-        var fullPath = $"{Folder}/revision.json";
 
         _mockPackage
             .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address != null && string.Equals(c.Address.RelativePath, suffixPath, StringComparison.Ordinal)),
+                It.Is<PackageContentContext>(c =>
+                    c.Address != null &&
+                    string.Equals(c.Address.RelativePath, suffixPath, StringComparison.Ordinal) &&
+                    !string.IsNullOrWhiteSpace(c.Organisation)),
                 It.IsAny<CancellationToken>()))
             .Returns(() => ToPayload(null));
 
         _mockPackage
             .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address != null && string.Equals(c.Address.RelativePath, fullPath, StringComparison.Ordinal)),
+                It.Is<PackageContentContext>(c =>
+                    c.Address != null &&
+                    string.Equals(c.Address.RelativePath, suffixPath, StringComparison.Ordinal) &&
+                    string.IsNullOrWhiteSpace(c.Organisation)),
                 It.IsAny<CancellationToken>()))
             .Returns(() => ToPayload(_minimalRevisionJson));
 

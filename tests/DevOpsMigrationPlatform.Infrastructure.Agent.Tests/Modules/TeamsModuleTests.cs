@@ -73,7 +73,7 @@ public class TeamsModuleTests
     private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
 
     private static PackageContentContext ContentAt(string path)
-        => new(PackageContentKind.Artefact, Address: new TestPackageAddress(path));
+        => new(PackageContentKind.Artefact, "test-org", "test-project", "Teams", Address: new TestPackageAddress(path));
 
     private static ExportContext CreateExportContext(IPackageAccess package)
         => new()

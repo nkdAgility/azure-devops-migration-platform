@@ -40,18 +40,18 @@ public sealed class WorkItemTypeValidatorTests
             .Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext context, CancellationToken _) =>
             {
-                var path = context.Address!.RelativePath.Replace('\\', '/');
+                var path = NormalizeRevisionPath(context.Address!.RelativePath);
                 PackagePayload? payload = path switch
                 {
-                    revisionA => CreatePayload(new WorkItemRevision
+                    var normalizedRevisionA when normalizedRevisionA == NormalizeRevisionPath(revisionA) => CreatePayload(new WorkItemRevision
                     {
                         Fields = [new WorkItemField { ReferenceName = "System.WorkItemType", Value = "Bug" }]
                     }),
-                    revisionB => CreatePayload(new WorkItemRevision
+                    var normalizedRevisionB when normalizedRevisionB == NormalizeRevisionPath(revisionB) => CreatePayload(new WorkItemRevision
                     {
                         Fields = [new WorkItemField { ReferenceName = "System.WorkItemType", Value = "bug" }]
                     }),
-                    revisionC => CreatePayload(new WorkItemRevision
+                    var normalizedRevisionC when normalizedRevisionC == NormalizeRevisionPath(revisionC) => CreatePayload(new WorkItemRevision
                     {
                         Fields = [new WorkItemField { ReferenceName = "System.WorkItemType", Value = "User Story" }]
                     }),
@@ -77,7 +77,7 @@ public sealed class WorkItemTypeValidatorTests
         var sut = new WorkItemTypeValidator(targetFactory.Object);
 
         var findings = await sut.EvaluateAsync(
-            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions()),
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions(), "testorg", "testproject"),
             CancellationToken.None);
 
         Assert.AreEqual(1, findings.Count);
@@ -105,13 +105,13 @@ public sealed class WorkItemTypeValidatorTests
             .Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext context, CancellationToken _) =>
             {
-                var path = context.Address!.RelativePath.Replace('\\', '/');
-                if (path == revisionA)
+                var path = NormalizeRevisionPath(context.Address!.RelativePath);
+                if (path == NormalizeRevisionPath(revisionA))
                 {
                     return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("{bad-json}"))));
                 }
 
-                if (path == revisionB)
+                if (path == NormalizeRevisionPath(revisionB))
                 {
                     return ValueTask.FromResult<PackagePayload?>(CreatePayload(new WorkItemRevision
                     {
@@ -128,7 +128,7 @@ public sealed class WorkItemTypeValidatorTests
         var sut = new WorkItemTypeValidator(targetFactory.Object);
 
         var findings = await sut.EvaluateAsync(
-            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions()),
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions(), "testorg", "testproject"),
             CancellationToken.None);
 
         Assert.AreEqual(0, findings.Count);
@@ -162,7 +162,7 @@ public sealed class WorkItemTypeValidatorTests
         var sut = new WorkItemTypeValidator(targetFactory.Object);
 
         _ = await sut.EvaluateAsync(
-            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions()),
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions(), "testorg", "testproject"),
             CancellationToken.None);
 
         Assert.IsTrue(disposableTarget.IsDisposed);
@@ -227,7 +227,7 @@ public sealed class WorkItemTypeValidatorTests
         var sut = new WorkItemTypeValidator(targetFactory.Object, fieldTransformOptionsSnapshot.Object);
 
         var findings = await sut.EvaluateAsync(
-            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions()),
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions(), "testorg", "testproject"),
             CancellationToken.None);
 
         Assert.AreEqual(0, findings.Count);
@@ -244,12 +244,10 @@ public sealed class WorkItemTypeValidatorTests
         var package = PackageTestFactory.CreateLooseMock();
         package
             .Setup(p => p.EnumerateContentAsync(
-                It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath == "WorkItems/"),
-                It.IsAny<CancellationToken>()))
-            .Returns((PackageContentContext _, CancellationToken _) => EnumerateManyAsync([]));
-        package
-            .Setup(p => p.EnumerateContentAsync(
-                It.Is<PackageContentContext>(c => c.Address != null && c.Address.RelativePath == string.Empty),
+                It.Is<PackageContentContext>(c =>
+                    c.Module == "WorkItems" &&
+                    c.Organisation == "testorg" &&
+                    c.Project == "testproject"),
                 It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext _, CancellationToken _) => EnumerateManyAsync([scopedRevision]));
         package
@@ -273,7 +271,7 @@ public sealed class WorkItemTypeValidatorTests
         var sut = new WorkItemTypeValidator(targetFactory.Object);
 
         var findings = await sut.EvaluateAsync(
-            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions()),
+            new ImportFailurePatternContext(CreatePrepareContext(package.Object), new WorkItemsModuleOptions(), "testorg", "testproject"),
             CancellationToken.None);
 
         Assert.AreEqual(0, findings.Count);
@@ -312,6 +310,14 @@ public sealed class WorkItemTypeValidatorTests
     {
         var json = JsonSerializer.Serialize(revision);
         return new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(json)));
+    }
+
+    private static string NormalizeRevisionPath(string path)
+    {
+        var normalized = path.Replace('\\', '/');
+        return normalized.StartsWith("WorkItems/", System.StringComparison.OrdinalIgnoreCase)
+            ? normalized["WorkItems/".Length..]
+            : normalized;
     }
 
     private sealed class DisposableWorkItemTypeReadinessTarget : IWorkItemTypeReadinessTarget, IDisposable

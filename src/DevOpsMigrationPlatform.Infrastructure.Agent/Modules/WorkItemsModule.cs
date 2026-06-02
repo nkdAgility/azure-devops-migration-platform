@@ -36,7 +36,6 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
@@ -176,7 +175,7 @@ public sealed class WorkItemsModule : IModule
         resolvedFailurePatterns = resolvedFailurePatterns is { Length: > 0 }
             ? resolvedFailurePatterns
             : CreateDefaultImportFailurePatterns().ToArray();
-        _importPreparer = importPreparer ?? new ImportPreparer(_options, resolvedFailurePatterns);
+        _importPreparer = importPreparer ?? new ImportPreparer(_options, _sourceEndpointInfo.OrganisationSlug, _sourceEndpointInfo.Project, resolvedFailurePatterns);
         _workItemsOrchestrator = workItemsOrchestrator
             ?? _workItemsOrchestratorFactory.Create(
                 _importTargetFactory,
@@ -346,10 +345,9 @@ public sealed class WorkItemsModule : IModule
                     }
                 }
 
-                var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
                 await ProjectInventoryFile.MergeAsync(
-                    context.Package, projectPath,
-                    orgUrl: orgUrl, project: project,
+                    context.Package, orgSlug, project,
+                    orgUrl: orgUrl,
                     workItems: projectWorkItems,
                     revisions: projectRevisions,
                     repos: reposForProject,
@@ -464,17 +462,4 @@ public sealed class WorkItemsModule : IModule
         return await _workItemsOrchestrator.ValidateAsync(context, ct).ConfigureAwait(false);
     }
 
-    private static async Task WritePackageTextAsync(IPackageAccess package, string relativePath, string content, CancellationToken cancellationToken)
-    {
-        using var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(content), writable: false);
-        await package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(relativePath)),
-            new PackagePayload(stream, "application/json"),
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
-    }
 }

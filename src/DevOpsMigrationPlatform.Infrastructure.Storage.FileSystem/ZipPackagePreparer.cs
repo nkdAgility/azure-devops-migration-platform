@@ -6,6 +6,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -14,26 +15,32 @@ namespace DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 
 /// <summary>
 /// <see cref="IPackagePreparer"/> implementation that reads a fixture ZIP from the local
-/// filesystem and streams every entry into the target <see cref="IPackageAccess"/> via
-/// <see cref="IPackageAccess.PersistContentStreamAsync"/>.
+/// filesystem and streams every entry directly into the injected <see cref="IArtefactStore"/>.
 ///
 /// <para>
-/// The destination writes are storage-agnostic — this implementation works with both
-/// <see cref="FileSystemArtefactStore"/> and a future <c>AzureBlobArtefactStore</c>.
+/// Writes bypass the typed routing surface (<see cref="IPackageAccess"/>) because a fixture
+/// ZIP is an already-valid package: every entry path is already correctly scoped at the
+/// source. Writing directly to the store preserves the archive structure verbatim.
 /// </para>
 /// </summary>
 internal sealed class ZipPackagePreparer : IPackagePreparer
 {
+    private readonly IPackageStoreFactory _packageStoreFactory;
+    private readonly ActivePackageState _packageState;
     private readonly ILogger<ZipPackagePreparer> _logger;
 
-    public ZipPackagePreparer(ILogger<ZipPackagePreparer> logger)
+    public ZipPackagePreparer(
+        IPackageStoreFactory packageStoreFactory,
+        ActivePackageState packageState,
+        ILogger<ZipPackagePreparer> logger)
     {
+        _packageStoreFactory = packageStoreFactory;
+        _packageState = packageState;
         _logger = logger;
     }
 
     /// <inheritdoc/>
     public async Task PrepareForImportAsync(
-        IPackageAccess packageAccess,
         IConfiguration packageConfig,
         CancellationToken cancellationToken)
     {
@@ -52,24 +59,26 @@ internal sealed class ZipPackagePreparer : IPackagePreparer
 
         _logger.LogInformation("Extracting package fixture {ZipPath} into package store.", resolvedZipPath);
 
+        var packageUri = _packageState.CurrentPackageUri;
+        if (string.IsNullOrWhiteSpace(packageUri))
+        {
+            throw new InvalidOperationException(
+                "Active package URI is not set. Package fixtures can only be prepared within an active leased job.");
+        }
+
+        var (store, _) = _packageStoreFactory.Create(packageUri!);
         int count = 0;
         using var archive = ZipFile.OpenRead(resolvedZipPath);
         foreach (var entry in archive.Entries)
         {
-            // Skip directory entries — FullName ends with '/' per ZIP specification.
             if (entry.FullName.EndsWith("/") || entry.FullName.EndsWith("\\"))
                 continue;
 
             cancellationToken.ThrowIfCancellationRequested();
+            var entryPath = NormalizeArchiveEntryPath(entry.FullName);
 
-            // Fixture ZIP structure is canonical import input. Do not rewrite/move entry paths:
-            // extract each entry exactly as provided in the archive.
             using var entryStream = entry.Open();
-            await packageAccess.PersistContentStreamAsync(
-                new PackageContentContext(PackageContentKind.Artefact, Address: new ZipEntryAddress(entry.FullName)),
-                entryStream,
-                contentType: null,
-                cancellationToken).ConfigureAwait(false);
+            await store.WriteStreamAsync(entryPath, entryStream, cancellationToken).ConfigureAwait(false);
             count++;
         }
 
@@ -77,8 +86,25 @@ internal sealed class ZipPackagePreparer : IPackagePreparer
             "Extracted {Count} files from fixture {ZipPath} into package store.", count, resolvedZipPath);
     }
 
-    private sealed class ZipEntryAddress(string fullName) : IPackageContentAddress
+    private static string NormalizeArchiveEntryPath(string entryName)
     {
-        public string RelativePath => fullName;
+        var normalized = entryName.Replace('\\', '/').Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            throw new PackageValidationException(
+                "PKG_ARCHIVE_ENTRY_INVALID",
+                "Archive entry path must not be empty.");
+        }
+
+        if (normalized.StartsWith("/", StringComparison.Ordinal)
+            || normalized.IndexOf(":", StringComparison.Ordinal) >= 0
+            || Array.Exists(normalized.Split('/'), static segment => segment == ".."))
+        {
+            throw new PackageValidationException(
+                "PKG_ARCHIVE_ENTRY_INVALID",
+                "Archive entry path must be relative and must not escape the package scope.");
+        }
+
+        return normalized;
     }
 }

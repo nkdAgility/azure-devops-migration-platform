@@ -28,9 +28,13 @@ internal sealed class MissingAttachmentBinaryImportFailurePattern : IImportFailu
 
         var findings = new List<ImportFailureFinding>();
         var package = context.PrepareContext.Package;
+        var organisation = context.Organisation;
+        var project = context.Project;
 
         await foreach (var parsedRevision in WorkItemsPrepareRevisionReader.EnumerateAsync(
                            package,
+                           organisation,
+                           project,
                            cancellationToken).ConfigureAwait(false))
         {
             if (parsedRevision.Revision is null)
@@ -52,8 +56,14 @@ internal sealed class MissingAttachmentBinaryImportFailurePattern : IImportFailu
                 }
 
                 var attachmentPath = $"{parsedRevision.RevisionFolderPath}/{attachment.RelativePath}";
+                var withinModulePath = StripModulePrefix(attachmentPath, organisation, project);
                 if (!await package.ContentExistsAsync(
-                        new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress(attachmentPath)),
+                        new PackageContentContext(
+                            PackageContentKind.Artefact,
+                            Organisation: organisation,
+                            Project: project,
+                            Module: "WorkItems",
+                            Address: new RelativePathAddress(withinModulePath)),
                         cancellationToken).ConfigureAwait(false))
                 {
                     findings.Add(new ImportFailureFinding(
@@ -69,8 +79,19 @@ internal sealed class MissingAttachmentBinaryImportFailurePattern : IImportFailu
         return findings;
     }
 
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
+    private static string StripModulePrefix(string path, string organisation, string project)
     {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
+        var normalized = path.Replace('\\', '/').TrimStart('/');
+
+        var scopedPrefix = $"{organisation}/{project}/WorkItems/";
+        if (normalized.StartsWith(scopedPrefix, StringComparison.OrdinalIgnoreCase))
+            return normalized.Substring(scopedPrefix.Length);
+
+        const string barePrefix = "WorkItems/";
+        if (normalized.StartsWith(barePrefix, StringComparison.OrdinalIgnoreCase))
+            return normalized.Substring(barePrefix.Length);
+
+        return normalized;
     }
+
 }

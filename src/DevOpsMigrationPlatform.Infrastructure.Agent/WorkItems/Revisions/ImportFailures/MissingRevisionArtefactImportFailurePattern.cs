@@ -19,7 +19,7 @@ internal sealed class MissingRevisionArtefactImportFailurePattern : IImportFailu
         CancellationToken cancellationToken)
     {
         var hasRevision = false;
-        await foreach (var _ in WorkItemsPrepareRevisionReader.EnumerateAsync(context.PrepareContext.Package, cancellationToken).ConfigureAwait(false))
+        await foreach (var _ in WorkItemsPrepareRevisionReader.EnumerateAsync(context.PrepareContext.Package, context.Organisation, context.Project, cancellationToken).ConfigureAwait(false))
         {
             hasRevision = true;
             break;

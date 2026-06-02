@@ -241,6 +241,14 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     {
         var url = ConfigTokenResolver.Resolve(packageConfig["MigrationPlatform:Source:Url"])?.Trim();
         var project = packageConfig["MigrationPlatform:Source:Project"]?.Trim();
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = packageConfig
+                .GetSection("MigrationPlatform:Source:Generator:Projects")
+                .GetChildren()
+                .Select(projectSection => projectSection["Name"]?.Trim())
+                .FirstOrDefault(projectName => !string.IsNullOrWhiteSpace(projectName));
+        }
         var connectorType = packageConfig["MigrationPlatform:Source:Type"];
 
         if (string.IsNullOrWhiteSpace(connectorType))
@@ -613,7 +621,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         // FileSystem today and Azure Blob Storage in the future.
         if (runImport)
         {
-            await _packagePreparer.PrepareForImportAsync(_package, planConfig, ct)
+            await _packagePreparer.PrepareForImportAsync(planConfig, ct)
                 .ConfigureAwait(false);
         }
 

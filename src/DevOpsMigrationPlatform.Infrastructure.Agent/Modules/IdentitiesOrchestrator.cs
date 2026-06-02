@@ -38,8 +38,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// </summary>
 internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 {
-    private const string DescriptorsPath = "Identities/descriptors.jsonl";
-    private const string MappingPath = "Identities/mapping.json";
     private const string ModuleName = "Identities";
 
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
@@ -71,6 +69,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
     public async Task ExportAsync(
         IIdentitySource identitySource,
         ExportContext context,
+        string organisation,
         string project,
         ICheckpointingServiceFactory? checkpointingFactory,
         CancellationToken ct)
@@ -83,7 +82,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             var checkpointing = checkpointingFactory.Create(package);
             var cursor = await checkpointing.ReadCursorAsync("export.identities", ct).ConfigureAwait(false);
             if (cursor?.Stage == CursorStage.Completed
-                && await ExistsInPackageAsync(DescriptorsPath, ct).ConfigureAwait(false))
+                && await ExistsInPackageAsync(organisation, project, "descriptors.jsonl", ct).ConfigureAwait(false))
             {
                 _logger.LogInformation("[Identities] Already exported (cursor found) — skipping re-export.");
                 return;
@@ -91,6 +90,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         }
 
         using var activity = s_activitySource.StartActivity("identities.export");
+        activity?.SetTag("organisation", organisation);
         activity?.SetTag("project", project);
 
 #if !NET481
@@ -119,7 +119,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             await foreach (var descriptor in identitySource.EnumerateIdentitiesAsync(project, ct).ConfigureAwait(false))
             {
                 var line = JsonSerializer.Serialize(descriptor, s_jsonOptions);
-                await AppendPackageTextAsync(DescriptorsPath, line + "\n", ct).ConfigureAwait(false);
+                await AppendPackageTextAsync(organisation, project, "descriptors.jsonl", line + "\n", ct).ConfigureAwait(false);
                 count++;
                 _PlatformMetrics?.RecordIdentityExportCount(exportTags);
             }
@@ -137,7 +137,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         }
 
         activity?.SetTag("identities.count", count);
-        _logger.LogInformation("[Identities] Exported {Count} identity descriptors to {Path}.", count, DescriptorsPath);
+        _logger.LogInformation("[Identities] Exported {Count} identity descriptors.", count);
         sink?.Emit(new ProgressEvent
         {
             Module = ModuleName,
@@ -158,7 +158,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             var checkpointing = checkpointingFactory.Create(package);
             await checkpointing.WriteCursorAsync("export.identities", new CursorEntry
             {
-                LastProcessed = DescriptorsPath,
+                LastProcessed = "descriptors.jsonl",
                 Stage = CursorStage.Completed,
                 UpdatedAt = DateTimeOffset.UtcNow,
                 WorkItemsProcessed = count
@@ -174,6 +174,8 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
     public async Task ImportAsync(
         IIdentityLookupTool? identityLookupTool,
         ImportContext context,
+        string organisation,
+        string project,
         ICheckpointingServiceFactory? checkpointingFactory,
         CancellationToken ct)
     {
@@ -187,10 +189,10 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             Message = "Starting identity import.",
         });
 
-        var descriptorsJson = await ReadPackageContentAsync(DescriptorsPath, ct).ConfigureAwait(false);
+        var descriptorsJson = await ReadPackageContentAsync(organisation, project, "descriptors.jsonl", ct).ConfigureAwait(false);
         if (descriptorsJson is null)
         {
-            _logger.LogWarning("[Identities] {Path} not found in package — identity mapping will not be available.", DescriptorsPath);
+            _logger.LogWarning("[Identities] descriptors.jsonl not found in package — identity mapping will not be available.");
             return;
         }
 
@@ -218,7 +220,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         importSw.Stop();
         _PlatformMetrics?.RecordIdentityImportDuration(importSw.Elapsed.TotalMilliseconds, importTags);
 
-        var hasMapping = await ExistsInPackageAsync(MappingPath, ct).ConfigureAwait(false);
+        var hasMapping = await ExistsInPackageAsync(organisation, project, "mapping.json", ct).ConfigureAwait(false);
         _logger.LogInformation("[Identities] Identity import complete: {Resolved} resolved, mapping overrides: {HasMapping}.", resolvedCount, hasMapping);
         importSink?.Emit(new ProgressEvent
         {
@@ -243,22 +245,19 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         ValidationContext context,
         CancellationToken ct)
     {
-        _ = organisation;
-        _ = project;
-
         var validateTags = new MetricsTagList
         {
             new("module", "Identities"),
             new("operation", "identities.validate")
         };
 
-        var content = await ReadPackageContentAsync(package, DescriptorsPath, ct).ConfigureAwait(false);
+        var content = await ReadPackageContentAsync(package, organisation, project, "descriptors.jsonl", ct).ConfigureAwait(false);
         if (content is null)
         {
             context.Errors.Add(new ValidationError
             {
-                Path = DescriptorsPath,
-                Message = $"[Identities] Required file '{DescriptorsPath}' is missing from the package."
+                Path = "descriptors.jsonl",
+                Message = "[Identities] Required file 'descriptors.jsonl' is missing from the package."
             });
             _PlatformMetrics?.RecordIdentityValidateError(validateTags);
             return;
@@ -277,8 +276,8 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
                 {
                     context.Errors.Add(new ValidationError
                     {
-                        Path = DescriptorsPath,
-                        Message = $"[Identities] Line {lineNumber} in '{DescriptorsPath}' is missing required field 'descriptor'."
+                        Path = "descriptors.jsonl",
+                        Message = $"[Identities] Line {lineNumber} in 'descriptors.jsonl' is missing required field 'descriptor'."
                     });
                     _PlatformMetrics?.RecordIdentityValidateError(validateTags);
                 }
@@ -291,8 +290,8 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             {
                 context.Errors.Add(new ValidationError
                 {
-                    Path = DescriptorsPath,
-                    Message = $"[Identities] Line {lineNumber} in '{DescriptorsPath}' is malformed JSON: {ex.Message}"
+                    Path = "descriptors.jsonl",
+                    Message = $"[Identities] Line {lineNumber} in 'descriptors.jsonl' is malformed JSON: {ex.Message}"
                 });
                 _PlatformMetrics?.RecordIdentityValidateError(validateTags);
             }
@@ -310,18 +309,18 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         return count;
     }
 
-    private async Task<string?> ReadPackageContentAsync(string relativePath, CancellationToken ct)
+    private async Task<string?> ReadPackageContentAsync(string organisation, string project, string fileName, CancellationToken ct)
     {
         if (_package is null)
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
-        return await ReadPackageContentAsync(_package, relativePath, ct).ConfigureAwait(false);
+        return await ReadPackageContentAsync(_package, organisation, project, fileName, ct).ConfigureAwait(false);
     }
 
-    private static async Task<string?> ReadPackageContentAsync(IPackageAccess package, string relativePath, CancellationToken ct)
+    private static async Task<string?> ReadPackageContentAsync(IPackageAccess package, string organisation, string project, string fileName, CancellationToken ct)
     {
         var payload = await package.RequestContentAsync(
-            CreatePackageContentContext(relativePath),
+            CreatePackageContentContext(organisation, project, fileName),
             ct).ConfigureAwait(false);
         if (payload is null)
             return null;
@@ -332,36 +331,34 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         return await reader.ReadToEndAsync().ConfigureAwait(false);
     }
 
-    private async Task<bool> ExistsInPackageAsync(string relativePath, CancellationToken ct)
+    private async Task<bool> ExistsInPackageAsync(string organisation, string project, string fileName, CancellationToken ct)
     {
         if (_package is null)
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
         return await _package.ContentExistsAsync(
-            CreatePackageContentContext(relativePath),
+            CreatePackageContentContext(organisation, project, fileName),
             ct).ConfigureAwait(false);
     }
 
-    private async Task AppendPackageTextAsync(string relativePath, string content, CancellationToken ct)
+    private async Task AppendPackageTextAsync(string organisation, string project, string fileName, string content, CancellationToken ct)
     {
         if (_package is null)
             throw new InvalidOperationException($"{nameof(IPackageAccess)} is required for package content operations.");
 
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
         await _package.AppendContentAsync(
-            CreatePackageContentContext(relativePath),
+            CreatePackageContentContext(organisation, project, fileName),
             new PackagePayload(stream, "application/x-ndjson"),
             ct).ConfigureAwait(false);
     }
 
-    private static PackageContentContext CreatePackageContentContext(string relativePath)
+    private static PackageContentContext CreatePackageContentContext(string organisation, string project, string fileName)
         => new(
             PackageContentKind.Artefact,
-            Address: new RelativePathAddress(relativePath));
-
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
-    }
+            Organisation: organisation,
+            Project: project,
+            Module: ModuleName,
+            Address: new RelativePathAddress(fileName));
 }
 

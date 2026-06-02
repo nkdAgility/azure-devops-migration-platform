@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
@@ -141,10 +142,9 @@ public sealed class TeamsModule : IModule
                 await foreach (var _ in _teamSource.EnumerateTeamsAsync(project, ct).ConfigureAwait(false))
                     count++;
 
-                var projectPath = PackagePathResolver.ProjectInventoryPath(orgSlug, project);
                 await ProjectInventoryFile.MergeAsync(
-                    context.Package, projectPath,
-                    orgUrl: orgUrl, project: project,
+                    context.Package, orgSlug, project,
+                    orgUrl: orgUrl,
                     teams: count, ct: ct).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -188,10 +188,32 @@ public sealed class TeamsModule : IModule
         var report = new PrepareReport { ModuleName = Name, ResolvedCount = 0 };
         _PlatformMetrics?.RecordPrepareTeamsResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
         _PlatformMetrics?.RecordPrepareTeamsUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
+
+        var organisation = _sourceEndpointInfo.OrganisationSlug;
+        if (string.IsNullOrWhiteSpace(organisation))
+        {
+            organisation = context.TargetEndpoint.OrganisationSlug;
+        }
+
+        var project = _sourceEndpointInfo.Project;
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = context.TargetEndpoint.Project;
+        }
+
+        if (string.IsNullOrWhiteSpace(organisation))
+        {
+            organisation = "unknown";
+        }
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = "unknown";
+        }
+
         using (var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(report)), writable: false))
         {
             await context.Package.PersistContentAsync(
-                new PackageContentContext(PackageContentKind.Artefact, Address: new RelativePathAddress("Teams/prepare-report.json")),
+                new PackageContentContext(PackageContentKind.Artefact, Module: Name, Organisation: organisation, Project: project, Address: new RelativePathAddress("prepare-report.json")),
                 new PackagePayload(stream, "application/json"),
                 ct).ConfigureAwait(false);
         }
@@ -261,8 +283,4 @@ public sealed class TeamsModule : IModule
         return TaskExecutionResult.Completed();
     }
 
-    private sealed class RelativePathAddress(string relativePath) : IPackageContentAddress
-    {
-        public string RelativePath => relativePath.Replace('\\', '/').TrimStart('/');
-    }
 }

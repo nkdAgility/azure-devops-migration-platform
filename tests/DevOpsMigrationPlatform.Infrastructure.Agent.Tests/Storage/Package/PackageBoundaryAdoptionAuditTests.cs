@@ -23,7 +23,7 @@ public sealed class PackageBoundaryAdoptionAuditTests
         var runId = active.CurrentRunId!;
         var router = new PackagePathRouter();
 
-        var contentContext = new PackageContentContext(PackageContentKind.Artefact, Address: new TestPackageAddress("WorkItems/1/workitem.json"));
+        var contentContext = new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "WorkItems", Address: new TestPackageAddress("1/workitem.json"));
         var metaContext = new PackageMetaContext(PackageMetaKind.ExecutionPlan, RelatedToRun: true);
         var logContext = new PackageLogContext(runId, PackageLogStream.Progress);
 

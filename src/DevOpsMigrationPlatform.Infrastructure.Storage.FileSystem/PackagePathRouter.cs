@@ -23,6 +23,8 @@ internal sealed class PackagePathRouter
     private const string PrepareReportPath = ".migration/prepare-report.json";
     private const string PrepareProbe = ".migration/prepare-probe.json";
     private const string JobDescriptorPath = ".migration/job.json";
+    private const string WorkItemsImportReadinessPath = ".migration/Readiness/workitems-import-readiness.json";
+    private const string JobErrorsPath = ".migration/errors.json";
 
     private static string RunFolder(string runId) => $"{RunsRoot}/{runId}";
     private static string RunLogsFolder(string runId) => $"{RunFolder(runId)}/logs";
@@ -45,39 +47,79 @@ internal sealed class PackagePathRouter
         {
             PackageContentKind.Artefact => ResolveAddressedPath(context, isCollection: false),
             PackageContentKind.Collection => ResolveAddressedPath(context, isCollection: true),
-            PackageContentKind.Manifest => ResolveManifestPath(context),
             _ => throw new PackageValidationException(
                 "PKG_KIND_UNSUPPORTED",
                 $"Unsupported package kind '{context.Kind}'.")
         };
     }
 
-    private static string ResolveManifestPath(PackageContentContext context)
+    public string ResolveIndexPath(PackageIndexContext context)
     {
+        if (context is null)
+            throw new ArgumentNullException(nameof(context));
+
+        var name = context.FileName;
+        if (string.IsNullOrWhiteSpace(name)
+            || name.IndexOf('/') >= 0
+            || name.IndexOf('\\') >= 0
+            || name.IndexOf("..", StringComparison.Ordinal) >= 0
+            || name != System.IO.Path.GetFileName(name))
+        {
+            throw new PackageValidationException(
+                "PKG_INDEX_FILENAME_INVALID",
+                "Index FileName must be a bare filename — never a path. It may not contain '/', '\\', or '..'.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(context.Project) && string.IsNullOrWhiteSpace(context.Organisation))
+        {
+            throw new PackageValidationException(
+                "PKG_INDEX_SCOPE_REQUIRED",
+                "Project-scoped index routing requires an Organisation.");
+        }
+
         var segments = new List<string>(capacity: 3);
         AddSegment(segments, context.Organisation);
         AddSegment(segments, context.Project);
-
-        if (segments.Count != 2)
-        {
-            throw new PackageValidationException(
-                "PKG_MANIFEST_SCOPE_REQUIRED",
-                "Manifest routing requires organisation and project scope.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(context.Module) || context.Address is not null)
-        {
-            throw new PackageValidationException(
-                "PKG_MANIFEST_SCOPE_INVALID",
-                "Manifest routing does not allow module scope or a content address.");
-        }
-
-        segments.Add("manifest.json");
+        segments.Add(name);
         return string.Join("/", segments);
     }
 
     private static string ResolveAddressedPath(PackageContentContext context, bool isCollection)
     {
+        // Enforce: RelativePathAddress requires Module + Organisation + Project.
+        if (context.Address is RelativePathAddress)
+        {
+            if (string.IsNullOrWhiteSpace(context.Module))
+                throw new PackageValidationException(
+                    "PKG_ADDRESS_WITHOUT_MODULE",
+                    "RelativePathAddress requires Module, Organisation, and Project scope. " +
+                    "Use the Module, Organisation, and Project fields on PackageContentContext.");
+
+            var relPath = context.Address.RelativePath;
+            if (!string.IsNullOrEmpty(relPath) &&
+                relPath.StartsWith(context.Module + "/", System.StringComparison.OrdinalIgnoreCase))
+                throw new PackageValidationException(
+                    "PKG_ADDRESS_EMBEDS_MODULE",
+                    $"RelativePathAddress must not include the module name '{context.Module}' as a path prefix. " +
+                    "The Module field on PackageContentContext already provides it.");
+        }
+
+        // Module is mandatory on all content. Non-module structural files use PersistIndexAsync/RequestIndexAsync.
+        // Full-package enumeration uses EnumerateAllAsync.
+        if (string.IsNullOrWhiteSpace(context.Module))
+            throw new PackageValidationException(
+                "PKG_CONTENT_MODULE_REQUIRED",
+                "All package content routing requires Organisation, Project, and Module. " +
+                "Use PersistIndexAsync/RequestIndexAsync for structural (non-module) files, " +
+                "or EnumerateAllAsync for whole-package discovery.");
+
+        var hasOrganisation = !string.IsNullOrWhiteSpace(context.Organisation);
+        var hasProject = !string.IsNullOrWhiteSpace(context.Project);
+        if (hasOrganisation != hasProject)
+            throw new PackageValidationException(
+                "PKG_MODULE_SCOPE_REQUIRED",
+                $"Module-scoped content routing for '{context.Module}' requires both Organisation and Project when either is provided.");
+
         var segments = new List<string>(capacity: 4);
         AddSegment(segments, context.Organisation);
         AddSegment(segments, context.Project);
@@ -86,17 +128,7 @@ internal sealed class PackagePathRouter
         var addressPath = NormalizeAddressPath(context.Address?.RelativePath, isCollection);
 
         if (string.IsNullOrEmpty(addressPath))
-        {
-            if (segments.Count == 0 && isCollection)
-                return string.Empty;
-
-            if (segments.Count > 0)
-                return isCollection ? $"{string.Join("/", segments)}/" : string.Join("/", segments);
-
-            throw new PackageValidationException(
-                "PKG_ROUTE_REQUIRED",
-                "Package content routing requires scope or a content address.");
-        }
+            return isCollection ? $"{string.Join("/", segments)}/" : string.Join("/", segments);
 
         if (segments.Count == 0)
             return isCollection ? EnsureTrailingSlash(addressPath) : addressPath;
@@ -199,6 +231,8 @@ internal sealed class PackagePathRouter
             PackageMetaKind.RunConfigSnapshot => !string.IsNullOrWhiteSpace(runId)
                 ? RunConfigFile(runId!)
                 : throw new PackageOperationException("PKG_RUN_ID_REQUIRED", "Run config snapshot routing requires a runId."),
+            PackageMetaKind.WorkItemsImportReadiness => WorkItemsImportReadinessPath,
+            PackageMetaKind.JobErrors => JobErrorsPath,
             _ => throw new PackageOperationException(
                 "PKG_META_KIND_UNSUPPORTED",
                 $"Unsupported metadata kind '{context.Kind}'.")
@@ -242,4 +276,3 @@ internal sealed class PackagePathRouter
     public string ResolveLockPath(string localRoot)
         => System.IO.Path.Combine(localRoot, LockFilePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
 }
-

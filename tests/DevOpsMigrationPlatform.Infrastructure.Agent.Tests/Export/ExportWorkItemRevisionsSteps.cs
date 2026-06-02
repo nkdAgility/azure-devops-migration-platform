@@ -23,6 +23,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Export;
 [Scope(Feature = "Export Work Item Revisions")]
 public class ExportWorkItemRevisionsSteps
 {
+    private const string TestOrganisation = "test-org";
+    private const string TestProject = "test-project";
     private readonly ExportWorkItemRevisionsContext _ctx;
 
     public ExportWorkItemRevisionsSteps(ExportWorkItemRevisionsContext ctx) => _ctx = ctx;
@@ -50,9 +52,18 @@ public class ExportWorkItemRevisionsSteps
     private WorkItemExportOrchestrator CreateSut()
         => new(
             _ctx.Package!,
-            string.Empty,
-            string.Empty,
+            TestOrganisation,
+            TestProject,
             _ctx.MockCheckpointingService.Object);
+
+    private string WorkItemsRootPath()
+        => Path.Combine(_ctx.PackageRoot!, TestOrganisation, TestProject, "WorkItems");
+
+    private string RevisionFolderPath(WorkItemRevision revision)
+        => Path.Combine(
+            WorkItemsRootPath(),
+            WorkItemExportOrchestrator.BuildFolderPath(revision.WorkItemId, revision.RevisionIndex, revision.ChangedDate)
+                .Replace('/', Path.DirectorySeparatorChar));
 
     // ── Background ────────────────────────────────────────────────────────────
 
@@ -103,7 +114,7 @@ public class ExportWorkItemRevisionsSteps
         foreach (var rev in _ctx.SourceRevisions)
         {
             var folderPath = WorkItemExportOrchestrator.BuildFolderPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate);
-            var file = Path.Combine(_ctx.PackageRoot!, "WorkItems", folderPath.Replace('/', Path.DirectorySeparatorChar), "revision.json");
+            var file = Path.Combine(WorkItemsRootPath(), folderPath.Replace('/', Path.DirectorySeparatorChar), "revision.json");
             Assert.IsTrue(File.Exists(file), $"Expected revision.json at {file}");
         }
     }
@@ -114,7 +125,7 @@ public class ExportWorkItemRevisionsSteps
         foreach (var rev in _ctx.SourceRevisions)
         {
             var folderPath = WorkItemExportOrchestrator.BuildFolderPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate);
-            var file = Path.Combine(_ctx.PackageRoot!, "WorkItems", folderPath.Replace('/', Path.DirectorySeparatorChar), "revision.json");
+            var file = Path.Combine(WorkItemsRootPath(), folderPath.Replace('/', Path.DirectorySeparatorChar), "revision.json");
             Assert.IsTrue(File.Exists(file));
         }
     }
@@ -215,7 +226,7 @@ public class ExportWorkItemRevisionsSteps
 
         // Pre-write revision.json for the cursor-position revision so ExistsAsync returns true,
         // causing the orchestrator to skip it (simulating a prior run that already exported it).
-        var filePath = System.IO.Path.Combine(_ctx.PackageRoot!, "WorkItems", $"{folderAtCursor}revision.json".Replace('/', System.IO.Path.DirectorySeparatorChar));
+        var filePath = System.IO.Path.Combine(WorkItemsRootPath(), $"{folderAtCursor}revision.json".Replace('/', System.IO.Path.DirectorySeparatorChar));
         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(filePath)!);
         await System.IO.File.WriteAllTextAsync(filePath, "{}", CancellationToken.None);
 
@@ -335,8 +346,7 @@ public class ExportWorkItemRevisionsSteps
     public void ThenRevisionJsonContainsAllThreeLinkTypes(string _)
     {
         var rev = _ctx.SourceRevisions[0];
-        var folder = WorkItemExportOrchestrator.BuildFolderPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate);
-        var file = Path.Combine(_ctx.PackageRoot!, folder.Replace('/', Path.DirectorySeparatorChar), "revision.json");
+        var file = Path.Combine(RevisionFolderPath(rev), "revision.json");
         var json = File.ReadAllText(file);
         StringAssert.Contains(json, "externalLinks");
         StringAssert.Contains(json, "relatedLinks");
@@ -376,8 +386,7 @@ public class ExportWorkItemRevisionsSteps
     public void ThenRevisionJsonListsBothAttachments(string _)
     {
         var rev = _ctx.SourceRevisions[0];
-        var folder = WorkItemExportOrchestrator.BuildFolderPath(rev.WorkItemId, rev.RevisionIndex, rev.ChangedDate);
-        var file = Path.Combine(_ctx.PackageRoot!, folder.Replace('/', Path.DirectorySeparatorChar), "revision.json");
+        var file = Path.Combine(RevisionFolderPath(rev), "revision.json");
         var json = File.ReadAllText(file);
         StringAssert.Contains(json, "attachments");
         foreach (var att in rev.Attachments)
