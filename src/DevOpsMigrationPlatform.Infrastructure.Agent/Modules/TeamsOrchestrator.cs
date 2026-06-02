@@ -248,6 +248,24 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
 
         var projectName = targetEndpointInfo.Project;
         var sourceProjectName = sourceEndpointInfo.Project;
+        if (string.IsNullOrWhiteSpace(sourceProjectName))
+        {
+            sourceProjectName = projectName;
+        }
+        if (string.IsNullOrWhiteSpace(sourceProjectName))
+        {
+            sourceProjectName = "unknown";
+        }
+
+        var sourceOrganisation = sourceEndpointInfo.OrganisationSlug;
+        if (string.IsNullOrWhiteSpace(sourceOrganisation))
+        {
+            sourceOrganisation = targetEndpointInfo.OrganisationSlug;
+        }
+        if (string.IsNullOrWhiteSpace(sourceOrganisation))
+        {
+            sourceOrganisation = "unknown";
+        }
 
         using (_logger.BeginDataScope(DataClassification.Customer))
             _logger.LogInformation("[Teams] Importing teams for project '{Project}'.", projectName);
@@ -261,12 +279,12 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         });
 
         var count = 0;
-        await foreach (var teamPath in EnumeratePackageContentAsync(context.Package, sourceEndpointInfo.OrganisationSlug, sourceProjectName, ct).ConfigureAwait(false))
+        await foreach (var teamPath in EnumeratePackageContentAsync(context.Package, sourceOrganisation, sourceProjectName, ct).ConfigureAwait(false))
         {
             if (!teamPath.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            var json = await ReadPackageContentAsync(context.Package, sourceEndpointInfo.OrganisationSlug, sourceProjectName, teamPath, ct).ConfigureAwait(false);
+            var json = await ReadPackageContentAsync(context.Package, sourceOrganisation, sourceProjectName, teamPath, ct).ConfigureAwait(false);
             if (json is null)
             {
                 _logger.LogWarning("[Teams] Could not read team file '{Path}' — skipping.", teamPath);
@@ -488,4 +506,3 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             : normalized;
     }
 }
-

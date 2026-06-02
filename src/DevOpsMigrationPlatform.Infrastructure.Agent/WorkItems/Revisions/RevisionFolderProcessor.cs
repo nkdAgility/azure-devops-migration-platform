@@ -560,12 +560,15 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     private static IEnumerable<PackageContentContext> CreateLegacyArtefactContexts(string path)
     {
         var normalized = path.Replace('\\', '/').TrimStart('/');
+        var moduleRelative = normalized.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase)
+            ? normalized.Substring("WorkItems/".Length)
+            : normalized;
         yield return new PackageContentContext(
             PackageContentKind.Artefact,
             Organisation: string.Empty,
             Project: string.Empty,
-            Module: string.Empty,
-            Address: new RelativePathAddress(normalized));
+            Module: "WorkItems",
+            Address: new RelativePathAddress(moduleRelative));
 
         if (!normalized.StartsWith("WorkItems/", StringComparison.OrdinalIgnoreCase))
         {
@@ -573,8 +576,8 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
                 PackageContentKind.Artefact,
                 Organisation: string.Empty,
                 Project: string.Empty,
-                Module: string.Empty,
-                Address: new RelativePathAddress($"WorkItems/{normalized}"));
+                Module: "WorkItems",
+                Address: new RelativePathAddress(normalized));
         }
     }
 

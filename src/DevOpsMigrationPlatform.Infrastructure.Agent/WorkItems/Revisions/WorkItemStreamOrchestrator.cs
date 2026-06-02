@@ -426,13 +426,7 @@ public sealed class WorkItemStreamOrchestrator
         if (yieldedAny)
             yield break;
 
-        var legacyContext = new PackageContentContext(
-            PackageContentKind.Collection,
-            Organisation: string.Empty,
-            Project: string.Empty,
-            Module: "WorkItems",
-            IsCollectionRequest: true);
-        await foreach (var folderPath in EnumerateWorkItemFoldersFromContextAsync(legacyContext, ct).ConfigureAwait(false))
+        await foreach (var folderPath in EnumerateWorkItemFoldersFromAllContentAsync(ct).ConfigureAwait(false))
             yield return folderPath;
     }
 
@@ -452,6 +446,35 @@ public sealed class WorkItemStreamOrchestrator
                 continue;
             var folderPath = candidateFolderPath;
 
+            if (previousPath is not null && string.CompareOrdinal(folderPath, previousPath) < 0)
+            {
+                throw new InvalidOperationException(
+                    $"WorkItems package enumeration must be lexicographic ascending. Previous='{previousPath}', Current='{folderPath}'.");
+            }
+
+            if (string.Equals(folderPath, previousPath, StringComparison.Ordinal))
+                continue;
+
+            previousPath = folderPath;
+            yield return folderPath;
+        }
+    }
+
+    private async IAsyncEnumerable<string> EnumerateWorkItemFoldersFromAllContentAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+    {
+        var allPaths = _package.EnumerateAllAsync(ct);
+        if (allPaths is null)
+            yield break;
+
+        string? previousPath = null;
+        await foreach (var path in allPaths.ConfigureAwait(false))
+        {
+            var candidateFolderPath = TryGetImportFolderPath(path);
+            if (candidateFolderPath is null || candidateFolderPath.Length == 0)
+                continue;
+
+            var folderPath = candidateFolderPath;
             if (previousPath is not null && string.CompareOrdinal(folderPath, previousPath) < 0)
             {
                 throw new InvalidOperationException(

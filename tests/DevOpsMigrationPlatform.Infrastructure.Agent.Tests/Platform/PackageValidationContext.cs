@@ -50,7 +50,7 @@ public class PackageValidationContext
             return "test-org/test-project/manifest.json";
 
         if (normalized.StartsWith("WorkItems/", System.StringComparison.OrdinalIgnoreCase))
-            return $"test-org/test-project/{normalized}";
+            return normalized;
 
         return normalized;
     }

@@ -106,7 +106,7 @@ public sealed class DependencyOrchestratorTests
             300,
             CancellationToken.None);
 
-        var groupedPayload = await package.Object.RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "Dependencies", Address: new TestPackageAddress("discovery-project-dependencies.csv")), CancellationToken.None);
+        var groupedPayload = await package.Object.RequestIndexAsync(new PackageIndexContext("discovery-project-dependencies.csv"), CancellationToken.None);
         var groupedCsv = groupedPayload is not null ? new StreamReader(groupedPayload.Content).ReadToEnd() : null;
 
         Assert.IsNotNull(groupedCsv);
@@ -159,8 +159,8 @@ public sealed class DependencyOrchestratorTests
         Assert.IsTrue(contResult.Payload is null, "Dependencies capture should clear the continuation token once the project capture completes.");
         Assert.IsFalse(await package.Object.ContentExistsAsync(new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "Dependencies", Address: new TestPackageAddress(PackagePathTestHelper.CursorFile("DependencyDiscovery"))), CancellationToken.None), "Dependencies capture must not write the legacy root dependency cursor.");
 
-        var canonicalProjectPayload = await package.Object.RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "Dependencies", Address: new TestPackageAddress("org/ProjectA/dependencies.csv")), CancellationToken.None);
-        var invalidDiscoveryPayload = await package.Object.RequestContentAsync(new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "Dependencies", Address: new TestPackageAddress("discovery/org/ProjectA/dependencies.csv")), CancellationToken.None);
+        var canonicalProjectPayload = await package.Object.RequestIndexAsync(new PackageIndexContext("dependencies.csv", Organisation: "org", Project: "ProjectA"), CancellationToken.None);
+        var invalidDiscoveryPayload = await package.Object.RequestIndexAsync(new PackageIndexContext("dependencies.csv", Organisation: "discovery", Project: "org"), CancellationToken.None);
         var canonicalProjectCsv = canonicalProjectPayload is not null ? new StreamReader(canonicalProjectPayload.Content).ReadToEnd() : null;
         var invalidDiscoveryCsv = invalidDiscoveryPayload is not null ? new StreamReader(invalidDiscoveryPayload.Content).ReadToEnd() : null;
         Assert.IsNotNull(canonicalProjectCsv, "Dependencies capture must write to the canonical org/project path.");
@@ -310,4 +310,3 @@ public sealed class DependencyOrchestratorTests
                 packageAccess);
     }
 }
-

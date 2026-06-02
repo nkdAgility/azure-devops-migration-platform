@@ -44,10 +44,10 @@ public sealed class NodePathValidatorTests
             .Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext context, CancellationToken _) =>
             {
-                var path = context.Address!.RelativePath.Replace('\\', '/');
+                var path = NormalizeRevisionPath(context.Address!.RelativePath);
                 PackagePayload? payload = path switch
                 {
-                    revisionA => CreatePayload(new WorkItemRevision
+                    var normalizedRevisionA when normalizedRevisionA == NormalizeRevisionPath(revisionA) => CreatePayload(new WorkItemRevision
                     {
                         Fields =
                         [
@@ -55,7 +55,7 @@ public sealed class NodePathValidatorTests
                             new WorkItemField { ReferenceName = "System.IterationPath", Value = @"Project\Sprint 1" }
                         ]
                     }),
-                    revisionB => CreatePayload(new WorkItemRevision
+                    var normalizedRevisionB when normalizedRevisionB == NormalizeRevisionPath(revisionB) => CreatePayload(new WorkItemRevision
                     {
                         Fields =
                         [
@@ -109,13 +109,13 @@ public sealed class NodePathValidatorTests
             .Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext context, CancellationToken _) =>
             {
-                var path = context.Address!.RelativePath.Replace('\\', '/');
-                if (path == revisionA)
+                var path = NormalizeRevisionPath(context.Address!.RelativePath);
+                if (path == NormalizeRevisionPath(revisionA))
                 {
                     return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("{invalid-json}"))));
                 }
 
-                if (path == revisionB)
+                if (path == NormalizeRevisionPath(revisionB))
                 {
                     return ValueTask.FromResult<PackagePayload?>(CreatePayload(new WorkItemRevision
                     {
@@ -158,8 +158,8 @@ public sealed class NodePathValidatorTests
             .Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
             .Returns((PackageContentContext context, CancellationToken _) =>
             {
-                var path = context.Address!.RelativePath.Replace('\\', '/');
-                if (path != revision)
+                var path = NormalizeRevisionPath(context.Address!.RelativePath);
+                if (path != NormalizeRevisionPath(revision))
                 {
                     return ValueTask.FromResult<PackagePayload?>(null);
                 }
@@ -224,6 +224,14 @@ public sealed class NodePathValidatorTests
     {
         var json = JsonSerializer.Serialize(revision);
         return new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(json)));
+    }
+
+    private static string NormalizeRevisionPath(string path)
+    {
+        var normalized = path.Replace('\\', '/');
+        return normalized.StartsWith("WorkItems/", System.StringComparison.OrdinalIgnoreCase)
+            ? normalized["WorkItems/".Length..]
+            : normalized;
     }
 
     private sealed record TestTargetEndpointInfo : ITargetEndpointInfo

@@ -911,13 +911,32 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
                                 if (_currentJobEndpointAccessor is not null)
                                 {
+                                    await _sourceEndpointLock.WaitAsync(ct).ConfigureAwait(false);
                                     await _targetEndpointLock.WaitAsync(ct).ConfigureAwait(false);
                                     try
                                     {
+                                        var previousSource = _currentJobEndpointAccessor.Source;
                                         var previousTarget = _currentJobEndpointAccessor.Target;
+                                        var sourceScopeApplied = false;
                                         if (TryBuildTaskTargetEndpointInfo(task, previousTarget, out var scopedTarget))
                                         {
                                             _currentJobEndpointAccessor.SetTarget(scopedTarget);
+                                        }
+                                        if (TryBuildTaskSourceEndpointInfo(task, endpointsByUrl, previousSource, out var scopedSource))
+                                        {
+                                            _currentJobEndpointAccessor.SetSource(scopedSource);
+                                            sourceScopeApplied = true;
+                                        }
+                                        else if (TryBuildTaskTargetEndpointInfo(task, previousTarget, out var sourceFromTarget))
+                                        {
+                                            _currentJobEndpointAccessor.SetSource(new CaptureSourceEndpointInfo(
+                                                sourceFromTarget.Url ?? string.Empty,
+                                                sourceFromTarget.Project,
+                                                sourceFromTarget.ConnectorType,
+                                                sourceFromTarget.ToOrganisationEndpoint().ApiVersion,
+                                                sourceFromTarget.ToOrganisationEndpoint().Authentication.Type,
+                                                sourceFromTarget.ToOrganisationEndpoint().Authentication.ResolvedAccessToken));
+                                            sourceScopeApplied = true;
                                         }
 
                                         try
@@ -926,6 +945,17 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                                         }
                                         finally
                                         {
+                                            if (sourceScopeApplied)
+                                            {
+                                                if (previousSource is not null)
+                                                {
+                                                    _currentJobEndpointAccessor.SetSource(previousSource);
+                                                }
+                                                else
+                                                {
+                                                    _currentJobEndpointAccessor.ClearSource();
+                                                }
+                                            }
                                             if (TryBuildTaskTargetEndpointInfo(task, previousTarget, out _))
                                             {
                                                 if (previousTarget is not null)
@@ -942,6 +972,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
                                     finally
                                     {
                                         _targetEndpointLock.Release();
+                                        _sourceEndpointLock.Release();
                                     }
                                 }
                                 else

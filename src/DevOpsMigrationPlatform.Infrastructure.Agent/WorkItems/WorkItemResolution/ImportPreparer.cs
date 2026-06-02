@@ -26,8 +26,8 @@ public sealed class ImportPreparer
 
     private readonly WorkItemsModuleOptions _workItemsOptions;
     private readonly IReadOnlyList<IImportFailurePattern> _importFailurePatterns;
-    private readonly string _organisation;
-    private readonly string _project;
+    private readonly string _defaultOrganisation;
+    private readonly string _defaultProject;
 
     public ImportPreparer(
         IOptions<WorkItemsModuleOptions> workItemsOptions,
@@ -36,14 +36,15 @@ public sealed class ImportPreparer
         IEnumerable<IImportFailurePattern>? importFailurePatterns = null)
     {
         _workItemsOptions = workItemsOptions.Value;
-        _organisation = organisation ?? throw new ArgumentNullException(nameof(organisation));
-        _project = project ?? throw new ArgumentNullException(nameof(project));
+        _defaultOrganisation = organisation ?? throw new ArgumentNullException(nameof(organisation));
+        _defaultProject = project ?? throw new ArgumentNullException(nameof(project));
         _importFailurePatterns = importFailurePatterns?.ToArray() ?? [];
     }
 
     public async Task<PrepareReport> PrepareAsync(PrepareContext context, CancellationToken cancellationToken)
     {
-        var importFailurePatternContext = new ImportFailurePatternContext(context, _workItemsOptions, _organisation, _project);
+        var (organisation, project) = ResolveScope(context);
+        var importFailurePatternContext = new ImportFailurePatternContext(context, _workItemsOptions, organisation, project);
         var failureFindings = new List<ImportFailureFinding>();
         foreach (var pattern in _importFailurePatterns)
         {
@@ -73,7 +74,7 @@ public sealed class ImportPreparer
             artefactFindings,
             fieldTransformFindings);
 
-        var resolvedCount = await CountRevisionArtefactsAsync(context, cancellationToken).ConfigureAwait(false);
+        var resolvedCount = await CountRevisionArtefactsAsync(context, organisation, project, cancellationToken).ConfigureAwait(false);
         return new PrepareReport
         {
             ModuleName = ModuleName,
@@ -158,11 +159,11 @@ public sealed class ImportPreparer
         return findings;
     }
 
-    private async Task<int> CountRevisionArtefactsAsync(PrepareContext context, CancellationToken cancellationToken)
+    private async Task<int> CountRevisionArtefactsAsync(PrepareContext context, string organisation, string project, CancellationToken cancellationToken)
     {
         var resolvedCount = 0;
         await foreach (var artefactPath in context.Package.EnumerateContentAsync(
-                           new PackageContentContext(PackageContentKind.Collection, Organisation: _organisation, Project: _project, Module: ModuleName, IsCollectionRequest: true),
+                           new PackageContentContext(PackageContentKind.Collection, Organisation: organisation, Project: project, Module: ModuleName, IsCollectionRequest: true),
                            cancellationToken).ConfigureAwait(false))
         {
             if (artefactPath.EndsWith("/revision.json", StringComparison.Ordinal))
@@ -172,5 +173,31 @@ public sealed class ImportPreparer
         }
 
         return resolvedCount;
+    }
+
+    private (string Organisation, string Project) ResolveScope(PrepareContext context)
+    {
+        var organisation = _defaultOrganisation;
+        if (string.IsNullOrWhiteSpace(organisation))
+        {
+            organisation = context.TargetEndpoint.OrganisationSlug;
+        }
+
+        var project = _defaultProject;
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = context.TargetEndpoint.Project;
+        }
+
+        if (string.IsNullOrWhiteSpace(organisation))
+        {
+            organisation = "unknown";
+        }
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = "unknown";
+        }
+
+        return (organisation, project);
     }
 }

@@ -241,6 +241,14 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     {
         var url = ConfigTokenResolver.Resolve(packageConfig["MigrationPlatform:Source:Url"])?.Trim();
         var project = packageConfig["MigrationPlatform:Source:Project"]?.Trim();
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = packageConfig
+                .GetSection("MigrationPlatform:Source:Generator:Projects")
+                .GetChildren()
+                .Select(projectSection => projectSection["Name"]?.Trim())
+                .FirstOrDefault(projectName => !string.IsNullOrWhiteSpace(projectName));
+        }
         var connectorType = packageConfig["MigrationPlatform:Source:Type"];
 
         if (string.IsNullOrWhiteSpace(connectorType))

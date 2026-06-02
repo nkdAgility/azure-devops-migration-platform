@@ -183,7 +183,29 @@ public sealed class NodesModule : IModule
         var stopwatch = Stopwatch.StartNew();
         _PlatformMetrics?.RecordPrepareNodesResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
         _PlatformMetrics?.RecordPrepareNodesUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
-        await PersistPackageTextAsync(context.Package, Name, _sourceEndpointInfo.OrganisationSlug, _sourceEndpointInfo.Project, "prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
+
+        var organisation = _sourceEndpointInfo.OrganisationSlug;
+        if (string.IsNullOrWhiteSpace(organisation))
+        {
+            organisation = context.TargetEndpoint.OrganisationSlug;
+        }
+
+        var project = _sourceEndpointInfo.Project;
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = context.TargetEndpoint.Project;
+        }
+
+        if (string.IsNullOrWhiteSpace(organisation))
+        {
+            organisation = "unknown";
+        }
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = "unknown";
+        }
+
+        await PersistPackageTextAsync(context.Package, Name, organisation, project, "prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
         stopwatch.Stop();
 
         _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", Name, report.ResolvedCount, report.UnresolvedCount, stopwatch.ElapsedMilliseconds);

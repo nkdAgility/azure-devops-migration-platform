@@ -113,10 +113,12 @@ internal sealed class PackagePathRouter
                 "Use PersistIndexAsync/RequestIndexAsync for structural (non-module) files, " +
                 "or EnumerateAllAsync for whole-package discovery.");
 
-        if (string.IsNullOrWhiteSpace(context.Organisation) || string.IsNullOrWhiteSpace(context.Project))
+        var hasOrganisation = !string.IsNullOrWhiteSpace(context.Organisation);
+        var hasProject = !string.IsNullOrWhiteSpace(context.Project);
+        if (hasOrganisation != hasProject)
             throw new PackageValidationException(
                 "PKG_MODULE_SCOPE_REQUIRED",
-                $"Module-scoped content routing for '{context.Module}' requires both Organisation and Project.");
+                $"Module-scoped content routing for '{context.Module}' requires both Organisation and Project when either is provided.");
 
         var segments = new List<string>(capacity: 4);
         AddSegment(segments, context.Organisation);
@@ -274,4 +276,3 @@ internal sealed class PackagePathRouter
     public string ResolveLockPath(string localRoot)
         => System.IO.Path.Combine(localRoot, LockFilePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
 }
-

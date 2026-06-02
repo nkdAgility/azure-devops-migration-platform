@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -491,8 +492,13 @@ public sealed class DependencyCaptureTests
         var service = new Mock<IDependencyDiscoveryService>(MockBehavior.Strict);
         var packageMock = PackageTestFactory.CreateLooseMock();
 
-        packageMock.Setup(p => p.ContentExistsAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true); // file already exists → should trigger debug log
+        packageMock.Setup(p => p.RequestIndexAsync(
+                It.Is<PackageIndexContext>(c =>
+                    c.FileName == "dependencies.csv"
+                    && c.Organisation == "testorg"
+                    && c.Project == "TestProject"),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("header\n")), "text/csv")); // file already exists → should trigger debug log
 
         factory.Setup(f => f.CreateForProject(
                 It.IsAny<IReadOnlyList<ScopedOrganisationEndpoint>>(),

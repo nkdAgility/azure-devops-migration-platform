@@ -426,8 +426,8 @@ public sealed class JobPlanExecutorTests
             .Callback<ProgressEvent>(evt => progressEvents.Add(evt));
 
         var package = PackageTestFactory.CreateLooseMock().Object;
-        await package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, "test-org", "test-project", "TestModule", Address: new TestPackageAddress("inventory.json")),
+        await package.PersistIndexAsync(
+            new PackageIndexContext("inventory.json"),
             new PackagePayload(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(inventoryJson), writable: false)),
             CancellationToken.None);
         var executor = CreateExecutor(progressSink: progressSink.Object, package: package);

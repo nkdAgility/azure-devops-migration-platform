@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 
@@ -20,16 +21,18 @@ public sealed class ActiveJobSourceEndpointInfo : ISourceEndpointInfo
         => _accessor = accessor ?? throw new System.ArgumentNullException(nameof(accessor));
 
     public string Url
-        => _accessor.Source?.Url ?? string.Empty;
+        => _accessor.Source?.Url ?? _accessor.Target?.Url ?? string.Empty;
 
     public string Project
-        => _accessor.Source?.Project ?? string.Empty;
+        => _accessor.Source?.Project ?? _accessor.Target?.Project ?? string.Empty;
 
     public string ConnectorType
-        => _accessor.Source?.ConnectorType ?? string.Empty;
+        => _accessor.Source?.ConnectorType ?? _accessor.Target?.ConnectorType ?? string.Empty;
 
     public string OrganisationSlug
-        => EndpointSlugHelper.ExtractSlug(Url);
+        => !string.IsNullOrWhiteSpace(Url)
+            ? EndpointSlugHelper.ExtractSlug(Url)
+            : PackagePathResolver.Sanitise((ConnectorType ?? "unknown").ToLowerInvariant());
 
     public OrganisationEndpoint ToOrganisationEndpoint()
         => _accessor.Source?.ToOrganisationEndpoint() ?? new OrganisationEndpoint();

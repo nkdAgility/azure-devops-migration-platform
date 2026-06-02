@@ -189,11 +189,13 @@ public sealed class IdentitiesModule : IModule
         _PlatformMetrics?.RecordPrepareIdentitiesResolved(report.ResolvedCount, tags);
         _PlatformMetrics?.RecordPrepareIdentitiesUnresolved(report.UnresolvedCount, tags);
 
+        var (organisation, project) = ResolvePrepareScope(context);
+
         await PersistPackageTextAsync(
             context.Package,
             new PackageContentContext(PackageContentKind.Artefact,
-                Organisation: _sourceEndpointInfo.OrganisationSlug,
-                Project: _sourceEndpointInfo.Project,
+                Organisation: organisation,
+                Project: project,
                 Module: "Identities",
                 Address: new RelativePathAddress("prepare-report.json")),
             JsonSerializer.Serialize(report),
@@ -254,8 +256,20 @@ public sealed class IdentitiesModule : IModule
             return TaskExecutionResult.Skipped("Identities module disabled for import.");
         }
 
+        var organisation = _sourceEndpointInfo.OrganisationSlug;
+        if (string.IsNullOrWhiteSpace(organisation))
+        {
+            organisation = "unknown";
+        }
+
+        var project = _sourceEndpointInfo.Project;
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = "unknown";
+        }
+
         await _orchestrator.ImportAsync(
-            _identityLookupTool, context, _sourceEndpointInfo.OrganisationSlug, _sourceEndpointInfo.Project, _checkpointingFactory, ct).ConfigureAwait(false);
+            _identityLookupTool, context, organisation, project, _checkpointingFactory, ct).ConfigureAwait(false);
 
         return TaskExecutionResult.Completed();
 #endif
@@ -278,5 +292,33 @@ public sealed class IdentitiesModule : IModule
     {
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
         await package.PersistContentAsync(context, new PackagePayload(stream, "application/json"), ct).ConfigureAwait(false);
+    }
+
+    private (string Organisation, string Project) ResolvePrepareScope(PrepareContext context)
+    {
+        var organisation = _sourceEndpointInfo.OrganisationSlug;
+        if (string.IsNullOrWhiteSpace(organisation))
+        {
+            organisation = !string.IsNullOrWhiteSpace(context.TargetEndpoint.Url)
+                ? PackagePathResolver.DeriveInventoryOrgSlug(context.TargetEndpoint.Url)
+                : PackagePathResolver.Sanitise((context.TargetEndpoint.ConnectorType ?? "unknown").ToLowerInvariant());
+        }
+
+        var project = _sourceEndpointInfo.Project;
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = context.TargetEndpoint.Project;
+        }
+
+        if (string.IsNullOrWhiteSpace(organisation))
+        {
+            organisation = "unknown";
+        }
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = "unknown";
+        }
+
+        return (organisation, project);
     }
 }

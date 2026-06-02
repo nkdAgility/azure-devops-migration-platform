@@ -170,7 +170,10 @@ public sealed class WorkItemsModuleImportTests
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address != null && string.Equals(c.Address.RelativePath.Replace('\\', '/'), "Nodes/referenced-paths.json", StringComparison.Ordinal)),
+                It.Is<PackageContentContext>(c =>
+                    string.Equals(c.Module, "Nodes", StringComparison.Ordinal) &&
+                    c.Address != null &&
+                    string.Equals(c.Address.RelativePath.Replace('\\', '/'), "referenced-paths.json", StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult<PackagePayload?>(CreatePayload(new ReferencedPathsArtifact([@"Source\Area"], []))));
         package
@@ -343,12 +346,18 @@ public sealed class WorkItemsModuleImportTests
         var package = new Mock<IPackageAccess>(MockBehavior.Strict);
         package
             .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address != null && string.Equals(c.Address.RelativePath.Replace('\\', '/'), "Nodes/referenced-paths.json", StringComparison.Ordinal)),
+                It.Is<PackageContentContext>(c =>
+                    string.Equals(c.Module, "Nodes", StringComparison.Ordinal) &&
+                    c.Address != null &&
+                    string.Equals(c.Address.RelativePath.Replace('\\', '/'), "referenced-paths.json", StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult<PackagePayload?>(CreatePayload(new ReferencedPathsArtifact([], []))));
         package
             .Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address != null && string.Equals(c.Address.RelativePath.Replace('\\', '/'), "Nodes/source-tree.json", StringComparison.Ordinal)),
+                It.Is<PackageContentContext>(c =>
+                    string.Equals(c.Module, "Nodes", StringComparison.Ordinal) &&
+                    c.Address != null &&
+                    string.Equals(c.Address.RelativePath.Replace('\\', '/'), "source-tree.json", StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult<PackagePayload?>(CreatePayload(new ClassificationTreeSnapshot(
                 AreaNodes: [@"Source\Area"],

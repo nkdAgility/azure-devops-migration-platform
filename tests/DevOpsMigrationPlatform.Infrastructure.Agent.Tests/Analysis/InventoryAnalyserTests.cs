@@ -36,8 +36,9 @@ public sealed class InventoryAnalyserTests
 
         await analyser.AnalyseAsync(CreateContext(artefactStore.Object), CancellationToken.None);
 
-        artefactStore.Verify(p => p.PersistContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "inventory.json"), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()), Times.Once);
-        artefactStore.Verify(p => p.PersistContentAsync(It.Is<PackageContentContext>(c => c.Address!.RelativePath == "inventory.csv"), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()), Times.Once);
+        artefactStore.Verify(p => p.PersistIndexAsync(It.Is<PackageIndexContext>(c => c.FileName == "inventory.json" && string.IsNullOrWhiteSpace(c.Organisation) && string.IsNullOrWhiteSpace(c.Project)), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()), Times.Once);
+        artefactStore.Verify(p => p.PersistIndexAsync(It.Is<PackageIndexContext>(c => c.FileName == "inventory.json" && c.Organisation == "testorg"), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()), Times.Once);
+        artefactStore.Verify(p => p.PersistIndexAsync(It.Is<PackageIndexContext>(c => c.FileName == "inventory.csv"), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [TestMethod]
@@ -156,10 +157,12 @@ public sealed class InventoryAnalyserTests
         };
 
         var store = PackageTestFactory.CreateLooseMock();
-        store.Setup(p => p.RequestContentAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))
-            .Returns((PackageContentContext ctx, CancellationToken _) =>
+        store.Setup(p => p.RequestIndexAsync(It.IsAny<PackageIndexContext>(), It.IsAny<CancellationToken>()))
+            .Returns((PackageIndexContext ctx, CancellationToken _) =>
             {
-                var path = ctx.Address?.RelativePath ?? string.Empty;
+                var path = string.IsNullOrWhiteSpace(ctx.Organisation) || string.IsNullOrWhiteSpace(ctx.Project)
+                    ? ctx.FileName
+                    : $"{ctx.Organisation}/{ctx.Project}/{ctx.FileName}";
                 if (!map.TryGetValue(path, out var value))
                     return ValueTask.FromResult<PackagePayload?>(null);
                 return ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(value))));

@@ -221,7 +221,26 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         _metrics?.RecordPrepareWorkItemsUnresolved(report.UnresolvedCount, tags);
         _metrics?.RecordPrepareWorkItemsDuration(stopwatch.Elapsed.TotalMilliseconds, tags);
         var org = _sourceEndpointInfo.OrganisationSlug;
+        if (string.IsNullOrWhiteSpace(org))
+        {
+            org = context.TargetEndpoint.OrganisationSlug;
+        }
+
         var project = _sourceEndpointInfo.Project;
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = context.TargetEndpoint.Project;
+        }
+
+        if (string.IsNullOrWhiteSpace(org))
+        {
+            org = "unknown";
+        }
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = "unknown";
+        }
+
         await WritePackageTextAsync(
             context.Package,
             new PackageContentContext(PackageContentKind.Artefact, Organisation: org, Project: project, Module: "WorkItems", Address: new RelativePathAddress("prepare-report.json")),

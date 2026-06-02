@@ -188,10 +188,32 @@ public sealed class TeamsModule : IModule
         var report = new PrepareReport { ModuleName = Name, ResolvedCount = 0 };
         _PlatformMetrics?.RecordPrepareTeamsResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
         _PlatformMetrics?.RecordPrepareTeamsUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
+
+        var organisation = _sourceEndpointInfo.OrganisationSlug;
+        if (string.IsNullOrWhiteSpace(organisation))
+        {
+            organisation = context.TargetEndpoint.OrganisationSlug;
+        }
+
+        var project = _sourceEndpointInfo.Project;
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = context.TargetEndpoint.Project;
+        }
+
+        if (string.IsNullOrWhiteSpace(organisation))
+        {
+            organisation = "unknown";
+        }
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = "unknown";
+        }
+
         using (var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(report)), writable: false))
         {
             await context.Package.PersistContentAsync(
-                new PackageContentContext(PackageContentKind.Artefact, Module: Name, Organisation: _sourceEndpointInfo.OrganisationSlug, Project: _sourceEndpointInfo.Project, Address: new RelativePathAddress("prepare-report.json")),
+                new PackageContentContext(PackageContentKind.Artefact, Module: Name, Organisation: organisation, Project: project, Address: new RelativePathAddress("prepare-report.json")),
                 new PackagePayload(stream, "application/json"),
                 ct).ConfigureAwait(false);
         }

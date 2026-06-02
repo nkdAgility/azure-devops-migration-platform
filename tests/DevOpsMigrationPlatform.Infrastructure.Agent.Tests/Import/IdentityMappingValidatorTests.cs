@@ -27,8 +27,8 @@ public sealed class IdentityMappingValidatorTests
     [TestMethod]
     public async Task EvaluateAsync_ReturnsWarningFindings_WhenIdentityMappingServiceLeavesEntriesUnresolved()
     {
-        const string descriptorsPath = "Identities/descriptors.jsonl";
-        const string mappingPath = "Identities/mapping.json";
+        const string descriptorsPath = "descriptors.jsonl";
+        const string mappingPath = "mapping.json";
 
         var package = PackageTestFactory.CreateLooseMock();
         package
@@ -69,8 +69,8 @@ public sealed class IdentityMappingValidatorTests
     [TestMethod]
     public async Task EvaluateAsync_ReportsUnresolved_WhenIdentityFallsBackToDefaultIdentityWithoutExplicitMapping()
     {
-        const string descriptorsPath = "Identities/descriptors.jsonl";
-        const string mappingPath = "Identities/mapping.json";
+        const string descriptorsPath = "descriptors.jsonl";
+        const string mappingPath = "mapping.json";
 
         var package = PackageTestFactory.CreateLooseMock();
         package
@@ -106,8 +106,8 @@ public sealed class IdentityMappingValidatorTests
     [TestMethod]
     public async Task EvaluateAsync_DoesNotReportUnresolved_WhenIdentityHasExplicitSelfMapping()
     {
-        const string descriptorsPath = "Identities/descriptors.jsonl";
-        const string mappingPath = "Identities/mapping.json";
+        const string descriptorsPath = "descriptors.jsonl";
+        const string mappingPath = "mapping.json";
 
         var package = PackageTestFactory.CreateLooseMock();
         package
@@ -141,8 +141,8 @@ public sealed class IdentityMappingValidatorTests
     [TestMethod]
     public async Task EvaluateAsync_ReturnsSortedWarningFindings_WhenMultipleIdentitiesAreUnresolved()
     {
-        const string descriptorsPath = "Identities/descriptors.jsonl";
-        const string mappingPath = "Identities/mapping.json";
+        const string descriptorsPath = "descriptors.jsonl";
+        const string mappingPath = "mapping.json";
 
         var package = PackageTestFactory.CreateLooseMock();
         package

@@ -175,23 +175,40 @@ public class NodeReadinessOrchestratorTests
 
         var packageMock = new Mock<IPackageAccess>(MockBehavior.Strict);
         packageMock.Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address != null && string.Equals(c.Address.RelativePath.Replace('\\', '/'), "Nodes/referenced-paths.json", StringComparison.Ordinal)),
+                It.Is<PackageContentContext>(c =>
+                    c.Module == "Nodes" &&
+                    c.Address != null &&
+                    string.Equals(c.Address.RelativePath.Replace('\\', '/'), "referenced-paths.json", StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult<PackagePayload?>(null));
         packageMock.Setup(p => p.EnumerateContentAsync(
-                It.Is<PackageContentContext>(c => c.IsCollectionRequest && c.Address != null && c.Address.RelativePath.Replace('\\', '/').StartsWith("WorkItems", StringComparison.Ordinal)),
+                It.Is<PackageContentContext>(c =>
+                    c.IsCollectionRequest &&
+                    c.Module == "WorkItems" &&
+                    c.Organisation == "test-org" &&
+                    c.Project == "test-project"),
                 It.IsAny<CancellationToken>()))
             .Returns(EmptyAsync());
         packageMock.Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address != null && string.Equals(c.Address.RelativePath.Replace('\\', '/'), "Nodes/source-tree.json", StringComparison.Ordinal)),
+                It.Is<PackageContentContext>(c =>
+                    c.Module == "Nodes" &&
+                    c.Address != null &&
+                    string.Equals(c.Address.RelativePath.Replace('\\', '/'), "source-tree.json", StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult<PackagePayload?>(null));
         packageMock.Setup(p => p.EnumerateContentAsync(
-                It.Is<PackageContentContext>(c => c.IsCollectionRequest && c.Address != null && string.Equals(c.Address.RelativePath.Replace('\\', '/'), "Nodes", StringComparison.Ordinal)),
+                It.Is<PackageContentContext>(c =>
+                    c.IsCollectionRequest &&
+                    c.Module == "Nodes" &&
+                    c.Organisation == "test-org" &&
+                    c.Project == "test-project"),
                 It.IsAny<CancellationToken>()))
             .Returns(EnumerateAsync("Nodes/metadata/source-tree.json"));
         packageMock.Setup(p => p.RequestContentAsync(
-                It.Is<PackageContentContext>(c => c.Address != null && string.Equals(c.Address.RelativePath.Replace('\\', '/'), "Nodes/metadata/source-tree.json", StringComparison.Ordinal)),
+                It.Is<PackageContentContext>(c =>
+                    c.Module == "Nodes" &&
+                    c.Address != null &&
+                    string.Equals(c.Address.RelativePath.Replace('\\', '/'), "source-tree.json", StringComparison.Ordinal)),
                 It.IsAny<CancellationToken>()))
             .Returns(ValueTask.FromResult(CreatePayload(sourceTree)));
         packageMock.Setup(p => p.ContentExistsAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()))

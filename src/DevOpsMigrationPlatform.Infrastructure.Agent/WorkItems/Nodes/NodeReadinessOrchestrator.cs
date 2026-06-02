@@ -74,6 +74,25 @@ public sealed class NodeReadinessOrchestrator
             context.TargetProjectName,
             replicateSourceTree);
 
+        var organisation = _organisation;
+        if (string.IsNullOrWhiteSpace(organisation))
+        {
+            organisation = "unknown";
+        }
+
+        var project = _project;
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = !string.IsNullOrWhiteSpace(context.SourceProjectName)
+                ? context.SourceProjectName
+                : context.TargetProjectName;
+        }
+
+        if (string.IsNullOrWhiteSpace(project))
+        {
+            project = "unknown";
+        }
+
         var processed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (_importCreatedNodeStateStore is not null)
         {
@@ -84,14 +103,14 @@ public sealed class NodeReadinessOrchestrator
             }
         }
 
-        var referenced = await ReadArtifactAsync<ReferencedPathsArtifact>(ReferencedPathsFile, ct).ConfigureAwait(false);
+        var referenced = await ReadArtifactAsync<ReferencedPathsArtifact>(organisation, project, ReferencedPathsFile, ct).ConfigureAwait(false);
         if (referenced is null)
         {
             var referencedPathsStrategy = new ReferencedPathsFromWorkItemsStrategy(
                 _packageAccess,
                 _logger,
-                _organisation,
-                _project);
+                organisation,
+                project);
             referenced = await referencedPathsStrategy
                 .CollectDistinctPathsAsync(ct)
                 .ConfigureAwait(false);
@@ -118,7 +137,7 @@ public sealed class NodeReadinessOrchestrator
 
         if (replicateSourceTree)
         {
-            var snapshot = await ReadArtifactAsync<ClassificationTreeSnapshot>(SourceTreeFile, ct).ConfigureAwait(false);
+            var snapshot = await ReadArtifactAsync<ClassificationTreeSnapshot>(organisation, project, SourceTreeFile, ct).ConfigureAwait(false);
             if (snapshot is not null)
             {
                 await EnsureTranslatedPathsAsync(
@@ -236,14 +255,14 @@ public sealed class NodeReadinessOrchestrator
             $"Set SkipOnUnresolvable{(isArea ? "Area" : "Iteration")}: true to skip instead.");
     }
 
-    private async Task<T?> ReadArtifactAsync<T>(string fileName, CancellationToken ct)
+    private async Task<T?> ReadArtifactAsync<T>(string organisation, string project, string fileName, CancellationToken ct)
     {
         var payload = await _packageAccess
             .RequestContentAsync(
                 new PackageContentContext(
                     PackageContentKind.Artefact,
-                    Organisation: _organisation,
-                    Project: _project,
+                    Organisation: organisation,
+                    Project: project,
                     Module: ModuleName,
                     Address: new RelativePathAddress(fileName)),
                 ct)
@@ -254,20 +273,20 @@ public sealed class NodeReadinessOrchestrator
             return await DeserializeArtifactAsync<T>(payload, ct).ConfigureAwait(false);
         }
 
-        var metadataPayload = await EnumerateClassificationMetadataAsync(fileName, ct).ConfigureAwait(false);
+        var metadataPayload = await EnumerateClassificationMetadataAsync(organisation, project, fileName, ct).ConfigureAwait(false);
         if (metadataPayload is null)
             return default;
 
         return await DeserializeArtifactAsync<T>(metadataPayload, ct).ConfigureAwait(false);
     }
 
-    private async Task<PackagePayload?> EnumerateClassificationMetadataAsync(string fileName, CancellationToken ct)
+    private async Task<PackagePayload?> EnumerateClassificationMetadataAsync(string organisation, string project, string fileName, CancellationToken ct)
     {
         await foreach (var enumeratedPath in _packageAccess.EnumerateContentAsync(
                            new PackageContentContext(
                                PackageContentKind.Collection,
-                               Organisation: _organisation,
-                               Project: _project,
+                               Organisation: organisation,
+                               Project: project,
                                Module: ModuleName,
                                IsCollectionRequest: true),
                            ct).ConfigureAwait(false))

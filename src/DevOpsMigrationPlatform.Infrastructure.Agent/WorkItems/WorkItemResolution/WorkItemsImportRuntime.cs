@@ -178,11 +178,32 @@ public sealed class WorkItemsImportRuntime
         var idMapConnection = await context.Package.OpenNativeDatabaseAsync(PackageMetaKind.IdMapDb, ct).ConfigureAwait(false);
         var idMapStore = _idMapStoreFactory.Create(idMapConnection);
 
+        var sourceOrganisation = _sourceEndpointInfo.OrganisationSlug;
+        if (string.IsNullOrWhiteSpace(sourceOrganisation))
+        {
+            sourceOrganisation = _targetEndpointInfo.OrganisationSlug;
+        }
+        if (string.IsNullOrWhiteSpace(sourceOrganisation))
+        {
+            sourceOrganisation = !string.IsNullOrWhiteSpace(_targetEndpointInfo.Url)
+                ? PackagePathResolver.DeriveInventoryOrgSlug(_targetEndpointInfo.Url)
+                : "unknown";
+        }
+
         var sourceProjectName = _sourceEndpointInfo.Project;
+        if (string.IsNullOrWhiteSpace(sourceProjectName))
+        {
+            sourceProjectName = project;
+        }
+        if (string.IsNullOrWhiteSpace(sourceProjectName))
+        {
+            sourceProjectName = "unknown";
+        }
+
         var nodeReadinessContext = new ProjectMapping(sourceProjectName, project);
         var replicateSourceTree = _nodesModuleOptions?.Value.ReplicateSourceTree ?? false;
         await _nodeReadinessOrchestrator
-            .EnsureReadyAsync(nodeReadinessContext, replicateSourceTree, context, _sourceEndpointInfo.OrganisationSlug, sourceProjectName, ct)
+            .EnsureReadyAsync(nodeReadinessContext, replicateSourceTree, context, sourceOrganisation, sourceProjectName, ct)
             .ConfigureAwait(false);
         context.ProgressSink.Emit(new ProgressEvent
         {
@@ -198,14 +219,14 @@ public sealed class WorkItemsImportRuntime
             idMapStore,
             checkpointingService,
             _identityLookupTool,
-            _sourceEndpointInfo.OrganisationSlug,
+            sourceOrganisation,
             sourceProjectName,
             nodeStructureContext);
 
         var importFilters = startupPolicy.ImportFilters;
         var orchestrator = new WorkItemsImportRuntime(
             context.Package,
-            _sourceEndpointInfo.OrganisationSlug,
+            sourceOrganisation,
             sourceProjectName,
             checkpointingService,
             context.ProgressSink,

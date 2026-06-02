@@ -127,11 +127,15 @@ public sealed class ServicesFeaturesDslTests
     [TestMethod]
     public void IdentityResolution_WorkItemsImport_DeclaresIdentitiesPrerequisite()
     {
+        var sourceEndpoint = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Context.ISourceEndpointInfo>(MockBehavior.Loose);
+        sourceEndpoint.SetupGet(e => e.OrganisationSlug).Returns("source-org");
+        sourceEndpoint.SetupGet(e => e.Project).Returns("ProjectA");
+
         var module = new WorkItemsModule(
             sourceFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Export.IWorkItemRevisionSourceFactory>(),
             logger: Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemsModule>.Instance,
             options: Microsoft.Extensions.Options.Options.Create(new WorkItemsModuleOptions()),
-            sourceEndpointInfo: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Context.ISourceEndpointInfo>(),
+            sourceEndpointInfo: sourceEndpoint.Object,
             orchestratorLogger: Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemsImportRuntime>.Instance,
             importTargetFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemTargetFactory>(),
             resolutionStrategyFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemResolutionStrategyFactory>(),
