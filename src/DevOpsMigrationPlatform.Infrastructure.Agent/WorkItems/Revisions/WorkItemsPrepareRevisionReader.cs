@@ -30,7 +30,8 @@ internal static class WorkItemsPrepareRevisionReader
             }
 
             var revisionFolder = artefactPath.Substring(0, artefactPath.Length - "/revision.json".Length);
-            var revisionJson = await ReadPackageTextAsync(package, organisation, project, artefactPath, cancellationToken).ConfigureAwait(false);
+            var (readOrganisation, readProject) = ResolveReadScopeFromArtefactPath(artefactPath, organisation, project);
+            var revisionJson = await ReadPackageTextAsync(package, readOrganisation, readProject, artefactPath, cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(revisionJson))
             {
                 yield return new ParsedWorkItemRevision(
@@ -79,14 +80,43 @@ internal static class WorkItemsPrepareRevisionReader
         string project,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var context = new PackageContentContext(
+        var scopedContext = new PackageContentContext(
             PackageContentKind.Collection,
             Organisation: organisation,
             Project: project,
             Module: "WorkItems",
             IsCollectionRequest: true);
 
-        await foreach (var artefactPath in package.EnumerateContentAsync(context, cancellationToken).ConfigureAwait(false))
+        var discoveredScopedPath = false;
+        await foreach (var artefactPath in package.EnumerateContentAsync(scopedContext, cancellationToken).ConfigureAwait(false))
+        {
+            if (!artefactPath.EndsWith("/revision.json", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!IsWorkItemsRevisionPath(artefactPath))
+            {
+                continue;
+            }
+
+            discoveredScopedPath = true;
+            yield return artefactPath;
+        }
+
+        if (discoveredScopedPath)
+        {
+            yield break;
+        }
+
+        var legacyContext = new PackageContentContext(
+            PackageContentKind.Collection,
+            Organisation: string.Empty,
+            Project: string.Empty,
+            Module: "WorkItems",
+            IsCollectionRequest: true);
+
+        await foreach (var artefactPath in package.EnumerateContentAsync(legacyContext, cancellationToken).ConfigureAwait(false))
         {
             if (!artefactPath.EndsWith("/revision.json", StringComparison.Ordinal))
             {
@@ -137,6 +167,18 @@ internal static class WorkItemsPrepareRevisionReader
             payload.Content.Position = 0;
         using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
         return await reader.ReadToEndAsync().ConfigureAwait(false);
+    }
+
+    private static (string Organisation, string Project) ResolveReadScopeFromArtefactPath(
+        string artefactPath,
+        string organisation,
+        string project)
+    {
+        var normalized = artefactPath.Replace('\\', '/').TrimStart('/');
+        var scopedPrefix = $"{organisation}/{project}/WorkItems/";
+        return normalized.StartsWith(scopedPrefix, StringComparison.OrdinalIgnoreCase)
+            ? (organisation, project)
+            : (string.Empty, string.Empty);
     }
 
     /// <summary>

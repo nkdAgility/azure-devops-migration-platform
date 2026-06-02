@@ -6,6 +6,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -74,13 +75,36 @@ internal sealed class ZipPackagePreparer : IPackagePreparer
                 continue;
 
             cancellationToken.ThrowIfCancellationRequested();
+            var entryPath = NormalizeArchiveEntryPath(entry.FullName);
 
             using var entryStream = entry.Open();
-            await store.WriteStreamAsync(entry.FullName, entryStream, cancellationToken).ConfigureAwait(false);
+            await store.WriteStreamAsync(entryPath, entryStream, cancellationToken).ConfigureAwait(false);
             count++;
         }
 
         _logger.LogInformation(
             "Extracted {Count} files from fixture {ZipPath} into package store.", count, resolvedZipPath);
+    }
+
+    private static string NormalizeArchiveEntryPath(string entryName)
+    {
+        var normalized = entryName.Replace('\\', '/').Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            throw new PackageValidationException(
+                "PKG_ARCHIVE_ENTRY_INVALID",
+                "Archive entry path must not be empty.");
+        }
+
+        if (normalized.StartsWith("/", StringComparison.Ordinal)
+            || normalized.IndexOf(":", StringComparison.Ordinal) >= 0
+            || Array.Exists(normalized.Split('/'), static segment => segment == ".."))
+        {
+            throw new PackageValidationException(
+                "PKG_ARCHIVE_ENTRY_INVALID",
+                "Archive entry path must be relative and must not escape the package scope.");
+        }
+
+        return normalized;
     }
 }
