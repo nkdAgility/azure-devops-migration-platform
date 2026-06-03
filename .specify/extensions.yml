@@ -1,4 +1,5 @@
-installed: []
+installed:
+- agent-context
 settings:
   auto_execute_hooks: true
 hooks:
@@ -31,6 +32,13 @@ hooks:
     prompt: Commit specification changes?
     description: Auto-commit after specification
     condition: null
+  - extension: agent-context
+    command: speckit.agent-context.update
+    enabled: true
+    optional: true
+    prompt: Execute speckit.agent-context.update?
+    description: Refresh agent context after specification
+    condition: null
   after_plan:
   - extension: nkda-observability-contract
     command: nkda-observability-contract --stage plan
@@ -56,6 +64,13 @@ hooks:
     prompt: Commit plan changes?
     description: Auto-commit after implementation planning
     condition: null
+  - extension: agent-context
+    command: speckit.agent-context.update
+    enabled: true
+    optional: true
+    prompt: Execute speckit.agent-context.update?
+    description: Refresh agent context after planning
+    condition: null
   after_tasks:
   - extension: nkda-observability-contract
     command: nkda-observability-contract --stage tasks
@@ -72,15 +87,15 @@ hooks:
     description: 'Catches missing or under-specified tasks at planning time. Produces
       a requirement coverage and TDD-readiness report. Bridge-native logic.
 
-       '
+      '
     condition: null
   - extension: nkda-core-tasks-architecture-compliance
     command: nkda-core-tasks-architecture-compliance
     enabled: true
     optional: false
-    description: Design-time compliance review for tasks.md — validates task-level implementation
-      coverage against spec.md and plan.md across all five architecture perspectives plus
-      constitution and guardrails before implementation begins
+    description: Design-time compliance review for tasks.md — validates task-level
+      implementation coverage against spec.md and plan.md across all five architecture
+      perspectives plus constitution and guardrails before implementation begins
     condition: null
   - extension: git
     command: speckit.git.commit
@@ -282,4 +297,3 @@ hooks:
     prompt: Commit after syncing issues?
     description: Auto-commit after tasks-to-issues conversion
     condition: null
-
