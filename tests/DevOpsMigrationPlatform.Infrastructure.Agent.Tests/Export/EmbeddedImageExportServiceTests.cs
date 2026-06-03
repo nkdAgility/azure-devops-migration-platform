@@ -67,8 +67,11 @@ public class EmbeddedImageExportServiceTests
 
         await sut.ProcessHtmlAsync(html, "WorkItems/rev/folder", CancellationToken.None);
 
-        downloader.Verify(d => d.TryDownloadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once,
-            "Image should be downloaded only once for duplicate URLs.");
+        downloader.Verify(d => d.TryDownloadAsync(
+            "https://dev.azure.com/org/proj/_apis/wit/attachments/shared123",
+            It.IsAny<CancellationToken>()), Times.Once,
+            "Image should be downloaded exactly once for the specific shared URL.");
+        downloader.VerifyNoOtherCalls();
     }
 
     // ── Scenario: External non-ADO image URLs are preserved with warning ──────

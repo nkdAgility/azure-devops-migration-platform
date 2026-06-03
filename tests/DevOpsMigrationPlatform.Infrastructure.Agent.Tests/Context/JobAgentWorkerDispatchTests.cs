@@ -228,7 +228,6 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestCategory("UnitTest")]
-    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task OnJobAsync_Export_RoutesToExportPlanExecution()
     {

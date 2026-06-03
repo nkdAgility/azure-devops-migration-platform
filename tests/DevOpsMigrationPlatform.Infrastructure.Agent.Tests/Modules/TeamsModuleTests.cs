@@ -341,7 +341,11 @@ public class TeamsModuleTests
         var exportOrch = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance, endpointInfo: CreateSourceEndpointInfo());
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
-            Options.Create(new TeamsModuleOptions { Enabled = true }),
+            Options.Create(new TeamsModuleOptions
+            {
+                Enabled = true,
+                Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true, TeamMembers = true }
+            }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             orchestrator: CreateTeamsOrchestrator(package.Object, exportOrchestrator: exportOrch),

@@ -75,9 +75,7 @@ public class ReferencedPathTrackerTests
 
 
 
-    [TestCategory("UnitTests")]
-
-
+    
 
     [TestCategory("UnitTest")]
     [TestMethod]
@@ -112,9 +110,7 @@ public class ReferencedPathTrackerTests
 
 
 
-    [TestCategory("UnitTests")]
-
-
+    
 
     [TestCategory("UnitTest")]
     [TestMethod]
@@ -149,9 +145,7 @@ public class ReferencedPathTrackerTests
 
 
 
-    [TestCategory("UnitTests")]
-
-
+    
 
     [TestCategory("UnitTest")]
     [TestMethod]
@@ -186,9 +180,7 @@ public class ReferencedPathTrackerTests
 
 
 
-    [TestCategory("UnitTests")]
-
-
+    
 
     [TestCategory("UnitTest")]
     [TestMethod]
@@ -231,9 +223,7 @@ public class ReferencedPathTrackerTests
 
 
 
-    [TestCategory("UnitTests")]
-
-
+    
 
     [TestCategory("UnitTest")]
     [TestMethod]

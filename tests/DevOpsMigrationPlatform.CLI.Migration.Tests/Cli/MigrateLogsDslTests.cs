@@ -90,17 +90,8 @@ public class MigrateLogsDslTests
             "ExecuteInternalAsync",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
 
-        var originalOut = Console.Out;
-        Console.SetOut(stdout);
-        try
-        {
-            var exitCode = await (Task<int>)executeMethod.Invoke(command, new object[] { cmdCtx, settings, ct })!;
-            return (exitCode, stdout.ToString());
-        }
-        finally
-        {
-            Console.SetOut(originalOut);
-        }
+        var exitCode = await (Task<int>)executeMethod.Invoke(command, new object[] { cmdCtx, settings, ct })!;
+        return (exitCode, stdout.ToString());
     }
 
     // ── Scenario: Snapshot mode prints NDJSON lines and exits 0 ───────────────

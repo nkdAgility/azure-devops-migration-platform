@@ -192,7 +192,6 @@ public class PackageMigrationConfigLoaderTests
     }
 
     [TestCategory("UnitTest")]
-    [TestCategory("UnitTest")]
     [TestMethod]
     // T023: ConfigReadErrors incremented on absent file
     public async Task LoadAsync_WhenFileAbsent_IncrementsConfigReadErrors()

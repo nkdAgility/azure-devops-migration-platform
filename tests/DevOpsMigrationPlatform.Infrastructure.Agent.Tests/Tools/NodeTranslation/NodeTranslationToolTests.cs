@@ -229,7 +229,6 @@ public class NodeTransformToolTests
         Assert.IsTrue(result.MatchedByProjectSwap);
     }
 
-    [TestCategory("UnitTests")]
     [TestCategory("UnitTest")]
     [TestMethod]
     public void IsEnabled_ReturnsFalse_WhenToolConfiguredAsDisabled()
