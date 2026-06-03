@@ -44,7 +44,6 @@
     <ExternalFeatureFiles Include="..\..\features\platform\validation\package-validation.feature" />
     <ExternalFeatureFiles Include="..\..\features\platform\telemetry\progress-sink.feature" />
 <ExternalFeatureFiles Include="..\..\features\inventory\work-items\filter-scope-inventory.feature" />
-    <ExternalFeatureFiles Include="..\..\features\platform\validation\nodetranslation-validation.feature" />
   </ItemGroup>
 
   <Target Name="PrepareReqnrollFeatureFiles" BeforeTargets="UpdateFeatureFilesInProject">
