@@ -257,6 +257,24 @@ public class IdentitiesModuleTests
 
     [TestCategory("UnitTest")]
     [TestMethod]
+    public async Task ValidateAsync_AddsError_WhenDescriptorFieldMissing()
+    {
+        var storeMock = PackageTestFactory.CreateLooseMock();
+        storeMock
+            .Setup(p => p.RequestContentAsync(It.Is<PackageContentContext>(c => c.Module == "Identities" && c.Address!.RelativePath == "descriptors.jsonl"), It.IsAny<CancellationToken>()))
+            .Returns((PackageContentContext _, CancellationToken _) => ValueTask.FromResult<PackagePayload?>(new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes("{\"upn\":\"alice@src.com\"}\n")))));
+
+        var module = CreateModule(package: storeMock.Object);
+        var context = CreateValidationContext(storeMock.Object);
+
+        await module.ValidateAsync(context, CancellationToken.None);
+
+        Assert.AreEqual(1, context.Errors.Count);
+        StringAssert.Contains(context.Errors[0].Message, "descriptor");
+    }
+
+    [TestCategory("UnitTest")]
+    [TestMethod]
     public async Task ValidateAsync_PassesForValidDescriptors()
     {
         // Arrange
