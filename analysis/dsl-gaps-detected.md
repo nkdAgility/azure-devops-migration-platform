@@ -186,6 +186,41 @@ In practice: untranslatable paths are silently passed through as-is, not skipped
 
 ---
 
+## GAP-006: TeamImportOrchestrator — No skip-on-unresolvable for member identity; warning only on AddMemberAsync failure
+
+**Detected during:** migration of `features/import/teams/import-team-members.feature` (scenario 2)
+**gap-type:** `behaviour-conflict`
+**Status:** OPEN
+
+### What the feature claims
+
+```gherkin
+Scenario: Unresolvable member identity is skipped with warning
+  And the IdentityMappingService returns the default identity for "src-unknown"
+  Then a warning is logged for the unresolvable member
+```
+
+### What the code shows
+
+`TeamImportOrchestrator.ImportTeamAsync` (`src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamImportOrchestrator.cs:116-135`):
+
+```csharp
+var resolvedDescriptor = extensions.IdentityLookup && _identityLookupTool?.IsEnabled == true
+    ? _identityLookupTool.Resolve(member.Descriptor)
+    : member.Descriptor;
+var resolvedMember = member with { Descriptor = resolvedDescriptor };
+await _teamTarget.AddMemberAsync(null!, projectName, targetTeamId, resolvedMember, ct);
+```
+
+`AddMemberAsync` is always called with whatever `Resolve()` returns — no check for "did the identity resolve to a default?" before adding. The `_logger.LogWarning` in the `catch` block fires only when `AddMemberAsync` itself throws, not when the identity fell back to the configured default.
+
+### Resolution options
+
+1. **Add an unresolved-identity check** — if `_identityLookupTool.Resolve()` returns the configured default (or a sentinel indicating fallback), log a warning and skip `AddMemberAsync`.
+2. **Accept always-add behaviour** — if adding members with the default identity is intentional, delete the scenario and document that unresolvable members are imported under the default identity.
+
+---
+
 ## GAP-003: NodesModule — INodeEnsurer does not exist; no skip-when-both-false guard
 
 **Detected during:** migration of `features/import/nodes/import-classification-tree.feature` (scenario 3)
