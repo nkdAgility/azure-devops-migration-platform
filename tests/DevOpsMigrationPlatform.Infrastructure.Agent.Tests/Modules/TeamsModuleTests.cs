@@ -963,6 +963,107 @@ public class TeamsModuleTests
             "Area path translation must use 'System.AreaPath'.");
     }
 
+    // ── Area Path Tests ───────────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task ImportAsync_TranslatesDefaultAndIncludedAreaPaths_ViaNodeTranslationTool()
+    {
+        // Arrange
+        var target = new SimulatedTeamTarget();
+
+        var translationToolMock = new Mock<INodeTranslationTool>(MockBehavior.Loose);
+        translationToolMock.Setup(t => t.IsEnabled).Returns(true);
+        translationToolMock
+            .Setup(t => t.TranslatePath("System.AreaPath", It.IsAny<string>(), It.IsAny<ProjectMapping>()))
+            .Returns<string, string, ProjectMapping>((_, path, _) =>
+                new PathTranslation(path.Replace("SourceProject", "TargetProject"), false, true, false));
+
+        var importOrch = new TeamImportOrchestrator(
+            target, NullLogger<TeamImportOrchestrator>.Instance,
+            endpointInfo: CreateTargetEndpointInfo(),
+            NodeTransformTool: translationToolMock.Object);
+
+        var teamPackage = new TeamPackage
+        {
+            Definition = new TeamDefinition("src-1", "Alpha Team", "", false),
+            Iterations = new List<TeamIteration>(),
+            Members = new List<TeamMember>(),
+            AreaPaths = new TeamAreaPaths("SourceProject", new List<string> { "SourceProject", "SourceProject\\Sub" }),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+        };
+        var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
+
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
+        storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
+        storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(json);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions
+            {
+                Enabled = true,
+                Extensions = new TeamsModuleExtensionsOptions { NodeTranslation = true }
+            }),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: target);
+
+        // Act
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
+
+        // Assert — area paths translated from SourceProject → TargetProject
+        var teamId = new System.Collections.Generic.List<string>(target.Teams.Keys)[0];
+        Assert.IsTrue(target.AreaPaths.ContainsKey(teamId), "SetAreaPathsAsync should have been called");
+        Assert.AreEqual("TargetProject", target.AreaPaths[teamId].DefaultAreaPath);
+        Assert.IsTrue(target.AreaPaths[teamId].IncludedAreaPaths.Contains("TargetProject"), "TargetProject should be in included paths");
+        Assert.IsTrue(target.AreaPaths[teamId].IncludedAreaPaths.Contains("TargetProject\\Sub"), "TargetProject\\Sub should be in included paths");
+    }
+
+    [TestMethod]
+    public async Task ImportAsync_DoesNotSetAreaPaths_WhenNodeTranslationExtensionDisabled()
+    {
+        // Arrange
+        var target = new SimulatedTeamTarget();
+        var importOrch = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo());
+
+        var teamPackage = new TeamPackage
+        {
+            Definition = new TeamDefinition("src-1", "Alpha Team", "", false),
+            Iterations = new List<TeamIteration>(),
+            Members = new List<TeamMember>(),
+            AreaPaths = new TeamAreaPaths("SourceProject\\TeamArea", new List<string> { "SourceProject\\TeamArea" }),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+        };
+        var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
+
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
+        storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
+        storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(json);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions
+            {
+                Enabled = true,
+                Extensions = new TeamsModuleExtensionsOptions { NodeTranslation = false }
+            }),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: target);
+
+        // Act
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
+
+        // Assert — NodeTranslation disabled: SetAreaPathsAsync must not be called
+        Assert.AreEqual(0, target.AreaPaths.Count, "SetAreaPathsAsync should not be called when NodeTranslation extension is disabled");
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static async IAsyncEnumerable<string> ToAsyncEnum(

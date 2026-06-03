@@ -149,6 +149,41 @@ The default team is detected but no settings are applied to the target's default
 
 ---
 
+## GAP-005: TeamImportOrchestrator — TranslatePath() always falls back to source; skip-on-untranslatable unreachable
+
+**Detected during:** migration of `features/import/teams/import-team-area-paths.feature` (scenarios 2 and 3)
+**gap-type:** `behaviour-conflict`
+**Status:** OPEN
+
+### What the feature claims
+
+- Scenario 2: when `NodeTransformTool` returns null for an included area path, the path is skipped and a warning is logged.
+- Scenario 3: when `NodeTransformTool` returns null for the default area path, `SetAreaPathsAsync` is not called at all.
+
+### What the code shows
+
+`TeamImportOrchestrator.TranslatePath()` (`src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamImportOrchestrator.cs:190-200`):
+
+```csharp
+var result = _NodeTransformTool.TranslatePath(fieldName, sourcePath!, projectMapping);
+return result.TargetPath ?? sourcePath;
+```
+
+When `result.TargetPath` is null, it returns the original `sourcePath` — never null for a non-empty path. This means:
+
+- The `else _logger.LogWarning(...)` branch at line 150 (included paths loop) is unreachable for non-empty paths.
+- The `if (defaultPath is not null)` guard at line 142 always passes for a non-empty default path.
+
+In practice: untranslatable paths are silently passed through as-is, not skipped.
+
+### Resolution options
+
+1. **Change the fallback semantics** — return null from `TranslatePath` when `result.TargetPath` is null (remove `?? sourcePath`), making untranslatable paths genuinely skippable. Update callers to handle null explicitly.
+2. **Use a dedicated "not found" signal** — check `result.Translated` or a similar flag instead of null-checking `TargetPath`, and skip when the translation tool reports the path as unresolvable.
+3. **Accept pass-through as correct** — if falling back to the source path is intentional, delete scenarios 2 and 3 and document the pass-through behaviour.
+
+---
+
 ## GAP-003: NodesModule — INodeEnsurer does not exist; no skip-when-both-false guard
 
 **Detected during:** migration of `features/import/nodes/import-classification-tree.feature` (scenario 3)
