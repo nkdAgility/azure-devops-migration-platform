@@ -261,3 +261,34 @@ Scenario: Import is skipped when both ReplicateSourceTree and AutoCreateNodes ar
 
 1. **Add CLI pre-submission check** — before calling `client.SubmitAsync`, check if `{packagePath}/.migration/migration-config.json` exists on the local filesystem and fail with a clear error (only applicable when package path is a local path, not a remote URI).
 2. **Rewrite scenario to reflect actual behaviour** — instead of fail-fast, assert that the agent handles the existing file through resume semantics (overwrite if compatible, reject if endpoints changed).
+
+---
+
+## GAP-008: export-execution-metrics — OTel counter assertions require infrastructure setup
+
+- **gap-type:** `other`
+- **family:** `export-execution-metrics`
+- **file:** `features/export/work-items/export-execution-metrics.feature`
+- **scenarios:** All 3 (Successful export emits counters, Transient failures increment retried, Duration histogram records measurements)
+- **wiring state:** unwired
+- **detail:** The scenarios assert on OpenTelemetry metric counters (`migration.workitems.attempted`, `migration.workitems.retried`, `migration.workitem.duration.ms`). Verifying these requires either the OTel in-memory exporter or the full platform metrics pipeline. No existing unit tests in the codebase verify these counter values in isolation. Building reliable unit tests for OTel counter behavior requires substantial instrumentation harness that is out of scope for this migration cycle.
+
+### Resolution options
+
+1. **Add OTel in-memory exporter tests** — wire up `AddInMemoryExporter` in a test build and assert counter values after running the export orchestrator.
+2. **Map to progress sink tests** — the `ExportAsync_EmitsProgressPerWorkItem` test already verifies that progress events are emitted per work item; extend it to capture metric values.
+
+---
+
+## GAP-009: export-payload-metrics — MetricSnapshot requires full export pipeline
+
+- **gap-type:** `other`
+- **family:** `export-payload-metrics`
+- **file:** `features/export/work-items/export-payload-metrics.feature`
+- **scenarios:** Both (Payload histograms reflect complexity, MetricSnapshot shows batch mean values)
+- **wiring state:** unwired
+- **detail:** The scenarios assert on `MetricSnapshot` properties (`RevisionCountMean`, `FieldCountMean`, `PayloadBytesMean`) that are computed from OTel histograms across a full export run. No unit tests currently verify these aggregated histogram values. Same root cause as GAP-008.
+
+### Resolution options
+
+Same as GAP-008: add OTel in-memory exporter instrumentation to the export orchestrator tests.
