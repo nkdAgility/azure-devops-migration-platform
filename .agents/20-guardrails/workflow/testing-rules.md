@@ -35,7 +35,10 @@ MSTest conventions, test naming, and organisation. See also: [coding-standards.m
 
 ## Mandatory Category Tagging (Touch = Tag)
 
-**Every time a test class or test method is created, edited, moved, or debugged, the agent MUST ensure the correct `[TestCategory]` attribute is present.**
+> **HARD GATE — no exceptions, no deferrals, no delegation excuses.**
+> A task is **incomplete** if any touched test file contains a test method or test class missing a `[TestCategory]` attribute. The agent MUST apply the correct category before the edit is considered done. "The class already lacked a tag" is not an excuse — it makes the fix more urgent, not optional.
+
+Every time a test file is **created, edited, moved, or touched in any way**, every `[TestMethod]` and `[TestClass]` in that file MUST carry the correct `[TestCategory]` before the change is committed or reported as complete.
 
 | Condition | Required attribute |
 | --- | --- |
@@ -45,13 +48,21 @@ MSTest conventions, test naming, and organisation. See also: [coding-standards.m
 | Test is a critical-path smoke subset | `[TestCategory("SystemTests_Smoke")]` |
 | Test targets live ADO/TFS | `[TestCategory("SystemTests")]` or `[TestCategory("SystemTests_Live")]` |
 
-**Enforcement rules:**
+**Enforcement rules — all are blocking, none are optional:**
 
-1. If a test is missing its `[TestCategory]` when touched, add it before completing the edit.
-2. If a test is recategorised (e.g., promoted from SystemTests to DomainTests), update the attribute.
-3. The `nkda-testdsl-*` skills must apply `[TestCategory("DomainTests")]` to all converted tests.
-4. The `nkda-testdsl-refactor` skill must preserve or correct category tags during refactor.
-5. A test with no `[TestCategory]` attribute is non-compliant — fix on contact.
+1. **Missing tag on touch:** If any `[TestMethod]` or `[TestClass]` in a touched file lacks `[TestCategory]`, add the correct tag in the same edit. This applies to every method in the file, not just the method being modified.
+2. **Wrong tag on touch:** If a tag is incorrect (wrong category, old name), correct it in the same edit.
+3. **Delegation does not exempt:** If a sub-agent or delegated run added or modified a test, the calling agent is responsible for verifying tags before closing the task. "The delegated run didn't add it" is not a valid completion state.
+4. **No partial compliance:** Applying the tag to the new method while leaving existing uncategorised methods in the same file is non-compliant. Fix the whole file.
+5. **Category names are canonical:** Only the exact strings `UnitTests`, `DomainTests`, `SystemTests_Simulated`, `SystemTests_Smoke`, `SystemTests`, `SystemTests_Live` are valid. Any other value is non-compliant and must be corrected on contact.
+6. The `nkda-testdsl-*` skills must apply `[TestCategory("DomainTests")]` to all converted tests.
+7. The `nkda-testdsl-refactor` skill must verify and correct all category tags in any file it touches.
+
+**Checklist before marking any test-touching task complete:**
+
+- [ ] Every `[TestMethod]` in every touched file has a `[TestCategory]` with a canonical value.
+- [ ] Every `[TestClass]` in every touched file has a `[TestCategory]` with a canonical value (class-level tag is required when all methods share the same category).
+- [ ] No old or non-canonical category values remain in touched files.
 
 ---
 
