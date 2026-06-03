@@ -198,7 +198,8 @@ public sealed class ResumableBatchingCursorDslTests
         catch (Exception e) { ex = e; }
 
         Assert.IsNull(ex, $"Should not throw: {ex?.Message}");
-        Assert.IsTrue(yielded.Count > 0, "Should process items from boundary cluster.");
+        Assert.AreEqual(500, yielded.Count,
+            $"All 500 items in the boundary cluster must be processed (cursor at WorkItemId 250 must not skip same-date items). Got {yielded.Count}.");
     }
 
     // ── Scenario 5: Resume with more than 20000 items since saved position ────

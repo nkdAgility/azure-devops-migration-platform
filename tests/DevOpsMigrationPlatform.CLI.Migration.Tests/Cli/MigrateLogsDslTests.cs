@@ -145,9 +145,10 @@ public class MigrateLogsDslTests
         client.Setup(c => c.GetProgressAsync(s_httpErrJobId, It.IsAny<CancellationToken>()))
               .ThrowsAsync(new HttpRequestException("503 Service Unavailable"));
 
-        var (exitCode, _) = await RunAsync(s_httpErrJobId, follow: false, client);
+        var (exitCode, stdout) = await RunAsync(s_httpErrJobId, follow: false, client);
 
         Assert.AreEqual(1, exitCode);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(stdout), "An error message must be printed to stdout on HTTP error.");
     }
 
     // ── Scenario: HTTP error in follow mode exits 1 ───────────────────────────
@@ -160,9 +161,10 @@ public class MigrateLogsDslTests
         client.Setup(c => c.FollowLogsAsync(s_followErrId, It.IsAny<CancellationToken>(), It.IsAny<long?>()))
               .Returns<Guid, CancellationToken, long?>((_, _, _) => ThrowAsync());
 
-        var (exitCode, _) = await RunAsync(s_followErrId, follow: true, client);
+        var (exitCode, stdout) = await RunAsync(s_followErrId, follow: true, client);
 
         Assert.AreEqual(1, exitCode);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(stdout), "An error message must be printed to stdout on HTTP error.");
     }
 
     // ── Scenario: HTTP 403 causes a permissions error message ────────────────
@@ -175,8 +177,9 @@ public class MigrateLogsDslTests
         client.Setup(c => c.GetProgressAsync(s_forbiddenId, It.IsAny<CancellationToken>()))
               .ThrowsAsync(new HttpRequestException("403 Forbidden"));
 
-        var (exitCode, _) = await RunAsync(s_forbiddenId, follow: false, client);
+        var (exitCode, stdout) = await RunAsync(s_forbiddenId, follow: false, client);
 
         Assert.AreEqual(1, exitCode);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(stdout), "An error message must be printed to stdout on HTTP 403.");
     }
 }
