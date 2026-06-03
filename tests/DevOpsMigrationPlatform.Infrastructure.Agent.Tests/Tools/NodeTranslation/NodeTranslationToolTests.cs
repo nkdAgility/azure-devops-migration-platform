@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+﻿// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -38,6 +38,7 @@ public class NodeTransformToolTests
 
     // --- Regex map hit ---
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void TranslatePath_WhenRuleMatches_ReturnsRemappedPath()
     {
@@ -52,6 +53,7 @@ public class NodeTransformToolTests
         Assert.IsFalse(result.IsExternalPath);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void TranslatePath_WhenRuleMatchesWithCaptureGroups_AppliesReplacement()
     {
@@ -64,6 +66,7 @@ public class NodeTransformToolTests
         Assert.IsTrue(result.MatchedByMap);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void TranslatePath_FirstMatchingRuleWins()
     {
@@ -78,6 +81,7 @@ public class NodeTransformToolTests
         Assert.AreEqual(@"TargetProject\First\Feature 3", result.TargetPath);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void TranslatePath_MatchingIsCaseInsensitive()
     {
@@ -92,6 +96,7 @@ public class NodeTransformToolTests
 
     // --- Auto-swap ---
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void TranslatePath_WhenNoRuleMatches_AutoSwapsProjectName()
     {
@@ -107,6 +112,7 @@ public class NodeTransformToolTests
 
     // --- External path pass-through ---
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void TranslatePath_WhenPathFromOtherProject_MarksAsExternal()
     {
@@ -120,6 +126,7 @@ public class NodeTransformToolTests
         Assert.IsTrue(result.IsExternalPath);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void TranslatePath_WhenCalledWithSameInput_ReturnsMemoizedResultInstance()
     {
@@ -131,6 +138,7 @@ public class NodeTransformToolTests
         Assert.AreSame(first, second);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task TranslatePath_WhenCalledConcurrentlyWithSameInput_ReturnsSameMemoizedInstance()
     {
@@ -158,6 +166,7 @@ public class NodeTransformToolTests
 
     // --- Whitespace trimming ---
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void TranslatePath_WhitespaceTrimmedBeforeProcessing()
     {
@@ -171,6 +180,7 @@ public class NodeTransformToolTests
 
     // --- Language override ---
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void TranslatePath_AreaLanguageOverride_NormalisesRootSegment()
     {
@@ -184,6 +194,7 @@ public class NodeTransformToolTests
         Assert.IsTrue(result.TargetPath!.StartsWith("Area\\"));
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void TranslatePath_IterationLanguageOverride_NormalisesRootSegment()
     {
@@ -196,6 +207,7 @@ public class NodeTransformToolTests
 
     // --- Language override + auto-swap ---
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void TranslatePath_AreaLanguageOverride_NormalisesLocalisedRootThenAutoSwaps()
     {
@@ -206,6 +218,7 @@ public class NodeTransformToolTests
         Assert.IsTrue(result.MatchedByProjectSwap, "Expected auto-swap after language override normalised root to source project name.");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void TranslatePath_IterationLanguageOverride_NormalisesLocalisedRootThenAutoSwaps()
     {
@@ -216,7 +229,7 @@ public class NodeTransformToolTests
         Assert.IsTrue(result.MatchedByProjectSwap);
     }
 
-    [TestCategory("UnitTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void IsEnabled_ReturnsFalse_WhenToolConfiguredAsDisabled()
     {

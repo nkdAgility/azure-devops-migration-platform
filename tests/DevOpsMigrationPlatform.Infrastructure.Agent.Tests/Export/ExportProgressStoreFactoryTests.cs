@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+﻿// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
 using System;
@@ -16,6 +16,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Export;
 [TestClass]
 public class ExportProgressStoreFactoryTests
 {
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task Create_WhenGivenResolvedDatabasePath_InitializesSqlite()
     {
@@ -52,6 +53,7 @@ public class ExportProgressStoreFactoryTests
         }
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task Create_WhenWindowsPathExceedsMaxPath_StillInitializesSqlite()
     {

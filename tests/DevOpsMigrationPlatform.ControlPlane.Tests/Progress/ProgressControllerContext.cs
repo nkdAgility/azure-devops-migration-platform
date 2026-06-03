@@ -50,7 +50,6 @@ internal sealed class ProgressControllerContext
         var identity = new ClaimsIdentity("TestAuth");
         identity.AddClaim(new Claim(ClaimTypes.Name, "test-user"));
         var principal = new ClaimsPrincipal(identity);
-
         Controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext

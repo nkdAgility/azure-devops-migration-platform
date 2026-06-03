@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+﻿// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
 using System;
@@ -27,6 +27,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
         Authentication = new OrganisationEndpointAuthentication()
     };
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task FetchAsync_EmptyFields_ThrowsArgumentException()
     {
@@ -43,6 +44,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
         });
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task FetchAsync_NullFields_ThrowsArgumentException()
     {
@@ -59,6 +61,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
         });
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task FetchAsync_EmptyWindow_ReturnsEmptySequence()
     {
@@ -88,6 +91,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
         Assert.AreEqual(0, results.Count);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task FetchAsync_TwoWindows_StreamsItemsPerBatch()
     {
@@ -152,6 +156,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
         Assert.AreEqual(3, results[2].Id);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task FetchAsync_FieldProjection_PassedToGetWorkItemsAsync()
     {
@@ -196,6 +201,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
         CollectionAssert.AreEquivalent(new[] { "System.State", "System.WorkItemType" }, capturedFields);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task FetchAsync_CancellationToken_Propagated()
     {
@@ -233,6 +239,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
             Times.Once);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task FetchAsync_MissingFieldOnWorkItem_OmittedFromResult()
     {
@@ -278,6 +285,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
         Assert.IsFalse(results[0].Fields.ContainsKey("System.WorkItemType"));
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task FetchAsync_TransientApiException_PropagatesWithoutBuffering()
     {
@@ -319,6 +327,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
         });
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task FetchAsync_ZeroIdWindow_ReturnsEmptySequenceNoBatchCalls()
     {
@@ -389,6 +398,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
 
     // ── T019: Per-batch checkpoint emission ──────────────────────────────────
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task FetchAsync_ResumeEnabled_CallsContinuationCheckpointWriter()
     {
@@ -444,6 +454,7 @@ public class AzureDevOpsWorkItemFetchServiceTests
             "ContinuationCheckpointWriter should be invoked per batch when resume is enabled");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task FetchAsync_ResumeEnabled_EmitsCompletionCheckpoint()
     {

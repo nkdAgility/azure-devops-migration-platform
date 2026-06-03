@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+﻿// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
 using System;
@@ -227,6 +227,7 @@ public sealed class JobAgentWorkerDispatchTests
         _scopeFactory = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task OnJobAsync_Export_RoutesToExportPlanExecution()
     {
@@ -259,6 +260,7 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task OnJobAsync_Export_PassesConfiguredAndResolvedSourceEndpointAliases()
     {
@@ -309,6 +311,7 @@ public sealed class JobAgentWorkerDispatchTests
         Assert.IsTrue(capturedEndpoints.ContainsKey("https://simulated.example/source"));
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task OnJobAsync_Dependencies_RoutesToUnifiedTaskExecution()
     {
@@ -341,6 +344,7 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task OnJobAsync_Import_RunsPrepareBeforeImportPhaseExecution()
     {
@@ -385,6 +389,7 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task OnJobAsync_Dependencies_EmitsJobReadyAfterPushingTaskList()
     {
@@ -413,6 +418,7 @@ public sealed class JobAgentWorkerDispatchTests
             "Dependencies jobs must emit Job.Ready after the plan is pushed so the CLI can fetch bootstrap.");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task OnJobAsync_Dependencies_ForceFresh_DeletesScopedCheckpointStateViaCheckpointer()
     {
@@ -444,6 +450,7 @@ public sealed class JobAgentWorkerDispatchTests
             Times.Once);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task OnJobAsync_Inventory_WhenInventoryPlanSucceeds_WritesInventoryCompletionMarker()
     {
@@ -528,6 +535,7 @@ public sealed class JobAgentWorkerDispatchTests
         StringAssert.Contains(inventoryMarkerPayload, "\"jobId\":\"job-Inventory\"");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task OnJobAsync_Export_WhenExportPhaseFails_DoesNotWriteInventoryCompletionMarker()
     {
@@ -596,6 +604,7 @@ public sealed class JobAgentWorkerDispatchTests
             Times.Never);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task OnJobAsync_UnknownKind_FailsWithoutRunningPlanExecutor()
     {
@@ -631,6 +640,7 @@ public sealed class JobAgentWorkerDispatchTests
             request.RequestUri!.PathAndQuery.Contains("/fail", StringComparison.OrdinalIgnoreCase)));
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task OnJobAsync_WhenMigrationExecutionThrows_ClearsCurrentPackageConfigAccessor()
     {
@@ -661,6 +671,54 @@ public sealed class JobAgentWorkerDispatchTests
             request.RequestUri!.PathAndQuery.Contains("/fail", StringComparison.OrdinalIgnoreCase)));
     }
 
+    // ── Scenarios: Agent fails fast when migration-config.json is absent ────────
+
+    [TestCategory("UnitTest")]
+    [TestMethod]
+    public async Task OnJobAsync_WhenConfigAbsent_SignalsFailTerminal()
+    {
+        _packageMigrationConfigLoader
+            .Setup(store => store.LoadAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DevOpsMigrationPlatform.Abstractions.Storage.PackageConfigNotFoundException("test-package"));
+
+        var worker = CreateWorker();
+        var job = CreateJob(JobKind.Export);
+
+        await JobAgentWorkerTestHelper.InvokeJobAsync(
+            worker, job, CreateControlPlaneClient(), "lease-config-absent", CancellationToken.None);
+
+        Assert.IsTrue(_httpHandler.RequestLog.Exists(request =>
+            request.Method == HttpMethod.Post &&
+            request.RequestUri!.PathAndQuery.Contains("/fail", StringComparison.OrdinalIgnoreCase)),
+            "Expected job to be signaled as 'fail' when migration-config.json is absent.");
+    }
+
+    [TestCategory("UnitTest")]
+    [TestMethod]
+    public async Task OnJobAsync_WhenConfigAbsent_DoesNotExecuteModules()
+    {
+        _packageMigrationConfigLoader
+            .Setup(store => store.LoadAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DevOpsMigrationPlatform.Abstractions.Storage.PackageConfigNotFoundException("test-package"));
+
+        var worker = CreateWorker();
+        var job = CreateJob(JobKind.Export);
+
+        await JobAgentWorkerTestHelper.InvokeJobAsync(
+            worker, job, CreateControlPlaneClient(), "lease-config-absent-no-modules", CancellationToken.None);
+
+        _planExecutor.Verify(executor => executor.ExecuteExportPhaseAsync(
+            It.IsAny<JobTaskList>(),
+            It.IsAny<IReadOnlyDictionary<string, IModule>>(),
+            It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
+            It.IsAny<InventoryContext?>(),
+            It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
+            It.IsAny<ExportContext>(),
+            It.IsAny<CancellationToken>()), Times.Never,
+            "No modules should execute when migration-config.json is absent.");
+    }
+
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task OnJobAsync_WhenConnectorConfigOmitsUrl_PopulatesCurrentEndpointAccessor()
     {
@@ -704,6 +762,7 @@ public sealed class JobAgentWorkerDispatchTests
             Times.Once);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task OnJobAsync_ForceFresh_DeletesInventoryCompletionMarker()
     {

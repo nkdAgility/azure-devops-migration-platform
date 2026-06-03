@@ -46,6 +46,7 @@ public class PackageMigrationConfigLoaderTests
 
     // ── LoadAsync ─────────────────────────────────────────────────────────────
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     // T033: LoadAsync_WhenFileAbsent_ThrowsPackageConfigNotFoundException
     public async Task LoadAsync_WhenFileAbsent_ThrowsPackageConfigNotFoundException()
@@ -69,6 +70,7 @@ public class PackageMigrationConfigLoaderTests
         StringAssert.Contains(ex.Message, "Re-submit");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task LoadAsync_WhenPackageBoundaryAvailable_ReadsViaPackageBoundary()
     {
@@ -85,6 +87,7 @@ public class PackageMigrationConfigLoaderTests
         Assert.AreEqual("Export", config["MigrationPlatform:Mode"]);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     // T033: LoadAsync_WhenFileCorrupt_ThrowsJsonException
     public async Task LoadAsync_WhenFileCorrupt_ThrowsException()
@@ -103,6 +106,7 @@ public class PackageMigrationConfigLoaderTests
         Assert.IsNotNull(ex);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     // T037: O-3 LogWarning fires when file is absent
     public async Task LoadAsync_WhenFileAbsent_LogsWarningWithMigrationConfigMessage()
@@ -130,6 +134,7 @@ public class PackageMigrationConfigLoaderTests
             "Expected a LogWarning entry containing 'migration-config.json'");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     // T024: O-3 LogInformation fires at start of read
     public async Task LoadAsync_WhenSuccessful_LogsInformationAtStartAndCompletion()
@@ -153,6 +158,7 @@ public class PackageMigrationConfigLoaderTests
         Assert.IsNotNull(result);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     // T022: O-1 ActivitySource emits "config.read" span
     public async Task LoadAsync_EmitsConfigReadActivitySpan()
@@ -185,6 +191,7 @@ public class PackageMigrationConfigLoaderTests
         Assert.IsTrue(recordedActivities.Count > 0, "Expected at least one 'config.read' activity span.");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     // T023: ConfigReadErrors incremented on absent file
     public async Task LoadAsync_WhenFileAbsent_IncrementsConfigReadErrors()
@@ -208,6 +215,46 @@ public class PackageMigrationConfigLoaderTests
         // Assert: error counter incremented; fallback counter is not expected (no legacy path)
         metricsMock.Verify(m => m.RecordConfigReadError(It.IsAny<MetricsTagList>()), Times.Once);
         metricsMock.Verify(m => m.RecordConfigReadFallback(It.IsAny<MetricsTagList>()), Times.Never);
+    }
+
+    [TestCategory("UnitTest")]
+    [TestMethod]
+    // Scenario: Config file contains a configVersion field with value "2.0"
+    public async Task LoadAsync_WhenConfigContainsConfigVersion_ReturnsConfigVersionValue()
+    {
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
+        package.Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.MigrationConfig),
+                It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json",
+                new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes(
+                    """{"MigrationPlatform":{"ConfigVersion":"2.0","Mode":"Export"}}"""))))));
+
+        var sut = CreateSut(package);
+        var config = await sut.LoadAsync(CancellationToken.None);
+
+        Assert.AreEqual("2.0", config["MigrationPlatform:ConfigVersion"]);
+    }
+
+    [TestCategory("UnitTest")]
+    [TestMethod]
+    // Scenario: Migration Agent retries reading config on eventual consistency delay
+    public async Task LoadAsync_WhenConfigNotImmediatelyAvailable_ReturnsConfigAfterRetry()
+    {
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
+        package.SetupSequence(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.MigrationConfig),
+                It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json", null)))
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json",
+                new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes("""{"MigrationPlatform":{"Mode":"Export"}}"""))))));
+
+        var sut = CreateSut(package);
+
+        // Act — first attempt returns null; loader retries after 100ms and succeeds on attempt 2
+        var config = await sut.LoadAsync(CancellationToken.None);
+
+        Assert.AreEqual("Export", config["MigrationPlatform:Mode"]);
     }
 }
 
