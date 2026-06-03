@@ -182,6 +182,8 @@ In practice: untranslatable paths are silently passed through as-is, not skipped
 2. **Use a dedicated "not found" signal** — check `result.Translated` or a similar flag instead of null-checking `TargetPath`, and skip when the translation tool reports the path as unresolvable.
 3. **Accept pass-through as correct** — if falling back to the source path is intentional, delete scenarios 2 and 3 and document the pass-through behaviour.
 
+**Additional occurrence:** `features/import/teams/import-team-iterations.feature` scenario 2 ("Unresolvable iteration path is skipped with a warning") hits the same unreachable branch in the iterations loop (`TeamImportOrchestrator.cs:~93`). Fix GAP-005 to resolve both.
+
 ---
 
 ## GAP-003: NodesModule — INodeEnsurer does not exist; no skip-when-both-false guard

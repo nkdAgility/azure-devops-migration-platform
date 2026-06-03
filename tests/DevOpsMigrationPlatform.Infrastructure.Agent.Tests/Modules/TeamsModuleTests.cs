@@ -1073,6 +1073,69 @@ public class TeamsModuleTests
             "Area path translation must use 'System.AreaPath'.");
     }
 
+    // ── Iteration Path Tests ──────────────────────────────────────────────────
+
+    [TestCategory("UnitTest")]
+    [TestMethod]
+    public async Task ImportAsync_TranslatesAndAssignsBothIterations_WhenTwoIterationsInPackage()
+    {
+        // Arrange
+        var target = new SimulatedTeamTarget();
+
+        var translationToolMock = new Mock<INodeTranslationTool>(MockBehavior.Loose);
+        translationToolMock.Setup(t => t.IsEnabled).Returns(true);
+        translationToolMock
+            .Setup(t => t.TranslatePath("System.IterationPath", It.IsAny<string>(), It.IsAny<ProjectMapping>()))
+            .Returns<string, string, ProjectMapping>((_, path, _) =>
+                new PathTranslation(path.Replace("ProjectA", "TargetProject"), false, true, false));
+
+        var importOrch = new TeamImportOrchestrator(
+            target, NullLogger<TeamImportOrchestrator>.Instance,
+            endpointInfo: CreateTargetEndpointInfo(),
+            NodeTransformTool: translationToolMock.Object);
+
+        var teamPackage = new TeamPackage
+        {
+            Definition = new TeamDefinition("src-1", "Alpha Team", "", false),
+            Iterations = new List<TeamIteration>
+            {
+                new TeamIteration("i1", "ProjectA\\Sprint 1", "Sprint 1", null, null, false, false),
+                new TeamIteration("i2", "ProjectA\\Sprint 2", "Sprint 2", null, null, false, false)
+            },
+            Members = new List<TeamMember>(),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+        };
+        var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
+
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
+        storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
+        storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(json);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions
+            {
+                Enabled = true,
+                Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true }
+            }),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: target);
+
+        // Act
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
+
+        // Assert — both iterations translated and assigned
+        var teamId = new System.Collections.Generic.List<string>(target.Teams.Keys)[0];
+        Assert.IsTrue(target.Iterations.ContainsKey(teamId), "Iterations should have been assigned");
+        Assert.AreEqual(2, target.Iterations[teamId].Count, "Both iterations should be assigned");
+        Assert.IsTrue(target.Iterations[teamId].Exists(i => i.Path == "TargetProject\\Sprint 1"), "Sprint 1 should be translated");
+        Assert.IsTrue(target.Iterations[teamId].Exists(i => i.Path == "TargetProject\\Sprint 2"), "Sprint 2 should be translated");
+    }
+
     // ── Area Path Tests ───────────────────────────────────────────────────────
 
     [TestCategory("UnitTest")]
