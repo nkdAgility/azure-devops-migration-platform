@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+﻿// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
 using System.Collections.Generic;
@@ -109,6 +109,7 @@ public class IdentitiesModuleTests
         };
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExportAsync_WritesDescriptorsJsonl_WhenIdentitiesExist()
     {
@@ -145,6 +146,7 @@ public class IdentitiesModuleTests
         Assert.AreEqual(2, lines.Length);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExportAsync_Skips_WhenModuleDisabled()
     {
@@ -160,6 +162,7 @@ public class IdentitiesModuleTests
         storeMock.VerifyNoOtherCalls();
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExportAsync_Skips_WhenNoIdentitySourceRegistered()
     {
@@ -213,6 +216,7 @@ public class IdentitiesModuleTests
         // No exception = pass
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenDescriptorsFileMissing()
     {
@@ -230,6 +234,7 @@ public class IdentitiesModuleTests
         StringAssert.Contains(context.Errors[0].Message, "descriptors.jsonl");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenDescriptorsContainsMalformedJson()
     {
@@ -250,6 +255,7 @@ public class IdentitiesModuleTests
         StringAssert.Contains(context.Errors[0].Message, "malformed");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ValidateAsync_PassesForValidDescriptors()
     {
