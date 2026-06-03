@@ -36,6 +36,8 @@ public class MapValueTransformTests
             { "Resolved", "Done" }
         };
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public void Apply_WhenValueFoundInMap_ReturnsReplacedValue()
     {
@@ -53,6 +55,8 @@ public class MapValueTransformTests
         Assert.AreEqual("MapValue", result.Actions[0].TransformType);
     }
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public void Apply_WhenValueNotFoundInMap_PreservesOriginalAndLogsWarning()
     {
@@ -68,6 +72,8 @@ public class MapValueTransformTests
         Assert.AreEqual("New", result.Actions[0].NewValue);
     }
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public void Apply_WhenFieldNotPresent_ReturnsFieldsUnchanged()
     {
@@ -79,6 +85,8 @@ public class MapValueTransformTests
         Assert.IsFalse(result.Fields.ContainsKey("System.State"));
         Assert.AreEqual(0, result.Actions.Count);
     }
+
+    [TestCategory("UnitTest")]
 
     [TestMethod]
     public void Apply_WhenValueIsNull_PreservesNullAndLogsWarning()
@@ -94,6 +102,8 @@ public class MapValueTransformTests
         Assert.IsFalse(result.Actions[0].Modified);
     }
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public void Apply_WithEmptyValueMap_PreservesOriginalAndLogsWarning()
     {
@@ -107,6 +117,8 @@ public class MapValueTransformTests
         Assert.AreEqual("Active", result.Fields["System.State"]);
         Assert.IsFalse(result.Actions[0].Modified);
     }
+
+    [TestCategory("UnitTest")]
 
     [TestMethod]
     public void Apply_WithApplyToFilter_SkipsNonMatchingWorkItemType()
@@ -123,6 +135,8 @@ public class MapValueTransformTests
         Assert.AreEqual(0, result.Actions.Count);
     }
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public void Apply_WithApplyToFilter_ProcessesMatchingWorkItemType()
     {
@@ -138,6 +152,8 @@ public class MapValueTransformTests
         Assert.IsTrue(result.Actions[0].Modified);
     }
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public void Apply_GroupNameIsRecordedInAction()
     {
@@ -149,3 +165,4 @@ public class MapValueTransformTests
         Assert.AreEqual("MyGroup", result.Actions[0].GroupName);
     }
 }
+

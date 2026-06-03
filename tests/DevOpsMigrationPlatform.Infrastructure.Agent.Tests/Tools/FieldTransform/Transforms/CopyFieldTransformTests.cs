@@ -22,6 +22,8 @@ public class CopyFieldTransformTests
         string name = "TestTransform")
         => new CopyFieldTransform(name, groupName, sourceField, targetField, defaultValue);
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public void Apply_WhenSourceFieldExists_CopiesValueToTarget()
     {
@@ -37,6 +39,8 @@ public class CopyFieldTransformTests
         Assert.AreEqual("some value", result.Actions[0].NewValue);
     }
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public void Apply_WhenSourceFieldAbsent_UsesDefaultValue()
     {
@@ -51,6 +55,8 @@ public class CopyFieldTransformTests
         Assert.AreEqual("N/A", result.Actions[0].NewValue);
     }
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public void Apply_WhenSourceFieldAbsentAndNoDefault_LeavesTargetUnchanged()
     {
@@ -62,6 +68,8 @@ public class CopyFieldTransformTests
         Assert.IsFalse(result.Fields.ContainsKey("Custom.NewField"));
         Assert.AreEqual(0, result.Actions.Count);
     }
+
+    [TestCategory("UnitTest")]
 
     [TestMethod]
     public void Apply_WhenSourceFieldIsEmptyString_CopiesEmptyString_NotDefault()
@@ -76,6 +84,8 @@ public class CopyFieldTransformTests
         Assert.IsTrue(result.Actions[0].Modified);
         Assert.AreEqual("", result.Actions[0].NewValue);
     }
+
+    [TestCategory("UnitTest")]
 
     [TestMethod]
     public void Apply_WhenTargetFieldExists_OverwritesExistingValue()
@@ -96,3 +106,4 @@ public class CopyFieldTransformTests
         Assert.AreEqual("new value", result.Actions[0].NewValue);
     }
 }
+

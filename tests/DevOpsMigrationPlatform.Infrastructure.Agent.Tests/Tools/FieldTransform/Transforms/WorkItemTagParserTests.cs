@@ -9,6 +9,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Tools.FieldTransfor
 [TestClass]
 public class WorkItemTagParserTests
 {
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void AppendTag_WhenExistingTagsEmpty_ReturnsNewTag()
     {
@@ -16,12 +17,16 @@ public class WorkItemTagParserTests
         Assert.AreEqual("High", result);
     }
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public void AppendTag_WhenExistingTagsPresent_AppendsWithSeparator()
     {
         var result = WorkItemTagParser.AppendTag("Bug", "High");
         Assert.AreEqual("Bug; High", result);
     }
+
+    [TestCategory("UnitTest")]
 
     [TestMethod]
     public void Deduplicate_RemovesDuplicatesCaseInsensitively()
@@ -31,12 +36,16 @@ public class WorkItemTagParserTests
         Assert.AreEqual("High; MEDIUM", result);
     }
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public void Deduplicate_PreservesOriginalCase()
     {
         var result = WorkItemTagParser.Deduplicate("BUG; bug; Bug");
         Assert.AreEqual("BUG", result);
     }
+
+    [TestCategory("UnitTest")]
 
     [TestMethod]
     public void Deduplicate_HandlesEmptyInput()
@@ -46,3 +55,4 @@ public class WorkItemTagParserTests
         Assert.AreEqual(string.Empty, WorkItemTagParser.Deduplicate("   "));
     }
 }
+
