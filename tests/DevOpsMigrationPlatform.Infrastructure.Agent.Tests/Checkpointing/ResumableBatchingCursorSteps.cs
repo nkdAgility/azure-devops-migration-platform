@@ -158,6 +158,9 @@ public sealed class ResumableBatchingCursorSteps
         _ctx.ResumeEnabled = true;
     }
 
+    [Given("the checkpoint location is {string}")]
+    public void GivenCheckpointLocation(string _) { } // convention documented
+
     // NOTE: "the checkpoint location is {string}" is defined in CursorResumeSteps.
     // Reqnroll bindings are global — no duplicate needed here.
 
