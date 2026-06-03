@@ -22,14 +22,16 @@ Where `{feature}` is one of:
 
 1. Build a deterministic worklist of `.feature` files in scope.
 2. For each `.feature` file, resolve its feature family and determine whether it is already adapted to DSL before attempting conversion.
-3. For each not-yet-adapted family, classify its wiring state (`wired`, `miswired`, `unwired`). A `miswired` or `unwired` feature is NOT skipped: it is a valid candidate, and the run must build the tests that should have existed, with assertions confirmed against observed production behaviour.
-4. Convert every family that is not already adapted and can be converted safely, applying the wiring-state conversion mode.
-5. For every scenario, check the existing test corpus for equivalent coverage before building anything; map to the existing test (or extend it) instead of creating a duplicate, and build a new test only when no equivalent exists.
-6. For scenarios with missing step implementations and no pre-existing coverage, generate intent-derived tests instead of skipping them.
-7. Apply a test-validity gate to intent-derived tests and require `USEFUL` or `HIGH VALUE` classification.
-8. Maintain a running scenario inventory per feature family at `.output/nkda-testdsl/<feature-family>/00-scenario-test-inventory.md`.
-9. Require each scenario row to record mapped test(s), mapping status, expected tags, actual tags, and tag compliance.
-10. Produce a final status summary that includes both totals and per-file outcomes.
+3. Ensure typed DSL foundation exists before first family conversion. If `tests/DevOpsMigrationPlatform.Testing` is missing, bootstrap it in-run (do not block).
+4. For each not-yet-adapted family, classify its wiring state (`wired`, `miswired`, `unwired`). A `miswired` or `unwired` feature is NOT skipped: it is a valid candidate, and the run must build the tests that should have existed, with assertions confirmed against observed production behaviour.
+5. Convert every family that is not already adapted and can be converted safely, applying the wiring-state conversion mode.
+6. For every scenario, check the existing test corpus for equivalent coverage before building anything; map to the existing test (or extend it) instead of creating a duplicate, and build a new test only when no equivalent exists.
+7. For scenarios with missing step implementations and no pre-existing coverage, generate intent-derived tests instead of skipping them.
+8. Apply a test-validity gate to intent-derived tests and require `USEFUL` or `HIGH VALUE` classification.
+9. Maintain a running scenario inventory per feature family at `.output/nkda-testdsl/<feature-family>/00-scenario-test-inventory.md`.
+10. Require each scenario row to record mapped test(s), mapping status, expected tags, actual tags, and tag compliance.
+11. Before each family conversion, purge orphaned generated `Features\*.feature.cs` files (generated code-behind with no matching `.feature` input) in the target test project.
+12. Produce a final status summary that includes both totals and per-file outcomes.
 
 Run this sequence for each selected feature family that is not already adapted:
 
@@ -92,6 +94,8 @@ Stop early if:
 
 - the folder/file scope cannot be enumerated or resolved
 - a required shared input is missing for the entire run
+
+Missing typed DSL foundation is not a valid "required shared input missing" reason; the run must bootstrap it and continue.
 
 A family being `miswired` or `unwired` is never by itself a reason to skip, block, or fail it; those families are built from intent.
 

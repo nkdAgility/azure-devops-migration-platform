@@ -13,6 +13,7 @@
 
 3. `nkda-testdsl-extraction` then `nkda-testdsl-feature-conversion`
    - consumes `02-dsl-design.md`
+   - bootstraps `tests/DevOpsMigrationPlatform.Testing` if missing (not a blocker)
    - produces `03-extraction-summary.md` and `04-conversion-summary.md`
 
 4. `nkda-testdsl-refactor`
@@ -33,7 +34,7 @@ Autonomous execution runs the seven phases in order for each selected feature fa
 
 1. assessment
 2. dsl design
-3. extraction
+3. extraction (includes typed DSL foundation bootstrap when missing)
 4. conversion
 5. refactor
 6. verification

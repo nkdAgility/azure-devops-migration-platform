@@ -10,6 +10,7 @@ description: Use when one feature family is ready to be converted from Reqnroll 
 - consume `01-feature-assessment.md` and `02-dsl-design.md`
 - consume and update `00-scenario-test-inventory.md`
 - create code-first MSTest tests that preserve behaviour
+- before conversion codegen runs, remove stale generated `Features\*.feature.cs` files that have no matching `Features\*.feature` input
 - place converted tests into business-focused groupings that mirror the system-under-test capability boundaries
 - for missing-step scenarios, generate intent-derived code-first tests instead of skipping those scenarios
 - map every converted scenario to concrete test method(s) with `path:line` evidence
@@ -23,6 +24,7 @@ description: Use when one feature family is ready to be converted from Reqnroll 
 ### `wired`
 
 - preserve behaviour parity against the currently executing tests
+- in the target test project, delete orphaned generated `*.feature.cs` files whose paired `.feature` file is already retired, so Reqnroll/MSBuild cannot fail on missing inputs
 - remove `.feature` project inclusion (`ExternalFeatureFiles` entry) after equivalent coverage exists
 - remove obsolete step/context files only after parity is established
 
