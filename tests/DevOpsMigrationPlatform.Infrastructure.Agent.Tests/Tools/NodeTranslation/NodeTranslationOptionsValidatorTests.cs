@@ -24,12 +24,16 @@ public class NodeTranslationOptionsValidatorTests
 
     // ── Passing cases ─────────────────────────────────────────────────────────
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public void Validate_EmptyMappings_Succeeds()
     {
         var result = Sut().Validate(null, ValidOptions());
         Assert.IsTrue(result.Succeeded);
     }
+
+    [TestCategory("UnitTest")]
 
     [TestMethod]
     public void Validate_ValidAreaPathMapping_Succeeds()
@@ -43,6 +47,8 @@ public class NodeTranslationOptionsValidatorTests
         Assert.IsTrue(result.Succeeded);
     }
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public void Validate_ValidIterationPathMapping_Succeeds()
     {
@@ -54,6 +60,8 @@ public class NodeTranslationOptionsValidatorTests
         var result = Sut().Validate(null, opts);
         Assert.IsTrue(result.Succeeded);
     }
+
+    [TestCategory("UnitTest")]
 
     [TestMethod]
     public void Validate_MultipleMappings_AllValid_Succeeds()
@@ -76,6 +84,8 @@ public class NodeTranslationOptionsValidatorTests
 
     // ── Failing cases ─────────────────────────────────────────────────────────
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public void Validate_AreaPathMapping_EmptyMatch_Fails()
     {
@@ -89,6 +99,8 @@ public class NodeTranslationOptionsValidatorTests
         StringAssert.Contains(string.Join("|", result.Failures!), "AreaPathMappings[0].Match is required");
     }
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public void Validate_AreaPathMapping_WhitespaceMatch_Fails()
     {
@@ -100,6 +112,8 @@ public class NodeTranslationOptionsValidatorTests
         var result = Sut().Validate(null, opts);
         Assert.IsFalse(result.Succeeded);
     }
+
+    [TestCategory("UnitTest")]
 
     [TestMethod]
     public void Validate_IterationPathMapping_InvalidRegex_Fails()
@@ -115,6 +129,8 @@ public class NodeTranslationOptionsValidatorTests
         StringAssert.Contains(string.Join("|", result.Failures!), "not a valid regular expression");
     }
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public void Validate_AreaPathMapping_InvalidRegex_Fails()
     {
@@ -127,6 +143,8 @@ public class NodeTranslationOptionsValidatorTests
         Assert.IsFalse(result.Succeeded);
         StringAssert.Contains(string.Join("|", result.Failures!), "AreaPathMappings[0].Match");
     }
+
+    [TestCategory("UnitTest")]
 
     [TestMethod]
     public void Validate_AreaPathMapping_LookbehindPatternRejectedByRuntimeOptions_Fails()
@@ -142,6 +160,8 @@ public class NodeTranslationOptionsValidatorTests
         Assert.IsFalse(result.Succeeded);
         StringAssert.Contains(string.Join("|", result.Failures!), "AreaPathMappings[0].Match");
     }
+
+    [TestCategory("UnitTest")]
 
     [TestMethod]
     public void Validate_MultipleInvalidMappings_ReportsAllErrors()
@@ -162,3 +182,4 @@ public class NodeTranslationOptionsValidatorTests
         StringAssert.Contains(failures, "AreaPathMappings[1]");
     }
 }
+

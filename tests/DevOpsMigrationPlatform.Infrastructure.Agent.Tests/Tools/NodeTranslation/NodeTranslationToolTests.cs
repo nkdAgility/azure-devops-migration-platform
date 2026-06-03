@@ -215,4 +215,12 @@ public class NodeTransformToolTests
         Assert.AreEqual(@"TargetProject\Sprint 1", result.TargetPath);
         Assert.IsTrue(result.MatchedByProjectSwap);
     }
+
+    [TestCategory("UnitTest")]
+    [TestMethod]
+    public void IsEnabled_ReturnsFalse_WhenToolConfiguredAsDisabled()
+    {
+        var sut = CreateTool(DefaultOptions(enabled: false));
+        Assert.IsFalse(sut.IsEnabled);
+    }
 }

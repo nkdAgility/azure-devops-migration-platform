@@ -29,6 +29,8 @@ public class ClassificationTreeCaptureTests
             reader,
             NullLogger<ClassificationTreeCapture>.Instance);
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public async Task CaptureAsync_WritesArtifactWithAreaAndIterationNodes()
     {
@@ -67,6 +69,8 @@ public class ClassificationTreeCaptureTests
         Assert.AreEqual(1, snapshot.IterationNodes.Count);
     }
 
+    [TestCategory("UnitTest")]
+
     [TestMethod]
     public async Task CaptureAsync_EmptyTree_WritesEmptyArtifact()
     {
@@ -80,6 +84,8 @@ public class ClassificationTreeCaptureTests
             It.Is<PackageContentContext>(c => string.Equals(c.Module, "Nodes", StringComparison.Ordinal) && c.Address != null && c.Address.RelativePath.EndsWith("source-tree.json", StringComparison.Ordinal)),
             It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [TestCategory("UnitTest")]
 
     [TestMethod]
     public async Task CaptureAsync_ApiFailure_ThrowsAndDoesNotWrite()
@@ -152,3 +158,4 @@ public class ClassificationTreeCaptureTests
             => Task.FromResult(0);
     }
 }
+
