@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+﻿// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
 using System;
@@ -110,6 +110,7 @@ public class TeamsModuleTests
             package: package);
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExportAsync_Skips_WhenModuleDisabled()
     {
@@ -132,6 +133,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExportAsync_Skips_WhenNoTeamSourceRegistered()
     {
@@ -152,6 +154,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExportAsync_WritesTeamJson_PerTeam()
     {
@@ -187,6 +190,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExportAsync_AppliesFilter_WhenScopeIsTeams()
     {
@@ -220,6 +224,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExportAsync_SkipsExistingTeam_WhenAlwaysExportFalse()
     {
@@ -251,6 +256,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExportAsync_ReexportsExistingTeam_WhenAlwaysExportTrue()
     {
@@ -284,7 +290,86 @@ public class TeamsModuleTests
             $"Expected 2 team writes with AlwaysExport=true. Written: {string.Join(", ", writtenPaths)}");
     }
 
+    // ── Content verification tests (from export-team-definitions, iterations, members features) ──
+
+    [TestCategory("UnitTest")]
+    [TestMethod]
+    public async Task ExportAsync_TeamJson_ContainsTeamNameAndIsDefault()
+    {
+        var writtenContent = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
+        storeMock
+            .Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, CancellationToken>((path, content, _) => writtenContent[path] = content)
+            .Returns(Task.CompletedTask);
+
+        var source = new SimulatedTeamSource();
+        var exportOrch = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance, endpointInfo: CreateSourceEndpointInfo());
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions { Enabled = true }),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            orchestrator: CreateTeamsOrchestrator(package.Object, exportOrchestrator: exportOrch),
+            teamSource: source);
+
+        await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
+
+        var alphaEntry = writtenContent.FirstOrDefault(kv => kv.Key.Contains("alpha-team", StringComparison.OrdinalIgnoreCase));
+        Assert.IsNotNull(alphaEntry.Value, "Expected alpha-team/team.json to be written.");
+
+        using var doc = JsonDocument.Parse(alphaEntry.Value);
+        var definition = doc.RootElement.GetProperty("definition");
+        Assert.AreEqual("Alpha Team", definition.GetProperty("name").GetString());
+        Assert.IsTrue(definition.GetProperty("isDefault").GetBoolean(), "Alpha Team should be the default team.");
+    }
+
+    [TestCategory("UnitTest")]
+    [TestMethod]
+    public async Task ExportAsync_TeamJson_ContainsIterationsAndMembers()
+    {
+        var writtenContent = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
+        storeMock
+            .Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, CancellationToken>((path, content, _) => writtenContent[path] = content)
+            .Returns(Task.CompletedTask);
+
+        var source = new SimulatedTeamSource();
+        var exportOrch = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance, endpointInfo: CreateSourceEndpointInfo());
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions { Enabled = true }),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            orchestrator: CreateTeamsOrchestrator(package.Object, exportOrchestrator: exportOrch),
+            teamSource: source);
+
+        await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
+
+        var alphaEntry = writtenContent.FirstOrDefault(kv => kv.Key.Contains("alpha-team", StringComparison.OrdinalIgnoreCase));
+        Assert.IsNotNull(alphaEntry.Value);
+
+        using var doc = JsonDocument.Parse(alphaEntry.Value);
+        // Iterations
+        var iterations = doc.RootElement.GetProperty("iterations");
+        Assert.IsTrue(iterations.GetArrayLength() > 0, "Expected iterations array to be non-empty.");
+        var firstIter = iterations[0];
+        Assert.IsTrue(firstIter.TryGetProperty("id", out _), "Iteration should have 'id' field.");
+        Assert.IsTrue(firstIter.TryGetProperty("path", out _), "Iteration should have 'path' field.");
+        Assert.IsTrue(firstIter.TryGetProperty("name", out _), "Iteration should have 'name' field.");
+        // Members
+        var members = doc.RootElement.GetProperty("members");
+        Assert.IsTrue(members.GetArrayLength() > 0, "Expected members array to be non-empty.");
+        var firstMember = members[0];
+        Assert.IsTrue(firstMember.TryGetProperty("displayName", out _), "Member should have 'displayName' field.");
+        Assert.IsTrue(firstMember.TryGetProperty("uniqueName", out _), "Member should have 'uniqueName' field.");
+    }
+
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ImportAsync_Skips_WhenModuleDisabled()
     {
@@ -305,6 +390,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ImportAsync_CreatesTeams_FromPackageFiles()
     {
@@ -350,6 +436,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ImportAsync_CreatesNonDefaultTeams_ByName_WhenTwoTeamsInPackage()
     {
@@ -398,6 +485,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ImportAsync_CreatesAllTeams_WhenFiveNonDefaultTeamsInPackage()
     {
@@ -445,6 +533,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenNoTeamFilesFound()
     {
@@ -473,6 +562,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenTeamJsonMissingDefinitionField()
     {
@@ -504,6 +594,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenTeamJsonIsMalformed()
     {
@@ -535,6 +626,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ValidateAsync_Passes_WhenAllTeamFilesAreValid()
     {
@@ -576,6 +668,7 @@ public class TeamsModuleTests
     // ── Iteration Tests (T068) ────────────────────────────────────────────────
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ImportAsync_AssignsIterations_WithPathPassThrough_WhenNoTranslationTool()
     {
@@ -622,6 +715,7 @@ public class TeamsModuleTests
     // ── Member Tests (T075) ───────────────────────────────────────────────────
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ImportAsync_AddsMembersWithIdentityMapping()
     {
@@ -675,6 +769,7 @@ public class TeamsModuleTests
     // ── Capacity Tests (T082) ─────────────────────────────────────────────────
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ImportAsync_SetsCapacity_ForEachIteration()
     {
@@ -723,6 +818,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ImportAsync_SkipsCapacity_WhenCapacityExtensionDisabled()
     {
@@ -764,6 +860,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ImportAsync_CompletesWithoutError_WhenTargetThrowsNotSupportedForCapacity()
     {
@@ -814,6 +911,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ImportAsync_NeverCallsSetCapacity_WhenCapacityByIterationIsEmpty()
     {
@@ -854,6 +952,7 @@ public class TeamsModuleTests
     // ── NodeTranslation Extension Tests (T069) ─────────────────────────────────
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExportAsync_RecordsAreaAndIterationPaths_WhenNodeTranslationExtensionEnabled()
     {
@@ -901,6 +1000,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExportAsync_DoesNotRecordPaths_WhenNodeTranslationExtensionDisabled()
     {
@@ -938,6 +1038,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ImportAsync_TranslatesIterationPaths_ViaNodeTransformTool()
     {
@@ -998,6 +1099,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ImportAsync_UsesIterationPathField_ForIterationTranslation()
     {
@@ -1076,6 +1178,7 @@ public class TeamsModuleTests
     // ── Iteration Path Tests ──────────────────────────────────────────────────
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ImportAsync_TranslatesAndAssignsBothIterations_WhenTwoIterationsInPackage()
     {
@@ -1139,6 +1242,7 @@ public class TeamsModuleTests
     // ── Area Path Tests ───────────────────────────────────────────────────────
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ImportAsync_TranslatesDefaultAndIncludedAreaPaths_ViaNodeTranslationTool()
     {
@@ -1197,6 +1301,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ImportAsync_DoesNotSetAreaPaths_WhenNodeTranslationExtensionDisabled()
     {
