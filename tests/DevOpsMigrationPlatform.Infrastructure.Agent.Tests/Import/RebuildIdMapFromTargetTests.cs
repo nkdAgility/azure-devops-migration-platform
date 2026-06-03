@@ -74,7 +74,7 @@ public class RebuildIdMapFromTargetTests
 
     // ── Tests ─────────────────────────────────────────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ImportAsync_SeedsIdMapFromProvenanceMarkers_WhenIdmapIsEmpty()
     {
@@ -103,7 +103,7 @@ public class RebuildIdMapFromTargetTests
             Times.Never);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ImportAsync_PreservesExistingMapping_WhenSeedAttemptsToOverwrite()
     {
@@ -128,3 +128,5 @@ public class RebuildIdMapFromTargetTests
             Times.Once);
     }
 }
+
+

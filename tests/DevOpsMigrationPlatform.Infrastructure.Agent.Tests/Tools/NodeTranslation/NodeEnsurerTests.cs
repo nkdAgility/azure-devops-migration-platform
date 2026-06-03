@@ -185,7 +185,7 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
 
 
 
@@ -217,7 +217,7 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
 
 
 
@@ -251,7 +251,7 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
 
 
 
@@ -281,7 +281,7 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
 
 
 
@@ -357,7 +357,7 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
 
 
 
@@ -411,7 +411,7 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
 
 
 
@@ -467,7 +467,7 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
 
 
 
@@ -513,7 +513,7 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
 
 
 
@@ -563,7 +563,7 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
 
 
 
@@ -622,6 +622,8 @@ public class NodeEnsurerTests
     }
 
 }
+
+
 
 
 

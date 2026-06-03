@@ -17,7 +17,7 @@ public class ClearFieldTransformTests
     private static ClearFieldTransform Build(string field)
         => new ClearFieldTransform("TestTransform", "TestGroup", field);
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_WhenFieldExists_SetsValueToNull()
@@ -33,7 +33,7 @@ public class ClearFieldTransformTests
             "Field value must be null after clear.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_WhenFieldAbsent_SetsFieldToNull()
@@ -48,7 +48,7 @@ public class ClearFieldTransformTests
         Assert.IsNull(result.Fields["Custom.Notes"]);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_RecordsActionWithModifiedFlag()
@@ -65,4 +65,5 @@ public class ClearFieldTransformTests
         Assert.IsNull(result.Actions[0].NewValue);
     }
 }
+
 

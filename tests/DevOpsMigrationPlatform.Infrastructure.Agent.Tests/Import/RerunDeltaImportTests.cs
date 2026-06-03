@@ -124,7 +124,7 @@ public class RerunDeltaImportTests
 
     // ── Tests ─────────────────────────────────────────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ImportAsync_SkipsCompletedFolders_WhenResumingFromCursor()
     {
@@ -157,7 +157,7 @@ public class RerunDeltaImportTests
             "Revision 0 for WI 1 should have been skipped.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ImportAsync_SkipsAlreadyAppliedRevisions_ViaWatermark()
     {
@@ -184,7 +184,7 @@ public class RerunDeltaImportTests
                 $"Revision {i} should have been skipped via watermark.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ImportAsync_DeletesCursorButPreservesIdMap_WhenForceFreshMode()
     {
@@ -232,3 +232,5 @@ public class RerunDeltaImportTests
             "All revision folders should have been processed.");
     }
 }
+
+

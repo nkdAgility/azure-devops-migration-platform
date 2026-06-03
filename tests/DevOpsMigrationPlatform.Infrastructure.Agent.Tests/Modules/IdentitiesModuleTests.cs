@@ -275,7 +275,7 @@ public class IdentitiesModuleTests
     // ── T024g: Prepare/Mapping resilience tests ───────────────────────────────
 
     [TestMethod]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     public async Task ImportAsync_CompletesWithoutThrowing_WhenMappingJsonAbsent()
     {
         // Arrange — descriptors present, mapping.json missing
@@ -302,7 +302,7 @@ public class IdentitiesModuleTests
     // assert that the identity mapping service has zero entries loaded when both files are absent (first-run state
     // is verifiably empty), or assert that IProgressSink emits a structured warning when descriptors are missing.
     [TestMethod]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     public async Task ImportAsync_CompletesWithoutThrowing_WhenBothDescriptorsAndMappingAbsent()
     {
         // Arrange — store returns null for everything
@@ -323,7 +323,7 @@ public class IdentitiesModuleTests
     // after ImportAsync runs with a mapping.json present, assert that IIdentityMappingService.Resolve("desc-1")
     // returns "alice@target.com" (verify the mapping was actually applied, not just loaded without error).
     [TestMethod]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     public async Task ImportAsync_AppliesMapping_WhenBothDescriptorsAndMappingPresent()
     {
         // Arrange
@@ -373,3 +373,4 @@ public class IdentitiesModuleTests
         }
     }
 }
+

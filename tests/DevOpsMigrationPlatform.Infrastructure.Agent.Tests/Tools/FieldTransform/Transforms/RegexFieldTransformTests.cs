@@ -20,7 +20,7 @@ public class RegexFieldTransformTests
             "TestTransform", "TestGroup", field, pattern, replacement,
             NullLogger<RegexFieldTransform>.Instance);
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_WhenPatternMatches_ReplacesContent()
@@ -35,7 +35,7 @@ public class RegexFieldTransformTests
         Assert.IsTrue(result.Actions[0].Modified);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_WhenPatternDoesNotMatch_LeavesFieldUnchanged()
@@ -50,7 +50,7 @@ public class RegexFieldTransformTests
         Assert.IsFalse(result.Actions[0].Modified);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_WhenFieldAbsent_ReturnsUnchanged()
@@ -64,7 +64,7 @@ public class RegexFieldTransformTests
         Assert.AreEqual(0, result.Actions.Count);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Constructor_WithInvalidPattern_ThrowsArgumentException()
@@ -75,7 +75,7 @@ public class RegexFieldTransformTests
         StringAssert.Contains(ex.Message, "invalid pattern");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_ReplacesAllMatchesInValue()
@@ -89,4 +89,5 @@ public class RegexFieldTransformTests
         Assert.AreEqual("Duplicate", result.Fields["System.Title"]);
     }
 }
+
 

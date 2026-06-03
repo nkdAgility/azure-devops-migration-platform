@@ -19,7 +19,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 [TestClass]
 public class AdoBoundaryIsolationTests
 {
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ResolutionStrategyFactory_CreateAsync_Throws_WhenTargetIsSimulated()
     {
@@ -41,7 +41,7 @@ public class AdoBoundaryIsolationTests
             () => factory.CreateAsync(options, simulatedTarget, mockEndpoint.Object, CancellationToken.None));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ResolutionStrategyFactory_CreateAsync_Throws_WhenStrategyNameIsEmpty()
     {
@@ -59,3 +59,4 @@ public class AdoBoundaryIsolationTests
             () => factory.CreateAsync(options, mockTarget, mockEndpoint.Object, CancellationToken.None));
     }
 }
+

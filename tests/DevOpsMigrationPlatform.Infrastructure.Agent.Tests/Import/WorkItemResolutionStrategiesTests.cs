@@ -92,7 +92,7 @@ public class WorkItemResolutionStrategiesTests
 
     // ── Tests ─────────────────────────────────────────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ImportAsync_CallsSeedAsync_AndSkipsCreation_WhenTargetFieldStrategySeededMapping()
     {
@@ -133,7 +133,7 @@ public class WorkItemResolutionStrategiesTests
             Times.Never);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ImportAsync_WritesProvenance_AfterNewWorkItemCreated()
     {
@@ -163,7 +163,7 @@ public class WorkItemResolutionStrategiesTests
         Assert.AreEqual(1, ctx.ProvenanceEntries[0].SourceId);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ImportAsync_CallsSeedAsync_AndSkipsCreation_WhenTargetHyperlinkStrategySeededMapping()
     {
@@ -202,3 +202,5 @@ public class WorkItemResolutionStrategiesTests
             Times.Never);
     }
 }
+
+

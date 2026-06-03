@@ -40,7 +40,7 @@ public class ImportCommentsTests
 
     // ─────────────────────────────────────────────────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ImportAsync_CreatesComment_WhenCommentFolderPresentAndExtensionEnabled()
     {
@@ -77,7 +77,7 @@ public class ImportCommentsTests
         ctx.MockCheckpointing.Verify(s => s.WriteCursorAsync("import.workitems", It.Is<CursorEntry>(c => c.Stage == CursorStage.Completed), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ImportAsync_SkipsCommentFolders_WhenCommentsExtensionDisabled()
     {
@@ -109,7 +109,7 @@ public class ImportCommentsTests
         ctx.MockCheckpointing.Verify(s => s.WriteCursorAsync("import.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()), Times.Exactly(ctx.FolderPaths.Count));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ImportAsync_CreatesInlineComment_WhenRevisionFolderContainsNonDeletedComment()
     {
@@ -153,7 +153,7 @@ public class ImportCommentsTests
         ctx.MockTarget.Verify(t => t.CreateCommentAsync(20, It.Is<string>(s => s.Contains("Inline comment text.")), It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ImportAsync_DoesNotCreateComment_WhenCommentIsDeleted()
     {
@@ -196,3 +196,5 @@ public class ImportCommentsTests
         ctx.MockTarget.Verify(t => t.CreateCommentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }
+
+

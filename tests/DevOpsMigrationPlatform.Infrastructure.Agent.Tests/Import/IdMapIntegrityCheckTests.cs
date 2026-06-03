@@ -12,7 +12,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 [TestClass]
 public class IdMapIntegrityCheckTests
 {
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CheckIntegrityAsync_ReturnsStaleEntries_WhenSomeMappedTargetsDoNotExist()
     {
@@ -38,7 +38,7 @@ public class IdMapIntegrityCheckTests
         Assert.AreEqual(100, result[0].TargetId);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CheckIntegrityAsync_ReturnsEmpty_WhenAllMappedTargetsExist()
     {
@@ -58,3 +58,4 @@ public class IdMapIntegrityCheckTests
         Assert.AreEqual(0, result.Count, "Expected zero stale entries when all targets exist.");
     }
 }
+

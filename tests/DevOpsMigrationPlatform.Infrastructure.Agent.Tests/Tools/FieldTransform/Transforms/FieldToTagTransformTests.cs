@@ -17,7 +17,7 @@ public class FieldToTagTransformTests
     private static FieldToTagTransform Build(string sourceField)
         => new FieldToTagTransform("TestTransform", "TestGroup", sourceField);
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_WhenSourceFieldExists_AppendsValueAsTag()
@@ -32,7 +32,7 @@ public class FieldToTagTransformTests
         Assert.IsTrue(result.Actions[0].Modified);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_WhenTagsAlreadyExist_AppendsSeparated()
@@ -49,7 +49,7 @@ public class FieldToTagTransformTests
         Assert.AreEqual("Existing; High", result.Fields["System.Tags"]);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_WhenSourceFieldAbsent_ReturnsInputUnchanged()
@@ -63,4 +63,5 @@ public class FieldToTagTransformTests
         Assert.AreEqual(0, result.Actions.Count);
     }
 }
+
 

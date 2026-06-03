@@ -27,7 +27,7 @@ public class ConditionalFieldTransformTests
             trueValue, falseValue,
             NullLogger<ConditionalFieldTransform>.Instance);
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_WhenConditionMatches_SetsTrueValue()
@@ -41,7 +41,7 @@ public class ConditionalFieldTransformTests
         Assert.IsTrue(result.Actions[0].Modified);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_WhenConditionDoesNotMatch_SetsFalseValue()
@@ -55,7 +55,7 @@ public class ConditionalFieldTransformTests
         Assert.IsTrue(result.Actions[0].Modified);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_WhenSourceFieldAbsent_SetsFalseValue()
@@ -68,4 +68,5 @@ public class ConditionalFieldTransformTests
         Assert.AreEqual("No", result.Fields["Custom.IsActive"]);
     }
 }
+
 

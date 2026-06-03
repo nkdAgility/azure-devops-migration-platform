@@ -17,7 +17,7 @@ public class SetFieldTransformTests
     private static SetFieldTransform Build(string field, string? value)
         => new SetFieldTransform("TestTransform", "TestGroup", field, value);
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_SetsFieldToLiteralValue()
@@ -32,7 +32,7 @@ public class SetFieldTransformTests
         Assert.IsTrue(result.Actions[0].Modified);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_SubstitutesTimestampVariable()
@@ -53,7 +53,7 @@ public class SetFieldTransformTests
             $"Value '{value}' must be a valid ISO-8601 timestamp.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_OverwritesExistingValue()
@@ -67,7 +67,7 @@ public class SetFieldTransformTests
         Assert.AreEqual("Active", result.Actions[0].OldValue);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_WhenFieldAbsent_AddsNewField()
@@ -82,4 +82,5 @@ public class SetFieldTransformTests
         Assert.IsNull(result.Actions[0].OldValue);
     }
 }
+
 

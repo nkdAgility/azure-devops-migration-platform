@@ -17,7 +17,7 @@ public class ExcludeFieldTransformTests
     private static ExcludeFieldTransform Build(string field)
         => new ExcludeFieldTransform("TestTransform", "TestGroup", field);
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_WhenFieldExists_RemovesFieldFromDictionary()
@@ -37,7 +37,7 @@ public class ExcludeFieldTransformTests
             "Other fields must be preserved.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_WhenFieldAbsent_ReturnsInputUnchanged()
@@ -51,7 +51,7 @@ public class ExcludeFieldTransformTests
         Assert.AreEqual(0, result.Actions.Count);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_RecordsActionWithModifiedFlag()
@@ -68,4 +68,5 @@ public class ExcludeFieldTransformTests
         Assert.IsNull(result.Actions[0].NewValue);
     }
 }
+
 

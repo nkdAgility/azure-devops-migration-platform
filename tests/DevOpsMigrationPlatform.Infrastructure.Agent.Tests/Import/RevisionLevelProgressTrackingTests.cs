@@ -130,7 +130,7 @@ public class RevisionLevelProgressTrackingTests
 
     // ── Tests ─────────────────────────────────────────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ImportAsync_UpdatesWatermark_AfterRevisionIsApplied()
     {
@@ -147,7 +147,7 @@ public class RevisionLevelProgressTrackingTests
         Assert.AreEqual(2, ctx.Watermarks[1], "Watermark for WI 1 should be 2.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task UpdateLastRevisionIndexAsync_IgnoresLowerValue_WhenWatermarkAlreadyHigher()
     {
@@ -163,7 +163,7 @@ public class RevisionLevelProgressTrackingTests
         Assert.AreEqual(5, ctx.Watermarks[1], "Watermark for WI 1 should remain at 5.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ImportAsync_SkipsRevisionsAtOrBelowWatermark_WhenWatermarkSet()
     {
@@ -188,7 +188,7 @@ public class RevisionLevelProgressTrackingTests
                 $"Revision {skipped} should have been skipped.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ImportAsync_ProcessesCommentFolder_WhenWatermarkIsHigh()
     {
@@ -222,3 +222,5 @@ public class RevisionLevelProgressTrackingTests
             "No revision-level watermark updates should have occurred for a comment folder.");
     }
 }
+
+

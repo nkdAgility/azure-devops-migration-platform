@@ -9,7 +9,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Tools.NodeTranslati
 [TestClass]
 public class SkipUnresolvableTests
 {
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ProcessAsync_SkipsRevision_WhenAreaPathUnresolvableAndSkipEnabled()
     {
@@ -25,7 +25,7 @@ public class SkipUnresolvableTests
         Assert.IsFalse(ctx.UpdateFieldsWasCalled, "UpdateFieldsAsync should not be called.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ProcessAsync_SkipsRevision_WhenIterationPathUnresolvableAndSkipEnabled()
     {
@@ -41,7 +41,7 @@ public class SkipUnresolvableTests
         Assert.IsFalse(ctx.UpdateFieldsWasCalled, "UpdateFieldsAsync should not be called.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ProcessAsync_ThrowsInvalidOperation_WhenAreaPathUnresolvableAndSkipDisabled()
     {
@@ -58,7 +58,7 @@ public class SkipUnresolvableTests
             "Exception message should identify the field as area.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
     public async Task ProcessAsync_SkipsRevision_WhenExternalAreaPath()
     {
@@ -74,3 +74,5 @@ public class SkipUnresolvableTests
         Assert.IsFalse(ctx.UpdateFieldsWasCalled, "Revision should be skipped.");
     }
 }
+
+
