@@ -111,15 +111,39 @@ If these conditions are not both met, the family is still in scope for conversio
 
 ## Required Final Status Output
 
-At the end of every invocation, output:
+At the end of every invocation output a structured report using this exact format:
 
-- Selected file path and resolved feature family
-- Wiring state (`wired`, `miswired`, `unwired`)
-- Terminal status: `already-adapted`, `converted`, `built-from-intent`, `blocked`, or `failed`
-- Concise reason
-- Scenario counts: retired, retained, total
-- Commit reference (SHA or message)
-- If folder input: how many files remain unprocessed in the folder
+```
+**`<family-name>` — `<terminal-status>`**
+
+| | Count |
+|---|---|
+| ✅ Migrated & committed | N |
+| 🚧 Blocked (gap) | N |
+| ⚠️ Failed | N |
+| Total | N |
+
+**Migrated:**
+- Scenario "<title>" → `<TestClass>.<MethodName>` ✅
+- ...
+
+**Blocked:**
+- Scenario "<title>" — <one-line engineering reason> (GAP-NNN)
+
+**Failed:**
+- Scenario "<title>" — <one-line reason>
+
+**Wiring state:** `<wired|miswired|unwired>`
+**Commit:** `<SHA>` — `<commit message>`
+**Files remaining in folder:** N   ← omit if input was a single file
+```
+
+Rules:
+- Always show all three rows (Migrated / Blocked / Failed) even when a count is zero.
+- The ✅/🚧/⚠️ icons make the result scannable at a glance — do not omit them.
+- List every scenario individually under its section heading; do not summarise with "N scenarios".
+- If terminal status is `already-adapted`, replace the table body with a single line: "All scenarios previously migrated — no action taken."
+- Commit SHA must be the short SHA from `git log --oneline -1`.
 
 ## Stopping Rules
 
