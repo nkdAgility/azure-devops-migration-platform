@@ -16,6 +16,8 @@ description: Use when one feature family is ready to be converted from Reqnroll 
 - map every converted scenario to concrete test method(s) with `path:line` evidence
 - apply required test tags to each converted test using existing repository tag conventions
 - record expected tags, actual tags, and compliance per scenario row in the running inventory
+- retire each converted scenario from the source `.feature` file only after its mapped code-first test passes
+- never delete an entire `.feature` file in conversion; full file retirement is deferred to verification `PASS`
 - branch on the wiring state recorded by assessment (see Wiring-State Conversion Modes)
 - produce `.output/nkda-testdsl/<feature-family>/04-conversion-summary.md`
 
@@ -40,6 +42,13 @@ There is no executing baseline, so behaviour parity against prior tests is not a
 - for `miswired`, you may reuse sound logic from the existing non-executing `*Steps.cs` as implementation reference, then delete those dead bindings once equivalent coverage exists
 - for `unwired`, there are no legacy bindings to remove
 - in both cases, register the new tests so they execute, and record that no parity baseline existed (intent coverage + behaviour-confirmed assertions replace parity)
+
+## Scenario Retirement Gate
+
+- Scenario-level retirement is allowed during conversion, but only for scenarios whose mapped code-first tests are already passing.
+- If a scenario's mapped test is failing or unresolved, keep that scenario in the `.feature` file.
+- Record, per scenario row in `00-scenario-test-inventory.md`, whether it is retained or retired, with test evidence.
+- If all scenarios in a family have been retired, mark the `.feature` file as eligible for deletion; actual file deletion occurs only in verification after overall `PASS`.
 
 ## Stop Conditions
 

@@ -18,6 +18,7 @@ description: Use when conversion and refactor are done and parity, artefact remo
 - verify expected vs actual test tags are compliant for every mapped scenario
 - verify newly converted tests for the feature family are passing
 - after converted tests are passing, run the full repository test suite and record the result
+- verify scenario-level retirement gate compliance: every removed scenario from `.feature` has a mapped passing test with `path:line` evidence
 - remove migrated Reqnroll artefacts when verification is `PASS`, scoped to wiring state: for `wired`, the `.feature`, generated `.feature.cs`, and legacy `*Steps.cs` tied to the family; for `miswired`, the dead non-executing `*Steps.cs` and the retired `.feature` (there is no generated `.feature.cs`); for `unwired`, the retired `.feature` only (no bindings or generated test exist)
 - verify there are no orphan generated `Features\*.feature.cs` files without matching `Features\*.feature` inputs in the affected test project; remove any found and record removals
 - verify Reqnroll artefact removal status for the artefacts that existed for that wiring state
@@ -31,6 +32,12 @@ description: Use when conversion and refactor are done and parity, artefact remo
 3. Confirm scenario inventory coverage and tag compliance are complete.
 4. If and only if tests are green, validity gate passes, and inventory/tag checks pass, run the full repository test suite.
 5. Record commands, outcomes, validity scores, and inventory/tag verdict in `06-verification.md`.
+
+## Artefact Deletion Gate
+
+- Delete the `.feature` file only when all scenarios are retired and mapped tests are passing.
+- If any scenario remains unconverted or mapped to a failing/unresolved test, retain the `.feature` file and return `BLOCKED`.
+- Scenario removals and final file deletion must be evidenced in `06-verification.md` with `path:line` references to passing tests and removed artefacts.
 
 ## Required Verdict
 

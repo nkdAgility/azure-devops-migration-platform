@@ -97,6 +97,7 @@ Before conversion, define:
 Before deleting Reqnroll artefacts, equivalent code-first MSTest behaviour coverage must exist.
 Before building any test, the existing test corpus must be searched for equivalent coverage; `pre-existing` scenarios map to the existing test, `partial-existing` scenarios extend it, and only `to-build` scenarios get a new test. No duplicate coverage may be created.
 Missing-step scenarios with no pre-existing coverage must be converted into intent-derived tests or explicitly blocked with reason.
+Scenario-level `.feature` cleanup is allowed only when the mapped code-first test is passing; otherwise the scenario remains in the `.feature` file.
 
 ### Verification Gate
 
@@ -109,6 +110,7 @@ A family is complete only when:
 - intent-derived tests meet test-validity threshold (`USEFUL` or `HIGH VALUE`, >= 16/25)
 - full repository test suite is rerun after converted tests are green
 - test commands, outcomes, and validity scores are recorded in verification output
+- full `.feature` file deletion happens only after all family scenarios are retired and verification returns `PASS`
 
 ### Stop Gate
 

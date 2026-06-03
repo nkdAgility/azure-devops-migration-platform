@@ -29,7 +29,7 @@ Where `{feature}` is one of:
 7. For scenarios with missing step implementations and no pre-existing coverage, generate intent-derived tests instead of skipping them.
 8. Apply a test-validity gate to intent-derived tests and require `USEFUL` or `HIGH VALUE` classification.
 9. Maintain a running scenario inventory per feature family at `.output/nkda-testdsl/<feature-family>/00-scenario-test-inventory.md`.
-10. Require each scenario row to record mapped test(s), mapping status, expected tags, actual tags, and tag compliance.
+10. Require each scenario row to record mapped test(s), mapping status, expected tags, actual tags, tag compliance, and retirement status (`retained` or `retired`).
 11. Before each family conversion, purge orphaned generated `Features\*.feature.cs` files (generated code-behind with no matching `.feature` input) in the target test project.
 12. Produce a final status summary that includes both totals and per-file outcomes.
 
@@ -41,7 +41,7 @@ Run this sequence for each selected feature family that is not already adapted:
 4. `nkda-testdsl-feature-conversion`
 5. `nkda-testdsl-refactor`
 6. `nkda-testdsl-verification`
-7. Remove migrated Reqnroll artefacts for that family, scoped to its wiring state, only after verification returns `PASS`: `wired` removes the `.feature`, generated `.feature.cs`, and legacy `*Steps.cs`; `miswired` removes the dead non-executing `*Steps.cs` and the retired `.feature`; `unwired` retires the `.feature` only
+7. Remove migrated Reqnroll artefacts for that family, scoped to its wiring state, only after verification returns `PASS` and all scenarios are already retired: `wired` removes the `.feature`, generated `.feature.cs`, and legacy `*Steps.cs`; `miswired` removes the dead non-executing `*Steps.cs` and the retired `.feature`; `unwired` retires the `.feature` only
 8. `nkda-testdsl-next-feature-selection` (after the final selected family is completed)
 
 `nkda-testdsl-verification` must include: converted/affected tests passing first, followed by a full repository test-suite rerun.
