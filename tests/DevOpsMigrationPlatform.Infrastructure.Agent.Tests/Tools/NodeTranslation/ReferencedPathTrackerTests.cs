@@ -75,6 +75,10 @@ public class ReferencedPathTrackerTests
 
 
 
+    [TestCategory("UnitTests")]
+
+
+
     [TestMethod]
 
     public async Task RecordAreaPathAsync_NewPath_WritesArtifact()
@@ -104,6 +108,10 @@ public class ReferencedPathTrackerTests
         Assert.IsTrue(tracker.AreaPaths.Contains(@"ProjectA\Team A"));
 
     }
+
+
+
+    [TestCategory("UnitTests")]
 
 
 
@@ -139,6 +147,10 @@ public class ReferencedPathTrackerTests
 
 
 
+    [TestCategory("UnitTests")]
+
+
+
     [TestMethod]
 
     public async Task RecordAreaPathAsync_CaseInsensitiveDuplicate_DoesNotWriteAgain()
@@ -168,6 +180,10 @@ public class ReferencedPathTrackerTests
         Assert.AreEqual(1, tracker.AreaPaths.Count);
 
     }
+
+
+
+    [TestCategory("UnitTests")]
 
 
 
@@ -208,6 +224,10 @@ public class ReferencedPathTrackerTests
         Assert.IsTrue(tracker.AreaPaths.Contains(@"ProjectA\Team A"));
 
     }
+
+
+
+    [TestCategory("UnitTests")]
 
 
 
@@ -280,6 +300,8 @@ public class ReferencedPathTrackerTests
     }
 
 }
+
+
 
 
 

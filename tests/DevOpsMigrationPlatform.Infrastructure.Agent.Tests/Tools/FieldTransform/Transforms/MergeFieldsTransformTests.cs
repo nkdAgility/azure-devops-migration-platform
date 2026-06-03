@@ -20,6 +20,8 @@ public class MergeFieldsTransformTests
         string formatString)
         => new MergeFieldsTransform("TestTransform", "TestGroup", sourceFields, targetField, formatString);
 
+    [TestCategory("UnitTests")]
+
     [TestMethod]
     public void Apply_BothFieldsPresent_MergesWithFormatString()
     {
@@ -41,6 +43,8 @@ public class MergeFieldsTransformTests
         Assert.IsTrue(result.Actions[0].Modified);
     }
 
+    [TestCategory("UnitTests")]
+
     [TestMethod]
     public void Apply_AbsentFieldTreatedAsEmptyString()
     {
@@ -55,6 +59,8 @@ public class MergeFieldsTransformTests
 
         Assert.AreEqual("John ", result.Fields["Custom.FullName"]);
     }
+
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_WithSingleSourceField_Works()
@@ -71,3 +77,5 @@ public class MergeFieldsTransformTests
         Assert.AreEqual("Hello, Jane!", result.Fields["Custom.FullName"]);
     }
 }
+
+

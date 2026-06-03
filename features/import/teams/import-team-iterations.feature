@@ -6,14 +6,10 @@ Feature: Import Team Iterations
   Background:
     Given a team package with iteration assignments
 
-  @import @teams @iterations
-  Scenario: Import assigns all team iterations to target team
-    Given a team package with iterations "ProjectA\\Sprint 1", "ProjectA\\Sprint 2"
-    And a NodeTransformTool mapping "ProjectA" → "TargetProject"
-    When the Teams module imports the team package
-    Then AssignIterationAsync is called twice
-    And the iteration paths are translated to "TargetProject\\Sprint 1" and "TargetProject\\Sprint 2"
-
+  # BLOCKED: Same root cause as GAP-005. TranslatePath() returns `result.TargetPath ?? sourcePath`,
+  # so translatedPath is never null for a non-empty iteration path. The skip branch at
+  # TeamImportOrchestrator.cs:~93 (`if (translatedPath is null) { continue; }`) is unreachable.
+  # See: src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamImportOrchestrator.cs:190-200
   @import @teams @iterations
   Scenario: Unresolvable iteration path is skipped with a warning
     Given a team package with an iteration path "OldProject\\Sprint 99"
@@ -21,10 +17,3 @@ Feature: Import Team Iterations
     When the Teams module imports the team package
     Then AssignIterationAsync is not called for that iteration
     And a warning is logged containing the unresolvable path
-
-  @import @teams @iterations
-  Scenario: Iterations imported without NodeTransformTool use source paths as-is
-    Given a team package with iteration "ProjectA\\Sprint 1"
-    And no NodeTransformTool is registered
-    When the Teams module imports the team package
-    Then AssignIterationAsync is called with path "ProjectA\\Sprint 1" unchanged

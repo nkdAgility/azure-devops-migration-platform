@@ -13,6 +13,7 @@
 
 3. `nkda-testdsl-extraction` then `nkda-testdsl-feature-conversion`
    - consumes `02-dsl-design.md`
+   - bootstraps `tests/DevOpsMigrationPlatform.Testing` if missing (not a blocker)
    - produces `03-extraction-summary.md` and `04-conversion-summary.md`
 
 4. `nkda-testdsl-refactor`
@@ -33,7 +34,7 @@ Autonomous execution runs the seven phases in order for each selected feature fa
 
 1. assessment
 2. dsl design
-3. extraction
+3. extraction (includes typed DSL foundation bootstrap when missing)
 4. conversion
 5. refactor
 6. verification
@@ -58,13 +59,18 @@ If `{feature}` is omitted, `nkda-testdsl-autonomous` must run `nkda-testdsl-next
 
 If `{feature}` is a folder, `nkda-testdsl-autonomous` must:
 
-1. resolve all `.feature` files under that folder
-2. map them to feature families
-3. check each family for already-adapted state before conversion
-4. classify the wiring state of each not-yet-adapted family (`wired`, `miswired`, `unwired`); `miswired`/`unwired` families are valid candidates and are built from intent, not skipped
-5. process each unique family in deterministic path order
-6. run the full six conversion phases only for families that are not already adapted, then run next-feature-selection after the final family
-7. output final totals and per-`.feature` status (already-adapted, converted, built-from-intent, skipped, blocked, failed) with wiring state
+1. Enumerate all `.feature` files under that folder in deterministic path order. This produces the worklist.
+2. For each file in the worklist, one at a time:
+   a. Resolve to feature family.
+   b. Check already-adapted state — if adapted, record and skip.
+   c. Classify wiring state.
+   d. Run the full per-file pipeline: assessment → design → extraction → conversion (with per-scenario test execution and immediate scenario retirement on pass) → refactor → verification.
+   e. On verification `PASS`: delete all retired scenarios, delete the `.feature` file, remove generated `.feature.cs` and legacy `*Steps.cs` scoped to wiring state.
+   f. On verification `BLOCKED`/`FAIL`: retain the `.feature` file with unconverted scenarios only, record reason.
+   g. Record terminal status for this file.
+   h. Move to the next file in the worklist.
+3. After all files are processed, run `nkda-testdsl-next-feature-selection`.
+4. Output final totals and per-`.feature` status.
 
 ## Phase Gates
 
@@ -96,6 +102,7 @@ Before conversion, define:
 Before deleting Reqnroll artefacts, equivalent code-first MSTest behaviour coverage must exist.
 Before building any test, the existing test corpus must be searched for equivalent coverage; `pre-existing` scenarios map to the existing test, `partial-existing` scenarios extend it, and only `to-build` scenarios get a new test. No duplicate coverage may be created.
 Missing-step scenarios with no pre-existing coverage must be converted into intent-derived tests or explicitly blocked with reason.
+Scenario-level `.feature` cleanup is allowed only when the mapped code-first test is passing; otherwise the scenario remains in the `.feature` file.
 
 ### Verification Gate
 
@@ -108,6 +115,7 @@ A family is complete only when:
 - intent-derived tests meet test-validity threshold (`USEFUL` or `HIGH VALUE`, >= 16/25)
 - full repository test suite is rerun after converted tests are green
 - test commands, outcomes, and validity scores are recorded in verification output
+- full `.feature` file deletion happens only after all family scenarios are retired and verification returns `PASS`
 
 ### Stop Gate
 

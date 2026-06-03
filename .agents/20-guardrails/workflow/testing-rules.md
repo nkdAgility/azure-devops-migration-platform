@@ -8,14 +8,61 @@ MSTest conventions, test naming, and organisation. See also: [coding-standards.m
 
 | Priority | Category | Marker | Speed | Use |
 | --- | --- | --- | --- | --- |
-| 1 (highest) | Unit Tests | `[TestClass]`/`[TestMethod]` | < 50 ms | All logic, branching, transforms. No I/O, no DI. |
-| 2 | Behavioural Tests (Internal DSL + MSTest) | code-first MSTest behavioural tests | < 500 ms | Default behavioural coverage for new tests. |
-| 3 | Simulated System Tests | `[TestCategory("SystemTest_Simulated")]` | < 10 s | End-to-end with `Simulated` connector. No network. |
-| 4 (lowest) | Live System Tests | `[TestCategory("SystemTest")]`/`[TestCategory("SystemTest_Live")]` | < 60 s | Requires live ADO/TFS. Environment-gated. |
+| 1 (highest) | Unit Tests | `[TestCategory("UnitTests")]` | < 50 ms | All logic, branching, transforms. No I/O, no DI. Single class/method in isolation. |
+| 2 | Domain Tests (Internal DSL + MSTest) | `[TestCategory("DomainTests")]` | < 500 ms | Business behaviour across collaborating domain objects via the internal DSL. |
+| 3 | Simulated System Tests | `[TestCategory("SystemTests_Simulated")]` | < 10 s | End-to-end with `Simulated` connector. No network. |
+| 3a | Smoke System Tests | `[TestCategory("SystemTests_Smoke")]` | < 30 s | Critical-path subset of system tests run on every PR. |
+| 4 (lowest) | Live System Tests | `[TestCategory("SystemTests")]`/`[TestCategory("SystemTests_Live")]` | < 60 s | Requires live ADO/TFS. Environment-gated. |
 
-**Principles:** Fast validation is the goal. Push tests downward (can it be a unit test?). Live tests are a last resort. Simulated replaces live where possible. CI gates run Unit + Behavioural by default.
+### Distinguishing UnitTests from DomainTests
 
-**Anti-patterns (instant reject):** Simulated/Live test for logic with no external dependency. Feature test with real I/O when mocks suffice. New Live test without proving lower level can't cover it. Feature/Simulated/Live outnumbering Unit tests.
+| Criterion | UnitTests | DomainTests |
+| --- | --- | --- |
+| Scope | Single class/method in isolation | Business behaviour across collaborating domain objects |
+| Dependencies | All dependencies mocked/stubbed | Uses real domain objects, DSL builders/runners/assertions |
+| DSL usage | No `DevOpsMigrationPlatform.Testing` usage | Uses the internal DSL library (builders, runners, assertions) |
+| Arrange style | Direct `new Foo()` + mock setup | Builder pattern (`A.WorkItem().WithField(...)`) |
+| Assert style | Assert on return value / state of one object | Assert on observable business outcome |
+| I/O | None | None (still in-process, no connectors) |
+
+**Rule:** If the test references `DevOpsMigrationPlatform.Testing` DSL infrastructure (builders, runners, or domain assertions), it is a `DomainTests` test. Otherwise it is a `UnitTests` test.
+
+**Principles:** Fast validation is the goal. Push tests downward (can it be a unit test?). Live tests are a last resort. Simulated replaces live where possible. CI gates run UnitTests + DomainTests by default.
+
+**Anti-patterns (instant reject):** Simulated/Live test for logic with no external dependency. Feature test with real I/O when mocks suffice. New Live test without proving lower level can't cover it. Feature/Simulated/Live outnumbering Unit + Domain tests.
+
+---
+
+## Mandatory Category Tagging (Touch = Tag)
+
+> **HARD GATE — no exceptions, no deferrals, no delegation excuses.**
+> A task is **incomplete** if any touched test file contains a test method or test class missing a `[TestCategory]` attribute. The agent MUST apply the correct category before the edit is considered done. "The class already lacked a tag" is not an excuse — it makes the fix more urgent, not optional.
+
+Every time a test file is **created, edited, moved, or touched in any way**, every `[TestMethod]` and `[TestClass]` in that file MUST carry the correct `[TestCategory]` before the change is committed or reported as complete.
+
+| Condition | Required attribute |
+| --- | --- |
+| Test uses `DevOpsMigrationPlatform.Testing` DSL | `[TestCategory("DomainTests")]` |
+| Test is isolated unit test (no DSL, no I/O) | `[TestCategory("UnitTests")]` |
+| Test uses `Simulated` connector end-to-end | `[TestCategory("SystemTests_Simulated")]` |
+| Test is a critical-path smoke subset | `[TestCategory("SystemTests_Smoke")]` |
+| Test targets live ADO/TFS | `[TestCategory("SystemTests")]` or `[TestCategory("SystemTests_Live")]` |
+
+**Enforcement rules — all are blocking, none are optional:**
+
+1. **Missing tag on touch:** If any `[TestMethod]` or `[TestClass]` in a touched file lacks `[TestCategory]`, add the correct tag in the same edit. This applies to every method in the file, not just the method being modified.
+2. **Wrong tag on touch:** If a tag is incorrect (wrong category, old name), correct it in the same edit.
+3. **Delegation does not exempt:** If a sub-agent or delegated run added or modified a test, the calling agent is responsible for verifying tags before closing the task. "The delegated run didn't add it" is not a valid completion state.
+4. **No partial compliance:** Applying the tag to the new method while leaving existing uncategorised methods in the same file is non-compliant. Fix the whole file.
+5. **Category names are canonical:** Only the exact strings `UnitTests`, `DomainTests`, `SystemTests_Simulated`, `SystemTests_Smoke`, `SystemTests`, `SystemTests_Live` are valid. Any other value is non-compliant and must be corrected on contact.
+6. The `nkda-testdsl-*` skills must apply `[TestCategory("DomainTests")]` to all converted tests.
+7. The `nkda-testdsl-refactor` skill must verify and correct all category tags in any file it touches.
+
+**Checklist before marking any test-touching task complete:**
+
+- [ ] Every `[TestMethod]` in every touched file has a `[TestCategory]` with a canonical value.
+- [ ] Every `[TestClass]` in every touched file has a `[TestCategory]` with a canonical value (class-level tag is required when all methods share the same category).
+- [ ] No old or non-canonical category values remain in touched files.
 
 ---
 
@@ -63,7 +110,7 @@ Legacy-only (`Reqnroll` / `[Binding]`) guidance:
 - `Mock<T>` (Moq) or hand-written fakes for infrastructure interfaces.
 - Never use real `FileSystemArtefactStore` in unit tests.
 - Never use live Azure DevOps in unit tests.
-- Real filesystem → `[TestCategory("Integration")]`.
+- Real filesystem → `[TestCategory("SystemTests_Simulated")]`.
 
 ---
 
@@ -146,7 +193,7 @@ The contributor-facing debugging workflow lives in [docs/testing-guide.md](../..
 
 ## CLI Feature → System Test Requirement
 
-Every CLI command MUST have `[TestCategory("SystemTest")]` test that:
+Every CLI command MUST have `[TestCategory("SystemTests")]` test that:
 
 1. Guards on env vars (calls `Assert.Fail` with a clear message if absent — see Assert.Inconclusive Is Banned above).
 2. Exercises the feature against real/simulated system.

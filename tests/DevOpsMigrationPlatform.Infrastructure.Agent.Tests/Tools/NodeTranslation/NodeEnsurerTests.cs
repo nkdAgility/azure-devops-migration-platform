@@ -185,6 +185,10 @@ public class NodeEnsurerTests
 
 
 
+    [TestCategory("DomainTests")]
+
+
+
     [TestMethod]
 
     public async Task EnsureReferencedPathsAsync_WithAreaPath_CallsEnsureExists()
@@ -210,6 +214,10 @@ public class NodeEnsurerTests
             It.IsAny<CancellationToken>()), Times.Once);
 
     }
+
+
+
+    [TestCategory("DomainTests")]
 
 
 
@@ -243,6 +251,10 @@ public class NodeEnsurerTests
 
 
 
+    [TestCategory("DomainTests")]
+
+
+
     [TestMethod]
 
     public async Task EnsureReferencedPathsAsync_NoArtifact_DoesNotThrow()
@@ -266,6 +278,10 @@ public class NodeEnsurerTests
             It.IsAny<CancellationToken>()), Times.Never);
 
     }
+
+
+
+    [TestCategory("DomainTests")]
 
 
 
@@ -341,6 +357,10 @@ public class NodeEnsurerTests
 
 
 
+    [TestCategory("DomainTests")]
+
+
+
     [TestMethod]
 
     public async Task ReplicateSourceTreeAsync_ResumesAndSkipsAlreadyReplicatedNodes()
@@ -388,6 +408,10 @@ public class NodeEnsurerTests
             It.IsAny<ClassificationNodeType>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
 
     }
+
+
+
+    [TestCategory("DomainTests")]
 
 
 
@@ -443,6 +467,10 @@ public class NodeEnsurerTests
 
 
 
+    [TestCategory("DomainTests")]
+
+
+
     [TestMethod]
 
     public async Task ReplicateSourceTreeAsync_DoesNotSetDatesForNullDates()
@@ -482,6 +510,10 @@ public class NodeEnsurerTests
             It.IsAny<string>(), It.IsAny<DateTimeOffset?>(), It.IsAny<DateTimeOffset?>(), It.IsAny<CancellationToken>()), Times.Never);
 
     }
+
+
+
+    [TestCategory("DomainTests")]
 
 
 
@@ -528,6 +560,10 @@ public class NodeEnsurerTests
             ClassificationNodeType.Iteration, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
 
     }
+
+
+
+    [TestCategory("DomainTests")]
 
 
 
@@ -586,6 +622,9 @@ public class NodeEnsurerTests
     }
 
 }
+
+
+
 
 
 

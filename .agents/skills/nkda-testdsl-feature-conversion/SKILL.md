@@ -10,11 +10,14 @@ description: Use when one feature family is ready to be converted from Reqnroll 
 - consume `01-feature-assessment.md` and `02-dsl-design.md`
 - consume and update `00-scenario-test-inventory.md`
 - create code-first MSTest tests that preserve behaviour
+- before conversion codegen runs, remove stale generated `Features\*.feature.cs` files that have no matching `Features\*.feature` input
 - place converted tests into business-focused groupings that mirror the system-under-test capability boundaries
 - for missing-step scenarios, generate intent-derived code-first tests instead of skipping those scenarios
 - map every converted scenario to concrete test method(s) with `path:line` evidence
 - apply required test tags to each converted test using existing repository tag conventions
 - record expected tags, actual tags, and compliance per scenario row in the running inventory
+- retire each converted scenario from the source `.feature` file only after its mapped code-first test passes
+- never delete an entire `.feature` file in conversion; full file retirement is deferred to verification `PASS`
 - branch on the wiring state recorded by assessment (see Wiring-State Conversion Modes)
 - produce `.output/nkda-testdsl/<feature-family>/04-conversion-summary.md`
 
@@ -23,6 +26,7 @@ description: Use when one feature family is ready to be converted from Reqnroll 
 ### `wired`
 
 - preserve behaviour parity against the currently executing tests
+- in the target test project, delete orphaned generated `*.feature.cs` files whose paired `.feature` file is already retired, so Reqnroll/MSBuild cannot fail on missing inputs
 - remove `.feature` project inclusion (`ExternalFeatureFiles` entry) after equivalent coverage exists
 - remove obsolete step/context files only after parity is established
 
@@ -38,6 +42,39 @@ There is no executing baseline, so behaviour parity against prior tests is not a
 - for `miswired`, you may reuse sound logic from the existing non-executing `*Steps.cs` as implementation reference, then delete those dead bindings once equivalent coverage exists
 - for `unwired`, there are no legacy bindings to remove
 - in both cases, register the new tests so they execute, and record that no parity baseline existed (intent coverage + behaviour-confirmed assertions replace parity)
+
+## Scenario Retirement Gate
+
+- Scenario-level retirement is allowed during conversion, but only for scenarios whose mapped code-first tests are already passing.
+- If a scenario's mapped test is failing or unresolved, keep that scenario in the `.feature` file.
+- Record, per scenario row in `00-scenario-test-inventory.md`, whether it is retained or retired, with test evidence.
+- If all scenarios in a family have been retired, mark the `.feature` file as eligible for deletion; actual file deletion occurs only in verification after overall `PASS`.
+
+## Gap Logging
+
+Any scenario that cannot be converted MUST be logged in `analysis/dsl-gaps-detected.md` before `04-conversion-summary.md` is finalised. Do not leave a retained scenario undocumented.
+
+For each retained scenario, append an entry using this format:
+
+```markdown
+## GAP-NNN: <family> — <scenario title>
+
+**File:** `<feature file path>`
+**Scenario:** `<scenario title>`
+**Family:** `<family>`
+**Wiring:** `<wired|miswired|unwired>`
+**Gap type:** `<gap-type from reference table>`
+**Detected:** `<ISO date>`
+**Status:** OPEN
+
+### Engineering detail
+
+<Specific, actionable description of why this scenario cannot be converted.
+Reference exact file paths and line numbers where relevant. State what
+would need to change to unblock conversion.>
+```
+
+Gap number (`NNN`) must be unique — scan `analysis/dsl-gaps-detected.md` for the highest existing number and increment.
 
 ## Stop Conditions
 

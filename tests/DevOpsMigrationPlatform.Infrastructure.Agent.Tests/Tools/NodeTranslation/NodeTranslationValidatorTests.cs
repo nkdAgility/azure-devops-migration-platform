@@ -109,6 +109,10 @@ public class NodeTranslationValidatorTests
 
 
 
+    [TestCategory("UnitTests")]
+
+
+
     [TestMethod]
 
     public async Task ValidateAsync_AllPathsMapped_ReturnsValidReport()
@@ -155,6 +159,10 @@ public class NodeTranslationValidatorTests
 
 
 
+    [TestCategory("UnitTests")]
+
+
+
     [TestMethod]
 
     public async Task ValidateAsync_ExternalPath_ReportsUnanchored()
@@ -184,6 +192,10 @@ public class NodeTranslationValidatorTests
         Assert.AreEqual(@"OtherProject\Team A", report.UnanchoredPaths[0].Path);
 
     }
+
+
+
+    [TestCategory("UnitTests")]
 
 
 
@@ -219,6 +231,10 @@ public class NodeTranslationValidatorTests
 
 
 
+    [TestCategory("UnitTests")]
+
+
+
     [TestMethod]
 
     public async Task ValidateAsync_NoArtifact_ReturnsValidEmptyReport()
@@ -242,6 +258,10 @@ public class NodeTranslationValidatorTests
         Assert.AreEqual(0, report.MalformedTargetPaths.Count);
 
     }
+
+
+
+    [TestCategory("UnitTests")]
 
 
 
@@ -301,6 +321,10 @@ public class NodeTranslationValidatorTests
 
 
 
+    [TestCategory("UnitTests")]
+
+
+
     [TestMethod]
 
     public async Task ValidateAsync_EmptyArtifact_ReturnsValidReport()
@@ -324,6 +348,10 @@ public class NodeTranslationValidatorTests
         Assert.AreEqual(0, report.UnanchoredPaths.Count);
 
     }
+
+
+
+    [TestCategory("UnitTests")]
 
 
 
@@ -380,6 +408,8 @@ public class NodeTranslationValidatorTests
     }
 
 }
+
+
 
 
 

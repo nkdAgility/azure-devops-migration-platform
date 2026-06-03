@@ -6,24 +6,14 @@ Feature: Import Team Members
   Background:
     Given a team package with member list
 
-  @import @teams @members
-  Scenario: Import adds all members using identity mapping
-    Given a team package with 2 members: descriptor "src-alice" and "src-bob"
-    And an identity mapping: "src-alice" → "tgt-alice@target.com", "src-bob" → "tgt-bob@target.com"
-    When the Teams module imports the team package
-    Then AddMemberAsync is called twice
-    And member descriptors are translated to "tgt-alice@target.com" and "tgt-bob@target.com"
-
+  # BLOCKED: TeamImportOrchestrator always calls AddMemberAsync with whatever
+  # _identityLookupTool.Resolve() returns — there is no skip-on-unresolvable path
+  # for members. The LogWarning in the catch block only fires if AddMemberAsync itself
+  # throws, not when the identity cannot be resolved.
+  # See: src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamImportOrchestrator.cs:116-135
   @import @teams @members
   Scenario: Unresolvable member identity is skipped with warning
     Given a team package with a member descriptor "src-unknown"
     And the IdentityMappingService returns the default identity for "src-unknown"
     When the Teams module imports the team package
     Then a warning is logged for the unresolvable member
-
-  @import @teams @members
-  Scenario: Admin flag is preserved after identity mapping
-    Given a team package with an admin member descriptor "src-alice"
-    And the identity mapping resolves "src-alice" → "tgt-alice@target.com"
-    When the Teams module imports the team package
-    Then AddMemberAsync is called with isAdmin=true for the resolved member

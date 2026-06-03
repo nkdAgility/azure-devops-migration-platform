@@ -14,6 +14,8 @@ public class MergeToTagTransformTests
     private static FieldTransformContext MakeContext()
         => new FieldTransformContext(1, 0, "Bug", FieldTransformPhase.Import);
 
+    [TestCategory("UnitTests")]
+
     [TestMethod]
     public void Apply_DeduplicatesTagsCaseInsensitively()
     {
@@ -30,6 +32,8 @@ public class MergeToTagTransformTests
 
         Assert.AreEqual("High; MEDIUM", result.Fields["System.Tags"]);
     }
+
+    [TestCategory("UnitTests")]
 
     [TestMethod]
     public void Apply_MergesMultipleSourceFields()
@@ -49,6 +53,8 @@ public class MergeToTagTransformTests
         Assert.AreEqual("Alpha; Beta", result.Fields["System.Tags"]);
     }
 
+    [TestCategory("UnitTests")]
+
     [TestMethod]
     public void Apply_WhenSourceFieldAbsent_SkipsSilently()
     {
@@ -64,3 +70,5 @@ public class MergeToTagTransformTests
         Assert.AreEqual(1, result.Actions.Count);
     }
 }
+
+

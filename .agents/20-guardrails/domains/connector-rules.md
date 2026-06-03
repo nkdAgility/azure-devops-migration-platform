@@ -35,7 +35,7 @@ These rules are mandatory for all connector implementations.
 ## Testing
 
 16. Every connector method must be exercised by at least one test.
-17. `SystemTest_AzureDevOps` tests must use `[TestCategory("SystemTest")]`.
+17. `SystemTest_AzureDevOps` tests must use `[TestCategory("SystemTests")]` or `[TestCategory("SystemTests_Live")]`.
 18. Tests must not use `Assert.IsTrue(count >= 0)` — this asserts nothing about functional output.
 
 ## Related

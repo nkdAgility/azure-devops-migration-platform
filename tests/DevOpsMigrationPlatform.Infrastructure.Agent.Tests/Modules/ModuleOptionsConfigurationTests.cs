@@ -14,7 +14,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules;
 /// and surface validation errors for invalid inputs. (T098)
 /// </summary>
 [TestClass]
-[TestCategory("UnitTest")]
+[TestCategory("UnitTests")]
 public sealed class ModuleOptionsConfigurationTests
 {
     // ─── TeamsModuleOptions ──────────────────────────────────────────────────
@@ -238,3 +238,4 @@ public sealed class ModuleOptionsConfigurationTests
             .AddInMemoryCollection(values)
             .Build();
 }
+
