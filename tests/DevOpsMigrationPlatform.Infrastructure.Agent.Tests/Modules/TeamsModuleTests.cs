@@ -342,6 +342,99 @@ public class TeamsModuleTests
     }
 
     [TestMethod]
+    public async Task ImportAsync_CreatesNonDefaultTeams_ByName_WhenTwoTeamsInPackage()
+    {
+        // Arrange
+        var target = new SimulatedTeamTarget();
+        var importOrch = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo());
+
+        var devTeam = new TeamPackage
+        {
+            Definition = new TeamDefinition("src-2", "Dev Team", "", false),
+            Iterations = new List<TeamIteration>(),
+            Members = new List<TeamMember>(),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+        };
+        var testTeam = new TeamPackage
+        {
+            Definition = new TeamDefinition("src-3", "Test Team", "", false),
+            Iterations = new List<TeamIteration>(),
+            Members = new List<TeamMember>(),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+        };
+
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
+        storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnum(new[] { "Teams/dev-team/team.json", "Teams/test-team/team.json" }));
+        storeMock.Setup(s => s.ReadAsync("Teams/dev-team/team.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(JsonSerializer.Serialize(devTeam, s_jsonOptions));
+        storeMock.Setup(s => s.ReadAsync("Teams/test-team/team.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(JsonSerializer.Serialize(testTeam, s_jsonOptions));
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions { Enabled = true }),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: target);
+
+        // Act
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
+
+        // Assert — both non-default teams created by name
+        Assert.AreEqual(2, target.Teams.Count, "Expected both non-default teams to be imported");
+        Assert.IsTrue(target.Teams.Values.Any(t => t.Name == "Dev Team"), "Dev Team should be created on target");
+        Assert.IsTrue(target.Teams.Values.Any(t => t.Name == "Test Team"), "Test Team should be created on target");
+    }
+
+    [TestMethod]
+    public async Task ImportAsync_CreatesAllTeams_WhenFiveNonDefaultTeamsInPackage()
+    {
+        // Arrange
+        var target = new SimulatedTeamTarget();
+        var importOrch = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo());
+
+        var teamNames = new[] { "Team Alpha", "Team Beta", "Team Gamma", "Team Delta", "Team Epsilon" };
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
+
+        var paths = teamNames.Select(n => $"Teams/{n.ToLowerInvariant().Replace(' ', '-')}/team.json").ToArray();
+        storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnum(paths));
+
+        for (var i = 0; i < teamNames.Length; i++)
+        {
+            var tp = new TeamPackage
+            {
+                Definition = new TeamDefinition($"src-{i + 1}", teamNames[i], "", false),
+                Iterations = new List<TeamIteration>(),
+                Members = new List<TeamMember>(),
+                CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+            };
+            var path = paths[i];
+            storeMock.Setup(s => s.ReadAsync(path, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(JsonSerializer.Serialize(tp, s_jsonOptions));
+        }
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions { Enabled = true }),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: target);
+
+        // Act
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
+
+        // Assert — all 5 non-default teams created on target
+        Assert.AreEqual(5, target.Teams.Count,
+            $"Expected 5 teams. Got: {string.Join(", ", target.Teams.Values.Select(t => t.Name))}");
+        foreach (var name in teamNames)
+            Assert.IsTrue(target.Teams.Values.Any(t => t.Name == name), $"Team '{name}' should be on target");
+    }
+
+    [TestMethod]
     public async Task ValidateAsync_AddsError_WhenNoTeamFilesFound()
     {
         // Arrange

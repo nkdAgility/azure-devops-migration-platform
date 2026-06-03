@@ -112,6 +112,43 @@ Scenario: AutoCreateNodes ensures referenced paths exist on target
 
 ---
 
+## GAP-004: TeamsModule — Default team assignment not implemented; target API unsupported
+
+**Detected during:** migration of `features/import/teams/import-default-team-detection.feature` (scenario 1)
+**gap-type:** `behaviour-conflict`
+**Status:** OPEN
+
+### What the feature claims
+
+```gherkin
+Scenario: Source default team maps to target default team by IsDefault flag not by name
+  Then the default team settings from the source are applied to the target default team
+  And no name-matching is used to determine the default team
+```
+
+### What the code shows
+
+`TeamImportOrchestrator.ImportTeamAsync` (`src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamImportOrchestrator.cs:64`):
+
+```csharp
+if (teamPackage.Definition.IsDefault)
+{
+    _logger.LogWarning(
+        "[Teams] Default team '{Name}' detected — target API does not support explicit default team assignment. " +
+        "Ensure the target project's default team matches the source.",
+        teamPackage.Definition.Name);
+}
+```
+
+The default team is detected but no settings are applied to the target's default team. The comment explicitly states the target API does not support this operation.
+
+### Resolution options
+
+1. **Implement default team assignment** — add an `ITeamTarget.SetDefaultTeamAsync` method (if/when the ADO API supports it) and call it in `TeamImportOrchestrator` when `IsDefault=true`.
+2. **Delete the scenario** — if this is a known permanent limitation, remove the scenario and document the limitation in operator guidance.
+
+---
+
 ## GAP-003: NodesModule — INodeEnsurer does not exist; no skip-when-both-false guard
 
 **Detected during:** migration of `features/import/nodes/import-classification-tree.feature` (scenario 3)
