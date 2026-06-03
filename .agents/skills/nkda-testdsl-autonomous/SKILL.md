@@ -73,6 +73,10 @@ For each scenario:
 - Check the existing test corpus before building any test; map to pre-existing, extend partial-existing, build only `to-build`.
 - For missing-step scenarios with no pre-existing coverage, generate intent-derived tests.
 
+**Test hygiene — every new or modified test method must:**
+- Carry `[TestCategory("UnitTest")]` immediately above `[TestMethod]`.
+- If the target test class has no `[TestCategory]` attributes yet, add `[TestCategory("UnitTest")]` to **all** existing `[TestMethod]` entries in that class at the same time (keep the class consistent). Verify the full class still passes after the change.
+
 ### Step 9 — Refactor
 
 Run `nkda-testdsl-refactor` → produce `05-refactor-summary.md`.
