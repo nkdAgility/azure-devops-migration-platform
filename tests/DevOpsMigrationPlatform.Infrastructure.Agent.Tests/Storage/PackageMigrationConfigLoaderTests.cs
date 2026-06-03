@@ -220,6 +220,25 @@ public class PackageMigrationConfigLoaderTests
 
     [TestCategory("UnitTest")]
     [TestMethod]
+    // Scenario: Config file contains a configVersion field with value "2.0"
+    public async Task LoadAsync_WhenConfigContainsConfigVersion_ReturnsConfigVersionValue()
+    {
+        var package = new Mock<IPackageAccess>(MockBehavior.Strict);
+        package.Setup(p => p.RequestMetaAsync(
+                It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.MigrationConfig),
+                It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<PackageMetaResult>(new PackageMetaResult(".migration/migration-config.json",
+                new PackageMetaPayload(new MemoryStream(Encoding.UTF8.GetBytes(
+                    """{"MigrationPlatform":{"ConfigVersion":"2.0","Mode":"Export"}}"""))))));
+
+        var sut = CreateSut(package);
+        var config = await sut.LoadAsync(CancellationToken.None);
+
+        Assert.AreEqual("2.0", config["MigrationPlatform:ConfigVersion"]);
+    }
+
+    [TestCategory("UnitTest")]
+    [TestMethod]
     // Scenario: Migration Agent retries reading config on eventual consistency delay
     public async Task LoadAsync_WhenConfigNotImmediatelyAvailable_ReturnsConfigAfterRetry()
     {
