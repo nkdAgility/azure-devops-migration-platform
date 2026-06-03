@@ -49,7 +49,6 @@
     <ExternalFeatureFiles Include="..\..\features\inventory\work-items\filter-scope-inventory.feature" />
     <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\streaming-memory-safety.feature" />
     <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\work-item-resolution-strategies.feature" />
-    <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\prevent-duplicate-work-items.feature" />
     <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\rebuild-idmap-from-target.feature" />
     <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\rerun-delta-import.feature" />
     <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\revision-level-progress-tracking.feature" />
