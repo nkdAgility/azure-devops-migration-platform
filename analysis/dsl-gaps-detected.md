@@ -245,3 +245,19 @@ Scenario: Import is skipped when both ReplicateSourceTree and AutoCreateNodes ar
 
 1. **Add a skip guard to NodesModule.ImportAsync** — when both `ReplicateSourceTree = false` and `AutoCreateNodes = false` (if GAP-002 is resolved by adding `AutoCreateNodes` to `NodesModuleOptions`), return `Skipped` early without calling the orchestrator.
 2. **Accept the current design** — if calling the orchestrator with `false` is intentional (allowing the orchestrator to decide), remove or rewrite the scenario to reflect actual observable behaviour.
+
+---
+
+## GAP-007: config-applied-on-export — CLI has no fail-fast when migration-config.json already exists
+
+- **gap-type:** `other`
+- **family:** `config-applied-on-export`
+- **file:** `features/export/config-in-package/config-applied-on-export.feature`
+- **scenario:** CLI fails with a clear error when migration-config.json already exists (`@us1-write-idempotency`)
+- **wiring state:** unwired
+- **detail:** The CLI (`QueueCommand`) does not check whether `migration-config.json` exists in the package before job submission. The agent uses resume semantics: if the file exists and endpoints are unchanged it overwrites; if endpoints changed it throws `InvalidOperationException`. There is no CLI-level pre-submission validation that returns a non-zero exit code with an "already exists" message. The scenario intent is aspirational and conflicts with the agent's resume-compatible overwrite design.
+
+### Resolution options
+
+1. **Add CLI pre-submission check** — before calling `client.SubmitAsync`, check if `{packagePath}/.migration/migration-config.json` exists on the local filesystem and fail with a clear error (only applicable when package path is a local path, not a remote URI).
+2. **Rewrite scenario to reflect actual behaviour** — instead of fail-fast, assert that the agent handles the existing file through resume semantics (overwrite if compatible, reject if endpoints changed).
