@@ -91,7 +91,8 @@ Run `nkda-testdsl-verification` → produce `06-verification.md`.
 - If verification returns `BLOCKED` or `FAIL`:
   - Retain the `.feature` file (with only unconverted scenarios remaining).
   - Record the reason in `06-verification.md`.
-  - **Commit partial progress** (retired scenarios removed, new tests added) with message: `migrate(partial): <family-name> <N> scenarios retired`.
+  - **Append every retained scenario as an entry in `analysis/dsl-gaps-detected.md`** with the gap-type, family, file path, scenario title, wiring state, and specific engineering detail. Do not leave a scenario retained without a gap entry.
+  - **Commit partial progress** (retired scenarios removed, new tests added, gap entries written) with message: `migrate(partial): <family-name> <N> scenarios retired`.
 
 ### Step 11 — Report and stop
 

@@ -50,6 +50,32 @@ There is no executing baseline, so behaviour parity against prior tests is not a
 - Record, per scenario row in `00-scenario-test-inventory.md`, whether it is retained or retired, with test evidence.
 - If all scenarios in a family have been retired, mark the `.feature` file as eligible for deletion; actual file deletion occurs only in verification after overall `PASS`.
 
+## Gap Logging
+
+Any scenario that cannot be converted MUST be logged in `analysis/dsl-gaps-detected.md` before `04-conversion-summary.md` is finalised. Do not leave a retained scenario undocumented.
+
+For each retained scenario, append an entry using this format:
+
+```markdown
+## GAP-NNN: <family> — <scenario title>
+
+**File:** `<feature file path>`
+**Scenario:** `<scenario title>`
+**Family:** `<family>`
+**Wiring:** `<wired|miswired|unwired>`
+**Gap type:** `<gap-type from reference table>`
+**Detected:** `<ISO date>`
+**Status:** OPEN
+
+### Engineering detail
+
+<Specific, actionable description of why this scenario cannot be converted.
+Reference exact file paths and line numbers where relevant. State what
+would need to change to unblock conversion.>
+```
+
+Gap number (`NNN`) must be unique — scan `analysis/dsl-gaps-detected.md` for the highest existing number and increment.
+
 ## Stop Conditions
 
 Stop and report if:
