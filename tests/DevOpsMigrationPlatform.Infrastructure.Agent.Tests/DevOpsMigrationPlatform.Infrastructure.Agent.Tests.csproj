@@ -55,7 +55,6 @@
     <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\rebuild-idmap-from-target.feature" />
     <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\rerun-delta-import.feature" />
     <ExternalFeatureFiles Include="..\..\features\import\work-items\revisions\revision-level-progress-tracking.feature" />
-    <ExternalFeatureFiles Include="..\..\features\import\work-items\comments\import-comments.feature" />
     <ExternalFeatureFiles Include="..\..\features\import\work-items\idmap-integrity-check.feature" />
     <ExternalFeatureFiles Include="..\..\features\import\workitems\field-transform\value-remapping.feature" />
     <ExternalFeatureFiles Include="..\..\features\import\workitems\field-transform\copy-field.feature" />
