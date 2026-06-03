@@ -18,42 +18,86 @@ Where `{feature}` is one of:
 - feature file path
 - step file path
 
-## Required Behavior
+## ONE FILE PER INVOCATION — CRITICAL
 
-### Run-level setup (once per invocation)
+**This skill processes exactly one `.feature` file per invocation and then stops.**
 
-1. Enumerate all `.feature` files in scope in deterministic path order. Record the list — this is the worklist. Do not preload file contents.
-2. Ensure typed DSL foundation exists. If `tests/DevOpsMigrationPlatform.Testing` is missing, bootstrap it before the first family conversion. This is never a blocker.
+When `{feature}` is a folder, the skill selects the **next unprocessed file** (first in deterministic path order that does not yet have a `PASS` verdict in `.output/nkda-testdsl/`), processes it fully to completion including commit, then stops. Re-invoke to process the next file.
 
-### Per-file loop (repeat for every file in the worklist, one at a time)
+Do NOT loop internally over multiple files. Do NOT preload or batch-process multiple files. One invocation = one file = one commit = done.
 
-For each `.feature` file in the worklist, execute all of the following steps to completion before moving to the next file:
+## Required Behavior (single file)
 
-1. Resolve the file to its feature family.
-2. Run the already-adapted check. If already adapted, record status and skip to the next file.
-3. Classify the wiring state (`wired`, `miswired`, `unwired`). `miswired` and `unwired` are valid candidates — do not skip them.
-4. `nkda-testdsl-feature-assessment` — produce `01-feature-assessment.md`.
-5. `nkda-testdsl-dsl-design` — produce `02-dsl-design.md`.
-6. Purge orphaned generated `Features\*.feature.cs` files in the target test project.
-7. `nkda-testdsl-extraction` — bootstrap DSL project if missing; produce `03-extraction-summary.md`.
-8. `nkda-testdsl-feature-conversion` — produce `04-conversion-summary.md`.
-   - For each scenario: build and run its mapped test. If the test passes, retire the scenario from the `.feature` file immediately. If it fails, retain the scenario.
-   - Check the existing test corpus before building any test; map to pre-existing, extend partial-existing, build only `to-build`.
-   - For missing-step scenarios with no pre-existing coverage, generate intent-derived tests.
-9. `nkda-testdsl-refactor` — produce `05-refactor-summary.md`.
-10. `nkda-testdsl-verification` — produce `06-verification.md`.
-    - Run converted/affected tests first.
-    - Verify every retired scenario has a mapped passing test with `path:line` evidence.
-    - If all scenarios are retired and tests are green, run the full repository test suite.
-    - If verification returns `PASS`: delete the `.feature` file, any generated `.feature.cs`, and legacy `*Steps.cs` scoped to wiring state.
-    - If verification returns `BLOCKED` or `FAIL`: retain the `.feature` file (with only unconverted scenarios remaining), record the reason, and continue to the next file.
-11. Record terminal status for this file (`already-adapted`, `converted`, `built-from-intent`, `blocked`, `failed`).
-12. **Move to the next file in the worklist.**
+### Step 1 — Select target file
 
-### Run-level teardown (once, after all files processed)
+- If `{feature}` is a specific file or family name: that is the target.
+- If `{feature}` is a folder: scan the folder for `.feature` files in deterministic path order. Select the first file that does NOT have `.output/nkda-testdsl/<family>/06-verification.md` with a `PASS` verdict. If all files are already PASS, report completion and stop.
+- If `{feature}` is missing: run `nkda-testdsl-next-feature-selection` to select one family, then continue.
 
-- Run `nkda-testdsl-next-feature-selection`.
-- Produce a final status summary with totals and per-file outcomes.
+Output the selected file path and family name before proceeding.
+
+### Step 2 — Bootstrap DSL foundation (if missing)
+
+If `tests/DevOpsMigrationPlatform.Testing` does not exist, bootstrap it now. This is never a blocker — create it and continue.
+
+### Step 3 — Already-adapted check
+
+Apply the already-adapted check (see below). If the family is already adapted, report status and stop. Do not process further.
+
+### Step 4 — Classify wiring state
+
+Classify as `wired`, `miswired`, or `unwired`. `miswired` and `unwired` are valid candidates — never skip them.
+
+### Step 5 — Assessment
+
+Run `nkda-testdsl-feature-assessment` → produce `01-feature-assessment.md`.
+
+### Step 6 — DSL design
+
+Run `nkda-testdsl-dsl-design` → produce `02-dsl-design.md`.
+
+### Step 7 — Extraction
+
+Purge orphaned generated `Features\*.feature.cs` files in the target test project.
+
+Run `nkda-testdsl-extraction` → produce `03-extraction-summary.md`.
+
+### Step 8 — Conversion
+
+Run `nkda-testdsl-feature-conversion` → produce `04-conversion-summary.md`.
+
+For each scenario:
+- Build and run its mapped test.
+- If the test passes: retire the scenario from the `.feature` file immediately (remove that scenario block).
+- If the test fails: retain the scenario in the `.feature` file.
+- Check the existing test corpus before building any test; map to pre-existing, extend partial-existing, build only `to-build`.
+- For missing-step scenarios with no pre-existing coverage, generate intent-derived tests.
+
+### Step 9 — Refactor
+
+Run `nkda-testdsl-refactor` → produce `05-refactor-summary.md`.
+
+### Step 10 — Verification
+
+Run `nkda-testdsl-verification` → produce `06-verification.md`.
+
+- Run converted/affected tests first.
+- Verify every retired scenario has a mapped passing test with `path:line` evidence.
+- If all scenarios are retired and tests are green, run the full repository test suite.
+- If verification returns `PASS`:
+  - Delete the `.feature` file.
+  - Delete any generated `.feature.cs` and legacy `*Steps.cs` scoped to wiring state.
+  - **Commit all changes** with message: `migrate: <family-name> feature → DSL`.
+- If verification returns `BLOCKED` or `FAIL`:
+  - Retain the `.feature` file (with only unconverted scenarios remaining).
+  - Record the reason in `06-verification.md`.
+  - **Commit partial progress** (retired scenarios removed, new tests added) with message: `migrate(partial): <family-name> <N> scenarios retired`.
+
+### Step 11 — Report and stop
+
+Output the terminal status for this file: `already-adapted`, `converted`, `built-from-intent`, `blocked`, or `failed`.
+
+**Stop. Do not proceed to the next file.**
 
 ### Already-Adapted Check
 
@@ -64,48 +108,30 @@ Treat a feature family as already adapted only when both conditions are true:
 
 If these conditions are not both met, the family is still in scope for conversion.
 
-## Input Handling
-
-- If `{feature}` is a feature family name, feature file path, or step file path, resolve it to one feature family and run the sequence once.
-- If `{feature}` is a folder, enumerate `.feature` files in deterministic path order and process them iteratively, one file at a time. For each current file: resolve family, run already-adapted check, run the full sequence through refactor and verification, record status, then move to the next file. Do not preload the full folder into memory before execution.
-- If `{feature}` is missing, run `nkda-testdsl-next-feature-selection` to select one family, then continue.
-
 ## Required Final Status Output
 
-At the end of every autonomous run, output:
+At the end of every invocation, output:
 
-1. Totals: `.feature` files discovered, already adapted, converted in this run, built-from-intent in this run, skipped, blocked/failed; plus a wiring breakdown (`wired`, `miswired`, `unwired`).
-2. Per-file status for every discovered `.feature` file with:
-   - file path
-   - resolved feature family
-   - wiring state (`wired`, `miswired`, `unwired`)
-   - status (`already-adapted`, `converted`, `built-from-intent`, `skipped`, `blocked`, or `failed`)
-   - concise reason
-   - coverage-origin counts (`pre-existing`, `partial-existing`, `to-build`)
-   - intent-derived tests created count
-   - intent-derived tests passing validity gate count
-   - scenario inventory counts (`matched`, `partial`, `unmatched`)
-   - tag compliance counts (`compliant`, `non-compliant`, `unknown`)
-   - converted artefact reference when applicable (`04-conversion-summary.md` and `06-verification.md`)
+- Selected file path and resolved feature family
+- Wiring state (`wired`, `miswired`, `unwired`)
+- Terminal status: `already-adapted`, `converted`, `built-from-intent`, `blocked`, or `failed`
+- Concise reason
+- Scenario counts: retired, retained, total
+- Commit reference (SHA or message)
+- If folder input: how many files remain unprocessed in the folder
 
 ## Stopping Rules
 
-Stop after all discovered files are evaluated and every convertible file/family has been attempted.
+**Always stop after processing one file.** Do not loop.
 
-For folder input:
+Stop without processing if:
 
-- process `.feature` files in deterministic path order, one file at a time
-- skip duplicate family resolutions
-- continue after per-family failures so remaining families are still attempted
-- stop when every discovered file has a terminal status (`already-adapted`, `converted`, `built-from-intent`, `skipped`, `blocked`, or `failed`)
+- The scope cannot be enumerated or resolved.
+- All files in the folder scope already have a `PASS` verdict — report "all done" and stop.
+- Missing typed DSL foundation is NOT a stop reason — bootstrap it and continue.
 
-Stop early if:
+Per-family failures (`blocked`, `failed`) do not prevent the invocation from completing — they are reported as the terminal status and the invocation ends normally.
 
-- the folder/file scope cannot be enumerated or resolved
-- a required shared input is missing for the entire run
+`miswired` and `unwired` wiring states are never a reason to skip or block a file.
 
-Missing typed DSL foundation is not a valid "required shared input missing" reason; the run must bootstrap it and continue.
-
-A family being `miswired` or `unwired` is never by itself a reason to skip, block, or fail it; those families are built from intent.
-
-For per-family failures (including unmatched steps where intent cannot be inferred safely, parity gaps for `wired` families, assertions that cannot be confirmed against observed production behaviour for `miswired`/`unwired` families, unresolved intent-vs-behaviour conflicts, unplanned production behaviour changes, unresolved failures, intent-derived tests failing validity gate, scenario inventory rows that remain `unmatched`, non-compliant test tags, or verification not returning `PASS`), mark the affected family `blocked` or `failed` and continue with remaining families.
+Failure reasons that result in `blocked` or `failed` status include: unmatched steps where intent cannot be inferred safely, parity gaps for `wired` families, assertions that cannot be confirmed against observed production behaviour for `miswired`/`unwired` families, unresolved intent-vs-behaviour conflicts, unplanned production behaviour changes, unresolved test failures, intent-derived tests failing validity gate, scenario inventory rows that remain `unmatched`, non-compliant test tags, or verification not returning `PASS`.
