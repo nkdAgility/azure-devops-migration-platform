@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+﻿// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
 using System;
@@ -29,6 +29,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Services;
 [TestClass]
 public sealed class ServicesFeaturesDslTests
 {
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void IdentityResolution_MappedIdentity_ResolvesMappedTargetIdentity()
     {
@@ -45,6 +46,7 @@ public sealed class ServicesFeaturesDslTests
         Assert.AreEqual("john.smith@target.example.com", resolved);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task IdentityResolution_UnmappedIdentity_FallsBackAndWritesWarning()
     {
@@ -74,6 +76,7 @@ public sealed class ServicesFeaturesDslTests
             "Expected unresolved identity warning artefact.");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task IdentityResolution_ImportStageAppliesMappedIdentity()
     {
@@ -99,6 +102,7 @@ public sealed class ServicesFeaturesDslTests
         mapping.Verify(t => t.Resolve("user@source.com"), Times.Once);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task IdentityResolution_ImportStageWithoutMapping_PassesValueThrough()
     {
@@ -124,6 +128,7 @@ public sealed class ServicesFeaturesDslTests
         mapping.Verify(t => t.Resolve("someuser@domain.com"), Times.Once);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void IdentityResolution_WorkItemsImport_DeclaresIdentitiesPrerequisite()
     {
@@ -150,6 +155,7 @@ public sealed class ServicesFeaturesDslTests
         Assert.IsTrue(module.DependsOn.Any(d => d.ModuleType == typeof(IdentitiesModule) && d.AppliesToImport));
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void OrganisationEntryConversion_ToEndpoint_PreservesResolvedValues()
     {
@@ -182,6 +188,7 @@ public sealed class ServicesFeaturesDslTests
         }
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void OrganisationEntryConversion_WindowsAuthentication_HasNoAccessToken()
     {
@@ -202,6 +209,7 @@ public sealed class ServicesFeaturesDslTests
         Assert.IsNull(endpoint.Authentication.ResolvedAccessToken);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void OrganisationEndpointServiceInterfaces_UseEndpointConnectionContextOnly()
     {
@@ -228,6 +236,7 @@ public sealed class ServicesFeaturesDslTests
         }
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void DiscoveryOrganisationScope_BuildsScopedEndpointsWithProjectsAndAuthentication()
     {

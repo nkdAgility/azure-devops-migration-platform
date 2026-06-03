@@ -17,8 +17,7 @@
     <PackageReference Include="MSTest.TestFramework" />
     <PackageReference Include="OpenTelemetry" />
     <PackageReference Include="OpenTelemetry.Exporter.InMemory" />
-    <PackageReference Include="Reqnroll.MSTest" />
-    <PackageReference Include="Moq" />
+<PackageReference Include="Moq" />
   </ItemGroup>
 
   <ItemGroup>
@@ -27,21 +26,5 @@
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.ServiceDefaults\DevOpsMigrationPlatform.ServiceDefaults.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- External feature files to stage into Features/ before Reqnroll code-gen.
-         Features/ is a build artefact; the canonical source is features/ at workspace root. -->
-    <ExternalFeatureFiles Include="..\..\features\platform\validation\config-validation.feature" />
-    <ExternalFeatureFiles Include="..\..\features\cli\prepare\prepare-validates-config.feature" />
-    <ExternalFeatureFiles Include="..\..\features\platform\telemetry\cli-otel.feature" />
-  </ItemGroup>
-
-  <!-- Copy external feature files into Features/ before Reqnroll codegen so the default
-       **\*.feature glob can find them and generate correct adjacent .feature.cs files. -->
-  <Target Name="PrepareReqnrollFeatureFiles" BeforeTargets="UpdateFeatureFilesInProject">
-    <MakeDir Directories="$(ProjectDir)Features" />
-    <Copy SourceFiles="@(ExternalFeatureFiles)"
-          DestinationFolder="$(ProjectDir)Features"
-          SkipUnchangedFiles="true" />
-  </Target>
 
 </Project>
