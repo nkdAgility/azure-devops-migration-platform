@@ -80,3 +80,59 @@ never be produced unless it were an explicit mapping entry.
 2. **Remove the unimplemented steps from the docstring** — if auto-matching is out of
    scope, correct the docstring to reflect two-step resolution (explicit override →
    configured default) and delete the blocked scenario.
+
+---
+
+## GAP-002: NodesModule — AutoCreateNodes attributed to wrong options class
+
+**Detected during:** migration of `features/import/nodes/import-classification-tree.feature` (scenario 2)
+**gap-type:** `behaviour-conflict`
+**Status:** OPEN
+
+### What the feature claims
+
+```gherkin
+Scenario: AutoCreateNodes ensures referenced paths exist on target
+  And NodesModule is configured with AutoCreateNodes = true
+  Then INodeEnsurer.EnsureReferencedPathsAsync is invoked
+```
+
+### What the code shows
+
+`NodesModuleOptions` (`src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/NodesModuleOptions.cs`) has only `Enabled` and `ReplicateSourceTree`. There is no `AutoCreateNodes` property.
+
+`AutoCreateNodes` exists on `NodeTranslationOptions` (`src/DevOpsMigrationPlatform.Abstractions/Options/NodeTranslationOptions.cs:56`) under config path `MigrationPlatform:Tools:NodeTranslation`. This controls node pre-creation before the work-item revision loop — a different concern from the classification-tree import driven by `NodesModule`.
+
+`NodesModule.ImportAsync` never reads `AutoCreateNodes`.
+
+### Resolution options
+
+1. **Accept the current design** — clarify in the feature that `AutoCreateNodes` is a `NodeTranslation` tool option, not a `NodesModule` option, and rewrite the scenario to target `NodeTranslationOptions`. Delete or rewrite the blocked scenario.
+2. **Add AutoCreateNodes to NodesModuleOptions** — if the intent is that NodesModule should also support an `AutoCreateNodes` mode, add the property and wire it through `NodesModule.ImportAsync`.
+
+---
+
+## GAP-003: NodesModule — INodeEnsurer does not exist; no skip-when-both-false guard
+
+**Detected during:** migration of `features/import/nodes/import-classification-tree.feature` (scenario 3)
+**gap-type:** `behaviour-conflict`
+**Status:** OPEN
+
+### What the feature claims
+
+```gherkin
+Scenario: Import is skipped when both ReplicateSourceTree and AutoCreateNodes are false
+  Given NodesModule is configured with ReplicateSourceTree = false and AutoCreateNodes = false
+  When NodesModule ImportAsync runs
+  Then neither INodeEnsurer method is invoked
+```
+
+### What the code shows
+
+1. `INodeEnsurer` does not exist anywhere in the codebase. The actual interface used is `INodesOrchestrator`.
+2. `NodesModule.ImportAsync` (`src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodesModule.cs:240`) always calls `_orchestrator.ImportAsync(...)` when `Enabled = true`. There is no "both-false → skip" guard at the module level.
+
+### Resolution options
+
+1. **Add a skip guard to NodesModule.ImportAsync** — when both `ReplicateSourceTree = false` and `AutoCreateNodes = false` (if GAP-002 is resolved by adding `AutoCreateNodes` to `NodesModuleOptions`), return `Skipped` early without calling the orchestrator.
+2. **Accept the current design** — if calling the orchestrator with `false` is intentional (allowing the orchestrator to decide), remove or rewrite the scenario to reflect actual observable behaviour.
