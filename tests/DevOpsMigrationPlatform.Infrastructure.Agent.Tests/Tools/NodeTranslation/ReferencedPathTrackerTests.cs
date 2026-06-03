@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+﻿// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited.
 
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -79,6 +79,7 @@ public class ReferencedPathTrackerTests
 
 
 
+    [TestCategory("UnitTest")]
     [TestMethod]
 
     public async Task RecordAreaPathAsync_NewPath_WritesArtifact()
@@ -115,6 +116,7 @@ public class ReferencedPathTrackerTests
 
 
 
+    [TestCategory("UnitTest")]
     [TestMethod]
 
     public async Task RecordAreaPathAsync_DuplicatePath_DoesNotWriteAgain()
@@ -151,6 +153,7 @@ public class ReferencedPathTrackerTests
 
 
 
+    [TestCategory("UnitTest")]
     [TestMethod]
 
     public async Task RecordAreaPathAsync_CaseInsensitiveDuplicate_DoesNotWriteAgain()
@@ -187,6 +190,7 @@ public class ReferencedPathTrackerTests
 
 
 
+    [TestCategory("UnitTest")]
     [TestMethod]
 
     public async Task InitializeAsync_LoadsExistingPaths()
@@ -231,6 +235,7 @@ public class ReferencedPathTrackerTests
 
 
 
+    [TestCategory("UnitTest")]
     [TestMethod]
 
     public async Task InitializeAsync_ThenRecordExisting_DoesNotWriteAgain()
