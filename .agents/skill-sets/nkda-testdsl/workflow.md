@@ -59,13 +59,18 @@ If `{feature}` is omitted, `nkda-testdsl-autonomous` must run `nkda-testdsl-next
 
 If `{feature}` is a folder, `nkda-testdsl-autonomous` must:
 
-1. resolve all `.feature` files under that folder
-2. map them to feature families
-3. check each family for already-adapted state before conversion
-4. classify the wiring state of each not-yet-adapted family (`wired`, `miswired`, `unwired`); `miswired`/`unwired` families are valid candidates and are built from intent, not skipped
-5. process each unique family in deterministic path order
-6. run the full six conversion phases only for families that are not already adapted, then run next-feature-selection after the final family
-7. output final totals and per-`.feature` status (already-adapted, converted, built-from-intent, skipped, blocked, failed) with wiring state
+1. Enumerate all `.feature` files under that folder in deterministic path order. This produces the worklist.
+2. For each file in the worklist, one at a time:
+   a. Resolve to feature family.
+   b. Check already-adapted state — if adapted, record and skip.
+   c. Classify wiring state.
+   d. Run the full per-file pipeline: assessment → design → extraction → conversion (with per-scenario test execution and immediate scenario retirement on pass) → refactor → verification.
+   e. On verification `PASS`: delete all retired scenarios, delete the `.feature` file, remove generated `.feature.cs` and legacy `*Steps.cs` scoped to wiring state.
+   f. On verification `BLOCKED`/`FAIL`: retain the `.feature` file with unconverted scenarios only, record reason.
+   g. Record terminal status for this file.
+   h. Move to the next file in the worklist.
+3. After all files are processed, run `nkda-testdsl-next-feature-selection`.
+4. Output final totals and per-`.feature` status.
 
 ## Phase Gates
 

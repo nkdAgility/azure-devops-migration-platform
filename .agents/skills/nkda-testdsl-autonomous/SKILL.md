@@ -20,31 +20,40 @@ Where `{feature}` is one of:
 
 ## Required Behavior
 
-1. Build a deterministic worklist of `.feature` files in scope.
-2. For each `.feature` file, resolve its feature family and determine whether it is already adapted to DSL before attempting conversion.
-3. Ensure typed DSL foundation exists before first family conversion. If `tests/DevOpsMigrationPlatform.Testing` is missing, bootstrap it in-run (do not block).
-4. For each not-yet-adapted family, classify its wiring state (`wired`, `miswired`, `unwired`). A `miswired` or `unwired` feature is NOT skipped: it is a valid candidate, and the run must build the tests that should have existed, with assertions confirmed against observed production behaviour.
-5. Convert every family that is not already adapted and can be converted safely, applying the wiring-state conversion mode.
-6. For every scenario, check the existing test corpus for equivalent coverage before building anything; map to the existing test (or extend it) instead of creating a duplicate, and build a new test only when no equivalent exists.
-7. For scenarios with missing step implementations and no pre-existing coverage, generate intent-derived tests instead of skipping them.
-8. Apply a test-validity gate to intent-derived tests and require `USEFUL` or `HIGH VALUE` classification.
-9. Maintain a running scenario inventory per feature family at `.output/nkda-testdsl/<feature-family>/00-scenario-test-inventory.md`.
-10. Require each scenario row to record mapped test(s), mapping status, expected tags, actual tags, tag compliance, and retirement status (`retained` or `retired`).
-11. Before each family conversion, purge orphaned generated `Features\*.feature.cs` files (generated code-behind with no matching `.feature` input) in the target test project.
-12. Produce a final status summary that includes both totals and per-file outcomes.
+### Run-level setup (once per invocation)
 
-Run this sequence for each selected feature family that is not already adapted:
+1. Enumerate all `.feature` files in scope in deterministic path order. Record the list — this is the worklist. Do not preload file contents.
+2. Ensure typed DSL foundation exists. If `tests/DevOpsMigrationPlatform.Testing` is missing, bootstrap it before the first family conversion. This is never a blocker.
 
-1. `nkda-testdsl-feature-assessment`
-2. `nkda-testdsl-dsl-design`
-3. `nkda-testdsl-extraction`
-4. `nkda-testdsl-feature-conversion`
-5. `nkda-testdsl-refactor`
-6. `nkda-testdsl-verification`
-7. Remove migrated Reqnroll artefacts for that family, scoped to its wiring state, only after verification returns `PASS` and all scenarios are already retired: `wired` removes the `.feature`, generated `.feature.cs`, and legacy `*Steps.cs`; `miswired` removes the dead non-executing `*Steps.cs` and the retired `.feature`; `unwired` retires the `.feature` only
-8. `nkda-testdsl-next-feature-selection` (after the final selected family is completed)
+### Per-file loop (repeat for every file in the worklist, one at a time)
 
-`nkda-testdsl-verification` must include: converted/affected tests passing first, followed by a full repository test-suite rerun.
+For each `.feature` file in the worklist, execute all of the following steps to completion before moving to the next file:
+
+1. Resolve the file to its feature family.
+2. Run the already-adapted check. If already adapted, record status and skip to the next file.
+3. Classify the wiring state (`wired`, `miswired`, `unwired`). `miswired` and `unwired` are valid candidates — do not skip them.
+4. `nkda-testdsl-feature-assessment` — produce `01-feature-assessment.md`.
+5. `nkda-testdsl-dsl-design` — produce `02-dsl-design.md`.
+6. Purge orphaned generated `Features\*.feature.cs` files in the target test project.
+7. `nkda-testdsl-extraction` — bootstrap DSL project if missing; produce `03-extraction-summary.md`.
+8. `nkda-testdsl-feature-conversion` — produce `04-conversion-summary.md`.
+   - For each scenario: build and run its mapped test. If the test passes, retire the scenario from the `.feature` file immediately. If it fails, retain the scenario.
+   - Check the existing test corpus before building any test; map to pre-existing, extend partial-existing, build only `to-build`.
+   - For missing-step scenarios with no pre-existing coverage, generate intent-derived tests.
+9. `nkda-testdsl-refactor` — produce `05-refactor-summary.md`.
+10. `nkda-testdsl-verification` — produce `06-verification.md`.
+    - Run converted/affected tests first.
+    - Verify every retired scenario has a mapped passing test with `path:line` evidence.
+    - If all scenarios are retired and tests are green, run the full repository test suite.
+    - If verification returns `PASS`: delete the `.feature` file, any generated `.feature.cs`, and legacy `*Steps.cs` scoped to wiring state.
+    - If verification returns `BLOCKED` or `FAIL`: retain the `.feature` file (with only unconverted scenarios remaining), record the reason, and continue to the next file.
+11. Record terminal status for this file (`already-adapted`, `converted`, `built-from-intent`, `blocked`, `failed`).
+12. **Move to the next file in the worklist.**
+
+### Run-level teardown (once, after all files processed)
+
+- Run `nkda-testdsl-next-feature-selection`.
+- Produce a final status summary with totals and per-file outcomes.
 
 ### Already-Adapted Check
 
@@ -58,7 +67,7 @@ If these conditions are not both met, the family is still in scope for conversio
 ## Input Handling
 
 - If `{feature}` is a feature family name, feature file path, or step file path, resolve it to one feature family and run the sequence once.
-- If `{feature}` is a folder, resolve every `.feature` file under that folder, map each file to its feature family, run already-adapted checks, then run the sequence once per family until the folder scope is exhausted.
+- If `{feature}` is a folder, enumerate `.feature` files in deterministic path order and process them iteratively, one file at a time. For each current file: resolve family, run already-adapted check, run the full sequence through refactor and verification, record status, then move to the next file. Do not preload the full folder into memory before execution.
 - If `{feature}` is missing, run `nkda-testdsl-next-feature-selection` to select one family, then continue.
 
 ## Required Final Status Output
@@ -81,14 +90,14 @@ At the end of every autonomous run, output:
 
 ## Stopping Rules
 
-Stop after all selected families are evaluated and every convertible family has been attempted.
+Stop after all discovered files are evaluated and every convertible file/family has been attempted.
 
 For folder input:
 
-- process families in deterministic path order
+- process `.feature` files in deterministic path order, one file at a time
 - skip duplicate family resolutions
 - continue after per-family failures so remaining families are still attempted
-- stop when every resolved family has a terminal status (`already-adapted`, `converted`, `built-from-intent`, `skipped`, `blocked`, or `failed`)
+- stop when every discovered file has a terminal status (`already-adapted`, `converted`, `built-from-intent`, `skipped`, `blocked`, or `failed`)
 
 Stop early if:
 
