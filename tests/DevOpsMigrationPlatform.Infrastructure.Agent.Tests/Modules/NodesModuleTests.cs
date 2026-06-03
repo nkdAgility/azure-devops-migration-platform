@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+﻿// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
 using System;
@@ -124,6 +124,7 @@ public class NodesModuleTests
         };
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExportAsync_DelegatesToCapture_WhenEnabled()
     {
@@ -160,6 +161,7 @@ public class NodesModuleTests
             It.IsAny<string>()), Times.Once);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExportAsync_Skips_WhenModuleDisabled()
     {
@@ -175,6 +177,7 @@ public class NodesModuleTests
         captureMock.VerifyNoOtherCalls();
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ImportAsync_CallsReplicateSourceTree_WhenOptionEnabled()
     {
@@ -208,6 +211,7 @@ public class NodesModuleTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ImportAsync_DoesNotCallEnsurer_WhenReplicateSourceTreeDisabled()
     {
@@ -245,6 +249,7 @@ public class NodesModuleTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenSourceTreeJsonMissing()
     {
@@ -262,6 +267,7 @@ public class NodesModuleTests
         StringAssert.Contains(context.Errors[0].Message, "source-tree.json");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenSourceTreeJsonIsMalformed()
     {
@@ -282,6 +288,7 @@ public class NodesModuleTests
         StringAssert.Contains(context.Errors[0].Message, "malformed");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ValidateAsync_PassesForValidSourceTreeJson()
     {

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+﻿// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Abstractions.Storage;
@@ -31,6 +31,7 @@ public class ClassificationTreeCaptureTests
 
     [TestCategory("UnitTests")]
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task CaptureAsync_WritesArtifactWithAreaAndIterationNodes()
     {
@@ -71,6 +72,7 @@ public class ClassificationTreeCaptureTests
 
     [TestCategory("UnitTests")]
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task CaptureAsync_EmptyTree_WritesEmptyArtifact()
     {
@@ -87,6 +89,7 @@ public class ClassificationTreeCaptureTests
 
     [TestCategory("UnitTests")]
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task CaptureAsync_ApiFailure_ThrowsAndDoesNotWrite()
     {
