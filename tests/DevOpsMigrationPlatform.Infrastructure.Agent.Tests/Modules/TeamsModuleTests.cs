@@ -763,6 +763,94 @@ public class TeamsModuleTests
         Assert.AreEqual(0, target.Capacity.Count, "Capacity should be empty when extension is disabled");
     }
 
+    [TestCategory("UnitTest")]
+    [TestMethod]
+    public async Task ImportAsync_CompletesWithoutError_WhenTargetThrowsNotSupportedForCapacity()
+    {
+        // Arrange — target throws "not supported" from SetCapacityAsync
+        var teamTarget = new Mock<ITeamTarget>(MockBehavior.Loose);
+        teamTarget
+            .Setup(t => t.CreateOrUpdateTeamAsync(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>(), It.IsAny<TeamDefinition>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("target-alpha-team");
+        teamTarget
+            .Setup(t => t.SetCapacityAsync(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TeamCapacityEntry[]>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Capacity setting is not supported on this target."));
+
+        var importOrch = new TeamImportOrchestrator(teamTarget.Object, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo());
+
+        var teamPackage = new TeamPackage
+        {
+            Definition = new TeamDefinition("src-1", "Alpha Team", "", false),
+            Iterations = new List<TeamIteration>(),
+            Members = new List<TeamMember>(),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>
+            {
+                ["sprint-1"] = new[] { new TeamCapacityEntry("d", "Alice", new[] { new ActivityEntry("Dev", 6) }, 0) }
+            }
+        };
+        var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
+
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
+        storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
+        storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(json);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamCapacity = true } }),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: teamTarget.Object);
+
+        // Act — must not throw; "not supported" is caught and logged informationally
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
+
+        // Assert — SetCapacityAsync was attempted but no exception propagated
+        teamTarget.Verify(t => t.SetCapacityAsync(
+            It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>(), It.IsAny<string>(),
+            "sprint-1", It.IsAny<TeamCapacityEntry[]>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [TestCategory("UnitTest")]
+    [TestMethod]
+    public async Task ImportAsync_NeverCallsSetCapacity_WhenCapacityByIterationIsEmpty()
+    {
+        // Arrange — team package has TeamCapacity extension enabled but no capacity entries
+        var target = new SimulatedTeamTarget();
+        var importOrch = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo());
+
+        var teamPackage = new TeamPackage
+        {
+            Definition = new TeamDefinition("src-1", "Alpha Team", "", false),
+            Iterations = new List<TeamIteration>(),
+            Members = new List<TeamMember>(),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()  // empty
+        };
+        var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
+
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
+        storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
+        storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(json);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamCapacity = true } }),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: target);
+
+        // Act
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
+
+        // Assert — empty capacity map: SetCapacityAsync never called
+        Assert.AreEqual(0, target.Capacity.Count, "No capacity calls expected when CapacityByIteration is empty");
+    }
+
     // ── NodeTranslation Extension Tests (T069) ─────────────────────────────────
 
     [TestCategory("UnitTest")]
