@@ -52,4 +52,12 @@ public interface IAzureDevOpsClientFactory
     /// <summary>Returns a <see cref="WorkItemTrackingProcessHttpClient"/> authenticated against <paramref name="endpoint"/>.</summary>
     Task<WorkItemTrackingProcessHttpClient> CreateProcessClientAsync(
         OrganisationEndpoint endpoint, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns an <see cref="Microsoft.VisualStudio.Services.Identity.Client.IdentityHttpClient"/>
+    /// authenticated against <paramref name="endpoint"/>. Used by the identity adapter to search
+    /// the target tenant by account name (UPN/email) and display name during the Prepare phase.
+    /// </summary>
+    Task<Microsoft.VisualStudio.Services.Identity.Client.IdentityHttpClient> CreateIdentityClientAsync(
+        OrganisationEndpoint endpoint, CancellationToken cancellationToken = default);
 }

@@ -72,6 +72,13 @@ internal sealed class AzureDevOpsClientFactory : IAzureDevOpsClientFactory
         return connection.GetClientAsync<WorkItemTrackingProcessHttpClient>(cancellationToken);
     }
 
+    public Task<Microsoft.VisualStudio.Services.Identity.Client.IdentityHttpClient> CreateIdentityClientAsync(
+        OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)
+    {
+        var connection = CreateConnection(endpoint);
+        return connection.GetClientAsync<Microsoft.VisualStudio.Services.Identity.Client.IdentityHttpClient>(cancellationToken);
+    }
+
     private static VssConnection CreateConnection(OrganisationEndpoint endpoint)
     {
         var pat = endpoint.Authentication.ResolvedAccessToken;

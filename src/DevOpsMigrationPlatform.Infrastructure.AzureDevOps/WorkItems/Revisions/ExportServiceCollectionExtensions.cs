@@ -79,6 +79,10 @@ public static class ExportServiceCollectionExtensions
         // Identity source — Azure DevOps identity enumeration keyed by connector type.
         services.AddIdentitySource<AzureDevOpsIdentitySource>("AzureDevOpsServices");
 
+        // Identity adapter — target-tenant UPN/display-name search (Prepare phase), keyed by
+        // connector type and dispatched via CompositeIdentityAdapter.
+        services.AddIdentityAdapter<DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Identity.AzureDevOpsIdentityAdapter>("AzureDevOpsServices");
+
         // Team source — Azure DevOps Teams REST API keyed by connector type.
         services.AddTeamSource<AzureDevOpsTeamSource>("AzureDevOpsServices");
 

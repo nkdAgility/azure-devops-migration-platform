@@ -1075,6 +1075,9 @@ public class QueueCommandTests
         public Task<WorkItemTrackingProcessHttpClient> CreateProcessClientAsync(OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)
             => CreateConnection(endpoint).GetClientAsync<WorkItemTrackingProcessHttpClient>(cancellationToken);
 
+        public Task<Microsoft.VisualStudio.Services.Identity.Client.IdentityHttpClient> CreateIdentityClientAsync(OrganisationEndpoint endpoint, CancellationToken cancellationToken = default)
+            => CreateConnection(endpoint).GetClientAsync<Microsoft.VisualStudio.Services.Identity.Client.IdentityHttpClient>(cancellationToken);
+
         private static VssConnection CreateConnection(OrganisationEndpoint endpoint)
         {
             var pat = endpoint.Authentication.ResolvedAccessToken;
