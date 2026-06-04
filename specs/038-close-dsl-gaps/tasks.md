@@ -57,22 +57,22 @@ Implementation is grouped into committed, green-build work packages (operator de
 
 ### Abstractions — New Interfaces (parallelizable)
 
-- [ ] T008 [P] [US1] Create `IIdentityAdapter` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Identity/IIdentityAdapter.cs` — methods: `FindByUpnAsync(string upn, string projectName, CancellationToken ct)` and `FindByDisplayNameAsync(string displayName, string projectName, CancellationToken ct)`, both returning `Task<IReadOnlyList<IdentityCandidate>>`
-- [ ] T009 [P] [US1] Create `IdentityCandidate` immutable record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Identity/IdentityCandidate.cs` — properties: `string Descriptor`, `string? Upn`, `string? DisplayName`
-- [ ] T010 [P] [US1] Create `IIdentityMatchingStrategy` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Identity/IIdentityMatchingStrategy.cs` — method: `string? Match(string sourceIdentity, string sourceDisplayName, IReadOnlyList<IdentityCandidate> candidates, ILogger logger)`
+- [X] T008 [P] [US1] Create `IIdentityAdapter` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Identity/IIdentityAdapter.cs` — methods: `FindByUpnAsync(string upn, string projectName, CancellationToken ct)` and `FindByDisplayNameAsync(string displayName, string projectName, CancellationToken ct)`, both returning `Task<IReadOnlyList<IdentityCandidate>>`
+- [X] T009 [P] [US1] Create `IdentityCandidate` immutable record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Identity/IdentityCandidate.cs` — properties: `string Descriptor`, `string? Upn`, `string? DisplayName`
+- [X] T010 [P] [US1] Create `IIdentityMatchingStrategy` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Identity/IIdentityMatchingStrategy.cs` — method: `string? Match(string sourceIdentity, string sourceDisplayName, IReadOnlyList<IdentityCandidate> candidates, ILogger logger)`
 - [ ] T011 [P] [US1] Create `IIdentityTranslationTool` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IIdentityTranslationTool.cs` — properties/methods: `bool IsEnabled`, `string Translate(string sourceIdentity)`
 - [ ] T012 [P] [US1] Create `IdentityTranslationOptions` sealed options class in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IdentityTranslationOptions.cs` — `public static string SectionName => "MigrationPlatform:Tools:IdentityTranslation"`, `bool IsEnabled { get; init; } = true`, and `string? DefaultIdentity { get; init; }` (carried over from `IdentityLookupOptions.DefaultIdentity`; when null/empty, `Translate()` returns the source unchanged — target-existence validation is owned by `PrepareAsync`, not this default)
 - [ ] T013 [US1] Modify `IIdentitiesOrchestrator` in `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IIdentitiesOrchestrator.cs` — add `Task PrepareAsync(string projectName, ImportContext context, CancellationToken ct)`; confirm `ImportAsync` no longer takes `IIdentityLookupTool?` parameter (guard removed in T004)
 
 ### ATDD — Strategy Tests (write failing tests first)
 
-- [ ] T014 [P] [US1] Write failing unit tests for `UpnIdentityMatchingStrategy` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Identity/UpnIdentityMatchingStrategyTests.cs` — cover: exact UPN match (case-insensitive), no-match returns null, multiple candidates with one UPN match
-- [ ] T015 [P] [US1] Write failing unit tests for `DisplayNameIdentityMatchingStrategy` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Identity/DisplayNameIdentityMatchingStrategyTests.cs` — cover: single match (Unicode NFC, case-insensitive), ambiguous match (>1 result) returns null and logs warning, no-match returns null
+- [X] T014 [P] [US1] Write failing unit tests for `UpnIdentityMatchingStrategy` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Identity/UpnIdentityMatchingStrategyTests.cs` — cover: exact UPN match (case-insensitive), no-match returns null, multiple candidates with one UPN match
+- [X] T015 [P] [US1] Write failing unit tests for `DisplayNameIdentityMatchingStrategy` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Identity/DisplayNameIdentityMatchingStrategyTests.cs` — cover: single match (Unicode NFC, case-insensitive), ambiguous match (>1 result) returns null and logs warning, no-match returns null
 
 ### Strategy Implementations
 
-- [ ] T016 [P] [US1] Implement `UpnIdentityMatchingStrategy` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Identity/Strategies/UpnIdentityMatchingStrategy.cs` — exact case-insensitive UPN match against `IdentityCandidate.Upn`; make T014 tests pass
-- [ ] T017 [P] [US1] Implement `DisplayNameIdentityMatchingStrategy` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Identity/Strategies/DisplayNameIdentityMatchingStrategy.cs` — Unicode NFC normalisation, case-insensitive exact match; ambiguous match logs structured warning with displayName and matchCount, returns null; make T015 tests pass
+- [X] T016 [P] [US1] Implement `UpnIdentityMatchingStrategy` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Identity/Strategies/UpnIdentityMatchingStrategy.cs` — exact case-insensitive UPN match against `IdentityCandidate.Upn`; make T014 tests pass
+- [X] T017 [P] [US1] Implement `DisplayNameIdentityMatchingStrategy` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Identity/Strategies/DisplayNameIdentityMatchingStrategy.cs` — Unicode NFC normalisation, case-insensitive exact match; ambiguous match logs structured warning with displayName and matchCount, returns null; make T015 tests pass
 
 ### ATDD — Orchestrator PrepareAsync (write failing feature file and bindings first)
 
