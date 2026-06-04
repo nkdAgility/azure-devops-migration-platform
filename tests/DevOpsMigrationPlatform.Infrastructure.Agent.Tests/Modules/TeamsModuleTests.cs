@@ -1105,6 +1105,60 @@ public class TeamsModuleTests
     [TestCategory("DomainTests")]
     [TestCategory("UnitTest")]
     [TestMethod]
+    public async Task ImportAsync_SkipsIteration_WhenPathUntranslatable_GAP005()
+    {
+        // GAP-005: when the tool cannot map the path (TargetPath is null), the iteration must be
+        // SKIPPED — not silently assigned with the untranslated source path.
+        var target = new SimulatedTeamTarget();
+
+        var translationToolMock = new Mock<INodeTranslationTool>(MockBehavior.Loose);
+        translationToolMock.Setup(t => t.IsEnabled).Returns(true);
+        translationToolMock
+            .Setup(t => t.TranslatePath(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ProjectMapping>()))
+            .Returns(new PathTranslation(null!, false, false, false)); // untranslatable
+
+        var importOrch = new TeamImportOrchestrator(
+            target, NullLogger<TeamImportOrchestrator>.Instance,
+            endpointInfo: CreateTargetEndpointInfo(),
+            nodeTranslationTool: translationToolMock.Object);
+
+        var teamPackage = new TeamPackage
+        {
+            Definition = new TeamDefinition("src-1", "Alpha Team", "desc", false),
+            Iterations = new List<TeamIteration>
+            {
+                new TeamIteration("i1", "SourceProject\\Sprint 1", "Sprint 1", null, null, false, false)
+            },
+            Members = new List<TeamMember>(),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+        };
+        var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
+
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
+        storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
+        storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(json);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true } }),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: target);
+
+        // Act
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
+
+        // Assert — no iteration was assigned (untranslatable path skipped, not passed through).
+        var assignedCount = target.Iterations.Values.Sum(list => list.Count);
+        Assert.AreEqual(0, assignedCount, "Untranslatable iteration must be skipped, not assigned.");
+    }
+
+    [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
+    [TestMethod]
     public async Task ImportAsync_UsesIterationPathField_ForIterationTranslation()
     {
         // Regression guard: TranslatePath for iterations must pass "System.IterationPath",

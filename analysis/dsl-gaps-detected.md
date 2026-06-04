@@ -153,7 +153,7 @@ The default team is detected but no settings are applied to the target's default
 
 **Detected during:** migration of `features/import/teams/import-team-area-paths.feature` (scenarios 2 and 3)
 **gap-type:** `behaviour-conflict`
-**Status:** OPEN
+**Status:** RESOLVED (2026-06-04) — TeamImportOrchestrator.TranslatePath no longer falls back to the source path: it returns null when the tool cannot map a path (and for null/empty/whitespace input), so callers skip the path and log a structured warning instead of corrupting the target with source-side paths (FR-009). Private method; the three internal callers already handle null. Verified by TeamsModuleTests (incl. ImportAsync_SkipsIteration_WhenPathUntranslatable_GAP005).
 
 ### What the feature claims
 

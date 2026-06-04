@@ -189,13 +189,18 @@ public sealed class TeamImportOrchestrator
 
     private string? TranslatePath(string fieldName, string? sourcePath, ProjectMapping projectMapping)
     {
-        if (string.IsNullOrEmpty(sourcePath))
-            return sourcePath;
+        // FR-009/GAP-005: null, empty, or whitespace-only input is untranslatable — return null
+        // so the caller skips the path and logs a warning (no silent pass-through of garbage).
+        if (string.IsNullOrWhiteSpace(sourcePath))
+            return null;
 
         if (_nodeTranslationTool is null || !_nodeTranslationTool.IsEnabled)
-            return sourcePath; // pass through if tool disabled
+            return sourcePath; // translation tool inactive — pass the source path through unchanged
 
         var result = _nodeTranslationTool.TranslatePath(fieldName, sourcePath!, projectMapping);
-        return result.TargetPath ?? sourcePath;
+
+        // FR-009/GAP-005: when the tool cannot map the path, return null (do NOT fall back to the
+        // untranslated source path) — the caller skips it and logs a structured warning.
+        return result.TargetPath;
     }
 }
