@@ -27,6 +27,26 @@ public interface IIdentitiesOrchestrator
         ICheckpointingServiceFactory? checkpointingFactory,
         CancellationToken ct);
 
+    /// <summary>
+    /// Prepare phase: resolves source identities against the live target tenant via
+    /// <see cref="Identity.IIdentityAdapter"/>, applying the ordered
+    /// <see cref="Identity.IIdentityMatchingStrategy"/> list (UPN → display name). Matches are
+    /// cached for the import/translate phases and a <c>prepare-report.json</c> is written.
+    /// Implements steps 2–3 of the resolution order (GAP-001); explicit overrides (step 1)
+    /// and the configured default (step 4) remain owned by the translation tool.
+    /// </summary>
+    Task PrepareAsync(
+        PrepareContext context,
+        string organisation,
+        string project,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Returns the cached Prepare-phase target descriptor for <paramref name="sourceIdentity"/>,
+    /// or <c>null</c> if it was not resolved by UPN/display-name matching. Synchronous, read-only.
+    /// </summary>
+    string? ResolvePrepared(string sourceIdentity);
+
     // Runtime-agnostic per FR-020: no interface-level #if guard. The net481 (TFS agent)
     // runtime models its reduced import capability explicitly at the call site
     // (IdentitiesModule returns Skipped) — not by hiding the method from the interface.
