@@ -49,6 +49,9 @@ public sealed class IdentityTranslationTool : IIdentityTranslationTool
 
     public bool IsEnabled => _options.Enabled;
 
+    /// <inheritdoc/>
+    public string? DefaultIdentity => _options.DefaultIdentity;
+
     public IdentityTranslationTool(
         IOptions<IdentityTranslationOptions> options,
         ISourceEndpointInfo sourceEndpointInfo,

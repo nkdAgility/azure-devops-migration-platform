@@ -26,6 +26,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using DevOpsMigrationPlatform.Infrastructure.Simulated;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -1154,6 +1155,97 @@ public class TeamsModuleTests
         // Assert — no iteration was assigned (untranslatable path skipped, not passed through).
         var assignedCount = target.Iterations.Values.Sum(list => list.Count);
         Assert.AreEqual(0, assignedCount, "Untranslatable iteration must be skipped, not assigned.");
+    }
+
+    [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
+    [TestMethod]
+    public async Task ImportTeam_SkipsMember_WhenIdentityResolvesToDefault_GAP006()
+    {
+        // GAP-006/FR-010: a member whose identity resolves to the configured default is
+        // unresolvable and must be SKIPPED, not imported under the default identity.
+        var target = new SimulatedTeamTarget();
+        var idTool = new Mock<IIdentityTranslationTool>(MockBehavior.Loose);
+        idTool.Setup(t => t.IsEnabled).Returns(true);
+        idTool.Setup(t => t.DefaultIdentity).Returns("default@target.com");
+        idTool.Setup(t => t.Translate("src-unknown")).Returns("default@target.com");
+
+        var orch = new TeamImportOrchestrator(
+            target, NullLogger<TeamImportOrchestrator>.Instance, CreateTargetEndpointInfo(),
+            identityTranslationTool: idTool.Object);
+
+        var pkg = new TeamPackage
+        {
+            Definition = new TeamDefinition("t1", "Alpha", "", false),
+            Members = new List<TeamMember> { new TeamMember("src-unknown", "Unknown User", "unknown@src.com", false) },
+            Iterations = new List<TeamIteration>(),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+        };
+        var ext = new TeamsModuleExtensionsOptions { TeamMembers = true, IdentityLookup = true };
+
+        await orch.ImportTeamAsync("TargetProject", "SourceProject", pkg, ext, CancellationToken.None);
+
+        Assert.AreEqual(0, target.Members.Values.Sum(m => m.Count),
+            "Member resolving to the default identity must be skipped.");
+    }
+
+    [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
+    [TestMethod]
+    public async Task ImportTeam_AddsMember_WhenIdentityResolvesToNonDefault_GAP006()
+    {
+        var target = new SimulatedTeamTarget();
+        var idTool = new Mock<IIdentityTranslationTool>(MockBehavior.Loose);
+        idTool.Setup(t => t.IsEnabled).Returns(true);
+        idTool.Setup(t => t.DefaultIdentity).Returns("default@target.com");
+        idTool.Setup(t => t.Translate("src-bob")).Returns("bob@target.com");
+
+        var orch = new TeamImportOrchestrator(
+            target, NullLogger<TeamImportOrchestrator>.Instance, CreateTargetEndpointInfo(),
+            identityTranslationTool: idTool.Object);
+
+        var pkg = new TeamPackage
+        {
+            Definition = new TeamDefinition("t1", "Alpha", "", false),
+            Members = new List<TeamMember> { new TeamMember("src-bob", "Bob", "bob@src.com", false) },
+            Iterations = new List<TeamIteration>(),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+        };
+        var ext = new TeamsModuleExtensionsOptions { TeamMembers = true, IdentityLookup = true };
+
+        await orch.ImportTeamAsync("TargetProject", "SourceProject", pkg, ext, CancellationToken.None);
+
+        Assert.AreEqual(1, target.Members.Values.Sum(m => m.Count), "Resolved member must be added.");
+    }
+
+    [TestCategory("DomainTests")]
+    [TestCategory("UnitTest")]
+    [TestMethod]
+    public async Task ImportTeam_LogsStructuredWarning_ForDefaultTeam_GAP004()
+    {
+        // GAP-004/FR-011: a default team logs a structured warning with the exact text and continues.
+        var target = new SimulatedTeamTarget();
+        var logger = new Mock<ILogger<TeamImportOrchestrator>>();
+        var orch = new TeamImportOrchestrator(target, logger.Object, CreateTargetEndpointInfo());
+
+        var pkg = new TeamPackage
+        {
+            Definition = new TeamDefinition("t1", "The Default Team", "", true),
+            Members = new List<TeamMember>(),
+            Iterations = new List<TeamIteration>(),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+        };
+
+        await orch.ImportTeamAsync("TargetProject", "SourceProject", pkg, new TeamsModuleExtensionsOptions(), CancellationToken.None);
+
+        logger.Verify(
+            l => l.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("does not support explicit default team assignment")),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
     }
 
     [TestCategory("DomainTests")]

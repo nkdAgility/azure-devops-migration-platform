@@ -19,6 +19,14 @@ public interface IIdentityTranslationTool
     bool IsEnabled { get; }
 
     /// <summary>
+    /// The configured default (fallback) target identity, or <c>null</c>/empty when none is configured.
+    /// A <see cref="Translate"/> result equal to this value indicates the source identity was unresolved
+    /// and fell back to the default — callers (e.g. team-member import) use this to skip rather than
+    /// import under the wrong identity.
+    /// </summary>
+    string? DefaultIdentity { get; }
+
+    /// <summary>
     /// Loads identity descriptors and mapping overrides from the package boundary.
     /// Must be called once by <c>IdentitiesModule.ImportAsync</c> before any downstream module runs.
     /// </summary>

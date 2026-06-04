@@ -120,7 +120,24 @@ public sealed class TeamImportOrchestrator
             {
                 try
                 {
-                    var resolvedDescriptor = extensions.IdentityLookup && _identityTranslationTool?.IsEnabled == true ? _identityTranslationTool.Translate(member.Descriptor) : member.Descriptor;
+                    var identityApplied = extensions.IdentityLookup && _identityTranslationTool?.IsEnabled == true;
+                    var resolvedDescriptor = identityApplied ? _identityTranslationTool!.Translate(member.Descriptor) : member.Descriptor;
+
+                    // GAP-006/FR-010: when identity translation falls back to the configured default
+                    // (i.e. the source member could not be resolved on the target), skip the add and
+                    // log a structured warning rather than importing the member under the wrong identity.
+                    var defaultIdentity = _identityTranslationTool?.DefaultIdentity;
+                    if (identityApplied
+                        && !string.IsNullOrEmpty(defaultIdentity)
+                        && string.Equals(resolvedDescriptor, defaultIdentity, StringComparison.OrdinalIgnoreCase)
+                        && !string.Equals(member.Descriptor, defaultIdentity, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogWarning(
+                            "[Teams] Member '{MemberDescriptor}' ({Member}) resolved to the configured default identity — skipping add to team '{Team}' (unresolvable member).",
+                            member.Descriptor, member.DisplayName, teamPackage.Definition.Name);
+                        continue;
+                    }
+
                     var resolvedMember = member with { Descriptor = resolvedDescriptor };
                     await _teamTarget.AddMemberAsync(
                         null!, projectName, targetTeamId, resolvedMember, ct).ConfigureAwait(false);

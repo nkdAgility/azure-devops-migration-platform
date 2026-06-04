@@ -116,7 +116,7 @@ Scenario: AutoCreateNodes ensures referenced paths exist on target
 
 **Detected during:** migration of `features/import/teams/import-default-team-detection.feature` (scenario 1)
 **gap-type:** `behaviour-conflict`
-**Status:** OPEN
+**Status:** RESOLVED (2026-06-04) — Permanent Azure DevOps API limitation (no explicit default-team assignment). TeamImportOrchestrator logs a structured Warning containing the team name and the exact text "target API does not support explicit default team assignment" and continues import (FR-011). Verified by TeamsModuleTests (GAP004 warning test).
 
 ### What the feature claims
 
@@ -190,7 +190,7 @@ In practice: untranslatable paths are silently passed through as-is, not skipped
 
 **Detected during:** migration of `features/import/teams/import-team-members.feature` (scenario 2)
 **gap-type:** `behaviour-conflict`
-**Status:** OPEN
+**Status:** RESOLVED (2026-06-04) — TeamImportOrchestrator now skips AddMemberAsync and logs a structured Warning (member descriptor + display name) when identity translation resolves a member to the configured default identity, instead of importing under the wrong identity (FR-010). IIdentityTranslationTool.DefaultIdentity exposes the default for the comparison. Verified by TeamsModuleTests (GAP006 skip + add tests).
 
 ### What the feature claims
 
