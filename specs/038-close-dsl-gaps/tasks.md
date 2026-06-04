@@ -119,7 +119,7 @@ Implementation is grouped into committed, green-build work packages (operator de
 - [X] T042 [US1] Add `AddIdentityAdapter<T>(this IServiceCollection, string typeKey)` DI extension method; register `SimulatedIdentityAdapter`, `AzureDevOpsIdentityAdapter` in their connector-specific `ServiceCollectionExtensions` files; register `TfsIdentityAdapter` in `TfsMigrationAgentServiceExtensions`
 - [ ] T043 [US1] Write Gherkin connector scenarios (scenarios 8–10 in `features/import/identities/identity-mapping-resolution.feature`) — AzureDevOpsServices, TeamFoundationServer, Simulated connector paths with same scenarios 1–7 logic
 - [ ] T044 [US1] Run full US1 test gate — `dotnet test --filter "FullyQualifiedName~Identity"` — all tests green; confirm GAP-001 scenarios pass
-- [ ] T045 [US1] Mark GAP-001 `Status: RESOLVED` in `analysis/dsl-gaps-detected.md`
+- [X] T045 [US1] Mark GAP-001 `Status: RESOLVED` in `analysis/dsl-gaps-detected.md`
 
 **Checkpoint**: US1 complete. Identity resolution pipeline fully functional and tested across all three connectors. `IIdentityLookupTool` deleted.
 
@@ -211,8 +211,8 @@ Implementation is grouped into committed, green-build work packages (operator de
 
 **Independent Test**: `Select-String -Recurse -Pattern "us1-write-idempotency"` returns zero results.
 
-- [ ] T072 [US6] Delete `@us1-write-idempotency` scenario from `features/export/config-in-package/config-applied-on-export.feature`
-- [ ] T073 [US6] Mark GAP-007 `Status: RESOLVED` in `analysis/dsl-gaps-detected.md` with rationale: "CLI has no access to the package filesystem by architectural design (Principle VI, Separation of Planes). Pre-submission config-exists check is architecturally impossible. Agent applies resume semantics: overwrites if endpoints unchanged, rejects with InvalidOperationException if endpoints changed."
+- [X] T072 [US6] Delete `@us1-write-idempotency` scenario from `features/export/config-in-package/config-applied-on-export.feature`
+- [X] T073 [US6] Mark GAP-007 `Status: RESOLVED` in `analysis/dsl-gaps-detected.md` with rationale: "CLI has no access to the package filesystem by architectural design (Principle VI, Separation of Planes). Pre-submission config-exists check is architecturally impossible. Agent applies resume semantics: overwrites if endpoints unchanged, rejects with InvalidOperationException if endpoints changed."
 
 **Checkpoint**: US6 complete. Scenario gone, rationale recorded.
 

@@ -33,7 +33,7 @@ cannot be confirmed against observed production code.
 ## GAP-001: IdentityMappingService — UPN and display-name matching unimplemented
 
 **Detected during:** migration of `features/import/identities/identity-mapping-resolution.feature` (scenario 2)
-**Status:** BLOCKED — scenario retained in feature file
+**Status:** RESOLVED (2026-06-04) — IdentitiesOrchestrator.PrepareAsync now implements UPN matching (step 2) and display-name matching (step 3) against the target tenant via IIdentityAdapter and an ordered IIdentityMatchingStrategy list; results are cached and read by IIdentityTranslationTool.Translate. Implemented for all three connectors (SimulatedIdentityAdapter, AzureDevOpsIdentityAdapter via SDK IdentityHttpClient, TfsIdentityAdapter reduced-capability). Verified by IdentitiesOrchestratorPrepareTests, Upn/DisplayName strategy tests, SimulatedIdentityAdapterTests, CompositeIdentityAdapterTests, TfsIdentityAdapterTests, and live ADO SystemTests.
 
 ### What the docstring promises
 
@@ -249,6 +249,8 @@ Scenario: Import is skipped when both ReplicateSourceTree and AutoCreateNodes ar
 ---
 
 ## GAP-007: config-applied-on-export — CLI has no fail-fast when migration-config.json already exists
+
+**Status:** RESOLVED (2026-06-04) — The `@us1-write-idempotency` scenario was deleted: the CLI has NO access to the package filesystem (Principle VI, Separation of Planes — the CLI talks only to the control plane), so a pre-submission config-exists check is architecturally impossible. No production code change. The existing-file case is handled by the agent's resume semantics (overwrite if endpoints unchanged; reject with `InvalidOperationException` if changed) — documented in docs/configuration-reference.md.
 
 - **gap-type:** `other`
 - **family:** `config-applied-on-export`
