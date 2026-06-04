@@ -50,6 +50,13 @@ public static class IdentityServiceCollectionExtensions
 
 #if !NET481
         services.AddSingleton<IIdentityMappingService, IdentityMappingService>();
+
+        // Ordered identity matching strategies consumed by IdentitiesOrchestrator.PrepareAsync.
+        // Registration order is preserved in the injected IEnumerable: UPN (step 2) before
+        // display name (step 3).
+        services.AddSingleton<IIdentityMatchingStrategy, Strategies.UpnIdentityMatchingStrategy>();
+        services.AddSingleton<IIdentityMatchingStrategy, Strategies.DisplayNameIdentityMatchingStrategy>();
+
         // Register the IdentityTranslationTool seam used by module import/export paths.
         services.AddIdentityTranslationToolServices();
 #else

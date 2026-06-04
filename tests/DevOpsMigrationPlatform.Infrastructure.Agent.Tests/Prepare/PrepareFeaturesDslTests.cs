@@ -545,7 +545,8 @@ public sealed class PrepareFeaturesDslTests
             NullLogger<IdentitiesModule>.Instance,
             Options.Create(new IdentitiesModuleOptions()),
             CreateSourceEndpoint(connectorType),
-            Mock.Of<IIdentitiesOrchestrator>(),
+            // Real orchestrator: its PrepareAsync writes Identities/prepare-report.json to context.Package.
+            new IdentitiesOrchestrator(NullLogger<IdentitiesOrchestrator>.Instance),
             PlatformMetrics: null,
             identitySource: null,
             checkpointingFactory: null,

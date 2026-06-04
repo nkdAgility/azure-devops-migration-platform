@@ -169,39 +169,10 @@ public sealed class IdentitiesModule : IModule
             Timestamp = DateTimeOffset.UtcNow
         });
 
-        var report = new PrepareReport
-        {
-            ModuleName = Name,
-            ResolvedCount = 0,
-            UnresolvedItems = []
-        };
-
-        var tags = new MetricsTagList
-        {
-            { "job.id", context.Job.JobId },
-            { "module", Name }
-        };
-        _PlatformMetrics?.RecordPrepareIdentitiesResolved(report.ResolvedCount, tags);
-        _PlatformMetrics?.RecordPrepareIdentitiesUnresolved(report.UnresolvedCount, tags);
-
+        // Delegate Prepare-phase identity resolution (UPN/display-name matching against the
+        // target tenant, cache population, and prepare-report.json) to the orchestrator.
         var (organisation, project) = ResolvePrepareScope(context);
-
-        await PersistPackageTextAsync(
-            context.Package,
-            new PackageContentContext(PackageContentKind.Artefact,
-                Organisation: organisation,
-                Project: project,
-                Module: "Identities",
-                Address: new RelativePathAddress("prepare-report.json")),
-            JsonSerializer.Serialize(report),
-            ct).ConfigureAwait(false);
-
-        _logger.LogInformation(
-            "Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms",
-            Name,
-            report.ResolvedCount,
-            report.UnresolvedCount,
-            0);
+        await _orchestrator.PrepareAsync(context, organisation, project, ct).ConfigureAwait(false);
 
         context.ProgressSink?.Emit(new ProgressEvent
         {
