@@ -392,22 +392,20 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
     {
         foreach (var strategy in _matchingStrategies)
         {
-            var isUpn = string.Equals(strategy.Name, "UPN", StringComparison.OrdinalIgnoreCase);
-            // Child span per adapter query (parented to the identity.prepare span via Activity.Current).
-            using var adapterActivity = s_activitySource.StartActivity(
-                isUpn ? "identity.adapter.upn" : "identity.adapter.displayname");
+            // The strategy owns which adapter method to call; the orchestrator just walks the
+            // ordered list. Child span (parented to identity.prepare via Activity.Current) is
+            // labelled by strategy name — a diagnostic tag, not a dispatch switch.
+            using var adapterActivity = s_activitySource.StartActivity("identity.adapter.query");
             adapterActivity?.SetTag("operation", "prepare");
             adapterActivity?.SetTag("module", ModuleName);
             adapterActivity?.SetTag("strategy", strategy.Name);
 
-            IReadOnlyList<IdentityCandidate> candidates;
+            IdentityMatch match;
             try
             {
-                candidates = isUpn
-                    ? await _identityAdapter!.FindByUpnAsync(descriptor.UniqueName, project, ct).ConfigureAwait(false)
-                    : string.Equals(strategy.Name, "DisplayName", StringComparison.OrdinalIgnoreCase)
-                        ? await _identityAdapter!.FindByDisplayNameAsync(descriptor.DisplayName, project, ct).ConfigureAwait(false)
-                        : Array.Empty<IdentityCandidate>();
+                match = await strategy
+                    .ResolveAsync(_identityAdapter!, descriptor.UniqueName, descriptor.DisplayName, project, ct)
+                    .ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -418,7 +416,6 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
                 continue;
             }
 
-            var match = strategy.Match(descriptor.UniqueName, descriptor.DisplayName, candidates);
             if (match.IsMatch)
                 return (match.Descriptor, strategy.Name, false);
 

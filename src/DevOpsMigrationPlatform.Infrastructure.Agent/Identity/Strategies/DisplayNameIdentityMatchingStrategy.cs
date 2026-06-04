@@ -4,6 +4,8 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Identity.Strategies;
@@ -19,6 +21,17 @@ public sealed class DisplayNameIdentityMatchingStrategy : IIdentityMatchingStrat
 {
     /// <inheritdoc/>
     public string Name => "DisplayName";
+
+    /// <inheritdoc/>
+    public async Task<IdentityMatch> ResolveAsync(
+        IIdentityAdapter adapter, string sourceUpn, string sourceDisplayName, string projectName, CancellationToken ct)
+    {
+        if (adapter is null || string.IsNullOrWhiteSpace(sourceDisplayName))
+            return IdentityMatch.None;
+
+        var candidates = await adapter.FindByDisplayNameAsync(sourceDisplayName, projectName, ct).ConfigureAwait(false);
+        return Match(sourceUpn, sourceDisplayName, candidates);
+    }
 
     /// <inheritdoc/>
     public IdentityMatch Match(string sourceUpn, string sourceDisplayName, IReadOnlyList<IdentityCandidate> candidates)

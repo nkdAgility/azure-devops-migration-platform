@@ -2,6 +2,8 @@
 // Copyright (c) Naked Agility Limited
 
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 
@@ -37,4 +39,16 @@ public interface IIdentityMatchingStrategy
     /// Attempts to match a source identity against the supplied target <paramref name="candidates"/>.
     /// </summary>
     IdentityMatch Match(string sourceUpn, string sourceDisplayName, IReadOnlyList<IdentityCandidate> candidates);
+
+    /// <summary>
+    /// Queries <paramref name="adapter"/> for the candidate set this strategy needs and applies
+    /// <see cref="Match"/> to it. The strategy — not the orchestrator — owns which adapter method
+    /// to call, so adding a strategy never requires editing the orchestrator's dispatch.
+    /// </summary>
+    Task<IdentityMatch> ResolveAsync(
+        IIdentityAdapter adapter,
+        string sourceUpn,
+        string sourceDisplayName,
+        string projectName,
+        CancellationToken ct);
 }
