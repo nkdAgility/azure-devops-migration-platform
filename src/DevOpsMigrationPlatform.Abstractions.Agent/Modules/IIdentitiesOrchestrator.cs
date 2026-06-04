@@ -27,7 +27,9 @@ public interface IIdentitiesOrchestrator
         ICheckpointingServiceFactory? checkpointingFactory,
         CancellationToken ct);
 
-#if !NET481
+    // Runtime-agnostic per FR-020: no interface-level #if guard. The net481 (TFS agent)
+    // runtime models its reduced import capability explicitly at the call site
+    // (IdentitiesModule returns Skipped) — not by hiding the method from the interface.
     Task ImportAsync(
         IIdentityTranslationTool? identityTranslationTool,
         ImportContext context,
@@ -35,7 +37,6 @@ public interface IIdentitiesOrchestrator
         string project,
         ICheckpointingServiceFactory? checkpointingFactory,
         CancellationToken ct);
-#endif
 
     Task ValidateAsync(
         IPackageAccess package,

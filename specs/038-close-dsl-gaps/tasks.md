@@ -11,7 +11,7 @@
 Implementation is grouped into committed, green-build work packages (operator decision 2026-06-04):
 
 - **WP1a ✅ (commit `refactor(038): rename …`)** — Phase 1 baseline (T001/T002) green; FR-016 reworked from delete→**rename** (preserve history). `IIdentityLookupTool`→`IIdentityTranslationTool`, impl/options/extensions renamed, namespace + config section `…:IdentityTranslation`, `_identityLookupTool`→`_identityTranslationTool` across all consumers. Behaviour-neutral. Satisfies T001, T002, and the rename portions of T026–T031.
-- **WP1b ⏳** — Phase 2 guard refactor (T003–T007) + `Resolve()`→`Translate()` method rename.
+- **WP1b ✅** — Phase 2 guard refactor (T003, T004, T006, T007; T005 superseded — see D-002). Removed the non-compliant interface-level `#if !NET481` on `IIdentitiesOrchestrator.ImportAsync` and the DI-hiding field/param guards in `IdentitiesModule`. Build green on net10 + net481. `Resolve()`→`Translate()` method rename **deferred to WP2** (reshaped onto the PrepareAsync cache there; avoids rippling through test mocks twice).
 - **WP2** — US1 identity matching pipeline (T008–T045) → GAP-001.
 - **WP3** — US2/US3/US4/US5 (T046–T071) → GAP-002/003/005/006/004.
 - **WP4** — US6/US7 + docs (T072–T086+) → GAP-007/008/009.
@@ -39,11 +39,11 @@ Implementation is grouped into committed, green-build work packages (operator de
 
 **⚠️ CRITICAL**: Blocks all US1 work on `IIdentitiesOrchestrator` and `IdentitiesOrchestrator`.
 
-- [ ] T003 Audit all `#if` / `#if !NET481` guards in `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IIdentitiesOrchestrator.cs`, `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/IdentitiesOrchestrator.cs`, and `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/IdentitiesModule.cs` — record each guard, classify as compliant (crash-prevention only) or non-compliant (DI hiding / architectural exclusion), answer all seven Required Review Questions from the guardrail
-- [ ] T004 Remove `#if !NET481` guard from `IIdentitiesOrchestrator.ImportAsync` in `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IIdentitiesOrchestrator.cs` — `ImportAsync` becomes unconditionally present on the interface
-- [ ] T005 Add explicit net481 `ImportAsync` implementation in the TFS agent project (e.g. `src/DevOpsMigrationPlatform.TfsMigrationAgent/Modules/TfsIdentitiesOrchestratorAdapter.cs` or equivalent) — returns `Task.CompletedTask` and emits a `ProgressEvent` with `EventKind.Warning` stating `"IdentitiesOrchestrator.ImportAsync is not supported on the TFS agent runtime"`
-- [ ] T006 Remediate any non-compliant guards identified in T003 within `IdentitiesOrchestrator.cs` — guards used for DI hiding or optional enablement must be replaced with target-specific implementations or removed; guards for crash-prevention-only API differences may remain
-- [ ] T007 Verify `dotnet build --no-incremental` passes on both net10 and net481 targets after guard remediation — record evidence for guardrail Required Evidence items 1–8
+- [X] T003 Audit all `#if` / `#if !NET481` guards in `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IIdentitiesOrchestrator.cs`, `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/IdentitiesOrchestrator.cs`, and `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/IdentitiesModule.cs` — record each guard, classify as compliant (crash-prevention only) or non-compliant (DI hiding / architectural exclusion), answer all seven Required Review Questions from the guardrail
+- [X] T004 Remove `#if !NET481` guard from `IIdentitiesOrchestrator.ImportAsync` in `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IIdentitiesOrchestrator.cs` — `ImportAsync` becomes unconditionally present on the interface
+- [~] T005 SUPERSEDED (see discrepancies D-002): no separate net481 orchestrator adapter needed. `IdentitiesOrchestrator` multi-targets net481 and its `ImportAsync` is net481-safe; reduced capability modelled by the compliant `#if NET481` Skipped branch in `IdentitiesModule.ImportAsync`. FR-018/FR-020 satisfied by removing the interface + DI-hiding guards.
+- [X] T006 Remediate any non-compliant guards identified in T003 within `IdentitiesOrchestrator.cs` — guards used for DI hiding or optional enablement must be replaced with target-specific implementations or removed; guards for crash-prevention-only API differences may remain
+- [X] T007 Verify `dotnet build --no-incremental` passes on both net10 and net481 targets after guard remediation — record evidence for guardrail Required Evidence items 1–8
 
 **Checkpoint**: All non-compliant guards removed. Build green on both runtimes. Evidence recorded. US1 edits to touched files may now begin.
 

@@ -40,9 +40,9 @@ public sealed class IdentitiesModule : IModule
     private static readonly ActivitySource MigrationActivity = new(WellKnownActivitySourceNames.Migration);
 
     private readonly IIdentitySource? _identitySource;
-#if !NET481
+    // FR-018: no DI-hiding guard. The optional tool is null on net481 (not registered);
+    // import is skipped there via the capability branch in ImportAsync.
     private readonly IIdentityTranslationTool? _identityTranslationTool;
-#endif
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<IdentitiesModule> _logger;
     private readonly IPlatformMetrics? _PlatformMetrics;
@@ -65,11 +65,8 @@ public sealed class IdentitiesModule : IModule
         IIdentitiesOrchestrator orchestrator,
         IPlatformMetrics? PlatformMetrics = null,
         IIdentitySource? identitySource = null,
-        ICheckpointingServiceFactory? checkpointingFactory = null
-#if !NET481
-        , IIdentityTranslationTool? identityTranslationTool = null
-#endif
-        )
+        ICheckpointingServiceFactory? checkpointingFactory = null,
+        IIdentityTranslationTool? identityTranslationTool = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
@@ -78,9 +75,7 @@ public sealed class IdentitiesModule : IModule
         _PlatformMetrics = PlatformMetrics;
         _identitySource = identitySource;
         _checkpointingFactory = checkpointingFactory;
-#if !NET481
         _identityTranslationTool = identityTranslationTool;
-#endif
     }
 
     public async Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)

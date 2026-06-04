@@ -166,10 +166,10 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         }
     }
 
-#if !NET481
     /// <summary>
-    /// Imports identity descriptors: initialises the lookup tool, counts resolved entries,
-    /// and writes unresolved identities to the package.
+    /// Imports identity descriptors: initialises the translation tool, counts resolved entries,
+    /// and writes unresolved identities to the package. Unconditional per FR-020 (no interface
+    /// guard); on net481 this is unreachable because <c>IdentitiesModule</c> skips import.
     /// </summary>
     public async Task ImportAsync(
         IIdentityTranslationTool? identityTranslationTool,
@@ -232,7 +232,6 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         activity?.SetTag("identities.descriptor.resolved", resolvedCount);
         activity?.SetTag("identities.has.mapping", hasMapping);
     }
-#endif
 
     /// <summary>
     /// Validates the identity descriptors JSONL artefact exists, is readable, and each
