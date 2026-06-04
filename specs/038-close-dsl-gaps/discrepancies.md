@@ -1,0 +1,16 @@
+# Discrepancies: Close DSL Migration Gaps
+
+**Feature**: [spec.md](spec.md)
+**Purpose**: Track discrepancies discovered between the specification/plan/tasks and the
+actual codebase during implementation. The Spec-Completion Gate (constitution Governance)
+requires every entry here to be `Resolved` or `N/A` before the branch may merge.
+
+## Status
+
+| ID | Discrepancy | Discovered During | Status | Resolution |
+|----|-------------|-------------------|--------|------------|
+| D-000 | No implementation-time discrepancies recorded yet. | `/speckit-analyze` (2026-06-04) | N/A | Cross-artifact analysis findings (F1–F10) were resolved in spec.md, plan.md, and tasks.md prior to implementation. Add new rows here as code-vs-spec discrepancies surface during Phases 2–8. |
+
+> Add a row for every discrepancy found while implementing tasks (e.g. an interface that
+> differs from the data-model, a file path that does not exist, a behaviour the spec did not
+> anticipate). Each row MUST reach `Resolved` or `N/A` before T086 is checked off.

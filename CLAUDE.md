@@ -45,4 +45,5 @@ If anything conflicts, guardrails win.
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
+at `specs/038-close-dsl-gaps/plan.md`.
 <!-- SPECKIT END -->
