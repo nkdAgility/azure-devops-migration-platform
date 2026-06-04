@@ -238,8 +238,19 @@ Nodes/
 | `NodeTranslation` | Records team area/iteration paths for node reference tracking |
 | `TeamIterations` | Sprint/iteration assignments (including default and backlog iterations) |
 | `TeamMembers` | Team membership with admin flags |
-| `IdentityLookup` | Resolves team member identities via the identity mapping service |
+| `IdentityLookup` | Resolves team member identities via the identity translation tool. Members whose identity resolves to the configured default are **skipped** (logged as unresolvable) rather than imported under the wrong identity. |
 | `TeamCapacity` | Per-member, per-sprint capacity data |
+
+> **Default team is not assigned automatically.** The Azure DevOps API does not support
+> explicitly setting a project's default team. When the import encounters the source default
+> team it logs a structured warning ("target API does not support explicit default team
+> assignment") and continues. After import, set the default team manually in the target
+> project via **Project Settings → Teams**.
+>
+> **Untranslatable area/iteration paths are skipped.** If a team's area or iteration path
+> cannot be mapped to the target classification tree, that path is excluded (with a warning)
+> rather than written through unchanged — ensure the source classification tree is replicated
+> (`Nodes.ReplicateSourceTree = true`) so paths resolve.
 
 | Option | Default | What It Does |
 |--------|---------|-------------|

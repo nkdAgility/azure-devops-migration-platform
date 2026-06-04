@@ -60,7 +60,22 @@ During `PrepareAsync`, the `IdentitiesModule`:
 
 ### "Identity is a Cross-Cutting Service" Rule
 
-No module should implement its own identity resolution. All modules consume the `IIdentityMappingService` injected at construction. The `IdentitiesModule` must complete export before any other module begins import.
+No module should implement its own identity resolution. All modules consume the cross-cutting identity seam injected at construction. The `IdentitiesModule` must complete export before any other module begins import.
+
+### Identity Resolution Architecture (spec 038)
+
+The resolution pipeline is composed of four collaborating abstractions:
+
+| Abstraction | Role | Lives in |
+|---|---|---|
+| `IIdentityTranslationTool` | **Tool seam** consumed by all modules (`TeamImportOrchestrator`, `RevisionFolderProcessor`, `WorkItemsModule`, `IdentitiesModule`). `Translate(source)` is **synchronous** and reads cached Prepare-phase results only. Exposes `IsEnabled` and `DefaultIdentity`. Configured under `MigrationPlatform:Tools:IdentityTranslation`. (Renamed from the former `IIdentityLookupTool`; `Resolve()` → `Translate()`.) | `Abstractions.Agent/Tools` |
+| `IIdentitiesOrchestrator` | Owns the phase lifecycle (`PrepareAsync`/`ExportAsync`/`ImportAsync`/`ValidateAsync`). `PrepareAsync` performs the live matching, caches results (`source → target descriptor`), and writes `prepare-report.json`. `ResolvePrepared(source)` is the synchronous cache read the tool delegates to. | `Abstractions.Agent/Modules` |
+| `IIdentityAdapter` | **Connector-specific** query of the live **target** tenant (`FindByUpnAsync`, `FindByDisplayNameAsync`). Called by `PrepareAsync` only. Implementations: `SimulatedIdentityAdapter`, `AzureDevOpsIdentityAdapter` (SDK `IdentityHttpClient`), `TfsIdentityAdapter` (reduced capability — empty + Warning). Dispatched by `CompositeIdentityAdapter` on the target connector type. | `Abstractions.Agent/Identity` (+ connector projects) |
+| `IIdentityMatchingStrategy` | **Pure** ordered match step. `UpnIdentityMatchingStrategy` (step 2) then `DisplayNameIdentityMatchingStrategy` (step 3, Unicode-NFC, case-insensitive). Returns `IdentityMatch(Descriptor, MatchCount)`; ambiguity (`MatchCount > 1`) is logged by the orchestrator. | `Abstractions.Agent/Identity` |
+
+**Four-step order** (executed in PrepareAsync for steps 2–3; in the tool for 1 & 4): (1) explicit `mapping.json` override → (2) UPN match → (3) display-name match → (4) configured `DefaultIdentity`, else source pass-through. Ambiguous and adapter-failure cases fall through to the default and are logged.
+
+`IIdentityMappingService` remains the override/default resolver the orchestrator consults internally; modules do not call it directly — they go through `IIdentityTranslationTool`.
 
 
 

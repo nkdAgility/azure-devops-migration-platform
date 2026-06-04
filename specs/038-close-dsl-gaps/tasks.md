@@ -249,13 +249,13 @@ Implementation is grouped into committed, green-build work packages (operator de
 
 **Purpose**: Update canonical context docs, verify all gaps resolved, satisfy Spec-Completion Gate.
 
-- [ ] T082 Update `.agents/30-context/domains/identity-and-mapping.md` — document `IIdentityAdapter` (connector-specific target-tenant query during PrepareAsync), `IIdentityMatchingStrategy[]` (ordered fallback chain), `IIdentityTranslationTool` (synchronous cross-cutting seam), `PrepareAsync` role and cache lifecycle, deletion of `IIdentityLookupTool`
-- [ ] T083 [P] Update `.agents/30-context/domains/connector-model.md` — add `IIdentityAdapter` to the connector abstraction list with note that it lives in each connector's project at the project-boundary seam (no `#if` guards)
-- [ ] T083a [P] Update `docs/operator-guide.md` (US5 Scenario 2) — state that default-team assignment is NOT performed automatically; instruct the operator to set the default team via Project Settings → Teams in the target Azure DevOps project
-- [ ] T083b [P] Update `docs/configuration-reference.md` (US6 Scenario 2) — document config-applied-on-export resume semantics: the agent overwrites `migration-config.json` if endpoints are unchanged and rejects with `InvalidOperationException` if endpoints changed
-- [ ] T084 [P] Verify all 9 gaps in `analysis/dsl-gaps-detected.md` are `Status: RESOLVED` — run `Select-String -Pattern "Status: OPEN"` and confirm zero results
+- [X] T082 Update `.agents/30-context/domains/identity-and-mapping.md` — document `IIdentityAdapter` (connector-specific target-tenant query during PrepareAsync), `IIdentityMatchingStrategy[]` (ordered fallback chain), `IIdentityTranslationTool` (synchronous cross-cutting seam), `PrepareAsync` role and cache lifecycle, deletion of `IIdentityLookupTool`
+- [X] T083 [P] Update `.agents/30-context/domains/connector-model.md` — add `IIdentityAdapter` to the connector abstraction list with note that it lives in each connector's project at the project-boundary seam (no `#if` guards)
+- [X] T083a [P] Update `docs/operator-guide.md` (US5 Scenario 2) — state that default-team assignment is NOT performed automatically; instruct the operator to set the default team via Project Settings → Teams in the target Azure DevOps project
+- [X] T083b [P] Update `docs/configuration-reference.md` (US6 Scenario 2) — document config-applied-on-export resume semantics: the agent overwrites `migration-config.json` if endpoints are unchanged and rejects with `InvalidOperationException` if endpoints changed
+- [X] T084 [P] Verify all 9 gaps in `analysis/dsl-gaps-detected.md` are `Status: RESOLVED` — run `Select-String -Pattern "Status: OPEN"` and confirm zero results
 - [ ] T084a Create/verify `specs/038-close-dsl-gaps/discrepancies.md` exists and every entry is marked `Resolved` or `N/A` (Spec-Completion Gate, constitution Governance) — if no discrepancies were found, record an explicit "No discrepancies — N/A" entry
-- [ ] T085 [P] Review `analysis/pending-actions.md` — remove any entries that are now implemented by this spec
+- [X] T085 [P] Review `analysis/pending-actions.md` — remove any entries that are now implemented by this spec
 - [ ] T086 Run full final gate: `dotnet clean && dotnet build --no-incremental && dotnet test` — all must pass with zero failures and zero build warnings from changed files
 
 ---

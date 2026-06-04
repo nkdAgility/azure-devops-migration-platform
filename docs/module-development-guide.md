@@ -148,7 +148,7 @@ Extensions are policy adapters: they decide when/how to apply the seam, skip/fai
 | Module | Orchestrator | Services |
 |---|---|---|
 | `NodesModule` | `INodesOrchestrator` | `IClassificationTreeCapture`, `INodeEnsurer` |
-| `IdentitiesModule` | `IIdentitiesOrchestrator` | `IIdentitySource`, `IIdentityLookupTool` |
+| `IdentitiesModule` | `IIdentitiesOrchestrator` | `IIdentitySource`, `IIdentityTranslationTool` |
 | `TeamsModule` | `ITeamsOrchestrator` | `ITeamSource`, `TeamExportOrchestrator`, plus `ITeamTarget` and `TeamImportOrchestrator` on net10.0 |
 | `WorkItemsModule` | `WorkItemExportOrchestrator`, `WorkItemImportOrchestrator` | `IWorkItemRevisionSource`, `IAttachmentBinarySource` |
 | `WorkItemsModule` (inventory phase) | `IInventoryOrchestrator` | `IInventoryService` |

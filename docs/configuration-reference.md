@@ -82,7 +82,7 @@ A single JSON configuration file drives the entire run.
         ],
         "IterationPathMappings": []
       },
-      "IdentityLookup": {
+      "IdentityTranslation": {
         "Enabled": true,
         "DefaultIdentity": ""
       }
@@ -173,7 +173,7 @@ All fields below are children of the `MigrationPlatform` root key. Keys are Pasc
 | `Target` | Required for `Prepare`, `Import`, and `Migrate` | Target system connection details. `Type` must be `AzureDevOpsServices` or `Simulated`. |
 | `Target.Authentication` | No | Auth credentials block (`Type` + `AccessToken`). Not used for `Simulated` target type. |
 | `Organisations` | Mode 2 inventory only | Multi-org tooling roster. Mutually exclusive with `Source`. Each entry has `Type`, `Url`, `Projects`, `Authentication`, `Enabled`, and an optional `Scopes` array. |
-| `Tools` | No | Keyed object of shared tool configuration. Keys are tool names (`FieldTransform`, `NodeTranslation`, `IdentityLookup`). |
+| `Tools` | No | Keyed object of shared tool configuration. Keys are tool names (`FieldTransform`, `NodeTranslation`, `IdentityTranslation`). |
 | `Modules` | Yes | Object keyed by module name (`Identities`, `Nodes`, `Teams`, `WorkItems`). Each value is the module-specific options object. |
 | `Policies` | No | Retry, throttle, and checkpoint policies |
 | `Environment` | No | Control plane endpoint and agent runner config. Defaults to Standalone on `http://localhost:5100`. |
@@ -258,7 +258,7 @@ The `Modules.Teams` object controls `TeamsModule` behaviour:
 | `Modules.Teams.Extensions.NodeTranslation` | bool | `true` | Record team area/iteration paths into the node reference tracker during export |
 | `Modules.Teams.Extensions.TeamIterations` | bool | `true` | Export/import sprint iteration assignments |
 | `Modules.Teams.Extensions.TeamMembers` | bool | `true` | Export/import team members with admin flags |
-| `Modules.Teams.Extensions.IdentityLookup` | bool | `true` | Resolve team member identities via `IdentityLookupTool` |
+| `Modules.Teams.Extensions.IdentityLookup` | bool | `true` | Resolve team member identities via `IdentityTranslationTool` |
 | `Modules.Teams.Extensions.TeamCapacity` | bool | `true` | Export/import per-member per-sprint capacity data |
 
 ### WorkItems Module — Scopes and Extensions
@@ -322,6 +322,21 @@ Source data can change between runs. When resume is active, the same work item I
 - Configs from future versions must fail fast with a clear error message.
 - **Current version**: `"2.0"` (since feature 025-agent-config-package). Config travels as `configPayload` inside the `Job` dispatch token; the agent writes it to `migration-config.json` at job startup.
 
+### `migration-config.json` already exists — resume semantics
+
+The **CLI never touches the package filesystem** (Separation of Planes — it only submits the
+`Job` to the control plane). There is therefore no CLI-side "config already exists" check.
+When the **agent** starts a job and finds an existing `migration-config.json` in the package,
+it applies resume semantics:
+
+- **Endpoints unchanged** → the agent overwrites `migration-config.json` and continues (a
+  resumed run uses the latest config payload).
+- **Endpoints changed** → the agent rejects the job with `InvalidOperationException` rather
+  than silently mixing configs against a package built for different source/target endpoints.
+
+(This is why the former aspirational "CLI fails fast when migration-config.json exists"
+scenario was removed — see GAP-007.)
+
 ---
 
 ### Runtime Config Injection — `IOptions<T>` Pattern
@@ -346,7 +361,7 @@ The runtime **does not** inject the monolithic `MigrationOptions` type into modu
 | `WorkItemsModuleOptions` | `MigrationPlatform:Modules:WorkItems` | `WorkItemsModule` |
 | `FieldTransformOptions` | `MigrationPlatform:Tools:FieldTransform` | `FieldTransformTool` |
 | `NodeTranslationOptions` | `MigrationPlatform:Tools:NodeTranslation` | `NodeTranslationTool` |
-| `IdentityLookupOptions` | `MigrationPlatform:Tools:IdentityLookup` | `IdentityLookupTool` |
+| `IdentityTranslationOptions` | `MigrationPlatform:Tools:IdentityTranslation` | `IdentityTranslationTool` |
 
 ---
 
@@ -839,16 +854,16 @@ The `NodeTranslation` tool manages classification node (area/iteration) path tra
 
 ---
 
-### IdentityLookup Tool
+### IdentityTranslation Tool
 
-The `IdentityLookup` tool (`Tools.IdentityLookup`) controls automatic identity resolution during export. It maps source identity strings (UPNs, display names) to target identity descriptors using the configured identity store.
+The `IdentityTranslation` tool (`Tools.IdentityTranslation`) controls automatic identity resolution during export. It maps source identity strings (UPNs, display names) to target identity descriptors using the configured identity store.
 
 #### Schema
 
 | Field | Required | Default | Description |
 |---|---|---|---|
-| `Tools.IdentityLookup.Enabled` | No | `true` | Master switch. When `false`, all identity resolution returns the source identity string unchanged. |
-| `Tools.IdentityLookup.DefaultIdentity` | No | `""` | Fallback identity applied when no mapping override is found and no automatic match succeeds. When empty, the source identity string is returned unchanged. |
+| `Tools.IdentityTranslation.Enabled` | No | `true` | Master switch. When `false`, all identity resolution returns the source identity string unchanged. |
+| `Tools.IdentityTranslation.DefaultIdentity` | No | `""` | Fallback identity applied when no mapping override is found and no automatic match succeeds. When empty, the source identity string is returned unchanged. |
 
 #### Example
 
@@ -856,7 +871,7 @@ The `IdentityLookup` tool (`Tools.IdentityLookup`) controls automatic identity r
 {
   "MigrationPlatform": {
     "Tools": {
-      "IdentityLookup": {
+      "IdentityTranslation": {
         "Enabled": true,
         "DefaultIdentity": "migration-service@contoso.com"
       }
@@ -865,4 +880,4 @@ The `IdentityLookup` tool (`Tools.IdentityLookup`) controls automatic identity r
 }
 ```
 
-> **Relationship to `Modules.Identities.DefaultIdentity`**: The `IdentitiesModule` has its own `DefaultIdentity` field for identities that cannot be resolved via the identity lookup store. The `IdentityLookup.DefaultIdentity` is the fallback at the tool level for any module that calls the tool directly (e.g. `TeamsModule`). If both are set, module-level identity resolution consults the tool first.
+> **Relationship to `Modules.Identities.DefaultIdentity`**: The `IdentitiesModule` has its own `DefaultIdentity` field for identities that cannot be resolved via the identity lookup store. The `IdentityTranslation.DefaultIdentity` is the fallback at the tool level for any module that calls the tool directly (e.g. `TeamsModule`). If both are set, module-level identity resolution consults the tool first.
