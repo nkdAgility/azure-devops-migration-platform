@@ -97,7 +97,7 @@ public static class ModuleServiceCollectionExtensions
                 sp.GetRequiredService<ICheckpointingServiceFactory>(),
                 sp.GetRequiredService<IIdMapStoreFactory>(),
                 sp.GetRequiredService<IWorkItemResolutionProcessorFactory>(),
-                sp.GetService<IIdentityLookupTool>(),
+                sp.GetService<IIdentityTranslationTool>(),
                 sp.GetRequiredService<IWorkItemsImportCapabilityValidator>(),
                 sp.GetRequiredService<IWorkItemsNodeReadinessOrchestrator>(),
                 sp.GetService<IPlatformMetrics>(),

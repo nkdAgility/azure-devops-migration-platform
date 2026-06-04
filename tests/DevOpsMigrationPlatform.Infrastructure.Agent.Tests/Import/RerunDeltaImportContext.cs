@@ -79,7 +79,7 @@ public class RerunDeltaImportContext
             MockTarget.Object,
             MockIdMapStore.Object,
             CheckpointingService,
-            (IIdentityLookupTool?)null,
+            (IIdentityTranslationTool?)null,
             NullLogger<WorkItemResolutionProcessor>.Instance,
             EndpointUrl,
             ProjectName,

@@ -80,7 +80,7 @@
         "SkipOnUnresolvableArea": false,
         "SkipOnUnresolvableIteration": false
       },
-      "IdentityLookup": {
+      "IdentityTranslation": {
         "Enabled": true,
         "DefaultIdentity": ""
       },

@@ -11,7 +11,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 /// Single entry point for all identity resolution during import.
 /// All modules that reference user identities MUST use this tool — no inline resolution.
 /// </summary>
-public interface IIdentityLookupTool
+public interface IIdentityTranslationTool
 {
     /// <summary>
     /// Whether the tool is enabled. When <c>false</c>, <see cref="Resolve"/> returns the source identity unchanged.

@@ -9,7 +9,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 #if !NET481
-using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityLookup;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityTranslation;
 #endif
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,8 +50,8 @@ public static class IdentityServiceCollectionExtensions
 
 #if !NET481
         services.AddSingleton<IIdentityMappingService, IdentityMappingService>();
-        // Register the IdentityLookupTool seam used by module import/export paths.
-        services.AddIdentityLookupToolServices();
+        // Register the IdentityTranslationTool seam used by module import/export paths.
+        services.AddIdentityTranslationToolServices();
 #else
         // On NET481 (TFS agent), use the pass-through implementation because identity lookup
         // is unavailable in this runtime path.

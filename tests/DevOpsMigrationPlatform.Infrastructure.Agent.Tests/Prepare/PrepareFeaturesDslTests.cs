@@ -549,7 +549,7 @@ public sealed class PrepareFeaturesDslTests
             PlatformMetrics: null,
             identitySource: null,
             checkpointingFactory: null,
-            identityLookupTool: Mock.Of<Abstractions.Agent.Tools.IIdentityLookupTool>());
+            identityTranslationTool: Mock.Of<Abstractions.Agent.Tools.IIdentityTranslationTool>());
     }
 
     private static NodesModule CreateNodesModule(string connectorType)

@@ -21,7 +21,7 @@ public class ImportIdentityResolutionContext
     public Mock<ICheckpointingService> MockCheckpointing { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemTarget> MockTarget { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
-    public Mock<IIdentityLookupTool> MockIdentityMapping { get; } = new(MockBehavior.Strict);
+    public Mock<IIdentityTranslationTool> MockIdentityMapping { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
     public Mock<IPackageAccess> MockPackage { get; }
 

@@ -559,11 +559,19 @@ traces
   GAP-009) MUST be marked `Status: RESOLVED` with a resolution date upon completion of
   the corresponding fix. Deletion rationale for scenarios removed from feature files
   MUST be recorded in the `Status: RESOLVED` entry.
-- **FR-016**: `IIdentityLookupTool` MUST be deleted from the codebase. Every class
-  that currently injects, references, or implements `IIdentityLookupTool` MUST be
-  updated to use `IIdentityTranslationTool` instead. Every field named
-  `_identityLookupTool` (or variant) MUST be renamed to `_identityTranslationTool`.
-  No symbol named `IIdentityLookupTool` may exist after this change is complete.
+- **FR-016**: `IIdentityLookupTool` MUST be **renamed** (not deleted-and-recreated) to
+  `IIdentityTranslationTool` to preserve git history. Use `git mv` for the interface,
+  its implementation (`IdentityLookupTool` → `IdentityTranslationTool`), the options class
+  (`IdentityLookupOptions` → `IdentityTranslationOptions`), and the DI extension files, then
+  rename the symbols in place. The method `Resolve()` is renamed to `Translate()`. Every
+  consumer that references the type (the full set — **16 source files** including the
+  `IRevisionFolderProcessorFactory` / `IWorkItemsOrchestratorFactory` abstractions and the
+  WorkItem-resolution factory/runtime chain — see discrepancies D-001) is updated by the
+  rename. The config section moves from `MigrationPlatform:Tools:IdentityLookup` to
+  `MigrationPlatform:Tools:IdentityTranslation`. No symbol named `IIdentityLookupTool`,
+  `IdentityLookupTool`, `IdentityLookupOptions`, or field `_identityLookupTool` may exist
+  after this change. (`IdentityTranslationOptions` retains the existing `DefaultIdentity`
+  property by preservation — see FR-004.)
 - **FR-017**: The field `_NodeTransformTool` in `TeamImportOrchestrator` MUST be
   renamed to `_nodeTranslationTool` to match the canonical interface name
   `INodeTranslationTool`. No field or variable named `_NodeTransformTool` may exist

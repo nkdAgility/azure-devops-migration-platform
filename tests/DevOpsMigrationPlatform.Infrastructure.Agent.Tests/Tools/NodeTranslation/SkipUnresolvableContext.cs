@@ -34,7 +34,7 @@ public class SkipUnresolvableContext
     public Mock<IWorkItemTarget> TargetMock { get; } = new(MockBehavior.Loose);
     public Mock<IIdMapStore> IdMapStoreMock { get; } = new(MockBehavior.Loose);
     public Mock<ICheckpointingService> CheckpointingMock { get; } = new(MockBehavior.Loose);
-    public Mock<IIdentityLookupTool> IdentityMappingMock { get; } = new(MockBehavior.Loose);
+    public Mock<IIdentityTranslationTool> IdentityMappingMock { get; } = new(MockBehavior.Loose);
     public Mock<IPackageAccess> PackageMock { get; } = new(MockBehavior.Loose);
     public Mock<IWorkItemResolutionStrategy> ResolutionStrategyMock { get; } = new(MockBehavior.Loose);
 

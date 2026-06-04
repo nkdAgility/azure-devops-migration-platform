@@ -29,7 +29,7 @@ public class WorkItemResolutionProcessorTests
     private Mock<ICheckpointingService> _mockCheckpointing = null!;
     private Mock<IWorkItemTarget> _mockTarget = null!;
     private Mock<IIdMapStore> _mockIdMapStore = null!;
-    private Mock<IIdentityLookupTool> _mockIdentityMapping = null!;
+    private Mock<IIdentityTranslationTool> _mockIdentityMapping = null!;
     private Mock<IWorkItemResolutionStrategy> _mockResolutionStrategy = null!;
     private Mock<IPackageAccess> _mockPackage = null!;
 
@@ -39,7 +39,7 @@ public class WorkItemResolutionProcessorTests
         _mockCheckpointing = new Mock<ICheckpointingService>(MockBehavior.Strict);
         _mockTarget = new Mock<IWorkItemTarget>(MockBehavior.Strict);
         _mockIdMapStore = new Mock<IIdMapStore>(MockBehavior.Strict);
-        _mockIdentityMapping = new Mock<IIdentityLookupTool>(MockBehavior.Loose);
+        _mockIdentityMapping = new Mock<IIdentityTranslationTool>(MockBehavior.Loose);
         _mockResolutionStrategy = new Mock<IWorkItemResolutionStrategy>(MockBehavior.Strict);
         _mockPackage = PackageTestFactory.CreateLooseMock();
 

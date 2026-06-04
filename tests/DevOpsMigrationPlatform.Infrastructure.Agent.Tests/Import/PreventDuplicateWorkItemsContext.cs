@@ -56,7 +56,7 @@ public class PreventDuplicateWorkItemsContext
             MockTarget.Object,
             MockIdMapStore.Object,
             MockCheckpointing.Object,
-            (IIdentityLookupTool?)null,
+            (IIdentityTranslationTool?)null,
             NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",

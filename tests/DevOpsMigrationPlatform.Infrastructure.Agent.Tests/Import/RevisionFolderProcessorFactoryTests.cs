@@ -29,7 +29,7 @@ public class RevisionFolderProcessorFactoryTests
             target: Mock.Of<IWorkItemTarget>(),
             idMapStore: Mock.Of<IIdMapStore>(),
             checkpointing: Mock.Of<ICheckpointingService>(),
-            identityLookupTool: null,
+            identityTranslationTool: null,
             organisation: "https://dev.azure.com/org",
             project: "Project");
 
@@ -58,7 +58,7 @@ public class RevisionFolderProcessorFactoryTests
             target: Mock.Of<IWorkItemTarget>(),
             idMapStore: Mock.Of<IIdMapStore>(),
             checkpointing: Mock.Of<ICheckpointingService>(),
-            identityLookupTool: Mock.Of<IIdentityLookupTool>(),
+            identityTranslationTool: Mock.Of<IIdentityTranslationTool>(),
             organisation: "https://dev.azure.com/org",
             project: "Project",
             nodeStructureContext: new ProjectMapping("Source", "Target"));

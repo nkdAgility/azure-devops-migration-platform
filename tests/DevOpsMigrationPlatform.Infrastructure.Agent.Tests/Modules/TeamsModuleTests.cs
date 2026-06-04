@@ -725,12 +725,12 @@ public class TeamsModuleTests
     {
         // Arrange
         var target = new SimulatedTeamTarget();
-        var identityLookupTool = Mock.Of<IIdentityLookupTool>(m =>
+        var identityTranslationTool = Mock.Of<IIdentityTranslationTool>(m =>
             m.IsEnabled == true &&
             m.Resolve("src-alice") == "tgt-alice@target.com" &&
             m.Resolve("src-bob") == "tgt-bob@target.com");
 
-        var importOrch = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo(), identityLookupTool: identityLookupTool);
+        var importOrch = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo(), identityTranslationTool: identityTranslationTool);
 
         var teamPackage = new TeamPackage
         {

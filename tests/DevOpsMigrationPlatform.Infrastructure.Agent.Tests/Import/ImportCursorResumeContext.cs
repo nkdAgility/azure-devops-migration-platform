@@ -76,7 +76,7 @@ public class ImportCursorResumeContext
             MockTarget.Object,
             MockIdMapStore.Object,
             CheckpointingService,
-            (IIdentityLookupTool?)null,
+            (IIdentityTranslationTool?)null,
             NullLogger<WorkItemResolutionProcessor>.Instance,
             EndpointUrl,
             ProjectName,

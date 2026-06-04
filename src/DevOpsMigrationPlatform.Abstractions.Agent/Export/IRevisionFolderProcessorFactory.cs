@@ -21,7 +21,7 @@ public interface IWorkItemResolutionProcessorFactory
         IWorkItemTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
-        IIdentityLookupTool? identityLookupTool,
+        IIdentityTranslationTool? identityTranslationTool,
         string organisation,
         string project);
 
@@ -33,7 +33,7 @@ public interface IWorkItemResolutionProcessorFactory
         IWorkItemTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
-        IIdentityLookupTool? identityLookupTool,
+        IIdentityTranslationTool? identityTranslationTool,
         string organisation,
         string project,
         DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping? nodeStructureContext);

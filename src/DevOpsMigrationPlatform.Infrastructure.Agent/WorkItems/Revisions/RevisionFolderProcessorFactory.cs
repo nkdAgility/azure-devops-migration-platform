@@ -44,17 +44,17 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
         IWorkItemTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
-        IIdentityLookupTool? identityLookupTool,
+        IIdentityTranslationTool? identityTranslationTool,
         string organisation,
         string project)
-        => Create(target, idMapStore, checkpointing, identityLookupTool, organisation, project, nodeStructureContext: null);
+        => Create(target, idMapStore, checkpointing, identityTranslationTool, organisation, project, nodeStructureContext: null);
 
     /// <inheritdoc/>
     public IWorkItemResolutionProcessor Create(
         IWorkItemTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
-        IIdentityLookupTool? identityLookupTool,
+        IIdentityTranslationTool? identityTranslationTool,
         string organisation,
         string project,
         ProjectMapping? nodeStructureContext)
@@ -62,7 +62,7 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
             target,
             idMapStore,
             checkpointing,
-            identityLookupTool,
+            identityTranslationTool,
             _loggerFactory.CreateLogger<WorkItemResolutionProcessor>(),
             organisation,
             project,

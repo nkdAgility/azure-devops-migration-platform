@@ -280,13 +280,13 @@ public sealed class ServicesFeaturesDslTests
     private static (
         WorkItemResolutionProcessor Processor,
         Mock<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemTarget> Target,
-        Mock<IIdentityLookupTool> IdentityTool)
-        CreateRevisionProcessor(string fieldName, string fieldValue, Action<Mock<IIdentityLookupTool>> toolSetup)
+        Mock<IIdentityTranslationTool> IdentityTool)
+        CreateRevisionProcessor(string fieldName, string fieldValue, Action<Mock<IIdentityTranslationTool>> toolSetup)
     {
         var target = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemTarget>(MockBehavior.Strict);
         var idMap = new Mock<IIdMapStore>(MockBehavior.Strict);
         var checkpointing = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing.ICheckpointingService>(MockBehavior.Strict);
-        var identityTool = new Mock<IIdentityLookupTool>(MockBehavior.Strict);
+        var identityTool = new Mock<IIdentityTranslationTool>(MockBehavior.Strict);
         var package = PackageTestFactory.CreateLooseMock();
 
         toolSetup(identityTool);

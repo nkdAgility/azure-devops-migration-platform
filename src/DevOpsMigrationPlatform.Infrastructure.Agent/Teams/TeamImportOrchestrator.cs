@@ -24,7 +24,7 @@ public sealed class TeamImportOrchestrator
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
 
     private readonly ITeamTarget _teamTarget;
-    private readonly IIdentityLookupTool? _identityLookupTool;
+    private readonly IIdentityTranslationTool? _identityTranslationTool;
     private readonly INodeTranslationTool? _NodeTransformTool;
     private readonly ILogger<TeamImportOrchestrator> _logger;
     private readonly ITargetEndpointInfo _endpointInfo;
@@ -34,13 +34,13 @@ public sealed class TeamImportOrchestrator
         ILogger<TeamImportOrchestrator> logger,
         ITargetEndpointInfo endpointInfo,
         INodeTranslationTool? NodeTransformTool = null,
-        IIdentityLookupTool? identityLookupTool = null)
+        IIdentityTranslationTool? identityTranslationTool = null)
     {
         _teamTarget = teamTarget ?? throw new ArgumentNullException(nameof(teamTarget));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _endpointInfo = endpointInfo ?? throw new ArgumentNullException(nameof(endpointInfo));
         _NodeTransformTool = NodeTransformTool;
-        _identityLookupTool = identityLookupTool;
+        _identityTranslationTool = identityTranslationTool;
     }
 
     /// <summary>
@@ -120,7 +120,7 @@ public sealed class TeamImportOrchestrator
             {
                 try
                 {
-                    var resolvedDescriptor = extensions.IdentityLookup && _identityLookupTool?.IsEnabled == true ? _identityLookupTool.Resolve(member.Descriptor) : member.Descriptor;
+                    var resolvedDescriptor = extensions.IdentityLookup && _identityTranslationTool?.IsEnabled == true ? _identityTranslationTool.Resolve(member.Descriptor) : member.Descriptor;
                     var resolvedMember = member with { Descriptor = resolvedDescriptor };
                     await _teamTarget.AddMemberAsync(
                         null!, projectName, targetTeamId, resolvedMember, ct).ConfigureAwait(false);

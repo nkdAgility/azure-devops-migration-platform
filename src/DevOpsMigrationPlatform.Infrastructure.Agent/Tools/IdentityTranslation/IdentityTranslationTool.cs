@@ -19,14 +19,14 @@ using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityLookup;
+namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityTranslation;
 
 /// <summary>
-/// Full <see cref="IIdentityLookupTool"/> implementation.
+/// Full <see cref="IIdentityTranslationTool"/> implementation.
 /// Reads identity descriptors and mapping overrides from the package artefact store.
 /// Thread-safe after initialization (all state set once in <see cref="InitializeAsync"/>).
 /// </summary>
-public sealed class IdentityLookupTool : IIdentityLookupTool
+public sealed class IdentityTranslationTool : IIdentityTranslationTool
 {
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
     private static readonly JsonSerializerOptions s_jsonOptions = new()
@@ -36,8 +36,8 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    private readonly IdentityLookupOptions _options;
-    private readonly ILogger<IdentityLookupTool> _logger;
+    private readonly IdentityTranslationOptions _options;
+    private readonly ILogger<IdentityTranslationTool> _logger;
     private readonly IPackageAccess _package;
     private readonly string _organisation;
     private readonly string _project;
@@ -47,17 +47,17 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
 
     public bool IsEnabled => _options.Enabled;
 
-    public IdentityLookupTool(
-        IOptions<IdentityLookupOptions> options,
+    public IdentityTranslationTool(
+        IOptions<IdentityTranslationOptions> options,
         ISourceEndpointInfo sourceEndpointInfo,
-        ILogger<IdentityLookupTool>? logger = null,
+        ILogger<IdentityTranslationTool>? logger = null,
         IPackageAccess? package = null)
     {
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         if (sourceEndpointInfo is null) throw new ArgumentNullException(nameof(sourceEndpointInfo));
         _organisation = sourceEndpointInfo.OrganisationSlug;
         _project = sourceEndpointInfo.Project;
-        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<IdentityLookupTool>.Instance;
+        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<IdentityTranslationTool>.Instance;
         _package = package ?? throw new ArgumentNullException(nameof(package));
     }
 

@@ -14,7 +14,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityLookup;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityTranslation;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.WorkItems.Revisions;

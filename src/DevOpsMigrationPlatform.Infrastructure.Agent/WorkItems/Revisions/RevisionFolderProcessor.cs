@@ -40,7 +40,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     private readonly IWorkItemTarget _target;
     private readonly IIdMapStore _idMapStore;
     private readonly ICheckpointingService _checkpointing;
-    private readonly IIdentityLookupTool? _identityLookupTool;
+    private readonly IIdentityTranslationTool? _identityTranslationTool;
     private readonly ILogger _logger;
     private readonly string _organisation;
     private readonly string _project;
@@ -65,7 +65,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         IWorkItemTarget target,
         IIdMapStore idMapStore,
         ICheckpointingService checkpointing,
-        IIdentityLookupTool? identityLookupTool,
+        IIdentityTranslationTool? identityTranslationTool,
         ILogger logger,
         string organisation,
         string project,
@@ -82,7 +82,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));
         _checkpointing = checkpointing ?? throw new ArgumentNullException(nameof(checkpointing));
-        _identityLookupTool = identityLookupTool;
+        _identityTranslationTool = identityTranslationTool;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _organisation = organisation ?? throw new ArgumentNullException(nameof(organisation));
         _project = project ?? throw new ArgumentNullException(nameof(project));
@@ -419,7 +419,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         IReadOnlyList<WorkItemField> fields,
         IdentityResolutionContext identityResolutionContext)
     {
-        // Identity-type fields resolved via IIdentityLookupTool when enabled.
+        // Identity-type fields resolved via IIdentityTranslationTool when enabled.
         var identityFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "System.AssignedTo", "System.ChangedBy", "System.CreatedBy"
@@ -442,7 +442,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     }
 
     private string ResolveIdentity(string identity)
-        => _identityLookupTool?.IsEnabled == true ? _identityLookupTool.Resolve(identity) : identity;
+        => _identityTranslationTool?.IsEnabled == true ? _identityTranslationTool.Resolve(identity) : identity;
 
     private async Task ProcessInlineCommentsAsync(int targetWorkItemId, string folderPath, CancellationToken ct)
     {

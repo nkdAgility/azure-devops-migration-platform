@@ -34,7 +34,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// Orchestrates identity export, import, and validation operations.
 /// Handles JSONL streaming, checkpointing, progress events, and metrics — delegates
 /// the actual identity enumeration to <see cref="IIdentitySource"/> and mapping to
-/// <see cref="IIdentityLookupTool"/>.
+/// <see cref="IIdentityTranslationTool"/>.
 /// </summary>
 internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 {
@@ -172,7 +172,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
     /// and writes unresolved identities to the package.
     /// </summary>
     public async Task ImportAsync(
-        IIdentityLookupTool? identityLookupTool,
+        IIdentityTranslationTool? identityTranslationTool,
         ImportContext context,
         string organisation,
         string project,
@@ -203,18 +203,18 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         };
         var importSw = Stopwatch.StartNew();
 
-        if (identityLookupTool is not null)
+        if (identityTranslationTool is not null)
         {
-            await identityLookupTool.InitializeAsync(ct).ConfigureAwait(false);
+            await identityTranslationTool.InitializeAsync(ct).ConfigureAwait(false);
         }
 
         var resolvedCount = CountLines(descriptorsJson);
         for (int i = 0; i < resolvedCount; i++)
             _PlatformMetrics?.RecordIdentityImportResolved(importTags);
 
-        if (identityLookupTool is not null)
+        if (identityTranslationTool is not null)
         {
-            await identityLookupTool.WriteUnresolvedAsync(ct).ConfigureAwait(false);
+            await identityTranslationTool.WriteUnresolvedAsync(ct).ConfigureAwait(false);
         }
 
         importSw.Stop();

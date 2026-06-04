@@ -280,7 +280,7 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<IWorkItemTarget>(),
                 idMapStore.Object,
                 checkpointing.Object,
-                It.IsAny<IIdentityLookupTool?>(),
+                It.IsAny<IIdentityTranslationTool?>(),
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<ProjectMapping?>()))
@@ -466,7 +466,7 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<IWorkItemTarget>(),
                 idMapStore.Object,
                 checkpointing.Object,
-                It.IsAny<IIdentityLookupTool?>(),
+                It.IsAny<IIdentityTranslationTool?>(),
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<ProjectMapping?>()))
@@ -618,7 +618,7 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<IWorkItemTarget>(),
                 idMapStore.Object,
                 checkpointing.Object,
-                It.IsAny<IIdentityLookupTool?>(),
+                It.IsAny<IIdentityTranslationTool?>(),
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<ProjectMapping?>()))

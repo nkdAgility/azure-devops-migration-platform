@@ -41,7 +41,7 @@ public sealed class IdentitiesModule : IModule
 
     private readonly IIdentitySource? _identitySource;
 #if !NET481
-    private readonly IIdentityLookupTool? _identityLookupTool;
+    private readonly IIdentityTranslationTool? _identityTranslationTool;
 #endif
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<IdentitiesModule> _logger;
@@ -67,7 +67,7 @@ public sealed class IdentitiesModule : IModule
         IIdentitySource? identitySource = null,
         ICheckpointingServiceFactory? checkpointingFactory = null
 #if !NET481
-        , IIdentityLookupTool? identityLookupTool = null
+        , IIdentityTranslationTool? identityTranslationTool = null
 #endif
         )
     {
@@ -79,7 +79,7 @@ public sealed class IdentitiesModule : IModule
         _identitySource = identitySource;
         _checkpointingFactory = checkpointingFactory;
 #if !NET481
-        _identityLookupTool = identityLookupTool;
+        _identityTranslationTool = identityTranslationTool;
 #endif
     }
 
@@ -269,7 +269,7 @@ public sealed class IdentitiesModule : IModule
         }
 
         await _orchestrator.ImportAsync(
-            _identityLookupTool, context, organisation, project, _checkpointingFactory, ct).ConfigureAwait(false);
+            _identityTranslationTool, context, organisation, project, _checkpointingFactory, ct).ConfigureAwait(false);
 
         return TaskExecutionResult.Completed();
 #endif

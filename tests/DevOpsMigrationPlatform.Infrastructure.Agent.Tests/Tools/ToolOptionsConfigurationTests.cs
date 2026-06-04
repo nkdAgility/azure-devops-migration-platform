@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityLookup;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityTranslation;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -64,22 +64,22 @@ public sealed class ToolOptionsConfigurationTests
     }
 
     [TestMethod]
-    public void IdentityLookupToolServices_BindOptions_FromCurrentPackageConfigAccessor()
+    public void IdentityTranslationToolServices_BindOptions_FromCurrentPackageConfigAccessor()
     {
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["MigrationPlatform:Tools:IdentityLookup:Enabled"] = "true",
-            ["MigrationPlatform:Tools:IdentityLookup:DefaultIdentity"] = "contoso.local"
+            ["MigrationPlatform:Tools:IdentityTranslation:Enabled"] = "true",
+            ["MigrationPlatform:Tools:IdentityTranslation:DefaultIdentity"] = "contoso.local"
         });
 
         var services = new ServiceCollection();
-        services.AddIdentityLookupToolServices();
+        services.AddIdentityTranslationToolServices();
 
         using var provider = services.BuildServiceProvider();
         provider.GetRequiredService<ICurrentPackageConfigAccessor>().Set(config);
         using var scope = provider.CreateScope();
 
-        var options = scope.ServiceProvider.GetRequiredService<IOptionsSnapshot<IdentityLookupOptions>>().Value;
+        var options = scope.ServiceProvider.GetRequiredService<IOptionsSnapshot<IdentityTranslationOptions>>().Value;
 
         Assert.IsTrue(options.Enabled);
         Assert.AreEqual("contoso.local", options.DefaultIdentity);

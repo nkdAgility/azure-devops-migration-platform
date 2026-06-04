@@ -79,7 +79,7 @@ public sealed class WorkItemsModule : IModule
     private readonly IWorkItemResolutionStrategyFactory _resolutionStrategyFactory;
     private readonly IIdMapStoreFactory _idMapStoreFactory;
     private readonly IWorkItemResolutionProcessorFactory _processorFactory;
-    private readonly IIdentityLookupTool? _identityLookupTool;
+    private readonly IIdentityTranslationTool? _identityTranslationTool;
     private readonly ICheckpointingServiceFactory _checkpointingFactory;
     private readonly ILogger<WorkItemsModule> _logger;
     private readonly ILogger<WorkItemsImportRuntime> _orchestratorLogger;
@@ -136,7 +136,7 @@ public sealed class WorkItemsModule : IModule
         IWorkItemExportOrchestratorFactory? exportOrchestratorFactory = null,
         IWorkItemsOrchestratorFactory? workItemsOrchestratorFactory = null,
         IWorkItemsOrchestrator? workItemsOrchestrator = null,
-        IIdentityLookupTool? identityLookupTool = null,
+        IIdentityTranslationTool? identityTranslationTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
         IEnumerable<IImportFailurePattern>? importFailurePatterns = null,
         ImportPreparer? importPreparer = null)
@@ -168,7 +168,7 @@ public sealed class WorkItemsModule : IModule
         _nodeTranslationTool = nodeTranslationTool ?? throw new ArgumentNullException(nameof(nodeTranslationTool));
         _fieldTransformTool = fieldTransformTool ?? throw new ArgumentNullException(nameof(fieldTransformTool));
         _workItemImportOptions = workItemImportOptions;
-        _identityLookupTool = identityLookupTool;
+        _identityTranslationTool = identityTranslationTool;
         _workItemsOrchestratorFactory = workItemsOrchestratorFactory ?? new WorkItemsOrchestratorFactory();
         _repoDiscoveryService = repoDiscoveryService;
         var resolvedFailurePatterns = importFailurePatterns?.ToArray();
@@ -183,7 +183,7 @@ public sealed class WorkItemsModule : IModule
                 _checkpointingFactory,
                 _idMapStoreFactory,
                 _processorFactory,
-                _identityLookupTool,
+                _identityTranslationTool,
                 new WorkItemsImportCapabilityValidator(_fieldTransformTool),
                 new WorkItemsNodeReadinessOrchestrator(_nodeReadinessOrchestrator, _nodesOrchestrator, _metrics, _logger),
                 _metrics,

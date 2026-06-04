@@ -29,7 +29,7 @@ public interface IIdentitiesOrchestrator
 
 #if !NET481
     Task ImportAsync(
-        IIdentityLookupTool? identityLookupTool,
+        IIdentityTranslationTool? identityTranslationTool,
         ImportContext context,
         string organisation,
         string project,

@@ -20,7 +20,7 @@ public class IdentityMappingContext
     public string? SourceIdentity { get; set; }
     public string? ResolvedIdentity { get; set; }
     // For scenario 3: structural test with mock service
-    public Mock<IIdentityLookupTool> MockIdentityService { get; } = new(MockBehavior.Strict);
+    public Mock<IIdentityTranslationTool> MockIdentityService { get; } = new(MockBehavior.Strict);
     public void BuildSut()
     {
         PackageRoot = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
