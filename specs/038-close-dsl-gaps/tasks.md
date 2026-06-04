@@ -14,7 +14,7 @@ Implementation is grouped into committed, green-build work packages (operator de
 - **WP1b ✅** — Phase 2 guard refactor (T003, T004, T006, T007; T005 superseded — see D-002). Removed the non-compliant interface-level `#if !NET481` on `IIdentitiesOrchestrator.ImportAsync` and the DI-hiding field/param guards in `IdentitiesModule`. Build green on net10 + net481. `Resolve()`→`Translate()` method rename **deferred to WP2** (reshaped onto the PrepareAsync cache there; avoids rippling through test mocks twice).
 - **WP2** — US1 identity matching pipeline (T008–T045) → GAP-001. WP2.1 ✅ (abstractions+strategies). WP2.2a ✅ (PrepareAsync+cache). WP2.2b ✅ (Translate() reshape reads cache; Resolve→Translate rename across callers+mocks; tool injects orchestrator). WP2.3a ✅ (SimulatedIdentityAdapter + strategy/adapter DI + module→orchestrator PrepareAsync wiring; pipeline functional end-to-end for Simulated). WP2.3b-1 ✅ (CompositeIdentityAdapter dispatch by target ConnectorType + AddIdentityAdapter<T> DI; Simulated switched to keyed). WP2.3b-2 ✅ (TfsIdentityAdapter net481 reduced-capability: empty + Warning, registered in TFS agent; 3 tests). WP2.3b-3 ✅ (AzureDevOpsIdentityAdapter via ADO SDK IdentityHttpClient.ReadIdentitiesAsync; CreateIdentityClientAsync added to factory; registered keyed; 2 live SystemTests that skip gracefully without creds). All 3 connector adapters now implemented (FR-005/019). WP2.3c ⏳ (ATDD feature/bindings + GAP-001 close).
 - **WP3** — US2/US3/US4/US5 (T046–T071) → GAP-002/003/005/006/004. WP3a ✅ US2/GAP-002+003 (NodesModule ReplicateSourceTree skip-guard FR-007; _NodeTransformTool→_nodeTranslationTool FR-017; INodeEnsurer already absent; dead feature scenarios replaced; GAP-002/003 RESOLVED). WP3b ✅ US3/GAP-005 (TranslatePath returns null on untranslatable + null/empty/whitespace; callers already skip+warn; GAP-005 RESOLVED). WP3c ✅ US4+US5/GAP-006+004 (member skip-on-default FR-010 via new IIdentityTranslationTool.DefaultIdentity; default-team structured warning FR-011 verified; GAP-006/004 RESOLVED). All US2-US5 gaps closed.
-- **WP4** — US6/US7 + docs (T072–T086+) → GAP-007/008/009.
+- **WP4** — US6/US7 + docs. WP4a ✅ GAP-007 (scenario deleted) + GAP-001 marked. WP4b ✅ US7/GAP-008+009 (OTel in-memory exporter ExportMetricsTests; 5 tests). ALL 9 GAPS RESOLVED. WP4c ⏳ doc-sync + final gate.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -226,20 +226,20 @@ Implementation is grouped into committed, green-build work packages (operator de
 
 ### Setup
 
-- [ ] T074 [US7] Check `Directory.Packages.props` for `OpenTelemetry` in-memory exporter package — if `OpenTelemetry.Testing.InMemory` or equivalent is absent, add and pin it; verify `dotnet build` still passes
+- [X] T074 [US7] Check `Directory.Packages.props` for `OpenTelemetry` in-memory exporter package — if `OpenTelemetry.Testing.InMemory` or equivalent is absent, add and pin it; verify `dotnet build` still passes
 
 ### ATDD (write failing tests first)
 
-- [ ] T075 [US7] Write failing OTel counter tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Export/ExportMetricsTests.cs` — `migration.workitems.attempted` asserted via `AddInMemoryExporter` scoped `MeterProvider`; each test creates fresh `MeterProvider` via `Sdk.CreateMeterProviderBuilder().AddMeter(...).AddInMemoryExporter(exportedItems).Build()`
-- [ ] T076 [P] [US7] Write failing OTel counter test for `migration.workitems.retried` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Export/ExportMetricsTests.cs` — simulates transient failure + retry, asserts counter increments once per retry
-- [ ] T077 [P] [US7] Write failing OTel histogram test for `migration.workitem.duration.ms` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Export/ExportMetricsTests.cs` — asserts histogram record exists after export run
-- [ ] T078 [P] [US7] Write failing `MetricSnapshot` histogram tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Export/ExportMetricsTests.cs` — assert `RevisionCountMean`, `FieldCountMean`, `PayloadBytesMean` reflect aggregated values from known-size export batch
-- [ ] T079 [US7] Write test-isolation verification test — run all four metric tests sequentially; assert counter values are independent (no bleed-through from prior tests)
+- [X] T075 [US7] Write failing OTel counter tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Export/ExportMetricsTests.cs` — `migration.workitems.attempted` asserted via `AddInMemoryExporter` scoped `MeterProvider`; each test creates fresh `MeterProvider` via `Sdk.CreateMeterProviderBuilder().AddMeter(...).AddInMemoryExporter(exportedItems).Build()`
+- [X] T076 [P] [US7] Write failing OTel counter test for `migration.workitems.retried` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Export/ExportMetricsTests.cs` — simulates transient failure + retry, asserts counter increments once per retry
+- [X] T077 [P] [US7] Write failing OTel histogram test for `migration.workitem.duration.ms` in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Export/ExportMetricsTests.cs` — asserts histogram record exists after export run
+- [X] T078 [P] [US7] Write failing `MetricSnapshot` histogram tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Export/ExportMetricsTests.cs` — assert `RevisionCountMean`, `FieldCountMean`, `PayloadBytesMean` reflect aggregated values from known-size export batch
+- [X] T079 [US7] Write test-isolation verification test — run all four metric tests sequentially; assert counter values are independent (no bleed-through from prior tests)
 
 ### Implementation
 
-- [ ] T080 [US7] Make all T075–T079 export metric tests pass — if any instrumentation is missing from the export orchestrator (missing counter increment, histogram record), add it now; verify tests are green
-- [ ] T081 [US7] Mark GAP-008 and GAP-009 `Status: RESOLVED` in `analysis/dsl-gaps-detected.md`
+- [X] T080 [US7] Make all T075–T079 export metric tests pass — if any instrumentation is missing from the export orchestrator (missing counter increment, histogram record), add it now; verify tests are green
+- [X] T081 [US7] Mark GAP-008 and GAP-009 `Status: RESOLVED` in `analysis/dsl-gaps-detected.md`
 
 **Checkpoint**: US7 complete. OTel counters and histograms assertable in per-test-scoped unit tests.
 

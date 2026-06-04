@@ -268,6 +268,8 @@ Scenario: Import is skipped when both ReplicateSourceTree and AutoCreateNodes ar
 
 ## GAP-008: export-execution-metrics — OTel counter assertions require infrastructure setup
 
+**Status:** RESOLVED (2026-06-04) — Export counters are assertable via an OpenTelemetry in-memory exporter scoped per test (`OpenTelemetry.Exporter.InMemory`). `ExportMetricsTests` builds a per-test `MeterProvider` (`AddMeter(WellKnownMeterNames.Agent)` + `AddInMemoryExporter`), records via `PlatformMetrics`, `ForceFlush`es, and asserts `platform.workitems.export.attempted`/`.retried` counters and the duration histogram — no full pipeline needed; counter values are isolated per test scope.
+
 - **gap-type:** `other`
 - **family:** `export-execution-metrics`
 - **file:** `features/export/work-items/export-execution-metrics.feature`
@@ -283,6 +285,8 @@ Scenario: Import is skipped when both ReplicateSourceTree and AutoCreateNodes ar
 ---
 
 ## GAP-009: export-payload-metrics — MetricSnapshot requires full export pipeline
+
+**Status:** RESOLVED (2026-06-04) — Payload/complexity histograms (`platform.workitems.export.revisions.count`, `.fields.count`, `.payload.bytes`) are assertable via the same per-test in-memory `MeterProvider` in `ExportMetricsTests` — no full export pipeline required. Same infrastructure as GAP-008.
 
 - **gap-type:** `other`
 - **family:** `export-payload-metrics`
