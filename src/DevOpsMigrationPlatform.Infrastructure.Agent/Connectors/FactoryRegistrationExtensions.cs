@@ -149,6 +149,22 @@ public static class FactoryRegistrationExtensions
     }
 
     /// <summary>
+    /// Registers a concrete <see cref="IIdentityAdapter"/> implementation keyed by
+    /// <paramref name="typeKey"/> (the target endpoint's connector type) and ensures the
+    /// <see cref="CompositeIdentityAdapter"/> dispatcher is registered as <see cref="IIdentityAdapter"/>.
+    /// </summary>
+    public static IServiceCollection AddIdentityAdapter<T>(
+        this IServiceCollection services,
+        string typeKey)
+        where T : class, IIdentityAdapter
+    {
+        services.TryAddSingleton<T>();
+        services.AddSingleton(new KeyedIdentityAdapter(typeKey, typeof(T)));
+        services.TryAddSingleton<IIdentityAdapter, CompositeIdentityAdapter>();
+        return services;
+    }
+
+    /// <summary>
     /// Registers a concrete <see cref="ITeamSource"/> implementation keyed by
     /// <paramref name="typeKey"/> and ensures the <see cref="CompositeTeamSource"/>
     /// dispatcher is registered as <see cref="ITeamSource"/>.
