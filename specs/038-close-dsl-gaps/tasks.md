@@ -6,6 +6,16 @@
 
 **Constitution**: ATDD-First is NON-NEGOTIABLE (Principle VIII). Gherkin `.feature` file and failing step bindings MUST exist before any production implementation code is written for each acceptance scenario.
 
+## Work-Package Progress
+
+Implementation is grouped into committed, green-build work packages (operator decision 2026-06-04):
+
+- **WP1a ✅ (commit `refactor(038): rename …`)** — Phase 1 baseline (T001/T002) green; FR-016 reworked from delete→**rename** (preserve history). `IIdentityLookupTool`→`IIdentityTranslationTool`, impl/options/extensions renamed, namespace + config section `…:IdentityTranslation`, `_identityLookupTool`→`_identityTranslationTool` across all consumers. Behaviour-neutral. Satisfies T001, T002, and the rename portions of T026–T031.
+- **WP1b ⏳** — Phase 2 guard refactor (T003–T007) + `Resolve()`→`Translate()` method rename.
+- **WP2** — US1 identity matching pipeline (T008–T045) → GAP-001.
+- **WP3** — US2/US3/US4/US5 (T046–T071) → GAP-002/003/005/006/004.
+- **WP4** — US6/US7 + docs (T072–T086+) → GAP-007/008/009.
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no pending dependencies)
@@ -18,8 +28,8 @@
 
 **Purpose**: Confirm tooling and verify the build baseline before any edits.
 
-- [ ] T001 Confirm `dotnet clean && dotnet build --no-incremental` passes on `main` before any changes — establish green baseline
-- [ ] T002 Confirm `dotnet test` passes on baseline — record failing test count (expected: 0)
+- [X] T001 Confirm `dotnet clean && dotnet build --no-incremental` passes on `main` before any changes — establish green baseline
+- [X] T002 Confirm `dotnet test` passes on baseline — record failing test count (expected: 0)
 
 ---
 
@@ -87,12 +97,12 @@
 
 ### Delete IIdentityLookupTool and Update All Consumers (FR-016)
 
-- [ ] T026 [US1] Delete `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IIdentityLookupTool.cs`
-- [ ] T027 [US1] Delete `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/IdentityLookup/IdentityLookupTool.cs`
-- [ ] T028 [US1] Delete `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/IdentityLookup/IdentityLookupToolServiceCollectionExtensions.cs`
-- [ ] T029 [US1] Update `TeamImportOrchestrator` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamImportOrchestrator.cs` — replace `IIdentityLookupTool` field and constructor param with `IIdentityTranslationTool _identityTranslationTool`; update all usages of `_identityLookupTool` to `_identityTranslationTool`
-- [ ] T030 [P] [US1] Update `RevisionFolderProcessor` (locate file path via grep for `IIdentityLookupTool`) — replace field and constructor param with `IIdentityTranslationTool`
-- [ ] T031 [P] [US1] Update `WorkItemsModule` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs` — replace `IIdentityLookupTool` field and constructor param with `IIdentityTranslationTool`
+- [X] T026 [US1] Delete `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IIdentityLookupTool.cs`
+- [X] T027 [US1] Delete `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/IdentityLookup/IdentityLookupTool.cs`
+- [X] T028 [US1] Delete `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/IdentityLookup/IdentityLookupToolServiceCollectionExtensions.cs`
+- [X] T029 [US1] Update `TeamImportOrchestrator` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamImportOrchestrator.cs` — replace `IIdentityLookupTool` field and constructor param with `IIdentityTranslationTool _identityTranslationTool`; update all usages of `_identityLookupTool` to `_identityTranslationTool`
+- [X] T030 [P] [US1] Update `RevisionFolderProcessor` (locate file path via grep for `IIdentityLookupTool`) — replace field and constructor param with `IIdentityTranslationTool`
+- [X] T031 [P] [US1] Update `WorkItemsModule` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/WorkItemsModule.cs` — replace `IIdentityLookupTool` field and constructor param with `IIdentityTranslationTool`
 - [ ] T032 [US1] Update `IdentitiesModule` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/IdentitiesModule.cs` — remove `IIdentityLookupTool` field and `#if !NET481` guards (now deleted), inject `IIdentityTranslationTool`, wire `PrepareAsync` call in the module's Prepare phase
 - [ ] T033 [US1] Update `IdentityServiceCollectionExtensions` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Identity/IdentityServiceCollectionExtensions.cs` — remove `AddIdentityLookupToolServices()` call; register `IdentityTranslationTool` as `IIdentityTranslationTool` singleton; register `IOptions<IdentityTranslationOptions>`
 - [ ] T034 [US1] Build gate — run `dotnet build --no-incremental`; run `Select-String -Recurse -Pattern "IIdentityLookupTool"` and confirm zero results; run `Select-String -Recurse -Pattern "_identityLookupTool"` and confirm zero results
