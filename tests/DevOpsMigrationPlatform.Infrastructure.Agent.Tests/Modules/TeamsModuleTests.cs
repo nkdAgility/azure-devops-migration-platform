@@ -1044,7 +1044,7 @@ public class TeamsModuleTests
     [TestCategory("DomainTests")]
     [TestCategory("UnitTest")]
     [TestMethod]
-    public async Task ImportAsync_TranslatesIterationPaths_ViaNodeTransformTool()
+    public async Task ImportAsync_TranslatesIterationPaths_ViaNodeTranslationTool()
     {
         // Arrange
         var target = new SimulatedTeamTarget();
@@ -1064,7 +1064,7 @@ public class TeamsModuleTests
         var importOrch = new TeamImportOrchestrator(
             target, NullLogger<TeamImportOrchestrator>.Instance,
             endpointInfo: CreateTargetEndpointInfo(),
-            NodeTransformTool: translationToolMock.Object);
+            nodeTranslationTool: translationToolMock.Object);
 
         var teamPackage = new TeamPackage
         {
@@ -1132,7 +1132,7 @@ public class TeamsModuleTests
         var importOrch = new TeamImportOrchestrator(
             target, NullLogger<TeamImportOrchestrator>.Instance,
             endpointInfo: CreateTargetEndpointInfo(),
-            NodeTransformTool: translationToolMock.Object);
+            nodeTranslationTool: translationToolMock.Object);
 
         var teamPackage = new TeamPackage
         {
@@ -1199,7 +1199,7 @@ public class TeamsModuleTests
         var importOrch = new TeamImportOrchestrator(
             target, NullLogger<TeamImportOrchestrator>.Instance,
             endpointInfo: CreateTargetEndpointInfo(),
-            NodeTransformTool: translationToolMock.Object);
+            nodeTranslationTool: translationToolMock.Object);
 
         var teamPackage = new TeamPackage
         {
@@ -1263,7 +1263,7 @@ public class TeamsModuleTests
         var importOrch = new TeamImportOrchestrator(
             target, NullLogger<TeamImportOrchestrator>.Instance,
             endpointInfo: CreateTargetEndpointInfo(),
-            NodeTransformTool: translationToolMock.Object);
+            nodeTranslationTool: translationToolMock.Object);
 
         var teamPackage = new TeamPackage
         {

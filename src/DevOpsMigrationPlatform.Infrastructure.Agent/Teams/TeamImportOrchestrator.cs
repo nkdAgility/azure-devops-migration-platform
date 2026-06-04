@@ -25,7 +25,7 @@ public sealed class TeamImportOrchestrator
 
     private readonly ITeamTarget _teamTarget;
     private readonly IIdentityTranslationTool? _identityTranslationTool;
-    private readonly INodeTranslationTool? _NodeTransformTool;
+    private readonly INodeTranslationTool? _nodeTranslationTool;
     private readonly ILogger<TeamImportOrchestrator> _logger;
     private readonly ITargetEndpointInfo _endpointInfo;
 
@@ -33,13 +33,13 @@ public sealed class TeamImportOrchestrator
         ITeamTarget teamTarget,
         ILogger<TeamImportOrchestrator> logger,
         ITargetEndpointInfo endpointInfo,
-        INodeTranslationTool? NodeTransformTool = null,
+        INodeTranslationTool? nodeTranslationTool = null,
         IIdentityTranslationTool? identityTranslationTool = null)
     {
         _teamTarget = teamTarget ?? throw new ArgumentNullException(nameof(teamTarget));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _endpointInfo = endpointInfo ?? throw new ArgumentNullException(nameof(endpointInfo));
-        _NodeTransformTool = NodeTransformTool;
+        _nodeTranslationTool = nodeTranslationTool;
         _identityTranslationTool = identityTranslationTool;
     }
 
@@ -192,10 +192,10 @@ public sealed class TeamImportOrchestrator
         if (string.IsNullOrEmpty(sourcePath))
             return sourcePath;
 
-        if (_NodeTransformTool is null || !_NodeTransformTool.IsEnabled)
+        if (_nodeTranslationTool is null || !_nodeTranslationTool.IsEnabled)
             return sourcePath; // pass through if tool disabled
 
-        var result = _NodeTransformTool.TranslatePath(fieldName, sourcePath!, projectMapping);
+        var result = _nodeTranslationTool.TranslatePath(fieldName, sourcePath!, projectMapping);
         return result.TargetPath ?? sourcePath;
     }
 }

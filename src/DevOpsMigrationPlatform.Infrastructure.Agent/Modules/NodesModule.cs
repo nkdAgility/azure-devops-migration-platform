@@ -251,6 +251,14 @@ public sealed class NodesModule : IModule
             return TaskExecutionResult.Skipped("Nodes module disabled for import.");
         }
 
+        // FR-007 / GAP-003: when source-tree replication is off, skip without calling the
+        // orchestrator at all (the orchestrator must not be invoked in this case).
+        if (!_options.ReplicateSourceTree)
+        {
+            _logger.LogDebug("[Nodes] ReplicateSourceTree is false — skipping classification-tree import.");
+            return TaskExecutionResult.Skipped("Nodes import skipped: ReplicateSourceTree is false.");
+        }
+
         await _orchestrator.ImportAsync(
             context, _sourceEndpointInfo, _targetEndpointInfo,
             _checkpointingFactory, _options.ReplicateSourceTree, ct).ConfigureAwait(false);

@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Tools.NodeTranslation;
 
 [TestClass]
-public class NodeTransformToolTests
+public class NodeTranslationToolTests
 {
     private static readonly ProjectMapping DefaultMapping = new("SourceProject", "TargetProject");
 

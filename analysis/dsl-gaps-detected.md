@@ -87,7 +87,7 @@ never be produced unless it were an explicit mapping entry.
 
 **Detected during:** migration of `features/import/nodes/import-classification-tree.feature` (scenario 2)
 **gap-type:** `behaviour-conflict`
-**Status:** OPEN
+**Status:** RESOLVED (2026-06-04) — INodeEnsurer references eliminated (already absent); AutoCreateNodes confirmed on NodeTranslationOptions (not NodesModuleOptions); the misattributed feature scenario was deleted from import-classification-tree.feature.
 
 ### What the feature claims
 
@@ -225,7 +225,7 @@ await _teamTarget.AddMemberAsync(null!, projectName, targetTeamId, resolvedMembe
 
 **Detected during:** migration of `features/import/nodes/import-classification-tree.feature` (scenario 3)
 **gap-type:** `behaviour-conflict`
-**Status:** OPEN
+**Status:** RESOLVED (2026-06-04) — NodesModule.ImportAsync now returns Skipped without calling INodesOrchestrator when ReplicateSourceTree is false (FR-007); _NodeTransformTool renamed to _nodeTranslationTool (FR-017); INodeEnsurer-based scenarios removed. Verified by NodesModuleTests.
 
 ### What the feature claims
 

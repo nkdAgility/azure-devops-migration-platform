@@ -13,7 +13,7 @@ Implementation is grouped into committed, green-build work packages (operator de
 - **WP1a ✅ (commit `refactor(038): rename …`)** — Phase 1 baseline (T001/T002) green; FR-016 reworked from delete→**rename** (preserve history). `IIdentityLookupTool`→`IIdentityTranslationTool`, impl/options/extensions renamed, namespace + config section `…:IdentityTranslation`, `_identityLookupTool`→`_identityTranslationTool` across all consumers. Behaviour-neutral. Satisfies T001, T002, and the rename portions of T026–T031.
 - **WP1b ✅** — Phase 2 guard refactor (T003, T004, T006, T007; T005 superseded — see D-002). Removed the non-compliant interface-level `#if !NET481` on `IIdentitiesOrchestrator.ImportAsync` and the DI-hiding field/param guards in `IdentitiesModule`. Build green on net10 + net481. `Resolve()`→`Translate()` method rename **deferred to WP2** (reshaped onto the PrepareAsync cache there; avoids rippling through test mocks twice).
 - **WP2** — US1 identity matching pipeline (T008–T045) → GAP-001. WP2.1 ✅ (abstractions+strategies). WP2.2a ✅ (PrepareAsync+cache). WP2.2b ✅ (Translate() reshape reads cache; Resolve→Translate rename across callers+mocks; tool injects orchestrator). WP2.3a ✅ (SimulatedIdentityAdapter + strategy/adapter DI + module→orchestrator PrepareAsync wiring; pipeline functional end-to-end for Simulated). WP2.3b-1 ✅ (CompositeIdentityAdapter dispatch by target ConnectorType + AddIdentityAdapter<T> DI; Simulated switched to keyed). WP2.3b-2 ✅ (TfsIdentityAdapter net481 reduced-capability: empty + Warning, registered in TFS agent; 3 tests). WP2.3b-3 ✅ (AzureDevOpsIdentityAdapter via ADO SDK IdentityHttpClient.ReadIdentitiesAsync; CreateIdentityClientAsync added to factory; registered keyed; 2 live SystemTests that skip gracefully without creds). All 3 connector adapters now implemented (FR-005/019). WP2.3c ⏳ (ATDD feature/bindings + GAP-001 close).
-- **WP3** — US2/US3/US4/US5 (T046–T071) → GAP-002/003/005/006/004.
+- **WP3** — US2/US3/US4/US5 (T046–T071) → GAP-002/003/005/006/004. WP3a ✅ US2/GAP-002+003 (NodesModule ReplicateSourceTree skip-guard FR-007; _NodeTransformTool→_nodeTranslationTool FR-017; INodeEnsurer already absent; dead feature scenarios replaced; GAP-002/003 RESOLVED). WP3b ⏳ US3/GAP-005 (TranslatePath null). WP3c ⏳ US4+US5/GAP-006+004.
 - **WP4** — US6/US7 + docs (T072–T086+) → GAP-007/008/009.
 
 ## Format: `[ID] [P?] [Story] Description`
@@ -133,16 +133,16 @@ Implementation is grouped into committed, green-build work packages (operator de
 
 ### ATDD (write failing tests first)
 
-- [ ] T046 [P] [US2] Update `features/import/nodes/import-classification-tree.feature` — add/verify Gherkin scenarios for: skip when `ReplicateSourceTree=false`, skip when `Enabled=false`, call orchestrator when `ReplicateSourceTree=true`
+- [X] T046 [P] [US2] Update `features/import/nodes/import-classification-tree.feature` — add/verify Gherkin scenarios for: skip when `ReplicateSourceTree=false`, skip when `Enabled=false`, call orchestrator when `ReplicateSourceTree=true`
 - [ ] T047 [P] [US2] Write failing Reqnroll step bindings in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Nodes/NodesModuleSkipGuardSteps.cs` and `NodesModuleSkipGuardContext.cs`
 
 ### Implementation
 
-- [ ] T048 [US2] Add skip guard to `NodesModule.ImportAsync` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodesModule.cs` — return `Skipped` result when `!options.Enabled` or `!options.ReplicateSourceTree`, without calling `INodesOrchestrator`; make T047 tests pass
-- [ ] T049 [US2] Search-and-replace all `INodeEnsurer` occurrences with `INodesOrchestrator` across the entire codebase — run `Select-String -Recurse -Pattern "INodeEnsurer"` before and after; confirm zero remaining occurrences
-- [ ] T050 [US2] Rename field `_NodeTransformTool` to `_nodeTranslationTool` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamImportOrchestrator.cs` (FR-017) — update field declaration, constructor assignment, and all usages; run `Select-String -Pattern "_NodeTransformTool"` to confirm zero remaining
-- [ ] T051 [US2] Delete the incorrect `AutoCreateNodes` scenario from `features/import/nodes/import-classification-tree.feature`
-- [ ] T052 [US2] Mark GAP-002 and GAP-003 `Status: RESOLVED` in `analysis/dsl-gaps-detected.md` with rationale: AutoCreateNodes belongs on NodeTranslationOptions; INodeEnsurer replaced by INodesOrchestrator
+- [X] T048 [US2] Add skip guard to `NodesModule.ImportAsync` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/NodesModule.cs` — return `Skipped` result when `!options.Enabled` or `!options.ReplicateSourceTree`, without calling `INodesOrchestrator`; make T047 tests pass
+- [X] T049 [US2] Search-and-replace all `INodeEnsurer` occurrences with `INodesOrchestrator` across the entire codebase — run `Select-String -Recurse -Pattern "INodeEnsurer"` before and after; confirm zero remaining occurrences
+- [X] T050 [US2] Rename field `_NodeTransformTool` to `_nodeTranslationTool` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamImportOrchestrator.cs` (FR-017) — update field declaration, constructor assignment, and all usages; run `Select-String -Pattern "_NodeTransformTool"` to confirm zero remaining
+- [X] T051 [US2] Delete the incorrect `AutoCreateNodes` scenario from `features/import/nodes/import-classification-tree.feature`
+- [X] T052 [US2] Mark GAP-002 and GAP-003 `Status: RESOLVED` in `analysis/dsl-gaps-detected.md` with rationale: AutoCreateNodes belongs on NodeTranslationOptions; INodeEnsurer replaced by INodesOrchestrator
 
 **Checkpoint**: US2 complete. NodesModule skip guard works, INodeEnsurer eliminated, field renamed.
 
