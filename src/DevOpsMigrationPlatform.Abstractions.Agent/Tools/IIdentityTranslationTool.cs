@@ -14,7 +14,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 public interface IIdentityTranslationTool
 {
     /// <summary>
-    /// Whether the tool is enabled. When <c>false</c>, <see cref="Resolve"/> returns the source identity unchanged.
+    /// Whether the tool is enabled. When <c>false</c>, <see cref="Translate"/> returns the source identity unchanged.
     /// </summary>
     bool IsEnabled { get; }
 
@@ -25,10 +25,11 @@ public interface IIdentityTranslationTool
     Task InitializeAsync(CancellationToken ct);
 
     /// <summary>
-    /// Resolves a source identity to a target identity.
-    /// Resolution order: explicit override → default fallback → source identity pass-through.
+    /// Translates a source identity to a target identity (synchronous; reads cached results only).
+    /// Resolution order: (1) explicit override → (2/3) cached Prepare-phase UPN/display-name match
+    /// via <c>IIdentitiesOrchestrator.ResolvePrepared</c> → (4) configured default → source pass-through.
     /// </summary>
-    string Resolve(string sourceIdentity);
+    string Translate(string sourceIdentity);
 
     /// <summary>
     /// Writes <c>Identities/unresolved.json</c> listing all source identities that had no explicit mapping.

@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
@@ -39,6 +40,7 @@ public sealed class IdentityTranslationTool : IIdentityTranslationTool
     private readonly IdentityTranslationOptions _options;
     private readonly ILogger<IdentityTranslationTool> _logger;
     private readonly IPackageAccess _package;
+    private readonly IIdentitiesOrchestrator? _orchestrator;
     private readonly string _organisation;
     private readonly string _project;
 
@@ -51,7 +53,8 @@ public sealed class IdentityTranslationTool : IIdentityTranslationTool
         IOptions<IdentityTranslationOptions> options,
         ISourceEndpointInfo sourceEndpointInfo,
         ILogger<IdentityTranslationTool>? logger = null,
-        IPackageAccess? package = null)
+        IPackageAccess? package = null,
+        IIdentitiesOrchestrator? orchestrator = null)
     {
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         if (sourceEndpointInfo is null) throw new ArgumentNullException(nameof(sourceEndpointInfo));
@@ -59,6 +62,7 @@ public sealed class IdentityTranslationTool : IIdentityTranslationTool
         _project = sourceEndpointInfo.Project;
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<IdentityTranslationTool>.Instance;
         _package = package ?? throw new ArgumentNullException(nameof(package));
+        _orchestrator = orchestrator;
     }
 
     /// <inheritdoc/>
@@ -124,17 +128,27 @@ public sealed class IdentityTranslationTool : IIdentityTranslationTool
     }
 
     /// <inheritdoc/>
-    public string Resolve(string sourceIdentity)
+    public string Translate(string sourceIdentity)
     {
-        using var activity = s_activitySource.StartActivity("identities.lookup.resolve");
-        if (string.IsNullOrWhiteSpace(sourceIdentity))
+        using var activity = s_activitySource.StartActivity("identity.translate");
+        if (!IsEnabled || string.IsNullOrWhiteSpace(sourceIdentity))
             return sourceIdentity;
 
+        // Step 1: explicit override from mapping.json.
         if (_overrides.TryGetValue(sourceIdentity, out var mapped))
             return mapped;
 
+        // Steps 2-3: cached Prepare-phase UPN/display-name match.
+        var prepared = _orchestrator?.ResolvePrepared(sourceIdentity);
+        if (!string.IsNullOrWhiteSpace(prepared))
+            return prepared!;
+
+        // Step 4: configured default (when set); otherwise source pass-through.
         if (!string.IsNullOrWhiteSpace(_options.DefaultIdentity))
-            return _options.DefaultIdentity ?? sourceIdentity;
+        {
+            _logger.LogInformation("[IdentityTranslation] '{Source}' unresolved — returning configured default.", sourceIdentity);
+            return _options.DefaultIdentity!;
+        }
 
         return sourceIdentity;
     }

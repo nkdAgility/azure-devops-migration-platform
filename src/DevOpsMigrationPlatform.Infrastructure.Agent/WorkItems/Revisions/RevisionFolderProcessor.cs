@@ -442,7 +442,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     }
 
     private string ResolveIdentity(string identity)
-        => _identityTranslationTool?.IsEnabled == true ? _identityTranslationTool.Resolve(identity) : identity;
+        => _identityTranslationTool?.IsEnabled == true ? _identityTranslationTool.Translate(identity) : identity;
 
     private async Task ProcessInlineCommentsAsync(int targetWorkItemId, string folderPath, CancellationToken ct)
     {

@@ -120,7 +120,7 @@ public sealed class TeamImportOrchestrator
             {
                 try
                 {
-                    var resolvedDescriptor = extensions.IdentityLookup && _identityTranslationTool?.IsEnabled == true ? _identityTranslationTool.Resolve(member.Descriptor) : member.Descriptor;
+                    var resolvedDescriptor = extensions.IdentityLookup && _identityTranslationTool?.IsEnabled == true ? _identityTranslationTool.Translate(member.Descriptor) : member.Descriptor;
                     var resolvedMember = member with { Descriptor = resolvedDescriptor };
                     await _teamTarget.AddMemberAsync(
                         null!, projectName, targetTeamId, resolvedMember, ct).ConfigureAwait(false);

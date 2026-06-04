@@ -12,7 +12,7 @@ Implementation is grouped into committed, green-build work packages (operator de
 
 - **WP1a ✅ (commit `refactor(038): rename …`)** — Phase 1 baseline (T001/T002) green; FR-016 reworked from delete→**rename** (preserve history). `IIdentityLookupTool`→`IIdentityTranslationTool`, impl/options/extensions renamed, namespace + config section `…:IdentityTranslation`, `_identityLookupTool`→`_identityTranslationTool` across all consumers. Behaviour-neutral. Satisfies T001, T002, and the rename portions of T026–T031.
 - **WP1b ✅** — Phase 2 guard refactor (T003, T004, T006, T007; T005 superseded — see D-002). Removed the non-compliant interface-level `#if !NET481` on `IIdentitiesOrchestrator.ImportAsync` and the DI-hiding field/param guards in `IdentitiesModule`. Build green on net10 + net481. `Resolve()`→`Translate()` method rename **deferred to WP2** (reshaped onto the PrepareAsync cache there; avoids rippling through test mocks twice).
-- **WP2** — US1 identity matching pipeline (T008–T045) → GAP-001.
+- **WP2** — US1 identity matching pipeline (T008–T045) → GAP-001. WP2.1 ✅ (abstractions+strategies). WP2.2a ✅ (PrepareAsync+cache). WP2.2b ✅ (Translate() reshape reads cache; Resolve→Translate rename across callers+mocks; tool injects orchestrator). WP2.3 ⏳ (3 adapters + DI + module wiring + ATDD feature/bindings + GAP-001 close).
 - **WP3** — US2/US3/US4/US5 (T046–T071) → GAP-002/003/005/006/004.
 - **WP4** — US6/US7 + docs (T072–T086+) → GAP-007/008/009.
 
@@ -60,8 +60,8 @@ Implementation is grouped into committed, green-build work packages (operator de
 - [X] T008 [P] [US1] Create `IIdentityAdapter` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Identity/IIdentityAdapter.cs` — methods: `FindByUpnAsync(string upn, string projectName, CancellationToken ct)` and `FindByDisplayNameAsync(string displayName, string projectName, CancellationToken ct)`, both returning `Task<IReadOnlyList<IdentityCandidate>>`
 - [X] T009 [P] [US1] Create `IdentityCandidate` immutable record in `src/DevOpsMigrationPlatform.Abstractions.Agent/Identity/IdentityCandidate.cs` — properties: `string Descriptor`, `string? Upn`, `string? DisplayName`
 - [X] T010 [P] [US1] Create `IIdentityMatchingStrategy` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Identity/IIdentityMatchingStrategy.cs` — method: `string? Match(string sourceIdentity, string sourceDisplayName, IReadOnlyList<IdentityCandidate> candidates, ILogger logger)`
-- [ ] T011 [P] [US1] Create `IIdentityTranslationTool` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IIdentityTranslationTool.cs` — properties/methods: `bool IsEnabled`, `string Translate(string sourceIdentity)`
-- [ ] T012 [P] [US1] Create `IdentityTranslationOptions` sealed options class in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IdentityTranslationOptions.cs` — `public static string SectionName => "MigrationPlatform:Tools:IdentityTranslation"`, `bool IsEnabled { get; init; } = true`, and `string? DefaultIdentity { get; init; }` (carried over from `IdentityLookupOptions.DefaultIdentity`; when null/empty, `Translate()` returns the source unchanged — target-existence validation is owned by `PrepareAsync`, not this default)
+- [X] T011 [P] [US1] Create `IIdentityTranslationTool` interface in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IIdentityTranslationTool.cs` — properties/methods: `bool IsEnabled`, `string Translate(string sourceIdentity)`
+- [X] T012 [P] [US1] Create `IdentityTranslationOptions` sealed options class in `src/DevOpsMigrationPlatform.Abstractions.Agent/Tools/IdentityTranslationOptions.cs` — `public static string SectionName => "MigrationPlatform:Tools:IdentityTranslation"`, `bool IsEnabled { get; init; } = true`, and `string? DefaultIdentity { get; init; }` (carried over from `IdentityLookupOptions.DefaultIdentity`; when null/empty, `Translate()` returns the source unchanged — target-existence validation is owned by `PrepareAsync`, not this default)
 - [ ] T013 [US1] Modify `IIdentitiesOrchestrator` in `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IIdentitiesOrchestrator.cs` — add `Task PrepareAsync(string projectName, ImportContext context, CancellationToken ct)`; confirm `ImportAsync` no longer takes `IIdentityLookupTool?` parameter (guard removed in T004)
 
 ### ATDD — Strategy Tests (write failing tests first)
@@ -93,7 +93,7 @@ Implementation is grouped into committed, green-build work packages (operator de
 
 ### IIdentityTranslationTool Implementation
 
-- [ ] T025 [US1] Implement `IdentityTranslationTool` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/IdentityTranslation/IdentityTranslationTool.cs` — constructor-inject `IIdentitiesOrchestrator`, `IOptions<IdentityTranslationOptions>`; `Translate()` reads orchestrator cache (synchronous); make T024 tests pass
+- [X] T025 [US1] Implement `IdentityTranslationTool` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Tools/IdentityTranslation/IdentityTranslationTool.cs` — constructor-inject `IIdentitiesOrchestrator`, `IOptions<IdentityTranslationOptions>`; `Translate()` reads orchestrator cache (synchronous); make T024 tests pass
 
 ### Delete IIdentityLookupTool and Update All Consumers (FR-016)
 

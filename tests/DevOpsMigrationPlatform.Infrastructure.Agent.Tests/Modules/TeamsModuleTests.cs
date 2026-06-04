@@ -727,8 +727,8 @@ public class TeamsModuleTests
         var target = new SimulatedTeamTarget();
         var identityTranslationTool = Mock.Of<IIdentityTranslationTool>(m =>
             m.IsEnabled == true &&
-            m.Resolve("src-alice") == "tgt-alice@target.com" &&
-            m.Resolve("src-bob") == "tgt-bob@target.com");
+            m.Translate("src-alice") == "tgt-alice@target.com" &&
+            m.Translate("src-bob") == "tgt-bob@target.com");
 
         var importOrch = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo(), identityTranslationTool: identityTranslationTool);
 
