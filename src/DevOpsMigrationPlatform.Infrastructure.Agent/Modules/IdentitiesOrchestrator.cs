@@ -276,6 +276,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         var displayNameMatched = 0;
 
         _logger.LogInformation("[Identities] Identity prepare started for project '{Project}'.", project);
+        _PlatformMetrics?.IncrementPrepareIdentitiesInFlight(prepareTags);
         sink?.Emit(new ProgressEvent
         {
             Module = ModuleName,
@@ -345,6 +346,11 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         sw.Stop();
         _PlatformMetrics?.RecordPrepareIdentitiesResolved(resolved, prepareTags);
         _PlatformMetrics?.RecordPrepareIdentitiesUnresolved(unresolved, prepareTags);
+        _PlatformMetrics?.RecordPrepareIdentitiesDuration(sw.Elapsed.TotalMilliseconds, prepareTags);
+        // Ambiguous matches are correctness failures (fell through to default).
+        for (var i = 0; i < ambiguous; i++)
+            _PlatformMetrics?.RecordPrepareIdentitiesError(prepareTags);
+        _PlatformMetrics?.DecrementPrepareIdentitiesInFlight(prepareTags);
 
         var report = new PrepareIdentitiesReport(
             ModuleName, resolved, unresolved, upnMatched, displayNameMatched, ambiguous);
@@ -386,10 +392,18 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
     {
         foreach (var strategy in _matchingStrategies)
         {
+            var isUpn = string.Equals(strategy.Name, "UPN", StringComparison.OrdinalIgnoreCase);
+            // Child span per adapter query (parented to the identity.prepare span via Activity.Current).
+            using var adapterActivity = s_activitySource.StartActivity(
+                isUpn ? "identity.adapter.upn" : "identity.adapter.displayname");
+            adapterActivity?.SetTag("operation", "prepare");
+            adapterActivity?.SetTag("module", ModuleName);
+            adapterActivity?.SetTag("strategy", strategy.Name);
+
             IReadOnlyList<IdentityCandidate> candidates;
             try
             {
-                candidates = string.Equals(strategy.Name, "UPN", StringComparison.OrdinalIgnoreCase)
+                candidates = isUpn
                     ? await _identityAdapter!.FindByUpnAsync(descriptor.UniqueName, project, ct).ConfigureAwait(false)
                     : string.Equals(strategy.Name, "DisplayName", StringComparison.OrdinalIgnoreCase)
                         ? await _identityAdapter!.FindByDisplayNameAsync(descriptor.DisplayName, project, ct).ConfigureAwait(false)
