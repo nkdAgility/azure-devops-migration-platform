@@ -22,6 +22,7 @@ using Moq;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Identity;
 
 [TestClass]
+[TestCategory("UnitTests")]
 public sealed class IdentitiesOrchestratorPrepareTests
 {
     private const string Org = "test";

@@ -17,6 +17,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Export;
 /// <see cref="MeterProvider"/> so counter values never accumulate across tests.
 /// </summary>
 [TestClass]
+[TestCategory("UnitTests")]
 public sealed class ExportMetricsTests
 {
     private static (MeterProvider Provider, List<Metric> Exported, PlatformMetrics Metrics) NewScope()

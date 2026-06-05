@@ -33,7 +33,7 @@ public sealed class AzureDevOpsIdentityAdapterSystemTests
 
         if (string.IsNullOrEmpty(org) || string.IsNullOrEmpty(pat) || string.IsNullOrEmpty(upn))
         {
-            Assert.Inconclusive(
+            Assert.Fail(
                 "Live ADO identity system test skipped: set AZDEVOPS_SYSTEM_TEST_ORG, AZDEVOPS_SYSTEM_TEST_PAT, " +
                 "and AZDEVOPS_SYSTEM_TEST_IDENTITY_UPN (optionally AZDEVOPS_SYSTEM_TEST_IDENTITY_DISPLAYNAME).");
             return null;
@@ -58,7 +58,6 @@ public sealed class AzureDevOpsIdentityAdapterSystemTests
     }
 
     [TestMethod]
-    [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     public async Task FindByUpnAsync_Live_ReturnsMatchingCandidate()
     {
@@ -72,7 +71,6 @@ public sealed class AzureDevOpsIdentityAdapterSystemTests
     }
 
     [TestMethod]
-    [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     public async Task FindByDisplayNameAsync_Live_ReturnsWithoutThrowing()
     {
@@ -80,7 +78,7 @@ public sealed class AzureDevOpsIdentityAdapterSystemTests
         if (adapter is null) return;
         if (string.IsNullOrEmpty(displayName))
         {
-            Assert.Inconclusive("Set AZDEVOPS_SYSTEM_TEST_IDENTITY_DISPLAYNAME to exercise display-name search.");
+            Assert.Fail("Set AZDEVOPS_SYSTEM_TEST_IDENTITY_DISPLAYNAME to exercise display-name search.");
             return;
         }
 

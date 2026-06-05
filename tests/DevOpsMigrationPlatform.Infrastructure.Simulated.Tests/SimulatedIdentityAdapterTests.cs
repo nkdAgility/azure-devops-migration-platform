@@ -9,6 +9,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Tests;
 
 [TestClass]
+[TestCategory("UnitTests")]
 public sealed class SimulatedIdentityAdapterTests
 {
     private static readonly SimulatedIdentityAdapter Adapter = new();

@@ -12,6 +12,7 @@ using Moq;
 namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests;
 
 [TestClass]
+[TestCategory("UnitTests")]
 [TestCategory("NET481")]
 public sealed class TfsIdentityAdapterTests
 {

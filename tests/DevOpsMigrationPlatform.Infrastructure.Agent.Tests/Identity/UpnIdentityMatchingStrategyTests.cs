@@ -9,6 +9,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Identity;
 
 [TestClass]
+[TestCategory("UnitTests")]
 public sealed class UpnIdentityMatchingStrategyTests
 {
     private static readonly UpnIdentityMatchingStrategy Strategy = new();

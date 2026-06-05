@@ -15,6 +15,7 @@ using Moq;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Identity;
 
 [TestClass]
+[TestCategory("UnitTests")]
 public sealed class CompositeIdentityAdapterTests
 {
     private class StubAdapter : IIdentityAdapter
