@@ -10,9 +10,9 @@ MSTest conventions, test naming, and organisation. See also: [coding-standards.m
 | --- | --- | --- | --- | --- |
 | 1 (highest) | Unit Tests | `[TestCategory("UnitTests")]` | < 50 ms | All logic, branching, transforms. No I/O, no DI. Single class/method in isolation. |
 | 2 | Domain Tests (Internal DSL + MSTest) | `[TestCategory("DomainTests")]` | < 500 ms | Business behaviour across collaborating domain objects via the internal DSL. |
-| 3 | Simulated System Tests | `[TestCategory("SystemTests_Simulated")]` | < 10 s | End-to-end with `Simulated` connector. No network. |
-| 3a | Smoke System Tests | `[TestCategory("SystemTests_Smoke")]` | < 30 s | Critical-path subset of system tests run on every PR. |
-| 4 (lowest) | Live System Tests | `[TestCategory("SystemTests")]`/`[TestCategory("SystemTests_Live")]` | < 60 s | Requires live ADO/TFS. Environment-gated. |
+| 3 | Simulated System Tests | `[TestCategory("SystemTest_Simulated")]` | < 10 s | End-to-end with `Simulated` connector. No network. |
+| 3a | Smoke System Tests | `[TestCategory("SystemTest_Smoke")]` | < 30 s | Critical-path subset of system tests run on every PR. |
+| 4 (lowest) | Live System Tests | `[TestCategory("SystemTest")]`/`[TestCategory("SystemTest_Live")]` | < 60 s | Requires live ADO/TFS. Environment-gated. |
 
 ### Distinguishing UnitTests from DomainTests
 
@@ -44,9 +44,9 @@ Every time a test file is **created, edited, moved, or touched in any way**, eve
 | --- | --- |
 | Test uses `DevOpsMigrationPlatform.Testing` DSL | `[TestCategory("DomainTests")]` |
 | Test is isolated unit test (no DSL, no I/O) | `[TestCategory("UnitTests")]` |
-| Test uses `Simulated` connector end-to-end | `[TestCategory("SystemTests_Simulated")]` |
-| Test is a critical-path smoke subset | `[TestCategory("SystemTests_Smoke")]` |
-| Test targets live ADO/TFS | `[TestCategory("SystemTests")]` or `[TestCategory("SystemTests_Live")]` |
+| Test uses `Simulated` connector end-to-end | `[TestCategory("SystemTest_Simulated")]` |
+| Test is a critical-path smoke subset | `[TestCategory("SystemTest_Smoke")]` |
+| Test targets live ADO/TFS | `[TestCategory("SystemTest")]` or `[TestCategory("SystemTest_Live")]` |
 
 **Enforcement rules — all are blocking, none are optional:**
 
@@ -54,7 +54,7 @@ Every time a test file is **created, edited, moved, or touched in any way**, eve
 2. **Wrong tag on touch:** If a tag is incorrect (wrong category, old name), correct it in the same edit.
 3. **Delegation does not exempt:** If a sub-agent or delegated run added or modified a test, the calling agent is responsible for verifying tags before closing the task. "The delegated run didn't add it" is not a valid completion state.
 4. **No partial compliance:** Applying the tag to the new method while leaving existing uncategorised methods in the same file is non-compliant. Fix the whole file.
-5. **Category names are canonical:** Only the exact strings `UnitTests`, `DomainTests`, `SystemTests_Simulated`, `SystemTests_Smoke`, `SystemTests`, `SystemTests_Live` are valid. Any other value is non-compliant and must be corrected on contact.
+5. **Category names are canonical:** Only the exact strings `UnitTests`, `DomainTests`, `SystemTest_Simulated`, `SystemTest_Smoke`, `SystemTest`, `SystemTest_Live` are valid. Any other value is non-compliant and must be corrected on contact.
 6. The `nkda-testdsl-*` skills must apply `[TestCategory("DomainTests")]` to all converted tests.
 7. The `nkda-testdsl-refactor` skill must verify and correct all category tags in any file it touches.
 
@@ -159,7 +159,7 @@ Legacy-only (`Reqnroll` / `[Binding]`) guidance:
 - `Mock<T>` (Moq) or hand-written fakes for infrastructure interfaces.
 - Never use real `FileSystemArtefactStore` in unit tests.
 - Never use live Azure DevOps in unit tests.
-- Real filesystem → `[TestCategory("SystemTests_Simulated")]`.
+- Real filesystem → `[TestCategory("SystemTest_Simulated")]`.
 
 ---
 
@@ -242,7 +242,7 @@ The contributor-facing debugging workflow lives in [docs/testing-guide.md](../..
 
 ## CLI Feature → System Test Requirement
 
-Every CLI command MUST have `[TestCategory("SystemTests")]` test that:
+Every CLI command MUST have `[TestCategory("SystemTest")]` test that:
 
 1. Guards on env vars (calls `Assert.Fail` with a clear message if absent — see Assert.Inconclusive Is Banned above).
 2. Exercises the feature against real/simulated system.
