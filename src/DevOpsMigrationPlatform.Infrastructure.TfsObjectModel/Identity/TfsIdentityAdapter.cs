@@ -37,8 +37,7 @@ public sealed class TfsIdentityAdapter : IIdentityAdapter
     {
         _logger.LogWarning(
             "[Identities/TFS] UPN identity search is not supported by the TFS Identity Service; " +
-            "returning no candidates for {Upn} — resolution will fall through to the configured default.",
-            upn);
+            "returning no candidates — resolution will fall through to the configured default.");
         return Empty();
     }
 
@@ -47,8 +46,7 @@ public sealed class TfsIdentityAdapter : IIdentityAdapter
     {
         _logger.LogWarning(
             "[Identities/TFS] Display-name identity search is not supported by the TFS Identity Service; " +
-            "returning no candidates for {DisplayName} — resolution will fall through to the configured default.",
-            displayName);
+            "returning no candidates — resolution will fall through to the configured default.");
         return Empty();
     }
 

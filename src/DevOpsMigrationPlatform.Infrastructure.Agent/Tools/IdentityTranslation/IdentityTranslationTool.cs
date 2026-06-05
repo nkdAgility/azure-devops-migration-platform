@@ -45,6 +45,7 @@ public sealed class IdentityTranslationTool : IIdentityTranslationTool
     private readonly string _project;
 
     private Dictionary<string, string> _overrides = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, string> _prepared = new(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> _allUniqueNames = new(StringComparer.OrdinalIgnoreCase);
 
     public bool IsEnabled => _options.Enabled;
@@ -71,7 +72,7 @@ public sealed class IdentityTranslationTool : IIdentityTranslationTool
     /// <inheritdoc/>
     public async Task InitializeAsync(CancellationToken ct)
     {
-        using var activity = s_activitySource.StartActivity("identities.lookup.initialize");
+        using var activity = s_activitySource.StartActivity("identities.translation.initialize");
         // Read descriptors
         var descriptorsContent = await ReadPackageTextAsync("descriptors.jsonl", ct).ConfigureAwait(false);
         var allUniqueNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -120,14 +121,38 @@ public sealed class IdentityTranslationTool : IIdentityTranslationTool
             }
         }
 
+        // Read prepared (auto-resolved) matches persisted by the Prepare phase. This makes
+        // resolution survive a Prepare→Import process boundary, where the orchestrator's
+        // in-memory cache is empty.
+        var preparedContent = await ReadPackageTextAsync("prepared-identities.json", ct).ConfigureAwait(false);
+        var prepared = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(preparedContent))
+        {
+            try
+            {
+                var raw = JsonSerializer.Deserialize<Dictionary<string, string>>(preparedContent!, s_jsonOptions);
+                if (raw is not null)
+                {
+                    foreach (var kv in raw)
+                        prepared[kv.Key] = kv.Value;
+                }
+            }
+            catch (JsonException)
+            {
+                // Non-fatal — fall back to the orchestrator cache / default logic.
+            }
+        }
+
         _allUniqueNames = allUniqueNames;
         _overrides = overrides;
+        _prepared = prepared;
 
         _logger.LogInformation(
-            "[IdentityLookup] Initialized with {DescriptorCount} descriptors, {MappingCount} mapping overrides.",
-            _allUniqueNames.Count, _overrides.Count);
+            "[IdentityTranslation] Initialized with {DescriptorCount} descriptors, {MappingCount} mapping overrides, {PreparedCount} prepared matches.",
+            _allUniqueNames.Count, _overrides.Count, _prepared.Count);
         activity?.SetTag("identities.descriptor.count", _allUniqueNames.Count);
         activity?.SetTag("identities.mapping.count", _overrides.Count);
+        activity?.SetTag("identities.prepared.count", _prepared.Count);
     }
 
     /// <inheritdoc/>
@@ -141,7 +166,12 @@ public sealed class IdentityTranslationTool : IIdentityTranslationTool
         if (_overrides.TryGetValue(sourceIdentity, out var mapped))
             return mapped;
 
-        // Steps 2-3: cached Prepare-phase UPN/display-name match.
+        // Steps 2-3: Prepare-phase UPN/display-name match. Prefer the persisted map
+        // (survives a Prepare→Import process boundary); fall back to the orchestrator's
+        // in-memory cache for the single-process path.
+        if (_prepared.TryGetValue(sourceIdentity, out var preparedTarget) && !string.IsNullOrWhiteSpace(preparedTarget))
+            return preparedTarget;
+
         var prepared = _orchestrator?.ResolvePrepared(sourceIdentity);
         if (!string.IsNullOrWhiteSpace(prepared))
             return prepared!;
@@ -162,7 +192,10 @@ public sealed class IdentityTranslationTool : IIdentityTranslationTool
         var unresolved = new List<string>();
         foreach (var uniqueName in _allUniqueNames)
         {
-            if (!_overrides.ContainsKey(uniqueName))
+            // An identity is resolved if it has an explicit mapping.json override OR was
+            // auto-resolved by the Prepare phase (UPN/display-name match). Excluding the
+            // latter prevents successfully translated identities being reported as failures.
+            if (!_overrides.ContainsKey(uniqueName) && !_prepared.ContainsKey(uniqueName))
                 unresolved.Add(uniqueName);
         }
 
@@ -172,7 +205,7 @@ public sealed class IdentityTranslationTool : IIdentityTranslationTool
         await WritePackageTextAsync("unresolved.json", content, ct).ConfigureAwait(false);
 
         _logger.LogWarning(
-            "[IdentityLookup] {Count} identit{Suffix} have no explicit mapping — written to Identities/unresolved.json.",
+            "[IdentityTranslation] {Count} identit{Suffix} have no explicit mapping or prepared match — written to Identities/unresolved.json.",
             unresolved.Count, unresolved.Count == 1 ? "y" : "ies");
     }
 

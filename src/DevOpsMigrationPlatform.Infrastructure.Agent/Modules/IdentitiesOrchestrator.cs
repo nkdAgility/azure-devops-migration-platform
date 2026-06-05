@@ -257,6 +257,10 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
     /// <inheritdoc/>
     public async Task PrepareAsync(PrepareContext context, string organisation, string project, CancellationToken ct)
     {
+        // Reset the prepare-phase cache so stale mappings from a prior run on this
+        // long-lived (singleton) orchestrator cannot leak into a subsequent job.
+        _resolutionCache.Clear();
+
         using var activity = s_activitySource.StartActivity("identity.prepare");
         activity?.SetTag("module", ModuleName);
         activity?.SetTag("operation", "prepare");
@@ -358,6 +362,14 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             context.Package, organisation, project, "prepare-report.json",
             JsonSerializer.Serialize(report, s_jsonOptions), ct).ConfigureAwait(false);
 
+        // Persist the per-identity resolution map so the Import phase can translate
+        // auto-resolved identities even when Prepare and Import run in separate
+        // processes (the in-memory cache does not survive a phase boundary).
+        var preparedMap = new Dictionary<string, string>(_resolutionCache, StringComparer.OrdinalIgnoreCase);
+        await PersistPackageTextAsync(
+            context.Package, organisation, project, "prepared-identities.json",
+            JsonSerializer.Serialize(preparedMap, s_jsonOptions), ct).ConfigureAwait(false);
+
         activity?.SetTag("identities.resolved", resolved);
         activity?.SetTag("identities.unresolved", unresolved);
         activity?.SetTag("identities.ambiguous", ambiguous);
@@ -406,6 +418,10 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
                 match = await strategy
                     .ResolveAsync(_identityAdapter!, descriptor.UniqueName, descriptor.DisplayName, project, ct)
                     .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {

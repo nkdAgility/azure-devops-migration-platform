@@ -75,7 +75,8 @@ public static class TfsMigrationAgentServiceExtensions
         services.AddSingleton<IWorkItemRevisionSourceFactory, TfsActiveJobWorkItemRevisionSourceFactory>();
         services.AddSingleton<IIdentitySource, TfsActiveJobIdentitySource>();
         // TFS identity adapter (reduced capability: empty + Warning) for full connector coverage (FR-019).
-        services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.Identity.IIdentityAdapter, TfsIdentityAdapter>();
+        // Registered via the keyed composite dispatch seam so identity lookups route by connector type.
+        services.AddIdentityAdapter<TfsIdentityAdapter>("TeamFoundationServer");
         services.AddSingleton<ITeamSource, TfsActiveJobTeamSource>();
         services.AddSingleton<INodeCreator, TfsActiveJobNodeCreator>();
         services.AddSingleton<TfsActiveJobWorkItemTypeReadinessTargetFactory>();

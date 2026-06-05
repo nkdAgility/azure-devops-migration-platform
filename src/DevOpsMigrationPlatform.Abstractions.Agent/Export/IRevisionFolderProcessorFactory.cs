@@ -9,7 +9,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 /// <summary>
 /// Creates WorkItem resolution processors wired to a specific import target,
-/// id-map store, checkpointing service, identity lookup tool, and artefact store.
+/// id-map store, checkpointing service, identity translation tool, and artefact store.
 /// Injected into module classes to avoid constructing infrastructure types directly.
 /// </summary>
 public interface IWorkItemResolutionProcessorFactory

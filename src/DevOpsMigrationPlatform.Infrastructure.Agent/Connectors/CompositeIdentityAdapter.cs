@@ -28,9 +28,22 @@ public sealed class CompositeIdentityAdapter : IIdentityAdapter
         IServiceProvider serviceProvider,
         ITargetEndpointInfo endpointInfo)
     {
+        if (registrations is null) throw new ArgumentNullException(nameof(registrations));
+        if (serviceProvider is null) throw new ArgumentNullException(nameof(serviceProvider));
+
         var dict = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
         foreach (var reg in registrations)
+        {
+            if (string.IsNullOrWhiteSpace(reg.Key))
+                throw new InvalidOperationException("Identity adapter registration key cannot be empty.");
+            if (!typeof(IIdentityAdapter).IsAssignableFrom(reg.AdapterType))
+                throw new InvalidOperationException(
+                    $"Registered adapter type '{reg.AdapterType?.FullName}' must implement {nameof(IIdentityAdapter)}.");
+            if (dict.ContainsKey(reg.Key))
+                throw new InvalidOperationException(
+                    $"Duplicate identity adapter registration for connector type '{reg.Key}'.");
             dict[reg.Key] = reg.AdapterType;
+        }
         _adapterTypes = dict;
         _serviceProvider = serviceProvider;
         _endpointInfo = endpointInfo ?? throw new ArgumentNullException(nameof(endpointInfo));

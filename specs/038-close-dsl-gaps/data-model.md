@@ -59,12 +59,25 @@ public sealed record IdentityCandidate(
 ```csharp
 public interface IIdentityMatchingStrategy
 {
-    /// <summary>Returns the resolved target descriptor, or null if this strategy cannot match.</summary>
-    string? Match(
-        string sourceIdentity,
+    string Name { get; }
+
+    /// <summary>
+    /// Pure match against an already-fetched candidate set. Returns a structured
+    /// <see cref="IdentityMatch"/> (IsMatch / IsAmbiguous / MatchCount); ambiguity is surfaced
+    /// via MatchCount for the orchestrator to log — the strategy itself performs no I/O or logging.
+    /// </summary>
+    IdentityMatch Match(
+        string sourceUpn,
         string sourceDisplayName,
-        IReadOnlyList<IdentityCandidate> candidates,
-        ILogger logger);
+        IReadOnlyList<IdentityCandidate> candidates);
+
+    /// <summary>Queries the adapter for the candidate set this strategy needs, then applies Match.</summary>
+    Task<IdentityMatch> ResolveAsync(
+        IIdentityAdapter adapter,
+        string sourceUpn,
+        string sourceDisplayName,
+        string projectName,
+        CancellationToken ct);
 }
 ```
 
@@ -84,6 +97,9 @@ public interface IIdentityMatchingStrategy
 public interface IIdentityTranslationTool
 {
     bool IsEnabled { get; }
+
+    /// <summary>The configured fallback target identity used when no mapping or prepared match resolves.</summary>
+    string? DefaultIdentity { get; }
 
     /// <summary>
     /// Returns the resolved target identity descriptor for the given source descriptor.

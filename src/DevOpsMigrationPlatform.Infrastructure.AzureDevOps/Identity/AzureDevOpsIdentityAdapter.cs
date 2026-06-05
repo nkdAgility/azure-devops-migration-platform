@@ -74,6 +74,10 @@ internal sealed class AzureDevOpsIdentityAdapter : IIdentityAdapter
 
             return candidates;
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogWarning(

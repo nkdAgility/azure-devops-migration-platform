@@ -856,7 +856,7 @@ The `NodeTranslation` tool manages classification node (area/iteration) path tra
 
 ### IdentityTranslation Tool
 
-The `IdentityTranslation` tool (`Tools.IdentityTranslation`) controls automatic identity resolution during export. It maps source identity strings (UPNs, display names) to target identity descriptors using the configured identity store.
+The `IdentityTranslation` tool (`Tools.IdentityTranslation`) controls automatic identity translation during the prepare/import flow. It maps source identity strings (UPNs, display names) to target identity descriptors using the configured identity store.
 
 #### Schema
 
@@ -880,4 +880,4 @@ The `IdentityTranslation` tool (`Tools.IdentityTranslation`) controls automatic 
 }
 ```
 
-> **Relationship to `Modules.Identities.DefaultIdentity`**: The `IdentitiesModule` has its own `DefaultIdentity` field for identities that cannot be resolved via the identity lookup store. The `IdentityTranslation.DefaultIdentity` is the fallback at the tool level for any module that calls the tool directly (e.g. `TeamsModule`). If both are set, module-level identity resolution consults the tool first.
+> **Relationship to `Modules.Identities.DefaultIdentity`**: The `IdentitiesModule` has its own `DefaultIdentity` field for identities that cannot be resolved via the identity translation pipeline. The `IdentityTranslation.DefaultIdentity` is the fallback at the tool level for any module that calls the tool directly (e.g. `TeamsModule`). If both are set, module-level identity resolution consults the tool first.

@@ -76,18 +76,23 @@ def get_str(obj, *keys):
 print(get_str(data, "context_file"))
 print(get_str(data, "context_markers", "start"))
 print(get_str(data, "context_markers", "end"))
+print("__AGENT_CONTEXT_OPTS_END__")
 PY
 )"; then
   echo "agent-context: skipping update (see above for details)." >&2
   exit 0
 fi
 
+# Read parser output into an array. A trailing sentinel guards against command
+# substitution stripping trailing blank lines (empty context_markers.start/end),
+# which would otherwise collapse the field count and skip the update before the
+# default-marker fallback below can run.
 _opts_lines=()
 while IFS= read -r _line || [[ -n "$_line" ]]; do
   _opts_lines+=("$_line")
 done < <(printf '%s\n' "$_raw_opts")
-if (( ${#_opts_lines[@]} < 3 )); then
-  echo "agent-context: malformed config parser output; expected 3 lines (context_file, marker_start, marker_end), got ${#_opts_lines[@]}; skipping update." >&2
+if (( ${#_opts_lines[@]} < 4 )) || [[ "${_opts_lines[3]}" != "__AGENT_CONTEXT_OPTS_END__" ]]; then
+  echo "agent-context: malformed config parser output; expected 3 fields plus sentinel; got ${#_opts_lines[@]} lines; skipping update." >&2
   exit 0
 fi
 CONTEXT_FILE="${_opts_lines[0]}"

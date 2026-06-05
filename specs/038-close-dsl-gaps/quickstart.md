@@ -24,12 +24,10 @@ dotnet test tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests `
 ```
 
 **Expected outcomes:**
-- Test `PrepareAsync_UpnMatch_ResolvesCorrectly` → PASS
-- Test `PrepareAsync_DisplayNameMatch_ResolvesCorrectly` → PASS
-- Test `PrepareAsync_AmbiguousDisplayName_LogsWarningAndFallsBack` → PASS
-- Test `PrepareAsync_AdapterQueryFails_ContinuesAndLogsWarning` → PASS
-- Test `Translate_WhenIsEnabledFalse_ReturnsSourceUnchanged` → PASS
-- Test `Translate_AfterPrepare_ReturnsCachedResult` → PASS
+- Test `PrepareAsync_UpnMatch_CachesResolvedTarget` → PASS
+- Test `PrepareAsync_DisplayNameMatch_WhenNoUpn_CachesResolvedTarget` → PASS
+- Test `PrepareAsync_AmbiguousDisplayName_LeavesUnresolved` → PASS
+- Test `PrepareAsync_AdapterThrows_ContinuesAndLeavesUnresolved` → PASS
 
 **Simulated adapter smoke test:**
 ```powershell
@@ -55,7 +53,7 @@ dotnet test tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests `
 **Verify INodeEnsurer is gone:**
 ```powershell
 # Should return no results
-Select-String -Path "src/**/*.cs" -Pattern "INodeEnsurer" -Recurse
+Get-ChildItem -Path "src" -Filter "*.cs" -Recurse | Select-String -Pattern "INodeEnsurer"
 ```
 
 ---
@@ -88,7 +86,7 @@ dotnet test tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests `
 **Verify:**
 ```powershell
 # Should return no results
-Select-String -Path "features/**/*.feature" -Pattern "us1-write-idempotency" -Recurse
+Get-ChildItem -Path "features" -Filter "*.feature" -Recurse | Select-String -Pattern "us1-write-idempotency"
 ```
 
 **Verify gap log entry:**

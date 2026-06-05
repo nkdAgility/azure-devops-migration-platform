@@ -27,8 +27,9 @@ public readonly record struct IdentityMatch(string? Descriptor, int MatchCount)
 
 /// <summary>
 /// Pluggable matching variant (Strategy). The orchestrator applies an ordered list of
-/// strategies during PrepareAsync. Strategies are pure: they perform no I/O and no logging —
-/// ambiguity is surfaced via <see cref="IdentityMatch.MatchCount"/> for the orchestrator to log.
+/// strategies during PrepareAsync. <see cref="Match"/> is pure (no I/O, no logging);
+/// <see cref="ResolveAsync"/> may query the adapter. Ambiguity is surfaced via
+/// <see cref="IdentityMatch.MatchCount"/> for the orchestrator to log.
 /// </summary>
 public interface IIdentityMatchingStrategy
 {

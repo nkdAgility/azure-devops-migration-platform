@@ -38,7 +38,7 @@ public static class IdentityTranslationToolServiceCollectionExtensions
             sp.GetRequiredService<ISourceEndpointInfo>(),
             sp.GetService<ILogger<IdentityTranslationTool>>(),
             sp.GetRequiredService<IPackageAccess>(),
-            sp.GetService<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IIdentitiesOrchestrator>()));
+            sp.GetRequiredService<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IIdentitiesOrchestrator>()));
         services.AddSingleton<IIdentityTranslationTool>(sp => sp.GetRequiredService<IdentityTranslationTool>());
         return services;
     }
