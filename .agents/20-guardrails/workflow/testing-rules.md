@@ -66,11 +66,60 @@ Every time a test file is **created, edited, moved, or touched in any way**, eve
 
 ---
 
+## Mandatory DSL Migration (Touch = Convert)
+
+> **HARD GATE — no exceptions, no deferrals, no delegation excuses.**
+> Legacy Reqnroll is a **migration debt**, not an editable test style. The moment you need to
+> *change the behaviour* of a legacy `.feature` file or its `*Steps.cs`, that feature family
+> MUST be migrated to the internal DSL — you do not edit the old style in place.
+
+**Trigger.** Any change to the *behaviour or scenarios* of a legacy Reqnroll `.feature` file, or
+to its `[Binding]`/`[Given]`/`[When]`/`[Then]` step definitions, obligates migration of that
+**whole feature family** to the code-first internal DSL before the task is complete. This sits
+alongside Touch = Tag: a touched legacy test must be both migrated **and** correctly categorised.
+
+**How.** Migration is performed *only* via the DSL orchestration skill — do not hand-roll it:
+
+```text
+nkda-testdsl-autonomous {feature}
+```
+
+`{feature}` is the touched `.feature` path, step-file path, family folder, or named family. The
+skill runs the full loop (assess → DSL design → extraction → conversion → refactor → verification)
+and produces code-first `[TestCategory("DomainTests")]` tests under
+`tests/<Project>.Tests/<Area>/<Behaviour>Tests.cs` using the
+`tests/DevOpsMigrationPlatform.Testing` DSL library.
+
+**Terminal state.** After migration the legacy `.feature` and `*Steps.cs` for that family are
+**removed** (their behaviour now lives in the DSL tests). A family is "migrated" only when no
+`.feature`/`[Binding]` artefacts remain for it and the converted tests pass.
+
+**Narrow carve-outs (do NOT require migration):**
+
+1. **Retirement** — *deleting* an obsolete or architecturally-impossible scenario/family outright
+   (no replacement behaviour) is a removal, not a change-in-place; record the rationale.
+2. **Non-behavioural edits** — fixing a typo/comment with no scenario or step change.
+3. **Orphaned feature files** — a `.feature` with **no matching `[Binding]`/`Steps.cs`** that
+   generates **no executable tests** is stale *documentation*, not a legacy test. It cannot be
+   "migrated" (there is no behaviour to convert). Editing it does not trigger this gate; the
+   correct end state is to **delete** the orphan once its intent is captured elsewhere (docs or
+   DSL tests), not to keep dead Gherkin.
+
+If you find yourself editing legacy scenario steps to assert new behaviour, **stop and run
+`nkda-testdsl-autonomous`** instead.
+
+**Enforcement:** blocking. A task that edits legacy `.feature`/`Steps` behaviour without running
+the DSL migration is incomplete, regardless of whether tests pass.
+
+---
+
 ## Framework
 
 - Unit runner: MSTest only.
 - Code-first behavioural tests: use `tests/DevOpsMigrationPlatform.Testing` internal DSL.
-- Legacy BDD: Reqnroll remains only for feature families not yet migrated.
+- Legacy BDD: Reqnroll is a migration debt. It remains **only** for families not yet migrated, and
+  **any behavioural touch triggers migration** (see *Touch = Convert* above) — it is not an
+  editable style.
 - New feature behaviour must not be added as `.feature` files unless explicitly approved.
 - Do not add new `[Binding]`, `[Given]`, `[When]`, or `[Then]` classes for migrated areas.
 
