@@ -24,8 +24,8 @@ public sealed class TeamImportOrchestrator
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
 
     private readonly ITeamTarget _teamTarget;
-    private readonly IIdentityLookupTool? _identityLookupTool;
-    private readonly INodeTranslationTool? _NodeTransformTool;
+    private readonly IIdentityTranslationTool? _identityTranslationTool;
+    private readonly INodeTranslationTool? _nodeTranslationTool;
     private readonly ILogger<TeamImportOrchestrator> _logger;
     private readonly ITargetEndpointInfo _endpointInfo;
 
@@ -33,14 +33,14 @@ public sealed class TeamImportOrchestrator
         ITeamTarget teamTarget,
         ILogger<TeamImportOrchestrator> logger,
         ITargetEndpointInfo endpointInfo,
-        INodeTranslationTool? NodeTransformTool = null,
-        IIdentityLookupTool? identityLookupTool = null)
+        INodeTranslationTool? nodeTranslationTool = null,
+        IIdentityTranslationTool? identityTranslationTool = null)
     {
         _teamTarget = teamTarget ?? throw new ArgumentNullException(nameof(teamTarget));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _endpointInfo = endpointInfo ?? throw new ArgumentNullException(nameof(endpointInfo));
-        _NodeTransformTool = NodeTransformTool;
-        _identityLookupTool = identityLookupTool;
+        _nodeTranslationTool = nodeTranslationTool;
+        _identityTranslationTool = identityTranslationTool;
     }
 
     /// <summary>
@@ -120,7 +120,24 @@ public sealed class TeamImportOrchestrator
             {
                 try
                 {
-                    var resolvedDescriptor = extensions.IdentityLookup && _identityLookupTool?.IsEnabled == true ? _identityLookupTool.Resolve(member.Descriptor) : member.Descriptor;
+                    var identityApplied = extensions.IdentityLookup && _identityTranslationTool?.IsEnabled == true;
+                    var resolvedDescriptor = identityApplied ? _identityTranslationTool!.Translate(member.Descriptor) : member.Descriptor;
+
+                    // GAP-006/FR-010: when identity translation falls back to the configured default
+                    // (i.e. the source member could not be resolved on the target), skip the add and
+                    // log a structured warning rather than importing the member under the wrong identity.
+                    var defaultIdentity = _identityTranslationTool?.DefaultIdentity;
+                    if (identityApplied
+                        && !string.IsNullOrEmpty(defaultIdentity)
+                        && string.Equals(resolvedDescriptor, defaultIdentity, StringComparison.OrdinalIgnoreCase)
+                        && !string.Equals(member.Descriptor, defaultIdentity, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogWarning(
+                            "[Teams] Member '{MemberDescriptor}' ({Member}) resolved to the configured default identity — skipping add to team '{Team}' (unresolvable member).",
+                            member.Descriptor, member.DisplayName, teamPackage.Definition.Name);
+                        continue;
+                    }
+
                     var resolvedMember = member with { Descriptor = resolvedDescriptor };
                     await _teamTarget.AddMemberAsync(
                         null!, projectName, targetTeamId, resolvedMember, ct).ConfigureAwait(false);
@@ -189,13 +206,18 @@ public sealed class TeamImportOrchestrator
 
     private string? TranslatePath(string fieldName, string? sourcePath, ProjectMapping projectMapping)
     {
-        if (string.IsNullOrEmpty(sourcePath))
-            return sourcePath;
+        // FR-009/GAP-005: null, empty, or whitespace-only input is untranslatable — return null
+        // so the caller skips the path and logs a warning (no silent pass-through of garbage).
+        if (string.IsNullOrWhiteSpace(sourcePath))
+            return null;
 
-        if (_NodeTransformTool is null || !_NodeTransformTool.IsEnabled)
-            return sourcePath; // pass through if tool disabled
+        if (_nodeTranslationTool is null || !_nodeTranslationTool.IsEnabled)
+            return sourcePath; // translation tool inactive — pass the source path through unchanged
 
-        var result = _NodeTransformTool.TranslatePath(fieldName, sourcePath!, projectMapping);
-        return result.TargetPath ?? sourcePath;
+        var result = _nodeTranslationTool.TranslatePath(fieldName, sourcePath!, projectMapping);
+
+        // FR-009/GAP-005: when the tool cannot map the path, return null (do NOT fall back to the
+        // untranslated source path) — the caller skips it and logs a structured warning.
+        return result.TargetPath;
     }
 }

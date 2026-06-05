@@ -29,7 +29,7 @@ public class WorkItemResolutionProcessorTests
     private Mock<ICheckpointingService> _mockCheckpointing = null!;
     private Mock<IWorkItemTarget> _mockTarget = null!;
     private Mock<IIdMapStore> _mockIdMapStore = null!;
-    private Mock<IIdentityLookupTool> _mockIdentityMapping = null!;
+    private Mock<IIdentityTranslationTool> _mockIdentityMapping = null!;
     private Mock<IWorkItemResolutionStrategy> _mockResolutionStrategy = null!;
     private Mock<IPackageAccess> _mockPackage = null!;
 
@@ -39,7 +39,7 @@ public class WorkItemResolutionProcessorTests
         _mockCheckpointing = new Mock<ICheckpointingService>(MockBehavior.Strict);
         _mockTarget = new Mock<IWorkItemTarget>(MockBehavior.Strict);
         _mockIdMapStore = new Mock<IIdMapStore>(MockBehavior.Strict);
-        _mockIdentityMapping = new Mock<IIdentityLookupTool>(MockBehavior.Loose);
+        _mockIdentityMapping = new Mock<IIdentityTranslationTool>(MockBehavior.Loose);
         _mockResolutionStrategy = new Mock<IWorkItemResolutionStrategy>(MockBehavior.Strict);
         _mockPackage = PackageTestFactory.CreateLooseMock();
 
@@ -48,7 +48,7 @@ public class WorkItemResolutionProcessorTests
             .Setup(s => s.IsEnabled)
             .Returns(true);
         _mockIdentityMapping
-            .Setup(s => s.Resolve(It.IsAny<string>()))
+            .Setup(s => s.Translate(It.IsAny<string>()))
             .Returns<string>(id => id);
     }
 
@@ -251,7 +251,7 @@ public class WorkItemResolutionProcessorTests
         SetupPackageText($"{Folder}/comment.json", null);
 
         _mockIdentityMapping
-            .Setup(s => s.Resolve("source@example.com"))
+            .Setup(s => s.Translate("source@example.com"))
             .Returns("target@example.com");
 
         SetupNoMapping();
@@ -277,7 +277,7 @@ public class WorkItemResolutionProcessorTests
         var sut = CreateSut();
         await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
 
-        _mockIdentityMapping.Verify(s => s.Resolve("source@example.com"), Times.Once);
+        _mockIdentityMapping.Verify(s => s.Translate("source@example.com"), Times.Once);
         Assert.IsNotNull(capturedFields);
         var assignedTo = capturedFields!.FirstOrDefault(f => f.ReferenceName == "System.AssignedTo");
         Assert.IsNotNull(assignedTo);
@@ -292,7 +292,7 @@ public class WorkItemResolutionProcessorTests
         SetupPackageText($"{Folder}/comment.json", null);
 
         _mockIdentityMapping
-            .Setup(s => s.Resolve("source@example.com"))
+            .Setup(s => s.Translate("source@example.com"))
             .Returns("target@example.com");
 
         SetupNoMapping();
@@ -318,7 +318,7 @@ public class WorkItemResolutionProcessorTests
         var sut = CreateSut();
         await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
 
-        _mockIdentityMapping.Verify(s => s.Resolve("source@example.com"), Times.Once);
+        _mockIdentityMapping.Verify(s => s.Translate("source@example.com"), Times.Once);
         Assert.IsNotNull(capturedFields);
         Assert.AreEqual("target@example.com", capturedFields!.Single(f => f.ReferenceName == "System.AssignedTo").Value);
         Assert.AreEqual("target@example.com", capturedFields.Single(f => f.ReferenceName == "System.ChangedBy").Value);

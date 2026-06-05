@@ -48,7 +48,7 @@ public class FilterScopeImportContext
             MockTarget.Object,
             MockIdMapStore.Object,
             MockCheckpointing.Object,
-            (IIdentityLookupTool?)null,
+            (IIdentityTranslationTool?)null,
             processorLogger,
             "https://dev.azure.com/contoso",
             "Shop",

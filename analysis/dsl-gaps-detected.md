@@ -33,7 +33,7 @@ cannot be confirmed against observed production code.
 ## GAP-001: IdentityMappingService — UPN and display-name matching unimplemented
 
 **Detected during:** migration of `features/import/identities/identity-mapping-resolution.feature` (scenario 2)
-**Status:** BLOCKED — scenario retained in feature file
+**Status:** RESOLVED (2026-06-04) — IdentitiesOrchestrator.PrepareAsync now implements UPN matching (step 2) and display-name matching (step 3) against the target tenant via IIdentityAdapter and an ordered IIdentityMatchingStrategy list; results are cached and read by IIdentityTranslationTool.Translate. Implemented for all three connectors (SimulatedIdentityAdapter, AzureDevOpsIdentityAdapter via SDK IdentityHttpClient, TfsIdentityAdapter reduced-capability). Verified by IdentitiesOrchestratorPrepareTests, Upn/DisplayName strategy tests, SimulatedIdentityAdapterTests, CompositeIdentityAdapterTests, TfsIdentityAdapterTests, and live ADO SystemTests.
 
 ### What the docstring promises
 
@@ -87,7 +87,7 @@ never be produced unless it were an explicit mapping entry.
 
 **Detected during:** migration of `features/import/nodes/import-classification-tree.feature` (scenario 2)
 **gap-type:** `behaviour-conflict`
-**Status:** OPEN
+**Status:** RESOLVED (2026-06-04) — INodeEnsurer references eliminated (already absent); AutoCreateNodes confirmed on NodeTranslationOptions (not NodesModuleOptions); the misattributed feature scenario was deleted from import-classification-tree.feature.
 
 ### What the feature claims
 
@@ -116,7 +116,7 @@ Scenario: AutoCreateNodes ensures referenced paths exist on target
 
 **Detected during:** migration of `features/import/teams/import-default-team-detection.feature` (scenario 1)
 **gap-type:** `behaviour-conflict`
-**Status:** OPEN
+**Status:** RESOLVED (2026-06-04) — Permanent Azure DevOps API limitation (no explicit default-team assignment). TeamImportOrchestrator logs a structured Warning containing the team name and the exact text "target API does not support explicit default team assignment" and continues import (FR-011). Verified by TeamsModuleTests (GAP004 warning test).
 
 ### What the feature claims
 
@@ -153,7 +153,7 @@ The default team is detected but no settings are applied to the target's default
 
 **Detected during:** migration of `features/import/teams/import-team-area-paths.feature` (scenarios 2 and 3)
 **gap-type:** `behaviour-conflict`
-**Status:** OPEN
+**Status:** RESOLVED (2026-06-04) — TeamImportOrchestrator.TranslatePath no longer falls back to the source path: it returns null when the tool cannot map a path (and for null/empty/whitespace input), so callers skip the path and log a structured warning instead of corrupting the target with source-side paths (FR-009). Private method; the three internal callers already handle null. Verified by TeamsModuleTests (incl. ImportAsync_SkipsIteration_WhenPathUntranslatable_GAP005).
 
 ### What the feature claims
 
@@ -190,7 +190,7 @@ In practice: untranslatable paths are silently passed through as-is, not skipped
 
 **Detected during:** migration of `features/import/teams/import-team-members.feature` (scenario 2)
 **gap-type:** `behaviour-conflict`
-**Status:** OPEN
+**Status:** RESOLVED (2026-06-04) — TeamImportOrchestrator now skips AddMemberAsync and logs a structured Warning (member descriptor + display name) when identity translation resolves a member to the configured default identity, instead of importing under the wrong identity (FR-010). IIdentityTranslationTool.DefaultIdentity exposes the default for the comparison. Verified by TeamsModuleTests (GAP006 skip + add tests).
 
 ### What the feature claims
 
@@ -225,7 +225,7 @@ await _teamTarget.AddMemberAsync(null!, projectName, targetTeamId, resolvedMembe
 
 **Detected during:** migration of `features/import/nodes/import-classification-tree.feature` (scenario 3)
 **gap-type:** `behaviour-conflict`
-**Status:** OPEN
+**Status:** RESOLVED (2026-06-04) — NodesModule.ImportAsync now returns Skipped without calling INodesOrchestrator when ReplicateSourceTree is false (FR-007); _NodeTransformTool renamed to _nodeTranslationTool (FR-017); INodeEnsurer-based scenarios removed. Verified by NodesModuleTests.
 
 ### What the feature claims
 
@@ -250,6 +250,8 @@ Scenario: Import is skipped when both ReplicateSourceTree and AutoCreateNodes ar
 
 ## GAP-007: config-applied-on-export — CLI has no fail-fast when migration-config.json already exists
 
+**Status:** RESOLVED (2026-06-04) — The `@us1-write-idempotency` scenario was deleted: the CLI has NO access to the package filesystem (Principle VI, Separation of Planes — the CLI talks only to the control plane), so a pre-submission config-exists check is architecturally impossible. No production code change. The existing-file case is handled by the agent's resume semantics (overwrite if endpoints unchanged; reject with `InvalidOperationException` if changed) — documented in docs/configuration-reference.md.
+
 - **gap-type:** `other`
 - **family:** `config-applied-on-export`
 - **file:** `features/export/config-in-package/config-applied-on-export.feature`
@@ -266,6 +268,8 @@ Scenario: Import is skipped when both ReplicateSourceTree and AutoCreateNodes ar
 
 ## GAP-008: export-execution-metrics — OTel counter assertions require infrastructure setup
 
+**Status:** RESOLVED (2026-06-04) — Export counters are assertable via an OpenTelemetry in-memory exporter scoped per test (`OpenTelemetry.Exporter.InMemory`). `ExportMetricsTests` builds a per-test `MeterProvider` (`AddMeter(WellKnownMeterNames.Agent)` + `AddInMemoryExporter`), records via `PlatformMetrics`, `ForceFlush`es, and asserts `platform.workitems.export.attempted`/`.retried` counters and the duration histogram — no full pipeline needed; counter values are isolated per test scope.
+
 - **gap-type:** `other`
 - **family:** `export-execution-metrics`
 - **file:** `features/export/work-items/export-execution-metrics.feature`
@@ -281,6 +285,8 @@ Scenario: Import is skipped when both ReplicateSourceTree and AutoCreateNodes ar
 ---
 
 ## GAP-009: export-payload-metrics — MetricSnapshot requires full export pipeline
+
+**Status:** RESOLVED (2026-06-04) — Payload/complexity histograms (`platform.workitems.export.revisions.count`, `.fields.count`, `.payload.bytes`) are assertable via the same per-test in-memory `MeterProvider` in `ExportMetricsTests` — no full export pipeline required. Same infrastructure as GAP-008.
 
 - **gap-type:** `other`
 - **family:** `export-payload-metrics`

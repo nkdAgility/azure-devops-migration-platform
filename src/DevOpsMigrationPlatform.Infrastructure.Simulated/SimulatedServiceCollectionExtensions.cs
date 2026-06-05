@@ -49,6 +49,11 @@ public static class SimulatedServiceCollectionExtensions
         // Identity source — deterministic simulated identities keyed by connector type.
         services.AddIdentitySource<SimulatedIdentitySource>("Simulated");
 
+        // Identity adapter — deterministic simulated target tenant used by
+        // IdentitiesOrchestrator.PrepareAsync for UPN/display-name matching. Keyed by target
+        // connector type and dispatched via CompositeIdentityAdapter.
+        services.AddIdentityAdapter<SimulatedIdentityAdapter>("Simulated");
+
         // Team source — deterministic simulated teams keyed by connector type.
         services.AddTeamSource<SimulatedTeamSource>("Simulated");
 

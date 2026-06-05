@@ -34,7 +34,7 @@ public sealed class WorkItemsImportRuntime
     private readonly ICheckpointingServiceFactory _checkpointingFactory;
     private readonly IIdMapStoreFactory _idMapStoreFactory;
     private readonly IWorkItemResolutionProcessorFactory _processorFactory;
-    private readonly IIdentityLookupTool? _identityLookupTool;
+    private readonly IIdentityTranslationTool? _identityTranslationTool;
     private readonly IWorkItemsImportCapabilityValidator _capabilityValidator;
     private readonly IWorkItemsNodeReadinessOrchestrator _nodeReadinessOrchestrator;
     private readonly IPlatformMetrics? _metrics;
@@ -53,7 +53,7 @@ public sealed class WorkItemsImportRuntime
         ICheckpointingServiceFactory checkpointingFactory,
         IIdMapStoreFactory idMapStoreFactory,
         IWorkItemResolutionProcessorFactory processorFactory,
-        IIdentityLookupTool? identityLookupTool,
+        IIdentityTranslationTool? identityTranslationTool,
         IWorkItemsImportCapabilityValidator capabilityValidator,
         IWorkItemsNodeReadinessOrchestrator nodeReadinessOrchestrator,
         IPlatformMetrics? metrics,
@@ -70,7 +70,7 @@ public sealed class WorkItemsImportRuntime
         _checkpointingFactory = checkpointingFactory ?? throw new ArgumentNullException(nameof(checkpointingFactory));
         _idMapStoreFactory = idMapStoreFactory ?? throw new ArgumentNullException(nameof(idMapStoreFactory));
         _processorFactory = processorFactory ?? throw new ArgumentNullException(nameof(processorFactory));
-        _identityLookupTool = identityLookupTool;
+        _identityTranslationTool = identityTranslationTool;
         _capabilityValidator = capabilityValidator ?? throw new ArgumentNullException(nameof(capabilityValidator));
         _nodeReadinessOrchestrator = nodeReadinessOrchestrator ?? throw new ArgumentNullException(nameof(nodeReadinessOrchestrator));
         _metrics = metrics;
@@ -104,7 +104,7 @@ public sealed class WorkItemsImportRuntime
         _checkpointingFactory = null!;
         _idMapStoreFactory = null!;
         _processorFactory = null!;
-        _identityLookupTool = null;
+        _identityTranslationTool = null;
         _capabilityValidator = null!;
         _nodeReadinessOrchestrator = null!;
         _metrics = metrics;
@@ -218,7 +218,7 @@ public sealed class WorkItemsImportRuntime
             target,
             idMapStore,
             checkpointingService,
-            _identityLookupTool,
+            _identityTranslationTool,
             sourceOrganisation,
             sourceProjectName,
             nodeStructureContext);

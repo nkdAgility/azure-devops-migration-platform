@@ -21,7 +21,7 @@ public class ImportEmbeddedImagesContext
     public Mock<ICheckpointingService> MockCheckpointing { get; } = new(MockBehavior.Strict);
     public Mock<IWorkItemTarget> MockTarget { get; } = new(MockBehavior.Strict);
     public Mock<IIdMapStore> MockIdMapStore { get; } = new(MockBehavior.Strict);
-    public Mock<IIdentityLookupTool> MockIdentityMapping { get; } = new(MockBehavior.Loose);
+    public Mock<IIdentityTranslationTool> MockIdentityMapping { get; } = new(MockBehavior.Loose);
     public Mock<IWorkItemResolutionStrategy> MockResolutionStrategy { get; } = new(MockBehavior.Strict);
     public Mock<IPackageAccess> MockPackage { get; }
 
@@ -123,7 +123,7 @@ public class ImportEmbeddedImagesContext
             .Setup(s => s.IsEnabled)
             .Returns(true);
         MockIdentityMapping
-            .Setup(s => s.Resolve(It.IsAny<string>()))
+            .Setup(s => s.Translate(It.IsAny<string>()))
             .Returns<string>(id => id);
 
         // Resolution strategy

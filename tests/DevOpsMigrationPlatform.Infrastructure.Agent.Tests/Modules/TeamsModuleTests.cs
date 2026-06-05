@@ -26,6 +26,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using DevOpsMigrationPlatform.Infrastructure.Simulated;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -110,7 +111,7 @@ public class TeamsModuleTests
             package: package);
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_Skips_WhenModuleDisabled()
     {
@@ -133,7 +134,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_Skips_WhenNoTeamSourceRegistered()
     {
@@ -154,7 +155,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_WritesTeamJson_PerTeam()
     {
@@ -190,7 +191,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_AppliesFilter_WhenScopeIsTeams()
     {
@@ -224,7 +225,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_SkipsExistingTeam_WhenAlwaysExportFalse()
     {
@@ -256,7 +257,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_ReexportsExistingTeam_WhenAlwaysExportTrue()
     {
@@ -292,7 +293,7 @@ public class TeamsModuleTests
 
     // ── Content verification tests (from export-team-definitions, iterations, members features) ──
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_TeamJson_ContainsTeamNameAndIsDefault()
     {
@@ -325,7 +326,7 @@ public class TeamsModuleTests
         Assert.IsTrue(definition.GetProperty("isDefault").GetBoolean(), "Alpha Team should be the default team.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_TeamJson_ContainsIterationsAndMembers()
     {
@@ -373,7 +374,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_Skips_WhenModuleDisabled()
     {
@@ -394,7 +395,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_CreatesTeams_FromPackageFiles()
     {
@@ -440,7 +441,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_CreatesNonDefaultTeams_ByName_WhenTwoTeamsInPackage()
     {
@@ -489,7 +490,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_CreatesAllTeams_WhenFiveNonDefaultTeamsInPackage()
     {
@@ -537,7 +538,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenNoTeamFilesFound()
     {
@@ -566,7 +567,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenTeamJsonMissingDefinitionField()
     {
@@ -598,7 +599,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenTeamJsonIsMalformed()
     {
@@ -630,7 +631,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_Passes_WhenAllTeamFilesAreValid()
     {
@@ -672,7 +673,7 @@ public class TeamsModuleTests
     // ── Iteration Tests (T068) ────────────────────────────────────────────────
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_AssignsIterations_WithPathPassThrough_WhenNoTranslationTool()
     {
@@ -719,18 +720,18 @@ public class TeamsModuleTests
     // ── Member Tests (T075) ───────────────────────────────────────────────────
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_AddsMembersWithIdentityMapping()
     {
         // Arrange
         var target = new SimulatedTeamTarget();
-        var identityLookupTool = Mock.Of<IIdentityLookupTool>(m =>
+        var identityTranslationTool = Mock.Of<IIdentityTranslationTool>(m =>
             m.IsEnabled == true &&
-            m.Resolve("src-alice") == "tgt-alice@target.com" &&
-            m.Resolve("src-bob") == "tgt-bob@target.com");
+            m.Translate("src-alice") == "tgt-alice@target.com" &&
+            m.Translate("src-bob") == "tgt-bob@target.com");
 
-        var importOrch = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo(), identityLookupTool: identityLookupTool);
+        var importOrch = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo(), identityTranslationTool: identityTranslationTool);
 
         var teamPackage = new TeamPackage
         {
@@ -773,7 +774,7 @@ public class TeamsModuleTests
     // ── Capacity Tests (T082) ─────────────────────────────────────────────────
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_SetsCapacity_ForEachIteration()
     {
@@ -822,7 +823,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_SkipsCapacity_WhenCapacityExtensionDisabled()
     {
@@ -864,7 +865,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_CompletesWithoutError_WhenTargetThrowsNotSupportedForCapacity()
     {
@@ -915,7 +916,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_NeverCallsSetCapacity_WhenCapacityByIterationIsEmpty()
     {
@@ -956,7 +957,7 @@ public class TeamsModuleTests
     // ── NodeTranslation Extension Tests (T069) ─────────────────────────────────
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_RecordsAreaAndIterationPaths_WhenNodeTranslationExtensionEnabled()
     {
@@ -1004,7 +1005,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_DoesNotRecordPaths_WhenNodeTranslationExtensionDisabled()
     {
@@ -1042,9 +1043,9 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    public async Task ImportAsync_TranslatesIterationPaths_ViaNodeTransformTool()
+    public async Task ImportAsync_TranslatesIterationPaths_ViaNodeTranslationTool()
     {
         // Arrange
         var target = new SimulatedTeamTarget();
@@ -1064,7 +1065,7 @@ public class TeamsModuleTests
         var importOrch = new TeamImportOrchestrator(
             target, NullLogger<TeamImportOrchestrator>.Instance,
             endpointInfo: CreateTargetEndpointInfo(),
-            NodeTransformTool: translationToolMock.Object);
+            nodeTranslationTool: translationToolMock.Object);
 
         var teamPackage = new TeamPackage
         {
@@ -1103,7 +1104,152 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ImportAsync_SkipsIteration_WhenPathUntranslatable_GAP005()
+    {
+        // GAP-005: when the tool cannot map the path (TargetPath is null), the iteration must be
+        // SKIPPED — not silently assigned with the untranslated source path.
+        var target = new SimulatedTeamTarget();
+
+        var translationToolMock = new Mock<INodeTranslationTool>(MockBehavior.Loose);
+        translationToolMock.Setup(t => t.IsEnabled).Returns(true);
+        translationToolMock
+            .Setup(t => t.TranslatePath(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ProjectMapping>()))
+            .Returns(new PathTranslation(null!, false, false, false)); // untranslatable
+
+        var importOrch = new TeamImportOrchestrator(
+            target, NullLogger<TeamImportOrchestrator>.Instance,
+            endpointInfo: CreateTargetEndpointInfo(),
+            nodeTranslationTool: translationToolMock.Object);
+
+        var teamPackage = new TeamPackage
+        {
+            Definition = new TeamDefinition("src-1", "Alpha Team", "desc", false),
+            Iterations = new List<TeamIteration>
+            {
+                new TeamIteration("i1", "SourceProject\\Sprint 1", "Sprint 1", null, null, false, false)
+            },
+            Members = new List<TeamMember>(),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+        };
+        var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
+
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
+        storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
+        storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(json);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true } }),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: target);
+
+        // Act
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
+
+        // Assert — no iteration was assigned (untranslatable path skipped, not passed through).
+        var assignedCount = target.Iterations.Values.Sum(list => list.Count);
+        Assert.AreEqual(0, assignedCount, "Untranslatable iteration must be skipped, not assigned.");
+    }
+
+    [TestCategory("DomainTests")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ImportTeam_SkipsMember_WhenIdentityResolvesToDefault_GAP006()
+    {
+        // GAP-006/FR-010: a member whose identity resolves to the configured default is
+        // unresolvable and must be SKIPPED, not imported under the default identity.
+        var target = new SimulatedTeamTarget();
+        var idTool = new Mock<IIdentityTranslationTool>(MockBehavior.Loose);
+        idTool.Setup(t => t.IsEnabled).Returns(true);
+        idTool.Setup(t => t.DefaultIdentity).Returns("default@target.com");
+        idTool.Setup(t => t.Translate("src-unknown")).Returns("default@target.com");
+
+        var orch = new TeamImportOrchestrator(
+            target, NullLogger<TeamImportOrchestrator>.Instance, CreateTargetEndpointInfo(),
+            identityTranslationTool: idTool.Object);
+
+        var pkg = new TeamPackage
+        {
+            Definition = new TeamDefinition("t1", "Alpha", "", false),
+            Members = new List<TeamMember> { new TeamMember("src-unknown", "Unknown User", "unknown@src.com", false) },
+            Iterations = new List<TeamIteration>(),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+        };
+        var ext = new TeamsModuleExtensionsOptions { TeamMembers = true, IdentityLookup = true };
+
+        await orch.ImportTeamAsync("TargetProject", "SourceProject", pkg, ext, CancellationToken.None);
+
+        Assert.AreEqual(0, target.Members.Values.Sum(m => m.Count),
+            "Member resolving to the default identity must be skipped.");
+    }
+
+    [TestCategory("DomainTests")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ImportTeam_AddsMember_WhenIdentityResolvesToNonDefault_GAP006()
+    {
+        var target = new SimulatedTeamTarget();
+        var idTool = new Mock<IIdentityTranslationTool>(MockBehavior.Loose);
+        idTool.Setup(t => t.IsEnabled).Returns(true);
+        idTool.Setup(t => t.DefaultIdentity).Returns("default@target.com");
+        idTool.Setup(t => t.Translate("src-bob")).Returns("bob@target.com");
+
+        var orch = new TeamImportOrchestrator(
+            target, NullLogger<TeamImportOrchestrator>.Instance, CreateTargetEndpointInfo(),
+            identityTranslationTool: idTool.Object);
+
+        var pkg = new TeamPackage
+        {
+            Definition = new TeamDefinition("t1", "Alpha", "", false),
+            Members = new List<TeamMember> { new TeamMember("src-bob", "Bob", "bob@src.com", false) },
+            Iterations = new List<TeamIteration>(),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+        };
+        var ext = new TeamsModuleExtensionsOptions { TeamMembers = true, IdentityLookup = true };
+
+        await orch.ImportTeamAsync("TargetProject", "SourceProject", pkg, ext, CancellationToken.None);
+
+        Assert.AreEqual(1, target.Members.Values.Sum(m => m.Count), "Resolved member must be added.");
+    }
+
+    [TestCategory("DomainTests")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ImportTeam_LogsStructuredWarning_ForDefaultTeam_GAP004()
+    {
+        // GAP-004/FR-011: a default team logs a structured warning with the exact text and continues.
+        var target = new SimulatedTeamTarget();
+        var logger = new Mock<ILogger<TeamImportOrchestrator>>();
+        var orch = new TeamImportOrchestrator(target, logger.Object, CreateTargetEndpointInfo());
+
+        var pkg = new TeamPackage
+        {
+            Definition = new TeamDefinition("t1", "The Default Team", "", true),
+            Members = new List<TeamMember>(),
+            Iterations = new List<TeamIteration>(),
+            CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
+        };
+
+        await orch.ImportTeamAsync("TargetProject", "SourceProject", pkg, new TeamsModuleExtensionsOptions(), CancellationToken.None);
+
+        logger.Verify(
+            l => l.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("does not support explicit default team assignment")),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [TestCategory("DomainTests")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_UsesIterationPathField_ForIterationTranslation()
     {
@@ -1132,7 +1278,7 @@ public class TeamsModuleTests
         var importOrch = new TeamImportOrchestrator(
             target, NullLogger<TeamImportOrchestrator>.Instance,
             endpointInfo: CreateTargetEndpointInfo(),
-            NodeTransformTool: translationToolMock.Object);
+            nodeTranslationTool: translationToolMock.Object);
 
         var teamPackage = new TeamPackage
         {
@@ -1182,7 +1328,7 @@ public class TeamsModuleTests
     // ── Iteration Path Tests ──────────────────────────────────────────────────
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_TranslatesAndAssignsBothIterations_WhenTwoIterationsInPackage()
     {
@@ -1199,7 +1345,7 @@ public class TeamsModuleTests
         var importOrch = new TeamImportOrchestrator(
             target, NullLogger<TeamImportOrchestrator>.Instance,
             endpointInfo: CreateTargetEndpointInfo(),
-            NodeTransformTool: translationToolMock.Object);
+            nodeTranslationTool: translationToolMock.Object);
 
         var teamPackage = new TeamPackage
         {
@@ -1246,7 +1392,7 @@ public class TeamsModuleTests
     // ── Area Path Tests ───────────────────────────────────────────────────────
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_TranslatesDefaultAndIncludedAreaPaths_ViaNodeTranslationTool()
     {
@@ -1263,7 +1409,7 @@ public class TeamsModuleTests
         var importOrch = new TeamImportOrchestrator(
             target, NullLogger<TeamImportOrchestrator>.Instance,
             endpointInfo: CreateTargetEndpointInfo(),
-            NodeTransformTool: translationToolMock.Object);
+            nodeTranslationTool: translationToolMock.Object);
 
         var teamPackage = new TeamPackage
         {
@@ -1305,7 +1451,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("DomainTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_DoesNotSetAreaPaths_WhenNodeTranslationExtensionDisabled()
     {

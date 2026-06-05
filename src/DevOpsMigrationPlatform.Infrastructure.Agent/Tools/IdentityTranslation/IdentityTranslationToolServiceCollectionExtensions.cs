@@ -12,33 +12,34 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityLookup;
+namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityTranslation;
 
-public static class IdentityLookupToolServiceCollectionExtensions
+public static class IdentityTranslationToolServiceCollectionExtensions
 {
-    public static IServiceCollection AddIdentityLookupToolServices(this IServiceCollection services)
+    public static IServiceCollection AddIdentityTranslationToolServices(this IServiceCollection services)
     {
 #if NET7_0_OR_GREATER
         // Register schema entry for migration.schema.json generation
-        services.AddSchemaEntry<IdentityLookupOptions>("Identity mapping and resolution configuration");
+        services.AddSchemaEntry<IdentityTranslationOptions>("Identity mapping and resolution configuration");
 #endif
 
         services.TryAddSingleton<ICurrentPackageConfigAccessor, CurrentPackageConfigAccessor>();
 
         // Bind from the explicit current package config set for the current job.
         // IOptionsSnapshot<T> computes .Value once per scope, giving per-job options.
-        services.AddOptions<IdentityLookupOptions>()
+        services.AddOptions<IdentityTranslationOptions>()
             .Configure<ICurrentPackageConfigAccessor>((opts, state) =>
             {
-                state.Current?.GetSection(IdentityLookupOptions.SectionName).Bind(opts);
+                state.Current?.GetSection(IdentityTranslationOptions.SectionName).Bind(opts);
             });
         // Singleton to satisfy singleton consumers in the planning pipeline.
-        services.AddSingleton<IdentityLookupTool>(sp => new IdentityLookupTool(
-            sp.GetRequiredService<IOptions<IdentityLookupOptions>>(),
+        services.AddSingleton<IdentityTranslationTool>(sp => new IdentityTranslationTool(
+            sp.GetRequiredService<IOptions<IdentityTranslationOptions>>(),
             sp.GetRequiredService<ISourceEndpointInfo>(),
-            sp.GetService<ILogger<IdentityLookupTool>>(),
-            sp.GetRequiredService<IPackageAccess>()));
-        services.AddSingleton<IIdentityLookupTool>(sp => sp.GetRequiredService<IdentityLookupTool>());
+            sp.GetService<ILogger<IdentityTranslationTool>>(),
+            sp.GetRequiredService<IPackageAccess>(),
+            sp.GetRequiredService<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IIdentitiesOrchestrator>()));
+        services.AddSingleton<IIdentityTranslationTool>(sp => sp.GetRequiredService<IdentityTranslationTool>());
         return services;
     }
 }

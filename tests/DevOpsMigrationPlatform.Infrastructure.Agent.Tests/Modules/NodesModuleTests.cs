@@ -124,7 +124,7 @@ public class NodesModuleTests
         };
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_DelegatesToCapture_WhenEnabled()
     {
@@ -161,7 +161,7 @@ public class NodesModuleTests
             It.IsAny<string>()), Times.Once);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_Skips_WhenModuleDisabled()
     {
@@ -177,7 +177,7 @@ public class NodesModuleTests
         captureMock.VerifyNoOtherCalls();
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_CallsReplicateSourceTree_WhenOptionEnabled()
     {
@@ -211,21 +211,13 @@ public class NodesModuleTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_DoesNotCallEnsurer_WhenReplicateSourceTreeDisabled()
     {
-        // Arrange
+        // Arrange — FR-007/GAP-003: when ReplicateSourceTree is false the module MUST return
+        // Skipped WITHOUT calling the orchestrator. Strict mock with no setup: any call throws.
         var orchestratorMock = new Mock<INodesOrchestrator>(MockBehavior.Strict);
-        orchestratorMock
-            .Setup(o => o.ImportAsync(
-                It.IsAny<ImportContext>(),
-                It.IsAny<ISourceEndpointInfo>(),
-                It.IsAny<ITargetEndpointInfo>(),
-                It.IsAny<ICheckpointingServiceFactory?>(),
-                false,
-                It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
 
         var opts = new NodesModuleOptions
         {
@@ -237,19 +229,20 @@ public class NodesModuleTests
         var context = CreateImportContext(package);
 
         // Act
-        await module.ImportAsync(context, CancellationToken.None);
+        var result = await module.ImportAsync(context, CancellationToken.None);
 
-        // Assert — orchestrator is called with replicateSourceTree=false
+        // Assert — orchestrator never called; result is Skipped.
+        Assert.AreEqual(JobTaskStatus.Skipped, result.Status);
         orchestratorMock.Verify(o => o.ImportAsync(
             It.IsAny<ImportContext>(),
             It.IsAny<ISourceEndpointInfo>(),
             It.IsAny<ITargetEndpointInfo>(),
             It.IsAny<ICheckpointingServiceFactory?>(),
-            false,
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<bool>(),
+            It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenSourceTreeJsonMissing()
     {
@@ -267,7 +260,7 @@ public class NodesModuleTests
         StringAssert.Contains(context.Errors[0].Message, "source-tree.json");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenSourceTreeJsonIsMalformed()
     {
@@ -288,7 +281,7 @@ public class NodesModuleTests
         StringAssert.Contains(context.Errors[0].Message, "malformed");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_PassesForValidSourceTreeJson()
     {

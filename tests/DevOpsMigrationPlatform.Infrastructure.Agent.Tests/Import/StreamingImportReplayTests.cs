@@ -228,7 +228,7 @@ public class StreamingImportReplayTests
     [TestMethod]
     public async Task ImportAsync_CallsUpdateFieldsAsync_WhenRevisionContainsIdentityField()
     {
-        // Arrange — identity resolution is delegated to IIdentityLookupTool (not inline)
+        // Arrange — identity resolution is delegated to IIdentityTranslationTool (not inline)
         var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"},{"ReferenceName":"System.AssignedTo","Value":"user@source.com"}],"Attachments":[],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[]}""";
         var ctx = BuildContext(
             new[] { "WorkItems/2024-01-01/00000638000000000001-1-0" },

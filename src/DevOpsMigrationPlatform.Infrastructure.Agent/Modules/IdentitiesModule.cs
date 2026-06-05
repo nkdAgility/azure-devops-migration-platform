@@ -40,9 +40,9 @@ public sealed class IdentitiesModule : IModule
     private static readonly ActivitySource MigrationActivity = new(WellKnownActivitySourceNames.Migration);
 
     private readonly IIdentitySource? _identitySource;
-#if !NET481
-    private readonly IIdentityLookupTool? _identityLookupTool;
-#endif
+    // FR-018: no DI-hiding guard. The optional tool is null on net481 (not registered);
+    // import is skipped there via the capability branch in ImportAsync.
+    private readonly IIdentityTranslationTool? _identityTranslationTool;
     private readonly ICheckpointingServiceFactory? _checkpointingFactory;
     private readonly ILogger<IdentitiesModule> _logger;
     private readonly IPlatformMetrics? _PlatformMetrics;
@@ -65,11 +65,8 @@ public sealed class IdentitiesModule : IModule
         IIdentitiesOrchestrator orchestrator,
         IPlatformMetrics? PlatformMetrics = null,
         IIdentitySource? identitySource = null,
-        ICheckpointingServiceFactory? checkpointingFactory = null
-#if !NET481
-        , IIdentityLookupTool? identityLookupTool = null
-#endif
-        )
+        ICheckpointingServiceFactory? checkpointingFactory = null,
+        IIdentityTranslationTool? identityTranslationTool = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
@@ -78,9 +75,7 @@ public sealed class IdentitiesModule : IModule
         _PlatformMetrics = PlatformMetrics;
         _identitySource = identitySource;
         _checkpointingFactory = checkpointingFactory;
-#if !NET481
-        _identityLookupTool = identityLookupTool;
-#endif
+        _identityTranslationTool = identityTranslationTool;
     }
 
     public async Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
@@ -174,39 +169,10 @@ public sealed class IdentitiesModule : IModule
             Timestamp = DateTimeOffset.UtcNow
         });
 
-        var report = new PrepareReport
-        {
-            ModuleName = Name,
-            ResolvedCount = 0,
-            UnresolvedItems = []
-        };
-
-        var tags = new MetricsTagList
-        {
-            { "job.id", context.Job.JobId },
-            { "module", Name }
-        };
-        _PlatformMetrics?.RecordPrepareIdentitiesResolved(report.ResolvedCount, tags);
-        _PlatformMetrics?.RecordPrepareIdentitiesUnresolved(report.UnresolvedCount, tags);
-
+        // Delegate Prepare-phase identity resolution (UPN/display-name matching against the
+        // target tenant, cache population, and prepare-report.json) to the orchestrator.
         var (organisation, project) = ResolvePrepareScope(context);
-
-        await PersistPackageTextAsync(
-            context.Package,
-            new PackageContentContext(PackageContentKind.Artefact,
-                Organisation: organisation,
-                Project: project,
-                Module: "Identities",
-                Address: new RelativePathAddress("prepare-report.json")),
-            JsonSerializer.Serialize(report),
-            ct).ConfigureAwait(false);
-
-        _logger.LogInformation(
-            "Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms",
-            Name,
-            report.ResolvedCount,
-            report.UnresolvedCount,
-            0);
+        await _orchestrator.PrepareAsync(context, organisation, project, ct).ConfigureAwait(false);
 
         context.ProgressSink?.Emit(new ProgressEvent
         {
@@ -269,7 +235,7 @@ public sealed class IdentitiesModule : IModule
         }
 
         await _orchestrator.ImportAsync(
-            _identityLookupTool, context, organisation, project, _checkpointingFactory, ct).ConfigureAwait(false);
+            _identityTranslationTool, context, organisation, project, _checkpointingFactory, ct).ConfigureAwait(false);
 
         return TaskExecutionResult.Completed();
 #endif

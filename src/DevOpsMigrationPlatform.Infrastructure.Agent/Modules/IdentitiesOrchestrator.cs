@@ -3,6 +3,7 @@
 
 using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -15,6 +16,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
+using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
@@ -34,7 +36,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// Orchestrates identity export, import, and validation operations.
 /// Handles JSONL streaming, checkpointing, progress events, and metrics — delegates
 /// the actual identity enumeration to <see cref="IIdentitySource"/> and mapping to
-/// <see cref="IIdentityLookupTool"/>.
+/// <see cref="IIdentityTranslationTool"/>.
 /// </summary>
 internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 {
@@ -48,18 +50,37 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
+    private static readonly JsonSerializerOptions s_readOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     private readonly ILogger _logger;
     private readonly IPlatformMetrics? _PlatformMetrics;
     private readonly IPackageAccess? _package;
+    private readonly IIdentityAdapter? _identityAdapter;
+    private readonly IReadOnlyList<IIdentityMatchingStrategy> _matchingStrategies;
+
+    // Prepare-phase resolution cache (source identity -> resolved target descriptor).
+    // Populated by PrepareAsync (UPN/display-name matches only); read by ResolvePrepared.
+    // The orchestrator is a singleton, so the cache survives from Prepare to Import/Translate.
+    private readonly ConcurrentDictionary<string, string> _resolutionCache =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public IdentitiesOrchestrator(
         ILogger<IdentitiesOrchestrator> logger,
         IPlatformMetrics? PlatformMetrics = null,
-        IPackageAccess? package = null)
+        IPackageAccess? package = null,
+        IIdentityAdapter? identityAdapter = null,
+        IEnumerable<IIdentityMatchingStrategy>? matchingStrategies = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _PlatformMetrics = PlatformMetrics;
         _package = package;
+        _identityAdapter = identityAdapter;
+        _matchingStrategies = matchingStrategies is null
+            ? Array.Empty<IIdentityMatchingStrategy>()
+            : new List<IIdentityMatchingStrategy>(matchingStrategies);
     }
 
     /// <summary>
@@ -166,13 +187,13 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         }
     }
 
-#if !NET481
     /// <summary>
-    /// Imports identity descriptors: initialises the lookup tool, counts resolved entries,
-    /// and writes unresolved identities to the package.
+    /// Imports identity descriptors: initialises the translation tool, counts resolved entries,
+    /// and writes unresolved identities to the package. Unconditional per FR-020 (no interface
+    /// guard); on net481 this is unreachable because <c>IdentitiesModule</c> skips import.
     /// </summary>
     public async Task ImportAsync(
-        IIdentityLookupTool? identityLookupTool,
+        IIdentityTranslationTool? identityTranslationTool,
         ImportContext context,
         string organisation,
         string project,
@@ -203,18 +224,18 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         };
         var importSw = Stopwatch.StartNew();
 
-        if (identityLookupTool is not null)
+        if (identityTranslationTool is not null)
         {
-            await identityLookupTool.InitializeAsync(ct).ConfigureAwait(false);
+            await identityTranslationTool.InitializeAsync(ct).ConfigureAwait(false);
         }
 
         var resolvedCount = CountLines(descriptorsJson);
         for (int i = 0; i < resolvedCount; i++)
             _PlatformMetrics?.RecordIdentityImportResolved(importTags);
 
-        if (identityLookupTool is not null)
+        if (identityTranslationTool is not null)
         {
-            await identityLookupTool.WriteUnresolvedAsync(ct).ConfigureAwait(false);
+            await identityTranslationTool.WriteUnresolvedAsync(ct).ConfigureAwait(false);
         }
 
         importSw.Stop();
@@ -232,7 +253,217 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         activity?.SetTag("identities.descriptor.resolved", resolvedCount);
         activity?.SetTag("identities.has.mapping", hasMapping);
     }
-#endif
+
+    /// <inheritdoc/>
+    public async Task PrepareAsync(PrepareContext context, string organisation, string project, CancellationToken ct)
+    {
+        // Reset the prepare-phase cache so stale mappings from a prior run on this
+        // long-lived (singleton) orchestrator cannot leak into a subsequent job.
+        _resolutionCache.Clear();
+
+        using var activity = s_activitySource.StartActivity("identity.prepare");
+        activity?.SetTag("module", ModuleName);
+        activity?.SetTag("operation", "prepare");
+
+        var prepareTags = new MetricsTagList
+        {
+            new("module", ModuleName),
+            new("operation", "identity.prepare")
+        };
+
+        var sink = context.ProgressSink;
+        var sw = Stopwatch.StartNew();
+        var resolved = 0;
+        var unresolved = 0;
+        var ambiguous = 0;
+        var upnMatched = 0;
+        var displayNameMatched = 0;
+
+        _logger.LogInformation("[Identities] Identity prepare started for project '{Project}'.", project);
+        _PlatformMetrics?.IncrementPrepareIdentitiesInFlight(prepareTags);
+        sink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Identities.Prepare.Started",
+            Message = $"Preparing identity resolution for project '{project}'.",
+        });
+
+        var descriptorsContent = await ReadPackageContentAsync(context.Package, organisation, project, "descriptors.jsonl", ct).ConfigureAwait(false);
+        var canMatch = _identityAdapter is not null && _matchingStrategies.Count > 0;
+
+        if (descriptorsContent is not null)
+        {
+            foreach (var line in descriptorsContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                IdentityDescriptor? descriptor;
+                try
+                {
+                    descriptor = JsonSerializer.Deserialize<IdentityDescriptor>(line, s_readOptions);
+                }
+                catch (JsonException)
+                {
+                    continue;
+                }
+
+                if (descriptor is null || string.IsNullOrWhiteSpace(descriptor.UniqueName))
+                    continue;
+
+                if (!canMatch)
+                {
+                    unresolved++;
+                    continue;
+                }
+
+                var (resolvedDescriptor, via, wasAmbiguous) =
+                    await ResolveDescriptorAsync(descriptor, project, ct).ConfigureAwait(false);
+
+                if (resolvedDescriptor is not null)
+                {
+                    _resolutionCache[descriptor.UniqueName] = resolvedDescriptor;
+                    if (!string.IsNullOrWhiteSpace(descriptor.Descriptor))
+                        _resolutionCache[descriptor.Descriptor] = resolvedDescriptor;
+
+                    resolved++;
+                    if (string.Equals(via, "UPN", StringComparison.OrdinalIgnoreCase))
+                    {
+                        upnMatched++;
+                        _logger.LogInformation("[Identities] Identity resolved via UPN for '{Unique}'.", descriptor.UniqueName);
+                    }
+                    else
+                    {
+                        displayNameMatched++;
+                        _logger.LogInformation("[Identities] Identity resolved via display name for '{Unique}'.", descriptor.UniqueName);
+                    }
+                }
+                else
+                {
+                    unresolved++;
+                    if (wasAmbiguous)
+                        ambiguous++;
+                }
+            }
+        }
+
+        sw.Stop();
+        _PlatformMetrics?.RecordPrepareIdentitiesResolved(resolved, prepareTags);
+        _PlatformMetrics?.RecordPrepareIdentitiesUnresolved(unresolved, prepareTags);
+        _PlatformMetrics?.RecordPrepareIdentitiesDuration(sw.Elapsed.TotalMilliseconds, prepareTags);
+        // Ambiguous matches are correctness failures (fell through to default).
+        for (var i = 0; i < ambiguous; i++)
+            _PlatformMetrics?.RecordPrepareIdentitiesError(prepareTags);
+        _PlatformMetrics?.DecrementPrepareIdentitiesInFlight(prepareTags);
+
+        var report = new PrepareIdentitiesReport(
+            ModuleName, resolved, unresolved, upnMatched, displayNameMatched, ambiguous);
+        await PersistPackageTextAsync(
+            context.Package, organisation, project, "prepare-report.json",
+            JsonSerializer.Serialize(report, s_jsonOptions), ct).ConfigureAwait(false);
+
+        // Persist the per-identity resolution map so the Import phase can translate
+        // auto-resolved identities even when Prepare and Import run in separate
+        // processes (the in-memory cache does not survive a phase boundary).
+        var preparedMap = new Dictionary<string, string>(_resolutionCache, StringComparer.OrdinalIgnoreCase);
+        await PersistPackageTextAsync(
+            context.Package, organisation, project, "prepared-identities.json",
+            JsonSerializer.Serialize(preparedMap, s_jsonOptions), ct).ConfigureAwait(false);
+
+        activity?.SetTag("identities.resolved", resolved);
+        activity?.SetTag("identities.unresolved", unresolved);
+        activity?.SetTag("identities.ambiguous", ambiguous);
+
+        _logger.LogInformation(
+            "[Identities] Identity prepare complete: {Resolved} resolved ({Upn} UPN, {Dn} display-name), {Unresolved} unresolved, {Ambiguous} ambiguous in {DurationMs}ms.",
+            resolved, upnMatched, displayNameMatched, unresolved, ambiguous, sw.Elapsed.TotalMilliseconds);
+
+        sink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Identities.Prepare.Complete",
+            Message = $"Identity prepare complete — {resolved} resolved, {unresolved} unresolved.",
+        });
+    }
+
+    /// <inheritdoc/>
+    public string? ResolvePrepared(string sourceIdentity)
+    {
+        if (string.IsNullOrWhiteSpace(sourceIdentity))
+            return null;
+        return _resolutionCache.TryGetValue(sourceIdentity, out var target) ? target : null;
+    }
+
+    /// <summary>
+    /// Walks the ordered matching strategies (UPN first, then display name), querying the
+    /// adapter for the candidate set appropriate to each strategy. Returns the resolved target
+    /// descriptor, the strategy name that produced it, and whether an ambiguous match halted resolution.
+    /// </summary>
+    private async Task<(string? Resolved, string? Via, bool Ambiguous)> ResolveDescriptorAsync(
+        IdentityDescriptor descriptor, string project, CancellationToken ct)
+    {
+        foreach (var strategy in _matchingStrategies)
+        {
+            // The strategy owns which adapter method to call; the orchestrator just walks the
+            // ordered list. Child span (parented to identity.prepare via Activity.Current) is
+            // labelled by strategy name — a diagnostic tag, not a dispatch switch.
+            using var adapterActivity = s_activitySource.StartActivity("identity.adapter.query");
+            adapterActivity?.SetTag("operation", "prepare");
+            adapterActivity?.SetTag("module", ModuleName);
+            adapterActivity?.SetTag("strategy", strategy.Name);
+
+            IdentityMatch match;
+            try
+            {
+                match = await strategy
+                    .ResolveAsync(_identityAdapter!, descriptor.UniqueName, descriptor.DisplayName, project, ct)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "[Identities] Identity adapter query failed for '{Unique}' via {Strategy}; treating as unresolved and continuing.",
+                    descriptor.UniqueName, strategy.Name);
+                continue;
+            }
+
+            if (match.IsMatch)
+                return (match.Descriptor, strategy.Name, false);
+
+            if (match.IsAmbiguous)
+            {
+                _logger.LogWarning(
+                    "[Identities] Identity resolution ambiguous for display name '{DisplayName}' — {MatchCount} candidates matched; falling back to the configured default.",
+                    descriptor.DisplayName, match.MatchCount);
+                return (null, null, true);
+            }
+        }
+
+        return (null, null, false);
+    }
+
+    private static async Task PersistPackageTextAsync(
+        IPackageAccess package, string organisation, string project, string fileName, string content, CancellationToken ct)
+    {
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
+        await package.PersistContentAsync(
+            CreatePackageContentContext(organisation, project, fileName),
+            new PackagePayload(stream, "application/json"),
+            ct).ConfigureAwait(false);
+    }
+
+    private sealed record PrepareIdentitiesReport(
+        string ModuleName,
+        int ResolvedCount,
+        int UnresolvedCount,
+        int UpnMatched,
+        int DisplayNameMatched,
+        int AmbiguousCount);
 
     /// <summary>
     /// Validates the identity descriptors JSONL artefact exists, is readable, and each

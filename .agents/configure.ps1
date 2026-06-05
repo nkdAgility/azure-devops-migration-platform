@@ -23,7 +23,7 @@ param()
 $ErrorActionPreference = 'Stop'
 
 $agentsDir = $PSScriptRoot
-$repoRoot  = Split-Path $agentsDir -Parent
+$repoRoot = Split-Path $agentsDir -Parent
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -31,11 +31,11 @@ $repoRoot  = Split-Path $agentsDir -Parent
 
 function Write-Status {
     param(
-        [ValidateSet('OK','CREATED','WARN','ERROR')]
+        [ValidateSet('OK', 'CREATED', 'WARN', 'ERROR')]
         [string]$Status,
         [string]$Message
     )
-    $colors = @{ OK='Green'; CREATED='Cyan'; WARN='Yellow'; ERROR='Red' }
+    $colors = @{ OK = 'Green'; CREATED = 'Cyan'; WARN = 'Yellow'; ERROR = 'Red' }
     Write-Host ("  [{0,-7}] {1}" -f $Status, $Message) -ForegroundColor $colors[$Status]
 }
 
@@ -51,7 +51,7 @@ function Ensure-HardLink {
         [string]$TargetPath
     )
 
-    $link   = Join-Path $repoRoot $LinkPath
+    $link = Join-Path $repoRoot $LinkPath
     $target = Join-Path $repoRoot $TargetPath
 
     if (-not (Test-Path $target)) {
@@ -62,14 +62,15 @@ function Ensure-HardLink {
     if (Test-Path $link) {
         $item = Get-Item -LiteralPath $link -Force
         if ($item.LinkType -eq 'HardLink') {
-            $linkHash   = (Get-FileHash $link   -Algorithm SHA256).Hash
+            $linkHash = (Get-FileHash $link   -Algorithm SHA256).Hash
             $targetHash = (Get-FileHash $target -Algorithm SHA256).Hash
             if ($linkHash -eq $targetHash) {
                 Write-Status OK "$LinkPath  (hardlink, content matches)"
                 return
             }
             Write-Status WARN "$LinkPath is a hardlink but content differs — recreating"
-        } else {
+        }
+        else {
             Write-Status WARN "$LinkPath exists as $($item.LinkType ?? 'file') — recreating as hardlink"
         }
         if ($PSCmdlet.ShouldProcess($link, 'Remove')) { Remove-Item -LiteralPath $link -Force }
@@ -95,8 +96,8 @@ function Ensure-Symlink {
         [string]$TargetRelative
     )
 
-    $link           = Join-Path $repoRoot $LinkPath
-    $linkParent     = Split-Path $link -Parent
+    $link = Join-Path $repoRoot $LinkPath
+    $linkParent = Split-Path $link -Parent
     $targetAbsolute = [System.IO.Path]::GetFullPath((Join-Path $linkParent $TargetRelative))
 
     if (-not (Test-Path $targetAbsolute)) {
@@ -113,7 +114,8 @@ function Ensure-Symlink {
                 return
             }
             Write-Status WARN "$LinkPath symlink points elsewhere — recreating"
-        } else {
+        }
+        else {
             Write-Status WARN "$LinkPath exists as directory/file — replacing with symlink"
         }
         if ($PSCmdlet.ShouldProcess($link, 'Remove')) { Remove-Item -LiteralPath $link -Recurse -Force }
@@ -130,8 +132,8 @@ function Ensure-Symlink {
 # ---------------------------------------------------------------------------
 
 # Check symlink privileges (required for all symlink operations)
-$isAdmin    = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-$devMode    = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -ErrorAction SilentlyContinue).AllowDevelopmentWithoutDevLicense -eq 1
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+$devMode = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -ErrorAction SilentlyContinue).AllowDevelopmentWithoutDevLicense -eq 1
 $canSymlink = $isAdmin -or $devMode
 
 if (-not $canSymlink -and -not $WhatIfPreference) {
@@ -159,6 +161,7 @@ Write-Host ".claude/ symlinks:" -ForegroundColor White
 Ensure-Symlink '.claude\skills'   '..\.agents\skills'
 Ensure-Symlink '.claude\agents'   '..\.agents\agents'
 Ensure-Symlink '.claude\commands' '..\.agents\commands'
+Ensure-Symlink '.claude\prompts'  '..\.agents\prompts'
 
 # -- .github symlinks --------------------------------------------------------
 Write-Host ""

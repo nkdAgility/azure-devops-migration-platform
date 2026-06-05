@@ -83,7 +83,7 @@ public sealed class ServicesFeaturesDslTests
         var (processor, target, mapping) = CreateRevisionProcessor(
             "System.AssignedTo",
             "user@source.com",
-            toolSetup: tool => tool.Setup(t => t.Resolve("user@source.com")).Returns("user@target.com"));
+            toolSetup: tool => tool.Setup(t => t.Translate("user@source.com")).Returns("user@target.com"));
 
         await processor.ProcessAsync(
             "WorkItems/2024-01-01/00000638000000000001-1-0",
@@ -99,7 +99,7 @@ public sealed class ServicesFeaturesDslTests
                     f.Any(x => x.ReferenceName == "System.AssignedTo" && (string?)x.Value == "user@target.com")),
                 It.IsAny<CancellationToken>()),
             Times.Once);
-        mapping.Verify(t => t.Resolve("user@source.com"), Times.Once);
+        mapping.Verify(t => t.Translate("user@source.com"), Times.Once);
     }
 
     [TestCategory("UnitTest")]
@@ -109,7 +109,7 @@ public sealed class ServicesFeaturesDslTests
         var (processor, target, mapping) = CreateRevisionProcessor(
             "System.CreatedBy",
             "someuser@domain.com",
-            toolSetup: tool => tool.Setup(t => t.Resolve(It.IsAny<string>())).Returns<string>(s => s));
+            toolSetup: tool => tool.Setup(t => t.Translate(It.IsAny<string>())).Returns<string>(s => s));
 
         await processor.ProcessAsync(
             "WorkItems/2024-01-01/00000638000000000001-1-0",
@@ -125,7 +125,7 @@ public sealed class ServicesFeaturesDslTests
                     f.Any(x => x.ReferenceName == "System.CreatedBy" && (string?)x.Value == "someuser@domain.com")),
                 It.IsAny<CancellationToken>()),
             Times.Once);
-        mapping.Verify(t => t.Resolve("someuser@domain.com"), Times.Once);
+        mapping.Verify(t => t.Translate("someuser@domain.com"), Times.Once);
     }
 
     [TestCategory("UnitTest")]
@@ -280,13 +280,13 @@ public sealed class ServicesFeaturesDslTests
     private static (
         WorkItemResolutionProcessor Processor,
         Mock<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemTarget> Target,
-        Mock<IIdentityLookupTool> IdentityTool)
-        CreateRevisionProcessor(string fieldName, string fieldValue, Action<Mock<IIdentityLookupTool>> toolSetup)
+        Mock<IIdentityTranslationTool> IdentityTool)
+        CreateRevisionProcessor(string fieldName, string fieldValue, Action<Mock<IIdentityTranslationTool>> toolSetup)
     {
         var target = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemTarget>(MockBehavior.Strict);
         var idMap = new Mock<IIdMapStore>(MockBehavior.Strict);
         var checkpointing = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing.ICheckpointingService>(MockBehavior.Strict);
-        var identityTool = new Mock<IIdentityLookupTool>(MockBehavior.Strict);
+        var identityTool = new Mock<IIdentityTranslationTool>(MockBehavior.Strict);
         var package = PackageTestFactory.CreateLooseMock();
 
         toolSetup(identityTool);

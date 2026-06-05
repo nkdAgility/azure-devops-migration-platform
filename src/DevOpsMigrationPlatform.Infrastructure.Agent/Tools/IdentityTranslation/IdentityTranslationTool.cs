@@ -13,20 +13,21 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityLookup;
+namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityTranslation;
 
 /// <summary>
-/// Full <see cref="IIdentityLookupTool"/> implementation.
+/// Full <see cref="IIdentityTranslationTool"/> implementation.
 /// Reads identity descriptors and mapping overrides from the package artefact store.
 /// Thread-safe after initialization (all state set once in <see cref="InitializeAsync"/>).
 /// </summary>
-public sealed class IdentityLookupTool : IIdentityLookupTool
+public sealed class IdentityTranslationTool : IIdentityTranslationTool
 {
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
     private static readonly JsonSerializerOptions s_jsonOptions = new()
@@ -36,35 +37,42 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    private readonly IdentityLookupOptions _options;
-    private readonly ILogger<IdentityLookupTool> _logger;
+    private readonly IdentityTranslationOptions _options;
+    private readonly ILogger<IdentityTranslationTool> _logger;
     private readonly IPackageAccess _package;
+    private readonly IIdentitiesOrchestrator? _orchestrator;
     private readonly string _organisation;
     private readonly string _project;
 
     private Dictionary<string, string> _overrides = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, string> _prepared = new(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> _allUniqueNames = new(StringComparer.OrdinalIgnoreCase);
 
     public bool IsEnabled => _options.Enabled;
 
-    public IdentityLookupTool(
-        IOptions<IdentityLookupOptions> options,
+    /// <inheritdoc/>
+    public string? DefaultIdentity => _options.DefaultIdentity;
+
+    public IdentityTranslationTool(
+        IOptions<IdentityTranslationOptions> options,
         ISourceEndpointInfo sourceEndpointInfo,
-        ILogger<IdentityLookupTool>? logger = null,
-        IPackageAccess? package = null)
+        ILogger<IdentityTranslationTool>? logger = null,
+        IPackageAccess? package = null,
+        IIdentitiesOrchestrator? orchestrator = null)
     {
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         if (sourceEndpointInfo is null) throw new ArgumentNullException(nameof(sourceEndpointInfo));
         _organisation = sourceEndpointInfo.OrganisationSlug;
         _project = sourceEndpointInfo.Project;
-        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<IdentityLookupTool>.Instance;
+        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<IdentityTranslationTool>.Instance;
         _package = package ?? throw new ArgumentNullException(nameof(package));
+        _orchestrator = orchestrator;
     }
 
     /// <inheritdoc/>
     public async Task InitializeAsync(CancellationToken ct)
     {
-        using var activity = s_activitySource.StartActivity("identities.lookup.initialize");
+        using var activity = s_activitySource.StartActivity("identities.translation.initialize");
         // Read descriptors
         var descriptorsContent = await ReadPackageTextAsync("descriptors.jsonl", ct).ConfigureAwait(false);
         var allUniqueNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -113,28 +121,67 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
             }
         }
 
+        // Read prepared (auto-resolved) matches persisted by the Prepare phase. This makes
+        // resolution survive a Prepare→Import process boundary, where the orchestrator's
+        // in-memory cache is empty.
+        var preparedContent = await ReadPackageTextAsync("prepared-identities.json", ct).ConfigureAwait(false);
+        var prepared = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(preparedContent))
+        {
+            try
+            {
+                var raw = JsonSerializer.Deserialize<Dictionary<string, string>>(preparedContent!, s_jsonOptions);
+                if (raw is not null)
+                {
+                    foreach (var kv in raw)
+                        prepared[kv.Key] = kv.Value;
+                }
+            }
+            catch (JsonException)
+            {
+                // Non-fatal — fall back to the orchestrator cache / default logic.
+            }
+        }
+
         _allUniqueNames = allUniqueNames;
         _overrides = overrides;
+        _prepared = prepared;
 
         _logger.LogInformation(
-            "[IdentityLookup] Initialized with {DescriptorCount} descriptors, {MappingCount} mapping overrides.",
-            _allUniqueNames.Count, _overrides.Count);
+            "[IdentityTranslation] Initialized with {DescriptorCount} descriptors, {MappingCount} mapping overrides, {PreparedCount} prepared matches.",
+            _allUniqueNames.Count, _overrides.Count, _prepared.Count);
         activity?.SetTag("identities.descriptor.count", _allUniqueNames.Count);
         activity?.SetTag("identities.mapping.count", _overrides.Count);
+        activity?.SetTag("identities.prepared.count", _prepared.Count);
     }
 
     /// <inheritdoc/>
-    public string Resolve(string sourceIdentity)
+    public string Translate(string sourceIdentity)
     {
-        using var activity = s_activitySource.StartActivity("identities.lookup.resolve");
-        if (string.IsNullOrWhiteSpace(sourceIdentity))
+        using var activity = s_activitySource.StartActivity("identity.translate");
+        if (!IsEnabled || string.IsNullOrWhiteSpace(sourceIdentity))
             return sourceIdentity;
 
+        // Step 1: explicit override from mapping.json.
         if (_overrides.TryGetValue(sourceIdentity, out var mapped))
             return mapped;
 
+        // Steps 2-3: Prepare-phase UPN/display-name match. Prefer the persisted map
+        // (survives a Prepare→Import process boundary); fall back to the orchestrator's
+        // in-memory cache for the single-process path.
+        if (_prepared.TryGetValue(sourceIdentity, out var preparedTarget) && !string.IsNullOrWhiteSpace(preparedTarget))
+            return preparedTarget;
+
+        var prepared = _orchestrator?.ResolvePrepared(sourceIdentity);
+        if (!string.IsNullOrWhiteSpace(prepared))
+            return prepared!;
+
+        // Step 4: configured default (when set); otherwise source pass-through.
         if (!string.IsNullOrWhiteSpace(_options.DefaultIdentity))
-            return _options.DefaultIdentity ?? sourceIdentity;
+        {
+            _logger.LogInformation("[IdentityTranslation] '{Source}' unresolved — returning configured default.", sourceIdentity);
+            return _options.DefaultIdentity!;
+        }
 
         return sourceIdentity;
     }
@@ -145,7 +192,10 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
         var unresolved = new List<string>();
         foreach (var uniqueName in _allUniqueNames)
         {
-            if (!_overrides.ContainsKey(uniqueName))
+            // An identity is resolved if it has an explicit mapping.json override OR was
+            // auto-resolved by the Prepare phase (UPN/display-name match). Excluding the
+            // latter prevents successfully translated identities being reported as failures.
+            if (!_overrides.ContainsKey(uniqueName) && !_prepared.ContainsKey(uniqueName))
                 unresolved.Add(uniqueName);
         }
 
@@ -155,7 +205,7 @@ public sealed class IdentityLookupTool : IIdentityLookupTool
         await WritePackageTextAsync("unresolved.json", content, ct).ConfigureAwait(false);
 
         _logger.LogWarning(
-            "[IdentityLookup] {Count} identit{Suffix} have no explicit mapping — written to Identities/unresolved.json.",
+            "[IdentityTranslation] {Count} identit{Suffix} have no explicit mapping or prepared match — written to Identities/unresolved.json.",
             unresolved.Count, unresolved.Count == 1 ? "y" : "ies");
     }
 

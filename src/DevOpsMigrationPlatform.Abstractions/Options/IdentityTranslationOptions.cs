@@ -4,17 +4,17 @@
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
-/// Root options for the IdentityLookup tool.
-/// Bound from <c>MigrationPlatform:Tools:IdentityLookup</c>.
+/// Root options for the IdentityTranslation tool.
+/// Bound from <c>MigrationPlatform:Tools:IdentityTranslation</c>.
 /// </summary>
 #if NET7_0_OR_GREATER
-public sealed class IdentityLookupOptions : IConfigSection
+public sealed class IdentityTranslationOptions : IConfigSection
 #else
-public sealed class IdentityLookupOptions
+public sealed class IdentityTranslationOptions
 #endif
 {
     /// <summary>Configuration section path.</summary>
-    public static string SectionName => "MigrationPlatform:Tools:IdentityLookup";
+    public static string SectionName => "MigrationPlatform:Tools:IdentityTranslation";
 
     /// <summary>
     /// Master switch. When <c>false</c>, all identity resolution returns the source identity unchanged.

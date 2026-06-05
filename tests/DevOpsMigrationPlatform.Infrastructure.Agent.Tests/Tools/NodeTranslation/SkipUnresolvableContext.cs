@@ -34,7 +34,7 @@ public class SkipUnresolvableContext
     public Mock<IWorkItemTarget> TargetMock { get; } = new(MockBehavior.Loose);
     public Mock<IIdMapStore> IdMapStoreMock { get; } = new(MockBehavior.Loose);
     public Mock<ICheckpointingService> CheckpointingMock { get; } = new(MockBehavior.Loose);
-    public Mock<IIdentityLookupTool> IdentityMappingMock { get; } = new(MockBehavior.Loose);
+    public Mock<IIdentityTranslationTool> IdentityMappingMock { get; } = new(MockBehavior.Loose);
     public Mock<IPackageAccess> PackageMock { get; } = new(MockBehavior.Loose);
     public Mock<IWorkItemResolutionStrategy> ResolutionStrategyMock { get; } = new(MockBehavior.Loose);
 
@@ -43,7 +43,7 @@ public class SkipUnresolvableContext
 
     public SkipUnresolvableContext()
     {
-        IdentityMappingMock.Setup(s => s.Resolve(It.IsAny<string>())).Returns<string>(id => id);
+        IdentityMappingMock.Setup(s => s.Translate(It.IsAny<string>())).Returns<string>(id => id);
         IdMapStoreMock.Setup(s => s.GetTargetWorkItemIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(99);
         IdMapStoreMock.Setup(s => s.RecordSkippedRevisionAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))

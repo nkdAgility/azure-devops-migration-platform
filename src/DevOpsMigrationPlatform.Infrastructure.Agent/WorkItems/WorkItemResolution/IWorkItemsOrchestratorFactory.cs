@@ -29,7 +29,7 @@ public interface IWorkItemsOrchestratorFactory
         ICheckpointingServiceFactory checkpointingFactory,
         IIdMapStoreFactory idMapStoreFactory,
         IWorkItemResolutionProcessorFactory processorFactory,
-        IIdentityLookupTool? identityLookupTool,
+        IIdentityTranslationTool? identityTranslationTool,
         IWorkItemsImportCapabilityValidator capabilityValidator,
         IWorkItemsNodeReadinessOrchestrator nodeReadinessOrchestrator,
         IPlatformMetrics? metrics,

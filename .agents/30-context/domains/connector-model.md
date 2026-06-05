@@ -22,7 +22,17 @@ Target connector coverage evolves by capability; do not treat current TFS target
 
 ## Client Integration Boundary
 
-Azure DevOps connectors obtain clients from `IAzureDevOpsClientFactory`. This is the only permitted way to create API clients. No direct `VssConnection` instantiation.
+Azure DevOps connectors obtain clients from `IAzureDevOpsClientFactory`. This is the only permitted way to create API clients. No direct `VssConnection` instantiation. (The identity adapter uses `IAzureDevOpsClientFactory.CreateIdentityClientAsync` → `IdentityHttpClient`.)
+
+## Identity Adapter (`IIdentityAdapter`)
+
+`IIdentityAdapter` is the connector abstraction for querying the **target** tenant by UPN/display name during the Prepare phase (distinct from `IIdentitySource`, which enumerates the source at export time). Each connector lives at its own project boundary — **no `#if` guards**:
+
+- `SimulatedIdentityAdapter` (Infrastructure.Simulated, net10) — deterministic in-memory target.
+- `AzureDevOpsIdentityAdapter` (Infrastructure.AzureDevOps, net10) — `IdentityHttpClient.ReadIdentitiesAsync`.
+- `TfsIdentityAdapter` (Infrastructure.TfsObjectModel, net481) — reduced capability: returns empty + structured Warning (the TFS Identity Service does not expose UPN/display-name search). Modeled explicitly in the contract result, not a stub.
+
+Registered via `AddIdentityAdapter<T>("<connectorType>")` and dispatched by `CompositeIdentityAdapter` on `ITargetEndpointInfo.ConnectorType`.
 
 ## Key Rules
 
