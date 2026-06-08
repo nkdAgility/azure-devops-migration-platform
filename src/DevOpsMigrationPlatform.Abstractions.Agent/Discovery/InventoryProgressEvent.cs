@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Collections.Generic;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 
@@ -27,4 +28,6 @@ public sealed class InventoryProgressEvent
     /// <summary>Non-null on error events.</summary>
     public string? Error { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    /// <summary>Work item count by System.AreaPath. Populated on the final (IsComplete) event only.</summary>
+    public Dictionary<string, int>? AreaPathCounts { get; set; }
 }

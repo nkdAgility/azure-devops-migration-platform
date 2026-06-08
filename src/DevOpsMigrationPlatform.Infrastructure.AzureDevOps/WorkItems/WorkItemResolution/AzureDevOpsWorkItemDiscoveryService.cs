@@ -39,10 +39,11 @@ internal sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoverySe
     {
         var summary = new ProjectDiscoverySummary { ProjectName = project };
 
-        // Union caller-supplied fields with System.Rev (always required for revision counting).
+        // Union caller-supplied fields with System.Rev (always required for revision counting)
+        // and System.AreaPath (required for per-area-path work item counts).
         var mergedFields = scope?.Fields is { Count: > 0 }
-            ? new[] { "System.Rev" }.Union(scope.Fields).ToArray()
-            : new[] { "System.Rev" };
+            ? new[] { "System.Rev", "System.AreaPath" }.Union(scope.Fields).ToArray()
+            : new[] { "System.Rev", "System.AreaPath" };
 
         // Thread the caller's progress callback into the fetch scope so per-batch
         // ProgressEvents are fired automatically without a manual counting loop here.
@@ -62,6 +63,8 @@ internal sealed class AzureDevOpsWorkItemDiscoveryService : IWorkItemDiscoverySe
             summary.WorkItemsCount++;
             if (item.Fields.TryGetValue("System.Rev", out var revObj) && revObj is IConvertible c)
                 summary.RevisionsCount += c.ToInt32(null);
+            if (item.Fields.TryGetValue("System.AreaPath", out var areaPathObj) && areaPathObj is string areaPath && !string.IsNullOrEmpty(areaPath))
+                summary.AreaPathCounts[areaPath] = summary.AreaPathCounts.TryGetValue(areaPath, out var n) ? n + 1 : 1;
 
             itemsSinceLastYield++;
             if (itemsSinceLastYield >= ProgressInterval)

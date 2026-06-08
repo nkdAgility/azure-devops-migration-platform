@@ -42,6 +42,9 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     private static PackageIndexContext OrgCsvIndexFor(string orgSlug)
         => new("inventory.csv", Organisation: orgSlug);
 
+    private static PackageIndexContext OrgAreaPathCsvIndexFor(string orgSlug)
+        => new("inventory-areapath.csv", Organisation: orgSlug);
+
     // Aggregate index (all orgs combined).
     private static PackageIndexContext RootCsvIndex => new("inventory.csv");
 
@@ -106,6 +109,9 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
 
         var csvBuilder = new StringBuilder();
         csvBuilder.AppendLine("Url,ProjectName,WorkItemsCount,RevisionsCount,ReposCount,IsComplete,Error");
+
+        var areaPathCsvBuilder = new StringBuilder();
+        areaPathCsvBuilder.AppendLine("Url,ProjectName,AreaPath,WorkItemsCount");
 
         var orgProjectData = new Dictionary<string, List<(string Project, long WorkItems, long Revisions, int Repos, bool IsComplete, string? Error)>>(StringComparer.OrdinalIgnoreCase);
 
@@ -216,6 +222,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
                 if (DateTime.UtcNow - lastCheckpoint >= checkpointInterval)
                 {
                     await WriteInventoryCsvAsync(package, csvOutputContext, csvBuilder.ToString(), ct).ConfigureAwait(false);
+                    await WriteInventoryCsvAsync(package, OrgAreaPathCsvIndexFor(orgSlug), areaPathCsvBuilder.ToString(), ct).ConfigureAwait(false);
                     await WriteInventoryJsonAsync(package, orgSlug, orgProjectData, ct).ConfigureAwait(false);
                     lastCheckpoint = DateTime.UtcNow;
                     _logger.LogDebug("Inventory mid-project flush at checkpoint interval.");
@@ -256,6 +263,12 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
             csvBuilder.AppendLine(
                 $"{EscapeCsv(evt.Url)},{EscapeCsv(evt.ProjectName)},{evt.WorkItemsCount},{evt.RevisionsCount},{evt.ReposCount},{evt.IsComplete},{EscapeCsv(evt.Error ?? "")}");
 
+            if (evt.AreaPathCounts is { Count: > 0 })
+            {
+                foreach (var kvp in evt.AreaPathCounts)
+                    areaPathCsvBuilder.AppendLine($"{EscapeCsv(evt.Url)},{EscapeCsv(evt.ProjectName)},{EscapeCsv(kvp.Key)},{kvp.Value}");
+            }
+
             if (!orgProjectData.TryGetValue(evt.Url, out var orgList))
             {
                 orgList = new List<(string, long, long, int, bool, string?)>();
@@ -273,6 +286,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
                 repos: evt.ReposCount,
                 isComplete: evt.Error is null,
                 error: evt.Error,
+                areaPaths: evt.AreaPathCounts,
                 ct: ct).ConfigureAwait(false);
 
             projectSw.Stop();
@@ -322,6 +336,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
 
             // Flush CSV and JSON after every completed project.
             await WriteInventoryCsvAsync(package, csvOutputContext, csvBuilder.ToString(), ct).ConfigureAwait(false);
+            await WriteInventoryCsvAsync(package, OrgAreaPathCsvIndexFor(orgSlug), areaPathCsvBuilder.ToString(), ct).ConfigureAwait(false);
             await WriteInventoryJsonAsync(package, orgSlug, orgProjectData, ct).ConfigureAwait(false);
             lastCompletedProjectKey = projectKey;
             lastCompletedProjectUrl = evt.Url;
@@ -369,6 +384,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
 
         // Final write — per-org CSV/JSON and rolling aggregate.
         await WriteInventoryCsvAsync(package, csvOutputContext, csvBuilder.ToString(), ct).ConfigureAwait(false);
+        await WriteInventoryCsvAsync(package, OrgAreaPathCsvIndexFor(orgSlug), areaPathCsvBuilder.ToString(), ct).ConfigureAwait(false);
         await WriteInventoryJsonAsync(package, orgSlug, orgProjectData, ct).ConfigureAwait(false);
         await MergeAndWriteAggregateAsync(package, orgProjectData, ct).ConfigureAwait(false);
 

@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Collections.Generic;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 
@@ -29,4 +30,10 @@ public class ProjectDiscoverySummary
     public string? Error { get; set; }
 
     public DateTime LastUpdatedUtc { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Work item count keyed by System.AreaPath. Populated on the final event only.
+    /// Empty when the discovery path does not support field-level area path collection.
+    /// </summary>
+    public Dictionary<string, int> AreaPathCounts { get; } = new(StringComparer.OrdinalIgnoreCase);
 }

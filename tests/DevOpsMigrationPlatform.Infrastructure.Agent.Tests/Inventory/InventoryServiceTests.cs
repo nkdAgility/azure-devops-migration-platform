@@ -584,7 +584,7 @@ public class InventoryServiceTests
     }
 
     [TestMethod]
-    public async Task DiscoverWorkItemsAsync_WithNoScope_UsesOnlySystemRevField()
+    public async Task DiscoverWorkItemsAsync_WithNoScope_UsesSystemRevAndAreaPathFields()
     {
         // Arrange: capture the WorkItemFetchScope passed to FetchAsync
         WorkItemFetchScope? capturedScope = null;
@@ -606,10 +606,10 @@ public class InventoryServiceTests
         // Act: no scope passed
         await foreach (var _ in sut.DiscoverWorkItemsAsync(TestOrgEndpoint, "Proj")) { }
 
-        // Assert: only System.Rev is requested
+        // Assert: System.Rev and System.AreaPath are always requested for revision counting and area path breakdown
         Assert.IsNotNull(capturedScope);
-        Assert.AreEqual(1, capturedScope!.Fields.Count, "Only System.Rev should be requested when no scope is given.");
-        Assert.AreEqual("System.Rev", capturedScope.Fields[0]);
+        CollectionAssert.Contains(capturedScope!.Fields.ToList(), "System.Rev");
+        CollectionAssert.Contains(capturedScope.Fields.ToList(), "System.AreaPath");
     }
 
     // ── Resume: completed project keys are skipped ────────────────────────────
