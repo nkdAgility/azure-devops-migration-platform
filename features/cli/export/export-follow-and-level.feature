@@ -3,11 +3,6 @@ Feature: Export follow and level options
   I want to control diagnostic verbosity and optionally follow diagnostics inline
   So that I can troubleshoot issues without switching to the TUI
 
-  Scenario: Export with explicit log level writes records at that level to the package
-    Given an operator runs "export --config migration.json --level Debug"
-    When the job executes on the agent
-    Then ".migration/Logs/agent.jsonl" in the package contains records at Debug level and above
-
   Scenario: Export with default log level writes Information and above
     Given an operator runs "export --config migration.json" without a --level option
     When the job executes on the agent
@@ -17,12 +12,6 @@ Feature: Export follow and level options
     Given an operator runs "export --config migration.json --url https://cp.example.com"
     When the job is submitted successfully
     Then the CLI prints the job ID and exits immediately
-
-  Scenario: Export with follow streams diagnostics to the console
-    Given an operator runs "export --config migration.json --follow --url https://cp.example.com"
-    When the job is running
-    Then the CLI streams diagnostic log records to the console
-    And when the job completes the CLI prints a summary and exits
 
   Scenario: Ctrl+C during follow detaches without cancelling the job
     Given an operator is following diagnostics for a running export

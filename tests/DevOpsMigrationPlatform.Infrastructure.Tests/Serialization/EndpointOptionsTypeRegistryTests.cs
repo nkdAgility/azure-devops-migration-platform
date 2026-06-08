@@ -11,6 +11,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Serialization;
 [TestClass]
 public sealed class EndpointOptionsTypeRegistryTests
 {
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void Register_NewKey_Succeeds()
     {
@@ -22,6 +23,7 @@ public sealed class EndpointOptionsTypeRegistryTests
         Assert.AreEqual(typeof(TestEndpointOptions), type);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void Register_DuplicateKeyWithSameType_IsIdempotent()
     {
@@ -31,6 +33,7 @@ public sealed class EndpointOptionsTypeRegistryTests
         registry.Register("TestKey", typeof(TestEndpointOptions));
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void Register_DuplicateKeyWithDifferentType_ThrowsInvalidOperationException()
     {
@@ -40,6 +43,7 @@ public sealed class EndpointOptionsTypeRegistryTests
             () => registry.Register("TestKey", typeof(AnotherEndpointOptions)));
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void TryGetType_UnknownKey_ReturnsFalseAndNullType()
     {
@@ -49,6 +53,7 @@ public sealed class EndpointOptionsTypeRegistryTests
         Assert.IsNull(type);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void TryGetType_IsCaseInsensitive()
     {

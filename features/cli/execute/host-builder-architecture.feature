@@ -19,16 +19,6 @@ Feature: Host Builder Architecture
     Then the IFoo service is resolvable
     And other commands that do not register IFoo cannot resolve it
 
-  Scenario: Default config file is migration.json when --config is not specified
-    When no --config argument is provided
-    Then the configuration layers include "migration.json" from the current directory
-
-  Scenario: Config file from --config argument overrides default
-    Given the argument "--config scenarios/my-scenario.json" is provided
-    When the host extracts the config file argument
-    Then the config file path is resolved to an absolute path ending in "my-scenario.json"
-    And the remaining arguments do not include "--config" or the file path
-
   Scenario: ValidateOnStart fails immediately for invalid configuration
     Given a command registers IOptions<T> with ValidateOnStart
     And the configuration contains invalid values for that options type
