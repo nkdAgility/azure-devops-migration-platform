@@ -188,6 +188,39 @@ public sealed class DiagnosticLogStoreTests
             replayed.Select(r => r.Message).ToArray());
     }
 
+    /// <summary>
+    /// Scenario: Standalone mode aligns control plane minimum with operator level
+    /// When an operator runs export with "--level Information" in standalone mode, the control plane
+    /// deployment-level minimum is configured to "Information".  All Information and above records
+    /// are accepted by the DiagnosticLogStore (available for live streaming), while records below
+    /// Information are discarded on ingestion.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("UnitTest")]
+    public void StandaloneMode_OperatorLevelInformation_ControlPlaneAcceptsInformationAndAbove()
+    {
+        // Simulate: operator ran export --level Information in standalone mode,
+        // so the control plane deployment-level minimum is set to "Information".
+        var store = CreateStore(capacity: 10, minimumLevel: "Information");
+
+        store.Add(JobId, new[]
+        {
+            MakeRecord("Debug", "debug — must be discarded"),
+            MakeRecord("Information", "info — must be retained"),
+            MakeRecord("Warning", "warning — must be retained"),
+            MakeRecord("Error", "error — must be retained"),
+        });
+
+        var snapshot = store.GetSnapshot(JobId);
+
+        // Debug is below Information — discarded on ingestion
+        Assert.AreEqual(3, snapshot.Count,
+            "Expected 3 records (Information/Warning/Error); Debug must be discarded by the control plane minimum.");
+        CollectionAssert.AreEqual(
+            new[] { "info — must be retained", "warning — must be retained", "error — must be retained" },
+            snapshot.Select(r => r.Message).ToArray());
+    }
+
     private static DiagnosticLogStore CreateStore(int capacity, string minimumLevel) =>
         new(Options.Create(new DiagnosticLogStoreOptions
         {
