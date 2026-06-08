@@ -233,6 +233,59 @@ public class PackageDiagnosticsSinkTests
         Assert.IsTrue(allContent.Contains("error message"), "Error record must be written.");
     }
 
+    // ─── Scenario: Agent writes at its configured level regardless of control plane level ───
+
+    /// <summary>
+    /// When the agent diagnostic log level is set to Debug and the control plane deployment-level
+    /// minimum is Warning, the agent still writes Debug and above records to the package.
+    /// The two providers have independent minimum-level filters: PackageLoggerProvider respects
+    /// its own MinimumLevel irrespective of what the control plane is configured to buffer.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("UnitTest")]
+    public async Task PackageLoggerProvider_AgentAtDebug_WritesDebugAndAboveRegardlessOfControlPlaneLevel()
+    {
+        var payloads = new List<string>();
+        var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
+        mockPackage
+            .Setup(p => p.AppendLogAsync(
+                It.Is<PackageLogContext>(c => c.Stream == PackageLogStream.Diagnostics),
+                It.IsAny<PackageLogPayload>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<PackageLogContext, PackageLogPayload, CancellationToken>((_, payload, _) =>
+            {
+                using var reader = new System.IO.StreamReader(payload.Content, Encoding.UTF8, leaveOpen: true);
+                payloads.Add(reader.ReadToEnd());
+            })
+            .Returns(ValueTask.CompletedTask);
+
+        // Agent configured at Debug — control plane configured at Warning (independent)
+        var state = BuildActiveState();
+        using var agentProvider = new PackageLoggerProvider(
+            state,
+            Options.Create(new DiagnosticLogOptions { MinimumLevel = "Debug" }),
+            BuildServiceProvider(mockPackage.Object));
+
+        var logger = agentProvider.CreateLogger("AgentCategory");
+        logger.LogDebug("debug record");
+        logger.LogInformation("information record");
+        logger.LogWarning("warning record");
+        logger.LogError("error record");
+
+        await agentProvider.FlushAsync();
+
+        var allContent = string.Join(string.Empty, payloads);
+        var lines = allContent.Split('\n', System.StringSplitOptions.RemoveEmptyEntries);
+
+        // All four levels must be present in the package — agent filter is Debug, not Warning
+        Assert.IsTrue(lines.Length >= 4,
+            $"Expected at least 4 NDJSON lines (Debug/Information/Warning/Error); got {lines.Length}.");
+        Assert.IsTrue(allContent.Contains("debug record"), "Debug record must be written to package when agent level is Debug.");
+        Assert.IsTrue(allContent.Contains("information record"), "Information record must be written.");
+        Assert.IsTrue(allContent.Contains("warning record"), "Warning record must be written.");
+        Assert.IsTrue(allContent.Contains("error record"), "Error record must be written.");
+    }
+
     // ─── Scenario: Log sink failures do not halt the export ───
 
     /// <summary>
