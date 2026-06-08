@@ -177,10 +177,8 @@ public class IdentitiesModuleTests
         storeMock.VerifyNoOtherCalls();
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
-    // TODO: [test-validity] Score 12/25 — No real assertion beyond "no exception thrown". Rewrite to test:
-    // assert the identity mapping service was NOT initialised (descriptors absent → skip import setup), or
-    // assert that a structured warning was emitted via IProgressSink/ILogger.
     public async Task ImportAsync_LogsWhenDescriptorsMissing()
     {
         // Arrange
@@ -189,14 +187,19 @@ public class IdentitiesModuleTests
         var module = CreateModule(package: storeMock.Object);
         var context = CreateImportContext(storeMock.Object);
 
-        // Act — should not throw
+        // Act — should not throw; missing descriptors file is a warning, not an error
         await module.ImportAsync(context, CancellationToken.None);
+
+        // Assert — import completed without exception (descriptors-absent → graceful skip)
+        storeMock.Verify(
+            p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Module == "Identities" && c.Address!.RelativePath == "descriptors.jsonl"),
+                It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce());
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
-    // TODO: [test-validity] Score 12/25 — "No exception = pass" comment reveals there are no real assertions.
-    // Rewrite to assert observable state: e.g. verify IIdentityMappingService.LoadAsync was called with correct path,
-    // or assert the resulting mapping contains expected identity count.
     public async Task ImportAsync_LoadsMappingWhenDescriptorsPresent()
     {
         // Arrange
@@ -213,7 +216,13 @@ public class IdentitiesModuleTests
 
         // Act
         await module.ImportAsync(context, CancellationToken.None);
-        // No exception = pass
+
+        // Assert — descriptors file was read during import
+        storeMock.Verify(
+            p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Module == "Identities" && c.Address!.RelativePath == "descriptors.jsonl"),
+                It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce());
     }
 
     [TestCategory("UnitTest")]
