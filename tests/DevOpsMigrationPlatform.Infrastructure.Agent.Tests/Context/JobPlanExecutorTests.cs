@@ -35,6 +35,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class JobPlanExecutorTests
 {
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteExportPhaseAsync_AllModulesEnabled_RunsConcurrently()
     {
@@ -102,6 +103,7 @@ public sealed class JobPlanExecutorTests
         Assert.IsTrue(concurrentStarts >= 3, $"At least 3 tasks should start within 500ms, but only {concurrentStarts} did");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteExportPhaseAsync_WithCaptureAndAnalysePrerequisites_RunsThemBeforeExport()
     {
@@ -202,6 +204,7 @@ public sealed class JobPlanExecutorTests
         CollectionAssert.AreEqual(new[] { "Capture", "Analyse", "Export" }, executionOrder);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteExportPhaseAsync_WhenInventoryMarkerExists_DoesNotSkipPrerequisitesInExecutor()
     {
@@ -332,6 +335,7 @@ public sealed class JobPlanExecutorTests
         Assert.AreEqual(JobTaskStatus.Completed, persistedPlan.Tasks.First(t => t.Id == "export.workitems.testorg.testproject").Status);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteTasksAsync_WhenCaptureHandlerReportsSkipped_PersistsReportedStatusWithoutSynthesizingCompletion()
     {
@@ -378,6 +382,7 @@ public sealed class JobPlanExecutorTests
         Assert.AreEqual(5L, captureTask.CompletedCount);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteExportPhaseAsync_WhenLiveTaskCompletes_EmitsKnownTotalAndCompletedCount()
     {
@@ -462,6 +467,7 @@ public sealed class JobPlanExecutorTests
         Assert.AreEqual(5L, completedTask.CompletedCount);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteImportPhaseAsync_WorkItemsDependsOnIdentities_WaitsForIdentities()
     {
@@ -521,6 +527,7 @@ public sealed class JobPlanExecutorTests
         Assert.AreEqual("WorkItems", executionOrder[1], "WorkItems should complete after Identities");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteImportPhaseAsync_IdentitiesFails_WorkItemsSkipped()
     {
@@ -569,6 +576,7 @@ public sealed class JobPlanExecutorTests
         Assert.IsTrue(workItemsTask.SkipReason!.Contains("import.identities"), "Skip reason should mention the failed dependency");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteExportPhaseAsync_PassesTaskIdIntoScopedExportContext()
     {
@@ -617,6 +625,7 @@ public sealed class JobPlanExecutorTests
         Assert.AreEqual("testproject", observedContext.Project);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteImportPhaseAsync_DisabledDependency_DependentSkipped()
     {
@@ -655,6 +664,7 @@ public sealed class JobPlanExecutorTests
         Assert.AreEqual(JobTaskStatus.Skipped, nodesTask.Status, "Nodes task should be Skipped");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteImportPhaseAsync_FailedTaskDoesNotCancelSiblings()
     {
@@ -710,6 +720,7 @@ public sealed class JobPlanExecutorTests
         Assert.AreEqual(JobTaskStatus.Completed, teamsTask.Status, "Teams should complete (sibling of failed Nodes)");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task LoadOrResetAsync_RunningTasksAreResetToPending()
     {
@@ -741,6 +752,7 @@ public sealed class JobPlanExecutorTests
         Assert.AreEqual(JobTaskStatus.Completed, nodesTask.Status, "Completed task should remain Completed");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task LoadOrResetAsync_CorruptPlan_ReturnsNull()
     {
@@ -763,6 +775,7 @@ public sealed class JobPlanExecutorTests
     /// resumes without ForceFresh, no module's ExportAsync should be invoked.
     /// This covers the scenario "Completed tasks not re-executed on resume".
     /// </summary>
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteExportPhaseAsync_AllTasksAlreadyCompleted_NoModuleCalled()
     {
@@ -806,6 +819,7 @@ public sealed class JobPlanExecutorTests
     /// <summary>
     /// Regression guard: same as the Export variant but for the Import path.
     /// </summary>
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteImportPhaseAsync_AllTasksAlreadyCompleted_NoModuleCalled()
     {
@@ -837,6 +851,7 @@ public sealed class JobPlanExecutorTests
         Assert.IsTrue(result, "Import phase should return true when all tasks are already completed");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteImportPhaseAsync_PartialResume_CompletedDependencyAllowsDependentTaskToRun()
     {
@@ -873,6 +888,7 @@ public sealed class JobPlanExecutorTests
         Assert.IsTrue(invoked, "The dependent pending task should execute after its dependency has already completed.");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteTasksAsync_FailedDependencyOnResume_ReturnsFalseAndSkipsDependentTask()
     {
@@ -917,6 +933,7 @@ public sealed class JobPlanExecutorTests
         StringAssert.Contains(persisted, "failed or was skipped");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteTasksAsync_SkippedDependency_SkipsDependentTaskWithoutInvokingHandler()
     {
@@ -961,6 +978,7 @@ public sealed class JobPlanExecutorTests
         StringAssert.Contains(persisted, "failed or was skipped");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteImportPhaseAsync_FailedDependencyOnResume_ReturnsFalseAndSkipsDependentTask()
     {
@@ -1001,6 +1019,7 @@ public sealed class JobPlanExecutorTests
     /// Regression guard: mixed plan where some tasks are Completed and one is still Pending.
     /// Only the Pending task's module should execute; the completed ones must not.
     /// </summary>
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteExportPhaseAsync_PartialResume_OnlyPendingTaskExecuted()
     {
@@ -1060,6 +1079,7 @@ public sealed class JobPlanExecutorTests
     /// "capture.workitems.org.project" must route to the handler named "workitems".
     /// Validates GetModuleName extracts the second dot-segment (index 1) correctly.
     /// </summary>
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteTasksAsync_CaptureTask_WorkitemsId_RoutesToWorkitemsHandler()
     {
@@ -1096,6 +1116,7 @@ public sealed class JobPlanExecutorTests
     /// "capture.dependencies.org.project" must route to the handler named "dependencies".
     /// Validates GetModuleName extracts the second dot-segment (index 1) correctly.
     /// </summary>
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteTasksAsync_CaptureTask_DependenciesId_RoutesToDependenciesHandler()
     {
@@ -1128,6 +1149,7 @@ public sealed class JobPlanExecutorTests
         Assert.IsTrue(invoked, "Handler named 'dependencies' must be invoked for task 'capture.dependencies.org.project'");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteTasksAsync_CaptureTask_ExposesResolvedSourceEndpointThroughAccessor_AndRestoresPreviousSource()
     {
@@ -1208,6 +1230,7 @@ public sealed class JobPlanExecutorTests
         Assert.AreEqual("OriginalConnector", activeSourceEndpoint.ConnectorType);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteExportPhaseAsync_ExportTask_ExposesTaskProjectThroughAccessor_WhenFallbackSourceHasNoUrl()
     {
@@ -1275,6 +1298,7 @@ public sealed class JobPlanExecutorTests
         Assert.AreEqual("Simulated", activeSourceEndpoint.ConnectorType);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteTasksAsync_ImportTask_ExposesTaskProjectThroughTargetAccessor_WhenFallbackTargetHasNoUrl()
     {
@@ -1341,6 +1365,7 @@ public sealed class JobPlanExecutorTests
     /// When no capture handler matches the task's module name, the executor must log
     /// an Error with {TaskId} and {HandlerName} structured parameters and fail the task/job.
     /// </summary>
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteTasksAsync_CaptureTask_NoMatchingHandler_LogsErrorAndFailsTask()
     {
@@ -1371,6 +1396,7 @@ public sealed class JobPlanExecutorTests
             "LogError must be called exactly once with {TaskId} and {HandlerName} structured parameters");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteTasksAsync_CaptureTask_UnknownOrganisationUrl_FailsWithoutInvokingHandler()
     {
@@ -1416,6 +1442,7 @@ public sealed class JobPlanExecutorTests
         Assert.IsFalse(invoked, "Capture handler must not be invoked when the task organisation URL cannot be resolved.");
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExecuteTasksAsync_WithPackageBoundary_PersistsPlanViaPackageMeta()
     {
@@ -1475,6 +1502,79 @@ public sealed class JobPlanExecutorTests
             It.Is<PackageMetaContext>(c => c.Kind == PackageMetaKind.ExecutionPlan),
             It.IsAny<PackageMetaPayload>(),
             It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
+    /// <summary>
+    /// ForceFresh scenario: when an existing plan (all Completed) is deleted and a fresh plan
+    /// is built with all tasks Pending, executing the plan must call all module ExportAsync methods.
+    /// This covers the feature scenario "ForceFresh deletes plan file and rebuilds".
+    /// </summary>
+    [TestCategory("UnitTest")]
+    [TestMethod]
+    public async Task ExecuteExportPhaseAsync_ForceFresh_DeletesPlanAndRebuildsWithAllTasksPending_AllModulesCalled()
+    {
+        // Arrange — simulate that after ForceFresh the plan file has been deleted
+        // and a fresh plan is built where every task is Pending.
+        var exportCalled = new List<string>();
+        var lockObj = new object();
+
+        var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in new[] { "Identities", "Nodes", "Teams", "WorkItems" })
+        {
+            var module = new Mock<IModule>(MockBehavior.Loose);
+            module.SetupGet(m => m.Name).Returns(name);
+            var capturedName = name;
+            module.Setup(m => m.ExportAsync(It.IsAny<ExportContext>(), It.IsAny<CancellationToken>()))
+                .Returns(() =>
+                {
+                    lock (lockObj) { exportCalled.Add(capturedName); }
+                    return Task.FromResult(TaskExecutionResult.Completed());
+                });
+            modules[name] = module.Object;
+        }
+
+        // Fresh plan — all tasks Pending, as if ForceFresh deleted the old Completed plan
+        var freshPlan = CreatePlan(new[]
+        {
+            CreateTask("export.identities", "Identities Export", "Export", status: JobTaskStatus.Pending),
+            CreateTask("export.nodes",      "Nodes Export",      "Export", status: JobTaskStatus.Pending),
+            CreateTask("export.teams",      "Teams Export",      "Export", status: JobTaskStatus.Pending),
+            CreateTask("export.workitems",  "WorkItems Export",  "Export", status: JobTaskStatus.Pending)
+        });
+
+        var package = PackageTestFactory.CreateLooseMock().Object;
+        // No existing plan persisted — simulates a deleted plan file
+        var executor = CreateExecutor(package: package);
+        var exportContext = new ExportContext
+        {
+            Job = new Job { JobId = "test-job-forcefresh" },
+            Package = package,
+            ProgressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object
+        };
+
+        // Act
+        var result = await executor.ExecuteExportPhaseAsync(
+            freshPlan,
+            modules,
+            new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
+            baseInventoryContext: null,
+            endpointsByUrl: null,
+            exportContext, CancellationToken.None);
+
+        // Assert — all four modules must be called because all tasks were Pending
+        Assert.IsTrue(result, "Export phase should succeed after ForceFresh rebuild");
+        Assert.AreEqual(4, exportCalled.Count, "All 4 modules must be called when ForceFresh rebuilds a fresh plan");
+        CollectionAssert.AreEquivalent(
+            new[] { "Identities", "Nodes", "Teams", "WorkItems" },
+            exportCalled,
+            "All modules must be invoked after ForceFresh");
+
+        // Verify plan file is now persisted with all tasks Completed
+        var persistedPlan = await JobPlanExecutor.LoadOrResetAsync(package, CancellationToken.None);
+        Assert.IsNotNull(persistedPlan, "Plan should be persisted after execution");
+        Assert.IsTrue(
+            persistedPlan!.Tasks.All(t => t.Status == JobTaskStatus.Completed),
+            "All tasks should be Completed after ForceFresh execution");
     }
 
     private static bool LogStateHasTaskIdAndHandlerName(object v)
