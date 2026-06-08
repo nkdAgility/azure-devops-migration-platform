@@ -9,6 +9,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class ActionQualifiedCursorIdentityTests
 {
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void Build_WithDifferentActions_ProducesDifferentKeys()
     {
