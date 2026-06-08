@@ -54,6 +54,9 @@ public sealed class TfsObjectModelWorkItemDiscoveryService : IWorkItemDiscoveryS
                 var wi = _workItemStore.GetWorkItem(id);
                 summary.WorkItemsCount++;
                 summary.RevisionsCount += wi.Revisions.Count;
+                var areaPath = wi.AreaPath;
+                if (!string.IsNullOrEmpty(areaPath))
+                    summary.AreaPathCounts[areaPath] = summary.AreaPathCounts.TryGetValue(areaPath, out var n) ? n + 1 : 1;
             }
 
             summary.LastUpdatedUtc = DateTime.UtcNow;

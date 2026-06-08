@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 
 namespace DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 
@@ -57,4 +58,6 @@ public sealed record ProjectInventory
     public int Teams { get; init; }
     public bool IsComplete { get; init; }
     public string? Error { get; init; }
+    /// <summary>Work item count by System.AreaPath. Null when not collected.</summary>
+    public IReadOnlyDictionary<string, int>? AreaPathCounts { get; init; }
 }

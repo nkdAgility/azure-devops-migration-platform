@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,6 +28,8 @@ internal sealed record ProjectInventoryData
     public int Teams { get; init; }
     public bool IsComplete { get; init; }
     public string? Error { get; init; }
+    /// <summary>Work item count by System.AreaPath. Null when not collected.</summary>
+    public Dictionary<string, int>? AreaPathCounts { get; init; }
 }
 
 /// <summary>
@@ -59,9 +62,12 @@ internal static class ProjectInventoryFile
         int? teams = null,
         bool? isComplete = null,
         string? error = null,
+        Dictionary<string, int>? areaPaths = null,
         CancellationToken ct = default)
     {
         var existing = await ReadAsync(package, orgSlug, projectName, ct).ConfigureAwait(false);
+
+        var mergedAreaPaths = areaPaths ?? existing.AreaPathCounts;
 
         var updated = existing with
         {
@@ -76,6 +82,7 @@ internal static class ProjectInventoryFile
             Teams = teams ?? existing.Teams,
             IsComplete = isComplete ?? existing.IsComplete,
             Error = error ?? existing.Error,
+            AreaPathCounts = mergedAreaPaths,
         };
 
         using var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(updated, s_writeOpts)), writable: false);

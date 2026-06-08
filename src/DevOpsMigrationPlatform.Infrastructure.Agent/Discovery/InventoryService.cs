@@ -97,7 +97,8 @@ public sealed class InventoryService : IInventoryService
                             RevisionsCount = summary.RevisionsCount,
                             IsComplete = true,
                             Error = summary.Error,
-                            Timestamp = summary.LastUpdatedUtc
+                            Timestamp = summary.LastUpdatedUtc,
+                            AreaPathCounts = summary.AreaPathCounts.Count > 0 ? summary.AreaPathCounts : null
                         };
                     }
                 }
@@ -178,7 +179,8 @@ public sealed class InventoryService : IInventoryService
                         RevisionsCount = summary.RevisionsCount,
                         IsComplete = true,
                         Error = summary.Error,
-                        Timestamp = summary.LastUpdatedUtc
+                        Timestamp = summary.LastUpdatedUtc,
+                        AreaPathCounts = summary.AreaPathCounts.Count > 0 ? summary.AreaPathCounts : null
                     };
                 }
             }
