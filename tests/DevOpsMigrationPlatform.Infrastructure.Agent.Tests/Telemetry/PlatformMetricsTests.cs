@@ -522,6 +522,66 @@ public class PlatformMetricsTests
         Assert.AreEqual(-1, entries[2].Value);  // decrement
     }
 
+    /// <summary>
+    /// Scenario: In-flight counter reflects concurrent processing.
+    /// Verifies that concurrent increments stay within the declared concurrency ceiling and
+    /// each decrement reduces the net in-flight count by one.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("UnitTest")]
+    public void InFlightCounter_ReflectsConcurrentProcessing_NetValueStaysWithinConcurrencyLimit()
+    {
+        const int maxConcurrency = 4;
+        using var sut = new PlatformMetrics();
+        var tags = CreateExecutionTags();
+
+        // Simulate maxConcurrency items picked up concurrently
+        for (var i = 0; i < maxConcurrency; i++)
+            sut.IncrementInFlight(tags);
+
+        var entries = _recorded.Where(r => r.Name == WellKnownAgentMetricNames.WorkItemsInFlight).ToList();
+        // Net running sum after maxConcurrency increments equals maxConcurrency
+        var netInFlight = entries.Sum(e => (int)e.Value);
+        Assert.IsTrue(netInFlight >= 0 && netInFlight <= maxConcurrency,
+            $"Expected net in-flight between 0 and {maxConcurrency} but was {netInFlight}");
+
+        // Complete one item — net should decrease by one
+        sut.DecrementInFlight(tags);
+        var updatedEntries = _recorded.Where(r => r.Name == WellKnownAgentMetricNames.WorkItemsInFlight).ToList();
+        var netAfterDecrement = updatedEntries.Sum(e => (int)e.Value);
+        Assert.AreEqual(maxConcurrency - 1, netAfterDecrement,
+            "Decrement should reduce net in-flight by one");
+    }
+
+    /// <summary>
+    /// Scenario: Queue depth starts high and decreases as items are processed.
+    /// The queue depth is tracked via the WorkItemsInFlight UpDownCounter: the net sum
+    /// of all increment/decrement deltas falls monotonically toward zero as items complete.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("UnitTest")]
+    public void InFlightCounter_NetValue_DecreasesMonotonicallyAsItemsComplete()
+    {
+        const int totalItems = 5;
+        using var sut = new PlatformMetrics();
+        var tags = CreateExecutionTags();
+
+        // Queue all items (high queue depth)
+        for (var i = 0; i < totalItems; i++)
+            sut.IncrementInFlight(tags);
+
+        // Drain them one by one, asserting net value decreases each time
+        for (var completed = 1; completed <= totalItems; completed++)
+        {
+            sut.DecrementInFlight(tags);
+            var net = _recorded
+                .Where(r => r.Name == WellKnownAgentMetricNames.WorkItemsInFlight)
+                .Sum(e => (int)e.Value);
+            Assert.AreEqual(totalItems - completed, net,
+                $"After completing {completed} item(s), net in-flight should be {totalItems - completed}");
+        }
+    }
+
     // --- Idempotency ---
 
     [TestMethod]
