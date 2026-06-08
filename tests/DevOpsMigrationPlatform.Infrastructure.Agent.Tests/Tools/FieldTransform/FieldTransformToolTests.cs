@@ -61,6 +61,7 @@ public class FieldTransformToolTests
             }
         };
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void IsEnabledForPhase_WhenEnabled_ReturnsTrue()
     {
@@ -73,6 +74,7 @@ public class FieldTransformToolTests
         Assert.IsTrue(sut.IsEnabledForPhase(FieldTransformPhase.Import));
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void IsEnabledForPhase_WhenDisabled_ReturnsFalse()
     {
@@ -100,6 +102,7 @@ public class FieldTransformToolTests
         Assert.IsFalse(sut.IsEnabledForPhase(FieldTransformPhase.Import));
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void IsEnabledForPhase_WhenNoTransforms_ReturnsFalse()
     {
@@ -121,6 +124,7 @@ public class FieldTransformToolTests
         factory.VerifyNoOtherCalls();
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void ApplyTransforms_IsStatelessAcrossInvocations()
     {
@@ -141,6 +145,7 @@ public class FieldTransformToolTests
         Assert.AreEqual("Second Call", result2.Fields["System.Title"]);
     }
 
+    [TestCategory("UnitTest")]
     [TestMethod]
     public void Constructor_WhenMoreThan100Transforms_LogsWarning()
     {
