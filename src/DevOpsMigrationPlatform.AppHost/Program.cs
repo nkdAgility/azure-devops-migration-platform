@@ -53,18 +53,18 @@ if (infra == "docker")
 
     // Azurite: same Azure SDK BlobContainerClient used in production runs unmodified.
     var storage = builder.AddAzureStorage("storage")
-        .RunAsEmulator()
-        .AddBlobs("packages");
+        .RunAsEmulator();
+    var packages = storage.AddBlobContainer("packages");
 
     var controlPlane = builder.AddProject<Projects.DevOpsMigrationPlatform_ControlPlaneHost>("controlplane")
         .WithReference(postgres)
-        .WithReference(storage)
+        .WithReference(packages)
         .WithEnvironment("PackageStore__Type", "azureblob")
         .WithHttpEndpoint(port: 5100, name: "http");
 
     builder.AddProject<Projects.DevOpsMigrationPlatform_MigrationAgent>("migration-agent")
         .WithReference(controlPlane)
-        .WithReference(storage)
+        .WithReference(packages)
         .WithEnvironment("PackageStore__Type", "azureblob");
 }
 else

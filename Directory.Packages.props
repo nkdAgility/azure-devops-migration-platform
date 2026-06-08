@@ -4,10 +4,10 @@
   </PropertyGroup>
 
   <ItemGroup Label="Aspire">
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="9.3.0" />
-    <PackageVersion Include="Aspire.Hosting.Azure.PostgreSQL" Version="9.3.0" />
-    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="9.3.0" />
-    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="9.3.0" />
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.4.2" />
+    <PackageVersion Include="Aspire.Hosting.Azure.PostgreSQL" Version="13.4.2" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.4.2" />
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.4.2" />
   </ItemGroup>
 
   <!-- ⚠️ Azure Monitor + OpenTelemetry Version Compatibility ⚠️
@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup Label="Kubernetes">
-    <PackageVersion Include="KubernetesClient" Version="17.0.14" />
+    <PackageVersion Include="KubernetesClient" Version="19.0.2" />
   </ItemGroup>
 
   <ItemGroup Label="Microsoft.Bcl">
@@ -39,13 +39,13 @@
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="9.3.0" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.6.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="9.3.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.6.0" />
   </ItemGroup>
 
   <ItemGroup Label="Microsoft.TeamFoundation">
