@@ -85,10 +85,16 @@ Run `nkda-testdsl-refactor` → produce `05-refactor-summary.md`.
 
 Run `nkda-testdsl-verification` → produce `06-verification.md`.
 
-- Run converted/affected tests first.
+**Verification gate — ALL of the following must pass before ANY commit:**
+
+1. **Scenario unit tests pass** — run `dotnet test <test-project> --filter "FullyQualifiedName~<TestClass>"` for each new or modified test class. Every mapped test must be green.
+2. **Full solution build passes** — run `dotnet build` from the repo root. Zero errors. A build failure is a hard blocker — fix it before proceeding, do not commit around it.
+3. **Full unit test suite passes** — run `dotnet test` from the repo root. Every test in every project must pass. A failure in ANY test project, even one unrelated to this family, must be investigated and fixed before committing.
+
+**Do not commit if any of these three gates fail.** Fix the failure first.
+
 - Verify every retired scenario has a mapped passing test with `path:line` evidence.
-- If all scenarios are retired and tests are green, run the full repository test suite.
-- If verification returns `PASS`:
+- If all three gates pass:
   - Delete the `.feature` file.
   - Delete any generated `.feature.cs` and legacy `*Steps.cs` scoped to wiring state.
   - **Commit all changes** with message: `migrate: <family-name> feature → DSL`.
@@ -96,7 +102,7 @@ Run `nkda-testdsl-verification` → produce `06-verification.md`.
   - Retain the `.feature` file (with only unconverted scenarios remaining).
   - Record the reason in `06-verification.md`.
   - **Append every retained scenario as an entry in `analysis/dsl-gaps-detected.md`** with the gap-type, family, file path, scenario title, wiring state, and specific engineering detail. Do not leave a scenario retained without a gap entry.
-  - **Commit partial progress** (retired scenarios removed, new tests added, gap entries written) with message: `migrate(partial): <family-name> <N> scenarios retired`.
+  - Only commit partial progress once gates 1–3 above are satisfied for the work done so far: `migrate(partial): <family-name> <N> scenarios retired`.
 
 ### Step 11 — Report and stop
 
