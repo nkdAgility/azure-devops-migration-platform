@@ -35,5 +35,5 @@ public class ProjectDiscoverySummary
     /// Work item count keyed by System.AreaPath. Populated on the final event only.
     /// Empty when the discovery path does not support field-level area path collection.
     /// </summary>
-    public Dictionary<string, int> AreaPathCounts { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, int> AreaPathCounts { get; } = new();
 }

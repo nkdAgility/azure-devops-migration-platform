@@ -154,6 +154,19 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
                     orgProjectData.Values.Sum(l => l.Count));
             }
 
+            // Reload previously-written area-path CSV rows so a resumed run doesn't overwrite them.
+            var existingAreaPathCsv = await ReadInventoryCsvAsync(package, OrgAreaPathCsvIndexFor(orgSlug), ct).ConfigureAwait(false);
+            if (existingAreaPathCsv is not null)
+            {
+                var apLines = existingAreaPathCsv.Split('\n');
+                for (int i = 1; i < apLines.Length; i++) // skip header
+                {
+                    var trimmed = apLines[i].TrimEnd('\r');
+                    if (!string.IsNullOrWhiteSpace(trimmed))
+                        areaPathCsvBuilder.AppendLine(trimmed);
+                }
+            }
+
             sink.Emit(new ProgressEvent
             {
                 Module = moduleName,
