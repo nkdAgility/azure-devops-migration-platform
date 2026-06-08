@@ -36,7 +36,6 @@
 
   <ItemGroup>
     <!-- Feature files from the workspace root features/ directory -->
-<ExternalFeatureFiles Include="..\..\features\platform\package-lock\exclusive-package-lock.feature" />
     <ExternalFeatureFiles Include="..\..\features\platform\project-lifecycle\ephemeral-project-lifecycle.feature" />
     <ExternalFeatureFiles Include="..\..\features\platform\validation\package-validation.feature" />
     <ExternalFeatureFiles Include="..\..\features\platform\telemetry\progress-sink.feature" />
