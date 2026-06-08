@@ -14,6 +14,7 @@ public sealed class DiagnosticLogStoreTests
     private static readonly Guid JobId = new("11111111-1111-1111-1111-111111111111");
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void Add_WhenRingBufferExceedsCapacity_EvictsOldestRetainedRecord()
     {
         var store = CreateStore(capacity: 2, minimumLevel: "Information");
@@ -34,6 +35,7 @@ public sealed class DiagnosticLogStoreTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void Add_WhenRecordIsBelowDeploymentMinimumLevel_DiscardsRecordBeforeBuffering()
     {
         var store = CreateStore(capacity: 5, minimumLevel: "Warning");
@@ -54,6 +56,7 @@ public sealed class DiagnosticLogStoreTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void GetSnapshot_WhenLevelFilterIsProvided_ReturnsRecordsAtOrAboveRequestedLevel()
     {
         var store = CreateStore(capacity: 5, minimumLevel: "Information");
@@ -74,6 +77,7 @@ public sealed class DiagnosticLogStoreTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void Subscribe_WhenRecordIsAdded_NotifiesLiveSubscriberWithoutPollingSnapshot()
     {
         var store = CreateStore(capacity: 5, minimumLevel: "Information");
@@ -89,6 +93,7 @@ public sealed class DiagnosticLogStoreTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void Subscribe_WhenJobAlreadyCompleted_CompletesSubscriberImmediately()
     {
         var store = CreateStore(capacity: 5, minimumLevel: "Information");
@@ -99,6 +104,88 @@ public sealed class DiagnosticLogStoreTests
         Assert.IsTrue(reader.Completion.IsCompleted);
         Assert.IsTrue(store.IsCompleted(JobId));
         Assert.IsTrue(store.WasFailed(JobId));
+    }
+
+    // ── DSL migrations: diagnostics-streaming scenarios ──────────────────────
+
+    /// <summary>
+    /// Scenario: TUI diagnostics panel displays agent log records in near real-time
+    /// A live subscriber receives warning-level records immediately after they are added,
+    /// without needing to poll the snapshot — simulating near real-time streaming to the TUI.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("UnitTest")]
+    public void DiagnosticsPanel_WhenAgentEmitsWarningRecord_SubscriberReceivesItImmediately()
+    {
+        var store = CreateStore(capacity: 10, minimumLevel: "Information");
+        var (reader, writer) = store.Subscribe(JobId);
+
+        var warningRecord = MakeRecord("Warning", "agent warning during migration");
+        store.Add(JobId, new[] { warningRecord });
+
+        Assert.IsTrue(reader.TryRead(out var streamed),
+            "Expected the diagnostics subscriber to receive the warning record immediately.");
+        Assert.AreEqual("Warning", streamed.Level);
+        Assert.AreEqual("agent warning during migration", streamed.Message);
+
+        store.Unsubscribe(JobId, writer);
+    }
+
+    /// <summary>
+    /// Scenario: TUI diagnostics panel supports level filter toggle
+    /// When the operator changes the level filter from Warning to Information,
+    /// subsequent records at Information level and above appear in the snapshot.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("UnitTest")]
+    public void DiagnosticsPanel_WhenLevelFilterChangedToInformation_ShowsInformationAndAbove()
+    {
+        var store = CreateStore(capacity: 10, minimumLevel: "Information");
+
+        store.Add(JobId, new[]
+        {
+            MakeRecord("Information", "info record"),
+            MakeRecord("Warning", "warning record"),
+            MakeRecord("Error", "error record"),
+        });
+
+        // Initial filter: Warning (simulates panel showing Warning-level records)
+        var warningSnapshot = store.GetSnapshot(JobId, LogLevel.Warning);
+        Assert.AreEqual(2, warningSnapshot.Count, "Expect only Warning and Error at Warning filter.");
+
+        // Operator changes filter to Information — expect all records
+        var infoSnapshot = store.GetSnapshot(JobId, LogLevel.Information);
+        Assert.AreEqual(3, infoSnapshot.Count, "Expect all records visible at Information filter.");
+        CollectionAssert.AreEqual(
+            new[] { "info record", "warning record", "error record" },
+            infoSnapshot.Select(r => r.Message).ToArray());
+    }
+
+    /// <summary>
+    /// Scenario: TUI diagnostics panel replays recent records on reconnect
+    /// After a reconnection, the diagnostics panel replays recent records
+    /// from the control plane ring buffer via GetSnapshot.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("UnitTest")]
+    public void DiagnosticsPanel_WhenReconnected_ReplaysRecentRecordsFromRingBuffer()
+    {
+        var store = CreateStore(capacity: 3, minimumLevel: "Information");
+
+        store.Add(JobId, new[]
+        {
+            MakeRecord("Information", "record-1"),
+            MakeRecord("Warning", "record-2"),
+            MakeRecord("Error", "record-3"),
+        });
+
+        // Simulate reconnect: client calls GetSnapshot to replay buffered records
+        var replayed = store.GetSnapshot(JobId);
+
+        Assert.AreEqual(3, replayed.Count, "All ring-buffer records should be replayed on reconnect.");
+        CollectionAssert.AreEqual(
+            new[] { "record-1", "record-2", "record-3" },
+            replayed.Select(r => r.Message).ToArray());
     }
 
     private static DiagnosticLogStore CreateStore(int capacity, string minimumLevel) =>
