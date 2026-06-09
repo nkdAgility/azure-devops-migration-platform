@@ -100,7 +100,7 @@ public class FilterScopeImportTests
     // ── Tests ─────────────────────────────────────────────────────────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_ImportsOnlyMatchingWorkItems_WhenIncludeFilterConfigured()
     {
@@ -121,7 +121,7 @@ public class FilterScopeImportTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_EvaluatesLastRevisionOnly_WhenFilteringWorkItems()
     {
@@ -140,7 +140,7 @@ public class FilterScopeImportTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_CompletesWithoutError_WhenSkippedItemHasDiagnosticEntry()
     {
@@ -158,7 +158,7 @@ public class FilterScopeImportTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_CompletesSuccessfully_WhenZeroWorkItemsPassFilter()
     {
@@ -178,7 +178,7 @@ public class FilterScopeImportTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_ImportsAllWorkItems_WhenNoFilterConfigured()
     {
