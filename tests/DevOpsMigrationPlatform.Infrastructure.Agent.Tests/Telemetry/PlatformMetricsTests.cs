@@ -65,8 +65,9 @@ public class PlatformMetricsTests
 
     // --- Idempotency Instrument Registration ---
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void IdempotencyCounters_AreRegisteredAtStartup()
     {
         var publishedNames = new List<string>();
@@ -94,8 +95,9 @@ public class PlatformMetricsTests
 
     // --- Organisation ---
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void OrganisationStarted_EmitsUpDownCounter()
     {
         using var sut = new PlatformMetrics();
@@ -108,8 +110,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "organisation.url", "https://dev.azure.com/testorg");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void OrganisationCompleted_DecrementsQueueAndIncrementsCompleted()
     {
         using var sut = new PlatformMetrics();
@@ -121,8 +124,9 @@ public class PlatformMetricsTests
             r.Name == WellKnownAgentMetricNames.OrganisationsCompleted));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void OrganisationFailed_DecrementsQueueAndIncrementsFailed()
     {
         using var sut = new PlatformMetrics();
@@ -134,8 +138,9 @@ public class PlatformMetricsTests
             r.Name == WellKnownAgentMetricNames.OrganisationsFailed));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordOrganisationDuration_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -147,8 +152,9 @@ public class PlatformMetricsTests
 
     // --- Project ---
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void ProjectStarted_EmitsUpDownCounter()
     {
         using var sut = new PlatformMetrics();
@@ -158,8 +164,9 @@ public class PlatformMetricsTests
         Assert.AreEqual(1, entry.Value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void ProjectCompleted_DecrementsQueueAndIncrementsCompleted()
     {
         using var sut = new PlatformMetrics();
@@ -171,8 +178,9 @@ public class PlatformMetricsTests
             r.Name == WellKnownAgentMetricNames.ProjectsCompleted));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void ProjectFailed_DecrementsQueueAndIncrementsFailed()
     {
         using var sut = new PlatformMetrics();
@@ -184,8 +192,9 @@ public class PlatformMetricsTests
             r.Name == WellKnownAgentMetricNames.ProjectsFailed));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordProjectDuration_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -197,8 +206,9 @@ public class PlatformMetricsTests
 
     // --- Inventory ---
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordWorkItemsCounted_EmitsCounterWithCorrectValue()
     {
         using var sut = new PlatformMetrics();
@@ -208,8 +218,9 @@ public class PlatformMetricsTests
         Assert.AreEqual(350L, entry.Value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordRevisionsCounted_EmitsCounterWithCorrectValue()
     {
         using var sut = new PlatformMetrics();
@@ -219,8 +230,9 @@ public class PlatformMetricsTests
         Assert.AreEqual(1200L, entry.Value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordReposCounted_EmitsCounterWithCorrectValue()
     {
         using var sut = new PlatformMetrics();
@@ -232,8 +244,9 @@ public class PlatformMetricsTests
 
     // --- Dependencies ---
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordLinksFound_EmitsCounterWithCorrectValue()
     {
         using var sut = new PlatformMetrics();
@@ -250,8 +263,9 @@ public class PlatformMetricsTests
         Assert.AreEqual(7L, entry.Value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordWorkItemsAnalysed_EmitsCounterWithCorrectValue()
     {
         using var sut = new PlatformMetrics();
@@ -263,8 +277,9 @@ public class PlatformMetricsTests
 
     // --- Operational ---
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordCheckpointSaved_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -276,8 +291,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordJobDuration_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -294,8 +310,9 @@ public class PlatformMetricsTests
 
     // --- Execution ---
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordWorkItemAttempted_EmitsCorrectInstrumentAndTags()
     {
         using var sut = new PlatformMetrics();
@@ -310,8 +327,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "module", "workitems");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordWorkItemCompleted_EmitsCorrectInstrument()
     {
         using var sut = new PlatformMetrics();
@@ -322,8 +340,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordWorkItemFailed_EmitsCorrectInstrument()
     {
         using var sut = new PlatformMetrics();
@@ -334,8 +353,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordWorkItemRetried_EmitsCorrectInstrument()
     {
         using var sut = new PlatformMetrics();
@@ -346,8 +366,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordWorkItemDuration_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -359,8 +380,9 @@ public class PlatformMetricsTests
 
     // --- Payload ---
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordFieldCount_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -370,8 +392,9 @@ public class PlatformMetricsTests
         Assert.AreEqual(15, entry.Value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordAttachmentCount_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -382,8 +405,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordLinkCount_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -394,8 +418,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordRevisionCount_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -406,8 +431,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordPayloadBytes_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -419,8 +445,9 @@ public class PlatformMetricsTests
 
     // --- Correctness ---
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordRevisionSourceCount_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -431,8 +458,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordRevisionTargetCount_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -443,8 +471,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordRevisionDelta_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -454,8 +483,9 @@ public class PlatformMetricsTests
         Assert.AreEqual(-2, entry.Value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordRevisionsMissing_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -466,8 +496,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordRevisionOrderError_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -478,8 +509,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordBrokenLink_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -490,8 +522,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordMissingWorkItem_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -504,8 +537,9 @@ public class PlatformMetricsTests
 
     // --- In-Flight ---
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void IncrementDecrementInFlight_EmitsUpDownCounter()
     {
         using var sut = new PlatformMetrics();
@@ -527,8 +561,9 @@ public class PlatformMetricsTests
     /// Verifies that concurrent increments stay within the declared concurrency ceiling and
     /// each decrement reduces the net in-flight count by one.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void InFlightCounter_ReflectsConcurrentProcessing_NetValueStaysWithinConcurrencyLimit()
     {
         const int maxConcurrency = 4;
@@ -558,8 +593,9 @@ public class PlatformMetricsTests
     /// The queue depth is tracked via the WorkItemsInFlight UpDownCounter: the net sum
     /// of all increment/decrement deltas falls monotonically toward zero as items complete.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void InFlightCounter_NetValue_DecreasesMonotonicallyAsItemsComplete()
     {
         const int totalItems = 5;
@@ -584,8 +620,9 @@ public class PlatformMetricsTests
 
     // --- Idempotency ---
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordDuplicated_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -596,8 +633,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordChangedOnRerun_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -608,8 +646,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordReprocessedAfterResume_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -620,8 +659,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordDuplicatedAfterResume_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -632,8 +672,9 @@ public class PlatformMetricsTests
         AssertHasTag(entry.Tags, "job.id", "test-job-1");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void RecordMissingAfterResume_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
