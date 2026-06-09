@@ -42,8 +42,9 @@ public class PackageDiagnosticsSinkTests
     /// When a warning or error record is emitted by the agent the provider
     /// appends a structured NDJSON log record to the diagnostics stream in the package.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task PackageLoggerProvider_WarningOrError_AppendsNdjsonToPackage()
     {
         var payloads = new List<string>();
@@ -84,8 +85,9 @@ public class PackageDiagnosticsSinkTests
     /// Each NDJSON line must be a valid JSON object containing timestamp, level,
     /// category, and message; lines with exceptions also contain an exception field.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task PackageLoggerProvider_WrittenRecords_ContainRequiredFields()
     {
         var payloads = new List<string>();
@@ -151,8 +153,9 @@ public class PackageDiagnosticsSinkTests
     /// When the minimum level is Information, Trace and Debug records must not
     /// be written to the diagnostics stream.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task PackageLoggerProvider_BelowMinimumLevel_RecordsAreDiscarded()
     {
         var payloads = new List<string>();
@@ -193,8 +196,9 @@ public class PackageDiagnosticsSinkTests
     /// When the minimum level is Information, Information, Warning, and Error records
     /// must all be written to the diagnostics stream.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task PackageLoggerProvider_AtOrAboveMinimumLevel_RecordsAreWritten()
     {
         var payloads = new List<string>();
@@ -241,8 +245,9 @@ public class PackageDiagnosticsSinkTests
     /// The two providers have independent minimum-level filters: PackageLoggerProvider respects
     /// its own MinimumLevel irrespective of what the control plane is configured to buffer.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task PackageLoggerProvider_AgentAtDebug_WritesDebugAndAboveRegardlessOfControlPlaneLevel()
     {
         var payloads = new List<string>();
@@ -293,8 +298,9 @@ public class PackageDiagnosticsSinkTests
     /// not propagate the exception — the export continues and the dropped record
     /// count is incremented.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task PackageLoggerProvider_PackageStoreUnavailable_DoesNotThrow()
     {
         var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
