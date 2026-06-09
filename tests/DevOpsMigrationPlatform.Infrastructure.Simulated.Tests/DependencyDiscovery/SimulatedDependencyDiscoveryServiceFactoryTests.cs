@@ -39,6 +39,8 @@ public sealed class SimulatedDependencyDiscoveryServiceFactoryTests
     // TODO: [test-validity] Score 8/25 — Rule 3 applied (sole coverage for Create() path).
     // Rewrite to verify service.DiscoverDependenciesAsync actually delegates to the link service
     // rather than just asserting non-null. E.g. inject a counting stub and assert it was called.
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Create_WithSimulatedLinkService_ReturnsIDependencyDiscoveryService()
     {
@@ -51,6 +53,8 @@ public sealed class SimulatedDependencyDiscoveryServiceFactoryTests
     }
 
     // ── T024: service delegates to SimulatedWorkItemLinkAnalysisService ────
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task DiscoverDependenciesAsync_WithSimulatedConnector_ReturnsEmptySequenceWithoutNetworkCall()
     {
@@ -74,6 +78,8 @@ public sealed class SimulatedDependencyDiscoveryServiceFactoryTests
     }
 
     // ── T024: factory resolves without external connectivity ──────────────
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void SimulatedFactory_CanBeResolvedFromKeyedDI_WithoutExternalConnectivity()
     {
@@ -94,6 +100,8 @@ public sealed class SimulatedDependencyDiscoveryServiceFactoryTests
     // Scoping behaviour (only 1 org's links discovered) is not actually verified.
     // Rewrite: inject a stub IWorkItemLinkAnalysisService that records which projects were requested,
     // then assert only "ProjectA" was requested (not ProjectB or ProjectC).
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CreateForProject_ScopesDiscoveryToSingleProjectOnly()
     {
@@ -126,6 +134,8 @@ public sealed class SimulatedDependencyDiscoveryServiceFactoryTests
         Assert.IsTrue(heartbeats[0].IsComplete, "Completion heartbeat must have IsComplete=true");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void CreateForProject_UnknownOrg_ThrowsInvalidOperationException()
     {
@@ -138,6 +148,8 @@ public sealed class SimulatedDependencyDiscoveryServiceFactoryTests
         StringAssert.Contains(ex.Message, "No simulated organisation matched");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task DiscoverDependenciesAsync_InProgressProject_ForwardsContinuationTokenAndWriter()
     {
