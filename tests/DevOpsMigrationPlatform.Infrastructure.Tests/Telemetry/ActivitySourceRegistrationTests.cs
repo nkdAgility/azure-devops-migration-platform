@@ -19,6 +19,8 @@ public class ActivitySourceRegistrationTests
     /// that is registered in ServiceDefaults. This test verifies the constants exist and
     /// that every source used in Infrastructure assemblies references a well-known name.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void AllWellKnownSources_AreDeclaredAsConstants()
     {
@@ -37,6 +39,8 @@ public class ActivitySourceRegistrationTests
             "Missing ControlPlane activity source constant.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ActivitySource_Migration_CanStartActivity()
     {
@@ -54,6 +58,8 @@ public class ActivitySourceRegistrationTests
         Assert.AreEqual("test.operation", activity.OperationName);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ActivitySource_Discovery_CanStartActivity()
     {
@@ -71,6 +77,8 @@ public class ActivitySourceRegistrationTests
         Assert.AreEqual("test.discovery", activity.OperationName);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ActivitySource_ControlPlane_CanStartActivity()
     {
@@ -88,6 +96,8 @@ public class ActivitySourceRegistrationTests
         Assert.AreEqual("test.controlplane", activity.OperationName);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ActivityTags_CanCarryJobIdAndModule()
     {
