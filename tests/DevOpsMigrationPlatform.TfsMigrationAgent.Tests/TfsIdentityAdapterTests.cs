@@ -12,8 +12,6 @@ using Moq;
 namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests;
 
 [TestClass]
-[TestCategory("UnitTests")]
-[TestCategory("NET481")]
 public sealed class TfsIdentityAdapterTests
 {
     private static Mock<ILogger<TfsIdentityAdapter>> NewLogger() => new();
@@ -30,6 +28,8 @@ public sealed class TfsIdentityAdapterTests
             Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FindByUpnAsync_ReturnsEmpty_AndLogsWarning()
     {
@@ -42,6 +42,8 @@ public sealed class TfsIdentityAdapterTests
         VerifyWarned(logger);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FindByDisplayNameAsync_ReturnsEmpty_AndLogsWarning()
     {
@@ -54,6 +56,8 @@ public sealed class TfsIdentityAdapterTests
         VerifyWarned(logger);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_NullLogger_Throws()
     {
