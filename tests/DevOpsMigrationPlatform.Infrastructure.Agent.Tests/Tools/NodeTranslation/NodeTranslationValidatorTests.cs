@@ -109,6 +109,8 @@ public class NodeTranslationValidatorTests
 
 
 
+    [TestCategory("CodeTest")]
+
     [TestCategory("UnitTests")]
 
 
@@ -159,6 +161,8 @@ public class NodeTranslationValidatorTests
 
 
 
+    [TestCategory("CodeTest")]
+
     [TestCategory("UnitTests")]
 
 
@@ -194,6 +198,8 @@ public class NodeTranslationValidatorTests
     }
 
 
+
+    [TestCategory("CodeTest")]
 
     [TestCategory("UnitTests")]
 
@@ -231,6 +237,8 @@ public class NodeTranslationValidatorTests
 
 
 
+    [TestCategory("CodeTest")]
+
     [TestCategory("UnitTests")]
 
 
@@ -260,6 +268,8 @@ public class NodeTranslationValidatorTests
     }
 
 
+
+    [TestCategory("CodeTest")]
 
     [TestCategory("UnitTests")]
 
@@ -321,6 +331,8 @@ public class NodeTranslationValidatorTests
 
 
 
+    [TestCategory("CodeTest")]
+
     [TestCategory("UnitTests")]
 
 
@@ -350,6 +362,8 @@ public class NodeTranslationValidatorTests
     }
 
 
+
+    [TestCategory("CodeTest")]
 
     [TestCategory("UnitTests")]
 
