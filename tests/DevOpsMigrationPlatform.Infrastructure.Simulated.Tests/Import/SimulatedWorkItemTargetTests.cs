@@ -15,6 +15,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.Import;
 [TestClass]
 public sealed class SimulatedWorkItemTargetTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateWorkItemAsync_AssignsSequentialIds()
     {
@@ -30,6 +32,8 @@ public sealed class SimulatedWorkItemTargetTests
     }
 
     // TODO: [test-validity] LOW VALUE — only tests IsNewlyCreated=true, a trivial flag assertion with no meaningful failure mode
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateWorkItemAsync_SetsIsNewlyCreated()
     {
@@ -38,6 +42,8 @@ public sealed class SimulatedWorkItemTargetTests
         Assert.IsTrue(result.IsNewlyCreated);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateWorkItemAsync_EmptyWorkItemType_ThrowsArgumentException()
     {
@@ -46,6 +52,8 @@ public sealed class SimulatedWorkItemTargetTests
             () => target.CreateWorkItemAsync("", Array.Empty<WorkItemField>(), CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task UpdateFieldsAsync_InvalidId_ThrowsArgumentOutOfRangeException()
     {
@@ -54,6 +62,8 @@ public sealed class SimulatedWorkItemTargetTests
             () => target.UpdateFieldsAsync(0, Array.Empty<WorkItemField>(), CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task UpdateFieldsAsync_UnknownWorkItem_ThrowsInvalidOperationException()
     {
@@ -62,6 +72,8 @@ public sealed class SimulatedWorkItemTargetTests
             () => target.UpdateFieldsAsync(42, Array.Empty<WorkItemField>(), CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WorkItemExistsAsync_ReturnsFalseBeforeCreate_ThenTrueAfterCreate()
     {
@@ -75,6 +87,8 @@ public sealed class SimulatedWorkItemTargetTests
         Assert.IsTrue(existsAfter);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task UploadAttachmentAsync_ReturnsDeterministicFakeId()
     {
@@ -87,6 +101,8 @@ public sealed class SimulatedWorkItemTargetTests
         StringAssert.Contains(id, "test.pdf");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task UploadAttachmentAsync_UnknownWorkItem_ThrowsInvalidOperationException()
     {
@@ -96,6 +112,8 @@ public sealed class SimulatedWorkItemTargetTests
             () => target.UploadAttachmentAsync(42, "test.pdf", Stream.Null, CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WorkItemTypeExistsAsync_ReturnsTrue_ForKnownType()
     {
@@ -106,6 +124,8 @@ public sealed class SimulatedWorkItemTargetTests
         Assert.IsTrue(exists);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WorkItemTypeExistsAsync_ReturnsFalse_ForUnknownType()
     {
