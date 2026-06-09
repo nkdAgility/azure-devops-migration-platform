@@ -14,7 +14,7 @@ export const meta = {
 
 // args: feature family name, folder path, or feature file path.
 // If omitted, defaults to the canonical feature folder.
-const scope = args || 'tests'
+const scope = args || 'features/platform'
 
 // ---------------------------------------------------------------------------
 // Phase: Enumerate
