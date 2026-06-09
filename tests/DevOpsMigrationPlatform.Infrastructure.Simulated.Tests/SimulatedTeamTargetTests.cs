@@ -13,6 +13,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Tests;
 [TestClass]
 public class SimulatedTeamTargetTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateOrUpdateTeamAsync_StoresTeamAndReturnsId()
     {
@@ -29,6 +31,8 @@ public class SimulatedTeamTargetTests
         Assert.AreEqual("Alpha Team", target.Teams[returnedId].Name);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     // Verifies that settings for two different teams are stored independently (no key collision).
     public async Task SetTeamSettingsAsync_StoresSettings()
@@ -51,6 +55,8 @@ public class SimulatedTeamTargetTests
         Assert.AreEqual(2, target.TeamSettings.Count, "Both teams should have separate entries");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AssignIterationAsync_AccumulatesIterations()
     {
@@ -67,6 +73,8 @@ public class SimulatedTeamTargetTests
         Assert.AreEqual(2, target.Iterations["team-1"].Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AddMemberAsync_AccumulatesMembers()
     {
@@ -84,6 +92,8 @@ public class SimulatedTeamTargetTests
         Assert.IsTrue(target.Members["team-1"].Exists(m => m.IsAdmin));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task SetCapacityAsync_StoresCapacityUnderCompositeKey()
     {
@@ -104,6 +114,8 @@ public class SimulatedTeamTargetTests
         Assert.AreEqual(2, target.Capacity[key].Length);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     // Verifies that area paths for two different teams are stored independently (no key collision).
     public async Task SetAreaPathsAsync_StoresAreaPaths()
@@ -130,6 +142,8 @@ public class SimulatedTeamTargetTests
         Assert.AreEqual(2, target.AreaPaths.Count, "Both teams should have separate entries");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateOrUpdateTeamAsync_MultipleTeams_AllStored()
     {
