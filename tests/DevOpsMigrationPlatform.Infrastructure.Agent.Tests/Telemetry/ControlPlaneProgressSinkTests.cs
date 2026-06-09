@@ -51,7 +51,8 @@ public class ControlPlaneProgressSinkTests
         cts.Dispose();
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Emit_PostsProgressEventToControlPlane_WithinOneSecond()
     {
@@ -74,7 +75,8 @@ public class ControlPlaneProgressSinkTests
         }
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Emit_AfterControlPlaneRestart_CreatesNewRingBufferAndStoresEvent()
     {
@@ -97,7 +99,8 @@ public class ControlPlaneProgressSinkTests
         }
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Emit_WhenHttpEndpointUnreachable_DropsEventWithoutThrowingAndContinues()
     {
