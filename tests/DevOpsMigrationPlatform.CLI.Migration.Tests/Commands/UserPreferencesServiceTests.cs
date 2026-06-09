@@ -27,6 +27,8 @@ public class UserPreferencesServiceTests
             Directory.Delete(_tempDir, recursive: true);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Load_WhenFileDoesNotExist_ReturnsEmptyPreferences()
     {
@@ -38,6 +40,8 @@ public class UserPreferencesServiceTests
         Assert.IsNull(prefs.ScenarioFolder);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Set_WithSupportedKey_PersistsValue()
     {
@@ -50,6 +54,8 @@ public class UserPreferencesServiceTests
         Assert.AreEqual("/some/path", loaded.ScenarioFolder);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Set_WithUnsupportedKey_ReturnsFalse()
     {
@@ -60,6 +66,8 @@ public class UserPreferencesServiceTests
         Assert.IsFalse(result);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Get_WithSetKey_ReturnsValue()
     {
@@ -73,6 +81,8 @@ public class UserPreferencesServiceTests
         Assert.AreEqual("/test/dir", value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Get_WithUnsetKey_ReturnsNull()
     {
@@ -83,6 +93,8 @@ public class UserPreferencesServiceTests
         Assert.IsNull(value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Get_WithUnsupportedKey_ReturnsNull()
     {
@@ -93,6 +105,8 @@ public class UserPreferencesServiceTests
         Assert.IsNull(value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Set_IsCaseInsensitive()
     {
@@ -104,6 +118,8 @@ public class UserPreferencesServiceTests
         Assert.AreEqual("/test", UserPreferencesService.Get("scenario-folder"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Save_CreatesDirectoryIfNotExists()
     {
@@ -117,6 +133,8 @@ public class UserPreferencesServiceTests
         Assert.IsTrue(File.Exists(UserPreferencesService.GetPreferencesFilePath()));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Load_WithCorruptFile_ReturnsEmptyPreferences()
     {
@@ -133,6 +151,8 @@ public class UserPreferencesServiceTests
         Assert.IsNull(prefs.ScenarioFolder);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void SupportedKeys_ContainsScenarioFolder()
     {
@@ -140,6 +160,8 @@ public class UserPreferencesServiceTests
         Assert.IsTrue(UserPreferencesService.SupportedKeys.Contains("scenario-folder"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Set_OverwritesExistingValue()
     {
@@ -153,6 +175,8 @@ public class UserPreferencesServiceTests
         Assert.AreEqual("/second", UserPreferencesService.Get("scenario-folder"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void GetPreferencesDirectory_WithOverride_ReturnsOverridePath()
     {
@@ -164,6 +188,8 @@ public class UserPreferencesServiceTests
         Assert.AreEqual(_tempDir, dir);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void GetPreferencesDirectory_WithoutOverride_ContainsDevopsmigration()
     {
