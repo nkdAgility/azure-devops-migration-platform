@@ -146,7 +146,7 @@ public class QueueCommandTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void BuildProgressDisplay_WhenTaskListHasExplicitPhaseSummaries_UsesSummaryPhases()
     {
