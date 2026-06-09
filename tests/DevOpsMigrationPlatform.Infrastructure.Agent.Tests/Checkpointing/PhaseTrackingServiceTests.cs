@@ -37,7 +37,7 @@ public sealed class PhaseTrackingServiceTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ReadPhaseRecordAsync_WithPackageBoundary_ReadsViaMetaRouting()
     {
