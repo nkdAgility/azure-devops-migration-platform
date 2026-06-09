@@ -40,13 +40,19 @@ Every test carries **both** the specific category tag and its parent family tag.
 - If the test references `DevOpsMigrationPlatform.Testing` DSL infrastructure → `[TestCategory("CodeTest")]` + `[TestCategory("DomainTests")]`
 - If the test uses real library/framework components in-process with no external connectivity → `[TestCategory("CodeTest")]` + `[TestCategory("IntegrationTests")]`
 - If the test is a single isolated class with all deps mocked → `[TestCategory("CodeTest")]` + `[TestCategory("UnitTests")]`
-- If the test is a critical-path subset run on every PR → `[TestCategory("SystemTest")]` + `[TestCategory("SystemTest_Smoke")]`
 - If the test exercises a full end-to-end flow with the Simulated connector → `[TestCategory("SystemTest")]` + `[TestCategory("SystemTest_Simulated")]`
 - If the test requires live ADO/TFS → `[TestCategory("SystemTest")]` + `[TestCategory("SystemTest_Live")]`
 
+> **⛔ `SystemTest_Smoke` — OPERATOR-DESIGNATED ONLY.**
+> An agent MUST NOT add `[TestCategory("SystemTest_Smoke")]` to any test under any circumstances.
+> Smoke tests are a specific designated subset curated by a human operator. Only a human operator
+> can assign this category, in writing (e.g. PR comment or decision record). If you believe a test
+> belongs in the smoke suite, note it in your output summary for the operator to decide — do not
+> apply the tag yourself.
+
 **Principles:** Push tests downward — can it be a unit test? Live tests are a last resort. Simulated replaces live where possible. CI gates run `CodeTest` by default; `SystemTest` requires the full system active.
 
-**Anti-patterns (instant reject):** Integration/Simulated/Live test for logic that could be mocked. New Live test without proving lower level can't cover it. Integration/Simulated/Live outnumbering Unit + Domain tests.
+**Anti-patterns (instant reject):** Integration/Simulated/Live test for logic that could be mocked. New Live test without proving lower level can't cover it. Integration/Simulated/Live outnumbering Unit + Domain tests. Agent-assigned `SystemTest_Smoke`.
 
 ---
 
@@ -62,7 +68,9 @@ Every time a test file is **created, edited, moved, or touched in any way**, eve
 | Test is isolated unit test (no DSL, no I/O, all deps mocked) | `[TestCategory("CodeTest")]` + `[TestCategory("UnitTests")]` |
 | Test uses `DevOpsMigrationPlatform.Testing` DSL | `[TestCategory("CodeTest")]` + `[TestCategory("DomainTests")]` |
 | Test uses real infrastructure components in-process, no external connectivity | `[TestCategory("CodeTest")]` + `[TestCategory("IntegrationTests")]` |
-| Test is a critical-path smoke subset | `[TestCategory("SystemTest")]` + `[TestCategory("SystemTest_Smoke")]` |
+| Test uses `Simulated` connector end-to-end | `[TestCategory("SystemTest")]` + `[TestCategory("SystemTest_Simulated")]` |
+| Test targets live ADO/TFS | `[TestCategory("SystemTest")]` + `[TestCategory("SystemTest_Live")]` |
+| ⛔ Smoke test (operator-designated only) | DO NOT assign — operator only |
 | Test uses `Simulated` connector end-to-end | `[TestCategory("SystemTest")]` + `[TestCategory("SystemTest_Simulated")]` |
 | Test targets live ADO/TFS | `[TestCategory("SystemTest")]` + `[TestCategory("SystemTest_Live")]` |
 

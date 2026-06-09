@@ -13,16 +13,31 @@ export const meta = {
 const RULES = `
 ## TestCategory Tagging Rules — MANDATORY, NO EXCEPTIONS
 
+### STEP 0 — CLASS-LEVEL PURGE (do this FIRST, before touching any method):
+Scan the entire file for [TestCategory(...)] attributes. Any [TestCategory] that appears
+on the same line as [TestClass], or on the line(s) immediately above [TestClass], MUST be
+deleted. No exceptions. [TestCategory] is NEVER valid on a [TestClass].
+
 ### Two tags required on every [TestMethod]:
 1. Parent family:  [TestCategory("CodeTest")]  OR  [TestCategory("SystemTest")]
 2. Specific:       one canonical value from the list below
 
+Both tags are MANDATORY. A method with only one tag is non-compliant.
+
 ### Canonical specific values:
-- UnitTests        — single class in isolation, ALL deps mocked via Moq or hand-written fakes, no real infrastructure, no I/O
-- DomainTests      — uses DevOpsMigrationPlatform.Testing DSL (builders like A.WorkItem(), runners, assertions)
-- IntegrationTests — real infrastructure in-process: real Polly retry policy, real HttpClient, real Task.Delay as a timing mechanism, real channels/drain loops, real serialisers. No external network.
+- UnitTests        — single class in isolation, ALL deps mocked via Moq or hand-written fakes,
+                     no real infrastructure, no I/O. Constructor/new + mock setup only.
+- DomainTests      — ONLY if the test directly calls the DevOpsMigrationPlatform.Testing DSL:
+                     builders like A.WorkItem(), typed runners, DSL assertion helpers.
+                     If there is NO import of DevOpsMigrationPlatform.Testing and NO DSL builder
+                     calls, this category MUST NOT be used — use UnitTests or IntegrationTests.
+- IntegrationTests — real infrastructure components exercised in-process with no external network:
+                     real Polly retry/backoff policy, real HttpClient, real Task.Delay as a wait,
+                     real channels/drain loops, real serialisers, real ActivitySource listeners,
+                     real ILogger capture, real MemoryStream pipelines.
+                     If the test spins up real library behaviour (not just mocks), use this.
 - SystemTest_Smoke      — critical-path subset run on every PR; requires full system active
-- SystemTest_Simulated  — end-to-end with the Simulated connector; no network
+- SystemTest_Simulated  — end-to-end with the Simulated connector; no external network
 - SystemTest_Live       — requires live ADO/TFS credentials
 
 ### Parent family mapping:
@@ -30,25 +45,35 @@ const RULES = `
 - SystemTest_Smoke, SystemTest_Simulated, SystemTest_Live  →  [TestCategory("SystemTest")]
 
 ### Classification decision order (first match wins):
-1. Uses DevOpsMigrationPlatform.Testing DSL (A.WorkItem(), builders, runners, DSL assertions)  →  DomainTests
+1. File imports DevOpsMigrationPlatform.Testing AND test calls DSL builders/runners  →  DomainTests
 2. Requires live ADO/TFS (real org URLs, credential env vars)  →  SystemTest_Live
 3. Uses Simulated connector end-to-end  →  SystemTest_Simulated
-4. Critical-path smoke subset  →  SystemTest_Smoke
-5. Real infrastructure in-process (real Polly, real HttpClient, real Task.Delay waits, real drain loops, real filesystem)  →  IntegrationTests
-6. Single class, all deps mocked, no real infrastructure  →  UnitTests
-7. AMBIGUOUS between two adjacent categories  →  go one level UP
+4. Critical-path smoke subset run on every PR  →  SystemTest_Smoke
+5. Uses real library/framework infrastructure in-process (real Polly, real HttpClient,
+   real Task.Delay, real channels, real ActivitySource, real ILogger capture)  →  IntegrationTests
+6. Single class, all deps mocked via Moq or fakes, no real infrastructure  →  UnitTests
+7. AMBIGUOUS between two adjacent categories  →  go one level UP (e.g. UnitTests → IntegrationTests)
 
-### Class-level tags:
-- NEVER put [TestCategory] on [TestClass] — remove any that exist
+### DomainTests boundary — CRITICAL:
+DomainTests requires EXPLICIT DSL usage. The presence of domain objects alone is NOT sufficient.
+"Uses Moq" + "arranges domain state" = UnitTests or IntegrationTests, NOT DomainTests.
+If you are unsure whether DSL is used, look for: using DevOpsMigrationPlatform.Testing; and calls
+to A.<Something>(), typed builder chains, or DSL runner/assertion types. If absent → not DomainTests.
 
-### Non-canonical tags — correct on contact:
-The following are non-canonical and must be replaced with the correct canonical pair:
-"UnitTest" (singular), "UnitTests" without parent, "DomainTest" (singular), "IntegrationTest" (singular),
-"SystemTest" alone on a CodeTest, "filter", "offline", "simulated" (lowercase), "Local", "Cleanup",
-"NET481", "cli", "cli-execute", "cli-architecture", "auth-flow", "config-flow", "telemetry-flow",
-"di-registration", "di-isolation", "options-validation", "help-text", "missing-params",
-"error-case", "discovery-inventory", "custom-config", "default-config", "tfs-object-model",
-and any other non-canonical string.
+### Placement rule:
+The two [TestCategory] attributes must appear IMMEDIATELY above [TestMethod], in this order:
+  [TestCategory("CodeTest")]        ← parent first
+  [TestCategory("UnitTests")]       ← specific second
+  [TestMethod]
+  public async Task ...
+
+### Non-canonical tags — DELETE on contact (do not preserve, do not move):
+"UnitTest" (singular), "DomainTest" (singular), "IntegrationTest" (singular),
+"SystemTest" alone, "filter", "offline", "simulated" (lowercase), "Local", "Cleanup",
+"NET481", "cli", "cli-execute", "cli-architecture", "auth-flow", "config-flow",
+"telemetry-flow", "di-registration", "di-isolation", "options-validation", "help-text",
+"missing-params", "error-case", "discovery-inventory", "custom-config", "default-config",
+"tfs-object-model", and any other string not in the canonical list above.
 `
 
 // ---------------------------------------------------------------------------
@@ -94,6 +119,15 @@ const REMEDIATION_SCHEMA = {
   required: ['file', 'changed', 'summary']
 }
 
+const COMMIT_SCHEMA = {
+  type: 'object',
+  properties: {
+    committed: { type: 'boolean' },
+    message: { type: 'string' }
+  },
+  required: ['committed', 'message']
+}
+
 // ---------------------------------------------------------------------------
 // Phase 1: Discover — find test files per project in parallel
 // ---------------------------------------------------------------------------
@@ -117,9 +151,8 @@ Return their absolute Windows paths.`,
 const allFiles = projectFileLists
   .filter(Boolean)
   .flatMap(r => r.files)
-  .slice(0, 20)
 
-log(`Discovered ${allFiles.length} test files (capped at 20 for pilot run)`)
+log(`Discovered ${allFiles.length} test files across ${PROJECTS.length} projects`)
 
 // ---------------------------------------------------------------------------
 // Phase 2: Remediate — one file at a time through the pipeline
@@ -137,22 +170,57 @@ ${RULES}
 ${filePath}
 
 ## Instructions
-1. Read the file.
-2. Remove any [TestCategory(...)] attribute that sits on a [TestClass] line or immediately above one.
-3. For every [TestMethod] in the file:
-   a. Identify the correct parent tag (CodeTest or SystemTest) and specific tag (UnitTests, DomainTests, IntegrationTests, SystemTest_Smoke, SystemTest_Simulated, SystemTest_Live) using the classification rules above.
-   b. Remove any existing [TestCategory(...)] attributes immediately above that [TestMethod].
-   c. Add the two correct [TestCategory] attributes immediately above [TestMethod], parent tag first.
-4. Do not change anything else — no whitespace reformatting, no logic, no comments, no using statements, no reordering.
-5. Write the corrected file using the Edit or Write tool.
+1. Read the file in full.
+2. FIRST — class-level purge: find every [TestClass] declaration. Delete ALL [TestCategory(...)]
+   attributes that appear on the same line or on any line immediately above [TestClass]. This is
+   a hard requirement — do it before touching any [TestMethod].
+3. Check the using directives. If there is NO "using DevOpsMigrationPlatform.Testing" import,
+   DomainTests is NOT a valid category for any method in this file.
+4. For every [TestMethod] in the file:
+   a. Read the method body. Classify using the decision order in the rules above.
+      - If using Moq mocks and no real infrastructure → UnitTests
+      - If using real Polly, real HttpClient, real Task.Delay, real channels, real ActivitySource,
+        real ILogger capture, real MemoryStream pipelines → IntegrationTests
+      - If calling DevOpsMigrationPlatform.Testing DSL builders/runners → DomainTests
+   b. Remove ALL existing [TestCategory(...)] attributes immediately above that [TestMethod]
+      (including non-canonical ones like "UnitTest", "IntegrationTest", "cli-execute", etc.).
+   c. Insert exactly two [TestCategory] lines immediately above [TestMethod]:
+        [TestCategory("CodeTest")]      ← or SystemTest for system tests
+        [TestCategory("UnitTests")]     ← the specific canonical value
+        [TestMethod]
+5. Do not change anything else — no whitespace reformatting, no logic, no comments, no reordering.
+6. Write the corrected file using the Edit or Write tool.
 
-Return a summary of what changed.`,
+Return a summary of what changed, listing each method and the tags applied.`,
     {
       label: `remediate:${filePath.split('\\').pop()}`,
       phase: 'Remediate',
       schema: REMEDIATION_SCHEMA
     }
-  )
+  ),
+  async (result) => {
+    if (!result || !result.changed) return result
+    const filePath = result.file
+    const fileName = filePath.split('\\').pop()
+    await agent(
+      `Run the following git command exactly in the repository at C:\\Users\\MartinHinshelwoodNKD\\source\\repos\\azure-devops-migration-platform:
+
+git add "${filePath}"
+git commit -m "fix(tests): apply canonical TestCategory tags to ${fileName}
+
+${result.summary}
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+
+Use the Bash tool to run these commands. Report whether the commit succeeded.`,
+      {
+        label: `commit:${fileName}`,
+        phase: 'Remediate',
+        schema: COMMIT_SCHEMA
+      }
+    )
+    return result
+  }
 )
 
 const changed = results.filter(Boolean).filter(r => r.changed)
