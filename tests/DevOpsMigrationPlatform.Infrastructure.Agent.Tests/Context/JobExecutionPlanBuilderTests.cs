@@ -74,6 +74,8 @@ public sealed class JobExecutionPlanBuilderTests
         return new ConfigurationBuilder().AddInMemoryCollection(dict).Build();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task BuildPlanAsync_ExportKind_Returns4ExportTasks()
     {
@@ -90,6 +92,8 @@ public sealed class JobExecutionPlanBuilderTests
         Assert.AreEqual("Export", plan.Tasks[0].Phase);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task BuildPlanAsync_ExportKind_PopulatesOrderedPhaseSummaries()
     {
@@ -108,6 +112,8 @@ public sealed class JobExecutionPlanBuilderTests
             "Phase summary should reference export tasks in plan order");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task BuildPlanAsync_ImportKind_Returns4ImportTasks()
     {
@@ -122,6 +128,8 @@ public sealed class JobExecutionPlanBuilderTests
         Assert.AreEqual("Import", plan.Tasks[0].Phase);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task BuildPlanAsync_MigrateKind_ContainsOrderedExportThenImportTaskSets()
     {
@@ -166,6 +174,8 @@ public sealed class JobExecutionPlanBuilderTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task BuildPlanAsync_MigrateKind_PopulatesOrderedPhaseSummaries()
     {
@@ -195,6 +205,8 @@ public sealed class JobExecutionPlanBuilderTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task BuildPlanAsync_MigrateKind_UsesGeneratorProjectNamesWhenSourceProjectIsNotExplicitlyConfigured()
     {
@@ -224,6 +236,8 @@ public sealed class JobExecutionPlanBuilderTests
             "Migrate export/import tasks should inherit generator project names when explicit source/target projects are absent.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task BuildPlanAsync_ImportKind_UsesPackagedProjectNamesWhenTargetProjectIsNotExplicitlyConfigured()
     {
@@ -260,6 +274,8 @@ public sealed class JobExecutionPlanBuilderTests
             "Import tasks should inherit packaged project names when target/source projects are absent from config.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task BuildPlanAsync_ImportKind_UsesPackageRootNameWhenFixtureIsAlreadyProjectScoped()
     {
@@ -305,6 +321,8 @@ public sealed class JobExecutionPlanBuilderTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task BuildPlanAsync_DisabledModule_DoesNotCreateTask()
     {
@@ -332,6 +350,8 @@ public sealed class JobExecutionPlanBuilderTests
             "Should have 3 export tasks (Nodes, Teams, WorkItems)");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task BuildPlanAsync_AllTasksHaveAscendingOrder()
     {
@@ -365,6 +385,8 @@ public sealed class JobExecutionPlanBuilderTests
     /// it or build a fresh plan. A fresh plan would reset task statuses to Pending,
     /// causing every module to re-execute.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task BuildAndSaveAsync_AllTasksCompleted_ReturnsSamePlanWithoutRebuild()
     {
@@ -404,6 +426,8 @@ public sealed class JobExecutionPlanBuilderTests
     /// Regression guard: if every task is Skipped, the plan is still terminal.
     /// BuildAndSaveAsync must return it as-is, not rebuild.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task BuildAndSaveAsync_AllTasksSkipped_ReturnsSamePlanWithoutRebuild()
     {
@@ -441,6 +465,8 @@ public sealed class JobExecutionPlanBuilderTests
     /// must be resumed, not rebuilt. The Pending tasks must keep their Pending status
     /// and be re-executed; the Completed tasks must not be reset.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task BuildAndSaveAsync_PartiallyCompletedPlan_ReturnsExistingPlanWithMixedStatuses()
     {
@@ -496,6 +522,8 @@ public sealed class JobExecutionPlanBuilderTests
             "Resume should preserve phase membership when loading an existing plan.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task BuildAndSaveAsync_ForKindMismatch_DeletesPlanAndBuildsFreshForRequestedKind()
     {
@@ -534,6 +562,8 @@ public sealed class JobExecutionPlanBuilderTests
             "Export task IDs from stale plan must be removed");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task BuildAndSaveAsync_WithPackageBoundary_PersistsExecutionPlanViaPackageMeta()
     {
