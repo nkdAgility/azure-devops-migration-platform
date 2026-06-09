@@ -758,6 +758,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             return 1;
         }
 
+        if (!Uri.TryCreate(orgUrl, UriKind.Absolute, out var parsedOrgUrl) ||
+            (parsedOrgUrl.Scheme != Uri.UriSchemeHttp && parsedOrgUrl.Scheme != Uri.UriSchemeHttps))
+        {
+            ShowError(console, $"Source.Url must be a valid HTTP or HTTPS URL. Got: '{orgUrl}'.");
+            return 1;
+        }
+
         if (string.IsNullOrWhiteSpace(project))
         {
             ShowError(console, "Source.Project is required. Set it in the config file.");
