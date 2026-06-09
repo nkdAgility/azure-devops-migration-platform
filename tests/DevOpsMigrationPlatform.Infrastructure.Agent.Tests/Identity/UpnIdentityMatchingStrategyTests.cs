@@ -9,13 +9,14 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Identity;
 
 [TestClass]
-[TestCategory("UnitTests")]
 public sealed class UpnIdentityMatchingStrategyTests
 {
     private static readonly UpnIdentityMatchingStrategy Strategy = new();
 
     private static IReadOnlyList<IdentityCandidate> Candidates(params IdentityCandidate[] items) => items;
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Match_ExactUpn_CaseInsensitive_ReturnsSingleMatch()
     {
@@ -30,6 +31,8 @@ public sealed class UpnIdentityMatchingStrategyTests
         Assert.AreEqual(1, result.MatchCount);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Match_NoUpnMatch_ReturnsNone()
     {
@@ -43,6 +46,8 @@ public sealed class UpnIdentityMatchingStrategyTests
         Assert.AreEqual(0, result.MatchCount);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Match_MultipleCandidates_OneUpnMatch_ReturnsThatMatch()
     {
@@ -57,6 +62,8 @@ public sealed class UpnIdentityMatchingStrategyTests
         Assert.AreEqual("desc-b", result.Descriptor);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Match_DuplicateUpn_ReturnsAmbiguous()
     {
@@ -72,6 +79,8 @@ public sealed class UpnIdentityMatchingStrategyTests
         Assert.AreEqual(2, result.MatchCount);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Match_EmptySourceUpn_ReturnsNone()
     {
