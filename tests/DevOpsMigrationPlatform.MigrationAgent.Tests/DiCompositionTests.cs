@@ -22,6 +22,8 @@ public class DiCompositionTests
     /// completes within 15 seconds. A deadlock would cause this test to
     /// timeout, failing CI with a clear diagnostic instead of hanging.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Build_FullMigrationAgentContainer_CompletesWithoutDeadlock()
     {
