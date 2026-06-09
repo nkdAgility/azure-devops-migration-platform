@@ -266,7 +266,7 @@ public class NodesModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenSourceTreeJsonIsMalformed()
     {
@@ -288,7 +288,7 @@ public class NodesModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ValidateAsync_PassesForValidSourceTreeJson()
     {
