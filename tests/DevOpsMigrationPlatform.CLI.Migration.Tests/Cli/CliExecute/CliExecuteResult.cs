@@ -60,6 +60,17 @@ public sealed class CliExecuteResult : IAsyncDisposable
     }
 
     /// <summary>
+    /// Asserts either stdout or stderr contains <paramref name="expectedFragment"/>.
+    /// </summary>
+    public CliExecuteResult AssertOutputContains(string expectedFragment)
+    {
+        var combined = StandardOutput + StandardError;
+        Assert.IsTrue(combined.Contains(expectedFragment, StringComparison.OrdinalIgnoreCase),
+            $"Expected combined output to contain '{expectedFragment}'.\nStdout: {StandardOutput}\nStderr: {StandardError}");
+        return this;
+    }
+
+    /// <summary>
     /// Asserts <see cref="StandardOutput"/> contains <paramref name="expectedFragment"/>.
     /// Replaces the vacuous "display comprehensive help text" feature assertion.
     /// </summary>

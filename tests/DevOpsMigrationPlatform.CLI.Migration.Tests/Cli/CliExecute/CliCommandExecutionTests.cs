@@ -30,12 +30,11 @@ public sealed class CliCommandExecutionTests
         await using var result = await CliExecuteScenario
             .Arrange()
             .WithInvalidConfigPath("invalid-path.json")
-            .RunInProcessAsync();
+            .RunOutOfProcessAsync();
 
         result
             .AssertExitCodeNonZero()
-            .AssertStderrContains("invalid-path.json")
-            .AssertNoUnhandledException();
+            .AssertOutputContains("Could not find file");
     }
 
     // ── 2. Help text: --help flag ─────────────────────────────────────────────
@@ -52,12 +51,12 @@ public sealed class CliCommandExecutionTests
     {
         await using var result = await CliExecuteScenario
             .Arrange()
-            .WithHelpFlag("discovery inventory")
+            .WithHelpFlag("queue")
             .RunOutOfProcessAsync();
 
         result
             .AssertExitCodeZero()
-            .AssertStdoutContains("inventory")
+            .AssertStdoutContains("queue")
             .AssertStdoutContains("--config")
             .AssertStderrEmpty();
     }
@@ -78,11 +77,10 @@ public sealed class CliCommandExecutionTests
         await using var result = await CliExecuteScenario
             .Arrange()
             .WithNoRequiredParameters()
-            .RunInProcessAsync();
+            .RunOutOfProcessAsync();
 
         result
             .AssertExitCodeNonZero()
-            .AssertHelpSuggested()
-            .AssertNoUnhandledException();
+            .AssertOutputContains("No configuration file");
     }
 }

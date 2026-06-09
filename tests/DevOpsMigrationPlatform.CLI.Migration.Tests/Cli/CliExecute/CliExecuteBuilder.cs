@@ -111,19 +111,16 @@ public sealed class CliExecuteBuilder : IAsyncDisposable
 
         if (_helpFlag && _helpCommand != null)
         {
-            // Split "discovery inventory" into tokens and append --help
             args.AddRange(_helpCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries));
             args.Add("--help");
         }
         else if (_configArg != null)
         {
-            // Run discovery inventory with the invalid config path
-            args.AddRange(["discovery", "inventory", "--config", _configArg]);
+            args.AddRange(["queue", "--config", _configArg]);
         }
         else if (_noRequiredParams)
         {
-            // Run discovery inventory with no required parameters
-            args.AddRange(["discovery", "inventory"]);
+            args.AddRange(["queue"]);
         }
 
         return args.ToArray();
