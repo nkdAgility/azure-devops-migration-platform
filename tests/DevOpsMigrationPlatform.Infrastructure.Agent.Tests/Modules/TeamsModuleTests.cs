@@ -110,7 +110,7 @@ public class TeamsModuleTests
             slugGenerator: new TeamSlugGenerator(),
             package: package);
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_Skips_WhenModuleDisabled()
@@ -133,7 +133,7 @@ public class TeamsModuleTests
         storeMock.VerifyNoOtherCalls();
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_Skips_WhenNoTeamSourceRegistered()
@@ -154,7 +154,7 @@ public class TeamsModuleTests
         storeMock.VerifyNoOtherCalls();
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_WritesTeamJson_PerTeam()
@@ -190,7 +190,7 @@ public class TeamsModuleTests
         Assert.IsTrue(writtenPaths.Exists(p => p.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase)));
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_AppliesFilter_WhenScopeIsTeams()
@@ -224,7 +224,7 @@ public class TeamsModuleTests
         Assert.IsTrue(writtenPaths[0].Contains("alpha-team", StringComparison.OrdinalIgnoreCase));
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_SkipsExistingTeam_WhenAlwaysExportFalse()
@@ -256,7 +256,7 @@ public class TeamsModuleTests
             "Expected zero writes when all teams are already present and AlwaysExport=false.");
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_ReexportsExistingTeam_WhenAlwaysExportTrue()
@@ -293,6 +293,7 @@ public class TeamsModuleTests
 
     // ── Content verification tests (from export-team-definitions, iterations, members features) ──
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_TeamJson_ContainsTeamNameAndIsDefault()
@@ -326,6 +327,7 @@ public class TeamsModuleTests
         Assert.IsTrue(definition.GetProperty("isDefault").GetBoolean(), "Alpha Team should be the default team.");
     }
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_TeamJson_ContainsIterationsAndMembers()
@@ -373,7 +375,7 @@ public class TeamsModuleTests
         Assert.IsTrue(firstMember.TryGetProperty("uniqueName", out _), "Member should have 'uniqueName' field.");
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_Skips_WhenModuleDisabled()
@@ -394,7 +396,7 @@ public class TeamsModuleTests
         storeMock.VerifyNoOtherCalls();
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_CreatesTeams_FromPackageFiles()
@@ -440,7 +442,7 @@ public class TeamsModuleTests
         Assert.AreEqual(1, target.Teams.Count, "Expected exactly one team to be imported");
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_CreatesNonDefaultTeams_ByName_WhenTwoTeamsInPackage()
@@ -489,7 +491,7 @@ public class TeamsModuleTests
         Assert.IsTrue(target.Teams.Values.Any(t => t.Name == "Test Team"), "Test Team should be created on target");
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_CreatesAllTeams_WhenFiveNonDefaultTeamsInPackage()
@@ -537,7 +539,7 @@ public class TeamsModuleTests
             Assert.IsTrue(target.Teams.Values.Any(t => t.Name == name), $"Team '{name}' should be on target");
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenNoTeamFilesFound()
@@ -566,7 +568,7 @@ public class TeamsModuleTests
         StringAssert.Contains(context.Errors[0].Message, "No team files");
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenTeamJsonMissingDefinitionField()
@@ -598,7 +600,7 @@ public class TeamsModuleTests
         StringAssert.Contains(context.Errors[0].Message, "definition");
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenTeamJsonIsMalformed()
@@ -630,7 +632,7 @@ public class TeamsModuleTests
         StringAssert.Contains(context.Errors[0].Message, "malformed JSON");
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_Passes_WhenAllTeamFilesAreValid()
@@ -672,7 +674,7 @@ public class TeamsModuleTests
 
     // ── Iteration Tests (T068) ────────────────────────────────────────────────
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_AssignsIterations_WithPathPassThrough_WhenNoTranslationTool()
@@ -719,7 +721,7 @@ public class TeamsModuleTests
 
     // ── Member Tests (T075) ───────────────────────────────────────────────────
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_AddsMembersWithIdentityMapping()
@@ -773,7 +775,7 @@ public class TeamsModuleTests
 
     // ── Capacity Tests (T082) ─────────────────────────────────────────────────
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_SetsCapacity_ForEachIteration()
@@ -822,7 +824,7 @@ public class TeamsModuleTests
         Assert.AreEqual(1, target.Capacity[key].Length);
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_SkipsCapacity_WhenCapacityExtensionDisabled()
@@ -864,7 +866,7 @@ public class TeamsModuleTests
         Assert.AreEqual(0, target.Capacity.Count, "Capacity should be empty when extension is disabled");
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_CompletesWithoutError_WhenTargetThrowsNotSupportedForCapacity()
@@ -915,7 +917,7 @@ public class TeamsModuleTests
             "sprint-1", It.IsAny<TeamCapacityEntry[]>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_NeverCallsSetCapacity_WhenCapacityByIterationIsEmpty()
@@ -956,7 +958,7 @@ public class TeamsModuleTests
 
     // ── NodeTranslation Extension Tests (T069) ─────────────────────────────────
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_RecordsAreaAndIterationPaths_WhenNodeTranslationExtensionEnabled()
@@ -1004,7 +1006,7 @@ public class TeamsModuleTests
         Assert.IsTrue(recordedIterPaths.Count > 0, "Expected at least one iteration path to be recorded.");
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_DoesNotRecordPaths_WhenNodeTranslationExtensionDisabled()
@@ -1042,7 +1044,7 @@ public class TeamsModuleTests
         trackerMock.VerifyNoOtherCalls();
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_TranslatesIterationPaths_ViaNodeTranslationTool()
@@ -1103,7 +1105,7 @@ public class TeamsModuleTests
             "Expected translated path 'TargetProject\\Sprint 1'.");
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_SkipsIteration_WhenPathUntranslatable_GAP005()
@@ -1157,7 +1159,7 @@ public class TeamsModuleTests
         Assert.AreEqual(0, assignedCount, "Untranslatable iteration must be skipped, not assigned.");
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportTeam_SkipsMember_WhenIdentityResolvesToDefault_GAP006()
@@ -1189,7 +1191,7 @@ public class TeamsModuleTests
             "Member resolving to the default identity must be skipped.");
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportTeam_AddsMember_WhenIdentityResolvesToNonDefault_GAP006()
@@ -1218,7 +1220,7 @@ public class TeamsModuleTests
         Assert.AreEqual(1, target.Members.Values.Sum(m => m.Count), "Resolved member must be added.");
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportTeam_LogsStructuredWarning_ForDefaultTeam_GAP004()
@@ -1248,7 +1250,7 @@ public class TeamsModuleTests
             Times.Once);
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_UsesIterationPathField_ForIterationTranslation()
@@ -1327,7 +1329,7 @@ public class TeamsModuleTests
 
     // ── Iteration Path Tests ──────────────────────────────────────────────────
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_TranslatesAndAssignsBothIterations_WhenTwoIterationsInPackage()
@@ -1391,7 +1393,7 @@ public class TeamsModuleTests
 
     // ── Area Path Tests ───────────────────────────────────────────────────────
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_TranslatesDefaultAndIncludedAreaPaths_ViaNodeTranslationTool()
@@ -1450,7 +1452,7 @@ public class TeamsModuleTests
         Assert.IsTrue(target.AreaPaths[teamId].IncludedAreaPaths.Contains("TargetProject\\Sub"), "TargetProject\\Sub should be in included paths");
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_DoesNotSetAreaPaths_WhenNodeTranslationExtensionDisabled()
