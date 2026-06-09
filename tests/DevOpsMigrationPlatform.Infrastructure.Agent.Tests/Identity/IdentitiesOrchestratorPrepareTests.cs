@@ -87,7 +87,7 @@ public sealed class IdentitiesOrchestratorPrepareTests
         new(descriptor, displayName, uniqueName, SourceType: "user", Origin: "aad", IsActive: true);
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareAsync_UpnMatch_CachesResolvedTarget()
     {
@@ -106,7 +106,7 @@ public sealed class IdentitiesOrchestratorPrepareTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareAsync_DisplayNameMatch_WhenNoUpn_CachesResolvedTarget()
     {
@@ -126,7 +126,7 @@ public sealed class IdentitiesOrchestratorPrepareTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareAsync_AmbiguousDisplayName_LeavesUnresolved()
     {
@@ -148,7 +148,7 @@ public sealed class IdentitiesOrchestratorPrepareTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareAsync_AdapterThrows_ContinuesAndLeavesUnresolved()
     {
@@ -168,7 +168,7 @@ public sealed class IdentitiesOrchestratorPrepareTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareAsync_WritesPrepareReport_WithCounts()
     {
@@ -200,7 +200,7 @@ public sealed class IdentitiesOrchestratorPrepareTests
     // ── prepare-phase feature family ─────────────────────────────────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareAsync_AllIdentitiesResolved_ProducesMappingCandidatesReport()
     {
@@ -239,7 +239,7 @@ public sealed class IdentitiesOrchestratorPrepareTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareAsync_SomeUnmatchable_ReportsUnresolvedCount()
     {

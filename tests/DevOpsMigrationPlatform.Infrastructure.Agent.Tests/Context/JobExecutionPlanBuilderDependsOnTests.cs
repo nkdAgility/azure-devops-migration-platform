@@ -34,7 +34,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 public sealed class JobExecutionPlanBuilderDependsOnTests
 {
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_ImportPhase_WorkItemsDependsOnIdentitiesAndNodes()
     {
@@ -65,7 +65,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_ExportPhase_NoDependsOn()
     {
@@ -94,7 +94,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_ExportPhase_InventoryPrerequisiteContract_HoldsAcrossMarkerVariants()
     {
@@ -159,7 +159,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_CircularDependency_ThrowsInvalidOperationException()
     {
@@ -180,7 +180,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_DependencyOnDisabledModule_DependencyOmittedFromTask()
     {
@@ -214,7 +214,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_DependencyOnNonExistentModule_LogsWarningAndOmitsDependency()
     {
@@ -243,7 +243,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_PrepareKind_AddsAnalyseTasksFromPrepareDependencies()
     {
@@ -293,7 +293,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_PrepareKind_PrepareTasksDependOnAnalyseTasks()
     {
@@ -338,7 +338,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_InventoryKind_MultiOrgProjects_BuildsScopedCaptureTasks()
     {
@@ -379,7 +379,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_InventoryKind_NoProjectsConfigured_ProducesNoCaptureTasks()
     {
@@ -408,7 +408,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_DependenciesKind_DependencyCaptureTasksDependOnAnalyseInventory()
     {
@@ -442,7 +442,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_DependenciesKind_AnalyseDependenciesDependsOnAllDependencyCaptures()
     {

@@ -228,7 +228,7 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnJobAsync_Export_RoutesToExportPlanExecution()
     {
@@ -262,7 +262,7 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnJobAsync_Export_PassesConfiguredAndResolvedSourceEndpointAliases()
     {
@@ -314,7 +314,7 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnJobAsync_Dependencies_RoutesToUnifiedTaskExecution()
     {
@@ -348,7 +348,7 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnJobAsync_Import_RunsPrepareBeforeImportPhaseExecution()
     {
@@ -394,7 +394,7 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnJobAsync_Dependencies_EmitsJobReadyAfterPushingTaskList()
     {
@@ -424,7 +424,7 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnJobAsync_Dependencies_ForceFresh_DeletesScopedCheckpointStateViaCheckpointer()
     {
@@ -457,7 +457,7 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnJobAsync_Inventory_WhenInventoryPlanSucceeds_WritesInventoryCompletionMarker()
     {
@@ -543,7 +543,7 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnJobAsync_Export_WhenExportPhaseFails_DoesNotWriteInventoryCompletionMarker()
     {
@@ -613,7 +613,7 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnJobAsync_UnknownKind_FailsWithoutRunningPlanExecutor()
     {
@@ -650,7 +650,7 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnJobAsync_WhenMigrationExecutionThrows_ClearsCurrentPackageConfigAccessor()
     {
@@ -684,7 +684,7 @@ public sealed class JobAgentWorkerDispatchTests
     // ── Scenarios: Agent fails fast when migration-config.json is absent ────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnJobAsync_WhenConfigAbsent_SignalsFailTerminal()
     {
@@ -705,7 +705,7 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnJobAsync_WhenConfigAbsent_DoesNotExecuteModules()
     {
@@ -731,7 +731,7 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnJobAsync_WhenConnectorConfigOmitsUrl_PopulatesCurrentEndpointAccessor()
     {
@@ -776,7 +776,7 @@ public sealed class JobAgentWorkerDispatchTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnJobAsync_ForceFresh_DeletesInventoryCompletionMarker()
     {
