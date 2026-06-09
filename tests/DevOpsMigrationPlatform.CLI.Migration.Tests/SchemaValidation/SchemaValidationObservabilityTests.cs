@@ -27,9 +27,9 @@ public sealed class SchemaValidationObservabilityTests
             File.Delete(_tempSchemaPath);
     }
 
-    [TestMethod]
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
+    [TestMethod]
     public void Validate_WithUnknownKey_LogsErrorWithJsonPathAndConstraint()
     {
         // Arrange
@@ -76,9 +76,9 @@ public sealed class SchemaValidationObservabilityTests
             "Expected Constraint to be populated");
     }
 
-    [TestMethod]
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
+    [TestMethod]
     public void Validate_WithMissingRequired_LogsErrorWithJsonPath()
     {
         // Arrange
@@ -136,9 +136,9 @@ public sealed class SchemaValidationObservabilityTests
             "Expected Constraint to be populated");
     }
 
-    [TestMethod]
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
+    [TestMethod]
     public void Validate_WithValidConfig_ReturnsEmptyList()
     {
         // Arrange
@@ -190,9 +190,9 @@ public sealed class SchemaValidationObservabilityTests
         Assert.AreEqual(0, errors.Count, "Expected no validation errors for valid config");
     }
 
-    [TestMethod]
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
+    [TestMethod]
     public void Validate_WithAbsentSchema_ReturnsEmptyList()
     {
         // Arrange
