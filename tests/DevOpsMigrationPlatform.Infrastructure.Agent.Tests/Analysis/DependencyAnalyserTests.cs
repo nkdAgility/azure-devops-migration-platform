@@ -30,6 +30,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Analysis;
 [TestClass]
 public sealed class DependencyAnalyserTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AnalyseAsync_EmitsDependenciesActivityWithTags()
     {
@@ -50,6 +52,8 @@ public sealed class DependencyAnalyserTests
         Assert.AreEqual("Dependencies", activity.Tags.First(t => t.Key == "module").Value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AnalyseAsync_RecordsDependencyMetrics()
     {
@@ -64,6 +68,8 @@ public sealed class DependencyAnalyserTests
         metrics.Verify();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AnalyseAsync_EmitsStartAndCompletionProgressWithMetrics()
     {
@@ -78,6 +84,8 @@ public sealed class DependencyAnalyserTests
         Assert.IsTrue(events.Any(e => e.Stage == "Analysed" && e.Metrics is not null));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AnalyseAsync_LogsWarningWhenNoDependencyRows()
     {
@@ -89,6 +97,8 @@ public sealed class DependencyAnalyserTests
         logger.VerifyLog(LogLevel.Warning, "Zero cross-project dependency links written for job-1", Times.Once());
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AnalyseAsync_WritesAnalysisDependenciesCsvAndMmd()
     {
@@ -159,6 +169,8 @@ public sealed class DependencyAnalyserTests
             }]
         };
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AnalyseAsync_EC5_WhenPerProjectCsvAbsent_ThrowsAndDoesNotWriteConsolidatedOutput()
     {
