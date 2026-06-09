@@ -13,9 +13,9 @@ public sealed class TfsConfigValidationTests
     /// A non-HTTP/HTTPS URL such as "not-a-url" must produce a validation error
     /// referencing the HTTP/HTTPS URL format requirement before any job submission.
     /// </summary>
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Simulated")]
     [TestMethod]
-    [TestCategory("CodeTest")]
-    [TestCategory("IntegrationTests")]
     public async Task TfsExport_InvalidServerUrl_ValidationErrorShown()
     {
         await using var result = await TfsExportScenario
@@ -31,9 +31,9 @@ public sealed class TfsConfigValidationTests
     /// <summary>
     /// Scenario 3 — Export requires a non-empty project name.
     /// </summary>
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Simulated")]
     [TestMethod]
-    [TestCategory("CodeTest")]
-    [TestCategory("IntegrationTests")]
     public async Task TfsExport_EmptyProjectName_ValidationErrorShown()
     {
         await using var result = await TfsExportScenario
