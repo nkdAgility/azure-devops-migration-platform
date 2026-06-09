@@ -11,9 +11,10 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests;
 
 [TestClass]
-[TestCategory("NET481")]
 public sealed class TeamsNet481ContractTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ITeamsOrchestrator_IsAvailable_OnNet481_WithSharedMembersOnly()
     {
@@ -30,6 +31,8 @@ public sealed class TeamsNet481ContractTests
         CollectionAssert.DoesNotContain(methodNames, "ImportAsync");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void AddTfsMigrationAgentServices_RegistersTeamsModule_ForNet481ExportPipeline()
     {
