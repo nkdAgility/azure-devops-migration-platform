@@ -275,7 +275,7 @@ public sealed class JobExecutionPlanBuilderTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_ImportKind_UsesPackageRootNameWhenFixtureIsAlreadyProjectScoped()
     {
