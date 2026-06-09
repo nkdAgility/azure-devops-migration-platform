@@ -52,7 +52,7 @@ public class ControlPlaneTelemetryTimerTests
     /// When the agent holds a lease and has metrics, it calls PushMetricsAsync.
     /// </summary>
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PushesTelemetry_WhenLeaseHeldAndMetricsAvailable()
     {
@@ -93,7 +93,7 @@ public class ControlPlaneTelemetryTimerTests
     /// When the snapshot store returns null, no HTTP request is sent.
     /// </summary>
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SkipsPush_WhenNoSnapshotAvailable()
     {
@@ -122,7 +122,7 @@ public class ControlPlaneTelemetryTimerTests
     /// When CurrentLeaseId is null, no HTTP request is sent even if snapshots are available.
     /// </summary>
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SkipsPush_WhenNoLeaseHeld()
     {
@@ -152,7 +152,7 @@ public class ControlPlaneTelemetryTimerTests
     /// PushMetricsAsync is best-effort — exceptions should not propagate.
     /// </summary>
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ContinuesRunning_WhenControlPlaneReturnsFailure()
     {
@@ -194,7 +194,7 @@ public class ControlPlaneTelemetryTimerTests
     /// The snapshot is pushed using the currently held lease id.
     /// </summary>
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PushesSnapshot_WhenSnapshotStoreIsPopulated()
     {
@@ -228,7 +228,7 @@ public class ControlPlaneTelemetryTimerTests
     /// Ensures ExecuteAsync exits without hanging or throwing.
     /// </summary>
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task StopsGracefully_WhenCancelled()
     {
