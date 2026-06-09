@@ -18,7 +18,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 [TestClass]
 public class SimulatedImportTests
 {
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_EmitsOneProgressEvent_PerWorkItem()
     {
@@ -94,6 +95,7 @@ public class SimulatedImportTests
             $"Expected at least {workItemCount} progress events, got {progressEvents.Count}.");
     }
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public async Task SimulatedWorkItemTargetFactory_CreateAsync_AlwaysReturnsSimulatedTarget()
