@@ -20,6 +20,8 @@ public class ExportCommandFollowTests
 {
     // ── Unit tests ────────────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ExportCommand_WithInvalidLevel_FailsValidation()
     {
@@ -42,9 +44,9 @@ public class ExportCommandFollowTests
     /// The <c>--follow</c> flag streams diagnostic records inline; <c>--level Warning</c>
     /// limits the records shown. Both flags must not break the export.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
     public async Task ExportCommand_WithFollowAndWarningLevel_ExitsZero_AndWritesRevisionFiles()
     {
         // ── Act — run with --follow and --level Warning ──────────────────
@@ -93,9 +95,9 @@ public class ExportCommandFollowTests
     /// <c>logs/diagnostics.ndjson</c> file
     /// inside the package directory (the agent writes structured logs at Debug+ level).
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
     public async Task ExportCommand_WithDebugLevel_WritesDiagnosticsNdjson()
     {
         // ── Act — run with --level Debug ──────────────────────────────────────
