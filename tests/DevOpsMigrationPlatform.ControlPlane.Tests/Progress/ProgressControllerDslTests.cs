@@ -21,7 +21,7 @@ public class ProgressControllerDslTests
     // ── Scenario: ProgressEvent is retrievable via GET /jobs/{id}/logs ────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetProgress_WhenEventPosted_Returns200WithEvent()
     {
@@ -58,7 +58,7 @@ public class ProgressControllerDslTests
     // ── Scenario: 403 when caller lacks job visibility ────────────────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetProgress_UnauthenticatedCaller_Returns403()
     {
