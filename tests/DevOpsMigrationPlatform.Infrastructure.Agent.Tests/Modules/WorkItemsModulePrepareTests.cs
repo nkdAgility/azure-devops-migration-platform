@@ -38,7 +38,7 @@ public sealed class WorkItemsModulePrepareTests
         => new(PackageContentKind.Artefact, "test-org", "test-project", "WorkItems", Address: new TestPackageAddress(path));
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareAsync_WritesBlockingFindings_WhenAttachmentAndImageBinariesAreMissing()
     {
@@ -102,7 +102,7 @@ public sealed class WorkItemsModulePrepareTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareAsync_WritesResolvedReport_WhenRevisionArtefactsArePresent()
     {
@@ -158,7 +158,7 @@ public sealed class WorkItemsModulePrepareTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareAsync_WritesFieldTransformFinding_WhenConfiguredFieldIsMissingFromExportedRevisions()
     {
@@ -220,7 +220,7 @@ public sealed class WorkItemsModulePrepareTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareAsync_ThrowsWrappedFailure_WhenPreparerEvaluationFails()
     {
@@ -240,7 +240,7 @@ public sealed class WorkItemsModulePrepareTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareAsync_PropagatesCancellation_WhenCancellationRequested()
     {
