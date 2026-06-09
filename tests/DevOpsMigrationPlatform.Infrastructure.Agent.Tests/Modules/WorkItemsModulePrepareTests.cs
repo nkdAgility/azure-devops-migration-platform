@@ -37,6 +37,8 @@ public sealed class WorkItemsModulePrepareTests
     private static PackageContentContext ContentAt(string path)
         => new(PackageContentKind.Artefact, "test-org", "test-project", "WorkItems", Address: new TestPackageAddress(path));
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task PrepareAsync_WritesBlockingFindings_WhenAttachmentAndImageBinariesAreMissing()
     {
@@ -99,6 +101,8 @@ public sealed class WorkItemsModulePrepareTests
         Assert.IsTrue(report.UnresolvedItems.All(i => i.Severity == PrepareIssueSeverity.Blocking));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task PrepareAsync_WritesResolvedReport_WhenRevisionArtefactsArePresent()
     {
@@ -153,6 +157,8 @@ public sealed class WorkItemsModulePrepareTests
         Assert.AreEqual(0, readinessReport.WarningCount);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task PrepareAsync_WritesFieldTransformFinding_WhenConfiguredFieldIsMissingFromExportedRevisions()
     {
@@ -213,6 +219,8 @@ public sealed class WorkItemsModulePrepareTests
         Assert.AreEqual(0, readinessReport.WarningCount);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task PrepareAsync_ThrowsWrappedFailure_WhenPreparerEvaluationFails()
     {
@@ -231,6 +239,8 @@ public sealed class WorkItemsModulePrepareTests
         Assert.AreEqual("synthetic-prepare-failure", exception.InnerException.Message);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task PrepareAsync_PropagatesCancellation_WhenCancellationRequested()
     {
