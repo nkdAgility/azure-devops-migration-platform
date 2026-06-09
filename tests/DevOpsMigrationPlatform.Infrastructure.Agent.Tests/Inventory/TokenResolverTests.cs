@@ -12,6 +12,8 @@ public class TokenResolverTests
 {
     // ── Null input ────────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resolve_NullInput_ReturnsNull()
     {
@@ -21,6 +23,8 @@ public class TokenResolverTests
 
     // ── Literal values ────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resolve_LiteralToken_ReturnsSameValue()
     {
@@ -29,6 +33,8 @@ public class TokenResolverTests
         Assert.AreEqual(token, result);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resolve_EmptyString_ReturnsNull()
     {
@@ -38,6 +44,8 @@ public class TokenResolverTests
 
     // ── ENV var resolution ────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resolve_EnvVarPrefix_ReturnsEnvVarValue()
     {
@@ -54,6 +62,8 @@ public class TokenResolverTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resolve_EnvVarPrefix_UnsetVariable_Throws()
     {
@@ -64,6 +74,8 @@ public class TokenResolverTests
             () => ConfigTokenResolver.Resolve($"$ENV:{varName}"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resolve_EnvVarPrefixLowercase_AlsoResolvesVariable()
     {
