@@ -44,7 +44,8 @@ public sealed class JobLifecycleDslTests
 
     // ── Scenario: Job transitions from Queued to Running ──────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void SetState_QueuedToRunning_RaisesJobStartedMetric()
     {
@@ -68,7 +69,8 @@ public sealed class JobLifecycleDslTests
 
     // ── Scenario: Job transitions from Running to Completed ───────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void SetState_RunningToCompleted_RaisesJobCompletedMetricAndRecordsDuration()
     {
@@ -97,7 +99,8 @@ public sealed class JobLifecycleDslTests
 
     // ── Scenario: Job transitions from Running to Failed ─────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void SetState_RunningToFailed_RaisesJobFailedMetricAndRecordsReason()
     {
@@ -122,7 +125,8 @@ public sealed class JobLifecycleDslTests
 
     // ── Scenario: Multiple state updates during processing ────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void SetState_MultipleRunningUpdates_PreservesRunningStateAndRaisesJobStartedOnce()
     {
