@@ -53,6 +53,12 @@ public sealed class TuiLogView : FrameView
     /// <summary>Minimum log level displayed in Diagnostics mode (default: Information).</summary>
     public string MinLevel { get; set; } = "Information";
 
+    /// <summary>
+    /// Read-only snapshot of the current line buffer.
+    /// Exposed for test assertions via <c>InternalsVisibleTo</c> — do not use in production code.
+    /// </summary>
+    internal IReadOnlyList<string> Lines => _lines;
+
     /// <summary>Fired when a terminal SSE event (<c>job-ended</c>/<c>job-failed</c>) arrives.</summary>
     public event Action<string>? OnJobEnded;
 
