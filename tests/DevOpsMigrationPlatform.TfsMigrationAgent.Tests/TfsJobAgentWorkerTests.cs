@@ -211,7 +211,7 @@ public class TfsJobAgentWorkerTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void SetImportEndpointContext_ResolvesAndTrimsEnvironmentBackedTargetUrl()
     {
@@ -281,7 +281,7 @@ public class TfsJobAgentWorkerTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnMigrationJob_ExportMode_CreatesServicesAndSignalsComplete()
     {
@@ -344,7 +344,7 @@ public class TfsJobAgentWorkerTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnMigrationJob_ExportMode_UsesPackageBoundaryForPlanStatusUpdates()
     {
@@ -415,7 +415,7 @@ public class TfsJobAgentWorkerTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnMigrationJob_ExportMode_DoesNotFallbackToStateStoreWhenPackagePlanMissing()
     {
@@ -479,7 +479,7 @@ public class TfsJobAgentWorkerTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnMigrationJob_ForceFresh_DeletesCursor()
     {
@@ -593,7 +593,7 @@ public class TfsJobAgentWorkerTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnDiscoveryJob_WithSource_StreamsCountsAndSignalsComplete()
     {
