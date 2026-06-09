@@ -80,11 +80,9 @@ public sealed class ConfigurationFlowTests
     /// <summary>
     /// Scenario 1: Custom config file with source URLs flows to internal services.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("IntegrationTest")]
-    [TestCategory("config-flow")]
-    [TestCategory("custom-config")]
     public async Task ConfigFlow_CustomConfigFile_SourceUrlFlowsToInternalServices()
     {
         await using var result = await ConfigFlowScenario
@@ -107,11 +105,9 @@ public sealed class ConfigurationFlowTests
     /// (ExtractConfigFileArg returning "migration.json" when --config is absent)
     /// is already covered by MigrationPlatformHostTests.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("IntegrationTest")]
-    [TestCategory("config-flow")]
-    [TestCategory("default-config")]
     public async Task ConfigFlow_DefaultConfigPresent_UsedByInternalServices()
     {
         await using var result = await ConfigFlowScenario
@@ -130,11 +126,9 @@ public sealed class ConfigurationFlowTests
     /// <summary>
     /// Scenario 2: Authentication settings flow correctly to connection services.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("IntegrationTest")]
-    [TestCategory("config-flow")]
-    [TestCategory("auth-flow")]
     public async Task ConfigFlow_AuthSettings_FlowToConnectionService()
     {
         await using var result = await ConfigFlowScenario
@@ -150,11 +144,9 @@ public sealed class ConfigurationFlowTests
     /// <summary>
     /// Scenario 3: Telemetry configuration flows to telemetry system.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("IntegrationTest")]
-    [TestCategory("config-flow")]
-    [TestCategory("telemetry-flow")]
     public async Task ConfigFlow_TelemetryConfig_FlowsToTelemetrySystem()
     {
         await using var result = await ConfigFlowScenario
@@ -173,12 +165,9 @@ public sealed class ConfigurationFlowTests
     /// <summary>
     /// Scenario 4: Default config resolution when no config specified — error shown, exit code non-zero.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("IntegrationTest")]
-    [TestCategory("config-flow")]
-    [TestCategory("default-config")]
-    [TestCategory("error-case")]
     public async Task ConfigFlow_NoConfigSpecified_ErrorShown()
     {
         await using var result = await ConfigFlowScenario

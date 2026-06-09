@@ -6,10 +6,6 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Cli.TfsExport;
 
 [TestClass]
-[TestCategory("tfs-object-model")]
-[TestCategory("cli")]
-[TestCategory("SystemTest")]
-[TestCategory("SystemTest_Simulated")]
 public sealed class TfsExportProgressVisibilityTests
 {
     /// <summary>

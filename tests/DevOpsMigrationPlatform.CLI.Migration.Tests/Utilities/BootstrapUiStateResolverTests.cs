@@ -9,6 +9,8 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Utilities;
 [TestClass]
 public class BootstrapUiStateResolverTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolvePreferredMetrics_PrefersBootstrapMetrics_WhenBothArePresent()
     {
@@ -48,6 +50,8 @@ public class BootstrapUiStateResolverTests
         Assert.AreEqual(8119, result.Migration?.WorkItems?.RevisionsProcessed);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolvePreferredMetrics_FallsBackToTelemetry_WhenBootstrapMetricsMissing()
     {
@@ -73,6 +77,8 @@ public class BootstrapUiStateResolverTests
         Assert.AreEqual(42, result.Scope?.WorkItemsTotal);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolvePreferredMetrics_ReturnsNull_WhenNoMetricsExist()
     {

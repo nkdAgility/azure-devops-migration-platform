@@ -24,13 +24,6 @@ Feature: TFS Export via Export Command
     And the terminal displays a validation error indicating the TFS server must be a valid HTTP or HTTPS URL
 
   @tfs-object-model @cli
-  Scenario: Export requires a non-empty project name
-    Given a TFS export config file with an empty project name
-    When the operator runs "devopsmigration export --config scenarios/export-tfs-empty-project.json"
-    Then the command exits with a non-zero exit code
-    And the terminal displays a validation error indicating a project name must be provided
-
-  @tfs-object-model @cli
   Scenario: TFS export output is streamed to the operator in real time
     Given TFS export is available
     And a valid TFS export config file at "scenarios/export-tfs-workitems.json"

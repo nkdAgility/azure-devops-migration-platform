@@ -25,7 +25,8 @@ public sealed class TuiMetricsPanelDslTests
 {
     // ── Scenario: TUI metrics panel shows a waiting message when no snapshot is available ──
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TelemetryPanel_WhenNoMetricsAvailable_BuildContentReturnsWaitingMessage()
     {
@@ -53,7 +54,8 @@ public sealed class TuiMetricsPanelDslTests
 
     // ── Scenario: TUI metrics panel displays snapshot values when a snapshot is received ──
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TelemetryPanel_WhenMetricsPushed_DisplaysWorkItemsAttempted()
     {
@@ -91,7 +93,8 @@ public sealed class TuiMetricsPanelDslTests
 
     // ── Scenario: TUI metrics panel refreshes on each polling interval ────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task TelemetryPoller_WhenIntervalElapses_PollsAgainAndUpdatesPanel()
     {

@@ -10,6 +10,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
     [TestClass]
     public class MigrationExceptionTests
     {
+        [TestCategory("CodeTest")]
+        [TestCategory("UnitTests")]
         [TestMethod]
         public void Constructor_WithValidCategory_SetsProperties()
         {
@@ -25,6 +27,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
             Assert.AreEqual(2, ex.ExitCode);
         }
 
+        [TestCategory("CodeTest")]
+        [TestCategory("UnitTests")]
         [TestMethod]
         public void Constructor_WithoutGuidance_CreatesExceptionWithNullGuidance()
         {
@@ -39,6 +43,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
             Assert.AreEqual(4, ex.ExitCode);
         }
 
+        [TestCategory("CodeTest")]
+        [TestCategory("UnitTests")]
         [TestMethod]
         public void AllCategories_HaveExpectedExitCodes()
         {
@@ -64,6 +70,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
             }
         }
 
+        [TestCategory("CodeTest")]
+        [TestCategory("UnitTests")]
         [TestMethod]
         public void IsRetryable_DefaultsToFalse()
         {
@@ -72,6 +80,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
         }
 
         // TODO: [test-validity] LOW VALUE — tests property round-trip (isRetryable: true → IsRetryable == true); no meaningful failure scenario
+        [TestCategory("CodeTest")]
+        [TestCategory("UnitTests")]
         [TestMethod]
         public void IsRetryable_WhenExplicitlySetTrue_IsTrue()
         {
@@ -79,6 +89,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
             Assert.IsTrue(ex.IsRetryable);
         }
 
+        [TestCategory("CodeTest")]
+        [TestCategory("UnitTests")]
         [TestMethod]
         public void ToString_IncludesCategoryAndMessage()
         {
@@ -93,6 +105,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
             Assert.IsTrue(result.Contains("4"), "Should contain exit code");
         }
 
+        [TestCategory("CodeTest")]
+        [TestCategory("UnitTests")]
         [TestMethod]
         public void ToString_IncludesGuidanceWhenProvided()
         {
@@ -106,6 +120,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Errors
             Assert.IsTrue(result.Contains("Generate a new PAT"), "Should contain guidance");
         }
 
+        [TestCategory("CodeTest")]
+        [TestCategory("UnitTests")]
         [TestMethod]
         public void Constructor_WithInnerException_PreservesStackTrace()
         {

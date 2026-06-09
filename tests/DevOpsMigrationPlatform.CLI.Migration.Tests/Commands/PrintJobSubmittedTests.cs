@@ -11,9 +11,10 @@ using Spectre.Console.Testing;
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 
 [TestClass]
-[TestCategory("UnitTest")]
 public class PrintJobSubmittedTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PrintJobSubmitted_WritesJobIdLine()
     {
@@ -31,6 +32,8 @@ public class PrintJobSubmittedTests
         Assert.IsTrue(output.Contains(jobId.ToString()), $"Expected job ID value in output. Got:\n{output}");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PrintJobSubmitted_WritesControlPlaneUrlLine()
     {
@@ -48,6 +51,8 @@ public class PrintJobSubmittedTests
         Assert.IsTrue(output.Contains(url), $"Expected URL value in output. Got:\n{output}");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PrintJobSubmitted_JobIdLineAppearsBeforeControlLine()
     {

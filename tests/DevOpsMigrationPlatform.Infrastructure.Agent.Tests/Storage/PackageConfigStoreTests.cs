@@ -46,6 +46,8 @@ public class PackageConfigStoreTests
 
     // ── LoadAsync ─────────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     // T033: LoadAsync_WhenFileAbsent_ThrowsPackageConfigNotFoundException
     public async Task LoadAsync_WhenFileAbsent_ThrowsPackageConfigNotFoundException()
@@ -69,6 +71,8 @@ public class PackageConfigStoreTests
         StringAssert.Contains(ex.Message, "Re-submit");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task LoadAsync_WhenPackageBoundaryAvailable_ReadsViaPackageBoundary()
     {
@@ -85,6 +89,8 @@ public class PackageConfigStoreTests
         Assert.AreEqual("Export", config["MigrationPlatform:Mode"]);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     // T033: LoadAsync_WhenFileCorrupt_ThrowsJsonException
     public async Task LoadAsync_WhenFileCorrupt_ThrowsException()
@@ -103,6 +109,8 @@ public class PackageConfigStoreTests
         Assert.IsNotNull(ex);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     // T037: O-3 LogWarning fires when file is absent
     public async Task LoadAsync_WhenFileAbsent_LogsWarningWithMigrationConfigMessage()
@@ -130,6 +138,8 @@ public class PackageConfigStoreTests
             "Expected a LogWarning entry containing 'migration-config.json'");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     // T024: O-3 LogInformation fires at start of read
     public async Task LoadAsync_WhenSuccessful_LogsInformationAtStartAndCompletion()
@@ -153,6 +163,8 @@ public class PackageConfigStoreTests
         Assert.IsNotNull(result);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     // T022: O-1 ActivitySource emits "config.read" span
     public async Task LoadAsync_EmitsConfigReadActivitySpan()
@@ -185,6 +197,8 @@ public class PackageConfigStoreTests
         Assert.IsTrue(recordedActivities.Count > 0, "Expected at least one 'config.read' activity span.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     // T023: ConfigReadErrors incremented on absent file
     public async Task LoadAsync_WhenFileAbsent_IncrementsConfigReadErrors()

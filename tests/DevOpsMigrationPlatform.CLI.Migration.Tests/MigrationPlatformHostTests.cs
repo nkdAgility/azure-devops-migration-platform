@@ -24,7 +24,8 @@ public class MigrationPlatformHostTests
     // T023: Config values flow from --config through IOptions<T>
     // ─────────────────────────────────────────────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ExtractConfigFileArg_WhenConfigSpecified_ReturnsAbsolutePath()
     {
@@ -36,7 +37,8 @@ public class MigrationPlatformHostTests
         CollectionAssert.AreEqual(new[] { "queue", "export" }, remaining);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ExtractConfigFileArg_WhenShortFlag_ReturnsAbsolutePath()
     {
@@ -46,7 +48,8 @@ public class MigrationPlatformHostTests
         Assert.IsTrue(configFile.EndsWith("test.json"));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ExtractConfigFileArg_WhenNoConfig_DefaultsToMigrationJson()
     {
@@ -57,7 +60,8 @@ public class MigrationPlatformHostTests
         CollectionAssert.AreEqual(new[] { "queue", "export" }, remaining);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ExtractConfigFileArg_WhenAbsolutePath_PreservesIt()
     {
@@ -72,10 +76,8 @@ public class MigrationPlatformHostTests
     // T034: DI container service registration and resolution
     // ─────────────────────────────────────────────────────────────────────
 
-    [TestCategory("UnitTest")]
-    [TestCategory("IntegrationTest")]
-    [TestCategory("cli-architecture")]
-    [TestCategory("di-registration")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void CreateDefaultBuilder_RegistersEnvironmentOptions()
     {
@@ -88,10 +90,8 @@ public class MigrationPlatformHostTests
         Assert.IsNotNull(options.Value);
     }
 
-    [TestCategory("UnitTest")]
-    [TestCategory("IntegrationTest")]
-    [TestCategory("cli-architecture")]
-    [TestCategory("di-registration")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void CreateDefaultBuilder_RegistersAnsiConsole()
     {
@@ -103,10 +103,8 @@ public class MigrationPlatformHostTests
         Assert.IsNotNull(console);
     }
 
-    [TestCategory("UnitTest")]
-    [TestCategory("IntegrationTest")]
-    [TestCategory("cli-architecture")]
-    [TestCategory("di-registration")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void CreateDefaultBuilder_InvokesConfigureServicesDelegate()
     {
@@ -124,10 +122,8 @@ public class MigrationPlatformHostTests
         Assert.AreEqual("test-marker", host.Services.GetService<string>());
     }
 
-    [TestCategory("UnitTest")]
-    [TestCategory("IntegrationTest")]
-    [TestCategory("cli-architecture")]
-    [TestCategory("di-registration")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void CreateDefaultBuilder_ConfigureServicesDelegateReceivesConfiguration()
     {
@@ -147,10 +143,8 @@ public class MigrationPlatformHostTests
     // T033: Adding a new command does not require modifying host setup
     // ─────────────────────────────────────────────────────────────────────
 
-    [TestCategory("UnitTest")]
-    [TestCategory("IntegrationTest")]
-    [TestCategory("cli-architecture")]
-    [TestCategory("di-registration")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void CreateDefaultBuilder_SupportsArbitraryServiceRegistration_WithoutHostChanges()
     {
@@ -176,10 +170,8 @@ public class MigrationPlatformHostTests
     // GAP-HBA-001: OpenTelemetry tracing pipeline registration
     // ─────────────────────────────────────────────────────────────────────
 
-    [TestCategory("UnitTest")]
-    [TestCategory("IntegrationTest")]
-    [TestCategory("cli-architecture")]
-    [TestCategory("di-registration")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void CreateDefaultBuilder_RegistersOpenTelemetryTracing()
     {
@@ -198,10 +190,8 @@ public class MigrationPlatformHostTests
     // GAP-HBA-002: Command-specific service isolation — negative assertion
     // ─────────────────────────────────────────────────────────────────────
 
-    [TestCategory("UnitTest")]
-    [TestCategory("IntegrationTest")]
-    [TestCategory("cli-architecture")]
-    [TestCategory("di-isolation")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void CreateDefaultBuilder_CommandServices_NotVisibleToOtherHosts()
     {
@@ -237,10 +227,8 @@ public class MigrationPlatformHostTests
     // GAP-HBA-003: ValidateOnStart early failure
     // ─────────────────────────────────────────────────────────────────────
 
-    [TestCategory("UnitTest")]
-    [TestCategory("IntegrationTest")]
-    [TestCategory("cli-architecture")]
-    [TestCategory("options-validation")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CreateDefaultBuilder_ValidateOnStart_InvalidConfig_ThrowsOptionsValidationException()
     {

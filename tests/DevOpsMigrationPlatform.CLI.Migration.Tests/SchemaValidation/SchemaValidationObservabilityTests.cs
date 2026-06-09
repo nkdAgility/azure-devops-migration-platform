@@ -28,7 +28,8 @@ public sealed class SchemaValidationObservabilityTests
     }
 
     [TestMethod]
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     public void Validate_WithUnknownKey_LogsErrorWithJsonPathAndConstraint()
     {
         // Arrange
@@ -76,7 +77,8 @@ public sealed class SchemaValidationObservabilityTests
     }
 
     [TestMethod]
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     public void Validate_WithMissingRequired_LogsErrorWithJsonPath()
     {
         // Arrange
@@ -135,7 +137,8 @@ public sealed class SchemaValidationObservabilityTests
     }
 
     [TestMethod]
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     public void Validate_WithValidConfig_ReturnsEmptyList()
     {
         // Arrange
@@ -188,7 +191,8 @@ public sealed class SchemaValidationObservabilityTests
     }
 
     [TestMethod]
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     public void Validate_WithAbsentSchema_ReturnsEmptyList()
     {
         // Arrange

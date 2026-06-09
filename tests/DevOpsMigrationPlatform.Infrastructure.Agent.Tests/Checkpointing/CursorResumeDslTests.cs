@@ -42,7 +42,7 @@ public class CursorResumeDslTests
 
         ctx.MockStateStore.Verify(s => s.WriteAsync(cursorKey, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
         Assert.IsNotNull(written);
-        Assert.IsFalse(string.IsNullOrEmpty(written.LastProcessed));
+        Assert.AreEqual(folderPath, written.LastProcessed);
     }
 
     // ── Scenario: Cursor file is updated after each successfully processed revision ──

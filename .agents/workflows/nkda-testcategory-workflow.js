@@ -117,8 +117,9 @@ Return their absolute Windows paths.`,
 const allFiles = projectFileLists
   .filter(Boolean)
   .flatMap(r => r.files)
+  .slice(0, 20)
 
-log(`Discovered ${allFiles.length} test files across ${PROJECTS.length} projects`)
+log(`Discovered ${allFiles.length} test files (capped at 20 for pilot run)`)
 
 // ---------------------------------------------------------------------------
 // Phase 2: Remediate — one file at a time through the pipeline
