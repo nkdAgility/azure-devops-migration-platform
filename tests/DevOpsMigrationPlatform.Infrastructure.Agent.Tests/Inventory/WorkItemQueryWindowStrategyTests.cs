@@ -92,6 +92,8 @@ public class WorkItemQueryWindowStrategyTests
 
     // ── T022: Empty window at MinDate floor → stops ──────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_EmptyFirstWindow_AtMinDateFloor_YieldsNothing()
     {
@@ -110,6 +112,8 @@ public class WorkItemQueryWindowStrategyTests
 
     // ── T021: Multiple windowed results → windows walk backward ──────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_TwoNonEmptyWindowsThenEmpty_YieldsTwoWindows()
     {
@@ -131,6 +135,8 @@ public class WorkItemQueryWindowStrategyTests
         CollectionAssert.AreEquivalent(new[] { 4, 5 }, windows[1].WorkItemIds.ToArray());
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_WindowsWalkBackward_EndEqualsStartOfPrevious()
     {
@@ -156,6 +162,8 @@ public class WorkItemQueryWindowStrategyTests
 
     // ── T020: Window halves when count >= LimitThreshold ─────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_WindowAtLimit_HalvesAndRetries_NoYieldForOversizeWindow()
     {
@@ -202,6 +210,8 @@ public class WorkItemQueryWindowStrategyTests
             "Three calls: oversize, retry (fits), stop");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_WindowAtLimit_HalvedWindowSizeSmallerThanOriginal()
     {
@@ -241,6 +251,8 @@ public class WorkItemQueryWindowStrategyTests
 
     // ── T023: Window expands proportionally after a successful yield ──────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_SparseWindow_DoublesOnNextIteration()
     {
@@ -292,6 +304,8 @@ public class WorkItemQueryWindowStrategyTests
             "Sparse window (< 50% fill) should double on the next iteration");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_ModerateWindow_RetainsSizeOnNextIteration()
     {
@@ -339,6 +353,8 @@ public class WorkItemQueryWindowStrategyTests
 
     // ── Level 2: ID-cursor paging within a dense single day ────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_MinWindowOverflows_FallsToLevel2_YieldsWindows()
     {
@@ -400,6 +416,8 @@ public class WorkItemQueryWindowStrategyTests
         Assert.AreEqual(5000, windows[0].WorkItemIds.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task Level2_SingleDensePage_YieldsOneWindowForDay()
     {
@@ -444,6 +462,8 @@ public class WorkItemQueryWindowStrategyTests
         Assert.AreEqual(15_000, windows[0].WorkItemIds.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task Level2_MultiplePages_YieldsMultipleWindowsForSameDay()
     {
@@ -496,6 +516,8 @@ public class WorkItemQueryWindowStrategyTests
         Assert.AreEqual(windows[1].WindowStart, windows[2].WindowStart);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task Level2_GapInIds_ProbeAdvancesThroughGap_FindsRemainingItems()
     {
@@ -552,6 +574,8 @@ public class WorkItemQueryWindowStrategyTests
         Assert.AreEqual(3000, windows[0].WorkItemIds.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task Level2_ProbeReturnsEmpty_DayExhausted_Stops()
     {
@@ -599,6 +623,8 @@ public class WorkItemQueryWindowStrategyTests
         Assert.AreEqual(1, windows.Count, "Should yield only the first page, then stop");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task Level2_ProbeReturnsFewItems_YieldsThemAndStops()
     {
@@ -642,6 +668,8 @@ public class WorkItemQueryWindowStrategyTests
         Assert.AreEqual(500, windows[0].WorkItemIds.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task Level2_IdWindowOverflow_HalvesIdWindowSize()
     {
@@ -692,6 +720,8 @@ public class WorkItemQueryWindowStrategyTests
         Assert.AreEqual(2000, windows[0].WorkItemIds.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task Level2_AfterDraining_OuterDateWindowAdvancesToNextDay()
     {
@@ -764,6 +794,8 @@ public class WorkItemQueryWindowStrategyTests
 
     // ── T024: WIQL transient error causes retries then throws ────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_WiqlError_RetriesThreeTimes_ThenThrows()
     {
@@ -803,6 +835,8 @@ public class WorkItemQueryWindowStrategyTests
             "Probe (1) + windowed original attempt (1) + 3 windowed retries = 5 calls");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_WiqlError_TransientRetryRecoversOnSameWindow()
     {
@@ -845,6 +879,8 @@ public class WorkItemQueryWindowStrategyTests
     /// 3-retry budget after the first three halvings and propagates the exception
     /// — exactly the "crapped out at 263k items" issue reported in production.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_Step2_OverflowException_HalvesMoreThanThreeTimesWithoutThrowing()
     {
@@ -901,6 +937,8 @@ public class WorkItemQueryWindowStrategyTests
         CollectionAssert.AreEquivalent(new[] { 1, 2, 3 }, windows[0].WorkItemIds.ToArray());
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_Step2_MixedOverflowThenTransient_TransientStillLimitedToThree()
     {
@@ -951,6 +989,8 @@ public class WorkItemQueryWindowStrategyTests
 
     // ── T020 extension: window below MinWindowDays floors at MinWindowDays ────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_RepeatedHalving_FloorsAtMinWindowDays()
     {
@@ -996,6 +1036,8 @@ public class WorkItemQueryWindowStrategyTests
 
     // ── Window content ────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_YieldedWindow_ContainsCorrectIds()
     {
@@ -1008,6 +1050,8 @@ public class WorkItemQueryWindowStrategyTests
         CollectionAssert.AreEquivalent(new[] { 10, 20, 30 }, windows[0].WorkItemIds.ToArray());
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_YieldedWindow_HasWindowStartEndAndSize()
     {
@@ -1024,6 +1068,8 @@ public class WorkItemQueryWindowStrategyTests
 
     // ── Cancellation ─────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_CancelledToken_ThrowsOperationCancelled()
     {
@@ -1051,6 +1097,8 @@ public class WorkItemQueryWindowStrategyTests
 
     // ── Path A new tests: unbounded probe ─────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task UnboundedProbe_ZeroItems_YieldsNothingWithOneApiCall()
     {
@@ -1065,6 +1113,8 @@ public class WorkItemQueryWindowStrategyTests
             Times.Once, "Only one API call — the unbounded probe");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task UnboundedProbe_ItemsUnderLimit_YieldsSingleWindowAllIdsWithOneApiCall()
     {
@@ -1081,6 +1131,8 @@ public class WorkItemQueryWindowStrategyTests
             Times.Once, "Only one API call — the unbounded probe");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task UnboundedProbe_ItemsUnderLimit_WindowSpansMinDateToNow()
     {
@@ -1107,6 +1159,8 @@ public class WorkItemQueryWindowStrategyTests
     /// that exception and fall through to backward date-window scanning rather than
     /// propagating the exception to callers.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task UnboundedProbe_Throws20kException_FallsThroughToDateWindowScanning()
     {
@@ -1151,6 +1205,8 @@ public class WorkItemQueryWindowStrategyTests
             "3 calls: probe (throws), first windowed (2 items), second windowed (0 → stop)");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task UnboundedProbe_Throws20kException_CancellationStillPropagates()
     {
@@ -1179,6 +1235,8 @@ public class WorkItemQueryWindowStrategyTests
 
     // ── Constructor guard ─────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_NullFactory_ThrowsArgumentNullException()
         => Assert.ThrowsExactly<ArgumentNullException>(
@@ -1186,6 +1244,8 @@ public class WorkItemQueryWindowStrategyTests
 
     // ── T018: Resume-aware window skipping ───────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_ResumeEnabled_WithToken_SkipsUnboundedProbe()
     {
@@ -1226,6 +1286,8 @@ public class WorkItemQueryWindowStrategyTests
         Assert.IsTrue(windows.Count >= 1, "Should yield at least one window from resumed position");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateWindowsAsync_ResumeEnabled_NoToken_FallsBackToFreshStart()
     {
