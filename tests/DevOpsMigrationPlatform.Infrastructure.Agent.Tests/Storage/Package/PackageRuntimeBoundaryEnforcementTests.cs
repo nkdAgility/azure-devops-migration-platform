@@ -41,6 +41,8 @@ public sealed class PackageRuntimeBoundaryEnforcementTests
         @"\b(?:_artefactStore|_stateStore|artefactStore|stateStore|store)\.(?:ReadAsync|WriteAsync|AppendAsync|ExistsAsync|EnumerateAsync|ReadBinaryAsync|WriteBinaryAsync)\(",
         RegexOptions.Compiled);
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void RuntimePackageFacingPaths_DoNotUseDirectStoreReadWriteApis()
     {
