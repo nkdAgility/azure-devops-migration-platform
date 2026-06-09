@@ -17,8 +17,8 @@ public class TreeToTagTransformTests
     private static TreeToTagTransform Build(string field)
         => new TreeToTagTransform("TestTransform", "TestGroup", field);
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
     [TestMethod]
     public void Apply_SplitsPathSegmentsIntoTags()
     {
@@ -36,8 +36,8 @@ public class TreeToTagTransformTests
         Assert.IsTrue(tags.Contains("Component"), $"Tags must contain 'Component' but was '{tags}'.");
     }
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
     [TestMethod]
     public void Apply_WhenFieldAbsent_ReturnsInputUnchanged()
     {
@@ -50,8 +50,8 @@ public class TreeToTagTransformTests
         Assert.AreEqual(0, result.Actions.Count);
     }
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
     [TestMethod]
     public void Apply_EmptySegmentsAreFiltered()
     {
