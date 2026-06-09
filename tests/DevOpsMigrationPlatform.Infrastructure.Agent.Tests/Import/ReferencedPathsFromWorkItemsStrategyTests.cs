@@ -23,6 +23,8 @@ public class ReferencedPathsFromWorkItemsStrategyTests
 {
     private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CollectDistinctPathsAsync_CollectsDistinctAreaAndIterationPaths_FromExportedRevisions()
     {
@@ -59,6 +61,8 @@ public class ReferencedPathsFromWorkItemsStrategyTests
             result.IterationPaths.ToArray());
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CollectDistinctPathsAsync_IgnoresCommentFoldersAndMissingRevisionContent()
     {
