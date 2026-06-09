@@ -45,7 +45,6 @@ public sealed class TfsExportFaultHandlingTests
     [TestCategory("CodeTest")]
     [TestCategory("DomainTests")]
     [TestMethod]
-    [Ignore("Blocked: ChildProcessHost exit-code injection path requires investigation. See 01-feature-assessment.md §9.")]
     public async Task TfsExport_SubprocessExitCode2_PropagatedToCli()
     {
         await using var result = await TfsExportScenario

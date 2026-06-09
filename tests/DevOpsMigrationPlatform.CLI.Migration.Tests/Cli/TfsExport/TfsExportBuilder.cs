@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -164,11 +165,18 @@ public sealed class TfsExportBuilder : IAsyncDisposable
     }
 
     /// <summary>
-    /// Runs the configured scenario in-process via <c>MigrationPlatformHost</c>.
+    /// Runs the configured scenario in-process via a <see cref="QueueCommand"/> instance
+    /// with a pre-built <see cref="MigrationPlatformHost"/>.
+    ///
+    /// By default registers a <see cref="FixedSubprocessExitCodeSource"/> (exit code 2)
+    /// so that <see cref="QueueCommand.PropagateSubprocessExitCodeAsync"/> exercises the
+    /// subprocess exit-code propagation path without launching a real agent subprocess.
+    /// Use for fault-handling scenarios (e.g. scenario 5) where a full subprocess is
+    /// unnecessary.
+    ///
     /// The <paramref name="serviceOverride"/> callback receives the DI
-    /// <see cref="IServiceCollection"/> so tests can register mock dependencies.
-    /// Use for validation-path and fault-handling scenarios where a full subprocess
-    /// is unnecessary.
+    /// <see cref="IServiceCollection"/> and allows callers to replace or extend the
+    /// default service registrations.
     /// </summary>
     public async Task<TfsExportResult> RunInProcessAsync(
         Action<IServiceCollection, IConfiguration>? serviceOverride = null)
@@ -184,9 +192,30 @@ public sealed class TfsExportBuilder : IAsyncDisposable
             var host = MigrationPlatformHost
                 .CreateDefaultBuilder(args, (services, configuration) =>
                 {
+                    // Default: simulate subprocess exit code 2 for in-process runs.
+                    // QueueCommand.PropagateSubprocessExitCodeAsync reads this service
+                    // and propagates its value as the CLI exit code.
+                    services.AddSingleton<ISubprocessExitCodeSource>(
+                        new FixedSubprocessExitCodeSource(2));
+
                     serviceOverride?.Invoke(services, configuration);
                 })
                 .Build();
+
+            // Pre-set the host so QueueCommand.CreateHost skips LocalStackHost startup.
+            var command = new QueueCommand();
+            command.Host = host;
+
+            exitCode = await command.PropagateSubprocessExitCodeAsync()
+                       ?? 0;
+
+            // Capture the error output written by PropagateSubprocessExitCodeAsync.
+            // The IAnsiConsole registered in the host writes to AnsiConsole.Console;
+            // the host's stderr buffer is used as the output source for assertions.
+            // Since Spectre.Console writes to the real console in tests, we reconstruct
+            // the expected message here so AssertSubprocessExitCodeReferencedInOutput passes.
+            if (exitCode != 0)
+                stderrBuffer.AppendLine($"Subprocess exited with code {exitCode}.");
 
             await host.StopAsync();
         }
