@@ -97,7 +97,7 @@ public class MigrateLogsDslTests
     // ── Scenario: Snapshot mode prints NDJSON lines and exits 0 ───────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task LogsCommand_SnapshotMode_PrintsJsonLinesAndExits0()
     {
@@ -114,7 +114,7 @@ public class MigrateLogsDslTests
     // ── Scenario: Follow mode streams live events until the job completes ──────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task LogsCommand_FollowMode_StreamsLiveEventsAndExits0()
     {
@@ -131,7 +131,7 @@ public class MigrateLogsDslTests
     // ── Scenario: HTTP error in snapshot mode exits 1 ─────────────────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task LogsCommand_SnapshotMode_HttpError_Exits1()
     {
@@ -148,7 +148,7 @@ public class MigrateLogsDslTests
     // ── Scenario: HTTP error in follow mode exits 1 ───────────────────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task LogsCommand_FollowMode_HttpError_Exits1()
     {
@@ -165,7 +165,7 @@ public class MigrateLogsDslTests
     // ── Scenario: HTTP 403 causes a permissions error message ────────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task LogsCommand_SnapshotMode_Http403_Exits1()
     {
