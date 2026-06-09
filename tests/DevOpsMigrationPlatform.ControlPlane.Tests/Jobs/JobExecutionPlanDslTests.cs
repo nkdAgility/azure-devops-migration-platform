@@ -42,7 +42,8 @@ public sealed class JobExecutionPlanDslTests
 
     // ── Scenario: Bootstrap_WhenAgentPushedPlan_ReturnsPlanWithOrderedTasks ──
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Bootstrap_WhenAgentPushedPlan_ReturnsPlanWithOrderedTasks()
     {
@@ -72,7 +73,8 @@ public sealed class JobExecutionPlanDslTests
 
     // ── Scenario: Bootstrap_BeforePlanPushed_ReturnNullTasks ──────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Bootstrap_BeforePlanPushed_ReturnNullTasks()
     {
@@ -90,7 +92,8 @@ public sealed class JobExecutionPlanDslTests
 
     // ── Scenario: GetTasks_WhenTaskListExists_ReturnsCurrentTaskList ──────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void GetTasks_WhenTaskListExists_ReturnsCurrentTaskList()
     {
@@ -112,7 +115,8 @@ public sealed class JobExecutionPlanDslTests
 
     // ── Scenario: GetTasks_WhenNoTaskListPushed_Returns204 ───────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void GetTasks_WhenNoTaskListPushed_Returns204()
     {
