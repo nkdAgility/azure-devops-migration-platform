@@ -63,8 +63,9 @@ public sealed class PackageLogDownloadDslTests
     /// when a client calls the download endpoint with type "progress",
     /// then the response body contains the file contents and content type is application/x-ndjson.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task DownloadProgressLog_WhenFileExists_ReturnsContentsWithNdjsonContentType()
     {
         var reader = new InMemoryPackageLogReader();
@@ -87,8 +88,9 @@ public sealed class PackageLogDownloadDslTests
     /// when a client calls the download endpoint with type "diagnostics",
     /// then the response body contains the file contents and content type is application/x-ndjson.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task DownloadDiagnosticsLog_WhenFileExists_ReturnsContentsWithNdjsonContentType()
     {
         var reader = new InMemoryPackageLogReader();
@@ -111,8 +113,9 @@ public sealed class PackageLogDownloadDslTests
     /// when the download endpoint is called,
     /// then the control plane reads from the filesystem artefact store and returns the file.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task DownloadLog_WhenPackageUriIsFilesystem_ReadsFromFilesystemStore()
     {
         // Use a real temp directory to simulate a filesystem package URI.
@@ -144,8 +147,9 @@ public sealed class PackageLogDownloadDslTests
     /// when a client calls the download endpoint with type "diagnostics",
     /// then the response status is 404 (null result from the reader).
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task DownloadDiagnosticsLog_WhenFileAbsent_ReturnsNullIndicating404()
     {
         // Package has no log files registered.
