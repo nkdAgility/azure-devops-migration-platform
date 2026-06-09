@@ -10,6 +10,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Discovery;
 [TestClass]
 public sealed class ProcessingCadencePolicyTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ShouldPersist_WhenBatchThresholdReached_ReturnsTrue()
     {
