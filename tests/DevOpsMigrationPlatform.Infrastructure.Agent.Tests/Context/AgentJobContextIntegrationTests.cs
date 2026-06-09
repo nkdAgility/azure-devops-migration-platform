@@ -115,7 +115,7 @@ public sealed class AgentJobContextIntegrationTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ActiveJobAgentJobContext_UsesExplicitCurrentContext_WhenAvailable()
     {
@@ -135,7 +135,7 @@ public sealed class AgentJobContextIntegrationTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ActiveJobAgentJobContext_ReturnsEmptyValues_WhenNoCurrentContextExists()
     {
@@ -148,7 +148,7 @@ public sealed class AgentJobContextIntegrationTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ActiveJobSourceEndpointInfo_UsesExplicitCurrentSourceEndpoint_WhenAvailable()
     {
@@ -172,7 +172,7 @@ public sealed class AgentJobContextIntegrationTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ActiveJobTargetEndpointInfo_UsesExplicitCurrentTargetEndpoint_WhenAvailable()
     {
@@ -196,7 +196,7 @@ public sealed class AgentJobContextIntegrationTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ActiveJobSourceEndpointInfo_ReturnsEmptyValues_WhenNoCurrentSourceExists()
     {
@@ -210,7 +210,7 @@ public sealed class AgentJobContextIntegrationTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ActiveJobTargetEndpointInfo_ReturnsEmptyValues_WhenNoCurrentTargetExists()
     {
