@@ -30,7 +30,7 @@ public class ClassificationTreeCaptureTests
             NullLogger<ClassificationTreeCapture>.Instance);
 
         [TestCategory("CodeTest")]
-        [TestCategory("UnitTests")]
+        [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CaptureAsync_WritesArtifactWithAreaAndIterationNodes()
     {
