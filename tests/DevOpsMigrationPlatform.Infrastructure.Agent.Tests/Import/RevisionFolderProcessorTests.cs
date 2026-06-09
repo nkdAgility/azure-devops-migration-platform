@@ -65,6 +65,8 @@ public class WorkItemResolutionProcessorTests
 
     // ── ProcessAsync_WhenRevisionJsonMissing_SkipsFolder ──────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_WhenRevisionJsonMissing_SkipsFolder()
     {
@@ -80,6 +82,8 @@ public class WorkItemResolutionProcessorTests
 
     // ── ProcessAsync_WhenWorkItemNotMapped_CreatesNewWorkItem ─────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_WhenWorkItemNotMapped_CreatesNewWorkItem()
     {
@@ -115,6 +119,8 @@ public class WorkItemResolutionProcessorTests
 
     // ── ProcessAsync_WhenWorkItemAlreadyMapped_DoesNotCreateDuplicate ─────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_WhenWorkItemAlreadyMapped_DoesNotCreateDuplicate()
     {
@@ -135,6 +141,8 @@ public class WorkItemResolutionProcessorTests
         _mockTarget.Verify(t => t.UpdateFieldsAsync(77, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_WhenScopedRevisionLookupMisses_FallsBackToDirectRelativePath()
     {
@@ -173,6 +181,8 @@ public class WorkItemResolutionProcessorTests
 
     // ── ProcessAsync_WhenLinksDisabled_SkipsStageC ────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_WhenLinksDisabled_SkipsStageC()
     {
@@ -196,6 +206,8 @@ public class WorkItemResolutionProcessorTests
 
     // ── ProcessAsync_WhenAttachmentsDisabled_SkipsStageD ─────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_WhenAttachmentsDisabled_SkipsStageD()
     {
@@ -217,6 +229,8 @@ public class WorkItemResolutionProcessorTests
 
     // ── ProcessAsync_WhenResumingFromAppliedFields_SkipsStagesAandB ──────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_WhenResumingFromAppliedLinks_SkipsCreatedOrUpdatedAndAppliedFields()
     {
@@ -242,6 +256,8 @@ public class WorkItemResolutionProcessorTests
 
     // ── ProcessAsync_WhenIdentityFieldPresent_ResolvesViaService ─────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_WhenIdentityFieldPresent_ResolvesViaIdentityMappingService()
     {
@@ -284,6 +300,8 @@ public class WorkItemResolutionProcessorTests
         Assert.AreEqual("target@example.com", assignedTo!.Value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_WhenIdentityValueAppearsInMultipleFields_ResolvesOnlyOncePerRevision()
     {
@@ -325,6 +343,8 @@ public class WorkItemResolutionProcessorTests
         Assert.AreEqual("target@example.com", capturedFields.Single(f => f.ReferenceName == "System.CreatedBy").Value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_WhenAreaPathIsExternalAndSkipEnabled_SkipsRevisionBeforeFieldReplay()
     {
@@ -382,6 +402,8 @@ public class WorkItemResolutionProcessorTests
         _mockIdMapStore.Verify(s => s.RecordSkippedRevisionAsync(1, "UnresolvablePath", It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_WhenNodeTranslationToolIsNotConfigured_PreservesOriginalNodeFields()
     {
@@ -417,6 +439,8 @@ public class WorkItemResolutionProcessorTests
         _mockIdMapStore.Verify(s => s.RecordSkippedRevisionAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_WhenFieldTransformToolIsNotConfigured_PreservesInputFieldValues()
     {
@@ -450,6 +474,8 @@ public class WorkItemResolutionProcessorTests
         Assert.AreEqual("Title Before Import", capturedFields!.Single(f => f.ReferenceName == "System.Title").Value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_WhenRevisionJsonUsesAttachmentMetadataAliases_ReplaysAttachmentUsingParsedMetadata()
     {
