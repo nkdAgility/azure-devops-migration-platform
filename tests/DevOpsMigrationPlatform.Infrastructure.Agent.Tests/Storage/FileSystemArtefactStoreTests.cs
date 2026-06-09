@@ -33,6 +33,8 @@ public class FileSystemArtefactStoreTests
 
     // ── EnumerateAsync: ordering ──────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task EnumerateAsync_FilesInSiblingDirectories_ReturnedInLexicographicOrder()
     {
@@ -55,6 +57,8 @@ public class FileSystemArtefactStoreTests
             $"Expected '{results[1]}' < '{results[2]}'");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task EnumerateAsync_FilesInSameDirectory_ReturnedInLexicographicOrder()
     {
@@ -74,6 +78,8 @@ public class FileSystemArtefactStoreTests
 
     // ── EnumerateAsync: edge cases ────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task EnumerateAsync_MissingPrefix_YieldsNoResults()
     {
@@ -84,6 +90,8 @@ public class FileSystemArtefactStoreTests
         Assert.AreEqual(0, results.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task EnumerateAsync_EmptyDirectory_YieldsNoResults()
     {
@@ -96,6 +104,8 @@ public class FileSystemArtefactStoreTests
         Assert.AreEqual(0, results.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task EnumerateAsync_ReturnsForwardSlashPaths()
     {
@@ -109,6 +119,8 @@ public class FileSystemArtefactStoreTests
 
     // ── WriteAsync / ReadAsync round-trip ─────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task WriteAsync_ThenReadAsync_ReturnsOriginalContent()
     {
@@ -117,6 +129,8 @@ public class FileSystemArtefactStoreTests
         Assert.AreEqual("{\"workItemId\":1}", content);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ReadAsync_MissingFile_ReturnsNull()
     {
@@ -124,6 +138,8 @@ public class FileSystemArtefactStoreTests
         Assert.IsNull(content);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExistsAsync_WhenFileWritten_ReturnsTrue()
     {
@@ -131,6 +147,8 @@ public class FileSystemArtefactStoreTests
         Assert.IsTrue(await _sut.ExistsAsync("WorkItems/2024-01-01/test/revision.json", CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExistsAsync_WhenFileMissing_ReturnsFalse()
     {
