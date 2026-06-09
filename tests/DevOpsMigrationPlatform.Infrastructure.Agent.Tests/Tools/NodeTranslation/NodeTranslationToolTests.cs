@@ -38,7 +38,8 @@ public class NodeTranslationToolTests
 
     // --- Regex map hit ---
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TranslatePath_WhenRuleMatches_ReturnsRemappedPath()
     {
@@ -53,7 +54,8 @@ public class NodeTranslationToolTests
         Assert.IsFalse(result.IsExternalPath);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TranslatePath_WhenRuleMatchesWithCaptureGroups_AppliesReplacement()
     {
@@ -66,7 +68,8 @@ public class NodeTranslationToolTests
         Assert.IsTrue(result.MatchedByMap);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TranslatePath_FirstMatchingRuleWins()
     {
@@ -81,7 +84,8 @@ public class NodeTranslationToolTests
         Assert.AreEqual(@"TargetProject\First\Feature 3", result.TargetPath);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TranslatePath_MatchingIsCaseInsensitive()
     {
@@ -96,7 +100,8 @@ public class NodeTranslationToolTests
 
     // --- Auto-swap ---
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TranslatePath_WhenNoRuleMatches_AutoSwapsProjectName()
     {
@@ -112,7 +117,8 @@ public class NodeTranslationToolTests
 
     // --- External path pass-through ---
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TranslatePath_WhenPathFromOtherProject_MarksAsExternal()
     {
@@ -126,7 +132,8 @@ public class NodeTranslationToolTests
         Assert.IsTrue(result.IsExternalPath);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TranslatePath_WhenCalledWithSameInput_ReturnsMemoizedResultInstance()
     {
@@ -138,7 +145,8 @@ public class NodeTranslationToolTests
         Assert.AreSame(first, second);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task TranslatePath_WhenCalledConcurrentlyWithSameInput_ReturnsSameMemoizedInstance()
     {
@@ -166,7 +174,8 @@ public class NodeTranslationToolTests
 
     // --- Whitespace trimming ---
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TranslatePath_WhitespaceTrimmedBeforeProcessing()
     {
@@ -180,7 +189,8 @@ public class NodeTranslationToolTests
 
     // --- Language override ---
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TranslatePath_AreaLanguageOverride_NormalisesRootSegment()
     {
@@ -194,7 +204,8 @@ public class NodeTranslationToolTests
         Assert.IsTrue(result.TargetPath!.StartsWith("Area\\"));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TranslatePath_IterationLanguageOverride_NormalisesRootSegment()
     {
@@ -207,7 +218,8 @@ public class NodeTranslationToolTests
 
     // --- Language override + auto-swap ---
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TranslatePath_AreaLanguageOverride_NormalisesLocalisedRootThenAutoSwaps()
     {
@@ -218,7 +230,8 @@ public class NodeTranslationToolTests
         Assert.IsTrue(result.MatchedByProjectSwap, "Expected auto-swap after language override normalised root to source project name.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TranslatePath_IterationLanguageOverride_NormalisesLocalisedRootThenAutoSwaps()
     {
@@ -229,7 +242,8 @@ public class NodeTranslationToolTests
         Assert.IsTrue(result.MatchedByProjectSwap);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void IsEnabled_ReturnsFalse_WhenToolConfiguredAsDisabled()
     {
