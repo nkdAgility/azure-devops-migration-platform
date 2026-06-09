@@ -158,7 +158,7 @@ public sealed class WorkItemsModuleImportTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void AddAzureDevOpsWorkItem_RegistersIdentityMappingService()
     {
@@ -173,7 +173,7 @@ public sealed class WorkItemsModuleImportTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_DispatchesNodeReadinessBeforeRevisionReplay()
     {
@@ -351,7 +351,7 @@ public sealed class WorkItemsModuleImportTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_WithReplicateSourceTreeEnabled_ReplicatesSourceTreeBeforeRevisionReplay()
     {
@@ -541,7 +541,7 @@ public sealed class WorkItemsModuleImportTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_WhenReplayLeversDisableAttachmentsAndImages_PassesDisabledExtensionsToProcessor()
     {
