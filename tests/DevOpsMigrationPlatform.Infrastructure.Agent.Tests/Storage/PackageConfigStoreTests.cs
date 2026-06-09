@@ -72,7 +72,7 @@ public class PackageConfigStoreTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task LoadAsync_WhenPackageBoundaryAvailable_ReadsViaPackageBoundary()
     {
@@ -90,7 +90,7 @@ public class PackageConfigStoreTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     // T033: LoadAsync_WhenFileCorrupt_ThrowsJsonException
     public async Task LoadAsync_WhenFileCorrupt_ThrowsException()
