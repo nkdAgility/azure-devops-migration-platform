@@ -93,7 +93,7 @@ public class WorkItemResolutionStrategiesTests
     // ── Tests ─────────────────────────────────────────────────────────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_CallsSeedAsync_AndSkipsCreation_WhenTargetFieldStrategySeededMapping()
     {
@@ -135,7 +135,7 @@ public class WorkItemResolutionStrategiesTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_WritesProvenance_AfterNewWorkItemCreated()
     {
@@ -166,7 +166,7 @@ public class WorkItemResolutionStrategiesTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_CallsSeedAsync_AndSkipsCreation_WhenTargetHyperlinkStrategySeededMapping()
     {
