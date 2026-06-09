@@ -29,7 +29,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Services;
 [TestClass]
 public sealed class ServicesFeaturesDslTests
 {
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void IdentityResolution_MappedIdentity_ResolvesMappedTargetIdentity()
     {
@@ -46,7 +47,8 @@ public sealed class ServicesFeaturesDslTests
         Assert.AreEqual("john.smith@target.example.com", resolved);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task IdentityResolution_UnmappedIdentity_FallsBackAndWritesWarning()
     {
@@ -76,7 +78,8 @@ public sealed class ServicesFeaturesDslTests
             "Expected unresolved identity warning artefact.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task IdentityResolution_ImportStageAppliesMappedIdentity()
     {
@@ -102,7 +105,8 @@ public sealed class ServicesFeaturesDslTests
         mapping.Verify(t => t.Translate("user@source.com"), Times.Once);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task IdentityResolution_ImportStageWithoutMapping_PassesValueThrough()
     {
@@ -128,7 +132,8 @@ public sealed class ServicesFeaturesDslTests
         mapping.Verify(t => t.Translate("someuser@domain.com"), Times.Once);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void IdentityResolution_WorkItemsImport_DeclaresIdentitiesPrerequisite()
     {
@@ -155,7 +160,8 @@ public sealed class ServicesFeaturesDslTests
         Assert.IsTrue(module.DependsOn.Any(d => d.ModuleType == typeof(IdentitiesModule) && d.AppliesToImport));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void OrganisationEntryConversion_ToEndpoint_PreservesResolvedValues()
     {
@@ -188,7 +194,8 @@ public sealed class ServicesFeaturesDslTests
         }
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void OrganisationEntryConversion_WindowsAuthentication_HasNoAccessToken()
     {
@@ -209,7 +216,8 @@ public sealed class ServicesFeaturesDslTests
         Assert.IsNull(endpoint.Authentication.ResolvedAccessToken);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void OrganisationEndpointServiceInterfaces_UseEndpointConnectionContextOnly()
     {
@@ -236,7 +244,8 @@ public sealed class ServicesFeaturesDslTests
         }
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void DiscoveryOrganisationScope_BuildsScopedEndpointsWithProjectsAndAuthentication()
     {
