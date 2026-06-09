@@ -18,7 +18,7 @@ public class MetricSnapshotSerializationTests
     };
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void RoundTrip_AllPropertiesPopulated_PreservesValues()
     {
@@ -103,7 +103,7 @@ public class MetricSnapshotSerializationTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void RoundTrip_NullOptionalProperties_SerializesCorrectly()
     {
@@ -130,7 +130,7 @@ public class MetricSnapshotSerializationTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Serialize_UsesCamelCasePropertyNames()
     {
@@ -148,7 +148,7 @@ public class MetricSnapshotSerializationTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void RoundTrip_DiscoveryCounters_PreservesValues()
     {
