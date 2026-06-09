@@ -14,6 +14,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Checkpointing;
 [TestClass]
 public sealed class PhaseTrackingServiceTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WritePhaseRecordAsync_WithPackageBoundary_PersistsViaMetaRouting()
     {
@@ -34,6 +36,8 @@ public sealed class PhaseTrackingServiceTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadPhaseRecordAsync_WithPackageBoundary_ReadsViaMetaRouting()
     {
