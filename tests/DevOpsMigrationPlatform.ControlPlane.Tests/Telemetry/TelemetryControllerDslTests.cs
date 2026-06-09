@@ -41,7 +41,7 @@ public sealed class TelemetryControllerDslTests
     // ── Scenario: Telemetry endpoint returns 204 when no snapshot has been received ──
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void GetTelemetry_WhenNoMetricsPushed_Returns204()
     {
@@ -60,7 +60,7 @@ public sealed class TelemetryControllerDslTests
     // ── Scenario: Telemetry endpoint returns 200 after the agent pushes metrics ──
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void GetTelemetry_AfterAgentPushesMetrics_Returns200WithMetrics()
     {
@@ -99,7 +99,7 @@ public sealed class TelemetryControllerDslTests
     // The test reflects the actual implementation contract.
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void GetTelemetry_WhenJobIdIsNotAGuid_Returns400()
     {
