@@ -33,6 +33,8 @@ public sealed class DependencyOrchestratorTests
 {
     private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AnalyseAsync_WritesMostRecentDateIntoGroupedProjectSummary()
     {
@@ -118,6 +120,8 @@ public sealed class DependencyOrchestratorTests
         StringAssert.Contains(lines[1], "2024-04-02T09:45:00.0000000+00:00");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureProjectAsync_WhenBatchCheckpointOccurs_WritesProjectScopedDependencyState()
     {
@@ -167,6 +171,8 @@ public sealed class DependencyOrchestratorTests
         Assert.IsNull(invalidDiscoveryCsv, "Dependencies capture must not write to the invalid discovery/ subtree.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AnalyseAsync_DoesNotWriteLegacyAggregateDependencyCursor()
     {
