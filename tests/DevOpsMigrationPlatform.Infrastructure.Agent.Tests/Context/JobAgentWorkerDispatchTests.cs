@@ -227,7 +227,8 @@ public sealed class JobAgentWorkerDispatchTests
         _scopeFactory = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnJobAsync_Export_RoutesToExportPlanExecution()
     {
@@ -260,7 +261,8 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnJobAsync_Export_PassesConfiguredAndResolvedSourceEndpointAliases()
     {
@@ -311,7 +313,8 @@ public sealed class JobAgentWorkerDispatchTests
         Assert.IsTrue(capturedEndpoints.ContainsKey("https://simulated.example/source"));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnJobAsync_Dependencies_RoutesToUnifiedTaskExecution()
     {
@@ -344,7 +347,8 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnJobAsync_Import_RunsPrepareBeforeImportPhaseExecution()
     {
@@ -389,7 +393,8 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnJobAsync_Dependencies_EmitsJobReadyAfterPushingTaskList()
     {
@@ -418,7 +423,8 @@ public sealed class JobAgentWorkerDispatchTests
             "Dependencies jobs must emit Job.Ready after the plan is pushed so the CLI can fetch bootstrap.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnJobAsync_Dependencies_ForceFresh_DeletesScopedCheckpointStateViaCheckpointer()
     {
@@ -450,7 +456,8 @@ public sealed class JobAgentWorkerDispatchTests
             Times.Once);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnJobAsync_Inventory_WhenInventoryPlanSucceeds_WritesInventoryCompletionMarker()
     {
@@ -535,7 +542,8 @@ public sealed class JobAgentWorkerDispatchTests
         StringAssert.Contains(inventoryMarkerPayload, "\"jobId\":\"job-Inventory\"");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnJobAsync_Export_WhenExportPhaseFails_DoesNotWriteInventoryCompletionMarker()
     {
@@ -604,7 +612,8 @@ public sealed class JobAgentWorkerDispatchTests
             Times.Never);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnJobAsync_UnknownKind_FailsWithoutRunningPlanExecutor()
     {
@@ -640,7 +649,8 @@ public sealed class JobAgentWorkerDispatchTests
             request.RequestUri!.PathAndQuery.Contains("/fail", StringComparison.OrdinalIgnoreCase)));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnJobAsync_WhenMigrationExecutionThrows_ClearsCurrentPackageConfigAccessor()
     {
@@ -673,7 +683,8 @@ public sealed class JobAgentWorkerDispatchTests
 
     // ── Scenarios: Agent fails fast when migration-config.json is absent ────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnJobAsync_WhenConfigAbsent_SignalsFailTerminal()
     {
@@ -693,7 +704,8 @@ public sealed class JobAgentWorkerDispatchTests
             "Expected job to be signaled as 'fail' when migration-config.json is absent.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnJobAsync_WhenConfigAbsent_DoesNotExecuteModules()
     {
@@ -718,7 +730,8 @@ public sealed class JobAgentWorkerDispatchTests
             "No modules should execute when migration-config.json is absent.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnJobAsync_WhenConnectorConfigOmitsUrl_PopulatesCurrentEndpointAccessor()
     {
@@ -762,7 +775,8 @@ public sealed class JobAgentWorkerDispatchTests
             Times.Once);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnJobAsync_ForceFresh_DeletesInventoryCompletionMarker()
     {
