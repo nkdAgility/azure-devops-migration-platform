@@ -23,9 +23,9 @@ public class ManageDiagnosticsCommandTests
     /// via the CLI, then calls <c>manage diagnostics --job &lt;id&gt;</c> as a subprocess and
     /// asserts the exit code and observable output.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
     public async Task ManageDiagnosticsCommand_SystemTest_AfterExport_ExitsZero_AndShowsDiagnosticOutput()
     {
         // ── Start control plane (reuse if already running) ──────────────────────
