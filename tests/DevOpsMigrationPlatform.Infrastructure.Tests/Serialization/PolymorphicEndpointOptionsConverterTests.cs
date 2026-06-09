@@ -22,7 +22,7 @@ public sealed class PolymorphicEndpointOptionsConverterTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Deserialize_AzureDevOpsServices_ReturnsAzureDevOpsEndpointOptions()
     {
@@ -47,7 +47,7 @@ public sealed class PolymorphicEndpointOptionsConverterTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Deserialize_Simulated_ReturnsSimulatedEndpointOptions()
     {
@@ -71,7 +71,7 @@ public sealed class PolymorphicEndpointOptionsConverterTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Deserialize_UnknownType_ThrowsJsonException()
     {
@@ -85,7 +85,7 @@ public sealed class PolymorphicEndpointOptionsConverterTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Deserialize_UnknownType_ExceptionMessageContainsDiscriminatorValue()
     {
