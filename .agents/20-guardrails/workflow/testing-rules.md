@@ -6,30 +6,47 @@ MSTest conventions, test naming, and organisation. See also: [coding-standards.m
 
 ## Test Priority Hierarchy
 
-| Priority | Category | Marker | Speed | Use |
+> **Speed Budget is not a classifier.** A test's category is determined solely by its intent and makeup — what it exercises and what dependencies it uses. A test that exceeds its category's speed budget is non-compliant and must be fixed (e.g. inject a time abstraction, replace real delays with fakes) — not moved to a slower category to make the number fit.
+
+Tests are grouped into two parent families that reflect the runtime requirement:
+
+- **`[TestCategory("CodeTest")]`** — runs entirely in-process. No system must be active. Covers priorities 1–3.
+- **`[TestCategory("SystemTest")]`** — requires the full system to be active. Covers priorities 4–6.
+
+Every test carries **both** the specific category tag and its parent family tag.
+
+| Priority | Parent | Specific Marker | Intent & Makeup | Speed Budget |
 | --- | --- | --- | --- | --- |
-| 1 (highest) | Unit Tests | `[TestCategory("UnitTests")]` | < 50 ms | All logic, branching, transforms. No I/O, no DI. Single class/method in isolation. |
-| 2 | Domain Tests (Internal DSL + MSTest) | `[TestCategory("DomainTests")]` | < 500 ms | Business behaviour across collaborating domain objects via the internal DSL. |
-| 3 | Simulated System Tests | `[TestCategory("SystemTest_Simulated")]` | < 10 s | End-to-end with `Simulated` connector. No network. |
-| 3a | Smoke System Tests | `[TestCategory("SystemTest_Smoke")]` | < 30 s | Critical-path subset of system tests run on every PR. |
-| 4 (lowest) | Live System Tests | `[TestCategory("SystemTest")]`/`[TestCategory("SystemTest_Live")]` | < 60 s | Requires live ADO/TFS. Environment-gated. |
+| 1 | `CodeTest` | `[TestCategory("UnitTests")]` | Single class in isolation. All deps mocked. No I/O, no real infrastructure. | < 50 ms |
+| 2 | `CodeTest` | `[TestCategory("DomainTests")]` | Business behaviour via the internal DSL. Real domain objects, no connectors or infrastructure. | < 500 ms |
+| 3 | `CodeTest` | `[TestCategory("IntegrationTests")]` | Real infrastructure components (e.g. retry policies, HTTP clients, serialisers) wired together in-process. No external network or connector. | < 30 s |
+| 4 | `SystemTest` | `[TestCategory("SystemTest_Smoke")]` | Critical-path subset of system tests run on every PR. | < 120 s |
+| 5 | `SystemTest` | `[TestCategory("SystemTest_Simulated")]` | End-to-end with the `Simulated` connector. No network. | < 60 s |
+| 6 | `SystemTest` | `[TestCategory("SystemTest_Live")]` | Requires live ADO/TFS. Environment-gated. | < 300 s |
 
-### Distinguishing UnitTests from DomainTests
+### Distinguishing categories
 
-| Criterion | UnitTests | DomainTests |
-| --- | --- | --- |
-| Scope | Single class/method in isolation | Business behaviour across collaborating domain objects |
-| Dependencies | All dependencies mocked/stubbed | Uses real domain objects, DSL builders/runners/assertions |
-| DSL usage | No `DevOpsMigrationPlatform.Testing` usage | Uses the internal DSL library (builders, runners, assertions) |
-| Arrange style | Direct `new Foo()` + mock setup | Builder pattern (`A.WorkItem().WithField(...)`) |
-| Assert style | Assert on return value / state of one object | Assert on observable business outcome |
-| I/O | None | None (still in-process, no connectors) |
+| Criterion | UnitTests | DomainTests | IntegrationTests |
+| --- | --- | --- | --- |
+| Scope | Single class/method in isolation | Business behaviour across collaborating domain objects | Real infrastructure components wired together in-process |
+| Dependencies | All mocked/stubbed | Real domain objects via DSL builders/runners/assertions | Real library/framework components (e.g. Polly, HttpClient) — no external network |
+| DSL usage | No `DevOpsMigrationPlatform.Testing` usage | Uses the internal DSL library (builders, runners, assertions) | No DSL |
+| Arrange style | Direct `new Foo()` + mock setup | Builder pattern (`A.WorkItem().WithField(...)`) | Direct construction of real infrastructure components |
+| Assert style | Assert on return value / state of one object | Assert on observable business outcome | Assert on real component behaviour (retry count, response, serialised output) |
+| I/O | None | None | None (in-process only; no filesystem, no network) |
+| External connectivity | None | None | None |
 
-**Rule:** If the test references `DevOpsMigrationPlatform.Testing` DSL infrastructure (builders, runners, or domain assertions), it is a `DomainTests` test. Otherwise it is a `UnitTests` test.
+**Classification rules:**
+- If the test references `DevOpsMigrationPlatform.Testing` DSL infrastructure → `[TestCategory("CodeTest")]` + `[TestCategory("DomainTests")]`
+- If the test uses real library/framework components in-process with no external connectivity → `[TestCategory("CodeTest")]` + `[TestCategory("IntegrationTests")]`
+- If the test is a single isolated class with all deps mocked → `[TestCategory("CodeTest")]` + `[TestCategory("UnitTests")]`
+- If the test is a critical-path subset run on every PR → `[TestCategory("SystemTest")]` + `[TestCategory("SystemTest_Smoke")]`
+- If the test exercises a full end-to-end flow with the Simulated connector → `[TestCategory("SystemTest")]` + `[TestCategory("SystemTest_Simulated")]`
+- If the test requires live ADO/TFS → `[TestCategory("SystemTest")]` + `[TestCategory("SystemTest_Live")]`
 
-**Principles:** Fast validation is the goal. Push tests downward (can it be a unit test?). Live tests are a last resort. Simulated replaces live where possible. CI gates run UnitTests + DomainTests by default.
+**Principles:** Push tests downward — can it be a unit test? Live tests are a last resort. Simulated replaces live where possible. CI gates run `CodeTest` by default; `SystemTest` requires the full system active.
 
-**Anti-patterns (instant reject):** Simulated/Live test for logic with no external dependency. Feature test with real I/O when mocks suffice. New Live test without proving lower level can't cover it. Feature/Simulated/Live outnumbering Unit + Domain tests.
+**Anti-patterns (instant reject):** Integration/Simulated/Live test for logic that could be mocked. New Live test without proving lower level can't cover it. Integration/Simulated/Live outnumbering Unit + Domain tests.
 
 ---
 
@@ -40,23 +57,25 @@ MSTest conventions, test naming, and organisation. See also: [coding-standards.m
 
 Every time a test file is **created, edited, moved, or touched in any way**, every `[TestMethod]` and `[TestClass]` in that file MUST carry the correct `[TestCategory]` before the change is committed or reported as complete.
 
-| Condition | Required attribute |
+| Condition | Required attributes (both must be present) |
 | --- | --- |
-| Test uses `DevOpsMigrationPlatform.Testing` DSL | `[TestCategory("DomainTests")]` |
-| Test is isolated unit test (no DSL, no I/O) | `[TestCategory("UnitTests")]` |
-| Test uses `Simulated` connector end-to-end | `[TestCategory("SystemTest_Simulated")]` |
-| Test is a critical-path smoke subset | `[TestCategory("SystemTest_Smoke")]` |
-| Test targets live ADO/TFS | `[TestCategory("SystemTest")]` or `[TestCategory("SystemTest_Live")]` |
+| Test is isolated unit test (no DSL, no I/O, all deps mocked) | `[TestCategory("CodeTest")]` + `[TestCategory("UnitTests")]` |
+| Test uses `DevOpsMigrationPlatform.Testing` DSL | `[TestCategory("CodeTest")]` + `[TestCategory("DomainTests")]` |
+| Test uses real infrastructure components in-process, no external connectivity | `[TestCategory("CodeTest")]` + `[TestCategory("IntegrationTests")]` |
+| Test is a critical-path smoke subset | `[TestCategory("SystemTest")]` + `[TestCategory("SystemTest_Smoke")]` |
+| Test uses `Simulated` connector end-to-end | `[TestCategory("SystemTest")]` + `[TestCategory("SystemTest_Simulated")]` |
+| Test targets live ADO/TFS | `[TestCategory("SystemTest")]` + `[TestCategory("SystemTest_Live")]` |
 
 **Enforcement rules — all are blocking, none are optional:**
 
-1. **Missing tag on touch:** If any `[TestMethod]` or `[TestClass]` in a touched file lacks `[TestCategory]`, add the correct tag in the same edit. This applies to every method in the file, not just the method being modified.
-2. **Wrong tag on touch:** If a tag is incorrect (wrong category, old name), correct it in the same edit.
-3. **Delegation does not exempt:** If a sub-agent or delegated run added or modified a test, the calling agent is responsible for verifying tags before closing the task. "The delegated run didn't add it" is not a valid completion state.
-4. **No partial compliance:** Applying the tag to the new method while leaving existing uncategorised methods in the same file is non-compliant. Fix the whole file.
-5. **Category names are canonical:** Only the exact strings `UnitTests`, `DomainTests`, `SystemTest_Simulated`, `SystemTest_Smoke`, `SystemTest`, `SystemTest_Live` are valid. Any other value is non-compliant and must be corrected on contact.
-6. The `nkda-testdsl-*` skills must apply `[TestCategory("DomainTests")]` to all converted tests.
-7. The `nkda-testdsl-refactor` skill must verify and correct all category tags in any file it touches.
+1. **Missing tag on touch:** If any `[TestMethod]` or `[TestClass]` in a touched file lacks `[TestCategory]`, add the correct tags in the same edit. This applies to every method in the file, not just the method being modified.
+2. **Both tags required:** Every test must carry its parent family tag (`CodeTest` or `SystemTest`) AND its specific category tag. A test with only one of the two is non-compliant.
+3. **Wrong tag on touch:** If a tag is incorrect (wrong category, old name), correct it in the same edit.
+4. **Delegation does not exempt:** If a sub-agent or delegated run added or modified a test, the calling agent is responsible for verifying tags before closing the task. "The delegated run didn't add it" is not a valid completion state.
+5. **No partial compliance:** Applying the tag to the new method while leaving existing uncategorised methods in the same file is non-compliant. Fix the whole file.
+6. **Category names are canonical:** Only the exact strings `CodeTest`, `UnitTests`, `DomainTests`, `IntegrationTests`, `SystemTest`, `SystemTest_Smoke`, `SystemTest_Simulated`, `SystemTest_Live` are valid. Any other value is non-compliant and must be corrected on contact.
+7. The `nkda-testdsl-*` skills must apply `[TestCategory("CodeTest")]` + `[TestCategory("DomainTests")]` to all converted tests.
+8. The `nkda-testdsl-refactor` skill must verify and correct all category tags in any file it touches.
 
 **Checklist before marking any test-touching task complete:**
 
