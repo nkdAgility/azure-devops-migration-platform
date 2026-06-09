@@ -20,7 +20,8 @@ public class CursorResumeDslTests
 {
     // ── Scenario: Cursor file is created on the first successful write ────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WriteCursorAsync_FirstWrite_CreatesCursorFileWithPath()
     {
@@ -47,7 +48,8 @@ public class CursorResumeDslTests
 
     // ── Scenario: Cursor file is updated after each successfully processed revision ──
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WriteCursorAsync_SubsequentWrite_UpdatesCursorToNewPath()
     {
@@ -75,7 +77,8 @@ public class CursorResumeDslTests
 
     // ── Scenario: Resume skips folders up to and including cursor position ────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadCursorAsync_WithCursor_SkipsFoldersUpToAndIncludingCursorPath()
     {
@@ -117,7 +120,8 @@ public class CursorResumeDslTests
 
     // ── Scenario: A run with no cursor starts from the beginning ─────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadCursorAsync_NoCursor_ProcessesAllFolders()
     {
@@ -146,7 +150,8 @@ public class CursorResumeDslTests
 
     // ── Scenario: A crashed run leaves cursor at last successfully processed ──
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadCursorAsync_AfterCrash_CursorStillPointsToLastSuccessfulFolder()
     {
@@ -180,7 +185,8 @@ public class CursorResumeDslTests
 
     // ── Scenario: Cursor is persisted by the platform service, not by the module ──
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WriteCursorAsync_DelegatesThroughPlatformService_NotDirectlyToFilesystem()
     {
@@ -202,7 +208,8 @@ public class CursorResumeDslTests
 
     // ── Scenario: Multiple modules maintain independent cursors ───────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WriteCursorAsync_MultipleModules_MaintainIndependentCursors()
     {
