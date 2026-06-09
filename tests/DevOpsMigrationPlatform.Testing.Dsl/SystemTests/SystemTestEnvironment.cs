@@ -56,29 +56,29 @@ public sealed class SystemTestEnvironment : IDisposable
         => new(orgUrl, shortToken);
 
     /// <summary>
-    /// Calls <see cref="Assert.Inconclusive"/> with the standard skip message when the
-    /// environment is not configured. The test is marked inconclusive, not failed.
+    /// Calls <see cref="Assert.Fail"/> when the environment is not configured.
+    /// A missing prerequisite is a defect in the environment and must fail visibly.
     /// </summary>
-    public void SkipIfNotConfigured()
+    public void FailIfNotConfigured()
     {
         if (!IsConfigured)
         {
-            Assert.Inconclusive(
-                "System test skipped: Environment variables not configured. " +
-                "Set AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT to run this test. " +
-                "See docs/contributors.md for setup instructions.");
+            Assert.Fail(
+                "System test cannot run: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT " +
+                "must both be set. See docs/contributors.md for setup instructions.");
         }
     }
 
     /// <summary>
-    /// Calls <see cref="Assert.Inconclusive"/> when the PAT value fails the length threshold.
+    /// Calls <see cref="Assert.Fail"/> when the PAT value fails the length threshold.
+    /// A misconfigured token is a defect in the environment and must fail visibly.
     /// </summary>
-    public void SkipIfInvalidToken()
+    public void FailIfInvalidToken()
     {
         if (!string.IsNullOrEmpty(Pat) && Pat.Length < 10)
         {
-            Assert.Inconclusive(
-                $"Authentication failed for organisation '{OrgUrl}'. " +
+            Assert.Fail(
+                $"System test cannot run: PAT for organisation '{OrgUrl}' is invalid (too short). " +
                 "Verify AZDEVOPS_SYSTEM_TEST_PAT token has required permissions. " +
                 "See docs/contributors.md troubleshooting section.");
         }

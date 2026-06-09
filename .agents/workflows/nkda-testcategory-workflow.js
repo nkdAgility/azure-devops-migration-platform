@@ -36,8 +36,15 @@ Both tags are MANDATORY. A method with only one tag is non-compliant.
                      real channels/drain loops, real serialisers, real ActivitySource listeners,
                      real ILogger capture, real MemoryStream pipelines.
                      If the test spins up real library behaviour (not just mocks), use this.
-- SystemTest_Smoke      — critical-path subset run on every PR; requires full system active
-- SystemTest_Simulated  — end-to-end with the Simulated connector; no external network
+- SystemTest_Smoke      — OPERATOR-APPLIED ONLY. Never assign this tag automatically.
+                          Only a human operator may designate a test as smoke. If a test
+                          currently carries [TestCategory("SystemTest_Smoke")] leave it alone.
+                          Do not add it to any test that does not already have it.
+- SystemTest_Simulated  — end-to-end flow that uses the Simulated connector specifically
+                          (i.e. the connector type is "Simulated" / SimulatedConnector).
+                          Do NOT use this for tests that merely avoid external network calls —
+                          "no network" alone does not qualify. The test must exercise a full
+                          pipeline path through the Simulated connector implementation.
 - SystemTest_Live       — requires live ADO/TFS credentials
 
 ### Parent family mapping:
@@ -47,8 +54,9 @@ Both tags are MANDATORY. A method with only one tag is non-compliant.
 ### Classification decision order (first match wins):
 1. File imports DevOpsMigrationPlatform.Testing AND test calls DSL builders/runners  →  DomainTests
 2. Requires live ADO/TFS (real org URLs, credential env vars)  →  SystemTest_Live
-3. Uses Simulated connector end-to-end  →  SystemTest_Simulated
-4. Critical-path smoke subset run on every PR  →  SystemTest_Smoke
+3. Uses the Simulated connector specifically (SimulatedConnector / connector type "Simulated")
+   in an end-to-end pipeline flow  →  SystemTest_Simulated
+4. Already tagged SystemTest_Smoke by an operator  →  leave as-is, NEVER add this tag
 5. Uses real library/framework infrastructure in-process (real Polly, real HttpClient,
    real Task.Delay, real channels, real ActivitySource, real ILogger capture)  →  IntegrationTests
 6. Single class, all deps mocked via Moq or fakes, no real infrastructure  →  UnitTests

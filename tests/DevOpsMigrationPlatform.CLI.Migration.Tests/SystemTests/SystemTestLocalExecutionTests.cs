@@ -27,7 +27,7 @@ public sealed class SystemTestLocalExecutionTests
             orgUrl: Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG")!,
             pat: Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT")!);
 
-        env.SkipIfNotConfigured(); // calls Assert.Inconclusive if vars absent
+        env.FailIfNotConfigured();
 
         var runner = DotnetTestRunnerBuilder
             .AgainstProject(KnownTestProjects.CliMigrationTests)
@@ -55,10 +55,10 @@ public sealed class SystemTestLocalExecutionTests
         using var env = SystemTestEnvironment.WithMissingVariables();
 
         // Act & Assert
-        // SkipIfNotConfigured calls Assert.Inconclusive — MSTest records the test as
+        // FailIfNotConfigured calls Assert.Inconclusive — MSTest records the test as
         // Inconclusive (not Failed), so the overall run continues. This IS the
         // intended outcome for this scenario.
-        env.SkipIfNotConfigured();
+        env.FailIfNotConfigured();
     }
 
     // ── Scenario 3 ──────────────────────────────────────────────────────────

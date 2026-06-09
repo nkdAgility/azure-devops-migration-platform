@@ -187,7 +187,7 @@ public sealed class TuiJobDetail_LiveDataStreaming_DslTests
     // ── Scenario 5: Deselecting a job cancels SSE subscriptions ──────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task TuiJobDetail_WhenJobDeselected_AllSseSubscriptionsAreCancelledAndNoEventsDelivered()
     {
