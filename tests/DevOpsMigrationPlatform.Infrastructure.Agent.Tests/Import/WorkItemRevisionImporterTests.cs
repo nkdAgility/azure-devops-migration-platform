@@ -21,6 +21,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 [TestClass]
 public class WorkItemRevisionImporterTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExecuteAsync_WithAutoResume_DelegatesToRevisionProcessor()
     {
@@ -39,6 +41,8 @@ public class WorkItemRevisionImporterTests
             Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExecuteAsync_WithForceFresh_DeletesCursorBeforeImport()
     {
