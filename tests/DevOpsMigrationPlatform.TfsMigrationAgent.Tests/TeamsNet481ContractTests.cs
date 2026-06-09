@@ -14,7 +14,7 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests;
 public sealed class TeamsNet481ContractTests
 {
     [TestCategory("CodeTest")]
-    [TestCategory("IntegrationTests")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ITeamsOrchestrator_IsAvailable_OnNet481_WithSharedMembersOnly()
     {
