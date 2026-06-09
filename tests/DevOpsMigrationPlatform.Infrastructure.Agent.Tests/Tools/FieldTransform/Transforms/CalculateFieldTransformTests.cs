@@ -47,7 +47,7 @@ public class CalculateFieldTransformTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Apply_WithFieldReferences_ResolvesAndComputes()
     {
@@ -65,7 +65,7 @@ public class CalculateFieldTransformTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Apply_WithMissingFieldReference_ReturnsUnmodifiedFields()
     {
