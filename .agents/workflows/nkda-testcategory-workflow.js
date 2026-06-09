@@ -62,6 +62,13 @@ Both tags are MANDATORY. A method with only one tag is non-compliant.
 6. Single class, all deps mocked via Moq or fakes, no real infrastructure  →  UnitTests
 7. AMBIGUOUS between two adjacent categories  →  go one level UP (e.g. UnitTests → IntegrationTests)
 
+### SetupSequence retry signal — CRITICAL:
+If a test uses Moq's SetupSequence() with N > 1 identical or near-identical returns on the
+same method, that is NOT a UnitTest — it means the SUT calls that dependency multiple times,
+which only happens when a real retry policy (e.g. real Polly) is driving the loop.
+A pure UnitTest calls each dependency once and uses Setup(), not SetupSequence().
+SetupSequence with 2+ returns on the same mock member → IntegrationTests.
+
 ### DomainTests boundary — CRITICAL:
 DomainTests requires EXPLICIT DSL usage. The presence of domain objects alone is NOT sufficient.
 "Uses Moq" + "arranges domain state" = UnitTests or IntegrationTests, NOT DomainTests.
@@ -186,10 +193,12 @@ ${filePath}
    DomainTests is NOT a valid category for any method in this file.
 4. For every [TestMethod] in the file:
    a. Read the method body. Classify using the decision order in the rules above.
-      - If using Moq mocks and no real infrastructure → UnitTests
+      - If calling DevOpsMigrationPlatform.Testing DSL builders/runners → DomainTests
       - If using real Polly, real HttpClient, real Task.Delay, real channels, real ActivitySource,
         real ILogger capture, real MemoryStream pipelines → IntegrationTests
-      - If calling DevOpsMigrationPlatform.Testing DSL builders/runners → DomainTests
+      - If using Moq SetupSequence() with 2 or more returns on the same mock member → IntegrationTests
+        (the extra returns only exist because a real retry policy drives multiple calls)
+      - If using Moq Setup() (single call per dependency) and no real infrastructure → UnitTests
    b. Remove ALL existing [TestCategory(...)] attributes immediately above that [TestMethod]
       (including non-canonical ones like "UnitTest", "IntegrationTest", "cli-execute", etc.).
    c. Insert exactly two [TestCategory] lines immediately above [TestMethod]:
