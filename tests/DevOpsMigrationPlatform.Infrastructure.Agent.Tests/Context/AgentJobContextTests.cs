@@ -133,7 +133,7 @@ public sealed class AgentJobContextTests
 
     // T055: LogDebug called with Mode and ConfigVersion
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Constructor_LogsDebug_WithModeAndConfigVersion_WhenBothSet()
     {
