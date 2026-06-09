@@ -30,6 +30,8 @@ public class FileSystemStateStoreTests
             Directory.Delete(_root, recursive: true);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task WriteAsync_WhenDirectoryDoesNotExist_CreatesDirectoryAndWritesFile()
     {
@@ -39,6 +41,8 @@ public class FileSystemStateStoreTests
         Assert.IsTrue(File.Exists(fullPath));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task WriteAsync_WhenDirectoryAlreadyExists_WritesFile()
     {
@@ -50,6 +54,8 @@ public class FileSystemStateStoreTests
         Assert.AreEqual("data", File.ReadAllText(fullPath));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ReadAsync_WhenFileDoesNotExist_ReturnsNull()
     {
@@ -58,6 +64,8 @@ public class FileSystemStateStoreTests
         Assert.IsNull(result);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ReadAsync_WhenFileExists_ReturnsContent()
     {
@@ -68,6 +76,8 @@ public class FileSystemStateStoreTests
         Assert.AreEqual("hello", result);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExistsAsync_WhenFileExists_ReturnsTrue()
     {
@@ -78,6 +88,8 @@ public class FileSystemStateStoreTests
         Assert.IsTrue(exists);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExistsAsync_WhenFileMissing_ReturnsFalse()
     {
@@ -86,6 +98,8 @@ public class FileSystemStateStoreTests
         Assert.IsFalse(exists);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task WriteAsync_NormalisesForwardSlashesToPlatformSeparator()
     {
