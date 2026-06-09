@@ -47,7 +47,7 @@ public class PackageMigrationConfigLoaderTests
     // ── LoadAsync ─────────────────────────────────────────────────────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     // T033: LoadAsync_WhenFileAbsent_ThrowsPackageConfigNotFoundException
     public async Task LoadAsync_WhenFileAbsent_ThrowsPackageConfigNotFoundException()
@@ -72,7 +72,7 @@ public class PackageMigrationConfigLoaderTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task LoadAsync_WhenPackageBoundaryAvailable_ReadsViaPackageBoundary()
     {
@@ -90,7 +90,7 @@ public class PackageMigrationConfigLoaderTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     // T033: LoadAsync_WhenFileCorrupt_ThrowsJsonException
     public async Task LoadAsync_WhenFileCorrupt_ThrowsException()
@@ -198,7 +198,7 @@ public class PackageMigrationConfigLoaderTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     // T023: ConfigReadErrors incremented on absent file
     public async Task LoadAsync_WhenFileAbsent_IncrementsConfigReadErrors()
@@ -225,7 +225,7 @@ public class PackageMigrationConfigLoaderTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     // Scenario: Config file contains a configVersion field with value "2.0"
     public async Task LoadAsync_WhenConfigContainsConfigVersion_ReturnsConfigVersionValue()
@@ -245,7 +245,7 @@ public class PackageMigrationConfigLoaderTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     // Scenario: Migration Agent retries reading config on eventual consistency delay
     public async Task LoadAsync_WhenConfigNotImmediatelyAvailable_ReturnsConfigAfterRetry()
