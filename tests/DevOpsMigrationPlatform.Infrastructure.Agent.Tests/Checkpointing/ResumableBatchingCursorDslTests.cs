@@ -92,7 +92,8 @@ public sealed class ResumableBatchingCursorDslTests
 
     // ── Scenario 1: Resume from a saved continuation token ───────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FetchAsync_WithSavedToken_YieldsOnlyItemsAfterSavedPosition()
     {
@@ -126,7 +127,8 @@ public sealed class ResumableBatchingCursorDslTests
 
     // ── Scenario 2: No continuation token starts from the beginning ───────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FetchAsync_NoSavedToken_StartsFromBeginningWithoutError()
     {
@@ -153,7 +155,8 @@ public sealed class ResumableBatchingCursorDslTests
 
     // ── Scenario 3: Completion checkpoint marks end of stream ─────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FetchAsync_WhenAllWindowsProcessed_EmitsCompletionCheckpoint()
     {
@@ -174,7 +177,8 @@ public sealed class ResumableBatchingCursorDslTests
 
     // ── Scenario 4: Boundary cluster with identical ChangedDate values ─────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FetchAsync_BoundaryClusterSameChangedDate_AllItemsProcessed()
     {
@@ -204,7 +208,8 @@ public sealed class ResumableBatchingCursorDslTests
 
     // ── Scenario 5: Resume with more than 20000 items since saved position ────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FetchAsync_MoreThan20000Items_EnumeratesWithoutExceedingWiqlLimit()
     {
@@ -234,7 +239,8 @@ public sealed class ResumableBatchingCursorDslTests
 
     // ── Scenario 6: Query fingerprint mismatch rejects continuation ───────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EvaluateResumeDecisionAsync_FingerprintMismatch_ReturnsRejected()
     {
@@ -261,7 +267,8 @@ public sealed class ResumableBatchingCursorDslTests
 
     // ── Scenario 7: Query fingerprint match accepts continuation ─────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EvaluateResumeDecisionAsync_FingerprintMatch_ReturnsAccepted()
     {
@@ -285,7 +292,8 @@ public sealed class ResumableBatchingCursorDslTests
 
     // ── Scenario 8: Pre-check returns decision without starting enumeration ───
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EvaluateResumeDecisionAsync_PreCheck_ReturnsDecisionWithoutFetchingItems()
     {
@@ -309,7 +317,8 @@ public sealed class ResumableBatchingCursorDslTests
 
     // ── Scenario 9: Deterministic ordering ───────────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FetchAsync_ResumeEnabled_YieldsItemsWithoutThrowingAndOrderingIsConsistent()
     {
@@ -338,7 +347,8 @@ public sealed class ResumableBatchingCursorDslTests
 
     // ── Scenario 10: Source drift yields duplicate items without suppression ──
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FetchAsync_OverlappingWindows_YieldsDuplicateIdsWithoutSuppression()
     {
@@ -371,7 +381,8 @@ public sealed class ResumableBatchingCursorDslTests
 
     // ── Scenario 11: Resumed run processes all items despite source mutations ─
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FetchAsync_ItemsReDateAfterInterruption_AllOriginalAndRedatedItemsProcessed()
     {
