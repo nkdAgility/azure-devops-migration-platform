@@ -20,6 +20,8 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests;
 [TestClass]
 public sealed class TfsResolutionStrategyFactoryTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateAsync_WhenStrategyIsEmpty_ReturnsNullResolutionStrategy()
     {
@@ -35,6 +37,8 @@ public sealed class TfsResolutionStrategyFactoryTests
         Assert.IsInstanceOfType(strategy, typeof(NullResolutionStrategy));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateAsync_WhenStrategyIsExplicit_ThrowsInvalidOperationException()
     {
@@ -49,6 +53,8 @@ public sealed class TfsResolutionStrategyFactoryTests
                 CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateAsync_WhenTargetFieldStrategyProvided_ReturnsTfsTargetFieldResolutionStrategy()
     {
@@ -64,6 +70,8 @@ public sealed class TfsResolutionStrategyFactoryTests
         Assert.IsInstanceOfType(strategy, typeof(TfsTargetFieldResolutionStrategy));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateAsync_WhenTargetEndpointUrlHasWhitespace_StillReturnsTfsTargetFieldResolutionStrategy()
     {
@@ -79,6 +87,8 @@ public sealed class TfsResolutionStrategyFactoryTests
         Assert.IsInstanceOfType(strategy, typeof(TfsTargetFieldResolutionStrategy));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateAsync_WhenTargetFieldWithoutFieldName_ThrowsInvalidOperationException()
     {
@@ -93,6 +103,8 @@ public sealed class TfsResolutionStrategyFactoryTests
                 CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TeamFoundationServerEndpointOptions_ResolvedUrl_TrimsEnvironmentValue()
     {
@@ -110,6 +122,8 @@ public sealed class TfsResolutionStrategyFactoryTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TeamFoundationServerOrganisationEntry_ResolvedUrl_TrimsEnvironmentValue()
     {
