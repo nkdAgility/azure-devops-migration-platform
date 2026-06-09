@@ -120,6 +120,14 @@ public sealed class TuiJobListView : FrameView, IDisposable
         JobSelected?.Invoke(_jobs[e.NewRow].JobId);
     }
 
+    // ─── Test accessor ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Exposes the underlying <see cref="DataTableSource"/> for test assertions.
+    /// Guarded by <c>InternalsVisibleTo</c> — do not use in production code.
+    /// </summary>
+    internal DataTableSource? TableSource => _table.Table as DataTableSource;
+
     // ─── Auto-refresh ─────────────────────────────────────────────────────────────
 
     private async Task FetchAndRefreshAsync()
@@ -127,7 +135,12 @@ public sealed class TuiJobListView : FrameView, IDisposable
         try
         {
             var jobs = await _client.GetAllJobsAsync(CancellationToken.None).ConfigureAwait(false);
-            Application.Invoke(() => UpdateJobs(jobs));
+            // Update the data model directly (safe from any thread), then schedule a
+            // redraw through Application.Invoke so Terminal.Gui can update on its main
+            // loop thread. When called outside a running TUI (e.g. in tests) Invoke is
+            // a no-op but the data model is still updated, which is what matters.
+            UpdateJobs(jobs);
+            Application.Invoke(SetNeedsDraw);
         }
         catch
         {

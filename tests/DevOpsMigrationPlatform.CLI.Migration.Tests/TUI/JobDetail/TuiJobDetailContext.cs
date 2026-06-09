@@ -5,9 +5,10 @@ using System;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.CLI.Views;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Terminal.Gui;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.TUI.JobDetail;
 
@@ -75,6 +76,30 @@ public sealed class TuiJobDetailContext : IDisposable
         LogView.Clear();
     }
 
+    /// <summary>
+    /// Simulates the operator pressing Tab within the Log Panel.
+    /// Invokes TuiLogView.OnKeyDown with a synthetic Tab key event without
+    /// requiring a running Terminal.Gui Application.
+    /// </summary>
+    public void SimulateTabPress()
+    {
+        var syntheticKey = new Key(KeyCode.Tab);
+        LogView.NewKeyDownEvent(syntheticKey);
+    }
+
+    /// <summary>
+    /// Pushes a DiagnosticLogRecord into the fake diagnostics stream
+    /// so it appears in the log view.
+    /// </summary>
+    public void PushDiagnosticRecord(DiagnosticLogRecord record)
+        => Client.PushDiagnosticRecord(record);
+
+    /// <summary>
+    /// Completes the fake diagnostics stream cleanly.
+    /// </summary>
+    public void CompleteDiagnosticsStream()
+        => Client.CompleteDiagnosticsStream();
+
     // ── Assertions ────────────────────────────────────────────────────────────
 
     public void AssertMetricsPanelContains(string label, string value)
@@ -92,6 +117,17 @@ public sealed class TuiJobDetailContext : IDisposable
     public void AssertStatusEventFired(string expectedState)
         => Assert.AreEqual(expectedState, _lastJobEndedState,
             $"Expected OnJobEnded to fire with '{expectedState}' but got '{_lastJobEndedState}'.");
+
+    public void AssertMode(string expectedLabel)
+        => TuiJobDetailAssertions.AssertMode(LogView, expectedLabel);
+
+    public void AssertLogViewContainsDiagnosticRecord(string level, string message)
+        => TuiJobDetailAssertions.AssertLogViewContainsDiagnosticRecord(LogView, level, message);
+
+    public void AssertDiagnosticsStreamWasCalled()
+        => Assert.IsTrue(Client.DiagnosticsStreamCallCount >= 1,
+            $"Expected StreamDiagnosticsAsync to have been called at least once " +
+            $"but DiagnosticsStreamCallCount={Client.DiagnosticsStreamCallCount}.");
 
     public void AssertNoReconnectAttempts()
         => Assert.AreEqual(0, SseServer.ReconnectAttemptCount,

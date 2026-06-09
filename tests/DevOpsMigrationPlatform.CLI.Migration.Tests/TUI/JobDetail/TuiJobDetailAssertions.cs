@@ -88,4 +88,32 @@ public static class TuiJobDetailAssertions
             lines.Any(l => l.Contains("Job Completed") || l.Contains("Job Failed")),
             $"Log view should contain a terminal-state separator but lines were:\n{string.Join("\n", lines)}");
     }
+
+    /// <summary>
+    /// Asserts that <paramref name="view"/>.Title contains <paramref name="expectedLabel"/>.
+    /// Used to verify mode switch after Tab press.
+    /// </summary>
+    public static void AssertMode(TuiLogView view, string expectedLabel)
+    {
+        Assert.IsTrue(
+            view.Title.Contains(expectedLabel, StringComparison.OrdinalIgnoreCase),
+            $"Expected TuiLogView.Title to contain '{expectedLabel}' but was '{view.Title}'.");
+    }
+
+    /// <summary>
+    /// Asserts that the log view contains at least one line containing both
+    /// <paramref name="level"/> and <paramref name="message"/>.
+    /// Used to verify diagnostics record rendering.
+    /// </summary>
+    public static void AssertLogViewContainsDiagnosticRecord(
+        TuiLogView view, string level, string message)
+    {
+        var lines = view.Lines;
+        Assert.IsTrue(
+            lines.Any(l =>
+                l.Contains(level, StringComparison.OrdinalIgnoreCase) &&
+                l.Contains(message, StringComparison.OrdinalIgnoreCase)),
+            $"Log view should contain a line with level '{level}' and message '{message}' " +
+            $"but lines were:\n{string.Join("\n", lines)}");
+    }
 }

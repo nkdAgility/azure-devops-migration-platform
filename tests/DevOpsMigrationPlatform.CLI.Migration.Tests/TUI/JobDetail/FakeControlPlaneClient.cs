@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
@@ -34,6 +35,22 @@ public sealed class FakeControlPlaneClient : IControlPlaneClient
     /// <summary>Jobs returned by <see cref="GetAllJobsAsync"/>.</summary>
     public List<JobSummary> Jobs { get; } = new();
 
+    // ── Diagnostics stream support ────────────────────────────────────────────
+
+    /// <summary>Channel for controlling the fake diagnostics stream.</summary>
+    private Channel<DiagnosticLogRecord> _diagnostics = Channel.CreateUnbounded<DiagnosticLogRecord>();
+
+    /// <summary>Number of times StreamDiagnosticsAsync has been entered.</summary>
+    public int DiagnosticsStreamCallCount { get; private set; }
+
+    /// <summary>Push a DiagnosticLogRecord into the fake diagnostics stream.</summary>
+    public void PushDiagnosticRecord(DiagnosticLogRecord record)
+        => _diagnostics.Writer.TryWrite(record);
+
+    /// <summary>Complete the diagnostics stream cleanly.</summary>
+    public void CompleteDiagnosticsStream()
+        => _diagnostics.Writer.TryComplete();
+
     // ── IControlPlaneClient ───────────────────────────────────────────────────
 
     public Task<IReadOnlyList<JobSummary>> GetAllJobsAsync(CancellationToken ct)
@@ -57,8 +74,9 @@ public sealed class FakeControlPlaneClient : IControlPlaneClient
         string? level,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        await Task.CompletedTask.ConfigureAwait(false);
-        yield break;
+        DiagnosticsStreamCallCount++;
+        await foreach (var rec in _diagnostics.Reader.ReadAllAsync(ct).ConfigureAwait(false))
+            yield return rec;
     }
 
     public Task<JobBootstrap?> GetBootstrapAsync(Guid jobId, CancellationToken ct)
