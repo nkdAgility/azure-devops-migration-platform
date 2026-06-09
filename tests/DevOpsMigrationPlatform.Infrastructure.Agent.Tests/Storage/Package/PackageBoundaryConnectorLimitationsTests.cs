@@ -10,6 +10,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 [TestClass]
 public sealed class PackageBoundaryConnectorLimitationsTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveMetaPath_CheckpointCursor_ThrowsContextRequiredContract()
     {
@@ -21,6 +23,8 @@ public sealed class PackageBoundaryConnectorLimitationsTests
         Assert.AreEqual("PKG_META_KIND_CONTEXT_REQUIRED", ex.Code);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveMetaPath_ContinuationToken_ThrowsContextRequiredContract()
     {
