@@ -31,7 +31,8 @@ public sealed class DependencyDiscoveryResumptionDslTests
     // And "ProjectA" should not be re-analysed
     // And the final event stream should include all projects
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task DiscoverDependenciesAsync_WhenProjectAAlreadyCompleted_SkipsProjectAAndYieldsHeartbeat()
     {
