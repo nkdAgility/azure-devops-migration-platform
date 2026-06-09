@@ -19,7 +19,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 public class SimulatedImportTests
 {
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_EmitsOneProgressEvent_PerWorkItem()
     {
