@@ -555,3 +555,53 @@ To unblock:
 3. `AssertErrorOutputOnStderr` needs a scenario where an error actually IS emitted (e.g.
    route a validation error to stderr) so the assertion is not trivially skipped.
 
+---
+
+## GAP-018: system-test-ci-execution — CLI has no `inventory` command; Scenario 1 test fails
+
+**File:** `features/cli/inventory/system-test-ci-execution.feature`
+**Scenario:** `System tests execute in CI environment with secrets`
+**Family:** `system-test-ci-execution`
+**Wiring:** `unwired`
+**Gap type:** `test-failure`
+**Detected:** `2026-06-09`
+**Status:** OPEN
+
+### Engineering detail
+
+The converted test `CiExecution_ValidSecrets_InventoryConnectsAndProducesOutput`
+(`tests/DevOpsMigrationPlatform.CLI.Migration.Tests/SystemTests/SystemTestCiExecutionTests.cs:24`)
+uses `InventoryCliRunner` which invokes:
+
+```
+dotnet run --project src/DevOpsMigrationPlatform.CLI.Migration/... -- inventory
+```
+
+The CLI (`src/DevOpsMigrationPlatform.CLI.Migration/Program.cs`) registers these
+top-level commands: `prepare`, `queue`, `manage`, `controlplane`, `agent`, `config`.
+There is no `inventory` subcommand. Running the above produces:
+
+```
+Unhandled exception. Spectre.Console.Cli.CommandParseException: Unknown command 'inventory'.
+```
+
+The subprocess exits non-zero. `DotnetTestResult.ShouldSucceed()` then fails the test
+with an assertion error referencing line 43 of the test file.
+
+Note: when live credentials (`AZDEVOPS_SYSTEM_TEST_ORG` + `AZDEVOPS_SYSTEM_TEST_PAT`)
+are absent, the test correctly becomes Inconclusive via `InconclusiveIfNotConfigured()`.
+The failure only manifests when credentials ARE present in the environment (e.g. a
+configured CI agent), which is exactly the scenario this test is supposed to verify.
+
+### Resolution options
+
+1. **Add an `inventory` subcommand to the CLI** — register a new `InventoryCommand` under
+   the top-level application that accepts `--org` / `--pat` parameters, runs the inventory
+   pipeline, and produces non-empty JSON output. The test can then pass when credentials
+   are configured.
+2. **Rewrite the scenario using an existing command** — replace the `inventory` invocation
+   with an existing command that exercises connectivity (e.g. `queue --config <path>`) and
+   update `InventoryCliRunner` (or introduce a new runner) accordingly.
+
+The `.feature` file is retained until one of the above is implemented and the test passes.
+

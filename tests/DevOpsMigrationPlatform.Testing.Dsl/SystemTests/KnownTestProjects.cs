@@ -45,4 +45,15 @@ public static class KnownTestProjects
             "tests",
             "DevOpsMigrationPlatform.CLI.Migration.Tests",
             "DevOpsMigrationPlatform.CLI.Migration.Tests.csproj");
+
+    /// <summary>
+    /// CLI migration source project — used by InventoryCliRunner to execute
+    /// the inventory command as a subprocess via <c>dotnet run --project</c>.
+    /// </summary>
+    public static string CliMigrationCli =>
+        Path.Combine(
+            RepoRoot,
+            "src",
+            "DevOpsMigrationPlatform.CLI.Migration",
+            "DevOpsMigrationPlatform.CLI.Migration.csproj");
 }

@@ -1,0 +1,174 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
+using DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
+using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Platform.AzureDevOpsAccess;
+using DevOpsMigrationPlatform.Testing.Dsl.SystemTests;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+namespace DevOpsMigrationPlatform.CLI.Migration.Tests.SystemTests;
+
+/// <summary>
+/// Code-first MSTest tests for the system-test-ci-execution feature family.
+/// Converted from: features/cli/inventory/system-test-ci-execution.feature
+/// DSL design: .output/nkda-testdsl/system-test-ci-execution/02-dsl-design.md
+/// </summary>
+[TestClass]
+public sealed class SystemTestCiExecutionTests
+{
+    // ── Scenario 1 ──────────────────────────────────────────────────────────
+    // System tests execute in CI environment with secrets
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
+    [TestMethod]
+    public async Task CiExecution_ValidSecrets_InventoryConnectsAndProducesOutput()
+    {
+        // Arrange
+        var org = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG")!;
+        var pat = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT")!;
+
+        using var env = SystemTestEnvironment.WithValidCredentials(org, pat);
+        env.InconclusiveIfNotConfigured();
+
+        var runner = InventoryCliRunner
+            .AgainstProject(KnownTestProjects.CliMigrationCli)
+            .WithOrg(org)
+            .WithPat(pat)
+            .WithTimeout(TimeSpan.FromMinutes(2));
+
+        // Act
+        var result = await runner.RunInventoryAsync();
+
+        // Assert
+        result
+            .ShouldSucceed()
+            .ShouldContain("inventory")
+            .ShouldCompleteWithin(TimeSpan.FromMinutes(2));
+    }
+
+    // ── Scenario 2 ──────────────────────────────────────────────────────────
+    // System tests skip gracefully when secrets are missing
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Smoke")]
+    [TestMethod]
+    public void CiExecution_MissingPat_ReportsSkipReasonAndContinues()
+    {
+        // Arrange — clear only the PAT for this scope
+        using var env = SystemTestEnvironment.WithMissingPat();
+
+        // Act & Assert — InconclusiveIfNotConfigured throws AssertInconclusiveException
+        // We catch it to verify the message references docs/contributors.md, then re-throw
+        // so MSTest records the test as Inconclusive (not Failed).
+        try
+        {
+            env.InconclusiveIfNotConfigured();
+        }
+        catch (AssertInconclusiveException ex)
+        {
+            StringAssert.Contains(
+                ex.Message,
+                "docs/contributors.md",
+                $"Skip message must reference docs/contributors.md. Actual: {ex.Message}");
+            throw;
+        }
+    }
+
+    // ── Scenario 3 ──────────────────────────────────────────────────────────
+    // No credentials appear in test output or logs
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Smoke")]
+    [TestMethod]
+    public async Task CiExecution_LiveExecution_PatAndBearerTokensNotInOutput()
+    {
+        // Arrange
+        var org = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG")!;
+        var pat = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_PAT")!;
+
+        using var env = SystemTestEnvironment.WithValidCredentials(org, pat);
+        env.InconclusiveIfNotConfigured();
+
+        // Act
+        var config = SystemTestConfiguration.LoadFromEnvironment();
+        var connectivity = await SystemTestBase.ValidateConnectivityAsync(config);
+
+        // Assert — PAT must not appear in connectivity output
+        CredentialMaskingAssert.PatIsAbsentFromOutput(connectivity.GetFormattedMessage(), pat);
+
+        // Assert — bearer token masking via ExceptionSanitizer
+        const string syntheticBearer = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9";
+        CredentialMaskingAssert.BearerTokenIsMaskedByExceptionSanitizer(syntheticBearer);
+
+        // Assert — structured log entry masking
+        CredentialMaskingAssert.CredentialFieldIsMaskedInLogEntry($"token={pat}", pat);
+    }
+
+    // ── Scenario 4 ──────────────────────────────────────────────────────────
+    // Network resilience in CI with timeout and retry
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Smoke")]
+    [TestMethod]
+    public async Task CiExecution_TransientFailure_RetriesWithBackoffAndCompletesInTime()
+    {
+        // Arrange
+        using var budget = SystemTestTimeBudget.StartFiveMinute();
+        var (client, handler) = NetworkFaultScope.WithOneTransientFailure().Build();
+
+        // Act — exercise the retry policy with the fault-injected client.
+        // A new HttpRequestMessage must be created for each attempt; the same instance
+        // cannot be reused after it has been sent (HttpClient contract).
+        var policy = AzureDevOpsRetryPolicy.GetRetryPolicy();
+
+        await policy.ExecuteAsync(() =>
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://dev.azure.com/test");
+            return client.SendAsync(request);
+        });
+
+        // Assert — the handler must have been called at least twice (1 failure + 1 success)
+        Assert.IsTrue(handler.TotalCallCount >= 2,
+            $"Expected at least one retry but TotalCallCount was {handler.TotalCallCount}");
+
+        budget.AssertNotExpired();
+
+        client.Dispose();
+    }
+
+    // ── Scenario 5 ──────────────────────────────────────────────────────────
+    // Conditional execution based on environment
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Smoke")]
+    [TestMethod]
+    public async Task CiExecution_MissingOrg_LiveTestsInconclusiveUnitTestsContinue()
+    {
+        // Arrange — clear only the ORG for this scope
+        using var env = SystemTestEnvironment.WithMissingOrg();
+
+        // Assert live path: InconclusiveIfMissingOrg throws AssertInconclusiveException —
+        // re-throw after verifying message so MSTest records Inconclusive.
+        try
+        {
+            env.InconclusiveIfMissingOrg();
+        }
+        catch (AssertInconclusiveException ex)
+        {
+            StringAssert.Contains(
+                ex.Message,
+                "docs/contributors.md",
+                $"Inconclusive message must reference docs/contributors.md. Actual: {ex.Message}");
+            throw;
+        }
+
+        // If we reach here (ORG was not actually null), run the unit-test filter assertion.
+        var runner = DotnetTestRunnerBuilder
+            .AgainstProject(KnownTestProjects.CliMigrationTests)
+            .WithFilter(TestRunFilter.ExcludeSystemTests)
+            .WithTimeout(TimeSpan.FromMinutes(2));
+
+        var result = await runner.RunAsync();
+
+        result
+            .ShouldSucceed()
+            .ShouldHaveRunOnlyUnitTests()
+            .ShouldHaveExcludedSystemTests();
+    }
+}

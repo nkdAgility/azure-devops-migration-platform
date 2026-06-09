@@ -86,4 +86,22 @@ public sealed class DotnetTestResult
             $"Expected filtered run (exclude SystemTest) to exit 0 but got {ExitCode}.\nOutput:\n{FullOutput}");
         return this;
     }
+
+    /// <summary>
+    /// Asserts that the combined output contains at least one "Inconclusive" outcome marker.
+    /// MSTest writes "Inconclusive" into dotnet test output when Assert.Inconclusive is called.
+    /// </summary>
+    public DotnetTestResult ShouldContainInconclusiveTests()
+    {
+        StringAssert.Contains(FullOutput, "Inconclusive",
+            $"Expected at least one Inconclusive test result in output.\nActual:\n{FullOutput}");
+        return this;
+    }
+
+    /// <summary>
+    /// Asserts that the combined output does NOT contain the given credential value.
+    /// Alias for ShouldNotContain with a more behaviour-specific name.
+    /// </summary>
+    public DotnetTestResult ShouldNotContainCredential(string value)
+        => ShouldNotContain(value);
 }

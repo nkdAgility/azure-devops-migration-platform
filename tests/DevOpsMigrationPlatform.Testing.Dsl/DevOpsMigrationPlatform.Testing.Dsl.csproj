@@ -12,4 +12,8 @@
     <PackageReference Include="MSTest.TestFramework" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.CLI.Migration\DevOpsMigrationPlatform.CLI.Migration.csproj" />
+  </ItemGroup>
+
 </Project>
