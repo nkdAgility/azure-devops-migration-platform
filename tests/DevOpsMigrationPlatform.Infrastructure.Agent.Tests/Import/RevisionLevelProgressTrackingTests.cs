@@ -131,7 +131,7 @@ public class RevisionLevelProgressTrackingTests
     // ── Tests ─────────────────────────────────────────────────────────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_UpdatesWatermark_AfterRevisionIsApplied()
     {
@@ -166,7 +166,7 @@ public class RevisionLevelProgressTrackingTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_SkipsRevisionsAtOrBelowWatermark_WhenWatermarkSet()
     {
@@ -192,7 +192,7 @@ public class RevisionLevelProgressTrackingTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_ProcessesCommentFolder_WhenWatermarkIsHigh()
     {

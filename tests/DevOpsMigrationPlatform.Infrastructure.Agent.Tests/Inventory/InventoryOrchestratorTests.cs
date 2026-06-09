@@ -30,7 +30,7 @@ public sealed class InventoryOrchestratorTests
     private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task RunAsync_WhenInventoryCompletes_DoesNotWriteInventoryCompletionMarker()
     {
@@ -64,7 +64,7 @@ public sealed class InventoryOrchestratorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task RunAsync_WhenProjectCompletes_WritesProjectScopedInventoryCursor()
     {
