@@ -125,7 +125,7 @@ public class RerunDeltaImportTests
     // ── Tests ─────────────────────────────────────────────────────────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_SkipsCompletedFolders_WhenResumingFromCursor()
     {
@@ -159,7 +159,7 @@ public class RerunDeltaImportTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_SkipsAlreadyAppliedRevisions_ViaWatermark()
     {
@@ -187,7 +187,7 @@ public class RerunDeltaImportTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_DeletesCursorButPreservesIdMap_WhenForceFreshMode()
     {
