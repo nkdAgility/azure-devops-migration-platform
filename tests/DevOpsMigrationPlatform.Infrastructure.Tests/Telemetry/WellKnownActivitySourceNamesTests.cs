@@ -17,6 +17,8 @@ public class WellKnownActivitySourceNamesTests
         .Where(f => f.IsLiteral && !f.IsInitOnly && f.FieldType == typeof(string))
         .ToArray();
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void AllConstants_StartWithPlatformPrefix()
     {
@@ -29,6 +31,8 @@ public class WellKnownActivitySourceNamesTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void AllConstants_AreUnique()
     {
