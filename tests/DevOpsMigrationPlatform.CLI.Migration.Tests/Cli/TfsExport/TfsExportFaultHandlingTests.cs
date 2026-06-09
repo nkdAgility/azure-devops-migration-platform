@@ -23,7 +23,7 @@ public sealed class TfsExportFaultHandlingTests
     /// See analysis/dsl-gaps-detected.md GAP-015.
     /// </summary>
     [TestCategory("CodeTest")]
-    [TestCategory("DomainTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task TfsExport_TfsUnavailable_ClearErrorBeforeStart()
     {
@@ -43,7 +43,7 @@ public sealed class TfsExportFaultHandlingTests
     /// BLOCKED: ISubprocessExitCodeSource abstraction not confirmed in ChildProcessHost.cs.
     /// </summary>
     [TestCategory("CodeTest")]
-    [TestCategory("DomainTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task TfsExport_SubprocessExitCode2_PropagatedToCli()
     {
