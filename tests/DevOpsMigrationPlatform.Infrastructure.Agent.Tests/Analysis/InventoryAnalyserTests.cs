@@ -29,7 +29,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Analysis;
 public sealed class InventoryAnalyserTests
 {
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AnalyseAsync_WritesRootInventoryArtefactsWithContent()
     {
@@ -65,7 +65,7 @@ public sealed class InventoryAnalyserTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AnalyseAsync_RecordsConsolidatedInventoryMetrics()
     {
@@ -86,7 +86,7 @@ public sealed class InventoryAnalyserTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AnalyseAsync_LogsWarningsForMissingModuleFilesAndZeroTotals()
     {
@@ -100,7 +100,7 @@ public sealed class InventoryAnalyserTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AnalyseAsync_EmitsStartAndCompletionProgressEvents()
     {
