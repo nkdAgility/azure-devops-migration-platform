@@ -32,7 +32,7 @@ public sealed class DependencyDiscoveryResumptionDslTests
     // And the final event stream should include all projects
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task DiscoverDependenciesAsync_WhenProjectAAlreadyCompleted_SkipsProjectAAndYieldsHeartbeat()
     {
