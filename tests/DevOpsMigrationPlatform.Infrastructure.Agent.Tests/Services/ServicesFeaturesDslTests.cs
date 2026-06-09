@@ -79,7 +79,7 @@ public sealed class ServicesFeaturesDslTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task IdentityResolution_ImportStageAppliesMappedIdentity()
     {
@@ -106,7 +106,7 @@ public sealed class ServicesFeaturesDslTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task IdentityResolution_ImportStageWithoutMapping_PassesValueThrough()
     {
@@ -245,7 +245,7 @@ public sealed class ServicesFeaturesDslTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void DiscoveryOrganisationScope_BuildsScopedEndpointsWithProjectsAndAuthentication()
     {
