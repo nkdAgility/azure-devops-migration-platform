@@ -23,6 +23,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class JobExecutionPlanBuilderContextResolutionTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveAnalyseContextForAnalyser_WhenEndpointPairAnalyser_ReturnsEndpointPairContext()
     {
@@ -37,6 +39,8 @@ public sealed class JobExecutionPlanBuilderContextResolutionTests
         Assert.IsInstanceOfType<EndpointPairAnalyseContext>(context);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveAnalyseContextForAnalyser_WhenOrganisationsAnalyser_ReturnsOrganisationsContext()
     {
@@ -53,6 +57,8 @@ public sealed class JobExecutionPlanBuilderContextResolutionTests
         Assert.AreEqual(1, orgContext.Organisations.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveAnalyseContextForAnalyser_WhenBothInterfacesImplemented_PrefersEndpointPair()
     {
@@ -67,6 +73,8 @@ public sealed class JobExecutionPlanBuilderContextResolutionTests
         Assert.IsInstanceOfType<EndpointPairAnalyseContext>(context);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveAnalyseContextForAnalyser_WhenBaseAnalyser_ReturnsBaseContext()
     {
