@@ -47,7 +47,7 @@ public class PackageConfigStoreTests
     // ── LoadAsync ─────────────────────────────────────────────────────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     // T033: LoadAsync_WhenFileAbsent_ThrowsPackageConfigNotFoundException
     public async Task LoadAsync_WhenFileAbsent_ThrowsPackageConfigNotFoundException()
@@ -198,7 +198,7 @@ public class PackageConfigStoreTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     // T023: ConfigReadErrors incremented on absent file
     public async Task LoadAsync_WhenFileAbsent_IncrementsConfigReadErrors()
