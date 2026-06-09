@@ -76,7 +76,7 @@ public class ParallelModuleExecutionTests
     // ── Scenario: CancellationToken cancels all running tier tasks ────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExportJob_WhenCancellationTokenCancelled_AllRunningTasksReceiveSignal()
     {
