@@ -15,6 +15,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.ProjectLifecycle;
 [TestClass]
 public sealed class AzureDevOpsProjectLifecycleServiceTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CreateAndTeardown_ReturnSuccessfulLifecycleOutcomes()
     {
@@ -40,6 +42,8 @@ public sealed class AzureDevOpsProjectLifecycleServiceTests
         StringAssert.StartsWith(created.ProjectName, "ado-azuredevopsservices-run-ado-");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Create_UsesExplicitProjectNameWhenProvided()
     {
@@ -58,6 +62,8 @@ public sealed class AzureDevOpsProjectLifecycleServiceTests
         Assert.AreEqual("explicit-project-name", created.ProjectName);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Create_WhenProvisioningFails_ReturnsFailedRecordImmediately()
     {
@@ -78,6 +84,8 @@ public sealed class AzureDevOpsProjectLifecycleServiceTests
         StringAssert.Contains(created.CreateFailureReason!, "provisioning failed");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Create_WithExplicitProcessName_AndTeardownCapturesLatency()
     {
