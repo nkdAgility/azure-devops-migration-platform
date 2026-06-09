@@ -50,6 +50,8 @@ public class AzureDevOpsDependencyAnalysisServiceTests
             _loggerMock.Object);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AnalyseLinksAsync_WithToken_SetsResumeEnabledTrue()
     {
@@ -87,6 +89,8 @@ public class AzureDevOpsDependencyAnalysisServiceTests
         Assert.AreSame(token, capturedScope.SavedContinuationToken, "The exact token should be passed through.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AnalyseLinksAsync_WithNoToken_SetsResumeEnabledFalse()
     {
