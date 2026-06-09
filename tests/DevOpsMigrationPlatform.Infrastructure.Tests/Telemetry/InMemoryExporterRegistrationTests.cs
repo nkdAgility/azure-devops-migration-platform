@@ -23,6 +23,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Telemetry;
 [TestClass]
 public class InMemoryExporterRegistrationTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void TracerProvider_Captures_MigrationActivitySource()
     {
@@ -44,6 +46,8 @@ public class InMemoryExporterRegistrationTests
             "Migration activity source should produce spans captured by in-memory exporter.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void TracerProvider_Captures_DiscoveryActivitySource()
     {
@@ -65,6 +69,8 @@ public class InMemoryExporterRegistrationTests
             "Discovery activity source should produce spans captured by in-memory exporter.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void TracerProvider_Captures_ControlPlaneActivitySource()
     {
@@ -86,6 +92,8 @@ public class InMemoryExporterRegistrationTests
             "ControlPlane activity source should produce spans captured by in-memory exporter.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void MeterProvider_Captures_MigrationMeterCounters()
     {
@@ -105,6 +113,8 @@ public class InMemoryExporterRegistrationTests
             "Migration meter should produce metrics captured by in-memory exporter.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void MeterProvider_Captures_DiscoveryMeterCounters()
     {
@@ -124,6 +134,8 @@ public class InMemoryExporterRegistrationTests
             "Discovery meter should produce metrics captured by in-memory exporter.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void MeterProvider_Captures_ControlPlaneMeterCounters()
     {
@@ -143,6 +155,8 @@ public class InMemoryExporterRegistrationTests
             "ControlPlane meter should produce metrics captured by in-memory exporter.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void TracerProvider_WithAllSources_CapturesAll()
     {
