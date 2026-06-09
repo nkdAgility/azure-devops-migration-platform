@@ -9,7 +9,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class StateCursorIdentityTests
 {
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Build_ReturnsLowercaseActionQualifiedIdentity()
     {
@@ -17,7 +18,8 @@ public sealed class StateCursorIdentityTests
         Assert.AreEqual("export.workitems", identity);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TryParse_ActionQualifiedValue_ReturnsActionAndModule()
     {

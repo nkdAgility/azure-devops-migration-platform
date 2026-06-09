@@ -139,7 +139,7 @@ public class PackageConfigStoreTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     // T024: O-3 LogInformation fires at start of read
     public async Task LoadAsync_WhenSuccessful_LogsInformationAtStartAndCompletion()
@@ -164,7 +164,7 @@ public class PackageConfigStoreTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     // T022: O-1 ActivitySource emits "config.read" span
     public async Task LoadAsync_EmitsConfigReadActivitySpan()
