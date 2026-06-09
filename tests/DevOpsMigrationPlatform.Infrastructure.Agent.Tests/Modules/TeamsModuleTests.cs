@@ -111,7 +111,7 @@ public class TeamsModuleTests
             package: package);
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExportAsync_Skips_WhenModuleDisabled()
     {
@@ -134,7 +134,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExportAsync_Skips_WhenNoTeamSourceRegistered()
     {
@@ -155,7 +155,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExportAsync_WritesTeamJson_PerTeam()
     {
@@ -191,7 +191,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExportAsync_AppliesFilter_WhenScopeIsTeams()
     {
@@ -225,7 +225,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExportAsync_SkipsExistingTeam_WhenAlwaysExportFalse()
     {
@@ -257,7 +257,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExportAsync_ReexportsExistingTeam_WhenAlwaysExportTrue()
     {
@@ -294,7 +294,7 @@ public class TeamsModuleTests
     // ── Content verification tests (from export-team-definitions, iterations, members features) ──
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExportAsync_TeamJson_ContainsTeamNameAndIsDefault()
     {
@@ -328,7 +328,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExportAsync_TeamJson_ContainsIterationsAndMembers()
     {
@@ -376,7 +376,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_Skips_WhenModuleDisabled()
     {
@@ -397,7 +397,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_CreatesTeams_FromPackageFiles()
     {
@@ -443,7 +443,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_CreatesNonDefaultTeams_ByName_WhenTwoTeamsInPackage()
     {
@@ -492,7 +492,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_CreatesAllTeams_WhenFiveNonDefaultTeamsInPackage()
     {
@@ -540,7 +540,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenNoTeamFilesFound()
     {
@@ -569,7 +569,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenTeamJsonMissingDefinitionField()
     {
@@ -601,7 +601,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenTeamJsonIsMalformed()
     {
@@ -633,7 +633,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ValidateAsync_Passes_WhenAllTeamFilesAreValid()
     {
@@ -675,7 +675,7 @@ public class TeamsModuleTests
     // ── Iteration Tests (T068) ────────────────────────────────────────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_AssignsIterations_WithPathPassThrough_WhenNoTranslationTool()
     {
@@ -722,7 +722,7 @@ public class TeamsModuleTests
     // ── Member Tests (T075) ───────────────────────────────────────────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_AddsMembersWithIdentityMapping()
     {
@@ -776,7 +776,7 @@ public class TeamsModuleTests
     // ── Capacity Tests (T082) ─────────────────────────────────────────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_SetsCapacity_ForEachIteration()
     {
@@ -825,7 +825,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_SkipsCapacity_WhenCapacityExtensionDisabled()
     {
@@ -867,7 +867,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_CompletesWithoutError_WhenTargetThrowsNotSupportedForCapacity()
     {
@@ -918,7 +918,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_NeverCallsSetCapacity_WhenCapacityByIterationIsEmpty()
     {
@@ -959,7 +959,7 @@ public class TeamsModuleTests
     // ── NodeTranslation Extension Tests (T069) ─────────────────────────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExportAsync_RecordsAreaAndIterationPaths_WhenNodeTranslationExtensionEnabled()
     {
@@ -1007,7 +1007,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExportAsync_DoesNotRecordPaths_WhenNodeTranslationExtensionDisabled()
     {
@@ -1045,7 +1045,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_TranslatesIterationPaths_ViaNodeTranslationTool()
     {
@@ -1106,7 +1106,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_SkipsIteration_WhenPathUntranslatable_GAP005()
     {
@@ -1160,7 +1160,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportTeam_SkipsMember_WhenIdentityResolvesToDefault_GAP006()
     {
@@ -1192,7 +1192,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportTeam_AddsMember_WhenIdentityResolvesToNonDefault_GAP006()
     {
@@ -1221,7 +1221,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportTeam_LogsStructuredWarning_ForDefaultTeam_GAP004()
     {
@@ -1251,7 +1251,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_UsesIterationPathField_ForIterationTranslation()
     {
@@ -1330,7 +1330,7 @@ public class TeamsModuleTests
     // ── Iteration Path Tests ──────────────────────────────────────────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_TranslatesAndAssignsBothIterations_WhenTwoIterationsInPackage()
     {
@@ -1394,7 +1394,7 @@ public class TeamsModuleTests
     // ── Area Path Tests ───────────────────────────────────────────────────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_TranslatesDefaultAndIncludedAreaPaths_ViaNodeTranslationTool()
     {
@@ -1453,7 +1453,7 @@ public class TeamsModuleTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_DoesNotSetAreaPaths_WhenNodeTranslationExtensionDisabled()
     {
