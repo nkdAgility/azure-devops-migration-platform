@@ -16,7 +16,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Export;
 [TestClass]
 public class ExportProgressStoreFactoryTests
 {
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Create_WhenGivenResolvedDatabasePath_InitializesSqlite()
     {
@@ -53,7 +54,8 @@ public class ExportProgressStoreFactoryTests
         }
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Create_WhenWindowsPathExceedsMaxPath_StillInitializesSqlite()
     {
