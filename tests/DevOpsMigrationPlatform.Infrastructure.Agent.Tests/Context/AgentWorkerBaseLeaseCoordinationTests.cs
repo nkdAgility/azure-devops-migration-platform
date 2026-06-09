@@ -14,6 +14,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class AgentWorkerBaseLeaseCoordinationTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteAsync_WhenJobDispatchThrows_ClearsActiveLeaseAndPackageState()
     {
