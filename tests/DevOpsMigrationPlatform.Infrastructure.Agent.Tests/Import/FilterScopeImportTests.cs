@@ -99,7 +99,8 @@ public class FilterScopeImportTests
 
     // ── Tests ─────────────────────────────────────────────────────────────────
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_ImportsOnlyMatchingWorkItems_WhenIncludeFilterConfigured()
     {
@@ -119,7 +120,8 @@ public class FilterScopeImportTests
         ctx.MockTarget.Verify(t => t.UpdateFieldsAsync(It.Is<int>(id => id == 2), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_EvaluatesLastRevisionOnly_WhenFilteringWorkItems()
     {
@@ -137,7 +139,8 @@ public class FilterScopeImportTests
         ctx.MockTarget.Verify(t => t.UpdateFieldsAsync(It.Is<int>(id => id == 1), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_CompletesWithoutError_WhenSkippedItemHasDiagnosticEntry()
     {
@@ -154,7 +157,8 @@ public class FilterScopeImportTests
         ctx.MockTarget.Verify(t => t.UpdateFieldsAsync(It.Is<int>(id => id == 2), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_CompletesSuccessfully_WhenZeroWorkItemsPassFilter()
     {
@@ -173,7 +177,8 @@ public class FilterScopeImportTests
         ctx.MockTarget.Verify(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_ImportsAllWorkItems_WhenNoFilterConfigured()
     {
