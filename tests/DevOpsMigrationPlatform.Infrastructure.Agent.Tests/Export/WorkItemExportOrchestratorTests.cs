@@ -130,7 +130,8 @@ public class WorkItemExportOrchestratorTests
 
     // ── tests ─────────────────────────────────────────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_WhenNoCursor_WritesAllRevisions()
     {
@@ -151,7 +152,8 @@ public class WorkItemExportOrchestratorTests
         Assert.AreEqual(3, written.Count);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_WhenCursorSet_SkipsAlreadyExportedRevisions()
     {
@@ -189,7 +191,8 @@ public class WorkItemExportOrchestratorTests
         StringAssert.Contains(written[0], "-42-2/");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_WhenCursorSet_OutOfOrderDelivery_DoesNotSkipUnexportedOlderItems()
     {
@@ -240,7 +243,8 @@ public class WorkItemExportOrchestratorTests
         StringAssert.Contains(written[0], "-5-0/", "The 2020-era revision must be exported, not skipped.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_WritesOneCursorPerRevision()
     {
@@ -262,7 +266,8 @@ public class WorkItemExportOrchestratorTests
         Assert.AreEqual(5, cursors.Count, "One cursor write per revision.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_WhenNoRevisions_WritesNothingAndNoCursor()
     {
@@ -276,7 +281,8 @@ public class WorkItemExportOrchestratorTests
         _mockCps.Verify(s => s.WriteCursorAsync(It.IsAny<string>(), It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void BuildFolderPath_ProducesCanonicalFormat()
     {
@@ -287,7 +293,8 @@ public class WorkItemExportOrchestratorTests
         StringAssert.EndsWith(path, "-42-1/");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_SerialisesFull_WorkItemRevision_NotJustMetadata()
     {
@@ -321,7 +328,8 @@ public class WorkItemExportOrchestratorTests
 
     // ── IsCommentEditOrDeleteRevision ─────────────────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void IsCommentEditOrDeleteRevision_ReturnsFalse_WhenRevisionIndexIsZero()
     {
@@ -342,7 +350,8 @@ public class WorkItemExportOrchestratorTests
         Assert.IsFalse(WorkItemExportOrchestrator.IsCommentEditOrDeleteRevision(revision));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void IsCommentEditOrDeleteRevision_ReturnsFalse_WhenNoCommentCountField()
     {
@@ -357,7 +366,8 @@ public class WorkItemExportOrchestratorTests
         Assert.IsFalse(WorkItemExportOrchestrator.IsCommentEditOrDeleteRevision(revision));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void IsCommentEditOrDeleteRevision_ReturnsFalse_WhenHistoryPresentWithCommentCount()
     {
@@ -377,7 +387,8 @@ public class WorkItemExportOrchestratorTests
         Assert.IsFalse(WorkItemExportOrchestrator.IsCommentEditOrDeleteRevision(revision));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void IsCommentEditOrDeleteRevision_ReturnsTrue_WhenCommentCountPresentButNoHistory()
     {
@@ -396,7 +407,8 @@ public class WorkItemExportOrchestratorTests
         Assert.IsTrue(WorkItemExportOrchestrator.IsCommentEditOrDeleteRevision(revision));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void IsCommentEditOrDeleteRevision_ReturnsFalse_WhenHistoryEmptyStringAndCommentCount()
     {
@@ -419,7 +431,8 @@ public class WorkItemExportOrchestratorTests
 
     // ── Inline comment fetching by timestamp ──────────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_WhenCommentEditRevision_WritesCommentJsonBesideRevisionJson()
     {
@@ -494,7 +507,8 @@ public class WorkItemExportOrchestratorTests
         Assert.AreEqual("Edited comment text", comments[0].Text);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_WhenCommentEditRevision_NoMatchingTimestamp_SkipsCommentJson()
     {
@@ -561,7 +575,8 @@ public class WorkItemExportOrchestratorTests
             "comment.json must NOT be written when no comments match the timestamp");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_WhenCommentAdditionRevision_DoesNotFetchFromApi()
     {
@@ -611,7 +626,8 @@ public class WorkItemExportOrchestratorTests
 
     // ── Attachment delta detection ────────────────────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_WithAttachments_DownloadsAndWritesBinaries()
     {
@@ -654,7 +670,8 @@ public class WorkItemExportOrchestratorTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_DeltaDetection_SkipsSameUrlOnAdjacentRevisions()
     {
@@ -704,7 +721,8 @@ public class WorkItemExportOrchestratorTests
         Assert.AreEqual(1, downloadCount, "Delta detection should skip the second download of the same URL.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_DeltaDetection_DownloadsDifferentUrls()
     {
@@ -748,7 +766,8 @@ public class WorkItemExportOrchestratorTests
         Assert.AreEqual(2, downloadCount, "Different URLs should both be downloaded.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_AttachmentFailure_IncrementsFailedCounter()
     {
@@ -797,7 +816,8 @@ public class WorkItemExportOrchestratorTests
         Assert.IsTrue(lastProgress.Message?.Contains("work items") == true, "Progress event should mention work items in Message.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_EmitsProgressPerWorkItem()
     {
@@ -843,7 +863,8 @@ public class WorkItemExportOrchestratorTests
         Assert.IsTrue(boundaryEvents[1].Message?.Contains("2 work items") == true, "Second event should reflect 2 work items.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_CursorWrittenAfterAttachments()
     {
@@ -896,7 +917,8 @@ public class WorkItemExportOrchestratorTests
 
     // ── Filter scope pre-pass ─────────────────────────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_WithFilterAndMatchingItems_OnlyExportsMatchingWorkItems()
     {
@@ -952,7 +974,8 @@ public class WorkItemExportOrchestratorTests
         Assert.IsFalse(written.Any(p => p.Contains("-2-0/")), "Work item 2 should be filtered out.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_WithNoFilterOptions_ExportsAllWorkItems()
     {
@@ -999,7 +1022,8 @@ public class WorkItemExportOrchestratorTests
 
     // ── Export progress store (fast-forward) ────────────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FastForward_SkipsRevisionWhenStoredRevMatchesRevisionIndex()
     {
@@ -1046,7 +1070,8 @@ public class WorkItemExportOrchestratorTests
             Times.Never, "No revision.json should be written when all revisions are at or below the stored rev.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FastForward_WritesOnlyNewRevisionsWhenPartiallyExported()
     {
@@ -1102,7 +1127,8 @@ public class WorkItemExportOrchestratorTests
         Assert.AreEqual(2, revisionWrites.Count, "Only revisions 2 and 3 should be written (0 and 1 are already stored).");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FastForward_EmitsTaskCompletedCount_OnResumingSkipEvent()
     {
@@ -1160,7 +1186,8 @@ public class WorkItemExportOrchestratorTests
         Assert.AreEqual(1L, resumingEvent.KnownTotal);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FastForward_DoesNotSkipWorkItemWhenProgressStoreReturnsNull()
     {
@@ -1217,7 +1244,8 @@ public class WorkItemExportOrchestratorTests
             "All revisions should be written when progress store returns null.");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FastForward_RecordsRevAfterEachRevisionWrite()
     {
@@ -1280,7 +1308,8 @@ public class WorkItemExportOrchestratorTests
     ///
     /// Fix: workItemsProcessed starts at 0 each run; the cursor accumulates cumulatively.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_OnResume_SkippedPlusCompletedDoesNotExceedTotal()
     {
