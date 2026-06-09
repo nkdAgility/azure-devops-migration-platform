@@ -13,6 +13,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 [TestClass]
 public sealed class PackageBoundaryErrorContractTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task RequestAsync_NoActiveStore_ThrowsPackageOperationExceptionWithStableCode()
     {
@@ -29,6 +31,8 @@ public sealed class PackageBoundaryErrorContractTests
         Assert.AreEqual("PKG_STORE_UNAVAILABLE", ex.Code);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task RequestAsync_MissingRoute_ReturnsNullPayload()
     {
@@ -41,6 +45,8 @@ public sealed class PackageBoundaryErrorContractTests
         Assert.IsNull(payload);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AppendLogAsync_MissingRunId_ThrowsPackageValidationExceptionWithStableCode()
     {
