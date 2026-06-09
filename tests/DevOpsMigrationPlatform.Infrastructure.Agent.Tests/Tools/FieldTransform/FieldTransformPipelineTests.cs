@@ -24,7 +24,8 @@ public class FieldTransformPipelineTests
         IReadOnlyList<(FieldTransformGroupOptions Group, IReadOnlyList<(FieldTransformRuleOptions Rule, IFieldTransform Transform)> Transforms)> groups)
         => new FieldTransformPipeline(groups, NullLogger<FieldTransformPipeline>.Instance);
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Execute_WithEmptyPipeline_ReturnsInputUnchanged()
     {
@@ -39,7 +40,8 @@ public class FieldTransformPipelineTests
         Assert.AreEqual(0, result.Actions.Count);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Execute_WithDisabledGroup_SkipsGroup()
     {
@@ -61,7 +63,8 @@ public class FieldTransformPipelineTests
         mockTransform.VerifyNoOtherCalls();
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Execute_WithApplyToFilter_SkipsNonMatchingType()
     {
@@ -87,7 +90,8 @@ public class FieldTransformPipelineTests
         mockTransform.VerifyNoOtherCalls();
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Execute_GroupsExecuteInOrder_OutputFeedsNextTransform()
     {
@@ -140,7 +144,8 @@ public class FieldTransformPipelineTests
         Assert.AreEqual(2, result.Actions.Count);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Execute_WithTagTransform_DeduplicatesTags()
     {
@@ -171,7 +176,8 @@ public class FieldTransformPipelineTests
         Assert.AreEqual("Bug; Feature", result.Fields["System.Tags"]);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Execute_WithDisabledTransform_SkipsTransform()
     {
