@@ -27,8 +27,9 @@ public class PackagePersistenceRunLogFlushTests
         services.AddSingleton(package);
         return services.BuildServiceProvider();
     }
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task PackageProgressSink_FlushAfterPackageStateClear_WritesToOriginalRunLogFolder()
     {
         var contexts = new List<PackageLogContext>();
@@ -57,8 +58,9 @@ public class PackagePersistenceRunLogFlushTests
         Assert.AreEqual(PackageLogStream.Progress, contexts[0].Stream);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task PackageProgressSink_WithActiveStore_AppendsThroughPackageBoundary()
     {
         var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
@@ -83,8 +85,9 @@ public class PackagePersistenceRunLogFlushTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task PackageLoggerProvider_FlushAfterPackageStateClear_WritesToOriginalRunLogFolder()
     {
         var contexts = new List<PackageLogContext>();
@@ -114,8 +117,9 @@ public class PackagePersistenceRunLogFlushTests
         Assert.AreEqual(PackageLogStream.Diagnostics, contexts[0].Stream);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void PackageProgressSink_Emit_IsNonBlockingAndBuffersInternally()
     {
         // The scenario: a progress event emitted via the progress sink must not block
@@ -143,8 +147,9 @@ public class PackagePersistenceRunLogFlushTests
         mockPackage.VerifyNoOtherCalls();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task PackageLoggerProvider_WithActiveStore_AppendsThroughPackageBoundary()
     {
         var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
