@@ -25,8 +25,9 @@ public sealed class ModuleIsolationTests
     /// WorkItemsModule constructor receives IOptions&lt;WorkItemsModuleOptions&gt;,
     /// ISourceEndpointInfo, ITargetEndpointInfo, and does NOT receive MigrationPlatformOptions.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void WorkItemsModule_Constructor_ReceivesIsolatedOptionsSlice_NotFullGraph()
     {
         // Arrange
@@ -64,8 +65,9 @@ public sealed class ModuleIsolationTests
     /// The WorkItemsModule source file does not reference other modules' options types,
     /// demonstrating that unit-testing it requires only WorkItemsModuleOptions.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void WorkItemsModule_SourceFile_DoesNotReferenceOtherModuleOptionsTypes()
     {
         var repoRoot = GetRepositoryRoot();
@@ -96,8 +98,9 @@ public sealed class ModuleIsolationTests
     /// All module options types that expose SectionName have unique values,
     /// so duplicate registration would be caught at startup rather than silently overwriting config.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void AllModuleOptions_SectionNames_AreUnique()
     {
         // Collect all public concrete types in the Abstractions assembly that have a static SectionName property
@@ -128,8 +131,9 @@ public sealed class ModuleIsolationTests
     /// Every module options type in the Abstractions assembly exposes a static SectionName
     /// constant, satisfying the isolated injection pattern contract.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void AllModuleOptions_HaveStaticSectionName()
     {
         var abstractionsAssembly = typeof(WorkItemsModuleOptions).Assembly;
