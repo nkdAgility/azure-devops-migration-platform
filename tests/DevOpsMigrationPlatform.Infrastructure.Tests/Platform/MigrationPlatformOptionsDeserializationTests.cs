@@ -26,7 +26,7 @@ public class MigrationPlatformOptionsDeserializationTests
   };
 
   [TestCategory("CodeTest")]
-  [TestCategory("UnitTests")]
+  [TestCategory("IntegrationTests")]
   [TestMethod]
   public void Deserialize_WithoutModulesKey_DefaultsToEnabledWorkItems()
   {
@@ -47,7 +47,7 @@ public class MigrationPlatformOptionsDeserializationTests
   }
 
   [TestCategory("CodeTest")]
-  [TestCategory("UnitTests")]
+  [TestCategory("IntegrationTests")]
   [TestMethod]
   public void Deserialize_WithTypedModulesObject_PopulatesWorkItems()
   {
@@ -80,7 +80,7 @@ public class MigrationPlatformOptionsDeserializationTests
   }
 
   [TestCategory("CodeTest")]
-  [TestCategory("UnitTests")]
+  [TestCategory("IntegrationTests")]
   [TestMethod]
   public void Deserialize_WorkItemsExtensions_AllPresent()
   {
@@ -122,7 +122,7 @@ public class MigrationPlatformOptionsDeserializationTests
   }
 
   [TestCategory("CodeTest")]
-  [TestCategory("UnitTests")]
+  [TestCategory("IntegrationTests")]
   [TestMethod]
   public void Deserialize_WorkItemsDisabled_ReflectsEnabledFalse()
   {
