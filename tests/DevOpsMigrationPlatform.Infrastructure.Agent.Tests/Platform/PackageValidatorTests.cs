@@ -29,7 +29,8 @@ public class PackageValidatorTests
         _sut = new PackageValidator(_store, "test-org", "test-project");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_WellFormedPackage_ReturnsPassed()
     {
@@ -42,7 +43,8 @@ public class PackageValidatorTests
         Assert.AreEqual(0, result.Errors.Count);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_MissingManifest_ReturnsFailed()
     {
@@ -52,7 +54,8 @@ public class PackageValidatorTests
         Assert.IsTrue(result.Errors[0].Message.Contains("not found", StringComparison.OrdinalIgnoreCase));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_UnsupportedSchemaVersion_ReturnsFailed()
     {
@@ -64,7 +67,8 @@ public class PackageValidatorTests
         Assert.IsTrue(result.Errors[0].Message.Contains("Unsupported schema version", StringComparison.OrdinalIgnoreCase));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_MissingSchemaVersion_ReturnsFailed()
     {
@@ -77,7 +81,8 @@ public class PackageValidatorTests
         StringAssert.Contains(result.Errors[0].Message, "schemaVersion");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_InvalidManifestJson_ReturnsManifestError()
     {
@@ -91,7 +96,8 @@ public class PackageValidatorTests
             error.Path == "manifest.json" && error.Message.Contains("Invalid JSON", StringComparison.OrdinalIgnoreCase)));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_RevisionMissingWorkItemId_ReturnsFailed()
     {
@@ -105,7 +111,8 @@ public class PackageValidatorTests
         Assert.IsTrue(result.Errors[0].Message.Contains("workItemId", StringComparison.OrdinalIgnoreCase));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_InvalidRevisionJson_ReturnsFailed()
     {
@@ -118,7 +125,8 @@ public class PackageValidatorTests
         Assert.IsTrue(result.Errors[0].Message.Contains("Invalid JSON", StringComparison.OrdinalIgnoreCase));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_RevisionListedButUnreadable_ReturnsFileNotFoundErrorForListedPath()
     {
@@ -133,7 +141,8 @@ public class PackageValidatorTests
         Assert.AreEqual("File not found.", result.Errors[0].Message);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_MultipleInvalidRevisionFiles_ReturnsErrorForEachInvalidRevision()
     {
@@ -150,7 +159,8 @@ public class PackageValidatorTests
         Assert.IsTrue(result.Errors.Any(error => error.Message.Contains("revisionIndex", StringComparison.OrdinalIgnoreCase)));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_NonRevisionWorkItemsArtefact_IsIgnored()
     {
@@ -163,7 +173,8 @@ public class PackageValidatorTests
         Assert.IsTrue(result.Passed);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_IsReadOnly_NoPackageWritesPerformed()
     {

@@ -23,8 +23,9 @@ public sealed class IProjectAnalyserRemovalTests
     /// Verifies that no type named IProjectAnalyser exists in any loaded assembly from
     /// the solution's src or tests output.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void Solution_AfterRefactor_ContainsNoIProjectAnalyserReferences()
     {
         // All assemblies reachable from the test runner represent compiled solution output.
@@ -54,8 +55,9 @@ public sealed class IProjectAnalyserRemovalTests
     /// Verifies that DependencyAnalyser implements IOrganisationsAnalyser and does not
     /// implement any per-project capture interface (IProjectAnalyser or similar).
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void DependencyAnalyser_ClassDeclaration_ImplementsIOrganisationsAnalyser()
     {
         var type = typeof(DependencyAnalyser);
@@ -64,8 +66,9 @@ public sealed class IProjectAnalyserRemovalTests
             "DependencyAnalyser must implement IOrganisationsAnalyser.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void DependencyAnalyser_ClassDeclaration_DoesNotImplementIProjectAnalyser()
     {
         var type = typeof(DependencyAnalyser);
