@@ -86,7 +86,7 @@ public class PackagePersistenceRunLogFlushTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PackageLoggerProvider_FlushAfterPackageStateClear_WritesToOriginalRunLogFolder()
     {
@@ -118,7 +118,7 @@ public class PackagePersistenceRunLogFlushTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void PackageProgressSink_Emit_IsNonBlockingAndBuffersInternally()
     {
@@ -148,7 +148,7 @@ public class PackagePersistenceRunLogFlushTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PackageLoggerProvider_WithActiveStore_AppendsThroughPackageBoundary()
     {
