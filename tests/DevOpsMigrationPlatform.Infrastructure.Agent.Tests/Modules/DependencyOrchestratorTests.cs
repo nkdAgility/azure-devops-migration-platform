@@ -34,7 +34,7 @@ public sealed class DependencyOrchestratorTests
     private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AnalyseAsync_WritesMostRecentDateIntoGroupedProjectSummary()
     {
@@ -121,7 +121,7 @@ public sealed class DependencyOrchestratorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CaptureProjectAsync_WhenBatchCheckpointOccurs_WritesProjectScopedDependencyState()
     {
@@ -172,7 +172,7 @@ public sealed class DependencyOrchestratorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AnalyseAsync_DoesNotWriteLegacyAggregateDependencyCursor()
     {
