@@ -29,7 +29,8 @@ public class JobProgressStoreDslTests
 
     // ── Scenario: Ring buffer at capacity evicts oldest event ─────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void RingBuffer_AtCapacity_EvictsOldestAndStoresNew()
     {
@@ -48,7 +49,8 @@ public class JobProgressStoreDslTests
 
     // ── Scenario: CompleteJob before any Append marks channel completed ────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void CompleteJobBeforeAppend_LateSubscriber_ChannelIsImmediatelyCompleted()
     {
