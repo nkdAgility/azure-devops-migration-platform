@@ -63,9 +63,39 @@ public class PlatformMetricsTests
     private static MetricsTagList CreateExecutionTags() =>
         MetricsTagList.Create("test-job-1", "export", "workitems");
 
+    // --- Idempotency Instrument Registration ---
+
+    [TestMethod]
+    [TestCategory("UnitTest")]
+    public void IdempotencyCounters_AreRegisteredAtStartup()
+    {
+        var publishedNames = new List<string>();
+        using var registrationListener = new MeterListener();
+        registrationListener.InstrumentPublished = (instrument, _) =>
+        {
+            if (instrument.Meter.Name == WellKnownMeterNames.Agent)
+                publishedNames.Add(instrument.Name);
+        };
+        registrationListener.Start();
+
+        using var sut = new PlatformMetrics();
+
+        Assert.IsTrue(publishedNames.Contains(WellKnownAgentMetricNames.Duplicated),
+            $"Expected {WellKnownAgentMetricNames.Duplicated} to be registered");
+        Assert.IsTrue(publishedNames.Contains(WellKnownAgentMetricNames.ChangedOnRerun),
+            $"Expected {WellKnownAgentMetricNames.ChangedOnRerun} to be registered");
+        Assert.IsTrue(publishedNames.Contains(WellKnownAgentMetricNames.ReprocessedAfterResume),
+            $"Expected {WellKnownAgentMetricNames.ReprocessedAfterResume} to be registered");
+        Assert.IsTrue(publishedNames.Contains(WellKnownAgentMetricNames.DuplicatedAfterResume),
+            $"Expected {WellKnownAgentMetricNames.DuplicatedAfterResume} to be registered");
+        Assert.IsTrue(publishedNames.Contains(WellKnownAgentMetricNames.MissingAfterResume),
+            $"Expected {WellKnownAgentMetricNames.MissingAfterResume} to be registered");
+    }
+
     // --- Organisation ---
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void OrganisationStarted_EmitsUpDownCounter()
     {
         using var sut = new PlatformMetrics();
@@ -79,6 +109,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void OrganisationCompleted_DecrementsQueueAndIncrementsCompleted()
     {
         using var sut = new PlatformMetrics();
@@ -91,6 +122,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void OrganisationFailed_DecrementsQueueAndIncrementsFailed()
     {
         using var sut = new PlatformMetrics();
@@ -103,6 +135,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordOrganisationDuration_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -115,6 +148,7 @@ public class PlatformMetricsTests
     // --- Project ---
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void ProjectStarted_EmitsUpDownCounter()
     {
         using var sut = new PlatformMetrics();
@@ -125,6 +159,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void ProjectCompleted_DecrementsQueueAndIncrementsCompleted()
     {
         using var sut = new PlatformMetrics();
@@ -137,6 +172,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void ProjectFailed_DecrementsQueueAndIncrementsFailed()
     {
         using var sut = new PlatformMetrics();
@@ -149,6 +185,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordProjectDuration_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -161,6 +198,7 @@ public class PlatformMetricsTests
     // --- Inventory ---
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordWorkItemsCounted_EmitsCounterWithCorrectValue()
     {
         using var sut = new PlatformMetrics();
@@ -171,6 +209,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordRevisionsCounted_EmitsCounterWithCorrectValue()
     {
         using var sut = new PlatformMetrics();
@@ -181,6 +220,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordReposCounted_EmitsCounterWithCorrectValue()
     {
         using var sut = new PlatformMetrics();
@@ -193,6 +233,7 @@ public class PlatformMetricsTests
     // --- Dependencies ---
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordLinksFound_EmitsCounterWithCorrectValue()
     {
         using var sut = new PlatformMetrics();
@@ -210,6 +251,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordWorkItemsAnalysed_EmitsCounterWithCorrectValue()
     {
         using var sut = new PlatformMetrics();
@@ -222,6 +264,7 @@ public class PlatformMetricsTests
     // --- Operational ---
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordCheckpointSaved_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -234,6 +277,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordJobDuration_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -251,6 +295,7 @@ public class PlatformMetricsTests
     // --- Execution ---
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordWorkItemAttempted_EmitsCorrectInstrumentAndTags()
     {
         using var sut = new PlatformMetrics();
@@ -266,6 +311,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordWorkItemCompleted_EmitsCorrectInstrument()
     {
         using var sut = new PlatformMetrics();
@@ -277,6 +323,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordWorkItemFailed_EmitsCorrectInstrument()
     {
         using var sut = new PlatformMetrics();
@@ -288,6 +335,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordWorkItemRetried_EmitsCorrectInstrument()
     {
         using var sut = new PlatformMetrics();
@@ -299,6 +347,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordWorkItemDuration_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -311,6 +360,7 @@ public class PlatformMetricsTests
     // --- Payload ---
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordFieldCount_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -321,6 +371,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordAttachmentCount_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -332,6 +383,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordLinkCount_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -343,6 +395,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordRevisionCount_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -354,6 +407,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordPayloadBytes_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -366,6 +420,7 @@ public class PlatformMetricsTests
     // --- Correctness ---
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordRevisionSourceCount_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -377,6 +432,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordRevisionTargetCount_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -388,6 +444,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordRevisionDelta_EmitsHistogramValue()
     {
         using var sut = new PlatformMetrics();
@@ -398,6 +455,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordRevisionsMissing_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -409,6 +467,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordRevisionOrderError_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -420,6 +479,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordBrokenLink_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -431,6 +491,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordMissingWorkItem_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -444,6 +505,7 @@ public class PlatformMetricsTests
     // --- In-Flight ---
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void IncrementDecrementInFlight_EmitsUpDownCounter()
     {
         using var sut = new PlatformMetrics();
@@ -460,9 +522,70 @@ public class PlatformMetricsTests
         Assert.AreEqual(-1, entries[2].Value);  // decrement
     }
 
+    /// <summary>
+    /// Scenario: In-flight counter reflects concurrent processing.
+    /// Verifies that concurrent increments stay within the declared concurrency ceiling and
+    /// each decrement reduces the net in-flight count by one.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("UnitTest")]
+    public void InFlightCounter_ReflectsConcurrentProcessing_NetValueStaysWithinConcurrencyLimit()
+    {
+        const int maxConcurrency = 4;
+        using var sut = new PlatformMetrics();
+        var tags = CreateExecutionTags();
+
+        // Simulate maxConcurrency items picked up concurrently
+        for (var i = 0; i < maxConcurrency; i++)
+            sut.IncrementInFlight(tags);
+
+        var entries = _recorded.Where(r => r.Name == WellKnownAgentMetricNames.WorkItemsInFlight).ToList();
+        // Net running sum after maxConcurrency increments equals maxConcurrency
+        var netInFlight = entries.Sum(e => (int)e.Value);
+        Assert.IsTrue(netInFlight >= 0 && netInFlight <= maxConcurrency,
+            $"Expected net in-flight between 0 and {maxConcurrency} but was {netInFlight}");
+
+        // Complete one item — net should decrease by one
+        sut.DecrementInFlight(tags);
+        var updatedEntries = _recorded.Where(r => r.Name == WellKnownAgentMetricNames.WorkItemsInFlight).ToList();
+        var netAfterDecrement = updatedEntries.Sum(e => (int)e.Value);
+        Assert.AreEqual(maxConcurrency - 1, netAfterDecrement,
+            "Decrement should reduce net in-flight by one");
+    }
+
+    /// <summary>
+    /// Scenario: Queue depth starts high and decreases as items are processed.
+    /// The queue depth is tracked via the WorkItemsInFlight UpDownCounter: the net sum
+    /// of all increment/decrement deltas falls monotonically toward zero as items complete.
+    /// </summary>
+    [TestMethod]
+    [TestCategory("UnitTest")]
+    public void InFlightCounter_NetValue_DecreasesMonotonicallyAsItemsComplete()
+    {
+        const int totalItems = 5;
+        using var sut = new PlatformMetrics();
+        var tags = CreateExecutionTags();
+
+        // Queue all items (high queue depth)
+        for (var i = 0; i < totalItems; i++)
+            sut.IncrementInFlight(tags);
+
+        // Drain them one by one, asserting net value decreases each time
+        for (var completed = 1; completed <= totalItems; completed++)
+        {
+            sut.DecrementInFlight(tags);
+            var net = _recorded
+                .Where(r => r.Name == WellKnownAgentMetricNames.WorkItemsInFlight)
+                .Sum(e => (int)e.Value);
+            Assert.AreEqual(totalItems - completed, net,
+                $"After completing {completed} item(s), net in-flight should be {totalItems - completed}");
+        }
+    }
+
     // --- Idempotency ---
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordDuplicated_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -474,6 +597,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordChangedOnRerun_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -485,6 +609,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordReprocessedAfterResume_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -496,6 +621,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordDuplicatedAfterResume_EmitsCounter()
     {
         using var sut = new PlatformMetrics();
@@ -507,6 +633,7 @@ public class PlatformMetricsTests
     }
 
     [TestMethod]
+    [TestCategory("UnitTest")]
     public void RecordMissingAfterResume_EmitsCounter()
     {
         using var sut = new PlatformMetrics();

@@ -75,7 +75,6 @@ public static class MigrationPlatformHost
                     }
                     else
                     {
-                        logging.AddConsole();
                         logging.SetMinimumLevel(LogLevel.Warning);
                     }
                 });

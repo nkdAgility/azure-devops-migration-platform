@@ -162,6 +162,7 @@ Ensure-Symlink '.claude\skills'   '..\.agents\skills'
 Ensure-Symlink '.claude\agents'   '..\.agents\agents'
 Ensure-Symlink '.claude\commands' '..\.agents\commands'
 Ensure-Symlink '.claude\prompts'  '..\.agents\prompts'
+Ensure-Symlink '.claude\workflows'  '..\.agents\workflows'
 
 # -- .github symlinks --------------------------------------------------------
 Write-Host ""

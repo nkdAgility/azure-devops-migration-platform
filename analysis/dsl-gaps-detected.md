@@ -298,3 +298,78 @@ Scenario: Import is skipped when both ReplicateSourceTree and AutoCreateNodes ar
 ### Resolution options
 
 Same as GAP-008: add OTel in-memory exporter instrumentation to the export orchestrator tests.
+
+---
+
+## GAP-010: commands-execute-successfully — discovery inventory command does not exist
+
+**File:** `features/cli/execute/commands-execute-successfully.feature`
+**Scenario:** Discovery inventory command fails gracefully with invalid config
+**Family:** `commands-execute-successfully`
+**Wiring:** `unwired`
+**Gap type:** `behaviour-conflict`
+**Detected:** 2026-06-08
+**Status:** OPEN
+
+### Engineering detail
+
+The feature scenario invokes `devopsmigration discovery inventory --config invalid-path.json`. The CLI binary (`src/DevOpsMigrationPlatform.CLI.Migration/Program.cs`) registers the following top-level commands: `prepare`, `queue`, `manage`, `controlplane`, `agent`, `config`. There is no `discovery` command or `discovery inventory` sub-command registered anywhere in the application.
+
+Running the CLI with `["discovery", "inventory", "--config", "invalid-path.json"]` produces:
+
+```
+Unhandled exception. Spectre.Console.Cli.CommandParseException: Unknown command 'discovery'.
+```
+
+This is an unhandled exception, not a graceful failure. The feature specifies "no unhandled exceptions should occur" and a non-zero exit code with a clear error message — but the actual behaviour is an unhandled `CommandParseException` propagated to stderr as a raw stack trace.
+
+The test `CliCommand_DiscoveryInventory_InvalidConfigPath_FailsGracefully` was built using the in-process `MigrationPlatformHost.CreateDefaultBuilder`, which does not run Spectre.Console.Cli. It builds the DI host only, so the invalid config path is silently ignored (the JSON file is `optional: true`) and the host exits with code 0. The test therefore gets exit code 0 and empty stderr — asserting non-zero exit fails.
+
+To unblock conversion, either:
+1. Add a `discovery inventory` command to the CLI (matching the feature intent), or
+2. Rewrite the scenario to use an existing command (e.g. `queue --config invalid-path.json`) and verify graceful failure with that command.
+
+---
+
+## GAP-011: commands-execute-successfully — discovery inventory --help command does not exist
+
+**File:** `features/cli/execute/commands-execute-successfully.feature`
+**Scenario:** Help text displays correctly for all commands
+**Family:** `commands-execute-successfully`
+**Wiring:** `unwired`
+**Gap type:** `behaviour-conflict`
+**Detected:** 2026-06-08
+**Status:** OPEN
+
+### Engineering detail
+
+The feature scenario invokes `devopsmigration discovery inventory --help`. The CLI does not have a `discovery inventory` command (see GAP-010). Running out-of-process via `CliRunner`, the CLI exits non-zero with `CommandParseException: Unknown command 'discovery'` on stderr instead of displaying help text and exiting with code 0.
+
+The test `CliCommand_DiscoveryInventory_HelpFlag_DisplaysHelpAndExitsZero` uses `CliRunner.RunOutOfProcessAsync` and asserts exit code 0 and stdout containing `"inventory"` and `"--config"`. All assertions fail because the command does not exist.
+
+To unblock conversion, either:
+1. Add a `discovery inventory` command to the CLI, or
+2. Rewrite the scenario to test `--help` on an existing command (e.g. `queue --help`) and assert relevant help-text keywords for that command.
+
+---
+
+## GAP-012: commands-execute-successfully — missing required parameters scenario maps to non-error in-process path
+
+**File:** `features/cli/execute/commands-execute-successfully.feature`
+**Scenario:** Commands handle missing required parameters gracefully
+**Family:** `commands-execute-successfully`
+**Wiring:** `unwired`
+**Gap type:** `behaviour-conflict`
+**Detected:** 2026-06-08
+**Status:** OPEN
+
+### Engineering detail
+
+The feature scenario runs `devopsmigration discovery inventory` (no required parameters) and expects a non-zero exit code with a help suggestion. The command does not exist (see GAP-010), so the production CLI would throw `CommandParseException: Unknown command 'discovery'`.
+
+The test `CliCommand_MissingRequiredParameters_ShowsErrorAndSuggestsHelp` uses the in-process `MigrationPlatformHost.CreateDefaultBuilder` path, which does not invoke Spectre.Console.Cli argument parsing. Running `["discovery", "inventory"]` through the host builder simply builds DI, finds no app entrypoint to invoke, and exits with code 0 with empty stderr. The test asserts non-zero exit code and help suggestion — both fail.
+
+To unblock conversion, either:
+1. Add a `discovery inventory` command with required parameters to the CLI, or
+2. Rewrite the scenario to test an existing command invoked with missing required args (e.g. `queue` with no `--config`) and verify graceful argument-validation error behaviour through out-of-process invocation via `CliRunner`.
+
