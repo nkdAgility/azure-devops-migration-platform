@@ -11,7 +11,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class RunAuditInspectabilityTests
 {
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void RunAuditPath_IsInspectable_ButNotAuthoritative()
     {
@@ -30,7 +31,8 @@ public sealed class RunAuditInspectabilityTests
     /// Then only root and project scoped files are used as authoritative state
     /// And run-scope files remain inspectable audit artefacts only
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resume_UsesAuthoritativeScopes_RunScopeIgnored()
     {
