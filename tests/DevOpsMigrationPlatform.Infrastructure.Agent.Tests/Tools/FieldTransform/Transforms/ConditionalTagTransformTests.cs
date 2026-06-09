@@ -17,8 +17,8 @@ public class ConditionalTagTransformTests
     private static ConditionalTagTransform Build(string conditionField, string pattern, string tag)
         => new ConditionalTagTransform("TestTransform", "TestGroup", conditionField, pattern, tag);
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
     [TestMethod]
     public void Apply_WhenFieldMatchesPattern_AddsTag()
     {
@@ -31,8 +31,8 @@ public class ConditionalTagTransformTests
         Assert.IsTrue(result.Actions[0].Modified);
     }
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
     [TestMethod]
     public void Apply_WhenFieldDoesNotMatchPattern_DoesNotAddTag()
     {
@@ -45,8 +45,8 @@ public class ConditionalTagTransformTests
         Assert.AreEqual(0, result.Actions.Count);
     }
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
     [TestMethod]
     public void Apply_WhenConditionFieldAbsent_ReturnsInputUnchanged()
     {
