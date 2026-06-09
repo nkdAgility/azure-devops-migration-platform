@@ -13,8 +13,9 @@ public sealed class DiagnosticLogStoreTests
 {
     private static readonly Guid JobId = new("11111111-1111-1111-1111-111111111111");
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void Add_WhenRingBufferExceedsCapacity_EvictsOldestRetainedRecord()
     {
         var store = CreateStore(capacity: 2, minimumLevel: "Information");
@@ -34,8 +35,9 @@ public sealed class DiagnosticLogStoreTests
             snapshot.Select(record => record.Message).ToArray());
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void Add_WhenRecordIsBelowDeploymentMinimumLevel_DiscardsRecordBeforeBuffering()
     {
         var store = CreateStore(capacity: 5, minimumLevel: "Warning");
@@ -55,8 +57,9 @@ public sealed class DiagnosticLogStoreTests
             snapshot.Select(record => record.Message).ToArray());
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void GetSnapshot_WhenLevelFilterIsProvided_ReturnsRecordsAtOrAboveRequestedLevel()
     {
         var store = CreateStore(capacity: 5, minimumLevel: "Information");
@@ -76,8 +79,9 @@ public sealed class DiagnosticLogStoreTests
             snapshot.Select(record => record.Message).ToArray());
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void Subscribe_WhenRecordIsAdded_NotifiesLiveSubscriberWithoutPollingSnapshot()
     {
         var store = CreateStore(capacity: 5, minimumLevel: "Information");
@@ -92,8 +96,9 @@ public sealed class DiagnosticLogStoreTests
         store.Unsubscribe(JobId, writer);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void Subscribe_WhenJobAlreadyCompleted_CompletesSubscriberImmediately()
     {
         var store = CreateStore(capacity: 5, minimumLevel: "Information");
@@ -113,8 +118,9 @@ public sealed class DiagnosticLogStoreTests
     /// A live subscriber receives warning-level records immediately after they are added,
     /// without needing to poll the snapshot — simulating near real-time streaming to the TUI.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void DiagnosticsPanel_WhenAgentEmitsWarningRecord_SubscriberReceivesItImmediately()
     {
         var store = CreateStore(capacity: 10, minimumLevel: "Information");
@@ -136,8 +142,9 @@ public sealed class DiagnosticLogStoreTests
     /// When the operator changes the level filter from Warning to Information,
     /// subsequent records at Information level and above appear in the snapshot.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void DiagnosticsPanel_WhenLevelFilterChangedToInformation_ShowsInformationAndAbove()
     {
         var store = CreateStore(capacity: 10, minimumLevel: "Information");
@@ -166,8 +173,9 @@ public sealed class DiagnosticLogStoreTests
     /// After a reconnection, the diagnostics panel replays recent records
     /// from the control plane ring buffer via GetSnapshot.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void DiagnosticsPanel_WhenReconnected_ReplaysRecentRecordsFromRingBuffer()
     {
         var store = CreateStore(capacity: 3, minimumLevel: "Information");
@@ -195,8 +203,9 @@ public sealed class DiagnosticLogStoreTests
     /// are accepted by the DiagnosticLogStore (available for live streaming), while records below
     /// Information are discarded on ingestion.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void StandaloneMode_OperatorLevelInformation_ControlPlaneAcceptsInformationAndAbove()
     {
         // Simulate: operator ran export --level Information in standalone mode,
