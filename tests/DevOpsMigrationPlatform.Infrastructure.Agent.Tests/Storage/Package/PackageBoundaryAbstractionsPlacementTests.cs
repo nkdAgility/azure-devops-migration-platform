@@ -9,6 +9,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 [TestClass]
 public sealed class PackageBoundaryAbstractionsPlacementTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PackageBoundaryContracts_AreDefinedOnlyInAbstractionsAgent()
     {
@@ -19,6 +21,8 @@ public sealed class PackageBoundaryAbstractionsPlacementTests
         Assert.IsNotNull(Type.GetType($"DevOpsMigrationPlatform.Abstractions.Storage.PackageLogContext, {contractsAssembly}"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PackageBoundaryContracts_AreNotDefinedInHigherAbstractionsAssembly()
     {
