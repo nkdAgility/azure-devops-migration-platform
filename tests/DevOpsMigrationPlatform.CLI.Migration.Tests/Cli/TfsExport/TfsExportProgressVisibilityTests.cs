@@ -16,9 +16,9 @@ public sealed class TfsExportProgressVisibilityTests
     /// The TFS-specific connectivity path is separately covered by live system tests that
     /// require the AZDEVOPS_SYSTEM_TEST_ORG environment variable.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
     public async Task TfsExport_ValidConfig_LiveProgressDisplayed()
     {
         await using var result = await TfsExportScenario
@@ -42,9 +42,9 @@ public sealed class TfsExportProgressVisibilityTests
     /// This test is a false positive and cannot be used to retire the feature scenario.
     /// See analysis/dsl-gaps-detected.md GAP-017.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
     public async Task TfsExport_OutputStreamed_StdoutAndStderrDistinguished()
     {
         await using var result = await TfsExportScenario
@@ -62,9 +62,9 @@ public sealed class TfsExportProgressVisibilityTests
     /// Scenario 7 — Chunk progress is shown including date range and work item counts.
     /// BLOCKED: pending confirmation that ProgressEvent carries chunk start/end date fields.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
     public async Task TfsExport_ChunkProgress_DateRangeAndCountsDisplayed()
     {
         await using var result = await TfsExportScenario
