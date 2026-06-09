@@ -21,7 +21,7 @@ public sealed class TuiJobDetail_PanelPopulation_DslTests
     // ── Scenario 1: Selecting a job populates Metrics and Log panels ──────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task TuiJobDetail_WhenJobSelected_MetricsPanelAndLogPanelArePopulated()
     {
@@ -69,7 +69,7 @@ public sealed class TuiJobDetail_PanelPopulation_DslTests
     // ── Scenario 6: Viewing a completed job shows terminal state marker ────────
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task TuiJobDetail_WhenJobIsInTerminalState_LogViewShowsFinalSeparatorAndStatusEventFired()
     {
