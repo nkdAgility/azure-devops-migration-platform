@@ -60,7 +60,7 @@ public sealed class JobAgentWorkerInventoryTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task InventoryDispatch_WithTwoSourceEndpoints_LogsOrgCountAndInvokesInventoryTwice()
     {
@@ -83,7 +83,7 @@ public sealed class JobAgentWorkerInventoryTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task InventoryDispatch_WithTwoSourceEndpoints_EmitsPerOrgProgressWithCumulativeMetrics()
     {
@@ -119,7 +119,7 @@ public sealed class JobAgentWorkerInventoryTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task InventoryDispatch_WhenSecondOrgFails_LogsWarningAndContinues()
     {
