@@ -13,6 +13,8 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 [TestClass]
 public sealed class ControlPlaneClientDiagnosticsTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetTelemetryAndBootstrapAsync_WriteRawJsonResponses_ToInboxFolder()
     {
@@ -78,6 +80,8 @@ public sealed class ControlPlaneClientDiagnosticsTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task FollowLogsAsync_WritesEachProgressEvent_ToInboxFolderInArrivalOrder()
     {
@@ -127,6 +131,8 @@ public sealed class ControlPlaneClientDiagnosticsTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task StreamDiagnosticsAsync_DoesNotWriteHttpNoise_ToInboxFolder()
     {
