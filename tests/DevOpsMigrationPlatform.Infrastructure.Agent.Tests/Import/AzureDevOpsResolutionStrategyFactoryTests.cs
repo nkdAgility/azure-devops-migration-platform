@@ -22,6 +22,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 [TestClass]
 public sealed class AzureDevOpsResolutionStrategyFactoryTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateAsync_WhenStrategyIsEmpty_ThrowsInvalidOperationException()
     {
@@ -35,6 +37,8 @@ public sealed class AzureDevOpsResolutionStrategyFactoryTests
                 CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateAsync_WhenTargetIsNotAzureDevOpsTarget_ThrowsInvalidOperationException()
     {
@@ -48,6 +52,8 @@ public sealed class AzureDevOpsResolutionStrategyFactoryTests
                 CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateAsync_WhenStrategyIsTargetField_ReturnsTargetFieldResolutionStrategy()
     {
@@ -62,6 +68,8 @@ public sealed class AzureDevOpsResolutionStrategyFactoryTests
         Assert.IsInstanceOfType<TargetFieldResolutionStrategy>(strategy);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateAsync_WhenStrategyIsTargetHyperlink_ReturnsTargetHyperlinkResolutionStrategy()
     {
@@ -76,6 +84,8 @@ public sealed class AzureDevOpsResolutionStrategyFactoryTests
         Assert.IsInstanceOfType<TargetHyperlinkResolutionStrategy>(strategy);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateAsync_WhenStrategyIsUnknown_ThrowsInvalidOperationException()
     {
