@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
@@ -48,10 +49,9 @@ public sealed class TuiJobDetail_LiveDataStreaming_DslTests
         context.SseServer.Push(evt);
 
         // Wait for the event to appear in the log view (no operator interaction).
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (!context.LogView.Lines.Any(l => l.Contains("Real-time-update-message-42"))
-               && !cts.IsCancellationRequested)
-            await Task.Delay(50, cts.Token).ConfigureAwait(false);
+        await TuiJobDetailAssertions.WaitUntilAsync(
+            () => context.LogView.Lines.Any(l => l.Contains("Real-time-update-message-42")),
+            TimeSpan.FromSeconds(5)).ConfigureAwait(false);
 
         // Assert
         context.AssertLogViewContains("Real-time-update-message-42");
@@ -157,10 +157,9 @@ public sealed class TuiJobDetail_LiveDataStreaming_DslTests
         context.SseServer.Push(firstEvent);
 
         // Wait for first event to appear.
-        using var cts1 = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (!context.LogView.Lines.Any(l => l.Contains("first-event-before-drop"))
-               && !cts1.IsCancellationRequested)
-            await Task.Delay(50, cts1.Token).ConfigureAwait(false);
+        await TuiJobDetailAssertions.WaitUntilAsync(
+            () => context.LogView.Lines.Any(l => l.Contains("first-event-before-drop")),
+            TimeSpan.FromSeconds(5)).ConfigureAwait(false);
 
         // Drop the connection — TuiLogView will catch the exception and back off before reconnecting.
         context.SseServer.DropConnection();
@@ -172,10 +171,9 @@ public sealed class TuiJobDetail_LiveDataStreaming_DslTests
         context.SseServer.Push(secondEvent);
 
         // Wait for second event to appear.
-        using var cts2 = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (!context.LogView.Lines.Any(l => l.Contains("second-event-after-reconnect"))
-               && !cts2.IsCancellationRequested)
-            await Task.Delay(50, cts2.Token).ConfigureAwait(false);
+        await TuiJobDetailAssertions.WaitUntilAsync(
+            () => context.LogView.Lines.Any(l => l.Contains("second-event-after-reconnect")),
+            TimeSpan.FromSeconds(5)).ConfigureAwait(false);
 
         // Assert
         context.AssertLogViewContains("first-event-before-drop");
@@ -208,10 +206,9 @@ public sealed class TuiJobDetail_LiveDataStreaming_DslTests
         context.SseServer.Push(preDeselect);
 
         // Wait for the pre-deselect event to appear.
-        using var cts1 = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (!context.LogView.Lines.Any(l => l.Contains("pre-deselect-event"))
-               && !cts1.IsCancellationRequested)
-            await Task.Delay(50, cts1.Token).ConfigureAwait(false);
+        await TuiJobDetailAssertions.WaitUntilAsync(
+            () => context.LogView.Lines.Any(l => l.Contains("pre-deselect-event")),
+            TimeSpan.FromSeconds(5)).ConfigureAwait(false);
 
         // Deselect — cancels the stream CTS.
         context.DeselectJob();

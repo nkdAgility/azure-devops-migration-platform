@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using DevOpsMigrationPlatform.CLI.Views;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Spectre.Console;
@@ -14,6 +17,19 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.TUI.JobDetail;
 /// </summary>
 public static class TuiJobDetailAssertions
 {
+    /// <summary>
+    /// Spins until <paramref name="condition"/> returns <c>true</c> or the
+    /// <paramref name="timeout"/> elapses, polling every 50 ms.
+    /// Returns without throwing; callers should follow with an assertion.
+    /// </summary>
+    public static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
+    {
+        using var cts = new CancellationTokenSource(timeout);
+        while (!condition() && !cts.IsCancellationRequested)
+            await Task.Delay(50, cts.Token).ConfigureAwait(false);
+    }
+
+
     /// <summary>
     /// Renders <paramref name="panel"/> to a no-colour <see cref="IAnsiConsole"/> string writer
     /// and asserts the output contains both <paramref name="label"/> and <paramref name="value"/>.

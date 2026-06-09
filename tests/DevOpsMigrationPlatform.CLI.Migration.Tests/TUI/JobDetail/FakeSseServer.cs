@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Channels;
@@ -36,18 +37,19 @@ public sealed class FakeSseServer
     public void Push(ProgressEvent evt) => _events.Writer.TryWrite(evt);
 
     /// <summary>
-    /// Drop the current connection by completing the current channel writer and replacing
-    /// it with a fresh one. Subsequent calls to <see cref="GetEventsAsync"/> will increment
-    /// <see cref="ReconnectAttemptCount"/>.
+    /// Drop the current connection by completing the current channel writer with an error and
+    /// replacing it with a fresh one. Subsequent calls to <see cref="GetEventsAsync"/> will
+    /// increment <see cref="ReconnectAttemptCount"/>.
+    /// The completed iteration will throw <see cref="IOException"/> to simulate a network drop.
     /// </summary>
     public void DropConnection()
     {
         var old = _events;
         _events = Channel.CreateUnbounded<ProgressEvent>();
-        old.Writer.TryComplete();
+        old.Writer.TryComplete(new IOException("Simulated SSE connection drop."));
     }
 
-    /// <summary>Mark the stream as completed (terminal state — no reconnect expected).</summary>
+    /// <summary>Mark the stream as completed cleanly (terminal state — no reconnect expected).</summary>
     public void CompleteStream() => _events.Writer.TryComplete();
 
     /// <summary>Returns an async-enumerable stream of events for the given job, tracking subscriptions.</summary>

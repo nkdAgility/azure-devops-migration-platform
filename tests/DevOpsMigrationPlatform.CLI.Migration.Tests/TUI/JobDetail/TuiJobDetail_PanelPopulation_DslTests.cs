@@ -2,7 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
-using System.Threading;
+using System.Linq;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
@@ -57,9 +57,9 @@ public sealed class TuiJobDetail_PanelPopulation_DslTests
         context.MetricsPanel.Update(metrics);
 
         // Allow the background stream loop to process the pushed event.
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (context.LogView.Lines.Count == 0 && !cts.IsCancellationRequested)
-            await Task.Delay(50, cts.Token).ConfigureAwait(false);
+        await TuiJobDetailAssertions.WaitUntilAsync(
+            () => context.LogView.Lines.Count > 0,
+            TimeSpan.FromSeconds(5)).ConfigureAwait(false);
 
         // Assert
         context.AssertMetricsPanelContains("Work Items Attempted", "7");
@@ -91,18 +91,17 @@ public sealed class TuiJobDetail_PanelPopulation_DslTests
         context.SelectJob(jobId);
 
         // Allow the stream loop to receive the first event before we close it.
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (context.LogView.Lines.Count == 0 && !cts.IsCancellationRequested)
-            await Task.Delay(50, cts.Token).ConfigureAwait(false);
+        await TuiJobDetailAssertions.WaitUntilAsync(
+            () => context.LogView.Lines.Count > 0,
+            TimeSpan.FromSeconds(5)).ConfigureAwait(false);
 
         // Complete the SSE stream — this causes StreamTraceAsync to append the separator.
         context.SseServer.CompleteStream();
 
         // Wait for the separator to appear in the log view.
-        using var cts2 = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (!context.LogView.Lines.Any(l => l.Contains("Job Completed") || l.Contains("Job Failed"))
-               && !cts2.IsCancellationRequested)
-            await Task.Delay(50, cts2.Token).ConfigureAwait(false);
+        await TuiJobDetailAssertions.WaitUntilAsync(
+            () => context.LogView.Lines.Any(l => l.Contains("Job Completed") || l.Contains("Job Failed")),
+            TimeSpan.FromSeconds(5)).ConfigureAwait(false);
 
         // Assert
         context.AssertLogViewHasSeparator();

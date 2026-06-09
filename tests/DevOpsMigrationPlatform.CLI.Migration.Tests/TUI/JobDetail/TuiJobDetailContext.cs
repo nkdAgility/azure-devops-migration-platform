@@ -41,7 +41,7 @@ public sealed class TuiJobDetailContext : IDisposable
 
     public TuiJobDetailContext()
     {
-        LogView = new TuiLogView(Client);
+        LogView = new TuiLogView(Client, new DirectUiDispatcher());
         LogView.OnJobEnded += state => _lastJobEndedState = state;
     }
 
