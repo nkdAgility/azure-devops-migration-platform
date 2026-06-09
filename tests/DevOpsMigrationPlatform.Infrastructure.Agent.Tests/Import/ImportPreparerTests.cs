@@ -27,6 +27,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Import;
 [TestClass]
 public sealed class ImportPreparerTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task PrepareAsync_ReturnsChangesRequired_WhenBlockingFindingsExist()
     {
@@ -72,6 +74,8 @@ public sealed class ImportPreparerTests
         Assert.IsFalse(report.ImportReadinessReport.IsReadyForImport);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task PrepareAsync_ReturnsReady_WhenNoFindingsExist()
     {
@@ -99,6 +103,8 @@ public sealed class ImportPreparerTests
         Assert.AreEqual(0, report.ImportReadinessReport.Findings.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task PrepareAsync_ReturnsReadyAndWarningClassification_WhenOnlyWarningFindingsExist()
     {
@@ -135,6 +141,8 @@ public sealed class ImportPreparerTests
         Assert.IsTrue(report.ImportReadinessReport.IsReadyForImport);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task PrepareAsync_AggregatesFindingsAcrossAllPatterns()
     {
