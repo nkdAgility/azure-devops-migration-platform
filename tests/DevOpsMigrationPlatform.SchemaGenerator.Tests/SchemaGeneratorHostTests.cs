@@ -78,8 +78,9 @@ public sealed class SchemaGeneratorHostTests
 
     // ── T027: O-1 Traces ──────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task RunAsync_RecordedActivity_HasSchemaGenerateSpanName()
     {
         var outputPath = Path.Combine(Path.GetTempPath(), $"schema-test-{Guid.NewGuid()}.json");
@@ -117,8 +118,9 @@ public sealed class SchemaGeneratorHostTests
 
     // ── T028: O-3 Logs ────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task RunAsync_OnSuccess_LogsInformationAtStartAndCompletion()
     {
         var outputPath = Path.Combine(Path.GetTempPath(), $"schema-test-{Guid.NewGuid()}.json");
@@ -148,8 +150,9 @@ public sealed class SchemaGeneratorHostTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task RunAsync_DuplicateSectionPath_LogsErrorNotInformation()
     {
         var outputPath = Path.Combine(Path.GetTempPath(), $"schema-test-{Guid.NewGuid()}.json");
