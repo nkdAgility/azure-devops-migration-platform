@@ -15,8 +15,9 @@ public class ParallelModuleExecutionTests
 {
     // ── Scenario: Import tier-0 tasks start concurrently before WorkItems ──────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void ImportJob_Tier0TasksRunConcurrently_WorkItemsWaitsForDependencies()
     {
         // Arrange: simulate tiered execution timing
@@ -74,8 +75,9 @@ public class ParallelModuleExecutionTests
 
     // ── Scenario: CancellationToken cancels all running tier tasks ────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task ExportJob_WhenCancellationTokenCancelled_AllRunningTasksReceiveSignal()
     {
         // Arrange: simulate running export tasks
