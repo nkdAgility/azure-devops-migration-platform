@@ -30,7 +30,7 @@ public class PackageValidatorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ValidateAsync_WellFormedPackage_ReturnsPassed()
     {
@@ -44,7 +44,7 @@ public class PackageValidatorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ValidateAsync_MissingManifest_ReturnsFailed()
     {
@@ -55,7 +55,7 @@ public class PackageValidatorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ValidateAsync_UnsupportedSchemaVersion_ReturnsFailed()
     {
@@ -68,7 +68,7 @@ public class PackageValidatorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ValidateAsync_MissingSchemaVersion_ReturnsFailed()
     {
@@ -82,7 +82,7 @@ public class PackageValidatorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ValidateAsync_InvalidManifestJson_ReturnsManifestError()
     {
@@ -97,7 +97,7 @@ public class PackageValidatorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ValidateAsync_RevisionMissingWorkItemId_ReturnsFailed()
     {
@@ -112,7 +112,7 @@ public class PackageValidatorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ValidateAsync_InvalidRevisionJson_ReturnsFailed()
     {
@@ -126,7 +126,7 @@ public class PackageValidatorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ValidateAsync_RevisionListedButUnreadable_ReturnsFileNotFoundErrorForListedPath()
     {
@@ -142,7 +142,7 @@ public class PackageValidatorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ValidateAsync_MultipleInvalidRevisionFiles_ReturnsErrorForEachInvalidRevision()
     {
@@ -160,7 +160,7 @@ public class PackageValidatorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ValidateAsync_NonRevisionWorkItemsArtefact_IsIgnored()
     {
@@ -174,7 +174,7 @@ public class PackageValidatorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ValidateAsync_IsReadOnly_NoPackageWritesPerformed()
     {
