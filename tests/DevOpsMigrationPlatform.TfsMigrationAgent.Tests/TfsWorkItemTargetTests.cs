@@ -43,7 +43,7 @@ public sealed class TfsWorkItemTargetTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void AddTfsMigrationAgentServices_RegistersTfsWorkItemTypeReadinessTargetFactory()
     {
@@ -57,7 +57,7 @@ public sealed class TfsWorkItemTargetTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void AddTfsMigrationAgentServices_DoesNotOverrideExistingReadinessFactoryRegistration()
     {
