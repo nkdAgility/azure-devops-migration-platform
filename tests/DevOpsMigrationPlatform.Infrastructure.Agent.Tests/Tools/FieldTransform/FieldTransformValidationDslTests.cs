@@ -16,6 +16,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Tools.FieldTransfor
 [TestClass]
 public class FieldTransformValidationDslTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_WithExistingFieldReferences_ReportsSuccess()
     {
@@ -28,6 +30,8 @@ public class FieldTransformValidationDslTests
         result.ShouldBeValid();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_WithMissingFieldReference_ReportsError()
     {
@@ -40,6 +44,8 @@ public class FieldTransformValidationDslTests
         result.ShouldContainErrorForField("Custom.NonExistent");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_WithTypeMismatchStyleConfiguration_CompletesWithReport()
     {
@@ -53,6 +59,8 @@ public class FieldTransformValidationDslTests
         result.ShouldHaveEntriesCollection();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_WithPicklistMappingStyleConfiguration_CompletesWithReport()
     {
@@ -65,6 +73,8 @@ public class FieldTransformValidationDslTests
         result.ShouldHaveEntriesCollection();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_WithSampleSize_CompletesDryRunAsValid()
     {
