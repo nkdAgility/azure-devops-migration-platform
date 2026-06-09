@@ -1,5 +1,5 @@
 export const meta = {
-  name: 'nkda-testdsl-autonomous',
+  name: 'nkda-testdsl-workflow',
   description: 'Migrate Reqnroll feature families to internal DSL — enumerate all files, process each sequentially through the full phase pipeline',
   phases: [
     { title: 'Enumerate', detail: 'Discover all .feature files and filter already-PASS families' },
