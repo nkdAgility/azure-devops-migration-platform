@@ -12,7 +12,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class AgentJobContextTests
 {
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_InvalidMode_ThrowsInvalidOperationException()
     {
@@ -33,7 +34,8 @@ public sealed class AgentJobContextTests
         Assert.IsTrue(ex.Message.Contains("Export"));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_InventoryMode_Succeeds()
     {
@@ -47,7 +49,8 @@ public sealed class AgentJobContextTests
         Assert.AreEqual("Inventory", context.Mode);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_DependenciesMode_Succeeds()
     {
@@ -61,7 +64,8 @@ public sealed class AgentJobContextTests
         Assert.AreEqual("Dependencies", context.Mode);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_RelativePackagePath_ThrowsInvalidOperationException()
     {
@@ -79,7 +83,8 @@ public sealed class AgentJobContextTests
         Assert.IsTrue(ex.Message.Contains("relative\\path"));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_EmptyPackagePath_ThrowsInvalidOperationException()
     {
@@ -96,7 +101,8 @@ public sealed class AgentJobContextTests
         Assert.IsTrue(ex.Message.Contains("PackagePath must be an absolute path"));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_UnixAbsolutePath_Succeeds()
     {
@@ -110,7 +116,8 @@ public sealed class AgentJobContextTests
         Assert.AreEqual("/tmp/package", context.PackagePath);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_UNCPath_Succeeds()
     {
@@ -125,7 +132,8 @@ public sealed class AgentJobContextTests
     }
 
     // T055: LogDebug called with Mode and ConfigVersion
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_LogsDebug_WithModeAndConfigVersion_WhenBothSet()
     {
@@ -152,7 +160,8 @@ public sealed class AgentJobContextTests
     }
 
     // S3: ContextIsReadOnly_ModuleAccesses_NoWritePath
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void IAgentJobContext_Interface_HasOnlyReadOnlyProperties()
     {
@@ -168,7 +177,8 @@ public sealed class AgentJobContextTests
     }
 
     // S4: TfsSourceOnlyJob_ContextResolved_NoTargetInfo
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void AgentJobContext_ContextResolvesWithoutTargetEndpointDependency()
     {
