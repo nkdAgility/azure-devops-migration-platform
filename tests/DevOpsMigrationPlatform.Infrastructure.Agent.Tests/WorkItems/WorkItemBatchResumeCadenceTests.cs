@@ -10,7 +10,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.WorkItems;
 [TestClass]
 public sealed class WorkItemBatchResumeCadenceTests
 {
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ShouldPersist_AtCompletedBatchBoundary()
     {
@@ -30,7 +31,8 @@ public sealed class WorkItemBatchResumeCadenceTests
     /// remains within the defined replay threshold, and progress moves forward steadily.
     /// Covers: Processing_ProgressAndCheckpointCadence_RemainsNearLatestOnResume
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ReplayCoverageRatio_RemainsWithinThresholdAfterResume()
     {
@@ -50,7 +52,8 @@ public sealed class WorkItemBatchResumeCadenceTests
     /// Verifies that progress output continues with steady forward movement:
     /// each subsequent persist decision is triggered, confirming the cadence advances.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ShouldPersist_SteadyForwardMovement_AfterResume()
     {
