@@ -28,7 +28,7 @@ public class UserPreferencesServiceTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Load_WhenFileDoesNotExist_ReturnsEmptyPreferences()
     {
@@ -41,7 +41,7 @@ public class UserPreferencesServiceTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Set_WithSupportedKey_PersistsValue()
     {
@@ -55,7 +55,7 @@ public class UserPreferencesServiceTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Set_WithUnsupportedKey_ReturnsFalse()
     {
@@ -67,7 +67,7 @@ public class UserPreferencesServiceTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Get_WithSetKey_ReturnsValue()
     {
@@ -82,7 +82,7 @@ public class UserPreferencesServiceTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Get_WithUnsetKey_ReturnsNull()
     {
@@ -94,7 +94,7 @@ public class UserPreferencesServiceTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Get_WithUnsupportedKey_ReturnsNull()
     {
@@ -106,7 +106,7 @@ public class UserPreferencesServiceTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Set_IsCaseInsensitive()
     {
@@ -119,7 +119,7 @@ public class UserPreferencesServiceTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Save_CreatesDirectoryIfNotExists()
     {
@@ -134,7 +134,7 @@ public class UserPreferencesServiceTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Load_WithCorruptFile_ReturnsEmptyPreferences()
     {
@@ -152,7 +152,7 @@ public class UserPreferencesServiceTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void SupportedKeys_ContainsScenarioFolder()
     {
@@ -161,7 +161,7 @@ public class UserPreferencesServiceTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Set_OverwritesExistingValue()
     {
@@ -176,7 +176,7 @@ public class UserPreferencesServiceTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void GetPreferencesDirectory_WithOverride_ReturnsOverridePath()
     {
@@ -189,7 +189,7 @@ public class UserPreferencesServiceTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void GetPreferencesDirectory_WithoutOverride_ContainsDevopsmigration()
     {

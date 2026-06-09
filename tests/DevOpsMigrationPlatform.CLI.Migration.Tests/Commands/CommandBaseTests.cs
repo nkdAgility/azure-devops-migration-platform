@@ -70,7 +70,7 @@ public class CommandBaseTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CreateHost_RegistersServicesAndResolvesFromHost()
     {
@@ -93,7 +93,7 @@ public class CommandBaseTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteAsync_DisposesHostAfterExecution()
     {
