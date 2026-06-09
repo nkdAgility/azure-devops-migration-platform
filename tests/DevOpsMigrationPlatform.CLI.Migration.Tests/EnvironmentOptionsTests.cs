@@ -24,6 +24,8 @@ public class EnvironmentOptionsTests
     // 1. No Environment section → defaults applied
     // ─────────────────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Default_WhenNoEnvironmentSection_TypeIsStandalone()
     {
@@ -34,6 +36,8 @@ public class EnvironmentOptionsTests
         Assert.IsNull(opts.AgentRunner);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Default_WhenNoEnvironmentSection_ValidationPasses()
     {
@@ -47,6 +51,8 @@ public class EnvironmentOptionsTests
     // 2. Standalone explicit → no AgentRunner allowed
     // ─────────────────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Standalone_WithoutAgentRunner_IsValid()
     {
@@ -60,6 +66,8 @@ public class EnvironmentOptionsTests
         Assert.AreEqual(0, errors.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Standalone_WithAgentRunner_FailsValidation()
     {
@@ -90,6 +98,8 @@ public class EnvironmentOptionsTests
     // 3. Hosted without AgentRunner → valid
     // ─────────────────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Hosted_WithoutAgentRunner_IsValid()
     {
@@ -103,6 +113,8 @@ public class EnvironmentOptionsTests
         Assert.AreEqual(0, errors.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Hosted_WithoutBaseUrl_FailsValidation()
     {
@@ -120,6 +132,8 @@ public class EnvironmentOptionsTests
     // 4. Hosted with AgentRunner + Auth → valid
     // ─────────────────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Hosted_WithFullAgentRunner_IsValid()
     {
@@ -151,6 +165,8 @@ public class EnvironmentOptionsTests
     // 5. Hosted with AgentRunner missing Auth → fail
     // ─────────────────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Hosted_WithAgentRunnerMissingAuth_FailsValidation()
     {
@@ -172,6 +188,8 @@ public class EnvironmentOptionsTests
         Assert.IsTrue(errors.Any(e => e.ErrorMessage!.Contains("Auth is required")));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Hosted_WithAgentRunnerMissingFields_FailsValidation()
     {
@@ -200,6 +218,8 @@ public class EnvironmentOptionsTests
         Assert.IsTrue(errors.Any(e => e.ErrorMessage!.Contains("SubscriptionId is required")));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void AgentRunnerAuth_MissingFields_FailsValidation()
     {
