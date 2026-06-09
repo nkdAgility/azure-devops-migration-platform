@@ -36,7 +36,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 public sealed class JobPlanExecutorTests
 {
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteExportPhaseAsync_AllModulesEnabled_RunsConcurrently()
     {
@@ -105,7 +105,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteExportPhaseAsync_WithCaptureAndAnalysePrerequisites_RunsThemBeforeExport()
     {
@@ -207,7 +207,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteExportPhaseAsync_WhenInventoryMarkerExists_DoesNotSkipPrerequisitesInExecutor()
     {
@@ -339,7 +339,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteTasksAsync_WhenCaptureHandlerReportsSkipped_PersistsReportedStatusWithoutSynthesizingCompletion()
     {
@@ -387,7 +387,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteExportPhaseAsync_WhenLiveTaskCompletes_EmitsKnownTotalAndCompletedCount()
     {
@@ -473,7 +473,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteImportPhaseAsync_WorkItemsDependsOnIdentities_WaitsForIdentities()
     {
@@ -534,7 +534,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteImportPhaseAsync_IdentitiesFails_WorkItemsSkipped()
     {
@@ -584,7 +584,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteExportPhaseAsync_PassesTaskIdIntoScopedExportContext()
     {
@@ -634,7 +634,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteImportPhaseAsync_DisabledDependency_DependentSkipped()
     {
@@ -674,7 +674,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteImportPhaseAsync_FailedTaskDoesNotCancelSiblings()
     {
@@ -731,7 +731,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task LoadOrResetAsync_RunningTasksAreResetToPending()
     {
@@ -764,7 +764,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task LoadOrResetAsync_CorruptPlan_ReturnsNull()
     {
@@ -788,7 +788,7 @@ public sealed class JobPlanExecutorTests
     /// This covers the scenario "Completed tasks not re-executed on resume".
     /// </summary>
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteExportPhaseAsync_AllTasksAlreadyCompleted_NoModuleCalled()
     {
@@ -833,7 +833,7 @@ public sealed class JobPlanExecutorTests
     /// Regression guard: same as the Export variant but for the Import path.
     /// </summary>
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteImportPhaseAsync_AllTasksAlreadyCompleted_NoModuleCalled()
     {
@@ -866,7 +866,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteImportPhaseAsync_PartialResume_CompletedDependencyAllowsDependentTaskToRun()
     {
@@ -904,7 +904,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteTasksAsync_FailedDependencyOnResume_ReturnsFalseAndSkipsDependentTask()
     {
@@ -950,7 +950,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteTasksAsync_SkippedDependency_SkipsDependentTaskWithoutInvokingHandler()
     {
@@ -996,7 +996,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteImportPhaseAsync_FailedDependencyOnResume_ReturnsFalseAndSkipsDependentTask()
     {
@@ -1038,7 +1038,7 @@ public sealed class JobPlanExecutorTests
     /// Only the Pending task's module should execute; the completed ones must not.
     /// </summary>
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteExportPhaseAsync_PartialResume_OnlyPendingTaskExecuted()
     {
@@ -1099,7 +1099,7 @@ public sealed class JobPlanExecutorTests
     /// Validates GetModuleName extracts the second dot-segment (index 1) correctly.
     /// </summary>
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteTasksAsync_CaptureTask_WorkitemsId_RoutesToWorkitemsHandler()
     {
@@ -1137,7 +1137,7 @@ public sealed class JobPlanExecutorTests
     /// Validates GetModuleName extracts the second dot-segment (index 1) correctly.
     /// </summary>
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteTasksAsync_CaptureTask_DependenciesId_RoutesToDependenciesHandler()
     {
@@ -1171,7 +1171,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteTasksAsync_CaptureTask_ExposesResolvedSourceEndpointThroughAccessor_AndRestoresPreviousSource()
     {
@@ -1253,7 +1253,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteExportPhaseAsync_ExportTask_ExposesTaskProjectThroughAccessor_WhenFallbackSourceHasNoUrl()
     {
@@ -1322,7 +1322,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteTasksAsync_ImportTask_ExposesTaskProjectThroughTargetAccessor_WhenFallbackTargetHasNoUrl()
     {
@@ -1390,7 +1390,7 @@ public sealed class JobPlanExecutorTests
     /// an Error with {TaskId} and {HandlerName} structured parameters and fail the task/job.
     /// </summary>
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteTasksAsync_CaptureTask_NoMatchingHandler_LogsErrorAndFailsTask()
     {
@@ -1422,7 +1422,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteTasksAsync_CaptureTask_UnknownOrganisationUrl_FailsWithoutInvokingHandler()
     {
@@ -1469,7 +1469,7 @@ public sealed class JobPlanExecutorTests
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteTasksAsync_WithPackageBoundary_PersistsPlanViaPackageMeta()
     {
@@ -1537,7 +1537,7 @@ public sealed class JobPlanExecutorTests
     /// This covers the feature scenario "ForceFresh deletes plan file and rebuilds".
     /// </summary>
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteExportPhaseAsync_ForceFresh_DeletesPlanAndRebuildsWithAllTasksPending_AllModulesCalled()
     {
