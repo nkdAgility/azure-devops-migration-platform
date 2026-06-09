@@ -40,7 +40,8 @@ public sealed class TaskAttributionDslTests
 
     // ── Scenario: TaskStatus_WhenRunningEventReceived_TransitionsTaskToRunning ──
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TaskStatus_WhenRunningEventReceived_TransitionsTaskToRunning()
     {
@@ -63,7 +64,8 @@ public sealed class TaskAttributionDslTests
 
     // ── Scenario: TaskStatus_WhenCompletedEventReceived_TransitionsTaskToCompleted ──
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TaskStatus_WhenCompletedEventReceived_TransitionsTaskToCompleted()
     {
@@ -101,7 +103,8 @@ public sealed class TaskAttributionDslTests
 
     // ── Scenario: TaskStatus_WhenFailedEventReceived_TransitionsTaskToFailed ──
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TaskStatus_WhenFailedEventReceived_TransitionsTaskToFailed()
     {
@@ -136,7 +139,8 @@ public sealed class TaskAttributionDslTests
 
     // ── Scenario: TaskStatus_WhenEventHasNoTaskId_OtherTasksUnchanged ──
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TaskStatus_WhenEventHasNoTaskId_OtherTasksUnchanged()
     {
