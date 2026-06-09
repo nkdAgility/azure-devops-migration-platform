@@ -18,6 +18,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class MultiRunAuthorityIsolationTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ActionQualifiedCursors_DoNotCollideAcrossExportAndImport()
     {
