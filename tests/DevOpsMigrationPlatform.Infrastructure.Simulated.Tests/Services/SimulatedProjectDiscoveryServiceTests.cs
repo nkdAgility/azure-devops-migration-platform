@@ -22,6 +22,8 @@ public sealed class SimulatedProjectDiscoveryServiceTests
         Authentication = new OrganisationEndpointAuthentication { Type = AuthenticationType.None }
     };
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task DiscoverProjectsAsync_NoGenerator_ReturnsDefaultProject()
     {
@@ -33,6 +35,8 @@ public sealed class SimulatedProjectDiscoveryServiceTests
         Assert.AreEqual("SimulatedProject", projects[0]);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task DiscoverProjectsAsync_GeneratorWithProjects_ReturnsProjectList()
     {
@@ -55,6 +59,8 @@ public sealed class SimulatedProjectDiscoveryServiceTests
         CollectionAssert.Contains(projects, "Gamma");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task DiscoverProjectsAsync_NullEndpoint_ReturnsDefault()
     {
