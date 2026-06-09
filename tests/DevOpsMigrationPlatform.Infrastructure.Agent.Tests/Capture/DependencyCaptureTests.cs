@@ -80,7 +80,8 @@ public sealed class DependencyCaptureTests
             slowCaptureThresholdMs);
 
     // ── T023 — Happy path ──────────────────────────────────────────────────
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_HappyPath_CallsCreateForProjectAndCaptureProjectAsync()
     {
@@ -109,7 +110,8 @@ public sealed class DependencyCaptureTests
     }
 
     // ── T023 — Exception propagates ────────────────────────────────────────
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_WhenOrchestratorThrows_PropagatesException()
     {
@@ -137,7 +139,8 @@ public sealed class DependencyCaptureTests
     }
 
     // ── T031 — O-1 Traces ──────────────────────────────────────────────────
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CaptureAsync_O1_OpensRootSpanAndChildSpans()
     {
@@ -188,7 +191,8 @@ public sealed class DependencyCaptureTests
     }
 
     // ── T032 — O-2 Metrics ─────────────────────────────────────────────────
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_O2_SuccessPath_RecordsAllRequiredMetrics()
     {
@@ -239,7 +243,8 @@ public sealed class DependencyCaptureTests
         metrics.VerifyAll();
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_O2_FailurePath_RecordsFailedAndDurationAndDecrementsInFlight()
     {
@@ -281,7 +286,8 @@ public sealed class DependencyCaptureTests
     }
 
     // ── T033 — O-4 ProgressSink ────────────────────────────────────────────
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_O4_SuccessPath_EmitsCapturingAndCapturedEvents()
     {
@@ -325,7 +331,8 @@ public sealed class DependencyCaptureTests
         Assert.AreEqual(7, deps.ExternalLinksFound, "ExternalLinksFound must match orchestrator return value");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_O4_FailurePath_EmitsFailedEvent()
     {
@@ -360,7 +367,8 @@ public sealed class DependencyCaptureTests
     }
 
     // ── T044 — O-3 Log assertions ──────────────────────────────────────────
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_O3_SuccessPath_LogsStartAndCompletionWithStructuredParams()
     {
@@ -420,7 +428,8 @@ public sealed class DependencyCaptureTests
             "Expected exactly 2 LogInformation calls: start and completion");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_O3_FailurePath_LogsErrorWithStructuredParams()
     {
@@ -491,7 +500,8 @@ public sealed class DependencyCaptureTests
             && state.Any(kv => kv.Key == "JobId" && kv.Value?.ToString() == JobId);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_O3_WhenCsvAlreadyExists_LogsDebugWithOutputPath()
     {
@@ -537,7 +547,8 @@ public sealed class DependencyCaptureTests
             "LogDebug must be called exactly once with OutputPath when CSV already exists");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_O3_WhenCaptureDurationExceedsThreshold_LogsWarning()
     {
@@ -581,7 +592,8 @@ public sealed class DependencyCaptureTests
     //   When I run dependency discovery for "ProjectA"
     //   Then the dependencies report should flag cross-organisation links
     //   And cross-organisation links should be counted separately
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_WhenProjectHasCrossOrgLinks_CapturedEventCountsCrossOrgLinksSeparately()
     {
