@@ -1,7 +1,7 @@
 # Verification Report — inventory-multi-org
 
 Feature family: `inventory-multi-org`
-Feature file: `features/inventory/ado/inventory-multi-org.feature`
+Feature file: `features/inventory/simulated/inventory-multi-org.feature`
 Verification date: 2026-06-10
 Verdict: **PASS**
 
@@ -35,7 +35,7 @@ dotnet test tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests --filter "F
 
 Result:
 ```
-Passed!  - Failed: 0, Passed: 3, Skipped: 0, Total: 3, Duration: 699 ms
+Passed!  - Failed: 0, Passed: 3, Skipped: 0, Total: 3, Duration: 721 ms
 ```
 
 All three `InventoryModulesTests` tests pass:
@@ -78,9 +78,9 @@ dotnet build
 
 Result:
 ```
-350 Warning(s)
+356 Warning(s)
 0 Error(s)
-Time Elapsed 00:00:43.86
+Time Elapsed 00:00:56.01
 ```
 
 Build succeeded. Warnings are pre-existing NuGet version unification notices and an unreachable-code warning in the CLI test project — neither is introduced by this migration.
@@ -91,16 +91,20 @@ Build succeeded. Warnings are pre-existing NuGet version unification notices and
 
 Command:
 ```
-dotnet test
+dotnet test --no-build
 ```
 
 Result:
 ```
-Passed!  - Failed: 0, Passed: 1063, Skipped: 0, Total: 1063, Duration: 45 s  - DevOpsMigrationPlatform.Infrastructure.Agent.Tests.dll
-Passed!  - Failed: 0, Passed:  188, Skipped: 0, Total:  188, Duration: 9m 39s - DevOpsMigrationPlatform.CLI.Migration.Tests.dll
+Passed!  - Failed: 0, Passed:    3, Skipped: 0, Total:    3 - DevOpsMigrationPlatform.SchemaGenerator.Tests.dll
+Passed!  - Failed: 0, Passed:  107, Skipped: 0, Total:  107 - DevOpsMigrationPlatform.Infrastructure.Tests.dll
+Passed!  - Failed: 0, Passed:   47, Skipped: 0, Total:   47 - DevOpsMigrationPlatform.TfsMigrationAgent.Tests.dll
+Passed!  - Failed: 0, Passed:   19, Skipped: 0, Total:   19 - DevOpsMigrationPlatform.MigrationAgent.Tests.dll
+Passed!  - Failed: 0, Passed: 1064, Skipped: 0, Total: 1064 - DevOpsMigrationPlatform.Infrastructure.Agent.Tests.dll
+Passed!  - Failed: 0, Passed:  188, Skipped: 0, Total:  188 - DevOpsMigrationPlatform.CLI.Migration.Tests.dll
 ```
 
-Total: **1251 tests, 0 failures, 0 skipped.**
+Total: **1428 tests, 0 failures, 0 skipped.**
 
 ---
 
@@ -108,7 +112,7 @@ Total: **1251 tests, 0 failures, 0 skipped.**
 
 ### Feature file deleted
 
-- `features/inventory/ado/inventory-multi-org.feature` — **deleted**
+- `features/inventory/simulated/inventory-multi-org.feature` — **deleted**
 
 Precondition met: all scenarios retired, all mapped tests passing.
 
