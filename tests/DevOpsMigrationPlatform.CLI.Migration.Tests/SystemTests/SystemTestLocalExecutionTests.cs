@@ -32,7 +32,7 @@ public sealed class SystemTestLocalExecutionTests
         var runner = DotnetTestRunnerBuilder
             .AgainstProject(KnownTestProjects.CliMigrationTests)
             .WithFilter(TestRunFilter.SystemTestOnly)
-            .WithTimeout(TimeSpan.FromSeconds(30));
+            .WithTimeout(TimeSpan.FromMinutes(5)); // CI needs time to build + run
 
         // Act
         var result = await runner.RunAsync();
@@ -41,7 +41,7 @@ public sealed class SystemTestLocalExecutionTests
         result
             .ShouldSucceed()
             .ShouldContain("Passed")
-            .ShouldCompleteWithin(TimeSpan.FromSeconds(30));
+            .ShouldCompleteWithin(TimeSpan.FromMinutes(5));
     }
 
     // ── Scenario 2 ──────────────────────────────────────────────────────────

@@ -47,36 +47,28 @@ public sealed class SystemTestCiExecutionTests
     }
 
     // ── Scenario 2 ──────────────────────────────────────────────────────────
-    // System tests skip gracefully when secrets are missing
-    [TestCategory("SystemTest")]
-    [TestCategory("SystemTest_Smoke")]
+    // System tests report a clear skip reason when the PAT is missing.
+    [TestCategory("CodeTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
-    public void CiExecution_MissingPat_ReportsSkipReasonAndContinues()
+    public void CiExecution_MissingPat_InconclusiveIfNotConfigured_ThrowsWithDocsReference()
     {
         // Arrange — clear only the PAT for this scope
         using var env = SystemTestEnvironment.WithMissingPat();
 
-        // Act & Assert — InconclusiveIfNotConfigured throws AssertInconclusiveException
-        // We catch it to verify the message references docs/contributors.md, then re-throw
-        // so MSTest records the test as Inconclusive (not Failed).
-        try
-        {
-            env.InconclusiveIfNotConfigured();
-        }
-        catch (AssertInconclusiveException ex)
-        {
-            StringAssert.Contains(
-                ex.Message,
-                "docs/contributors.md",
-                $"Skip message must reference docs/contributors.md. Actual: {ex.Message}");
-            throw;
-        }
+        // Act & Assert — InconclusiveIfNotConfigured must throw AssertInconclusiveException
+        // with a message that references docs/contributors.md.
+        var ex = Assert.ThrowsExactly<AssertInconclusiveException>(() => env.InconclusiveIfNotConfigured());
+        StringAssert.Contains(
+            ex.Message,
+            "docs/contributors.md",
+            $"Skip message must reference docs/contributors.md. Actual: {ex.Message}");
     }
 
     // ── Scenario 3 ──────────────────────────────────────────────────────────
     // No credentials appear in test output or logs
-    [TestCategory("SystemTest")]
-    [TestCategory("SystemTest_Smoke")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CiExecution_LiveExecution_PatAndBearerTokensNotInOutput()
     {
@@ -104,8 +96,8 @@ public sealed class SystemTestCiExecutionTests
 
     // ── Scenario 4 ──────────────────────────────────────────────────────────
     // Network resilience in CI with timeout and retry
-    [TestCategory("SystemTest")]
-    [TestCategory("SystemTest_Smoke")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CiExecution_TransientFailure_RetriesWithBackoffAndCompletesInTime()
     {
@@ -134,41 +126,22 @@ public sealed class SystemTestCiExecutionTests
     }
 
     // ── Scenario 5 ──────────────────────────────────────────────────────────
-    // Conditional execution based on environment
-    [TestCategory("SystemTest")]
-    [TestCategory("SystemTest_Smoke")]
+    // Conditional execution based on environment: when ORG is missing,
+    // InconclusiveIfMissingOrg must throw with a message referencing docs.
+    [TestCategory("CodeTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
-    public async Task CiExecution_MissingOrg_LiveTestsInconclusiveUnitTestsContinue()
+    public void CiExecution_MissingOrg_InconclusiveIfMissingOrg_ThrowsWithDocsReference()
     {
         // Arrange — clear only the ORG for this scope
         using var env = SystemTestEnvironment.WithMissingOrg();
 
-        // Assert live path: InconclusiveIfMissingOrg throws AssertInconclusiveException —
-        // re-throw after verifying message so MSTest records Inconclusive.
-        try
-        {
-            env.InconclusiveIfMissingOrg();
-        }
-        catch (AssertInconclusiveException ex)
-        {
-            StringAssert.Contains(
-                ex.Message,
-                "docs/contributors.md",
-                $"Inconclusive message must reference docs/contributors.md. Actual: {ex.Message}");
-            throw;
-        }
-
-        // If we reach here (ORG was not actually null), run the unit-test filter assertion.
-        var runner = DotnetTestRunnerBuilder
-            .AgainstProject(KnownTestProjects.CliMigrationTests)
-            .WithFilter(TestRunFilter.ExcludeSystemTests)
-            .WithTimeout(TimeSpan.FromMinutes(2));
-
-        var result = await runner.RunAsync();
-
-        result
-            .ShouldSucceed()
-            .ShouldHaveRunOnlyUnitTests()
-            .ShouldHaveExcludedSystemTests();
+        // Act & Assert — InconclusiveIfMissingOrg must throw AssertInconclusiveException
+        // with a message that references docs/contributors.md.
+        var ex = Assert.ThrowsExactly<AssertInconclusiveException>(() => env.InconclusiveIfMissingOrg());
+        StringAssert.Contains(
+            ex.Message,
+            "docs/contributors.md",
+            $"Inconclusive message must reference docs/contributors.md. Actual: {ex.Message}");
     }
 }

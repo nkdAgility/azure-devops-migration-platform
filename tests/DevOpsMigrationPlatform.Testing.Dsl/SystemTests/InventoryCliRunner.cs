@@ -32,10 +32,12 @@ public sealed class InventoryCliRunner
     /// <summary>Overrides the default process timeout.</summary>
     public InventoryCliRunner WithTimeout(TimeSpan timeout) { _timeout = timeout; return this; }
 
-    /// <summary>Runs `dotnet run --project {path} -- inventory` and returns the captured result.</summary>
+    /// <summary>Runs `dotnet run --project {path} -- discovery inventory --organisation ... --token ...` and returns the captured result.</summary>
     public async Task<DotnetTestResult> RunInventoryAsync()
     {
-        var args = $"run --project \"{_cliProjectPath}\" -- inventory";
+        var orgPart = _orgUrl is not null ? $" --organisation \"{_orgUrl}\"" : string.Empty;
+        var patPart = _pat is not null ? $" --token \"{_pat}\"" : string.Empty;
+        var args = $"run --project \"{_cliProjectPath}\" -- discovery inventory{orgPart}{patPart}";
 
         var psi = new ProcessStartInfo("dotnet", args)
         {
