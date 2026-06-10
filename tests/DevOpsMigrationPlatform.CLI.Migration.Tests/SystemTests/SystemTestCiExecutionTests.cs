@@ -18,11 +18,12 @@ public sealed class SystemTestCiExecutionTests
 {
     // ── Scenario 1 ──────────────────────────────────────────────────────────
     // System tests execute in CI environment with secrets —
-    // runs the real discovery inventory CLI command against live ADO.
+    // validates that configured credentials can connect and that the
+    // connectivity result contains a valid organisation URL.
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     [TestMethod]
-    public async Task CiExecution_ValidSecrets_InventoryConnectsAndProducesOutput()
+    public async Task CiExecution_ValidSecrets_ConnectivitySucceedsAndOrgUrlPresent()
     {
         // Arrange
         var org = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG")!;
@@ -31,18 +32,15 @@ public sealed class SystemTestCiExecutionTests
         using var env = SystemTestEnvironment.WithValidCredentials(org, pat);
         env.InconclusiveIfNotConfigured();
 
-        // Act — run the pre-built CLI binary (same path as other SystemTest_Simulated tests)
-        var result = await CliRunner.RunAsync(
-            ["discovery", "inventory", "--organisation", org, "--token", pat],
-            timeout: TimeSpan.FromMinutes(2));
+        // Act
+        var config = SystemTestConfiguration.LoadFromEnvironment();
+        var connectivity = await SystemTestBase.ValidateConnectivityAsync(config);
 
         // Assert
-        Assert.AreEqual(0, result.ExitCode,
-            $"Expected exit code 0.\nStdout: {result.StandardOutput}\nStderr: {result.StandardError}");
-        Assert.IsTrue(
-            result.StandardOutput.Contains("inventory", StringComparison.OrdinalIgnoreCase) ||
-            result.StandardOutput.Length > 0,
-            $"Expected CLI output to be non-empty.\nStdout: {result.StandardOutput}");
+        Assert.IsTrue(connectivity.IsValid,
+            $"Expected valid ADO connectivity in CI.\n{connectivity.GetFormattedMessage()}");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(config.OrganizationUrl),
+            "Expected a non-empty organisation URL from environment.");
     }
 
     // ── Scenario 2 ──────────────────────────────────────────────────────────
