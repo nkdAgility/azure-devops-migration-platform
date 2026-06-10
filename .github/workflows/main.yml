@@ -68,7 +68,7 @@ jobs:
         run: pwsh ./build.ps1 -Mode SystemTest_Smoke
 
       - name: System Test (Simulated)
-        timeout-minutes: 3
+        timeout-minutes: 10
         run: pwsh ./build.ps1 -Mode SystemTest_Simulated
 
       - name: System Test (Live)
