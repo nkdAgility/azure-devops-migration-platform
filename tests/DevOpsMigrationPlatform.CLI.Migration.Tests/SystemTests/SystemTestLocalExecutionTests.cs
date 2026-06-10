@@ -16,11 +16,12 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.SystemTests;
 public sealed class SystemTestLocalExecutionTests
 {
     // ── Scenario 1 ──────────────────────────────────────────────────────────
-    // Developer runs system test with valid environment configuration
+    // Developer runs system test with valid environment configuration —
+    // validates that the configured credentials can reach ADO.
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     [TestMethod]
-    public async Task ValidEnvConfiguration_ExecutesSuccessfully()
+    public async Task ValidEnvConfiguration_ConnectivitySucceeds()
     {
         // Arrange
         using var env = SystemTestEnvironment.WithValidCredentials(
@@ -29,19 +30,13 @@ public sealed class SystemTestLocalExecutionTests
 
         env.FailIfNotConfigured();
 
-        var runner = DotnetTestRunnerBuilder
-            .AgainstProject(KnownTestProjects.CliMigrationTests)
-            .WithFilter(TestRunFilter.SystemTestOnly)
-            .WithTimeout(TimeSpan.FromMinutes(5)); // CI needs time to build + run
-
-        // Act
-        var result = await runner.RunAsync();
+        // Act — validate connectivity directly (no subprocess; that is circular and slow)
+        var config = SystemTestConfiguration.LoadFromEnvironment();
+        var connectivity = await SystemTestBase.ValidateConnectivityAsync(config);
 
         // Assert
-        result
-            .ShouldSucceed()
-            .ShouldContain("Passed")
-            .ShouldCompleteWithin(TimeSpan.FromMinutes(5));
+        Assert.IsTrue(connectivity.IsValid,
+            $"Expected valid ADO connectivity with configured credentials.\n{connectivity.GetFormattedMessage()}");
     }
 
     // ── Scenario 2 ──────────────────────────────────────────────────────────

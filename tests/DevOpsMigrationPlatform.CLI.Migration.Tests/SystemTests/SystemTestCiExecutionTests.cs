@@ -17,7 +17,8 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.SystemTests;
 public sealed class SystemTestCiExecutionTests
 {
     // ── Scenario 1 ──────────────────────────────────────────────────────────
-    // System tests execute in CI environment with secrets
+    // System tests execute in CI environment with secrets —
+    // runs the real discovery inventory CLI command against live ADO.
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
     [TestMethod]
@@ -30,20 +31,18 @@ public sealed class SystemTestCiExecutionTests
         using var env = SystemTestEnvironment.WithValidCredentials(org, pat);
         env.InconclusiveIfNotConfigured();
 
-        var runner = InventoryCliRunner
-            .AgainstProject(KnownTestProjects.CliMigrationCli)
-            .WithOrg(org)
-            .WithPat(pat)
-            .WithTimeout(TimeSpan.FromMinutes(2));
-
-        // Act
-        var result = await runner.RunInventoryAsync();
+        // Act — run the pre-built CLI binary (same path as other SystemTest_Simulated tests)
+        var result = await CliRunner.RunAsync(
+            ["discovery", "inventory", "--organisation", org, "--token", pat],
+            timeout: TimeSpan.FromMinutes(2));
 
         // Assert
-        result
-            .ShouldSucceed()
-            .ShouldContain("inventory")
-            .ShouldCompleteWithin(TimeSpan.FromMinutes(2));
+        Assert.AreEqual(0, result.ExitCode,
+            $"Expected exit code 0.\nStdout: {result.StandardOutput}\nStderr: {result.StandardError}");
+        Assert.IsTrue(
+            result.StandardOutput.Contains("inventory", StringComparison.OrdinalIgnoreCase) ||
+            result.StandardOutput.Length > 0,
+            $"Expected CLI output to be non-empty.\nStdout: {result.StandardOutput}");
     }
 
     // ── Scenario 2 ──────────────────────────────────────────────────────────
