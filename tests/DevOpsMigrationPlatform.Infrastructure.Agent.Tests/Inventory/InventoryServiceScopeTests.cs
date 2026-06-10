@@ -145,6 +145,37 @@ public class InventoryServiceScopeTests
         InventoryResultAssertions.AssertWorkItemCount(results, "TestProject", expected: 2);
     }
 
+    // ── S5b: TypeFilterScope counts only the matching work-item type ─────────
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task InventoryService_TypeFilterScope_CountsOnlyMatchingWorkItemType()
+    {
+        // Arrange: mixed feed — 3 Bug, 2 Task, 1 Epic = 6 total; scope restricts to Bug
+        // WorkItemFieldFilterEvaluator evaluates System.WorkItemType against the ^Bug$ regex.
+        // Task and Epic items are discarded inside FilteredFeedStream — they are never
+        // yielded to AzureDevOpsWorkItemDiscoveryService and therefore cannot reach any store.
+        var feed = WorkItemFeedBuilder.MixedTypes(
+            ("Bug",  3),
+            ("Task", 2),
+            ("Epic", 1));
+
+        var harness = InventoryServiceHarness.Create()
+            .WithRealDiscovery()
+            .WithOrganisation(OrganisationEntryBuilder.WithFilterScope(
+                field:   "System.WorkItemType",
+                pattern: "^Bug$",
+                mode:    "include"));
+        harness.WorkItemFeed = feed;
+
+        // Act
+        var results = await harness.RunAsync();
+
+        // Assert: only the 3 Bug items are counted; Task and Epic are silently discarded
+        InventoryResultAssertions.AssertWorkItemCount(results, "TestProject", expected: 3);
+    }
+
     // ── S6: Org-A scopes do not contaminate Org-B discovery ───────────────────
 
     [TestCategory("CodeTest")]

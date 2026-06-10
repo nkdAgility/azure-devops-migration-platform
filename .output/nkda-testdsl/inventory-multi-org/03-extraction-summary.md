@@ -1,7 +1,7 @@
 # Extraction Summary — inventory-multi-org
 
 Feature family: `inventory-multi-org`
-Feature file: `features/inventory/simulated/inventory-multi-org.feature`
+Feature file: `features/inventory/tfs/inventory-multi-org.feature`
 Extraction date: 2026-06-10
 DSL design input: `.output/nkda-testdsl/inventory-multi-org/02-dsl-design.md`
 
@@ -74,7 +74,7 @@ Reqnroll feature file.
 
 | Path | Action | Outcome |
 |---|---|---|
-| `features/inventory/simulated/inventory-multi-org.feature` | Delete — unwired, no code-behind, behaviour covered by existing MSTest method | **Deleted** |
+| `features/inventory/tfs/inventory-multi-org.feature` | Delete — unwired, no code-behind, behaviour covered by existing MSTest method | **Deleted** |
 
 No generated `.feature.cs` existed. No step binding files existed. No `.csproj` references
 existed. Total files deleted: **1**.
@@ -95,7 +95,7 @@ existed. Total files deleted: **1**.
 
 | Feature Step | DSL Equivalent |
 |---|---|
-| `Given a simulated inventory job without InventoryDiscoveryModule` | `InventoryModulesScenario.Arrange().WithoutInventoryDiscoveryModule()` |
+| `Given a Team Foundation Server inventory job without InventoryDiscoveryModule` | `InventoryModulesScenario.Arrange().WithoutInventoryDiscoveryModule()` |
 | `When the inventory job is executed` | `.RunAsync()` |
 | `Then inventory artefacts are produced by inventory-capable modules` | `result.AssertAllStandardModuleArtefactsExist()` |
 
@@ -105,5 +105,5 @@ existed. Total files deleted: **1**.
 
 | Path | Change |
 |---|---|
-| `features/inventory/simulated/inventory-multi-org.feature` | Deleted |
+| `features/inventory/tfs/inventory-multi-org.feature` | Deleted |
 | `.output/nkda-testdsl/inventory-multi-org/03-extraction-summary.md` | Updated (this file) |

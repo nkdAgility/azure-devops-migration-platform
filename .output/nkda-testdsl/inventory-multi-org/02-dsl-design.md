@@ -1,7 +1,7 @@
-# DSL Design — inventory-multi-org
+# DSL Design — inventory-multi-org (tfs)
 
 Feature family: `inventory-multi-org`
-Feature file: `features/inventory/simulated/inventory-multi-org.feature`
+Feature file: `features/inventory/tfs/inventory-multi-org.feature`
 Design date: 2026-06-10
 Assessment input: `.output/nkda-testdsl/inventory-multi-org/01-feature-assessment.md`
 
@@ -195,7 +195,7 @@ Feature step to DSL mapping:
 
 | Feature step | DSL equivalent |
 |---|---|
-| `Given a simulated inventory job without InventoryDiscoveryModule` | `InventoryModulesScenario.Arrange().WithoutInventoryDiscoveryModule()` |
+| `Given a Team Foundation Server inventory job without InventoryDiscoveryModule` | `InventoryModulesScenario.Arrange().WithoutInventoryDiscoveryModule()` |
 | `When the inventory job is executed` | `.RunAsync()` |
 | `Then inventory artefacts are produced by inventory-capable modules` | `result.AssertAllStandardModuleArtefactsExist()` |
 
@@ -231,7 +231,7 @@ Row 1 of `00-scenario-test-inventory.md` is already correct and requires no upda
 
 | Path | Action |
 |---|---|
-| `features/inventory/simulated/inventory-multi-org.feature` | **Delete** — unwired, no code-behind generated, behaviour fully covered by the existing MSTest method. |
+| `features/inventory/tfs/inventory-multi-org.feature` | **Delete** — unwired, no code-behind generated, behaviour fully covered by the existing MSTest method. |
 
 ### Generated code-behind
 
@@ -245,7 +245,7 @@ None exist. No `*Steps.cs` files reference this scenario. No deletion needed.
 
 No `.csproj` references this feature file. No removal needed.
 
-**Total files to delete: 1** (`features/inventory/simulated/inventory-multi-org.feature`).
+**Total files to delete: 1** (`features/inventory/tfs/inventory-multi-org.feature`).
 
 ---
 
