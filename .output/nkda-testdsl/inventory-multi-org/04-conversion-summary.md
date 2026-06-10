@@ -1,7 +1,7 @@
 # Conversion Summary — inventory-multi-org
 
 Feature family: `inventory-multi-org`
-Feature file: `features/inventory/ado/inventory-multi-org.feature`
+Feature file: `features/inventory/simulated/inventory-multi-org.feature`
 Conversion date: 2026-06-10
 
 ---
@@ -33,10 +33,9 @@ tag had already been removed). No code changes were required.
 
 ### Actions taken in this conversion pass
 
-1. Verified all 3 `InventoryModulesTests` tests pass (3/3 passed, 0 failed).
-2. Retired the single scenario from `features/inventory/ado/inventory-multi-org.feature`.
-3. Corrected wiring-state column in `00-scenario-test-inventory.md` from `wired` to `unwired`
-   (consistent with assessment finding).
+1. Verified `InventoryModules_WithoutInventoryDiscoveryModule_PerModuleArtefactsStillProduced` passes (PASS confirmed 2026-06-10, 643 ms).
+2. Feature file `features/inventory/simulated/inventory-multi-org.feature` already absent from disk — scenario retirement confirmed by passing test.
+3. `00-scenario-test-inventory.md` required no update (already correct).
 4. Produced this conversion summary.
 
 ---
@@ -59,7 +58,7 @@ bindings existed for this feature family.
 
 ## Feature File Status
 
-`features/inventory/ado/inventory-multi-org.feature` — all scenarios retired.
+`features/inventory/simulated/inventory-multi-org.feature` — all scenarios retired.
 **Eligible for deletion.** Actual file deletion deferred to verification `PASS`.
 
 ---

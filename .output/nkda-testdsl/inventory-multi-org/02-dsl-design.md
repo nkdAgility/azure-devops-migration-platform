@@ -1,132 +1,175 @@
 # DSL Design — inventory-multi-org
 
 Feature family: `inventory-multi-org`
-Feature file: `features/inventory/ado/inventory-multi-org.feature`
+Feature file: `features/inventory/simulated/inventory-multi-org.feature`
 Design date: 2026-06-10
-Input: `01-feature-assessment.md`
+Assessment input: `.output/nkda-testdsl/inventory-multi-org/01-feature-assessment.md`
 
 ---
 
-## 1. Context
+## 1. Summary
 
-The assessment classified this feature family as `partial-existing`. The single scenario
-`Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts` has substantive coverage
-already provided by `InventoryModules_WithoutInventoryAnalyser_PerModuleArtefactsStillProduced`
-in `InventoryModulesTests.cs`. The DSL surface that hosts this test already exists and is
-well-formed:
+The assessment classified this feature family as `pre-existing` / `matched`. The single
+scenario `Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts` is fully covered
+by an existing MSTest method at
+`tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/InventoryModulesTests.cs:57`.
 
-- Entry point: `InventoryModulesScenario.Arrange()` → `InventoryModulesBuilder`
-- Runner: `InventoryModulesBuilder.RunAsync()` → `InventoryModulesResult`
-- Assertions: `InventoryModulesResult.AssertAllStandardModuleArtefactsExist()`
-
-No new DSL types or namespaces are required. This design specifies:
-
-1. The targeted extension to `InventoryModulesBuilder` needed to complete feature coverage.
-2. The targeted tag corrections to the existing test method.
-3. The exact target test name, tags, and DSL call-chain for the scenario.
-4. The deletion plan for Reqnroll artefacts (none exist — confirmed in assessment).
-5. Updates to `00-scenario-test-inventory.md`.
+No new DSL types, no new test methods, and no new builder aliases are required. This document
+records the canonical DSL surface that covers the scenario, confirms tag compliance, and
+defines the deletion plan for the Reqnroll feature file.
 
 ---
 
-## 2. InventoryDiscoveryModule Disambiguation
+## 2. Business Capability
 
-**Finding:** No class or interface named `InventoryDiscoveryModule` exists in `src/`. The only
-removal method on the builder is `WithoutInventoryAnalyser()`.
+**Capability:** Module independence during inventory execution.
 
-**Design decision:** The feature scenario term `InventoryDiscoveryModule` is treated as a
-feature-vocabulary alias for the `InventoryAnalyser` concept that exists in the production
-codebase. No new production class will be introduced. The builder will gain one new method
-(`WithoutInventoryDiscoveryModule()`) that delegates to the existing `_includeInventoryAnalyser`
-flag. This makes the DSL vocabulary match the feature language without changing production
-semantics and without introducing a duplicate removal path.
+The production pipeline must not suppress artefact output from inventory-capable data modules
+(WorkItems, Identities, Nodes, Teams) when the `InventoryDiscoveryModule`
+(`InventoryAnalyser`) is excluded from the job. This is a compositional isolation guarantee.
+
+All DSL surface is grouped under this capability. No migration-phase bucket classification
+is used.
 
 ---
 
-## 3. DSL Surface — Additions to Existing Types
-
-### 3.1 `InventoryModulesBuilder` — one new method
-
-**Location:** `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/InventoryModules/InventoryModulesBuilder.cs`
+## 3. Typed Entry Point
 
 ```csharp
-/// <summary>
-/// Removes the InventoryDiscoveryModule from the job.
-/// In the production pipeline InventoryDiscoveryModule is the InventoryAnalyser;
-/// this method is the feature-vocabulary alias for <see cref="WithoutInventoryAnalyser"/>.
-/// </summary>
-public InventoryModulesBuilder WithoutInventoryDiscoveryModule()
-    => WithoutInventoryAnalyser();
+// Namespace: DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules.InventoryModules
+// File: tests/.../Modules/InventoryModules/InventoryModulesScenario.cs
+
+public sealed class InventoryModulesScenario
+{
+    public static InventoryModulesBuilder Arrange();
+}
 ```
 
-Placement: after the existing `WithoutInventoryAnalyser()` method, before `WithoutModule(string)`.
-
-### 3.2 `InventoryModulesResult` — no changes required
-
-`AssertAllStandardModuleArtefactsExist()` already asserts the feature's observable outcome.
-No new assertion is needed.
-
-### 3.3 `InventoryModulesScenario` — no changes required
-
-The static `Arrange()` entry point is sufficient.
+`Arrange()` is the sole entry point. It returns a fresh `InventoryModulesBuilder` with all
+four data modules and the `InventoryAnalyser` enabled by default.
 
 ---
 
-## 4. Tag Corrections — Existing Test Method
-
-**Location:** `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/InventoryModulesTests.cs`, line 34–47
-
-The existing method `InventoryModules_WithoutInventoryAnalyser_PerModuleArtefactsStillProduced`
-is missing the canonical feature-family tags. The following two attributes must be added:
+## 4. Builder
 
 ```csharp
-[TestCategory("inventory")]
-[TestCategory("multi-org")]
+// Namespace: DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules.InventoryModules
+// File: tests/.../Modules/InventoryModules/InventoryModulesBuilder.cs
+
+public sealed class InventoryModulesBuilder
+{
+    // Removes the InventoryAnalyser post-processor from the job.
+    public InventoryModulesBuilder WithoutInventoryAnalyser();
+
+    // Feature-vocabulary alias; delegates to WithoutInventoryAnalyser().
+    // Bridges "InventoryDiscoveryModule" (feature language) to the internal concept.
+    public InventoryModulesBuilder WithoutInventoryDiscoveryModule();
+
+    // Removes a named data module (WorkItems | Identities | Nodes | Teams).
+    public InventoryModulesBuilder WithoutModule(string moduleName);
+
+    // Executes the job and returns a result wrapper.
+    public Task<InventoryModulesResult> RunAsync(CancellationToken cancellationToken = default);
+}
 ```
 
-The `[TestCategory("UnitTest")]` attribute should be removed. This test exercises real module
-wiring via the DI container and a mock package store; it is an integration-level test, not a
-unit test. `[TestCategory("IntegrationTests")]` and `[TestCategory("CodeTest")]` are retained.
-
-Final attribute set for the existing method:
+For the `inventory-multi-org` scenario the call chain is:
 
 ```csharp
-[TestCategory("CodeTest")]
-[TestCategory("IntegrationTests")]
-[TestCategory("inventory")]
-[TestCategory("multi-org")]
+InventoryModulesScenario.Arrange()
+    .WithoutInventoryDiscoveryModule()
+    .RunAsync()
 ```
+
+`WithoutInventoryDiscoveryModule()` (line 37 of `InventoryModulesBuilder.cs`) is the
+behaviour-first alias that maps the feature vocabulary directly to the DSL without string
+matching. It delegates to `WithoutInventoryAnalyser()` which sets `_includeInventoryAnalyser
+= false`.
+
+Both methods exist in the codebase. No additions are needed.
 
 ---
 
-## 5. Target Test Definitions
+## 5. Runner / Driver
 
-### Test 1 — extend existing (tag correction only, no logic change)
+```csharp
+// Namespace: DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules.InventoryModules
+// File: tests/.../Modules/InventoryModules/InventoryModulesDriver.cs (internal)
+
+internal static class InventoryModulesDriver
+{
+    internal static Task<InventoryModulesResult> RunAsync(
+        bool includeWorkItems,
+        bool includeIdentities,
+        bool includeNodes,
+        bool includeTeams,
+        bool includeInventoryAnalyser,
+        CancellationToken cancellationToken = default);
+}
+```
+
+`InventoryModulesDriver` is an internal implementation detail. Tests interact with it only
+through `InventoryModulesBuilder.RunAsync()`. The driver constructs mocks, wires the DI
+container, executes the job, and returns an `InventoryModulesResult`. No changes required.
+
+---
+
+## 6. Result and Assertion Extensions
+
+```csharp
+// Namespace: DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules.InventoryModules
+// File: tests/.../Modules/InventoryModules/InventoryModulesResult.cs
+
+public sealed class InventoryModulesResult
+{
+    // True when InventoryAnalyser was registered in the job that produced this result.
+    public bool InventoryAnalyserWasIncluded { get; }
+
+    // Asserts PersistIndexAsync was called for the named module's inventory context.
+    public void AssertModuleArtefactExists(string moduleName);
+
+    // Asserts PersistIndexAsync was called at least four times with a valid
+    // per-project inventory index context (FileName="inventory.json",
+    // non-empty Organisation, non-empty Project).
+    public void AssertAllStandardModuleArtefactsExist();
+}
+```
+
+`InventoryAnalyserWasIncluded` is the guard property. The test asserts `IsFalse` on it before
+asserting artefact presence, to confirm the discovery module was genuinely excluded and rule
+out test-setup errors.
+
+`AssertAllStandardModuleArtefactsExist()` uses `Times.AtLeast(4)` against the
+`IPackageAccess.PersistIndexAsync` mock. This confirms that at least one write per data module
+was made (WorkItems, Identities, Nodes, Teams).
+
+No changes required to this type.
+
+---
+
+## 7. Fixture
+
+No separate fixture class is required. All per-test state (mocks, DI container, execution
+context) is constructed inside `InventoryModulesDriver.RunAsync` and is discarded when the
+test completes. MSTest `[TestClass]` / `[TestMethod]` isolation is sufficient.
+
+---
+
+## 8. Target Test — Scenario Mapping
+
+### Scenario: `Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts`
 
 | Property | Value |
 |---|---|
+| Test class | `InventoryModulesTests` |
+| Test method | `InventoryModules_WithoutInventoryDiscoveryModule_PerModuleArtefactsStillProduced` |
 | File | `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/InventoryModulesTests.cs` |
-| Method name | `InventoryModules_WithoutInventoryAnalyser_PerModuleArtefactsStillProduced` |
-| Change type | Tag correction |
-| Tags added | `[TestCategory("inventory")]`, `[TestCategory("multi-org")]` |
-| Tag removed | `[TestCategory("UnitTest")]` |
-| DSL call-chain | unchanged |
+| Line | 57 |
+| Status | **exists — no action required** |
 
-### Test 2 — new test covering feature scenario vocabulary
-
-| Property | Value |
-|---|---|
-| File | `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/InventoryModulesTests.cs` |
-| Method name | `InventoryModules_WithoutInventoryDiscoveryModule_PerModuleArtefactsStillProduced` |
-| Change type | New test |
-| Tags | `[TestCategory("CodeTest")]` `[TestCategory("IntegrationTests")]` `[TestCategory("inventory")]` `[TestCategory("multi-org")]` |
-| Scenario mapped | `Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts` |
-
-Target test body:
+**Canonical DSL form (as implemented at line 57):**
 
 ```csharp
-// --- Scenario: Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts ---
-
 [TestCategory("CodeTest")]
 [TestCategory("IntegrationTests")]
 [TestCategory("inventory")]
@@ -148,72 +191,84 @@ public async Task InventoryModules_WithoutInventoryDiscoveryModule_PerModuleArte
 }
 ```
 
-This test uses the new `WithoutInventoryDiscoveryModule()` builder method and the
-existing result assertion. It maps 1:1 to the feature scenario steps:
+Feature step to DSL mapping:
 
 | Feature step | DSL equivalent |
 |---|---|
-| `Given an Azure DevOps inventory job without InventoryDiscoveryModule` | `InventoryModulesScenario.Arrange().WithoutInventoryDiscoveryModule()` |
+| `Given a simulated inventory job without InventoryDiscoveryModule` | `InventoryModulesScenario.Arrange().WithoutInventoryDiscoveryModule()` |
 | `When the inventory job is executed` | `.RunAsync()` |
 | `Then inventory artefacts are produced by inventory-capable modules` | `result.AssertAllStandardModuleArtefactsExist()` |
 
 ---
 
-## 6. Reqnroll Artefact Deletion Plan
+## 9. Test Tags
 
-**No Reqnroll artefacts exist for this feature family.**
+| Tag | Category attribute | Compliance |
+|---|---|---|
+| `CodeTest` | `[TestCategory("CodeTest")]` | present |
+| `IntegrationTests` | `[TestCategory("IntegrationTests")]` | present |
+| `inventory` | `[TestCategory("inventory")]` | present |
+| `multi-org` | `[TestCategory("multi-org")]` | present |
 
-Assessment confirmed:
-- No `ExternalFeatureFiles` entry in any `.csproj`
-- No generated `.feature.cs` file
-- No `*Steps.cs` bindings
-- No Reqnroll context classes
-
-Deletion action: none required.
+All four required categories are present on the method at lines 52–55 of
+`InventoryModulesTests.cs`. Tag compliance status: **compliant**.
 
 ---
 
-## 7. DSL Surface Summary
+## 10. Scenario-to-Test Inventory Update
 
-| Type | Location | Change |
+Row 1 of `00-scenario-test-inventory.md` is already correct and requires no update.
+
+| # | Wiring State | Coverage Origin | Scenario Name | Planned / Actual DSL Test Name | Mapping Status | Tag Compliance |
+|---|---|---|---|---|---|---|
+| 1 | `unwired` | `pre-existing` | `Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts` | `InventoryModules_WithoutInventoryDiscoveryModule_PerModuleArtefactsStillProduced` | `matched` | `compliant` |
+
+---
+
+## 11. Deletion Plan — Legacy Reqnroll Artefacts
+
+### Feature file
+
+| Path | Action |
+|---|---|
+| `features/inventory/simulated/inventory-multi-org.feature` | **Delete** — unwired, no code-behind generated, behaviour fully covered by the existing MSTest method. |
+
+### Generated code-behind
+
+None exists. The assessment confirmed no `.feature.cs` was generated. No deletion needed.
+
+### Step bindings
+
+None exist. No `*Steps.cs` files reference this scenario. No deletion needed.
+
+### Test project entry (`ExternalFeatureFiles`)
+
+No `.csproj` references this feature file. No removal needed.
+
+**Total files to delete: 1** (`features/inventory/simulated/inventory-multi-org.feature`).
+
+---
+
+## 12. DSL Surface Summary
+
+| Type | File | Change |
 |---|---|---|
-| `InventoryModulesBuilder` | `Modules/InventoryModules/InventoryModulesBuilder.cs` | Add `WithoutInventoryDiscoveryModule()` method |
 | `InventoryModulesScenario` | `Modules/InventoryModules/InventoryModulesScenario.cs` | No change |
+| `InventoryModulesBuilder` | `Modules/InventoryModules/InventoryModulesBuilder.cs` | No change — `WithoutInventoryDiscoveryModule()` already present at line 37 |
 | `InventoryModulesResult` | `Modules/InventoryModules/InventoryModulesResult.cs` | No change |
 | `InventoryModulesDriver` | `Modules/InventoryModules/InventoryModulesDriver.cs` | No change |
 | `InventoryModuleFactory` | `Modules/InventoryModules/InventoryModuleFactory.cs` | No change |
-| `InventoryModulesTests` | `Modules/InventoryModulesTests.cs` | Tag correction on existing method + add new test method |
+| `InventoryModulesTests` | `Modules/InventoryModulesTests.cs` | No change — target test already present at line 57 with compliant tags |
+
+No new DSL concepts are introduced. The full surface is already present in the codebase.
 
 ---
 
-## 8. Scenario Test Inventory — Updated Rows
+## 13. Design Decisions
 
-The following rows replace the single row in `00-scenario-test-inventory.md`:
-
-| # | Wiring State | Coverage Origin | Feature File | Scenario Name | Planned / Actual DSL Test Name | Mapping Status | Expected Tags | Actual Tags (target) | Tag Compliance | Evidence |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 1a | `unwired` | `partial-existing` | `features/inventory/ado/inventory-multi-org.feature` | `Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts` | `InventoryModules_WithoutInventoryAnalyser_PerModuleArtefactsStillProduced` | `partial` → `matched` after tag fix | `[TestCategory("CodeTest")]` `[TestCategory("IntegrationTests")]` `[TestCategory("inventory")]` `[TestCategory("multi-org")]` | `[TestCategory("CodeTest")]` `[TestCategory("IntegrationTests")]` `[TestCategory("inventory")]` `[TestCategory("multi-org")]` | `compliant` (after fix) | `tests/.../Modules/InventoryModulesTests.cs:34` — add missing tags, remove `UnitTest` |
-| 1b | `unwired` | `to-build` | `features/inventory/ado/inventory-multi-org.feature` | `Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts` | `InventoryModules_WithoutInventoryDiscoveryModule_PerModuleArtefactsStillProduced` | `matched` | `[TestCategory("CodeTest")]` `[TestCategory("IntegrationTests")]` `[TestCategory("inventory")]` `[TestCategory("multi-org")]` | `[TestCategory("CodeTest")]` `[TestCategory("IntegrationTests")]` `[TestCategory("inventory")]` `[TestCategory("multi-org")]` | `compliant` | New test — `tests/.../Modules/InventoryModulesTests.cs` (to be added) |
-
-**Row 1a** represents the existing test after tag correction. It covers the same behaviour
-as the feature scenario via `InventoryAnalyser` vocabulary.
-
-**Row 1b** represents the new test that uses `WithoutInventoryDiscoveryModule()` builder
-vocabulary, providing a named mapping to the feature scenario text.
-
----
-
-## 9. Design Rationale
-
-The assessment recommended resolving the `InventoryDiscoveryModule` vs `InventoryAnalyser`
-ambiguity before building. This design resolves it by:
-
-- Confirming no production class named `InventoryDiscoveryModule` exists.
-- Introducing a builder alias method that bridges feature vocabulary to the existing
-  implementation flag without changing semantics.
-- Adding a new test that uses the alias, so the feature scenario maps to a test whose
-  name exactly mirrors the feature language.
-- Keeping the existing test (after tag fix) as secondary corroboration.
-
-This avoids duplication of logic while providing full traceability from the feature scenario
-to executable tests.
+| Decision | Rationale |
+|---|---|
+| `WithoutInventoryDiscoveryModule()` kept as alias for `WithoutInventoryAnalyser()` | Preserves feature vocabulary without breaking the internal production naming. Both methods are retained; neither is deprecated. |
+| Bulk `AssertAllStandardModuleArtefactsExist()` over per-module assertions | Appropriate at integration level. `Times.AtLeast(4)` is sufficient to catch total artefact absence. `AssertModuleArtefactExists(moduleName)` is available if per-module precision is required. |
+| No fixture class | The driver encapsulates all setup and teardown. MSTest method-level isolation eliminates the need for a shared fixture. |
+| Feature file deleted, not archived | The file is unwired and has no Reqnroll code-behind. Archiving provides no value; clean deletion removes a false signal of pending Reqnroll work. |

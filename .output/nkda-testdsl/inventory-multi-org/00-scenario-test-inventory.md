@@ -1,7 +1,8 @@
 # Scenario Test Inventory — inventory-multi-org
 
 Feature family: `inventory-multi-org`
-Feature file: `features/inventory/ado/inventory-multi-org.feature`
+Feature file: `features/inventory/simulated/inventory-multi-org.feature`
+Assessment date: 2026-06-10
 
 ---
 
@@ -18,23 +19,22 @@ Feature file: `features/inventory/ado/inventory-multi-org.feature`
 
 ## Inventory Table
 
-| # | Wiring State | Coverage Origin | Feature File | Scenario Name | Planned / Actual DSL Test Name | Mapping Status | Expected Tags | Actual Tags (target) | Tag Compliance | Evidence |
+| # | Wiring State | Coverage Origin | Feature File | Scenario Name | Planned / Actual DSL Test Name | Mapping Status | Expected Tags | Actual Tags | Tag Compliance | Evidence |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 1a | `wired` | `partial-existing` | `features/inventory/ado/inventory-multi-org.feature` | `Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts` | `InventoryModules_WithoutInventoryAnalyser_PerModuleArtefactsStillProduced` | `matched` | `[TestCategory("CodeTest")]` `[TestCategory("IntegrationTests")]` `[TestCategory("inventory")]` `[TestCategory("multi-org")]` | `[TestCategory("CodeTest")]` `[TestCategory("IntegrationTests")]` `[TestCategory("inventory")]` `[TestCategory("multi-org")]` | `compliant` | `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/InventoryModulesTests.cs` — section comment normalised; tags confirmed |
-| 1b | `wired` | `to-build` | `features/inventory/ado/inventory-multi-org.feature` | `Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts` | `InventoryModules_WithoutInventoryDiscoveryModule_PerModuleArtefactsStillProduced` | `matched` | `[TestCategory("CodeTest")]` `[TestCategory("IntegrationTests")]` `[TestCategory("inventory")]` `[TestCategory("multi-org")]` | `[TestCategory("CodeTest")]` `[TestCategory("IntegrationTests")]` `[TestCategory("inventory")]` `[TestCategory("multi-org")]` | `compliant` | `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/InventoryModulesTests.cs` — uses `WithoutInventoryDiscoveryModule()` builder alias |
+| 1a | `wired` | `pre-existing` | `features/inventory/simulated/inventory-multi-org.feature` | `Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts` | `InventoryModules_WithoutInventoryAnalyser_PerModuleArtefactsStillProduced` | `matched` | `CodeTest`, `IntegrationTests`, `inventory`, `multi-org` | `CodeTest`, `IntegrationTests`, `inventory`, `multi-org` | `compliant` | `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/InventoryModulesTests.cs:35` |
+| 1b | `wired` | `pre-existing` | `features/inventory/simulated/inventory-multi-org.feature` | `Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts` | `InventoryModules_WithoutInventoryDiscoveryModule_PerModuleArtefactsStillProduced` | `matched` | `CodeTest`, `IntegrationTests`, `inventory`, `multi-org` | `CodeTest`, `IntegrationTests`, `inventory`, `multi-org` | `compliant` | `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/InventoryModulesTests.cs:57` |
 
-### Notes
+---
 
-**Rows 1a and 1b — `Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts`**
+## Notes
 
-DSL design (`02-dsl-design.md`) confirmed that no production class named `InventoryDiscoveryModule`
-exists in `src/`. The feature term is synonymous with `InventoryAnalyser`. The design resolves this by:
+**Row 1 — `Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts`**
 
-- Row 1a: the existing test `InventoryModules_WithoutInventoryAnalyser_PerModuleArtefactsStillProduced`
-  requires tag correction only (add `inventory`, `multi-org`; remove `UnitTest`). No logic changes.
-- Row 1b: a new test `InventoryModules_WithoutInventoryDiscoveryModule_PerModuleArtefactsStillProduced`
-  is planned using a new `WithoutInventoryDiscoveryModule()` builder alias method, providing
-  direct vocabulary traceability from the feature scenario to an executing test.
-
-The `multi-org` tags are appropriate because the feature carries `@multi-org` and these tests
-cover the module-independence aspect of multi-org inventory jobs.
+The scenario's intent is fully covered by the code-first MSTest method
+`InventoryModules_WithoutInventoryDiscoveryModule_PerModuleArtefactsStillProduced`
+at `InventoryModulesTests.cs:57`. That method uses the builder alias
+`WithoutInventoryDiscoveryModule()` (defined in `InventoryModulesBuilder.cs:37`)
+which delegates to `WithoutInventoryAnalyser()`. It carries all four required
+`TestCategory` tags (`CodeTest`, `IntegrationTests`, `inventory`, `multi-org`)
+and asserts via `AssertAllStandardModuleArtefactsExist()` that all four
+inventory-capable modules still produce artefacts. No new test is needed.
