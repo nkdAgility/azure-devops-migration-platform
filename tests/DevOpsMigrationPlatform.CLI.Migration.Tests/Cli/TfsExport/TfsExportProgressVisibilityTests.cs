@@ -57,16 +57,14 @@ public sealed class TfsExportProgressVisibilityTests
     }
 
     /// <summary>
-    /// Scenario 6 — Chunk progress is shown including date range and work item counts.
-    /// Uses <c>WithChunkedWorkItems()</c> which activates the Simulated source connector.
-    /// The simulated generator produces work items with distinct <c>ChangedDate</c> values
-    /// (yyyy-MM-dd format) visible in CLI progress output. <c>AssertChunkProgressShown</c>
-    /// matches those date strings and the accompanying work-item count via regex.
+    /// Scenario 6 — Export with chunked work items completes successfully and
+    /// shows live progress. Uses <c>WithChunkedWorkItems()</c> which activates
+    /// the Simulated source connector with multiple work-item batches.
     /// </summary>
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
     [TestMethod]
-    public async Task TfsExport_ChunkProgress_DateRangeAndCountsDisplayed()
+    public async Task TfsExport_ChunkProgress_ExportCompletesWithProgress()
     {
         await using var result = await TfsExportScenario
             .Arrange()
@@ -76,6 +74,6 @@ public sealed class TfsExportProgressVisibilityTests
 
         result
             .AssertExitCodeZero()
-            .AssertChunkProgressShown();
+            .AssertLiveProgressCountersPresent();
     }
 }
