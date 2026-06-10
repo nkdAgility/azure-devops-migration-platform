@@ -14,21 +14,37 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.Revisi
 
 /// <summary>
 /// TFS Object Model implementation of <see cref="IWorkItemFetchService"/>.
-/// Uses <see cref="TfsWorkItemQueryWindowStrategy"/> for date-windowed WIQL queries
-/// and fetches only the declared fields from each work item via the TFS Object Model.
+/// Uses <see cref="IWorkItemQueryWindowStrategy"/> for date-windowed WIQL queries
+/// and fetches only the declared fields from each work item via <see cref="IWorkItemFieldReader"/>.
 /// Evaluates <see cref="WorkItemFieldFilterOptions"/> predicates in-process
 /// before yielding each item.
 /// </summary>
 public sealed class TfsWorkItemFetchService : IWorkItemFetchService
 {
-    private readonly WorkItemStore _workItemStore;
-    private readonly TfsWorkItemQueryWindowStrategy _windowStrategy;
+    private readonly IWorkItemFieldReader _fieldReader;
+    private readonly IWorkItemQueryWindowStrategy _windowStrategy;
 
+    /// <summary>
+    /// Production constructor: wraps a live <see cref="WorkItemStore"/> in a
+    /// <see cref="WorkItemStoreFieldReader"/> and accepts the concrete window strategy.
+    /// </summary>
     public TfsWorkItemFetchService(
         WorkItemStore workItemStore,
         TfsWorkItemQueryWindowStrategy windowStrategy)
+        : this(new WorkItemStoreFieldReader(workItemStore ?? throw new ArgumentNullException(nameof(workItemStore))),
+               windowStrategy ?? throw new ArgumentNullException(nameof(windowStrategy)))
     {
-        _workItemStore = workItemStore ?? throw new ArgumentNullException(nameof(workItemStore));
+    }
+
+    /// <summary>
+    /// Testable constructor: accepts the thin <see cref="IWorkItemFieldReader"/> seam
+    /// and the <see cref="IWorkItemQueryWindowStrategy"/> abstraction.
+    /// </summary>
+    internal TfsWorkItemFetchService(
+        IWorkItemFieldReader fieldReader,
+        IWorkItemQueryWindowStrategy windowStrategy)
+    {
+        _fieldReader = fieldReader ?? throw new ArgumentNullException(nameof(fieldReader));
         _windowStrategy = windowStrategy ?? throw new ArgumentNullException(nameof(windowStrategy));
     }
 
@@ -58,18 +74,18 @@ public sealed class TfsWorkItemFetchService : IWorkItemFetchService
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var wi = _workItemStore.GetWorkItem(id);
+                var allFields = _fieldReader.GetFields(id);
                 var fields = new Dictionary<string, object?>();
 
                 foreach (var fieldName in scope.Fields)
                 {
-                    if (wi.Fields.Contains(fieldName))
+                    if (allFields.TryGetValue(fieldName, out var fieldValue))
                     {
-                        fields[fieldName] = wi.Fields[fieldName].Value;
+                        fields[fieldName] = fieldValue;
                     }
                 }
 
-                var item = new FetchedWorkItem(wi.Id, fields);
+                var item = new FetchedWorkItem(id, fields);
 
                 if (PassesFilters(item, scope.FilterOptions))
                 {
