@@ -51,7 +51,8 @@ public class ControlPlaneTelemetryTimerTests
     /// Scenario: Migration Agent pushes a MetricSnapshot on its configured interval.
     /// When the agent holds a lease and has metrics, it calls PushMetricsAsync.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PushesTelemetry_WhenLeaseHeldAndMetricsAvailable()
     {
@@ -91,7 +92,8 @@ public class ControlPlaneTelemetryTimerTests
     /// Scenario: Push is skipped when no MetricSnapshot is available yet.
     /// When the snapshot store returns null, no HTTP request is sent.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SkipsPush_WhenNoSnapshotAvailable()
     {
@@ -119,7 +121,8 @@ public class ControlPlaneTelemetryTimerTests
     /// Scenario: Push is skipped when the agent holds no active lease.
     /// When CurrentLeaseId is null, no HTTP request is sent even if snapshots are available.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SkipsPush_WhenNoLeaseHeld()
     {
@@ -148,7 +151,8 @@ public class ControlPlaneTelemetryTimerTests
     /// Scenario: A non-success response from the Control Plane does not crash the agent.
     /// PushMetricsAsync is best-effort — exceptions should not propagate.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ContinuesRunning_WhenControlPlaneReturnsFailure()
     {
@@ -189,7 +193,8 @@ public class ControlPlaneTelemetryTimerTests
     /// Scenario: Push is triggered when a snapshot arrives (snapshot boundary signal).
     /// The snapshot is pushed using the currently held lease id.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PushesSnapshot_WhenSnapshotStoreIsPopulated()
     {
@@ -222,7 +227,8 @@ public class ControlPlaneTelemetryTimerTests
     /// Scenario: Timer completes gracefully when cancellation is requested.
     /// Ensures ExecuteAsync exits without hanging or throwing.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task StopsGracefully_WhenCancelled()
     {

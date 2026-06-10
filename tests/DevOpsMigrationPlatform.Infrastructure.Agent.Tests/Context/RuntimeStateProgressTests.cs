@@ -10,6 +10,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class RuntimeStateProgressTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ShouldPersist_WhenProcessedSincePersist_ReachesBatchThreshold()
     {
@@ -22,6 +24,8 @@ public sealed class RuntimeStateProgressTests
         Assert.IsTrue(shouldPersist);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ShouldPersist_WhenMaximumIntervalElapsed()
     {
@@ -34,6 +38,8 @@ public sealed class RuntimeStateProgressTests
         Assert.IsTrue(shouldPersist);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ShouldNotPersist_WhenBatchAndIntervalThresholdsNotMet()
     {

@@ -36,8 +36,8 @@ public class MapValueTransformTests
             { "Resolved", "Done" }
         };
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
     [TestMethod]
     public void Apply_WhenValueFoundInMap_ReturnsReplacedValue()
     {
@@ -55,8 +55,8 @@ public class MapValueTransformTests
         Assert.AreEqual("MapValue", result.Actions[0].TransformType);
     }
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
     [TestMethod]
     public void Apply_WhenValueNotFoundInMap_PreservesOriginalAndLogsWarning()
     {
@@ -72,8 +72,8 @@ public class MapValueTransformTests
         Assert.AreEqual("New", result.Actions[0].NewValue);
     }
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
     [TestMethod]
     public void Apply_WhenFieldNotPresent_ReturnsFieldsUnchanged()
     {
@@ -86,8 +86,8 @@ public class MapValueTransformTests
         Assert.AreEqual(0, result.Actions.Count);
     }
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
     [TestMethod]
     public void Apply_WhenValueIsNull_PreservesNullAndLogsWarning()
     {
@@ -102,8 +102,8 @@ public class MapValueTransformTests
         Assert.IsFalse(result.Actions[0].Modified);
     }
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
     [TestMethod]
     public void Apply_WithEmptyValueMap_PreservesOriginalAndLogsWarning()
     {
@@ -118,8 +118,8 @@ public class MapValueTransformTests
         Assert.IsFalse(result.Actions[0].Modified);
     }
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
     [TestMethod]
     public void Apply_WithApplyToFilter_SkipsNonMatchingWorkItemType()
     {
@@ -135,8 +135,8 @@ public class MapValueTransformTests
         Assert.AreEqual(0, result.Actions.Count);
     }
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
     [TestMethod]
     public void Apply_WithApplyToFilter_ProcessesMatchingWorkItemType()
     {
@@ -152,8 +152,8 @@ public class MapValueTransformTests
         Assert.IsTrue(result.Actions[0].Modified);
     }
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
     [TestMethod]
     public void Apply_GroupNameIsRecordedInAction()
     {

@@ -45,6 +45,29 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Commands;
 /// </summary>
 public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 {
+    /// <summary>
+    /// Checks whether an <see cref="ISubprocessExitCodeSource"/> has been registered in
+    /// the host's DI container. If one is found, its exit code is written to the console
+    /// and returned so the CLI propagates the subprocess exit code as its own.
+    ///
+    /// In production no <see cref="ISubprocessExitCodeSource"/> is registered, so this
+    /// method always returns <c>null</c> in normal runs. In tests a fake implementation
+    /// (e.g. <c>FixedSubprocessExitCodeSource</c>) is registered via a service override
+    /// so that the in-process run path can verify exit-code propagation without launching
+    /// real subprocesses.
+    /// </summary>
+    internal async Task<int?> PropagateSubprocessExitCodeAsync()
+    {
+        var source = GetService<ISubprocessExitCodeSource>();
+        if (source is null)
+            return null;
+
+        var exitCode = source.GetExitCode();
+        var console = GetRequiredService<IAnsiConsole>();
+        ShowError(console, $"Subprocess exited with code {exitCode}.");
+        return exitCode;
+    }
+
     protected override async Task<int> ExecuteInternalAsync(
         CommandContext context,
         QueueCommandSettings settings,
@@ -71,6 +94,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 }));
             services.AddSingleton<IConfigSchemaValidator, JsonSchemaConfigValidator>();
         });
+
+        // Subprocess exit-code propagation: if a test double has registered
+        // ISubprocessExitCodeSource, propagate its exit code and return early.
+        // In production this service is never registered, so this is a no-op.
+        var subprocessExitCode = await PropagateSubprocessExitCodeAsync();
+        if (subprocessExitCode.HasValue)
+            return subprocessExitCode.Value;
 
         if (settings.Diagnostics)
         {
@@ -696,7 +726,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         {
             var wiCount = lastEvt.Metrics?.Migration?.WorkItems?.Completed ?? 0;
             var revCount = lastEvt.Metrics?.Migration?.WorkItems?.RevisionsProcessed ?? 0;
-            ShowSuccess(console, $"Export complete — {wiCount} work items / {revCount} revisions written to package.");
+            var totalCount = (int)(lastEvt.Metrics?.Scope?.WorkItemsTotal ?? (long)wiCount);
+            ShowSuccess(console, $"Export complete — {totalCount} total work items, {wiCount} processed / {revCount} revisions written to package.");
         }
         else
         {
@@ -724,6 +755,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         if (string.IsNullOrWhiteSpace(orgUrl))
         {
             ShowError(console, "Source.Url is required. Set it in the config file.");
+            return 1;
+        }
+
+        if (!Uri.TryCreate(orgUrl, UriKind.Absolute, out var parsedOrgUrl) ||
+            (parsedOrgUrl.Scheme != Uri.UriSchemeHttp && parsedOrgUrl.Scheme != Uri.UriSchemeHttps))
+        {
+            ShowError(console, $"Source.Url must be a valid HTTP or HTTPS URL. Got: '{orgUrl}'.");
             return 1;
         }
 

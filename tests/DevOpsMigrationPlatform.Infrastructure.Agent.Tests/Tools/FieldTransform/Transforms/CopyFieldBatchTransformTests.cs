@@ -20,6 +20,8 @@ public class CopyFieldBatchTransformTests
         string name = "TestBatchTransform")
         => new CopyFieldBatchTransform(name, groupName, fieldMappings);
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Apply_WhenMultipleMappings_AllFieldsCopied()
     {
@@ -44,6 +46,8 @@ public class CopyFieldBatchTransformTests
         Assert.IsTrue(result.Actions[1].Modified);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Apply_WhenSomeSourceFieldsAbsent_SkipsAbsentFields()
     {
@@ -63,6 +67,8 @@ public class CopyFieldBatchTransformTests
         Assert.AreEqual("Custom.Target1", result.Actions[0].Field);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Apply_WithEmptyFieldMappings_ReturnsInputUnchanged()
     {

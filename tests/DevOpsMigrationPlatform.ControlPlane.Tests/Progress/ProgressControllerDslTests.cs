@@ -20,7 +20,8 @@ public class ProgressControllerDslTests
 
     // ── Scenario: ProgressEvent is retrievable via GET /jobs/{id}/logs ────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetProgress_WhenEventPosted_Returns200WithEvent()
     {
@@ -40,7 +41,8 @@ public class ProgressControllerDslTests
 
     // ── Scenario: 404 when lease is not recognised ────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PostProgress_UnknownLease_Returns404()
     {
@@ -55,7 +57,8 @@ public class ProgressControllerDslTests
 
     // ── Scenario: 403 when caller lacks job visibility ────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetProgress_UnauthenticatedCaller_Returns403()
     {

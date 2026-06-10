@@ -14,6 +14,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Tests;
 [TestClass]
 public class SimulatedIdentitySourceTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateIdentitiesAsync_ReturnsDeterministicIdentities()
     {
@@ -30,6 +32,8 @@ public class SimulatedIdentitySourceTests
             Assert.AreEqual(firstRun[i].Descriptor, secondRun[i].Descriptor, $"Descriptor mismatch at index {i}");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateIdentitiesAsync_AllHaveRequiredFields()
     {
@@ -50,6 +54,8 @@ public class SimulatedIdentitySourceTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateIdentitiesAsync_ContainsBothUsersAndGroups()
     {
@@ -67,6 +73,8 @@ public class SimulatedIdentitySourceTests
         Assert.IsTrue(hasGroups, "Should contain at least one group identity");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     // Verifies that project name has no effect on identity descriptors returned, not just count.
     public async Task EnumerateIdentitiesAsync_IgnoresProjectName_ReturnsSameSet()

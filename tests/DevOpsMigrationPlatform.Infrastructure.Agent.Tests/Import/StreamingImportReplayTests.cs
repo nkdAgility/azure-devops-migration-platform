@@ -115,7 +115,8 @@ public class StreamingImportReplayTests
 
     // ── Tests ─────────────────────────────────────────────────────────────────
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_ProcessesEachRevision_InLexicographicFolderOrder()
     {
@@ -142,7 +143,8 @@ public class StreamingImportReplayTests
             Times.Once);
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_EnumeratesOnceSteaming_WhenManyRevisionFolders()
     {
@@ -163,7 +165,8 @@ public class StreamingImportReplayTests
             Times.Once);
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_AppliesTitleStateAndAssignedTo_FromRevisionJson()
     {
@@ -224,7 +227,8 @@ public class StreamingImportReplayTests
             Times.Once);
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_CallsUpdateFieldsAsync_WhenRevisionContainsIdentityField()
     {
@@ -243,7 +247,8 @@ public class StreamingImportReplayTests
             Times.Once);
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_CallsOnlyTargetApi_NeverSourceApi()
     {
@@ -259,7 +264,8 @@ public class StreamingImportReplayTests
             Times.AtLeastOnce);
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_UploadsAttachment_WhenRevisionFolderContainsAttachmentFile()
     {

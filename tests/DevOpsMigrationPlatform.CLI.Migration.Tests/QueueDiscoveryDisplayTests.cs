@@ -17,6 +17,8 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests;
 [TestClass]
 public sealed class QueueDiscoveryDisplayTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void BuildDiscoveryDisplay_WhenDependencyAnalysisStarts_SwitchesToDependencyTable()
     {

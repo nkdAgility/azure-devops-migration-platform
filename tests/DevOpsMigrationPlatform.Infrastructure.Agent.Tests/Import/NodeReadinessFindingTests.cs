@@ -9,6 +9,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Import;
 [TestClass]
 public sealed class NodeReadinessFindingTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_SetsExpectedFieldValues()
     {

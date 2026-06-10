@@ -41,6 +41,8 @@ public class FileDiagnosticExporterTests
             Directory.Delete(_tempDir, recursive: true);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void FileTraceExporter_WritesSpansToFile()
     {
@@ -70,6 +72,8 @@ public class FileDiagnosticExporterTests
             "Traces file should contain span tags.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void FileMetricExporter_WritesMetricsToFile()
     {
@@ -95,6 +99,8 @@ public class FileDiagnosticExporterTests
             "Metrics file should contain the metric value.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void FileDiagnosticsExtensions_AddFileExporter_Tracing_WritesToDisk()
     {
@@ -117,6 +123,8 @@ public class FileDiagnosticExporterTests
             "Extension-created traces file should contain the span.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void FileDiagnosticsExtensions_AddFileExporter_Metrics_WritesToDisk()
     {
@@ -140,6 +148,8 @@ public class FileDiagnosticExporterTests
             "Extension-created metrics file should contain the metric.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void FileTraceExporter_CreatesDirectoryIfMissing()
     {
@@ -152,6 +162,8 @@ public class FileDiagnosticExporterTests
             "File exporter should create the directory structure on construction.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void GetDiagnosticsPath_ReturnsNull_WhenNotConfigured()
     {
@@ -160,6 +172,8 @@ public class FileDiagnosticExporterTests
         Assert.IsNull(result, "Should return null when Telemetry:DiagnosticsPath is not set.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void GetDiagnosticsPath_ResolvesRelativePath()
     {
@@ -185,6 +199,8 @@ public class FileDiagnosticExporterTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void GetDiagnosticsPath_UsesSessionIdSubfolder()
     {
@@ -212,6 +228,8 @@ public class FileDiagnosticExporterTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void GetDiagnosticsPath_GeneratesTimestampSessionId_WhenNotConfigured()
     {
@@ -245,6 +263,8 @@ public class FileDiagnosticExporterTests
     // FileLoggerProvider unit test
     // ─────────────────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void FileLoggerProvider_WritesLogEntriesToFile()
     {
@@ -265,6 +285,8 @@ public class FileDiagnosticExporterTests
             "Log file should contain the warning message.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void FileLoggerProvider_SkipsDebugAndTrace()
     {
@@ -288,6 +310,8 @@ public class FileDiagnosticExporterTests
     // Per-app wiring: verify each service name produces all 3 file types
     // ─────────────────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     [DataRow(WellKnownServiceNames.Cli)]
     [DataRow(WellKnownServiceNames.ControlPlaneHost)]

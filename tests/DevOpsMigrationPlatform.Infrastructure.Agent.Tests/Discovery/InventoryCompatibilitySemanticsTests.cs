@@ -9,6 +9,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Discovery;
 [TestClass]
 public sealed class InventoryCompatibilitySemanticsTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void InventoryCursorIdentity_UsesActionQualifiedNamespace()
     {

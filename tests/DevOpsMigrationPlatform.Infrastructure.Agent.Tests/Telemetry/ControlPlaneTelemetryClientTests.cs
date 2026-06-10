@@ -37,6 +37,8 @@ public class ControlPlaneTelemetryClientTests
     public void Cleanup() => _httpClient.Dispose();
 
     // TODO: [test-validity] LOW VALUE — only asserts no exception on 404; covered by RequestBodyContainsValidJobMetrics which also uses 204
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PushMetricsAsync_WhenServerReturns404_LogsWarningAndDoesNotThrow()
     {
@@ -54,6 +56,8 @@ public class ControlPlaneTelemetryClientTests
         // No exception = test passes (warning is logged internally).
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PushMetricsAsync_RequestBodyContainsValidJobMetrics()
     {
@@ -84,6 +88,8 @@ public class ControlPlaneTelemetryClientTests
     }
 
     // TODO: [test-validity] LOW VALUE — only asserts no exception on network failure; no assertion on logged warning or retry behaviour
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PushMetricsAsync_WhenNetworkFails_DoesNotThrow()
     {

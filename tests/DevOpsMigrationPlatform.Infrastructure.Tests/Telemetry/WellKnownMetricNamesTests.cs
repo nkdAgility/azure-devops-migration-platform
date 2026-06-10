@@ -17,6 +17,8 @@ public class WellKnownMetricNamesTests
         .Where(f => f.IsLiteral && !f.IsInitOnly && f.FieldType == typeof(string))
         .ToArray();
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void AllConstants_StartWithPlatformPrefix()
     {
@@ -29,6 +31,8 @@ public class WellKnownMetricNamesTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void AllConstants_UseDotSeparatedHierarchy()
     {
@@ -44,6 +48,8 @@ public class WellKnownMetricNamesTests
     }
 
     // TODO: [test-validity] LOW VALUE — only asserts that no underscore appears as hierarchy separator; structural naming convention with low failure impact
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void AllConstants_DoNotUseUnderscoresAsHierarchySeparators()
     {
@@ -69,6 +75,8 @@ public class WellKnownMetricNamesTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void AllConstants_AreUnique()
     {

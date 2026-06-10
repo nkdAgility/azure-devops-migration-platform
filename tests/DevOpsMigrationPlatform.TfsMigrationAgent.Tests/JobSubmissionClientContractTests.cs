@@ -7,9 +7,10 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests;
 
 [TestClass]
-[TestCategory("NET481")]
 public class JobSubmissionClientContractTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Interface_IsAvailable_ForNet481Build()
     {

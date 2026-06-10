@@ -12,6 +12,7 @@ using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 
@@ -57,6 +58,7 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
         string? wiqlFilter = null,
         BatchContinuationToken? savedContinuationToken = null,
         Func<BatchContinuationToken, CancellationToken, Task>? continuationCheckpointWriter = null,
+        IReadOnlyList<WorkItemFieldFilterOptions>? fieldFilters = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         // All data in this method references org URLs, project names, and WI IDs — customer data.
@@ -132,7 +134,8 @@ internal sealed class AzureDevOpsDependencyAnalysisService : IWorkItemLinkAnalys
                 BaseQuery: string.IsNullOrWhiteSpace(wiqlFilter) ? null : wiqlFilter,
                 ResumeEnabled: savedContinuationToken is not null,
                 SavedContinuationToken: savedContinuationToken,
-                ContinuationCheckpointWriter: continuationCheckpointWriter);
+                ContinuationCheckpointWriter: continuationCheckpointWriter,
+                FilterOptions: fieldFilters);
 
             _logger.LogInformation("Streaming work items for dependency analysis in {Project} at {OrgUrl}", project, orgEndpoint.ResolvedUrl);
 

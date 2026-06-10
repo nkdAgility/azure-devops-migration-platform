@@ -10,6 +10,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Services;
 [TestClass]
 public class WorkItemFieldFilterEvaluatorTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_NullFilters_ReturnsTrue()
     {
@@ -17,6 +19,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, null));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_EmptyFilters_ReturnsTrue()
     {
@@ -24,6 +28,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, new List<WorkItemFieldFilterOptions>()));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_Equals_CaseInsensitive_ReturnsTrue()
     {
@@ -35,6 +41,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_Equals_Mismatch_ReturnsFalse()
     {
@@ -46,6 +54,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_NotEquals_ReturnsTrue()
     {
@@ -57,6 +67,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_NotEquals_SameValue_ReturnsFalse()
     {
@@ -68,6 +80,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_Contains_SubstringMatch_ReturnsTrue()
     {
@@ -79,6 +93,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_Contains_NoMatch_ReturnsFalse()
     {
@@ -90,6 +106,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_AndSemantics_AllMustMatch()
     {
@@ -104,6 +122,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_AndSemantics_OneFailsReturnsFalse()
     {
@@ -118,6 +138,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_MissingField_Equals_ReturnsFalse()
     {
@@ -129,6 +151,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_MissingField_NotEquals_ReturnsTrue()
     {
@@ -140,6 +164,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_NullFilterValue_Equals_NullField_ReturnsTrue()
     {
@@ -152,6 +178,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_NullFilterValue_Equals_NonNullField_ReturnsFalse()
     {
@@ -165,6 +193,8 @@ public class WorkItemFieldFilterEvaluatorTests
 
     // --- Regex / NotRegex ---
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_Regex_MatchingPattern_ReturnsTrue()
     {
@@ -176,6 +206,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_Regex_CaseInsensitive_ReturnsTrue()
     {
@@ -187,6 +219,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_Regex_NonMatchingPattern_ReturnsFalse()
     {
@@ -198,6 +232,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_Regex_PartialPatternMatch_ReturnsTrue()
     {
@@ -209,6 +245,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_Regex_MissingField_ReturnsFalse()
     {
@@ -220,6 +258,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_NotRegex_NonMatchingPattern_ReturnsTrue()
     {
@@ -231,6 +271,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_NotRegex_MatchingPattern_ReturnsFalse()
     {
@@ -242,6 +284,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsFalse(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_NotRegex_MissingField_ReturnsTrue()
     {
@@ -254,6 +298,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_IncludeAndExclude_BothPass_ReturnsTrue()
     {
@@ -268,6 +314,8 @@ public class WorkItemFieldFilterEvaluatorTests
         Assert.IsTrue(WorkItemFieldFilterEvaluator.PassesFilters(item, filters));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PassesFilters_IncludeAndExclude_ExcludeHits_ReturnsFalse()
     {

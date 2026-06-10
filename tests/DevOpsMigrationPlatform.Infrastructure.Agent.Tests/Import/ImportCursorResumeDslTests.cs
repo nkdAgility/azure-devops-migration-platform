@@ -95,7 +95,8 @@ public class ImportCursorResumeDslTests
 
     // ── Scenario: Interrupted import resumes from the last cursor position ─────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_WithCursor_SkipsFoldersAtOrBeforeCursorAndResumesAfter()
     {
@@ -136,7 +137,8 @@ public class ImportCursorResumeDslTests
 
     // ── Scenario: Mid-folder resume continues from the interrupted stage ───────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_MidFolderCursor_SkipsCompletedStagesAndContinuesFromAppliedLinks()
     {
@@ -180,7 +182,8 @@ public class ImportCursorResumeDslTests
 
     // ── Scenario: Force-fresh deletes the cursor but preserves the ID map ──────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_ForceFresh_DeletesCursorButPreservesIdMap()
     {

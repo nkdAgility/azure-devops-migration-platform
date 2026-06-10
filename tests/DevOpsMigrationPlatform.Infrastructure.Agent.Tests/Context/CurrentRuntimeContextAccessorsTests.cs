@@ -12,6 +12,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class CurrentRuntimeContextAccessorsTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void CurrentPackageConfigAccessor_SetThenClear_ExposesOnlyActiveConfiguration()
     {
@@ -30,6 +32,8 @@ public sealed class CurrentRuntimeContextAccessorsTests
         Assert.IsNull(accessor.Current);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void CurrentPackageConfigAccessor_SetNull_ThrowsArgumentNullException()
     {
@@ -38,6 +42,8 @@ public sealed class CurrentRuntimeContextAccessorsTests
         Assert.ThrowsExactly<ArgumentNullException>(() => accessor.Set(null!));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void CurrentAgentJobContextAccessor_SetThenClear_ExposesOnlyActiveContext()
     {
@@ -56,6 +62,8 @@ public sealed class CurrentRuntimeContextAccessorsTests
         Assert.IsNull(accessor.Current);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void CurrentAgentJobContextAccessor_SetNull_ThrowsArgumentNullException()
     {
@@ -64,6 +72,8 @@ public sealed class CurrentRuntimeContextAccessorsTests
         Assert.ThrowsExactly<ArgumentNullException>(() => accessor.Set(null!));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void CurrentJobEndpointAccessor_ClearSource_DoesNotClearTarget()
     {
@@ -79,6 +89,8 @@ public sealed class CurrentRuntimeContextAccessorsTests
         Assert.AreSame(target, accessor.Target);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void CurrentJobEndpointAccessor_ClearTarget_DoesNotClearSource()
     {
@@ -94,6 +106,8 @@ public sealed class CurrentRuntimeContextAccessorsTests
         Assert.IsNull(accessor.Target);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void CurrentJobEndpointAccessor_Clear_RemovesSourceAndTarget()
     {
@@ -107,6 +121,8 @@ public sealed class CurrentRuntimeContextAccessorsTests
         Assert.IsNull(accessor.Target);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void CurrentJobEndpointAccessor_SetNullEndpoint_ThrowsArgumentNullException()
     {

@@ -13,6 +13,8 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Views;
 [TestClass]
 public sealed class TuiTaskProgressViewTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void BuildMigrationWorkspace_WhenTaskListHasExplicitPhaseSummaries_UsesSummaryPhases()
     {

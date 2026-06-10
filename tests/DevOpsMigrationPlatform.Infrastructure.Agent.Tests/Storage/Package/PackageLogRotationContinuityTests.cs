@@ -15,6 +15,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 [TestClass]
 public sealed class PackageLogRotationContinuityTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AppendLogAsync_WhenRunIdChanges_WritesEachStreamToItsOwnRunFile()
     {

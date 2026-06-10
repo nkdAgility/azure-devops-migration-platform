@@ -35,6 +35,8 @@ public class ScenarioSelectorTests
             Directory.Delete(_tempDir, recursive: true);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void PromptForConfigFile_WithNoSources_ReturnsNull()
     {
@@ -52,6 +54,8 @@ public class ScenarioSelectorTests
         Assert.IsNull(result);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void PromptForConfigFile_WithSingleFileInEnvFolder_ReturnsAutoSelected()
     {
@@ -76,6 +80,8 @@ public class ScenarioSelectorTests
         Assert.IsTrue(result.EndsWith("single.json"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void PromptForConfigFile_WithSingleFileInPreferencesFolder_ReturnsAutoSelected()
     {
@@ -100,6 +106,8 @@ public class ScenarioSelectorTests
         Assert.IsTrue(result.EndsWith("prefconfig.json"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void PromptForConfigFile_WithSingleFileInScenariosSubfolder_ReturnsAutoSelected()
     {
@@ -120,6 +128,8 @@ public class ScenarioSelectorTests
         Assert.IsTrue(result.EndsWith("scenario.json"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void PromptForConfigFile_WithNonexistentEnvFolder_FallsThrough()
     {
@@ -139,6 +149,8 @@ public class ScenarioSelectorTests
         Assert.IsNull(result); // Falls through all sources to null
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void PromptForConfigFile_EnvVarTakesPriorityOverPreferences()
     {
@@ -167,6 +179,8 @@ public class ScenarioSelectorTests
         Assert.IsTrue(result.EndsWith("env.json"), $"Expected env.json but got: {result}");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void PromptForConfigFile_WithMultipleFilesInNonInteractiveTerminal_ReturnsNull()
     {

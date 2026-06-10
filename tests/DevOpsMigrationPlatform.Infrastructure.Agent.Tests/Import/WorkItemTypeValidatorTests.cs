@@ -25,6 +25,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Import;
 [TestClass]
 public sealed class WorkItemTypeValidatorTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EvaluateAsync_ReturnsBlockingFindings_WhenDistinctExportedTypesAreMissingOnTarget()
     {
@@ -91,6 +93,8 @@ public sealed class WorkItemTypeValidatorTests
         target.VerifyNoOtherCalls();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EvaluateAsync_IgnoresInvalidPayloadAndMissingTypeFieldValues()
     {
@@ -136,6 +140,8 @@ public sealed class WorkItemTypeValidatorTests
         target.VerifyNoOtherCalls();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EvaluateAsync_DisposesTarget_WhenFactoryReturnsDisposableTarget()
     {
@@ -169,6 +175,8 @@ public sealed class WorkItemTypeValidatorTests
         targetFactory.Verify(f => f.CreateAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EvaluateAsync_UsesMappedTargetType_WhenFieldTransformMapValueConfigured()
     {
@@ -236,6 +244,8 @@ public sealed class WorkItemTypeValidatorTests
         target.VerifyNoOtherCalls();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EvaluateAsync_ReadsScopedWorkItemsRevisions_WhenRootWorkItemsFolderIsEmpty()
     {

@@ -22,6 +22,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 [TestClass]
 public sealed class PackageBoundaryObservabilityTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PersistMetaAsync_EmitsSpanMetricAndStructuredLogFields()
     {

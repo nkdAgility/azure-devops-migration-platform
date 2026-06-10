@@ -16,11 +16,12 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Tools.Retry;
 /// Validates that the retry policies fire on 429/5xx responses and exhaust on repeated failure.
 /// </summary>
 [TestClass]
-[TestCategory("UnitTest")]
 public sealed class RetryPolicyTests
 {
     // ─── HTTP policy (returns HttpResponseMessage) ───────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task HttpRetryPolicy_RetriesOnce_WhenFirst429ThenSuccess()
     {
@@ -42,6 +43,8 @@ public sealed class RetryPolicyTests
         Assert.AreEqual(2, attemptCount, "Expected exactly 2 attempts (1 failure + 1 success).");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task HttpRetryPolicy_RetriesThreeTimes_WhenConsecutive5xx()
     {
@@ -61,6 +64,8 @@ public sealed class RetryPolicyTests
         Assert.AreEqual(4, attemptCount, "Expected 1 initial + 3 retries = 4 attempts total.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task HttpRetryPolicy_DoesNotRetry_On200()
     {
@@ -82,6 +87,8 @@ public sealed class RetryPolicyTests
 
     // ─── SDK policy (exception-based) ────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SdkRetryPolicy_RetriesOnce_WhenFirst429ExceptionThenSuccess()
     {
@@ -105,6 +112,8 @@ public sealed class RetryPolicyTests
         Assert.AreEqual(2, attemptCount, "Expected exactly 2 attempts.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SdkRetryPolicy_Throws_AfterExhaustingRetries()
     {
@@ -123,6 +132,8 @@ public sealed class RetryPolicyTests
         Assert.AreEqual(4, attemptCount, "Expected 1 initial + 3 retries = 4 attempts before throwing.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SdkRetryPolicy_DoesNotRetry_OnUnrelatedExceptions()
     {

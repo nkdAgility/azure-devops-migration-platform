@@ -18,6 +18,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class RuntimeStateTracingTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task RuntimeStateOperations_EmitExpectedSpanNames()
     {

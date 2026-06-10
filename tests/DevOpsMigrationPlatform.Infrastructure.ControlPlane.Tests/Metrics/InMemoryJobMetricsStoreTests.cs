@@ -20,12 +20,16 @@ public class InMemoryJobMetricsStoreTests
     [TestInitialize]
     public void Setup() => _sut = new InMemoryJobMetricsStore();
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Latest_BeforeAnyUpdate_ReturnsNull()
     {
         Assert.IsNull(_sut.Latest);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Update_WhenCalledOnce_LatestReturnsSnapshot()
     {
@@ -43,6 +47,8 @@ public class InMemoryJobMetricsStoreTests
         Assert.AreEqual(7, _sut.Latest!.Migration!.WorkItems.Attempted);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Update_WhenCalledTwice_LatestReturnsLastSnapshot()
     {
@@ -64,6 +70,8 @@ public class InMemoryJobMetricsStoreTests
         Assert.AreEqual(2, _sut.Latest!.Migration!.WorkItems.Attempted);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Update_PreservesAllFields()
     {
@@ -137,6 +145,8 @@ public class InMemoryJobMetricsStoreTests
         Assert.AreEqual(2, result.Scope.ProjectsTotal);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Update_WithNullFields_StillStoresSnapshot()
     {

@@ -84,6 +84,8 @@ public class WorkItemOrchestratorFilterTests
 
     // ── filter pre-pass ───────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_WithMatchingFilter_ImportsOnlyPassingWorkItems()
     {
@@ -110,6 +112,8 @@ public class WorkItemOrchestratorFilterTests
             Times.Never, "Work item 2 should be skipped.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_WithNoFilter_ImportsAllWorkItems()
     {
@@ -124,6 +128,8 @@ public class WorkItemOrchestratorFilterTests
             Times.Exactly(2), "Both work items should be imported when no filter is configured.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_ExcludeFilter_SkipsMatchingItem()
     {
@@ -146,6 +152,8 @@ public class WorkItemOrchestratorFilterTests
             Times.Never, "Work item 2 should be excluded by NotRegex filter.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_FilterEvaluatesLastRevisionOnly()
     {
@@ -168,6 +176,8 @@ public class WorkItemOrchestratorFilterTests
             Times.Exactly(3), "All revisions should import when the latest revision matches the filter.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_WithFilters_ProcessesRevisionsInDeterministicOrder()
     {
@@ -196,6 +206,8 @@ public class WorkItemOrchestratorFilterTests
             "Revisions should be processed in deterministic package enumeration order.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_WhenCursorStageIsUploadedAttachments_SkipsFolderToAvoidDuplicateWork()
     {
@@ -218,6 +230,8 @@ public class WorkItemOrchestratorFilterTests
             "UploadedAttachments cursor stage should advance to Completed and skip duplicate reprocessing.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_WhenSameFolderAppearsTwice_SkipsDuplicateWithinSameRun()
     {
@@ -233,6 +247,8 @@ public class WorkItemOrchestratorFilterTests
             "A duplicate folder entry should be skipped after cursor progression is updated in-run.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_WhenFoldersAreNotLexicographicallyAscending_ThrowsInvalidOperationException()
     {
@@ -248,6 +264,8 @@ public class WorkItemOrchestratorFilterTests
             () => orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_WithMixedMappedUnmappedAndStaleMappings_UsesDeterministicOutcomes()
     {
@@ -293,6 +311,8 @@ public class WorkItemOrchestratorFilterTests
             "Stale mapping should be recorded and skipped.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_WhenAttachmentReplayDisabled_EmitsSkipReasonEvent()
     {
@@ -312,6 +332,8 @@ public class WorkItemOrchestratorFilterTests
             Times.AtLeastOnce);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_WhenEmbeddedImageReplayDisabled_EmitsSkipReasonEvent()
     {
@@ -338,6 +360,8 @@ public class WorkItemOrchestratorFilterTests
             Times.AtLeastOnce);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_WhenScopedRevisionLookupMisses_FallsBackToDirectPathLookup()
     {

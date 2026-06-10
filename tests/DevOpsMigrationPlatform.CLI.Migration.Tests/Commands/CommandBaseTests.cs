@@ -12,6 +12,8 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 [TestClass]
 public class CommandBaseTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExecuteAsync_WithSuccessfulCommand_ReturnsZero()
     {
@@ -29,6 +31,8 @@ public class CommandBaseTests
         Assert.AreEqual(0, result);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExecuteAsync_WithFailedCommand_ReturnsErrorCode()
     {
@@ -46,6 +50,8 @@ public class CommandBaseTests
         Assert.AreEqual(1, result);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExecuteAsync_WithExceptionInCommand_ReturnsErrorCode()
     {
@@ -63,6 +69,8 @@ public class CommandBaseTests
         Assert.AreEqual(1, result);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CreateHost_RegistersServicesAndResolvesFromHost()
     {
@@ -84,6 +92,8 @@ public class CommandBaseTests
         Assert.IsTrue(command.HostWasCreated, "Host should have been created");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteAsync_DisposesHostAfterExecution()
     {
@@ -101,6 +111,8 @@ public class CommandBaseTests
         Assert.IsTrue(command.WasExecuted, "Command should have executed");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void FormatLocalPathMarkup_UsesNativePathAsLabel_AndFileUriAsTarget()
     {

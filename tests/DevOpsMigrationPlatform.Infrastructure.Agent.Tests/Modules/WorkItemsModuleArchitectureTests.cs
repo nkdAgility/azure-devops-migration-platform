@@ -10,6 +10,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules;
 [TestClass]
 public sealed class WorkItemsModuleArchitectureTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void WorkItemsModule_DoesNotInlineConstructWorkItemExportOrchestrator()
     {
@@ -27,6 +29,8 @@ public sealed class WorkItemsModuleArchitectureTests
             "WorkItemsModule must consume an export orchestrator abstraction instead of inlining concrete orchestrator construction.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void WorkItemsModule_UsesSingleWorkItemsOrchestratorAbstraction()
     {
@@ -47,6 +51,8 @@ public sealed class WorkItemsModuleArchitectureTests
             "WorkItemsModule should depend on IWorkItemsOrchestrator.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void WorkItemsModule_DoesNotInlineConstructWorkItemOrchestrator()
     {

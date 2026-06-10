@@ -15,6 +15,8 @@ public class WorkItemOptionsValidatorTests
 {
     private static WorkItemOptionsValidator Sut() => new();
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_AllLeversDisabled_Succeeds()
     {
@@ -25,6 +27,8 @@ public class WorkItemOptionsValidatorTests
         Assert.IsTrue(result.Succeeded);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_RevisionReplayEnabledWithDependentLevers_Succeeds()
     {
@@ -42,6 +46,8 @@ public class WorkItemOptionsValidatorTests
         Assert.IsTrue(result.Succeeded);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_RevisionReplayDisabledAndLinkReplayEnabled_Fails()
     {
@@ -57,6 +63,8 @@ public class WorkItemOptionsValidatorTests
         StringAssert.Contains(string.Join("|", result.Failures!), "LinkReplay requires RevisionReplay");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_RevisionReplayDisabledAndAttachmentReplayEnabled_Fails()
     {
@@ -72,6 +80,8 @@ public class WorkItemOptionsValidatorTests
         StringAssert.Contains(string.Join("|", result.Failures!), "AttachmentReplay requires RevisionReplay");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_RevisionReplayDisabledAndEmbeddedImageReplayEnabled_Fails()
     {
@@ -87,6 +97,8 @@ public class WorkItemOptionsValidatorTests
         StringAssert.Contains(string.Join("|", result.Failures!), "EmbeddedImageReplay requires RevisionReplay");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_RevisionReplayDisabledAndFieldTransformEnabled_Fails()
     {
@@ -102,6 +114,8 @@ public class WorkItemOptionsValidatorTests
         StringAssert.Contains(string.Join("|", result.Failures!), "FieldTransform requires RevisionReplay");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_RevisionReplayDisabledAndAllDependentLeversEnabled_ReportsAllFailures()
     {
@@ -124,6 +138,8 @@ public class WorkItemOptionsValidatorTests
         StringAssert.Contains(failures, "FieldTransform requires RevisionReplay");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void AddWorkItemsModule_RegistersWorkItemOptionsValidator()
     {
@@ -137,6 +153,8 @@ public class WorkItemOptionsValidatorTests
         Assert.IsTrue(validators.Any(v => v is WorkItemOptionsValidator));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void AddWorkItemsModule_InvalidWorkItemOptions_ThrowsOptionsValidationException()
     {

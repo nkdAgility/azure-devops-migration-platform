@@ -18,6 +18,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Import;
 [TestClass]
 public sealed class AzureDevOpsWorkItemTargetTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WorkItemTypeExistsAsync_CachesTypes_PerTargetInstance()
     {
@@ -41,6 +43,8 @@ public sealed class AzureDevOpsWorkItemTargetTests
         witClient.Verify(c => c.GetWorkItemTypesAsync("ProjectA", null, It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WorkItemTypeExistsAsync_ConcurrentCalls_LoadTypeCacheOnce()
     {
@@ -66,6 +70,8 @@ public sealed class AzureDevOpsWorkItemTargetTests
         witClient.Verify(c => c.GetWorkItemTypesAsync("ProjectA", null, It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WorkItemTypeExistsAsync_AfterDispose_ThrowsObjectDisposedException()
     {
@@ -80,6 +86,8 @@ public sealed class AzureDevOpsWorkItemTargetTests
             async () => await target.WorkItemTypeExistsAsync("Bug", CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task PublicMethods_AfterDispose_ThrowObjectDisposedException()
     {

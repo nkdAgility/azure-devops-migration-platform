@@ -17,6 +17,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 [TestClass]
 public class RevisionFolderProcessorFactoryTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Create_WithBaseOverload_ReturnsWorkItemResolutionProcessor()
     {
@@ -36,6 +38,8 @@ public class RevisionFolderProcessorFactoryTests
         Assert.IsInstanceOfType<WorkItemResolutionProcessor>(processor);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Create_WithNodeTranslationContext_ReturnsWorkItemResolutionProcessor()
     {

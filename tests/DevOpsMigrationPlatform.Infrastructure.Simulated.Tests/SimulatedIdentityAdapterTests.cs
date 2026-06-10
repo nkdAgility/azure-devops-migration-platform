@@ -9,11 +9,12 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Tests;
 
 [TestClass]
-[TestCategory("UnitTests")]
 public sealed class SimulatedIdentityAdapterTests
 {
     private static readonly SimulatedIdentityAdapter Adapter = new();
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FindByUpnAsync_ExactMatch_ReturnsTargetCandidate()
     {
@@ -24,6 +25,8 @@ public sealed class SimulatedIdentityAdapterTests
         Assert.AreEqual("Alice Smith", result[0].DisplayName);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FindByUpnAsync_CaseInsensitive()
     {
@@ -33,6 +36,8 @@ public sealed class SimulatedIdentityAdapterTests
         Assert.AreEqual("vstfs:///Target/Identity/bob", result[0].Descriptor);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FindByUpnAsync_NoMatch_ReturnsEmpty()
     {
@@ -41,6 +46,8 @@ public sealed class SimulatedIdentityAdapterTests
         Assert.AreEqual(0, result.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FindByDisplayNameAsync_ExactMatch_ReturnsTargetCandidate()
     {
@@ -50,6 +57,8 @@ public sealed class SimulatedIdentityAdapterTests
         Assert.AreEqual("vstfs:///Target/Identity/carol", result[0].Descriptor);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FindByDisplayNameAsync_NoMatch_ReturnsEmpty()
     {
@@ -58,6 +67,8 @@ public sealed class SimulatedIdentityAdapterTests
         Assert.AreEqual(0, result.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FindByUpnAsync_EmptyInput_ReturnsEmpty()
     {

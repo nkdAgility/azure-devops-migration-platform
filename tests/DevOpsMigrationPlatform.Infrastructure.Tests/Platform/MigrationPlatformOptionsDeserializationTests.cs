@@ -25,6 +25,8 @@ public class MigrationPlatformOptionsDeserializationTests
     Converters = { new JsonStringEnumConverter() }
   };
 
+  [TestCategory("CodeTest")]
+  [TestCategory("IntegrationTests")]
   [TestMethod]
   public void Deserialize_WithoutModulesKey_DefaultsToEnabledWorkItems()
   {
@@ -44,6 +46,8 @@ public class MigrationPlatformOptionsDeserializationTests
     Assert.IsTrue(opts.Modules.WorkItems.Enabled);
   }
 
+  [TestCategory("CodeTest")]
+  [TestCategory("IntegrationTests")]
   [TestMethod]
   public void Deserialize_WithTypedModulesObject_PopulatesWorkItems()
   {
@@ -75,6 +79,8 @@ public class MigrationPlatformOptionsDeserializationTests
     Assert.IsTrue(wi.Extensions.Revisions.Enabled);
   }
 
+  [TestCategory("CodeTest")]
+  [TestCategory("IntegrationTests")]
   [TestMethod]
   public void Deserialize_WorkItemsExtensions_AllPresent()
   {
@@ -115,6 +121,8 @@ public class MigrationPlatformOptionsDeserializationTests
     Assert.AreEqual(45, wi.Extensions.EmbeddedImages.DownloadTimeoutSeconds);
   }
 
+  [TestCategory("CodeTest")]
+  [TestCategory("IntegrationTests")]
   [TestMethod]
   public void Deserialize_WorkItemsDisabled_ReflectsEnabledFalse()
   {

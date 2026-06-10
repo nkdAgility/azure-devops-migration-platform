@@ -19,6 +19,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 [TestClass]
 public class PackageBoundaryConnectorParityTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadCursorAsync_UsesEquivalentPackageBoundarySemantics_ForAzureDevOpsServices()
     {
@@ -36,6 +38,8 @@ public class PackageBoundaryConnectorParityTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadCursorAsync_UsesEquivalentPackageBoundarySemantics_ForTeamFoundationServer()
     {
@@ -53,6 +57,8 @@ public class PackageBoundaryConnectorParityTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadCursorAsync_UsesEquivalentPackageBoundarySemantics_ForSimulated()
     {

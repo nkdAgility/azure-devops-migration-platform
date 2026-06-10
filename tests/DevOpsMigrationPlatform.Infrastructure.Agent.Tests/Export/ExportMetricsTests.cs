@@ -17,7 +17,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Export;
 /// <see cref="MeterProvider"/> so counter values never accumulate across tests.
 /// </summary>
 [TestClass]
-[TestCategory("UnitTests")]
 public sealed class ExportMetricsTests
 {
     private static (MeterProvider Provider, List<Metric> Exported, PlatformMetrics Metrics) NewScope()
@@ -66,6 +65,8 @@ public sealed class ExportMetricsTests
         return count;
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Export_EmitsAttemptedCounter_WithExactCount()
     {
@@ -82,6 +83,8 @@ public sealed class ExportMetricsTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Export_EmitsRetriedCounter_OncePerRetry()
     {
@@ -97,6 +100,8 @@ public sealed class ExportMetricsTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Export_EmitsDurationHistogram()
     {
@@ -112,6 +117,8 @@ public sealed class ExportMetricsTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Export_EmitsPayloadHistograms_RevisionFieldPayload()
     {
@@ -130,6 +137,8 @@ public sealed class ExportMetricsTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Export_CounterValues_AreIsolatedPerTestScope()
     {

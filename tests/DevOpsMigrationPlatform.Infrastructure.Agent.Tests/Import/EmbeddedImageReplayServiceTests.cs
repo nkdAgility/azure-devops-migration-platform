@@ -14,6 +14,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 [TestClass]
 public class EmbeddedImageReplayServiceTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task RewriteFieldValuesAsync_RewritesOriginalUrls_WithUploadedTargetUrls()
     {
@@ -54,6 +56,8 @@ public class EmbeddedImageReplayServiceTests
         target.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task RewriteFieldValuesAsync_WhenFieldContainsMarkdownRelativeImage_ParsesAndRewritesReference()
     {

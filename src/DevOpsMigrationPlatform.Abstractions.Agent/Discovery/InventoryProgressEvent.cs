@@ -20,6 +20,8 @@ public sealed class InventoryProgressEvent
     public int RevisionsCount { get; set; }
     /// <summary>Number of Git repositories in this project. Populated on the final event only.</summary>
     public int ReposCount { get; set; }
+    /// <summary>Number of build/release pipelines in this project. Populated on the final event only.</summary>
+    public int PipelinesCount { get; set; }
     /// <summary>True on the final event for this project.</summary>
     public bool IsComplete { get; set; }
     public DateTime WindowStart { get; set; }

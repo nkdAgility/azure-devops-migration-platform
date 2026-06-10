@@ -60,8 +60,9 @@ public sealed class AzureDevOpsIdentityAdapterSystemTests
             NullLogger<AzureDevOpsIdentityAdapter>.Instance);
     }
 
-    [TestMethod]
+    [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
+    [TestMethod]
     public async Task FindByUpnAsync_Live_ReturnsMatchingCandidate()
     {
         var adapter = CreateAdapterOrSkip(out var upn, out _);
@@ -73,8 +74,9 @@ public sealed class AzureDevOpsIdentityAdapterSystemTests
         Assert.IsTrue(candidates.Count >= 1, $"Expected at least one target candidate for UPN '{upn}'.");
     }
 
-    [TestMethod]
+    [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
+    [TestMethod]
     public async Task FindByDisplayNameAsync_Live_ReturnsWithoutThrowing()
     {
         var adapter = CreateAdapterOrSkip(out _, out var displayName);

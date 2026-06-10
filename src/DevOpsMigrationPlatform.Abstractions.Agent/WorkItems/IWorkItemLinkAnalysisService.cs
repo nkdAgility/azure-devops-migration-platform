@@ -37,5 +37,6 @@ public interface IWorkItemLinkAnalysisService
         string? wiqlFilter = null,
         BatchContinuationToken? savedContinuationToken = null,
         Func<BatchContinuationToken, CancellationToken, Task>? continuationCheckpointWriter = null,
+        IReadOnlyList<WorkItemFieldFilterOptions>? fieldFilters = null,
         CancellationToken cancellationToken = default);
 }

@@ -23,9 +23,9 @@ public class SimulatedMigrationCommandTests
     /// <summary>
     /// Verifies the simulated export scenario produces a non-empty WorkItems folder.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
     public async Task Queue_Export_Sim_WritesWorkItemRevisions()
     {
         var result = await CliRunner.RunTestAsync(
@@ -87,9 +87,9 @@ public class SimulatedMigrationCommandTests
     /// --force-fresh must be accepted (exit code 0) because the Source and Target are unchanged.
     /// The config is overwritten with the new payload; cursor state is preserved for resume.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
     public async Task Queue_Export_Sim_ReSubmitWithoutForce_Resumes()
     {
         // First run: establishes migration-config.json using --force-fresh
@@ -136,9 +136,9 @@ public class SimulatedMigrationCommandTests
     /// <summary>
     /// Verifies the simulated import scenario exits zero when importing the test fixture.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
     public async Task Queue_Import_Sim_AcceptsWorkItems()
     {
         var result = await CliRunner.RunTestAsync(
@@ -163,9 +163,9 @@ public class SimulatedMigrationCommandTests
     /// <summary>
     /// Verifies the full roundtrip scenario (Simulated → Package → Simulated) exits zero.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
     public async Task Queue_Migrate_Sim_ProducesPackageWithRevisions()
     {
         var result = await CliRunner.RunTestAsync(
@@ -208,9 +208,9 @@ public class SimulatedMigrationCommandTests
     /// T010+T015+T055: Verifies both progress.ndjson and diagnostics.ndjson are produced
     /// in a single run and each contains at least one NDJSON record.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
     public async Task Queue_Export_Sim_ProducesBothLogFiles()
     {
         var result = await CliRunner.RunTestAsync(
@@ -246,9 +246,9 @@ public class SimulatedMigrationCommandTests
     /// VS-H3: Verifies the simulated inventory scenario produces inventory.csv and inventory.json.
     /// Runs the <c>queue</c> command with <c>Mode: Inventory</c> against the Simulated connector.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
     public async Task Queue_Inventory_Sim_WritesInventoryArtefacts()
     {
         var result = await CliRunner.RunTestAsync(

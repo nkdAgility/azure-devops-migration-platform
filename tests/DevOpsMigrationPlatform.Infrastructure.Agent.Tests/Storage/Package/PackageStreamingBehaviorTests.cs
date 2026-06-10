@@ -18,6 +18,8 @@ public sealed class PackageStreamingBehaviorTests
 {
     private sealed record TestPackageAddress(string RelativePath) : IPackageContentAddress;
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task RequestAsync_DoesNotEnumerateOrBufferAcrossPackage()
     {
@@ -36,6 +38,8 @@ public sealed class PackageStreamingBehaviorTests
         Assert.IsNotNull(payload);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task PersistAsync_DoesNotEnumerateOrSortAcrossPackage()
     {

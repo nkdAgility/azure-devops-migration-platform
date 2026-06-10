@@ -9,6 +9,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class ActivePackageStateTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CurrentRunId_WhenJobChanges_RecomputesRunContext()
     {

@@ -148,6 +148,8 @@ public class InventoryServiceTests
 
     // ── T019: Basic — single project with known counts ────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task RunCaptureAsync_SingleProject_YieldsProgressAndFinalEvent()
     {
@@ -169,6 +171,8 @@ public class InventoryServiceTests
 
     // ── T019: Zero-item project ───────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task RunCaptureAsync_EmptyProject_YieldsOnlyFinalEvent()
     {
@@ -204,6 +208,8 @@ public class InventoryServiceTests
 
     // ── T020: Strategy behaviour — 20k-limit causes window halve ─────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void DefaultOptions_LimitThreshold_DoesNotExceedWiqlHardLimit()
     {
@@ -216,6 +222,8 @@ public class InventoryServiceTests
             "the hard WIQL item limit imposed by TFS/Azure DevOps");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void DefaultOptions_InitialWindowDays_ExceedsMinWindowDays()
     {
@@ -228,6 +236,8 @@ public class InventoryServiceTests
             $"MinWindowDays ({opts.MinWindowDays}) so the halving loop can always reduce the window");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void DefaultOptions_MinWindowDays_IsPositive()
     {
@@ -240,6 +250,8 @@ public class InventoryServiceTests
 
     // ── T021: Running total accumulates across windows ────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void WorkItemQueryWindow_DefaultWorkItemIds_IsEmptyNotNull()
     {
@@ -254,6 +266,8 @@ public class InventoryServiceTests
 
     // ── T022: Empty window yields IsComplete = true immediately ───────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task RunCaptureAsync_Events_PopulateUrlFromEndpointConfiguration()
     {
@@ -274,6 +288,8 @@ public class InventoryServiceTests
 
     // ── T023: Window grows after narrow success (< 30 days) ──────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void DefaultOptions_MaxWindowDays_ExceedsInitialWindowDays()
     {
@@ -288,6 +304,8 @@ public class InventoryServiceTests
 
     // ── T024: Error event on WIQL failure ────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task RunCaptureAsync_DiscoveryReturnsError_FinalEventCarriesError()
     {
@@ -330,6 +348,8 @@ public class InventoryServiceTests
 
     // ── T025: IWorkItemQueryWindowStrategy contract ───────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void InventoryService_ThrowsOnNullDiscovery()
     {
@@ -341,6 +361,8 @@ public class InventoryServiceTests
                 BuildRepoDiscoveryMock().Object));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void InventoryService_ThrowsOnNullRepoDiscovery()
     {
@@ -353,6 +375,8 @@ public class InventoryServiceTests
                 null!));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void AzureDevOpsWorkItemDiscoveryService_ThrowsOnNullStrategy()
     {
@@ -363,6 +387,8 @@ public class InventoryServiceTests
 
     // ── Repo discovery ────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task RunCaptureAsync_FinalEvent_IncludesRepoCount()
     {
@@ -380,6 +406,8 @@ public class InventoryServiceTests
         Assert.AreEqual(3, finalEvent.ReposCount, "Final event must carry the repo count");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task RunCaptureAsync_IntermediateEvents_HaveZeroRepoCount()
     {
@@ -398,6 +426,8 @@ public class InventoryServiceTests
             Assert.AreEqual(0, evt.ReposCount, "Intermediate events must have ReposCount = 0");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task RunCaptureAsync_ProjectWithNoRepos_ReportsZero()
     {
@@ -415,6 +445,8 @@ public class InventoryServiceTests
         Assert.AreEqual(0, finalEvent.ReposCount, "Zero repos must be reported as 0");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void AzureDevOpsRepoDiscoveryService_ThrowsOnNullClientFactory()
     {
@@ -457,6 +489,8 @@ public class InventoryServiceTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CountWorkItemsAsync_WithNoBaseQuery_PassesNullOptionsToStrategy()
     {
@@ -476,6 +510,8 @@ public class InventoryServiceTests
         Assert.IsNull(capturedOptions[0], "null baseQuery must pass null options to the strategy");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CountWorkItemsAsync_WithBaseQuery_PassesOptionsWithQueryToStrategy()
     {
@@ -495,6 +531,8 @@ public class InventoryServiceTests
         Assert.AreEqual(query, capturedOptions[0]!.BaseQuery, "BaseQuery must match the provided query");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CountWorkItemsAsync_StreamsCumulativeCountAndFinalCompleteSnapshot()
     {
@@ -525,6 +563,8 @@ public class InventoryServiceTests
         Assert.IsFalse(capturedComplete[0], "Intermediate snapshots must not be marked complete");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CountWorkItemsAsync_EmptyProject_YieldsOnlyFinalCompleteSnapshot()
     {
@@ -550,6 +590,8 @@ public class InventoryServiceTests
 
     // ── T020: Filter scope unions fields with System.Rev in DiscoverWorkItemsAsync ──
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task DiscoverWorkItemsAsync_WithFilterScope_UnionsFieldsWithSystemRev()
     {
@@ -583,6 +625,8 @@ public class InventoryServiceTests
         CollectionAssert.Contains(capturedScope.Fields.ToList(), "System.Rev");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task DiscoverWorkItemsAsync_WithNoScope_UsesSystemRevAndAreaPathFields()
     {
@@ -614,6 +658,8 @@ public class InventoryServiceTests
 
     // ── Resume: completed project keys are skipped ────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task RunCaptureAsync_CompletedProjectKeys_SkipsThoseProjects()
     {
@@ -673,6 +719,8 @@ public class InventoryServiceTests
         Assert.AreEqual("ProjectB", finalEvents[0].ProjectName);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task RunCaptureAsync_NullCompletedKeys_ProcessesAllProjects()
     {
@@ -689,6 +737,8 @@ public class InventoryServiceTests
         Assert.AreEqual(2, events.Count, "Fresh run should yield all events");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task RunCaptureAsync_AllConnectorTypes_ReturnAtLeastTwoItems()
     {
@@ -733,6 +783,8 @@ public class InventoryServiceTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task RunCaptureAsync_StreamsProgressWithoutMaterialisingAllResults()
     {

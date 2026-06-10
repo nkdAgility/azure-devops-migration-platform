@@ -109,10 +109,8 @@ public class NodeTranslationValidatorTests
 
 
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
-
-
     [TestMethod]
 
     public async Task ValidateAsync_AllPathsMapped_ReturnsValidReport()
@@ -159,10 +157,8 @@ public class NodeTranslationValidatorTests
 
 
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
-
-
     [TestMethod]
 
     public async Task ValidateAsync_ExternalPath_ReportsUnanchored()
@@ -195,10 +191,8 @@ public class NodeTranslationValidatorTests
 
 
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
-
-
     [TestMethod]
 
     public async Task ValidateAsync_SourceProjectPath_AutoSwapped_ReturnsValid()
@@ -231,10 +225,8 @@ public class NodeTranslationValidatorTests
 
 
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
-
-
     [TestMethod]
 
     public async Task ValidateAsync_NoArtifact_ReturnsValidEmptyReport()
@@ -261,10 +253,8 @@ public class NodeTranslationValidatorTests
 
 
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
-
-
     [TestMethod]
 
     public async Task ValidateAsync_InvalidRegexPattern_ReportsMalformed()
@@ -321,10 +311,8 @@ public class NodeTranslationValidatorTests
 
 
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
-
-
     [TestMethod]
 
     public async Task ValidateAsync_EmptyArtifact_ReturnsValidReport()
@@ -351,10 +339,8 @@ public class NodeTranslationValidatorTests
 
 
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
-
-
     [TestMethod]
 
     public async Task ValidateAsync_MultipleExternalPaths_AllReported()

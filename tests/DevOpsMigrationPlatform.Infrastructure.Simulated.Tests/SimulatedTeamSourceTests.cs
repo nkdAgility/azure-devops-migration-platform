@@ -14,6 +14,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Tests;
 [TestClass]
 public class SimulatedTeamSourceTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task EnumerateTeamsAsync_ReturnsDeterministicTeams()
     {
@@ -30,6 +32,8 @@ public class SimulatedTeamSourceTests
             Assert.AreEqual(first[i].Id, second[i].Id, $"Id mismatch at index {i}");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task EnumerateTeamsAsync_AllTeamsHaveRequiredFields()
     {
@@ -48,6 +52,8 @@ public class SimulatedTeamSourceTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task EnumerateTeamsAsync_ContainsDefaultTeam()
     {
@@ -61,6 +67,8 @@ public class SimulatedTeamSourceTests
         Assert.IsTrue(teams.Exists(t => t.IsDefault), "Expected at least one default team");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetTeamSettingsAsync_ReturnsSettings()
     {
@@ -76,6 +84,8 @@ public class SimulatedTeamSourceTests
         Assert.IsFalse(string.IsNullOrEmpty(settings!.BacklogNavigationLevel), "BacklogNavigationLevel should be set");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetTeamIterationsAsync_ReturnsIterations()
     {
@@ -97,6 +107,8 @@ public class SimulatedTeamSourceTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetTeamMembersAsync_ReturnsMembers()
     {
@@ -118,6 +130,8 @@ public class SimulatedTeamSourceTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetTeamAreaPathsAsync_ReturnsAreaPaths()
     {

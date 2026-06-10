@@ -10,6 +10,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.ProjectLifecycle;
 [TestClass]
 public sealed class ProjectLifecycleArchitectureBoundaryTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void LifecycleTypes_AreScopedToAgentAndConnectorAssemblies()
     {

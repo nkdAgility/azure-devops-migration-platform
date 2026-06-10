@@ -31,6 +31,8 @@ public class ConfigSetCommandTests
             Directory.Delete(_tempDir, recursive: true);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteAsync_WithValidKey_SetsPreferenceAndReturnsZero()
     {
@@ -47,6 +49,8 @@ public class ConfigSetCommandTests
         Assert.AreEqual("/my/path", UserPreferencesService.Get("scenario-folder"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteAsync_WithUnknownKey_ReturnsOne()
     {
@@ -100,6 +104,8 @@ public class ConfigGetCommandTests
             Directory.Delete(_tempDir, recursive: true);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteAsync_WithSetKey_ReturnsZero()
     {
@@ -116,6 +122,8 @@ public class ConfigGetCommandTests
         Assert.AreEqual(0, result);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteAsync_WithUnsetSupportedKey_ReturnsZero()
     {
@@ -131,6 +139,8 @@ public class ConfigGetCommandTests
         Assert.AreEqual(0, result); // Unset but supported → 0 with warning
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteAsync_WithUnknownKey_ReturnsOne()
     {

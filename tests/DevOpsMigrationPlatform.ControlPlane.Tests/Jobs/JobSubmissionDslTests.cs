@@ -20,7 +20,8 @@ public sealed class JobSubmissionDslTests
 {
     // ── Scenario: Submit an export job ────────────────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Enqueue_ExportJob_IsInQueuedState()
     {
@@ -42,7 +43,8 @@ public sealed class JobSubmissionDslTests
 
     // ── Scenario: Submit an import job ────────────────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Enqueue_ImportJob_IsInQueuedState()
     {
@@ -64,7 +66,8 @@ public sealed class JobSubmissionDslTests
 
     // ── Scenario: Submit a both-mode job ─────────────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Enqueue_MigrateJob_IsInQueuedState()
     {
@@ -82,7 +85,8 @@ public sealed class JobSubmissionDslTests
 
     // ── Scenario: Dequeue a submitted job ─────────────────────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task DequeueAsync_AfterSubmittingExportJob_ReturnsMatchingJob()
     {

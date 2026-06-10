@@ -31,6 +31,8 @@ public class CheckpointingServiceTests
         _sut = new CheckpointingService(package: _mockPackage.Object);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadCursorAsync_WhenScopeCannotBeResolved_ThrowsInvalidOperationException()
     {
@@ -38,6 +40,8 @@ public class CheckpointingServiceTests
             () => _sut.ReadCursorAsync("workitems", CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WriteCursorAsync_WhenScopeCannotBeResolved_ThrowsInvalidOperationException()
     {
@@ -50,6 +54,8 @@ public class CheckpointingServiceTests
             }, CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task DeleteCursorAsync_WhenModeProvidesAction_DeletesProjectScopedKey()
     {
@@ -71,6 +77,8 @@ public class CheckpointingServiceTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task DeleteContinuationTokenAsync_WhenModeProvidesAction_DeletesProjectScopedKey()
     {
@@ -92,6 +100,8 @@ public class CheckpointingServiceTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task DeleteCursorAsync_WhenOnlyPackageConfigProvidesSimulatedProjectScope_DeletesConfiguredProjectScopedKey()
     {
@@ -115,6 +125,8 @@ public class CheckpointingServiceTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task DeleteCursorAsync_WhenOnlyTargetConfigProvidesSimulatedProjectScope_DeletesConfiguredProjectScopedKey()
     {
@@ -138,6 +150,8 @@ public class CheckpointingServiceTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task DeleteContinuationTokenAsync_WhenOnlyPackageConfigProvidesSimulatedProjectScope_DeletesConfiguredProjectScopedKey()
     {
@@ -161,6 +175,8 @@ public class CheckpointingServiceTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task DeleteCursorAsync_WhenProjectScopeCannotYetBeResolved_DoesNothing()
     {
@@ -178,6 +194,8 @@ public class CheckpointingServiceTests
         _mockPackage.Verify(p => p.ResetMetaAsync(It.IsAny<PackageMetaContext>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadCursorAsync_WhenActionQualified_UsesProjectScopedKey()
     {
@@ -202,6 +220,8 @@ public class CheckpointingServiceTests
         Assert.AreEqual(entry.Stage, result.Stage);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadCursorAsync_WhenLiveSourceHasProjectButNoUrl_UsesConnectorScopedKey()
     {
@@ -226,6 +246,8 @@ public class CheckpointingServiceTests
         Assert.AreEqual(entry.Stage, result.Stage);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadCursorAsync_WhenOnlySourceConfigProvidesSimulatedProjectScope_UsesConfiguredProjectScopedKey()
     {
@@ -256,6 +278,8 @@ public class CheckpointingServiceTests
         Assert.AreEqual(entry.Stage, result.Stage);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadCursorAsync_WhenActionQualifiedKeyIsMissing_DoesNotProbeLegacyRootKeys()
     {
@@ -274,6 +298,8 @@ public class CheckpointingServiceTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadContinuationTokenAsync_WhenActionQualifiedKeyIsMissing_DoesNotProbeLegacyRootKeys()
     {
@@ -292,6 +318,8 @@ public class CheckpointingServiceTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WriteCursorAsync_WhenActionQualified_WritesProjectScopedKey()
     {
@@ -315,6 +343,8 @@ public class CheckpointingServiceTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WriteContinuationTokenAsync_WhenActionQualified_WritesProjectScopedKey()
     {
@@ -339,6 +369,8 @@ public class CheckpointingServiceTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadCursorAsync_WhenPackageBoundaryIsAvailable_ReadsViaPackageContextPath()
     {
@@ -364,6 +396,8 @@ public class CheckpointingServiceTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WriteCursorAsync_WhenPackageBoundaryIsAvailable_WritesViaPackageContextPath()
     {
@@ -387,6 +421,8 @@ public class CheckpointingServiceTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadContinuationTokenAsync_WhenPackageBoundaryIsAvailable_ReadsViaPackageContextPath()
     {
@@ -413,6 +449,8 @@ public class CheckpointingServiceTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WriteContinuationTokenAsync_WhenPackageBoundaryIsAvailable_WritesViaPackageContextPath()
     {

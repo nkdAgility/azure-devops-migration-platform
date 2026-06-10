@@ -31,6 +31,8 @@ public class MigrationPlatformOptionsValidatorTests
 
     // ── Passing cases ─────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_ValidExportConfig_Succeeds()
     {
@@ -38,6 +40,8 @@ public class MigrationPlatformOptionsValidatorTests
         Assert.IsTrue(result.Succeeded);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_ValidImportConfig_Succeeds()
     {
@@ -55,6 +59,8 @@ public class MigrationPlatformOptionsValidatorTests
         Assert.IsTrue(Sut().Validate(null, opts).Succeeded);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_ValidMigrateConfig_Succeeds()
     {
@@ -70,6 +76,8 @@ public class MigrationPlatformOptionsValidatorTests
 
     // ── Mode ─────────────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_EmptyMode_FailsWithModeInMessage()
     {
@@ -80,6 +88,8 @@ public class MigrationPlatformOptionsValidatorTests
         StringAssert.Contains(result.FailureMessage, "Mode");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_WhitespaceMode_FailsWithModeInMessage()
     {
@@ -90,6 +100,8 @@ public class MigrationPlatformOptionsValidatorTests
         StringAssert.Contains(result.FailureMessage, "Mode");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_UnrecognisedMode_FailsWithModeInMessage()
     {
@@ -102,6 +114,8 @@ public class MigrationPlatformOptionsValidatorTests
 
     // ── Source / Target ───────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_ExportModeWithoutSource_FailsWithSourceInMessage()
     {
@@ -112,6 +126,8 @@ public class MigrationPlatformOptionsValidatorTests
         StringAssert.Contains(result.FailureMessage, "Source");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_MigrateModeWithoutSource_FailsWithSourceInMessage()
     {
@@ -124,6 +140,8 @@ public class MigrationPlatformOptionsValidatorTests
         StringAssert.Contains(result.FailureMessage, "Source");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_ImportModeWithoutTarget_FailsWithTargetInMessage()
     {
@@ -138,6 +156,8 @@ public class MigrationPlatformOptionsValidatorTests
         StringAssert.Contains(result.FailureMessage, "Target");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_MigrateModeWithoutTarget_FailsWithTargetInMessage()
     {
@@ -149,6 +169,8 @@ public class MigrationPlatformOptionsValidatorTests
         StringAssert.Contains(result.FailureMessage, "Target");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_InventoryModeWithoutOrganisations_FailsWithOrganisationsInMessage()
     {
@@ -164,6 +186,8 @@ public class MigrationPlatformOptionsValidatorTests
 
     // ── Package ───────────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_EmptyPackagePath_FailsWithPackageInMessage()
     {
@@ -174,6 +198,8 @@ public class MigrationPlatformOptionsValidatorTests
         StringAssert.Contains(result.FailureMessage, "Package");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_WhitespacePackagePath_FailsWithPackageInMessage()
     {
@@ -186,6 +212,8 @@ public class MigrationPlatformOptionsValidatorTests
 
     // ── Multiple errors reported together ────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_MultipleErrors_AllReportedInSingleResult()
     {
@@ -202,6 +230,8 @@ public class MigrationPlatformOptionsValidatorTests
 
     // ── Source type validation ────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_SourceTypeAzureDevOpsServices_Succeeds()
     {
@@ -210,6 +240,8 @@ public class MigrationPlatformOptionsValidatorTests
         Assert.IsTrue(Sut().Validate(null, opts).Succeeded);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_SourceTypeTeamFoundationServer_Succeeds()
     {
@@ -218,6 +250,8 @@ public class MigrationPlatformOptionsValidatorTests
         Assert.IsTrue(Sut().Validate(null, opts).Succeeded);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_SourceTypeUnknown_FailsWithSourceTypeInMessage()
     {
@@ -228,6 +262,8 @@ public class MigrationPlatformOptionsValidatorTests
         StringAssert.Contains(result.FailureMessage, "Source.Type");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_SourceTypeEmpty_FailsWithSourceTypeInMessage()
     {
@@ -240,6 +276,8 @@ public class MigrationPlatformOptionsValidatorTests
 
     // ── Target type validation — TFS is never a valid target ─────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_TargetTypeAzureDevOpsServices_Succeeds()
     {
@@ -257,6 +295,8 @@ public class MigrationPlatformOptionsValidatorTests
         Assert.IsTrue(Sut().Validate(null, opts).Succeeded);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_TargetTypeTeamFoundationServer_FailsWithTargetTypeInMessage()
     {
@@ -277,6 +317,8 @@ public class MigrationPlatformOptionsValidatorTests
         StringAssert.Contains(result.FailureMessage, "TeamFoundationServer");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_TargetTypeUnknown_FailsWithTargetTypeInMessage()
     {
@@ -298,6 +340,8 @@ public class MigrationPlatformOptionsValidatorTests
 
     // ── Modules is optional ──────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_DefaultModules_Succeeds()
     {

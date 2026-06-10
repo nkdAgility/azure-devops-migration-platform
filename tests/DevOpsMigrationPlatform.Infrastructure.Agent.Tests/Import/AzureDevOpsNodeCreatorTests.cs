@@ -23,6 +23,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Import;
 [TestClass]
 public class AzureDevOpsNodeCreatorTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task NodeExistsAsync_WhenClassificationNodeExists_ReturnsTrue()
     {
@@ -67,6 +69,8 @@ public class AzureDevOpsNodeCreatorTests
             Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task NodeExistsAsync_WhenClassificationNodeDoesNotExist_ReturnsFalse()
     {
@@ -111,6 +115,8 @@ public class AzureDevOpsNodeCreatorTests
             Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnsureExistsAsync_AreaPath_CreatesMissingHierarchyWithClassificationNodesApi()
     {
@@ -164,6 +170,8 @@ public class AzureDevOpsNodeCreatorTests
         Assert.AreEqual((TreeStructureGroup.Areas, @"Platform", "Backend"), created[1]);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnsureExistsAsync_IterationPath_CreatesMissingHierarchyWithClassificationNodesApi()
     {
@@ -217,6 +225,8 @@ public class AzureDevOpsNodeCreatorTests
         Assert.AreEqual((TreeStructureGroup.Iterations, @"Program Increment", "Sprint 1"), created[1]);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnsureExistsAsync_SlashSeparatedPath_CreatesFullHierarchyWithCorrectParents()
     {
@@ -268,6 +278,8 @@ public class AzureDevOpsNodeCreatorTests
         Assert.AreEqual((TreeStructureGroup.Areas, @"Platform\API", "Web"), created[2]);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnsureExistsAsync_PathWithTrailingSeparator_DoesNotCreateEmptyLeafNode()
     {

@@ -21,6 +21,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 [TestClass]
 public sealed class PackageBoundaryErrorObservabilityTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PersistAsync_WhenStoreWriteFails_EmitsErrorMetricAndStructuredErrorLog()
     {

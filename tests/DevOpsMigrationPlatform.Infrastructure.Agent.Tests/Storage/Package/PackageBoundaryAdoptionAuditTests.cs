@@ -15,6 +15,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 [TestClass]
 public sealed class PackageBoundaryAdoptionAuditTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BoundaryOperations_OnlyWriteRouterResolvedPaths()
     {

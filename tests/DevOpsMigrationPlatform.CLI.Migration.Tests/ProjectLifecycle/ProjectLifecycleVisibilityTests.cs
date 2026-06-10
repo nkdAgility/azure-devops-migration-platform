@@ -12,6 +12,8 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.ProjectLifecycle;
 [TestClass]
 public sealed class ProjectLifecycleVisibilityTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ProgressEmitter_ContainsRunCorrelationFields()
     {

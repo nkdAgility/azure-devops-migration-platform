@@ -68,8 +68,9 @@ public class ExclusivePackageLockTests
 
     // ── Scenario 1: Second agent is hard-bounced when live lock exists ─────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task AcquireLockAsync_WhenLiveLockExists_SecondAgentReceivesPackageLockConflictException()
     {
         // Arrange: first agent acquires the lock
@@ -103,8 +104,9 @@ public class ExclusivePackageLockTests
 
     // ── Scenario 2: Stale lock is replaced and agent proceeds normally ─────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task AcquireLockAsync_WhenStaleLockExists_StaleLockReplacedAndNewAgentAcquires()
     {
         // Arrange: write a stale lock file
@@ -153,8 +155,9 @@ public class ExclusivePackageLockTests
 
     // ── Scenario 3: Lock is released when job completes ───────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task AcquireLockAsync_WhenDisposed_LockFileNoLongerExists()
     {
         // Arrange

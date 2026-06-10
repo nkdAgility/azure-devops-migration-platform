@@ -23,7 +23,6 @@ using Moq;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Identity;
 
 [TestClass]
-[TestCategory("UnitTests")]
 public sealed class IdentitiesOrchestratorPrepareTests
 {
     private const string Org = "test";
@@ -87,6 +86,8 @@ public sealed class IdentitiesOrchestratorPrepareTests
     private static IdentityDescriptor Descriptor(string descriptor, string displayName, string uniqueName) =>
         new(descriptor, displayName, uniqueName, SourceType: "user", Origin: "aad", IsActive: true);
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareAsync_UpnMatch_CachesResolvedTarget()
     {
@@ -104,6 +105,8 @@ public sealed class IdentitiesOrchestratorPrepareTests
         Assert.AreEqual("tgt-bob", orchestrator.ResolvePrepared("src-bob"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareAsync_DisplayNameMatch_WhenNoUpn_CachesResolvedTarget()
     {
@@ -122,6 +125,8 @@ public sealed class IdentitiesOrchestratorPrepareTests
         Assert.AreEqual("tgt-alice", orchestrator.ResolvePrepared("alice@source.com"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareAsync_AmbiguousDisplayName_LeavesUnresolved()
     {
@@ -142,6 +147,8 @@ public sealed class IdentitiesOrchestratorPrepareTests
         Assert.IsNull(orchestrator.ResolvePrepared("john@source.com"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareAsync_AdapterThrows_ContinuesAndLeavesUnresolved()
     {
@@ -160,6 +167,8 @@ public sealed class IdentitiesOrchestratorPrepareTests
         Assert.IsNull(orchestrator.ResolvePrepared("err@source.com"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareAsync_WritesPrepareReport_WithCounts()
     {
@@ -190,8 +199,9 @@ public sealed class IdentitiesOrchestratorPrepareTests
 
     // ── prepare-phase feature family ─────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task PrepareAsync_AllIdentitiesResolved_ProducesMappingCandidatesReport()
     {
         // Scenario: Prepare discovers target identities and produces mapping candidates
@@ -228,8 +238,9 @@ public sealed class IdentitiesOrchestratorPrepareTests
         Assert.AreEqual(0, doc.RootElement.GetProperty("unresolvedCount").GetInt32());
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public async Task PrepareAsync_SomeUnmatchable_ReportsUnresolvedCount()
     {
         // Scenario: Prepare writes unresolved identities for unmatchable entries

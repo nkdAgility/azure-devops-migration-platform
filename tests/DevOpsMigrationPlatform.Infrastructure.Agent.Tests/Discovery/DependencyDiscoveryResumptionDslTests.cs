@@ -31,7 +31,8 @@ public sealed class DependencyDiscoveryResumptionDslTests
     // And "ProjectA" should not be re-analysed
     // And the final event stream should include all projects
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task DiscoverDependenciesAsync_WhenProjectAAlreadyCompleted_SkipsProjectAAndYieldsHeartbeat()
     {
@@ -122,6 +123,7 @@ public sealed class DependencyDiscoveryResumptionDslTests
             string? wiqlFilter = null,
             BatchContinuationToken? savedContinuationToken = null,
             Func<BatchContinuationToken, CancellationToken, Task>? continuationCheckpointWriter = null,
+            IReadOnlyList<WorkItemFieldFilterOptions>? fieldFilters = null,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             _analysedProjects.Add(project);

@@ -23,9 +23,9 @@ public class MigrationExportCommandTests
     /// as a subprocess — the exact same invocation as the VS Code launch profile — then
     /// asserts the exit code, the success message, and the output folder contents.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
+    [TestMethod]
     public async Task Export_ADO_WritesRevisions()
     {
         // ── Guard ─────────────────────────────────────────────────────────
@@ -117,9 +117,9 @@ public class MigrationExportCommandTests
     /// 3. Image URLs in revision.json are rewritten to relative paths
     /// 4. Comment images are stored beside comment.json inside the comment subfolder
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
+    [TestMethod]
     public async Task Export_ADO_WritesComments()
     {
         // ── Guard ─────────────────────────────────────────────────────────

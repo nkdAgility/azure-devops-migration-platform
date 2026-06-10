@@ -9,6 +9,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.ProjectLifecycle;
 [TestClass]
 public sealed class ProjectLifecycleRecordTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void CreateFailed_CapturesFailureReasonAndSkippedTeardown()
     {
@@ -26,6 +28,8 @@ public sealed class ProjectLifecycleRecordTests
         Assert.AreEqual("permission denied", record.CreateFailureReason);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Record_AllowsBlockingReasonAndPartialCleanupDetails()
     {

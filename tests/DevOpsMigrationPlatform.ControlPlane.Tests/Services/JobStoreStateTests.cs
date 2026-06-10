@@ -11,7 +11,6 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.ControlPlane.Tests.Services;
 
 [TestClass]
-[TestCategory("UnitTest")]
 public class JobStoreStateTests
 {
     private static Job CreateJob(string id) =>
@@ -21,6 +20,8 @@ public class JobStoreStateTests
             Kind = JobKind.Export
         };
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Enqueue_SetsInitialStateToQueued()
     {
@@ -36,6 +37,8 @@ public class JobStoreStateTests
         Assert.AreEqual("Queued", record.State);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void SetState_Leased_TransitionsFromQueued()
     {
@@ -51,6 +54,8 @@ public class JobStoreStateTests
         Assert.AreEqual("Leased", record.State);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void SetState_Running_TransitionsFromLeased()
     {
@@ -67,6 +72,8 @@ public class JobStoreStateTests
         Assert.AreEqual("Running", record.State);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void SetState_Completed_TransitionsFromRunning()
     {
@@ -84,6 +91,8 @@ public class JobStoreStateTests
         Assert.AreEqual("Completed", record.State);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void SetState_Failed_TransitionsFromRunning()
     {
@@ -101,6 +110,8 @@ public class JobStoreStateTests
         Assert.AreEqual("Failed", record.State);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void GetAllRecords_ReturnsAllJobsWithState()
     {

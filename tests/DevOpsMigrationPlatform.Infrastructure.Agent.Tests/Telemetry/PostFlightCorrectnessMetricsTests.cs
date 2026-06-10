@@ -75,8 +75,9 @@ public class PostFlightCorrectnessMetricsTests
     /// then the migration.revisions.missing counter equals 0
     /// and the migration.revision.delta histogram has a mean of 0.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void PostFlightValidation_MatchingRevisionCounts_ProducesZeroMissingAndZeroDelta()
     {
         const int workItemCount = 20;
@@ -119,8 +120,9 @@ public class PostFlightCorrectnessMetricsTests
     /// then the migration.revisions.missing counter equals 2
     /// and the migration.revision.delta histogram records negative values for the affected items.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void PostFlightValidation_FewerTargetRevisions_IncrementsRevisionsMissingCounter()
     {
         const int workItemCount = 20;
@@ -169,8 +171,9 @@ public class PostFlightCorrectnessMetricsTests
     /// when post-flight validation runs,
     /// then the migration.workitems.broken_links counter equals 3.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void PostFlightValidation_BrokenLinks_AreDetectedAndCounted()
     {
         const int workItemCount = 20;
@@ -209,8 +212,9 @@ public class PostFlightCorrectnessMetricsTests
     /// when post-flight validation runs,
     /// then no correctness metrics are emitted.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void PostFlightValidation_SampleRateZero_EmitsNoCorrectnessMetrics()
     {
         using var sut = new PlatformMetrics();

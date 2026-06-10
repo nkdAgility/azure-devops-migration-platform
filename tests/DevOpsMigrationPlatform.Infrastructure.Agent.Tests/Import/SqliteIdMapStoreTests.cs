@@ -41,6 +41,8 @@ public class SqliteIdMapStoreTests
 
     // ── InitializeAsync_CreatesTablesIfNotExists ──────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task InitializeAsync_CreatesTablesIfNotExists()
     {
@@ -54,6 +56,8 @@ public class SqliteIdMapStoreTests
 
     // ── GetTargetWorkItemIdAsync_WhenNotMapped_ReturnsNull ────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetTargetWorkItemIdAsync_WhenNotMapped_ReturnsNull()
     {
@@ -67,6 +71,8 @@ public class SqliteIdMapStoreTests
 
     // ── SetWorkItemMappingAsync_ThenGet_ReturnsTargetId ───────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SetWorkItemMappingAsync_ThenGet_ReturnsTargetId()
     {
@@ -81,6 +87,8 @@ public class SqliteIdMapStoreTests
 
     // ── SetWorkItemMappingAsync_WhenCalledTwice_UpdatesExisting ───────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SetWorkItemMappingAsync_WhenCalledTwice_UpdatesExistingEntry()
     {
@@ -96,6 +104,8 @@ public class SqliteIdMapStoreTests
 
     // ── GetAttachmentIdAsync_WhenNotMapped_ReturnsNull ────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetAttachmentIdAsync_WhenNotMapped_ReturnsNull()
     {
@@ -109,6 +119,8 @@ public class SqliteIdMapStoreTests
 
     // ── SetAttachmentMappingAsync_ThenGet_ReturnsAttachmentId ─────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SetAttachmentMappingAsync_ThenGet_ReturnsAttachmentId()
     {
@@ -123,6 +135,8 @@ public class SqliteIdMapStoreTests
 
     // ── SeedWorkItemMappingsAsync_SeededEntriesAreQueryable ───────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SeedWorkItemMappingsAsync_SeededEntriesAreQueryable()
     {
@@ -145,6 +159,8 @@ public class SqliteIdMapStoreTests
 
     // ── SeedWorkItemMappingsAsync_DoesNotOverwriteExistingEntry ──────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SeedWorkItemMappingsAsync_DoesNotOverwriteExistingEntry()
     {
@@ -162,6 +178,8 @@ public class SqliteIdMapStoreTests
         Assert.AreEqual(50, result, "Existing mapping should not be overwritten by seed.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SeedWorkItemMappingsAsync_WhenDuplicateCandidatesExist_UsesDeterministicFirstMapping()
     {
@@ -183,6 +201,8 @@ public class SqliteIdMapStoreTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SeedWorkItemMappingsAsync_WhenCacheRebuildRunsAgain_PreservesResumeEquivalentMappings()
     {

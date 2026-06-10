@@ -45,46 +45,30 @@ There is no executing baseline, so behaviour parity against prior tests is not a
 
 ## Scenario Retirement Gate
 
-- Scenario-level retirement is allowed during conversion, but only for scenarios whose mapped code-first tests are already passing.
-- If a scenario's mapped test is failing or unresolved, keep that scenario in the `.feature` file.
-- Record, per scenario row in `00-scenario-test-inventory.md`, whether it is retained or retired, with test evidence.
-- If all scenarios in a family have been retired, mark the `.feature` file as eligible for deletion; actual file deletion occurs only in verification after overall `PASS`.
+- A scenario is retired from the `.feature` file when its mapped DSL test is **passing**.
+- A scenario whose test is failing must have its production code fixed until the test passes — only then is it retired.
+- Record, per scenario row in `00-scenario-test-inventory.md`, whether it is retained or retired, with test evidence (`path:line`).
+- All scenarios must be retired by end of conversion. If all scenarios are retired, mark the `.feature` file as eligible for deletion; actual file deletion occurs only in verification after overall `PASS`.
 
-## Gap Logging
+## Completion Standard
 
-Any scenario that cannot be converted MUST be logged in `analysis/dsl-gaps-detected.md` before `04-conversion-summary.md` is finalised. Do not leave a retained scenario undocumented.
+Every scenario in the `.feature` file MUST result in a passing DSL test. There is no other acceptable outcome.
 
-For each retained scenario, append an entry using this format:
+Per the project guardrails (`definition-of-done.md`, `testing-rules.md`):
+- `[Ignore]` is banned. Never add it.
+- `Assert.Inconclusive` is banned. Never add it.
+- A failing test is not acceptable output — fix the production code until the test passes.
+- Retaining a scenario in the `.feature` file because the test is hard to write is not acceptable.
 
-```markdown
-## GAP-NNN: <family> — <scenario title>
-
-**File:** `<feature file path>`
-**Scenario:** `<scenario title>`
-**Family:** `<family>`
-**Wiring:** `<wired|miswired|unwired>`
-**Gap type:** `<gap-type from reference table>`
-**Detected:** `<ISO date>`
-**Status:** OPEN
-
-### Engineering detail
-
-<Specific, actionable description of why this scenario cannot be converted.
-Reference exact file paths and line numbers where relevant. State what
-would need to change to unblock conversion.>
-```
-
-Gap number (`NNN`) must be unique — scan `analysis/dsl-gaps-detected.md` for the highest existing number and increment.
+**If production code is missing: implement it** — following all guardrails (coding-standards.md, architecture-boundaries.md, DI wiring rules).
+**If a seam or interface is missing: create it** — following the canonical seam patterns in the guardrails.
+**If a DI binding is missing: add it** — register in the correct host startup extension.
+**If production behaviour conflicts with the scenario intent: fix the production behaviour** — the scenario describes the correct behaviour.
+**If a subprocess cannot be intercepted: introduce the abstraction** that makes it interceptable, then wire it through DI.
 
 ## Stop Conditions
 
-Stop and report if:
+Stop and report ONLY if:
 
-- behaviour parity cannot be shown for a `wired` family
-- for a `miswired`/`unwired` family, an assertion cannot be confirmed against observed production behaviour, or feature intent conflicts with actual behaviour
-- conversion requires unplanned production behaviour changes
-- failures cannot be resolved in scope
-- only pipeline-phase grouping (Inventory/Export/Import/Validate style) is available and business-focused grouping cannot be established
-- missing-step intent cannot be inferred with enough confidence to create a deterministic behaviour test
-- any scenario in `00-scenario-test-inventory.md` remains `unmatched` after conversion
-- converted tests are missing required tags or have non-compliant tags
+- a scenario's intent is genuinely ambiguous and cannot be resolved by reading the feature file, the DSL design, and the production code together — ask for clarification rather than guessing
+- converted tests are missing required tags or have non-compliant tags (fix the tags, then continue)

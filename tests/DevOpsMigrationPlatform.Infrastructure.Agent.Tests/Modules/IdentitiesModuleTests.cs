@@ -109,7 +109,8 @@ public class IdentitiesModuleTests
         };
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_WritesDescriptorsJsonl_WhenIdentitiesExist()
     {
@@ -146,7 +147,8 @@ public class IdentitiesModuleTests
         Assert.AreEqual(2, lines.Length);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_Skips_WhenModuleDisabled()
     {
@@ -162,7 +164,8 @@ public class IdentitiesModuleTests
         storeMock.VerifyNoOtherCalls();
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_Skips_WhenNoIdentitySourceRegistered()
     {
@@ -177,7 +180,8 @@ public class IdentitiesModuleTests
         storeMock.VerifyNoOtherCalls();
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_LogsWhenDescriptorsMissing()
     {
@@ -198,7 +202,8 @@ public class IdentitiesModuleTests
             Times.AtLeastOnce());
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ImportAsync_LoadsMappingWhenDescriptorsPresent()
     {
@@ -225,7 +230,8 @@ public class IdentitiesModuleTests
             Times.AtLeastOnce());
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenDescriptorsFileMissing()
     {
@@ -243,7 +249,8 @@ public class IdentitiesModuleTests
         StringAssert.Contains(context.Errors[0].Message, "descriptors.jsonl");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenDescriptorsContainsMalformedJson()
     {
@@ -264,7 +271,8 @@ public class IdentitiesModuleTests
         StringAssert.Contains(context.Errors[0].Message, "malformed");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenDescriptorFieldMissing()
     {
@@ -282,7 +290,8 @@ public class IdentitiesModuleTests
         StringAssert.Contains(context.Errors[0].Message, "descriptor");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_PassesForValidDescriptors()
     {
@@ -307,8 +316,9 @@ public class IdentitiesModuleTests
 
     // ── T024g: Prepare/Mapping resilience tests ───────────────────────────────
 
-    [TestMethod]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
+    [TestMethod]
     public async Task ImportAsync_CompletesWithoutThrowing_WhenMappingJsonAbsent()
     {
         // Arrange — descriptors present, mapping.json missing
@@ -334,8 +344,9 @@ public class IdentitiesModuleTests
     // TODO: [test-validity] Score 14/25 — No assertions beyond "no exception thrown". Rewrite to test:
     // assert that the identity mapping service has zero entries loaded when both files are absent (first-run state
     // is verifiably empty), or assert that IProgressSink emits a structured warning when descriptors are missing.
-    [TestMethod]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
+    [TestMethod]
     public async Task ImportAsync_CompletesWithoutThrowing_WhenBothDescriptorsAndMappingAbsent()
     {
         // Arrange — store returns null for everything
@@ -355,8 +366,9 @@ public class IdentitiesModuleTests
     // TODO: [test-validity] Score 12/25 — No assertions beyond "no exception thrown". Rewrite to test:
     // after ImportAsync runs with a mapping.json present, assert that IIdentityMappingService.Resolve("desc-1")
     // returns "alice@target.com" (verify the mapping was actually applied, not just loaded without error).
-    [TestMethod]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
+    [TestMethod]
     public async Task ImportAsync_AppliesMapping_WhenBothDescriptorsAndMappingPresent()
     {
         // Arrange

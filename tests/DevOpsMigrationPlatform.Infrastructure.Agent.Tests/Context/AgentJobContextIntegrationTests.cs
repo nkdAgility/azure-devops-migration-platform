@@ -14,6 +14,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class AgentJobContextIntegrationTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_LogsDebugWithModeAndConfigVersion_NotPackagePath()
     {
@@ -67,6 +69,8 @@ public sealed class AgentJobContextIntegrationTests
         Assert.IsFalse(combinedLog.Contains(@"C:\abs\path\package"), "Log must NOT contain the actual package path value");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_LogsDebugWithStructuredParams_NotStringInterpolation()
     {
@@ -110,6 +114,8 @@ public sealed class AgentJobContextIntegrationTests
             $"Expected structured param ConfigVersion=3.1, got: {stateStr}");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ActiveJobAgentJobContext_UsesExplicitCurrentContext_WhenAvailable()
     {
@@ -128,6 +134,8 @@ public sealed class AgentJobContextIntegrationTests
         Assert.AreEqual("2.0", context.ConfigVersion);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ActiveJobAgentJobContext_ReturnsEmptyValues_WhenNoCurrentContextExists()
     {
@@ -139,6 +147,8 @@ public sealed class AgentJobContextIntegrationTests
         Assert.AreEqual(string.Empty, context.ConfigVersion);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ActiveJobSourceEndpointInfo_UsesExplicitCurrentSourceEndpoint_WhenAvailable()
     {
@@ -161,6 +171,8 @@ public sealed class AgentJobContextIntegrationTests
         Assert.AreEqual("https://source.example", endpoint.ToOrganisationEndpoint().ResolvedUrl);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ActiveJobTargetEndpointInfo_UsesExplicitCurrentTargetEndpoint_WhenAvailable()
     {
@@ -183,6 +195,8 @@ public sealed class AgentJobContextIntegrationTests
         Assert.AreEqual("https://target.example", endpoint.ToOrganisationEndpoint().ResolvedUrl);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ActiveJobSourceEndpointInfo_ReturnsEmptyValues_WhenNoCurrentSourceExists()
     {
@@ -195,6 +209,8 @@ public sealed class AgentJobContextIntegrationTests
         Assert.AreEqual(string.Empty, endpoint.ToOrganisationEndpoint().ResolvedUrl);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ActiveJobTargetEndpointInfo_ReturnsEmptyValues_WhenNoCurrentTargetExists()
     {

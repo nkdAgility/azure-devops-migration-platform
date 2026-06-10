@@ -15,6 +15,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Checkpointing;
 [TestClass]
 public class LegacyStateResumeCompatibilityTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadCursorAsync_WhenPackageBoundaryMisses_DoesNotFallBackToLegacyStateStorePath()
     {
@@ -43,6 +45,8 @@ public class LegacyStateResumeCompatibilityTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadContinuationTokenAsync_WhenPackageBoundaryMisses_DoesNotFallBackToLegacyStateStorePath()
     {

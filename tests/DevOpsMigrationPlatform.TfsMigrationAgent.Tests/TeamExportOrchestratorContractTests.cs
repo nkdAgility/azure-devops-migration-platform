@@ -7,9 +7,10 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests;
 
 [TestClass]
-[TestCategory("NET481")]
 public class TeamExportOrchestratorContractTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Type_IsAvailable_ForNet481Build()
     {

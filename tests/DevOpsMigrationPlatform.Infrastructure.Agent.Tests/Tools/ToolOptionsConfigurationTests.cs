@@ -17,6 +17,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Tools;
 [TestClass]
 public sealed class ToolOptionsConfigurationTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void FieldTransformToolServices_BindOptions_FromCurrentPackageConfigAccessor()
     {
@@ -40,6 +42,8 @@ public sealed class ToolOptionsConfigurationTests
         Assert.AreEqual("default", options.TransformGroups[0].Name);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void FieldTransformToolServices_RegisterFieldTransformOptionsValidator()
     {
@@ -63,6 +67,8 @@ public sealed class ToolOptionsConfigurationTests
         Assert.IsTrue(found, "Expected FieldTransformOptionsValidator to be registered in DI.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void IdentityTranslationToolServices_BindOptions_FromCurrentPackageConfigAccessor()
     {
@@ -85,6 +91,8 @@ public sealed class ToolOptionsConfigurationTests
         Assert.AreEqual("contoso.local", options.DefaultIdentity);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void NodeTranslationToolServices_BindOptions_FromCurrentPackageConfigAccessor()
     {

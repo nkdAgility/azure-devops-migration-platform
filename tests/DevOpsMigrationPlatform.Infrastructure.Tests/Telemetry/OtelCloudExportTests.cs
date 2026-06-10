@@ -26,8 +26,9 @@ public class OtelCloudExportTests
     // Scenario: OTLP exporter is registered when OTEL_EXPORTER_OTLP_ENDPOINT is set
     // ─────────────────────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void OtlpExporter_IsRegistered_WhenEndpointEnvVarIsSet()
     {
         // Arrange
@@ -59,8 +60,9 @@ public class OtelCloudExportTests
     // Scenario: Azure Monitor exporter is registered when AzureMonitorConnectionString is configured
     // ─────────────────────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void AzureMonitorExporter_IsRegistered_WhenConnectionStringIsConfigured()
     {
         // Arrange
@@ -91,8 +93,9 @@ public class OtelCloudExportTests
     // Scenario: No cloud exporter is registered when neither is configured
     // ─────────────────────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void NoOtlpExporter_WhenEndpointEnvVarIsAbsent()
     {
         // Arrange: empty configuration — no OTLP endpoint, no Azure Monitor connection string
@@ -116,8 +119,9 @@ public class OtelCloudExportTests
             "OTLP exporter descriptors should NOT be registered when OTEL_EXPORTER_OTLP_ENDPOINT is absent.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void NoAzureMonitorExporter_WhenConnectionStringIsAbsent()
     {
         // Arrange: empty configuration
@@ -145,8 +149,9 @@ public class OtelCloudExportTests
     // Scenario: SnapshotMetricExporter is always registered regardless of cloud configuration
     // ─────────────────────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void SnapshotMetricExporter_IsRegistered_WhenControlPlaneTelemetryServicesAdded()
     {
         // Arrange: the SnapshotMetricExporter is registered by AddControlPlaneTelemetryServices,
@@ -168,8 +173,9 @@ public class OtelCloudExportTests
             "IJobMetricsStore (prerequisite for SnapshotMetricExporter) must be resolvable from DI.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void IJobMetricsStore_IsResolvable_FromDiContainer()
     {
         // Arrange
@@ -189,8 +195,9 @@ public class OtelCloudExportTests
     // Scenario: Both OTLP and Azure Monitor exporters coexist when both are configured
     // ─────────────────────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("UnitTest")]
     public void BothExporters_AreRegistered_WhenBothAreConfigured()
     {
         // Arrange

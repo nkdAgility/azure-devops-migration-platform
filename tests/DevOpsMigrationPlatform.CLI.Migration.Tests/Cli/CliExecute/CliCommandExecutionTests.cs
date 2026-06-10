@@ -19,12 +19,9 @@ public sealed class CliCommandExecutionTests
     /// Extends the partial coverage in ConfigFlow_NoConfigSpecified_ErrorShown by
     /// exercising the explicit --config path variant.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("IntegrationTest")]
-    [TestCategory("cli-execute")]
-    [TestCategory("error-case")]
-    [TestCategory("discovery-inventory")]
     public async Task CliCommand_DiscoveryInventory_InvalidConfigPath_FailsGracefully()
     {
         await using var result = await CliExecuteScenario
@@ -34,7 +31,8 @@ public sealed class CliCommandExecutionTests
 
         result
             .AssertExitCodeNonZero()
-            .AssertOutputContains("Could not find file");
+            .AssertStderrContains("Could not find file")   // G1: tightened from AssertOutputContains
+            .AssertNoUnhandledException();                 // G2: added
     }
 
     // ── 2. Help text: --help flag ─────────────────────────────────────────────
@@ -42,11 +40,9 @@ public sealed class CliCommandExecutionTests
     /// <summary>
     /// Scenario 2: Help text displays correctly for the discovery inventory command.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("IntegrationTest")]
-    [TestCategory("cli-execute")]
-    [TestCategory("help-text")]
     public async Task CliCommand_DiscoveryInventory_HelpFlag_DisplaysHelpAndExitsZero()
     {
         await using var result = await CliExecuteScenario
@@ -66,12 +62,9 @@ public sealed class CliCommandExecutionTests
     /// <summary>
     /// Scenario 3: Commands handle missing required parameters gracefully.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    [TestCategory("IntegrationTest")]
-    [TestCategory("cli-execute")]
-    [TestCategory("error-case")]
-    [TestCategory("missing-params")]
     public async Task CliCommand_MissingRequiredParameters_ShowsErrorAndSuggestsHelp()
     {
         await using var result = await CliExecuteScenario
@@ -81,6 +74,8 @@ public sealed class CliCommandExecutionTests
 
         result
             .AssertExitCodeNonZero()
-            .AssertOutputContains("No configuration file");
+            .AssertStderrContains("No configuration file")  // G4: tightened from AssertOutputContains
+            .AssertHelpSuggested()                          // G3: added
+            .AssertNoUnhandledException();                  // G2: added
     }
 }

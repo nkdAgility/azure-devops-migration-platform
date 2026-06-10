@@ -71,7 +71,6 @@ internal static class TfsJobAgentWorkerTestHelper
 }
 
 [TestClass]
-[TestCategory("NET481")]
 public class TfsJobAgentWorkerTests
 {
     private Mock<IProgressSink> _progressSink = null!;
@@ -180,6 +179,8 @@ public class TfsJobAgentWorkerTests
 
     // ── Export Tests ──────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnMigrationJob_NullSource_SignalsFail()
     {
@@ -209,6 +210,8 @@ public class TfsJobAgentWorkerTests
             f => f.CreateForEndpoint(It.IsAny<MigrationEndpointOptions>()), Times.Never);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void SetImportEndpointContext_ResolvesAndTrimsEnvironmentBackedTargetUrl()
     {
@@ -250,6 +253,8 @@ public class TfsJobAgentWorkerTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnMigrationJob_NonExportMode_SignalsFail()
     {
@@ -275,6 +280,8 @@ public class TfsJobAgentWorkerTests
             f => f.CreateForEndpoint(It.IsAny<MigrationEndpointOptions>()), Times.Never);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnMigrationJob_ExportMode_CreatesServicesAndSignalsComplete()
     {
@@ -336,6 +343,8 @@ public class TfsJobAgentWorkerTests
             r.RequestUri!.PathAndQuery.Contains("/complete")));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnMigrationJob_ExportMode_UsesPackageBoundaryForPlanStatusUpdates()
     {
@@ -405,6 +414,8 @@ public class TfsJobAgentWorkerTests
             It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnMigrationJob_ExportMode_DoesNotFallbackToStateStoreWhenPackagePlanMissing()
     {
@@ -467,6 +478,8 @@ public class TfsJobAgentWorkerTests
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnMigrationJob_ForceFresh_DeletesCursor()
     {
@@ -525,6 +538,8 @@ public class TfsJobAgentWorkerTests
             Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnMigrationJob_FactoryThrows_SignalsFail()
     {
@@ -553,6 +568,8 @@ public class TfsJobAgentWorkerTests
 
     // ── Discovery Tests ──────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task OnDiscoveryJob_NullEndpoint_SignalsFail()
     {
@@ -575,6 +592,8 @@ public class TfsJobAgentWorkerTests
             r.RequestUri!.PathAndQuery.Contains("/fail")));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task OnDiscoveryJob_WithSource_StreamsCountsAndSignalsComplete()
     {
@@ -625,6 +644,8 @@ public class TfsJobAgentWorkerTests
             r.RequestUri!.PathAndQuery.Contains("/complete")));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Capabilities_ReturnsTfs()
     {
@@ -642,6 +663,8 @@ public class TfsJobAgentWorkerTests
     // Exercises PackageMigrationConfigLoader directly (InternalsVisibleTo granted) to confirm
     // Activity spans fire under the net481 runtime.
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PackageMigrationConfigLoader_LoadAsync_EmitsConfigReadSpan_Net481()
     {

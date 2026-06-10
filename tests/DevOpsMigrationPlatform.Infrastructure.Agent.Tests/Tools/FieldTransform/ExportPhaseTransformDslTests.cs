@@ -15,6 +15,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Tools.FieldTransfor
 [TestClass]
 public class ExportPhaseTransformDslTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void IsEnabledForPhase_WithEnabledExportConfiguration_ReturnsTrueForExport()
     {
@@ -27,6 +29,8 @@ public class ExportPhaseTransformDslTests
         result.ShouldBeEnabledForExport();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void IsEnabledForPhase_WithDisabledConfiguration_ReturnsFalseForExport()
     {
@@ -39,6 +43,8 @@ public class ExportPhaseTransformDslTests
         result.ShouldBeDisabledForExportAndImport();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void IsEnabledForPhase_WithEnabledConfiguration_ReturnsTrueForExportAndImport()
     {

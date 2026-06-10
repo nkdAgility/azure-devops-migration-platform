@@ -32,6 +32,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Prepare;
 [TestClass]
 public sealed class PrepareFeaturesDslTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Prepare_AllModulesEnabled_WritesReportPerModule_ForSimulated()
     {
@@ -45,6 +47,8 @@ public sealed class PrepareFeaturesDslTests
         result.ShouldContainReport("Teams/prepare-report.json");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Prepare_AllModulesEnabled_WritesReportPerModule_ForAzureDevOpsServices()
     {
@@ -58,6 +62,8 @@ public sealed class PrepareFeaturesDslTests
         result.ShouldContainReport("Teams/prepare-report.json");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Prepare_UnresolvedIdentities_CompletesWithWarningTelemetry_ForSimulated()
     {
@@ -69,6 +75,8 @@ public sealed class PrepareFeaturesDslTests
         result.ShouldReportWarningReadiness();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Prepare_UnresolvedIdentities_CompletesWithWarningTelemetry_ForAzureDevOpsServices()
     {
@@ -80,6 +88,8 @@ public sealed class PrepareFeaturesDslTests
         result.ShouldReportWarningReadiness();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Prepare_InMigratePipeline_RunsBeforeImport_ForSimulated()
     {
@@ -90,6 +100,8 @@ public sealed class PrepareFeaturesDslTests
         result.ShouldOrderExportBeforeImport();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Prepare_InMigratePipeline_RunsBeforeImport_ForAzureDevOpsServices()
     {
@@ -100,6 +112,8 @@ public sealed class PrepareFeaturesDslTests
         result.ShouldOrderExportBeforeImport();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Prepare_ModuleWithAnalyserDependsOn_HoistsAnalyseBeforePrepare()
     {
@@ -110,6 +124,8 @@ public sealed class PrepareFeaturesDslTests
         result.ShouldDeclareDependency("prepare.modulea", "analyse.inventory");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Prepare_TfsSourceOnlyModule_SkipsGracefullyWithWarning()
     {

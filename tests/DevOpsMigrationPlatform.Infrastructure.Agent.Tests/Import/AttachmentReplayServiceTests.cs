@@ -15,6 +15,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 [TestClass]
 public class AttachmentReplayServiceTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReplayAsync_UploadsUnmappedAttachment_AndPersistsMapping()
     {
@@ -57,6 +59,8 @@ public class AttachmentReplayServiceTests
         idMapStore.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReplayAsync_WhenAttachmentBinaryNotInEnumeratedSet_SkipsUpload()
     {

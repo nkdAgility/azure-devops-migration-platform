@@ -37,6 +37,8 @@ public class IdentityMappingServiceTests
         string fallback = "bot@target.example.com")
         => new(mappings ?? new(), fallback, PackageTestFactory.CreateDelegatingMock(_store).Object, "test-org", "test-project");
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resolve_WhenMappingExists_ReturnsMappedIdentity()
     {
@@ -44,6 +46,8 @@ public class IdentityMappingServiceTests
         Assert.AreEqual("alice@target.com", sut.Resolve("alice@source.com"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resolve_WhenNoMapping_ReturnsFallback()
     {
@@ -51,6 +55,8 @@ public class IdentityMappingServiceTests
         Assert.AreEqual("fallback@target.com", sut.Resolve("unknown@source.com"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resolve_WhenNoMapping_AddsToUnmappedList()
     {
@@ -60,6 +66,8 @@ public class IdentityMappingServiceTests
         Assert.AreEqual("unknown@source.com", sut.UnmappedIdentities[0]);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resolve_SameUnmappedTwice_OnlyRecordedOnce()
     {
@@ -69,6 +77,8 @@ public class IdentityMappingServiceTests
         Assert.AreEqual(1, sut.UnmappedIdentities.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task FlushWarningsAsync_WritesLogFileForEachUnmapped()
     {
@@ -82,6 +92,8 @@ public class IdentityMappingServiceTests
         Assert.AreEqual(2, files.Length);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task FlushWarningsAsync_ClearsUnmappedListAfterFlush()
     {
@@ -91,6 +103,8 @@ public class IdentityMappingServiceTests
         Assert.AreEqual(0, sut.UnmappedIdentities.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resolve_WhenMappingExistsForSomeAndNotOthers_FallsBackCorrectly()
     {

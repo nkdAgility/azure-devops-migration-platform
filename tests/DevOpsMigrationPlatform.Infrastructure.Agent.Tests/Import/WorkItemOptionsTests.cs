@@ -9,12 +9,16 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 [TestClass]
 public class WorkItemOptionsTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void WorkItemOptions_UsesExpectedSectionName()
     {
         Assert.AreEqual("Extensions:WorkItem", WorkItemOptions.SectionName);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void WorkItemOptions_DefaultFlags_AreFalse()
     {

@@ -17,6 +17,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.Import;
 [TestClass]
 public sealed class SimulatedResolutionStrategyFactoryTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateAsync_WhenStrategyIsEmpty_ReturnsNullResolutionStrategy()
     {
@@ -32,6 +34,8 @@ public sealed class SimulatedResolutionStrategyFactoryTests
         Assert.IsInstanceOfType<NullResolutionStrategy>(strategy);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateAsync_WhenStrategyIsExplicit_ThrowsInvalidOperationException()
     {

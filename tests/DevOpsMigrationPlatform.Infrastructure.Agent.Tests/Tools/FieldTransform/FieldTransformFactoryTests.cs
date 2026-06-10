@@ -19,7 +19,8 @@ public class FieldTransformFactoryTests
     [TestInitialize]
     public void Setup() => _factory = new FieldTransformFactory();
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Create_WithUnknownType_ThrowsInvalidOperationException()
     {
@@ -32,7 +33,8 @@ public class FieldTransformFactoryTests
         StringAssert.Contains(ex.Message, "Supported types:");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Create_WithEmptyType_ThrowsInvalidOperationException()
     {
@@ -42,7 +44,8 @@ public class FieldTransformFactoryTests
             () => _factory.Create(options, "Group1", 1));
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Create_WhenNameIsNull_GeneratesDefaultName()
     {
@@ -64,7 +67,8 @@ public class FieldTransformFactoryTests
         Assert.IsNotNull(result);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Create_WhenNameIsProvided_UsesProvidedName()
     {
@@ -85,7 +89,8 @@ public class FieldTransformFactoryTests
         Assert.AreEqual("MyCustomName", capturedName);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Create_WithIdentityFieldAsField_ThrowsInvalidOperationException()
     {
@@ -98,7 +103,8 @@ public class FieldTransformFactoryTests
         StringAssert.Contains(ex.Message, "identity field");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Create_WithIdentityFieldAsTargetField_ThrowsInvalidOperationException()
     {
@@ -111,7 +117,8 @@ public class FieldTransformFactoryTests
         StringAssert.Contains(ex.Message, "identity field");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Create_WithRegisteredType_CreatesTransform()
     {

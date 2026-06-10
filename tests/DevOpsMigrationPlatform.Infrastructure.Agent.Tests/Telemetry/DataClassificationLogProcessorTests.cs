@@ -48,7 +48,8 @@ public class DataClassificationLogProcessorTests
     [TestCleanup]
     public void Cleanup() => _factory.Dispose();
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void OnEnd_UnclassifiedLog_PassesThrough()
     {
@@ -58,7 +59,8 @@ public class DataClassificationLogProcessorTests
         Assert.AreEqual(1, _exported.Count);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void OnEnd_CustomerClassifiedLog_IsFiltered()
     {
@@ -71,7 +73,8 @@ public class DataClassificationLogProcessorTests
         Assert.AreEqual(0, _exported.Count);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void OnEnd_DerivedClassifiedLog_PassesThrough()
     {
@@ -84,7 +87,8 @@ public class DataClassificationLogProcessorTests
         Assert.AreEqual(1, _exported.Count);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void OnEnd_SystemClassifiedLog_PassesThrough()
     {
@@ -97,7 +101,8 @@ public class DataClassificationLogProcessorTests
         Assert.AreEqual(1, _exported.Count);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void OnEnd_NestedInnerCustomerInOuterSystem_IsFiltered()
     {
@@ -113,7 +118,8 @@ public class DataClassificationLogProcessorTests
         Assert.AreEqual(0, _exported.Count);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void OnEnd_NestedInnerSystemInOuterCustomer_PassesThrough()
     {
@@ -135,7 +141,8 @@ public class DataClassificationLogProcessorTests
     /// DataClassification tag, even though the OTel pipeline filters it out.
     /// Covers: "Customer-classified log still appears in the package log file".
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void PackageLogger_CustomerClassifiedLog_IsPresentWithClassificationTag()
     {

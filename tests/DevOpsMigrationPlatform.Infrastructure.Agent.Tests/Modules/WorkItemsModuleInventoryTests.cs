@@ -34,6 +34,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules;
 [TestClass]
 public sealed class WorkItemsModuleInventoryTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CaptureAsync_EmitsInventoryWorkItemsActivityWithJobAndModuleTags()
     {
@@ -54,6 +56,8 @@ public sealed class WorkItemsModuleInventoryTests
         Assert.AreEqual("WorkItems", activity.Tags.First(t => t.Key == "module").Value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_RecordsWorkItemInventoryMetrics()
     {
@@ -71,6 +75,8 @@ public sealed class WorkItemsModuleInventoryTests
         metrics.Verify();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_EmitsStartAndCompletionProgressWithMetrics()
     {
@@ -85,6 +91,8 @@ public sealed class WorkItemsModuleInventoryTests
         Assert.IsTrue(events.Any(e => e.Stage == "Inventoried" && e.Metrics is not null));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_LogsWarningWhenNoWorkItemsFound()
     {

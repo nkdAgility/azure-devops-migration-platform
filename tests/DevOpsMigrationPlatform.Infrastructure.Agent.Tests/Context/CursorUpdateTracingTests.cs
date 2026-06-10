@@ -18,6 +18,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class CursorUpdateTracingTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task WriteCursor_EmitsStateCursorUpdateSpan()
     {

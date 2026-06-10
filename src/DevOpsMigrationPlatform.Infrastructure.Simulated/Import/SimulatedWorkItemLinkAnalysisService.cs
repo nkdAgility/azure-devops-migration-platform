@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
 
@@ -24,6 +25,7 @@ public sealed class SimulatedWorkItemLinkAnalysisService : IWorkItemLinkAnalysis
         string? wiqlFilter = null,
         BatchContinuationToken? savedContinuationToken = null,
         Func<BatchContinuationToken, CancellationToken, Task>? continuationCheckpointWriter = null,
+        IReadOnlyList<WorkItemFieldFilterOptions>? fieldFilters = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         // No links in the simulated source — yield nothing.

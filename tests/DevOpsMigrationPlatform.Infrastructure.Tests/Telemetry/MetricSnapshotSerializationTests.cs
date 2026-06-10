@@ -17,6 +17,8 @@ public class MetricSnapshotSerializationTests
         WriteIndented = false,
     };
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void RoundTrip_AllPropertiesPopulated_PreservesValues()
     {
@@ -100,6 +102,8 @@ public class MetricSnapshotSerializationTests
         Assert.AreEqual(100, deserialized.Scope.WorkItemsTotal);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void RoundTrip_NullOptionalProperties_SerializesCorrectly()
     {
@@ -125,6 +129,8 @@ public class MetricSnapshotSerializationTests
         Assert.IsNull(deserialized.Migration.Diagnostics.FieldCountMean);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Serialize_UsesCamelCasePropertyNames()
     {
@@ -141,6 +147,8 @@ public class MetricSnapshotSerializationTests
         Assert.IsFalse(json.Contains("\"Migration\""), "PascalCase should not appear");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void RoundTrip_DiscoveryCounters_PreservesValues()
     {

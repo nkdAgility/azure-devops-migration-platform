@@ -31,7 +31,8 @@ public class EmbeddedImageExportServiceTests
 
     // ── Scenario: HTML embedded image is downloaded and URL rewritten ─────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessHtmlAsync_WhenAdoImageUrl_DownloadsAndRewritesSrc()
     {
@@ -52,7 +53,8 @@ public class EmbeddedImageExportServiceTests
 
     // ── Scenario: Duplicate image URLs within same revision deduplicate ────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessHtmlAsync_WhenSameUrlTwice_DownloadsOnce()
     {
@@ -76,7 +78,8 @@ public class EmbeddedImageExportServiceTests
 
     // ── Scenario: External non-ADO image URLs are preserved with warning ──────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessHtmlAsync_WhenDownloaderReturnsNull_PreservesOriginalUrl()
     {
@@ -95,7 +98,8 @@ public class EmbeddedImageExportServiceTests
 
     // ── Scenario: Inaccessible image (HTTP 404) is preserved and export continues
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessHtmlAsync_When404_PreservesUrlAndContinues()
     {
@@ -115,7 +119,8 @@ public class EmbeddedImageExportServiceTests
 
     // ── Scenario: Markdown embedded images are processed ─────────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessMarkdownAsync_WhenMarkdownImageUrl_RewritesToLocalFilename()
     {

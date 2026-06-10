@@ -11,9 +11,11 @@ using Spectre.Console.Testing;
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 
 [TestClass]
-[TestCategory("UnitTest")]
 public class PrintJobSubmittedTests
 {
+    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PrintJobSubmitted_WritesJobIdLine()
     {
@@ -31,6 +33,9 @@ public class PrintJobSubmittedTests
         Assert.IsTrue(output.Contains(jobId.ToString()), $"Expected job ID value in output. Got:\n{output}");
     }
 
+    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PrintJobSubmitted_WritesControlPlaneUrlLine()
     {
@@ -48,6 +53,9 @@ public class PrintJobSubmittedTests
         Assert.IsTrue(output.Contains(url), $"Expected URL value in output. Got:\n{output}");
     }
 
+    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void PrintJobSubmitted_JobIdLineAppearsBeforeControlLine()
     {
@@ -65,6 +73,74 @@ public class PrintJobSubmittedTests
         var controlIndex = output.IndexOf("Control", StringComparison.Ordinal);
         Assert.IsTrue(jobIdIndex < controlIndex,
             $"Expected 'Job ID' line before 'Control' line. Got:\n{output}");
+    }
+
+    // --- Scenario 1: Standalone mode shows local control plane URL ---
+
+    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void StandaloneMode_ShowsLocalControlPlaneUrl_AlongsideJobId()
+    {
+        // Arrange
+        var jobId = Guid.NewGuid();
+        var fixture = new JobSubmissionOutputFixture()
+            .WithStandaloneMode()
+            .WithJobId(jobId);
+
+        // Act
+        var result = fixture.ActJobAccepted();
+
+        // Assert
+        result
+            .ShouldContainJobId()
+            .ShouldContainControlPlaneUrl()   // expects http://localhost:5100
+            .ShouldShowJobIdBeforeControlPlaneUrl();
+    }
+
+    // --- Scenario 2: Remote mode shows the supplied --url ---
+
+    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void RemoteMode_ShowsSuppliedUrl_AlongsideJobId()
+    {
+        // Arrange
+        var jobId = Guid.NewGuid();
+        var remoteUrl = "https://my-control-plane.example.com";
+        var fixture = new JobSubmissionOutputFixture()
+            .WithRemoteUrl(remoteUrl)
+            .WithJobId(jobId);
+
+        // Act
+        var result = fixture.ActJobAccepted();
+
+        // Assert
+        result
+            .ShouldContainJobId()
+            .ShouldContainControlPlaneUrl();  // expects https://my-control-plane.example.com
+    }
+
+    // --- Scenario 3: Submission failure still shows the attempted URL ---
+
+    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void SubmissionFailure_ShowsAttemptedUrl_InErrorOutput()
+    {
+        // Arrange
+        var controlPlaneUrl = "https://my-control-plane.example.com";
+        var fixture = new JobSubmissionOutputFixture()
+            .WithRemoteUrl(controlPlaneUrl);
+
+        // Act
+        var result = fixture.ActSubmissionFailed();
+
+        // Assert
+        result.ShouldShowAttemptedUrlInErrorOutput();
     }
 }
 

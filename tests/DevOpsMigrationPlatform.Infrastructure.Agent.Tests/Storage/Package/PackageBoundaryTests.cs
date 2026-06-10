@@ -18,6 +18,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 [TestClass]
 public sealed class PackageBoundaryTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExistsAsync_ReturnsTrue_WhenContentPathExists()
     {
@@ -32,6 +34,8 @@ public sealed class PackageBoundaryTests
         Assert.IsTrue(exists);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateAsync_YieldsLexicographicStoreEntries()
     {
@@ -49,6 +53,8 @@ public sealed class PackageBoundaryTests
         CollectionAssert.AreEquivalent(new[] { "test-org/test-project/WorkItems/a.json", "test-org/test-project/WorkItems/b.json" }, entries.ToArray());
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AppendAsync_AppendsContentToExistingFile()
     {
@@ -64,6 +70,8 @@ public sealed class PackageBoundaryTests
         Assert.AreEqual("one\ntwo\n", await store.ReadAsync("test-org/test-project/Identities/descriptors.jsonl", CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task PersistMetaAsync_RelatedToRun_WritesAuthoritativeAndAuditCopies()
     {
@@ -80,6 +88,8 @@ public sealed class PackageBoundaryTests
         Assert.AreEqual("{\"mode\":\"Export\"}", await store.ReadAsync(".migration/runs/" + active.CurrentRunId + "/audit/migration-config.json", CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AppendLogAsync_AppendsToRunStream()
     {

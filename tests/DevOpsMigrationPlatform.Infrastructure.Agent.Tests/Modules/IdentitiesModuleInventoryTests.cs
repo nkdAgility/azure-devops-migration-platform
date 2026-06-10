@@ -29,6 +29,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules;
 [TestClass]
 public sealed class IdentitiesModuleInventoryTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CaptureAsync_EmitsInventoryIdentitiesActivityWithJobAndModuleTags()
     {
@@ -49,6 +51,8 @@ public sealed class IdentitiesModuleInventoryTests
         Assert.AreEqual("Identities", activity.Tags.First(t => t.Key == "module").Value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CaptureAsync_RecordsIdentityInventoryMetrics()
     {
@@ -64,6 +68,8 @@ public sealed class IdentitiesModuleInventoryTests
         metrics.Verify();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CaptureAsync_EmitsStartAndCompletionProgressWithMetrics()
     {

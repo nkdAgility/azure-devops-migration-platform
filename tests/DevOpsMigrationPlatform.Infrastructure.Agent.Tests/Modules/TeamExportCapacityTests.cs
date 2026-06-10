@@ -69,7 +69,8 @@ public class TeamExportCapacityTests
 
     // ── Scenario: Export includes capacity for each assigned iteration ─────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportTeamAsync_WhenCapacityEnabled_WritesCapacityByIteration()
     {
@@ -101,7 +102,8 @@ public class TeamExportCapacityTests
 
     // ── Scenario: Team with no capacity data exports empty capacityByIteration ─
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportTeamAsync_WhenNoCapacityData_WritesEmptyCapacityByIteration()
     {
@@ -132,7 +134,8 @@ public class TeamExportCapacityTests
 
     // ── Scenario: Capacity not supported gracefully skipped ───────────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportTeamAsync_WhenCapacityThrowsNotSupported_SkipsWithoutError()
     {

@@ -12,6 +12,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.ProjectLifecycl
 [TestClass]
 public sealed class SimulatedProjectLifecycleServiceTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CreateThenTeardown_Succeeds()
     {
@@ -32,6 +34,8 @@ public sealed class SimulatedProjectLifecycleServiceTests
         Assert.AreEqual(ProjectLifecycleTeardownResult.Succeeded, tornDown.TeardownResult);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task TeardownUnknownProject_ReturnsFailedOutcome()
     {
