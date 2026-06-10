@@ -123,6 +123,7 @@ public sealed class DependencyDiscoveryResumptionDslTests
             string? wiqlFilter = null,
             BatchContinuationToken? savedContinuationToken = null,
             Func<BatchContinuationToken, CancellationToken, Task>? continuationCheckpointWriter = null,
+            IReadOnlyList<WorkItemFieldFilterOptions>? fieldFilters = null,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             _analysedProjects.Add(project);

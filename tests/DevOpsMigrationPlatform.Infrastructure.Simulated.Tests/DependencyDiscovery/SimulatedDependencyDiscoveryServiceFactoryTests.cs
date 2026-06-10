@@ -197,6 +197,7 @@ public sealed class SimulatedDependencyDiscoveryServiceFactoryTests
             string? wiqlFilter = null,
             BatchContinuationToken? savedContinuationToken = null,
             Func<BatchContinuationToken, CancellationToken, Task>? continuationCheckpointWriter = null,
+            IReadOnlyList<WorkItemFieldFilterOptions>? fieldFilters = null,
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             LastToken = savedContinuationToken;

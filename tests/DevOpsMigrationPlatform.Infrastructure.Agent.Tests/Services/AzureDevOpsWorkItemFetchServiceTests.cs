@@ -405,6 +405,66 @@ public class AzureDevOpsWorkItemFetchServiceTests
         }
     }
 
+    // ── dependency-pre-filter: Scenario 3 ────────────────────────────────────
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task FetchAsync_NeverPassesRelationsExpand_ToGetWorkItemsAsync()
+    {
+        // Arrange
+        var windowStrategy = new Mock<IWorkItemQueryWindowStrategy>(MockBehavior.Strict);
+        var clientFactory = new Mock<IAzureDevOpsClientFactory>(MockBehavior.Strict);
+        var witClient = new Mock<WorkItemTrackingHttpClient>(MockBehavior.Loose, new object[] { new Uri("https://dev.azure.com/testorg"), null! });
+
+        var window = new WorkItemQueryWindow { WorkItemIds = new[] { 1 } };
+
+        windowStrategy
+            .Setup(w => w.EnumerateWindowsAsync(
+                It.IsAny<OrganisationEndpoint>(),
+                "TestProject",
+                It.IsAny<WorkItemQueryWindowOptions?>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnumerable(window));
+
+        clientFactory
+            .Setup(c => c.CreateWorkItemClientAsync(_endpoint, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(witClient.Object);
+
+        WorkItemExpand? capturedExpand = null;
+        witClient
+            .Setup(c => c.GetWorkItemsAsync(
+                It.IsAny<IEnumerable<int>>(),
+                It.IsAny<IEnumerable<string>?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<WorkItemExpand?>(),
+                It.IsAny<WorkItemErrorPolicy?>(),
+                It.IsAny<object?>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<IEnumerable<int>, IEnumerable<string>?, DateTime?, WorkItemExpand?, WorkItemErrorPolicy?, object?, CancellationToken>(
+                (_, _, _, expand, _, _, _) => capturedExpand = expand)
+            .ReturnsAsync(new List<WorkItem>
+            {
+                MakeWorkItem(1, ("System.WorkItemType", "Bug"))
+            });
+
+        var sut = new AzureDevOpsWorkItemFetchService(windowStrategy.Object, clientFactory.Object);
+        var scope = new WorkItemFetchScope(Fields: new[] { "System.WorkItemType" });
+
+        var results = new List<FetchedWorkItem>();
+        await foreach (var item in sut.FetchAsync(_endpoint, "TestProject", scope))
+            results.Add(item);
+
+        // Assert: the expand argument was never WorkItemExpand.Relations
+        Assert.AreNotEqual(WorkItemExpand.Relations, capturedExpand,
+            "FetchAsync must not pass WorkItemExpand.Relations to GetWorkItemsAsync");
+
+        // Assert: the yielded FetchedWorkItem contains no 'Relations' key
+        Assert.AreEqual(1, results.Count);
+        Assert.IsFalse(results[0].Fields.ContainsKey("Relations"),
+            "FetchedWorkItem.Fields must not contain a 'Relations' key");
+    }
+
     // ── T019: Per-batch checkpoint emission ──────────────────────────────────
 
     [TestCategory("CodeTest")]

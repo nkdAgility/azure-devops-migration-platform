@@ -257,6 +257,7 @@ public sealed class DependencyCommand : CommandBase<DependencyCommandSettings>
             string? wiqlFilter = null,
             BatchContinuationToken? savedContinuationToken = null,
             Func<BatchContinuationToken, CancellationToken, Task>? continuationCheckpointWriter = null,
+            IReadOnlyList<WorkItemFieldFilterOptions>? fieldFilters = null,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -288,6 +289,7 @@ public sealed class DependencyCommand : CommandBase<DependencyCommandSettings>
             string? wiqlFilter = null,
             BatchContinuationToken? savedContinuationToken = null,
             Func<BatchContinuationToken, CancellationToken, Task>? continuationCheckpointWriter = null,
+            IReadOnlyList<WorkItemFieldFilterOptions>? fieldFilters = null,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
