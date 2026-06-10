@@ -154,20 +154,55 @@ public sealed class TfsExportResult : IAsyncDisposable
     }
 
     /// <summary>
-    /// Asserts error output appears on stderr rather than stdout, demonstrating
-    /// the visual channel distinction between progress and error output.
-    /// Covers scenario 4 (stderr vs stdout distinction).
+    /// Asserts that error-category output appears on stderr and not exclusively on stdout.
+    /// For this assertion to be non-vacuous, the scenario must be arranged to produce at
+    /// least one error line (e.g. inject a recoverable warning or use a config that triggers
+    /// a non-fatal warning path during export).
+    /// If stderr is empty when this assertion is called, the test is considered a false positive
+    /// and must fail with a diagnostic message directing the caller to arrange an error condition.
+    /// Covers scenario 3 (stderr vs stdout channel distinction).
     /// </summary>
+    /// <remarks>
+    /// Legacy assertion — the CLI routes all output including errors to stdout via Spectre.Console.
+    /// Prefer <see cref="AssertVisualErrorFormatUsed"/> which checks for the "✗" error marker
+    /// written by <c>ShowError()</c> in <c>CommandBase</c>. See finding F-001 in 04-conversion-summary.md.
+    /// </remarks>
+    [Obsolete("CLI uses stdout for all output; use AssertVisualErrorFormatUsed() instead. See F-001 in 04-conversion-summary.md.")]
     public TfsExportResult AssertErrorOutputOnStderr()
     {
-        // If there is error content, it must be on stderr not exclusively on stdout.
-        if (!string.IsNullOrWhiteSpace(StandardError))
-        {
-            Assert.IsTrue(
-                StandardError.Contains("error", StringComparison.OrdinalIgnoreCase) ||
-                StandardError.Contains("Error", StringComparison.Ordinal),
-                $"Expected stderr to contain an error-labelled line.\nStderr: {StandardError}");
-        }
+        Assert.IsFalse(
+            string.IsNullOrWhiteSpace(StandardError),
+            $"AssertErrorOutputOnStderr: stderr is empty. Arrange the scenario to produce at " +
+            $"least one error or warning line so the channel distinction can be verified.\n" +
+            $"Stdout: {StandardOutput}");
+
+        Assert.IsFalse(
+            string.IsNullOrWhiteSpace(StandardOutput),
+            $"AssertErrorOutputOnStderr: stdout is also empty; cannot distinguish channels.\n" +
+            $"Stderr: {StandardError}");
+
+        Assert.IsFalse(
+            StandardOutput.Contains("error", StringComparison.OrdinalIgnoreCase),
+            $"Error content appeared on stdout instead of stderr.\n" +
+            $"Stdout: {StandardOutput}\nStderr: {StandardError}");
+
+        return this;
+    }
+
+    /// <summary>
+    /// Asserts that the CLI output contains a visually-distinguished error marker.
+    /// The CLI uses Spectre.Console which writes all output (including errors) to stdout.
+    /// Errors are visually distinguished via the "✗" prefix added by ShowError() in CommandBase.
+    /// This assertion verifies that the production error-formatting convention is applied —
+    /// error messages are prefixed with "✗" so operators can distinguish them from normal output.
+    /// Covers scenario 3 (visual error distinction) aligned with actual production behavior.
+    /// </summary>
+    public TfsExportResult AssertVisualErrorFormatUsed()
+    {
+        Assert.IsTrue(
+            CombinedOutput.Contains("✗", StringComparison.Ordinal),
+            $"Expected output to contain '✗' error marker (visual error distinction).\n" +
+            $"Stdout: {StandardOutput}\nStderr: {StandardError}");
         return this;
     }
 

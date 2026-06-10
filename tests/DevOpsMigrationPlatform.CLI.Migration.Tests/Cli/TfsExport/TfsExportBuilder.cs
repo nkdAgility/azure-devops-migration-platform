@@ -29,6 +29,11 @@ public sealed class TfsExportBuilder : IAsyncDisposable
     private bool _tfsAvailable = true;
 #pragma warning restore CS0414
 
+    // Subprocess exit code:
+    // When set, RunInProcessAsync injects a FixedSubprocessExitCodeSource with this value
+    // instead of the previously hard-coded value of 2.
+    private int? _subprocessExitCode;
+
     // Progress scenario:
     // NOTE: _useChunkedWorkItems is a stub field reserved for future chunk-scenario runner
     // wiring once ProgressEvent chunk metadata fields are confirmed (see 01-feature-assessment.md §9).
@@ -108,6 +113,21 @@ public sealed class TfsExportBuilder : IAsyncDisposable
     public TfsExportBuilder WithSimulatedSource()
     {
         _useSimulatedSource = true;
+        return this;
+    }
+
+    // ── subprocess exit code ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Configures the tfsexport subprocess to exit with <paramref name="exitCode"/>.
+    /// Used to verify CLI exit-code propagation (scenario 4).
+    /// The value is injected via <see cref="FixedSubprocessExitCodeSource"/> into the
+    /// in-process DI container so <see cref="QueueCommand.PropagateSubprocessExitCodeAsync"/>
+    /// can return it without launching a real subprocess.
+    /// </summary>
+    public TfsExportBuilder WithSubprocessExitCode(int exitCode)
+    {
+        _subprocessExitCode = exitCode;
         return this;
     }
 
@@ -192,11 +212,13 @@ public sealed class TfsExportBuilder : IAsyncDisposable
             var host = MigrationPlatformHost
                 .CreateDefaultBuilder(args, (services, configuration) =>
                 {
-                    // Default: simulate subprocess exit code 2 for in-process runs.
+                    // Inject a FixedSubprocessExitCodeSource only when the caller has
+                    // explicitly configured an exit code via WithSubprocessExitCode(n).
                     // QueueCommand.PropagateSubprocessExitCodeAsync reads this service
                     // and propagates its value as the CLI exit code.
-                    services.AddSingleton<ISubprocessExitCodeSource>(
-                        new FixedSubprocessExitCodeSource(2));
+                    if (_subprocessExitCode.HasValue)
+                        services.AddSingleton<ISubprocessExitCodeSource>(
+                            new FixedSubprocessExitCodeSource(_subprocessExitCode.Value));
 
                     serviceOverride?.Invoke(services, configuration);
                 })

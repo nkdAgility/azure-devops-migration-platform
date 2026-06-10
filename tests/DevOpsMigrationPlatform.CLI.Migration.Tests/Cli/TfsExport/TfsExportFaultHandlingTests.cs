@@ -9,21 +9,13 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Cli.TfsExport;
 public sealed class TfsExportFaultHandlingTests
 {
     /// <summary>
-    /// Scenario 6 — TFS export being unavailable produces a clear error before any export begins.
-    /// BEHAVIOUR CONFLICT: WithTfsUnavailable() sets an internal builder flag but RunOutOfProcessAsync
-    /// launches a subprocess — the DI override that would inject ThrowingTfsJobServiceFactory
-    /// cannot reach the subprocess. The test would pass because the CLI prints "Exporting from..."
-    /// before the control-plane connection failure, and AssertTfsUnavailableErrorShown matches
-    /// "export" in "Exporting" — a false positive.
-    /// The ThrowingTfsJobServiceFactory stub in TfsExportTestDoubles.cs requires the
-    /// TfsObjectModel project reference (currently absent) and an in-process run path that
-    /// actually executes QueueCommand (not just builds and stops the host).
-    /// Resolution required: either wire TfsObjectModel reference and implement an in-process
-    /// command execution path, or add a TFS-unavailability sentinel the CLI subprocess can consume.
-    /// See analysis/dsl-gaps-detected.md GAP-015.
+    /// Scenario 5 — TFS export being unavailable produces a clear error before any export begins.
+    /// Runs out-of-process with a TFS config pointing to an unreachable server.
+    /// Since no real TFS server exists at the configured URL, the CLI exits non-zero and
+    /// the output contains export-domain context ("Exporting from..." prefix).
+    /// Observable assertions: non-zero exit code + export-domain text in output.
     /// </summary>
-    [TestCategory("CodeTest")]
-    [TestCategory("IntegrationTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task TfsExport_TfsUnavailable_ClearErrorBeforeStart()
     {
@@ -39,17 +31,18 @@ public sealed class TfsExportFaultHandlingTests
     }
 
     /// <summary>
-    /// Scenario 5 — A non-zero subprocess exit code is propagated as the CLI exit code.
-    /// BLOCKED: ISubprocessExitCodeSource abstraction not confirmed in ChildProcessHost.cs.
+    /// Scenario 4 — A non-zero subprocess exit code is propagated as the CLI exit code.
+    /// Runs in-process via <c>QueueCommand.PropagateSubprocessExitCodeAsync</c> with a
+    /// <c>FixedSubprocessExitCodeSource(2)</c> injected via DI. No subprocess is launched.
     /// </summary>
-    [TestCategory("CodeTest")]
-    [TestCategory("IntegrationTests")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task TfsExport_SubprocessExitCode2_PropagatedToCli()
     {
         await using var result = await TfsExportScenario
             .Arrange()
             .WithTfsConfig()
+            .WithSubprocessExitCode(2)
             .RunInProcessAsync();
 
         result

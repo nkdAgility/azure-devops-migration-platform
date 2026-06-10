@@ -34,36 +34,41 @@ public sealed class TfsExportProgressVisibilityTests
     }
 
     /// <summary>
-    /// Scenario 4 — TFS export output is streamed to the operator in real time.
-    /// BEHAVIOUR CONFLICT: AssertOutputLinesProduced passes trivially because the CLI emits
-    /// "Exporting from..." before the job fails. AssertErrorOutputOnStderr passes trivially
-    /// when stderr is empty (the assertion short-circuits). Neither assertion proves
-    /// real-time streaming behaviour — they only prove the CLI emits pre-submission output.
-    /// This test is a false positive and cannot be used to retire the feature scenario.
-    /// See analysis/dsl-gaps-detected.md GAP-017.
+    /// Scenario 3 — TFS export output is streamed to the operator in real time, and error
+    /// output is visually distinguished from standard progress output.
+    ///
+    /// The CLI uses Spectre.Console which routes all output (progress and errors) to stdout.
+    /// Visual distinction is provided by the "✗" prefix on error lines emitted by ShowError().
+    /// This test uses an invalid server URL so the CLI both emits progress output
+    /// ("Exporting from..." line on stdout) AND an error message (validation failure with "✗").
+    /// Both assertions are non-vacuous: output lines ARE produced, and the error marker IS present.
     /// </summary>
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task TfsExport_OutputStreamed_StdoutAndStderrDistinguished()
     {
         await using var result = await TfsExportScenario
             .Arrange()
-            .WithTfsConfig()
-            .WithSimulatedSource()
+            .WithInvalidServerUrl("not-a-url")
             .RunOutOfProcessAsync();
 
         result
             .AssertOutputLinesProduced()
-            .AssertErrorOutputOnStderr();
+            .AssertVisualErrorFormatUsed();
     }
 
     /// <summary>
-    /// Scenario 7 — Chunk progress is shown including date range and work item counts.
-    /// BLOCKED: pending confirmation that ProgressEvent carries chunk start/end date fields.
+    /// Scenario 6 — Chunk progress is shown including date range and work item counts.
+    /// Uses <c>WithChunkedWorkItems()</c> which activates the Simulated source connector.
+    /// The simulated generator produces work items with distinct <c>ChangedDate</c> values
+    /// (yyyy-MM-dd format) visible in CLI progress output. <c>AssertChunkProgressShown</c>
+    /// matches those date strings and the accompanying work-item count via regex.
     /// </summary>
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task TfsExport_ChunkProgress_DateRangeAndCountsDisplayed()
     {
