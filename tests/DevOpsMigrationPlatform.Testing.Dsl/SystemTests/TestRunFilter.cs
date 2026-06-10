@@ -13,4 +13,7 @@ public static class TestRunFilter
 
     /// <summary>Excludes all tests carrying [TestCategory("SystemTest")].</summary>
     public const string ExcludeSystemTests = "TestCategory!=SystemTest";
+
+    /// <summary>Runs only tests carrying [TestCategory("UnitTests")] — fastest, no I/O, no integration.</summary>
+    public const string UnitTestsOnly = "TestCategory=UnitTests";
 }

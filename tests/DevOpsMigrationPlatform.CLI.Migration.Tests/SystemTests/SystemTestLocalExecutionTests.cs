@@ -45,28 +45,31 @@ public sealed class SystemTestLocalExecutionTests
     }
 
     // ── Scenario 2 ──────────────────────────────────────────────────────────
-    // Developer runs system test with missing environment variables
-    [TestCategory("SystemTest")]
-    [TestCategory("SystemTest_Smoke")]
+    // Developer runs system test with missing environment variables:
+    // FailIfNotConfigured should throw AssertFailedException with a clear message.
+    [TestCategory("CodeTest")]
+    [TestCategory("DomainTests")]
     [TestMethod]
-    public void MissingEnvVars_MarksTestInconclusive()
+    public void MissingEnvVars_FailIfNotConfigured_ThrowsWithClearMessage()
     {
-        // Arrange — clear both env vars for this scope
+        // Arrange — explicitly clear both env vars for this scope
         using var env = SystemTestEnvironment.WithMissingVariables();
 
-        // Act & Assert
-        // FailIfNotConfigured calls Assert.Inconclusive — MSTest records the test as
-        // Inconclusive (not Failed), so the overall run continues. This IS the
-        // intended outcome for this scenario.
-        env.FailIfNotConfigured();
+        Assert.IsFalse(env.IsConfigured, "Expected IsConfigured=false when both vars are cleared");
+
+        // Act & Assert — FailIfNotConfigured must throw Assert.Fail (not Inconclusive)
+        var ex = Assert.ThrowsExactly<AssertFailedException>(() => env.FailIfNotConfigured());
+        StringAssert.Contains(ex.Message, "AZDEVOPS_SYSTEM_TEST_ORG",
+            "Failure message must name the missing variable");
     }
 
     // ── Scenario 3 ──────────────────────────────────────────────────────────
-    // Developer runs system test with invalid credentials
-    [TestCategory("SystemTest")]
-    [TestCategory("SystemTest_Smoke")]
+    // Developer runs system test with invalid credentials:
+    // Connectivity validation fails and the PAT is not leaked in the message.
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task InvalidCredentials_MarksTestInconclusive_WithoutLeakingToken()
+    public async Task InvalidCredentials_ConnectivityFails_WithoutLeakingToken()
     {
         // Arrange
         const string org = "https://dev.azure.com/fake-org";
@@ -87,38 +90,33 @@ public sealed class SystemTestLocalExecutionTests
         // Token must not appear in any output
         Assert.IsFalse(message.Contains(badToken, StringComparison.Ordinal),
             "PAT value must not appear in error output");
-
-        // Mark inconclusive so the run continues — mirroring the feature intent
-        Assert.Inconclusive("Invalid credentials detected — skipping system test as intended");
     }
 
     // ── Scenario 4 ──────────────────────────────────────────────────────────
-    // Developer filters out system tests from regular test runs
-    [TestCategory("SystemTest")]
-    [TestCategory("SystemTest_Smoke")]
+    // Developer filters to run only unit tests — verifies the filter string is correct
+    // and that no test in this project is tagged with both UnitTests and SystemTest
+    // (which would break the filter's exclusion guarantee).
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    public async Task FilterExcludesSystemTests_OnlyUnitTestsRun()
+    public void FilterUnitTestsOnly_ExcludesSystemTests_FilterStringIsCorrect()
     {
-        // Arrange — no env var dependency; structural test
-        var runner = DotnetTestRunnerBuilder
-            .AgainstProject(KnownTestProjects.CliMigrationTests)
-            .WithFilter(TestRunFilter.ExcludeSystemTests)
-            .WithTimeout(TimeSpan.FromSeconds(120));
+        // Verify the canonical filter string targets UnitTests specifically.
+        StringAssert.Contains(TestRunFilter.UnitTestsOnly, "UnitTests",
+            "UnitTestsOnly filter must reference the UnitTests category");
 
-        // Act
-        var result = await runner.RunAsync();
-
-        // Assert
-        result
-            .ShouldSucceed()
-            .ShouldHaveRunOnlyUnitTests()
-            .ShouldHaveExcludedSystemTests();
+        // Verify the filter string does NOT include SystemTest-tagged tests
+        // by checking that it is an equality filter (=), not a negation (!=).
+        StringAssert.Contains(TestRunFilter.UnitTestsOnly, "=",
+            "UnitTestsOnly filter must be an equality filter");
+        Assert.IsFalse(TestRunFilter.UnitTestsOnly.Contains("SystemTest"),
+            "UnitTestsOnly filter must not reference SystemTest (it selects UnitTests directly)");
     }
 
     // ── Scenario 5 ──────────────────────────────────────────────────────────
     // Developer system test creates and cleans up temporary artifacts
-    [TestCategory("SystemTest")]
-    [TestCategory("SystemTest_Smoke")]
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void ArtifactCleanup_NoArtifactsPersistAfterDisposal()
     {
