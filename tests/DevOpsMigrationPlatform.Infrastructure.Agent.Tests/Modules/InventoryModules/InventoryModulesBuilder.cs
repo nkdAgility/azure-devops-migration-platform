@@ -29,6 +29,14 @@ public sealed class InventoryModulesBuilder
         return this;
     }
 
+    /// <summary>
+    /// Removes the InventoryDiscoveryModule from the job.
+    /// In the production pipeline InventoryDiscoveryModule is the InventoryAnalyser;
+    /// this method is the feature-vocabulary alias for <see cref="WithoutInventoryAnalyser"/>.
+    /// </summary>
+    public InventoryModulesBuilder WithoutInventoryDiscoveryModule()
+        => WithoutInventoryAnalyser();
+
     /// <summary>Removes the named data module from the job.</summary>
     public InventoryModulesBuilder WithoutModule(string moduleName)
     {
