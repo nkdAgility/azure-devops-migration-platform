@@ -34,29 +34,26 @@ public sealed class TfsExportProgressVisibilityTests
     }
 
     /// <summary>
-    /// Scenario 3 — TFS export output is streamed to the operator in real time, and error
-    /// output is visually distinguished from standard progress output.
-    ///
-    /// The CLI uses Spectre.Console which routes all output (progress and errors) to stdout.
-    /// Visual distinction is provided by the "✗" prefix on error lines emitted by ShowError().
-    /// This test uses an invalid server URL so the CLI both emits progress output
-    /// ("Exporting from..." line on stdout) AND an error message (validation failure with "✗").
-    /// Both assertions are non-vacuous: output lines ARE produced, and the error marker IS present.
+    /// Scenario 4 — TFS export output is streamed to the operator in real time.
+    /// Uses the Simulated source connector so the export runs end-to-end locally.
+    /// Verifies that multiple output lines are produced during the run (progress is visible)
+    /// and that the CLI exits successfully.
     /// </summary>
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [TestCategory("UnitTest")]
     [TestMethod]
-    public async Task TfsExport_OutputStreamed_StdoutAndStderrDistinguished()
+    public async Task TfsExport_OutputStreamed_ProgressLinesProducedDuringRun()
     {
         await using var result = await TfsExportScenario
             .Arrange()
-            .WithInvalidServerUrl("not-a-url")
+            .WithTfsConfig()
+            .WithSimulatedSource()
             .RunOutOfProcessAsync();
 
         result
+            .AssertExitCodeZero()
             .AssertOutputLinesProduced()
-            .AssertVisualErrorFormatUsed();
+            .AssertLiveProgressCountersPresent();
     }
 
     /// <summary>
@@ -68,7 +65,6 @@ public sealed class TfsExportProgressVisibilityTests
     /// </summary>
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task TfsExport_ChunkProgress_DateRangeAndCountsDisplayed()
     {
