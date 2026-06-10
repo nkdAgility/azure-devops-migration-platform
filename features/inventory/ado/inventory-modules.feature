@@ -4,16 +4,6 @@
 @inventory @ado
 Feature: ADO inventory modules produce per-module artefacts
 
-  Scenario: Inventory_AllModulesEnabled_ProducesInventoryJson
-    Given an Azure DevOps inventory job with all inventory-capable modules enabled
-    When the inventory job is executed
-    Then WorkItems/inventory.json exists
-    And Identities/inventory.json exists
-    And Nodes/inventory.json exists
-    And Teams/inventory.json exists
-
-  Scenario: Inventory_WithoutInventoryModule_ProducesIdenticalArtefacts
-    Given an Azure DevOps inventory job configured without InventoryModule
-    When the inventory job is executed
-    Then per-module inventory artefacts are still produced
-
+  # All scenarios retired — converted to code-first MSTest tests in
+  # tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/InventoryModulesTests.cs
+  # Eligible for deletion after verification PASS.
