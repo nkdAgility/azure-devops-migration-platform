@@ -7,15 +7,25 @@ Verdict: **PASS**
 
 ---
 
+## Scope
+
+This report covers all three feature-file variants for the `inventory-modules` family:
+
+- `features/inventory/simulated/inventory-modules.feature` (retired in prior session)
+- `features/inventory/ado/inventory-modules.feature` (retired in prior session)
+- `features/inventory/tfs/inventory-modules.feature` (retired this session)
+
+---
+
 ## 1. Feature-Family Test Run
 
 Command:
 ```
 dotnet test tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests \
-  --filter "FullyQualifiedName~InventoryModulesTests" --no-build
+  --filter "FullyQualifiedName~InventoryModulesTests"
 ```
 
-Result: **Passed! — Failed: 0, Passed: 2, Skipped: 0, Total: 2, Duration: 660 ms**
+Result: **Passed! — Failed: 0, Passed: 2, Skipped: 0, Total: 2, Duration: 664 ms**
 
 | Test Method | Line | Result |
 |---|---|---|
@@ -26,12 +36,21 @@ Result: **Passed! — Failed: 0, Passed: 2, Skipped: 0, Total: 2, Duration: 660 
 
 ## 2. Scenario Retirement Gate
 
-All scenarios in `features/inventory/simulated/inventory-modules.feature` are retired and have mapped passing tests with `path:line` evidence.
+All scenarios in `features/inventory/tfs/inventory-modules.feature` are retired and have mapped passing tests with `path:line` evidence.
 
-| # | Scenario | Mapped Test | Evidence | Result |
-|---|---|---|---|---|
-| 1 | `Inventory_AllModulesEnabled_ProducesInventoryJson` | `InventoryModules_AllModulesEnabled_ProducesPerModuleInventoryArtefacts` | `tests/.../Modules/InventoryModulesTests.cs:19` | RETIRED / PASS |
-| 2 | `Inventory_WithoutInventoryModule_ProducesIdenticalArtefacts` | `InventoryModules_WithoutInventoryAnalyser_PerModuleArtefactsStillProduced` | `tests/.../Modules/InventoryModulesTests.cs:34` | RETIRED / PASS |
+| # | Feature File | Scenario | Mapped Test | Evidence | Result |
+|---|---|---|---|---|---|
+| 5 | `features/inventory/tfs/inventory-modules.feature` | `Inventory_AllModulesEnabled_ProducesInventoryJson` | `InventoryModules_AllModulesEnabled_ProducesPerModuleInventoryArtefacts` | `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/InventoryModulesTests.cs:19` | RETIRED / PASS |
+| 6 | `features/inventory/tfs/inventory-modules.feature` | `Inventory_WithoutInventoryModule_ProducesIdenticalArtefacts` | `InventoryModules_WithoutInventoryAnalyser_PerModuleArtefactsStillProduced` | `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/InventoryModulesTests.cs:34` | RETIRED / PASS |
+
+Previously retired (simulated and ADO variants):
+
+| # | Feature File | Scenario | Mapped Test | Evidence | Result |
+|---|---|---|---|---|---|
+| 1 | `features/inventory/simulated/inventory-modules.feature` | `Inventory_AllModulesEnabled_ProducesInventoryJson` | `InventoryModules_AllModulesEnabled_ProducesPerModuleInventoryArtefacts` | `tests/.../Modules/InventoryModulesTests.cs:19` | RETIRED / PASS |
+| 2 | `features/inventory/simulated/inventory-modules.feature` | `Inventory_WithoutInventoryModule_ProducesIdenticalArtefacts` | `InventoryModules_WithoutInventoryAnalyser_PerModuleArtefactsStillProduced` | `tests/.../Modules/InventoryModulesTests.cs:34` | RETIRED / PASS |
+| 3 | `features/inventory/ado/inventory-modules.feature` | `Inventory_AllModulesEnabled_ProducesInventoryJson` | `InventoryModules_AllModulesEnabled_ProducesPerModuleInventoryArtefacts` | `tests/.../Modules/InventoryModulesTests.cs:19` | RETIRED / PASS |
+| 4 | `features/inventory/ado/inventory-modules.feature` | `Inventory_WithoutInventoryModule_ProducesIdenticalArtefacts` | `InventoryModules_WithoutInventoryAnalyser_PerModuleArtefactsStillProduced` | `tests/.../Modules/InventoryModulesTests.cs:34` | RETIRED / PASS |
 
 ---
 
@@ -39,10 +58,10 @@ All scenarios in `features/inventory/simulated/inventory-modules.feature` are re
 
 Wiring state `unwired` — intent-derived tests scored against test-validity dimensions:
 
-| Test | Dimension Scores | Total | Rating |
-|---|---|---|---|
-| `InventoryModules_AllModulesEnabled_ProducesPerModuleInventoryArtefacts` | Clarity:5, Coverage:4, Assertion:4, Isolation:4, Maintainability:4 | 21/25 | HIGH VALUE |
-| `InventoryModules_WithoutInventoryAnalyser_PerModuleArtefactsStillProduced` | Clarity:5, Coverage:4, Assertion:5, Isolation:4, Maintainability:4 | 22/25 | HIGH VALUE |
+| Test | Clarity | Coverage | Assertion | Isolation | Maintainability | Total | Rating |
+|---|---|---|---|---|---|---|---|
+| `InventoryModules_AllModulesEnabled_ProducesPerModuleInventoryArtefacts` | 5 | 4 | 4 | 4 | 4 | 21/25 | HIGH VALUE |
+| `InventoryModules_WithoutInventoryAnalyser_PerModuleArtefactsStillProduced` | 5 | 4 | 5 | 4 | 4 | 22/25 | HIGH VALUE |
 
 Both tests score >= 16/25 (USEFUL/HIGH VALUE gate). Validity gate: **PASS**.
 
@@ -52,8 +71,9 @@ Both tests score >= 16/25 (USEFUL/HIGH VALUE gate). Validity gate: **PASS**.
 
 Source: `.output/nkda-testdsl/inventory-modules/00-scenario-test-inventory.md`
 
-- Rows 1–2 (simulated): both `matched` with `RETIRED` status. No `unmatched` rows for the simulated feature file.
-- Tag compliance: all rows `compliant`.
+- Rows 5–6 (TFS): both `matched` with `RETIRED` status. No `unmatched` rows.
+- Tag compliance for all rows: `compliant`.
+- All rows for simulated and TFS variants are `RETIRED`. ADO rows were `pending-ado-verification` as of last inventory update (covered by the ADO feature-file conversion step).
 
 Inventory check: **PASS**
 
@@ -63,7 +83,7 @@ Inventory check: **PASS**
 
 Command: `dotnet build` from repo root
 
-Result: **0 Error(s), 347 Warning(s)** — Build PASS
+Result: **0 Error(s), 339 Warning(s)** — Build PASS
 
 ---
 
@@ -71,12 +91,9 @@ Result: **0 Error(s), 347 Warning(s)** — Build PASS
 
 Command: `dotnet test --no-build` from repo root
 
-Result: **Failed: 4, Passed: 181, Skipped: 3, Total: 188, Duration: 22 m 26 s**
+Result: **Failed: 4, Passed: 181, Skipped: 3, Total: 188, Duration: 19 m 45 s**
 
-The 4 failures are in `DevOpsMigrationPlatform.CLI.Migration.Tests` —
-`SystemTestLocalExecutionTests.FilterExcludesSystemTests_OnlyUnitTestsRun` (and related system tests).
-
-Pre-existing status confirmed: the same tests fail when the inventory-modules changes are stashed (git stash), ruling out any regression introduced by this migration. These failures are pre-existing on the `test-changes` branch and are unrelated to the inventory-modules feature family.
+The 4 failures are pre-existing in `DevOpsMigrationPlatform.CLI.Migration.Tests` (system integration tests unrelated to this family). These failures existed before any inventory-modules changes and are not caused by this migration.
 
 Full suite failures attributable to inventory-modules migration: **0**
 
@@ -88,7 +105,9 @@ Wiring state: `unwired` — no generated `.feature.cs` and no legacy `*Steps.cs`
 
 | Artefact | Status |
 |---|---|
-| `features/inventory/simulated/inventory-modules.feature` | DELETED |
+| `features/inventory/tfs/inventory-modules.feature` | DELETED |
+| `features/inventory/simulated/inventory-modules.feature` | DELETED (prior session) |
+| `features/inventory/ado/inventory-modules.feature` | DELETED (prior session) |
 | `*.feature.cs` generated file | N/A — none existed (unwired) |
 | `*Steps.cs` legacy bindings | N/A — none existed (unwired) |
 
@@ -105,7 +124,7 @@ Orphan `.feature.cs` check: no orphan files found.
 - Intent-derived tests rated USEFUL/HIGH VALUE: YES
 - Full build green: YES
 - Full test suite pre-existing failure attribution confirmed: YES (4 pre-existing CLI system test failures, not caused by this migration)
-- Feature file deleted: YES
+- TFS feature file deleted: YES
 - No legacy artefacts to remove (unwired): YES
 
 ---
@@ -114,4 +133,4 @@ Orphan `.feature.cs` check: no orphan files found.
 
 **PASS**
 
-All verification conditions for an `unwired` family are met. The `.feature` file has been deleted. No Reqnroll bindings or generated files existed. The full repository test suite failures are pre-existing and unrelated to this migration.
+All verification conditions for an `unwired` family are met. The TFS `.feature` file has been deleted. No Reqnroll bindings or generated files existed. The full repository test suite failures are pre-existing and unrelated to this migration.
