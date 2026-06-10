@@ -31,7 +31,8 @@ public sealed class CliCommandExecutionTests
 
         result
             .AssertExitCodeNonZero()
-            .AssertOutputContains("Could not find file");
+            .AssertStderrContains("Could not find file")   // G1: tightened from AssertOutputContains
+            .AssertNoUnhandledException();                 // G2: added
     }
 
     // ── 2. Help text: --help flag ─────────────────────────────────────────────
@@ -73,6 +74,8 @@ public sealed class CliCommandExecutionTests
 
         result
             .AssertExitCodeNonZero()
-            .AssertOutputContains("No configuration file");
+            .AssertStderrContains("No configuration file")  // G4: tightened from AssertOutputContains
+            .AssertHelpSuggested()                          // G3: added
+            .AssertNoUnhandledException();                  // G2: added
     }
 }

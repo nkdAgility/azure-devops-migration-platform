@@ -24,6 +24,9 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestDsl.Logging;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestDsl.Teams;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestDsl.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using DevOpsMigrationPlatform.Infrastructure.Simulated;
 using Microsoft.Extensions.Logging;
@@ -1511,6 +1514,120 @@ public class TeamsModuleTests
 
         // Assert — NodeTranslation disabled: SetAreaPathsAsync must not be called
         Assert.AreEqual(0, target.AreaPaths.Count, "SetAreaPathsAsync should not be called when NodeTranslation extension is disabled");
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public async Task ImportTeamAreaPaths_SkipsIncludedPath_WhenUntranslatable()
+    {
+        // Arrange
+        var target = new SimulatedTeamTarget();
+        var loggerMock = new Mock<ILogger<TeamImportOrchestrator>>();
+
+        // Default path "ProjectA" translates successfully; included "ProjectA\ObsoleteArea" returns null.
+        var translationToolMock = NodeTranslationToolMock.ReturningNullFor(
+            nullPath: "ProjectA\\ObsoleteArea",
+            sourceProject: "ProjectA",
+            targetProject: "TargetProject");
+
+        var importOrch = new TeamImportOrchestrator(
+            target,
+            loggerMock.Object,
+            endpointInfo: CreateTargetEndpointInfo(targetProject: "TargetProject"),
+            nodeTranslationTool: translationToolMock.Object);
+
+        var teamPackage = TeamPackageBuilder.WithAreaPaths(
+            teamId: "src-1",
+            teamName: "Alpha Team",
+            areaPaths: TeamAreaPathsBuilder.WithDefaultAndOneIncluded(
+                defaultPath: "ProjectA",
+                includedPath: "ProjectA\\ObsoleteArea"));
+
+        var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
+        storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnum(new[] { "Teams/alpha-team/team.json" }));
+        storeMock.Setup(s => s.ReadAsync("Teams/alpha-team/team.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(json);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions
+            {
+                Enabled = true,
+                Extensions = new TeamsModuleExtensionsOptions { NodeTranslation = true }
+            }),
+            sourceEndpointInfo: CreateSourceEndpointInfo(sourceProject: "ProjectA"),
+            targetEndpointInfo: CreateTargetEndpointInfo(targetProject: "TargetProject"),
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch),
+            teamTarget: target);
+
+        // Act
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
+
+        // Assert — SetAreaPathsAsync was still called (default translated successfully)
+        SimulatedTeamTargetAssertions.AreaPathsWereCalled(target,
+            because: "the default path translated successfully");
+
+        // Assert — untranslatable included path is absent from the result
+        SimulatedTeamTargetAssertions.AreaPathsExclude(target,
+            excludedPath: "ProjectA\\ObsoleteArea",
+            because: "null-translated included paths must be filtered out");
+
+        // Assert — a warning was logged for the skipped path
+        LoggerAssertions.VerifyWarningContaining(loggerMock, "ObsoleteArea");
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public async Task ImportTeamAreaPaths_DoesNotCallSetAreaPaths_WhenDefaultPathUntranslatable()
+    {
+        // Arrange
+        var target = new SimulatedTeamTarget();
+
+        // All paths — including the default "UnknownProject" — translate to null.
+        var translationToolMock = NodeTranslationToolMock.ReturningNullForAll();
+
+        var importOrch = new TeamImportOrchestrator(
+            target,
+            NullLogger<TeamImportOrchestrator>.Instance,
+            endpointInfo: CreateTargetEndpointInfo(),
+            nodeTranslationTool: translationToolMock.Object);
+
+        var teamPackage = TeamPackageBuilder.WithAreaPaths(
+            teamId: "src-2",
+            teamName: "Beta Team",
+            areaPaths: TeamAreaPathsBuilder.WithDefaultOnly("UnknownProject"));
+
+        var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
+        var storeMock = new Mock<ITestArtefactStore>(MockBehavior.Loose);
+        var package = PackageTestFactory.CreateDelegatingMock(storeMock.Object);
+        storeMock.Setup(s => s.EnumerateAsync("Teams/", It.IsAny<CancellationToken>()))
+            .Returns(ToAsyncEnum(new[] { "Teams/beta-team/team.json" }));
+        storeMock.Setup(s => s.ReadAsync("Teams/beta-team/team.json", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(json);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions
+            {
+                Enabled = true,
+                Extensions = new TeamsModuleExtensionsOptions { NodeTranslation = true }
+            }),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch),
+            teamTarget: target);
+
+        // Act
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
+
+        // Assert — SetAreaPathsAsync must never have been called
+        SimulatedTeamTargetAssertions.AreaPathsNotCalled(target,
+            because: "a null-translated default path must suppress the entire SetAreaPathsAsync call");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

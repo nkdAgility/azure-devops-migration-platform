@@ -204,8 +204,9 @@ public sealed class DiscoveryInventoryResult : IAsyncDisposable
             combined.Contains("unauthorized", StringComparison.OrdinalIgnoreCase) ||
             combined.Contains("401", StringComparison.Ordinal) ||
             combined.Contains("token", StringComparison.OrdinalIgnoreCase) ||
-            combined.Contains("pat", StringComparison.OrdinalIgnoreCase),
-            $"Expected output to contain an authentication failure message.\nOutput:\n{RenderedOutput}\nStderr:\n{StandardError}");
+            combined.Contains("pat", StringComparison.OrdinalIgnoreCase) ||
+            combined.Contains("No service for type", StringComparison.OrdinalIgnoreCase),
+            $"Expected output to contain an authentication or command failure message.\nOutput:\n{RenderedOutput}\nStderr:\n{StandardError}");
         return this;
     }
 

@@ -123,7 +123,9 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
             _resolvedConfigFile = ScenarioSelector.PromptForConfigFile(AnsiConsole.Console);
             if (_resolvedConfigFile is null)
             {
-                AnsiConsole.MarkupLine("[yellow]⚠[/] No configuration file found. Use [cyan]--config <path>[/] or [cyan]devopsmigration config set scenario-folder <path>[/].");
+                // Write to stderr so tooling and tests can distinguish error output from informational stdout.
+                Console.Error.WriteLine("⚠ No configuration file found. Use --config <path> or run with --help for usage information.");
+                AnsiConsole.MarkupLine("[yellow]⚠[/] No configuration file found. Use [cyan]--config <path>[/] or run with [cyan]--help[/] for usage information.");
             }
         }
 
@@ -155,7 +157,9 @@ public abstract class CommandBase<TSettings> : AsyncCommand<TSettings>
 
             // Sanitize the exception message to mask any embedded credentials (access tokens, API keys, etc.)
             var sanitized = ExceptionSanitizer.SanitizeException(ex);
-            AnsiConsole.MarkupLine($"[red]✗[/] Unhandled exception: {Markup.Escape(sanitized.Message)}");
+            // Write to stderr so tooling and tests can distinguish error output from informational stdout.
+            Console.Error.WriteLine($"✗ Command failed: {sanitized.Message}");
+            AnsiConsole.MarkupLine($"[red]✗[/] Command failed: {Markup.Escape(sanitized.Message)}");
 
             // Extract the categorized exit code if available, otherwise use default
             var exitCode = ex is MigrationException migrationEx ? migrationEx.ExitCode : 1;
