@@ -1225,7 +1225,14 @@ public class TeamsModuleTests
     [TestMethod]
     public async Task ImportTeam_LogsStructuredWarning_ForDefaultTeam_GAP004()
     {
-        // GAP-004/FR-011: a default team logs a structured warning with the exact text and continues.
+        // GAP-004/FR-011: a default team logs a structured warning and is still created
+        // on the target using the source team name (no name-matching substitution occurs).
+        //
+        // KNOWN LIMITATION (BLOCKED): ITeamTarget has no explicit default-team-assignment
+        // API. The platform logs a warning and creates the team; it cannot assign it as
+        // the project's default. Assert the warning + creation; do not assert settings
+        // applied to target default team (that outcome is blocked by the target API gap).
+        // See: src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamImportOrchestrator.cs:64-71
         var target = new SimulatedTeamTarget();
         var logger = new Mock<ILogger<TeamImportOrchestrator>>();
         var orch = new TeamImportOrchestrator(target, logger.Object, CreateTargetEndpointInfo());
@@ -1240,6 +1247,7 @@ public class TeamsModuleTests
 
         await orch.ImportTeamAsync("TargetProject", "SourceProject", pkg, new TeamsModuleExtensionsOptions(), CancellationToken.None);
 
+        // B1: structured warning was emitted
         logger.Verify(
             l => l.Log(
                 LogLevel.Warning,
@@ -1248,6 +1256,15 @@ public class TeamsModuleTests
                 It.IsAny<Exception?>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
+
+        // B2: team was still created on the target despite the API limitation
+        Assert.AreEqual(1, target.Teams.Count,
+            "Default team must still be created on the target despite the warning.");
+
+        // B3: the team was created with the source name, not substituted with any target team name
+        Assert.IsTrue(
+            target.Teams.Values.Any(t => t.Name == "The Default Team"),
+            "Team should be created using the source team name; no name-matching substitution must occur.");
     }
 
     [TestCategory("CodeTest")]
