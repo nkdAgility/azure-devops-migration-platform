@@ -13,7 +13,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 [TestClass]
 public class ImportEmbeddedImagesTests
 {
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_UploadsImageAndRewritesUrl_WhenEmbeddedImagesExtensionEnabled()
     {
@@ -75,7 +76,8 @@ public class ImportEmbeddedImagesTests
             Times.Once);
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_SkipsUploadAndPreservesOriginalUrl_WhenEmbeddedImagesExtensionDisabled()
     {

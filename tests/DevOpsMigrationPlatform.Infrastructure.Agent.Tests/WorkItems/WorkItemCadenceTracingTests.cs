@@ -16,6 +16,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.WorkItems;
 [TestClass]
 public sealed class WorkItemCadenceTracingTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PackagePathResolution_EmitsStateProgressTrace()
     {

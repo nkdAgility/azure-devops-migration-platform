@@ -91,7 +91,8 @@ public class PreventDuplicateWorkItemsTests
 
     // ── Tests ─────────────────────────────────────────────────────────────────
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_RecordsSkipAndAdvancesCursor_WhenMappedTargetWorkItemDeleted()
     {
@@ -120,7 +121,8 @@ public class PreventDuplicateWorkItemsTests
         Assert.IsFalse(ctx.CreateWorkItemCalled, "CreateWorkItemAsync should NOT have been called.");
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_CreatesNewWorkItemAndRecordsMapping_WhenNoMappingExists()
     {
@@ -140,7 +142,8 @@ public class PreventDuplicateWorkItemsTests
         Assert.IsNotNull(ctx.RecordedMapping, "Expected SetWorkItemMappingAsync to be called.");
     }
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ProcessAsync_SkipsCreation_WhenValidMappingExists()
     {

@@ -9,14 +9,23 @@
       Build       — (default) Compile the solution only. Use as the first step
                     before running any tests.
 
-      Test        — Run unit tests (TestCategory!=SystemTest) against the
+      Test        — Run unit tests only (TestCategory=UnitTests) against the
                     already-compiled binaries.
+
+      CodeTest    — Run all in-process tests (TestCategory=CodeTest): Unit + Domain + Integration.
+                    No system required. Equivalent to Test + DomainTest + IntegrationTest.
 
     SystemTest           — Run all system tests in order: first
                      SystemTest_Smoke, then SystemTest_Simulated, then SystemTest_Live,
                       then remaining SystemTest tests that are not
                       Smoke, Simulated, or Live, against the already-compiled
                       binaries.
+
+      DomainTest  — Run domain tests only (TestCategory=DomainTests) against the
+                    already-compiled binaries.
+
+      IntegrationTest — Run integration tests only (TestCategory=IntegrationTests) against the
+                    already-compiled binaries.
 
       SystemTest_Smoke     — Run only smoke startup system tests
                              (TestCategory=SystemTest_Smoke) against the
@@ -34,12 +43,12 @@
       Package     — Publish + zip only against the already-compiled binaries.
                     Produces distributable artefacts under ./output/.
 
-      Full        — Build + Test + SystemTest_Smoke + SystemTest_Simulated + SystemTest_Live +
+      Full        — Build + Test + DomainTest + IntegrationTest + SystemTest_Smoke + SystemTest_Simulated + SystemTest_Live +
                      Package in sequence.
                     Use for Preview (push to main) and Production releases.
 
       Stats       — Read existing .trx files in TestResults/ and output the
-                    test summary and 10 slowest tests. No build or test run.
+                    test summary and 5 slowest tests per category. No build or test run.
 
       Start       — Install (build + unit test + publish + install to versioned
                     folder + update 'current' junction), then launches the
@@ -55,9 +64,9 @@
                     already on PATH for any machine with the .NET SDK.
 
     Workflow matrix:
-      PR                   :  Build  →  Test  →  SystemTest_Smoke  →  SystemTest_Simulated  →  SystemTest_Live   (separate steps)
-      Preview (main push)  :  Build  →  Test  →  SystemTest_Smoke  →  SystemTest_Simulated  →  SystemTest_Live  →  Package
-      Production (release) :  Build  →  Test  →  SystemTest_Smoke  →  SystemTest_Simulated  →  SystemTest_Live  →  Package
+      PR                   :  Build  →  CodeTest  →  SystemTest_Smoke  →  SystemTest_Simulated  →  SystemTest_Live   (separate steps)
+      Preview (main push)  :  Build  →  CodeTest  →  SystemTest_Smoke  →  SystemTest_Simulated  →  SystemTest_Live  →  Package
+      Production (release) :  Build  →  CodeTest  →  SystemTest_Smoke  →  SystemTest_Simulated  →  SystemTest_Live  →  Package
       Developer local      :  Install  (or Start to also launch Aspire)
 
     The -Fast switch skips all system tests (SystemTest, SystemTest_Smoke, SystemTest_Simulated,
@@ -109,7 +118,7 @@
 #>
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('Build', 'Test', 'SystemTest', 'SystemTest_Smoke', 'SystemTest_Simulated', 'SystemTest_Live', 'Package', 'Full', 'Stats', 'Start', 'Install', 'RunTest')]
+    [ValidateSet('Build', 'Test', 'DomainTest', 'IntegrationTest', 'CodeTest', 'SystemTest', 'SystemTest_Smoke', 'SystemTest_Simulated', 'SystemTest_Live', 'Package', 'Full', 'Stats', 'Start', 'Install', 'RunTest')]
     [string]$Mode = '',
 
     [string]$Version,
@@ -140,7 +149,10 @@ if (-not $Mode) {
     Write-Host ""
     Write-Host "  Modes:" -ForegroundColor Yellow
     Write-Host "    Build              Compile the solution only"
-    Write-Host "    Test               Run unit tests only (no system tests)"
+    Write-Host "    Test               Run unit tests only (TestCategory=UnitTests)"
+    Write-Host "    DomainTest         Run domain tests only (TestCategory=DomainTests)"
+    Write-Host "    IntegrationTest    Run integration tests only (TestCategory=IntegrationTests)"
+    Write-Host "    CodeTest           Run all in-process tests (TestCategory=CodeTest): Unit + Domain + Integration"
     Write-Host "    SystemTest         Run all system tests (Smoke + Simulated + Live + Remaining)"
     Write-Host "    SystemTest_Smoke   Run smoke/startup system tests only"
     Write-Host "    SystemTest_Simulated  Run simulated connector system tests only"
@@ -288,11 +300,13 @@ function Write-TestSummary {
 
     # ── Categorised sections ─────────────────────────────────────────────────
     $categorySections = @(
-        [PSCustomObject]@{ Label = 'Unit Tests';               Dir = Join-Path $TestResultsDir 'unit'      },
-        [PSCustomObject]@{ Label = 'System Tests (Smoke)';     Dir = Join-Path $TestResultsDir 'smoke'     },
-        [PSCustomObject]@{ Label = 'System Tests (Simulated)'; Dir = Join-Path $TestResultsDir 'simulated' },
-        [PSCustomObject]@{ Label = 'System Tests (Live)';      Dir = Join-Path $TestResultsDir 'live'      },
-        [PSCustomObject]@{ Label = 'System Tests';             Dir = Join-Path $TestResultsDir 'system'    }
+        [PSCustomObject]@{ Label = 'Unit Tests';               Dir = Join-Path $TestResultsDir 'unit'        },
+        [PSCustomObject]@{ Label = 'Domain Tests';             Dir = Join-Path $TestResultsDir 'domain'      },
+        [PSCustomObject]@{ Label = 'Integration Tests';        Dir = Join-Path $TestResultsDir 'integration' },
+        [PSCustomObject]@{ Label = 'System Tests (Smoke)';     Dir = Join-Path $TestResultsDir 'smoke'       },
+        [PSCustomObject]@{ Label = 'System Tests (Simulated)'; Dir = Join-Path $TestResultsDir 'simulated'   },
+        [PSCustomObject]@{ Label = 'System Tests (Live)';      Dir = Join-Path $TestResultsDir 'live'        },
+        [PSCustomObject]@{ Label = 'System Tests';             Dir = Join-Path $TestResultsDir 'system'      }
     )
 
     $hasSubdirData = $false
@@ -335,25 +349,46 @@ function Write-TestSummary {
     Write-Host ('  {0} {1,-42}  {2,6}  {3,6}  {4,5}  {5,6}' -f $summaryIcon, 'ALL TESTS', $totalPassed, $totalFailed, $totalSkipped, $totalTests) -ForegroundColor $summaryColor
     Write-Host $hr -ForegroundColor DarkGray
 
-    # ── 10 slowest tests ─────────────────────────────────────────────────────
-    $allResults = foreach ($trx in $allTrxFiles) {
-        [xml]$xml = Get-Content -LiteralPath $trx.FullName -Raw
-        $ns = @{ t = 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010' }
-        Select-Xml -Xml $xml -XPath '//t:Results/t:UnitTestResult' -Namespace $ns |
-            Select-Object -ExpandProperty Node |
-            Where-Object { $_.duration } |
-            ForEach-Object {
-                [PSCustomObject]@{ Name = $_.testName; Duration = [TimeSpan]::Parse($_.duration) }
-            }
-    }
+    # ── 5 slowest tests per category ─────────────────────────────────────────
+    $slowestSections = @(
+        [PSCustomObject]@{ Label = 'Unit Tests';               Dir = Join-Path $TestResultsDir 'unit'        },
+        [PSCustomObject]@{ Label = 'Domain Tests';             Dir = Join-Path $TestResultsDir 'domain'      },
+        [PSCustomObject]@{ Label = 'Integration Tests';        Dir = Join-Path $TestResultsDir 'integration' },
+        [PSCustomObject]@{ Label = 'System Tests (Smoke)';     Dir = Join-Path $TestResultsDir 'smoke'       },
+        [PSCustomObject]@{ Label = 'System Tests (Simulated)'; Dir = Join-Path $TestResultsDir 'simulated'   },
+        [PSCustomObject]@{ Label = 'System Tests (Live)';      Dir = Join-Path $TestResultsDir 'live'        },
+        [PSCustomObject]@{ Label = 'System Tests';             Dir = Join-Path $TestResultsDir 'system'      }
+    )
 
-    $slowest = $allResults | Sort-Object Duration -Descending | Select-Object -First 10
-    if ($slowest) {
+    $anySlowest = $false
+    foreach ($sec in $slowestSections) {
+        if (-not (Test-Path $sec.Dir -ErrorAction SilentlyContinue)) { continue }
+        $secTrx = Get-ChildItem -LiteralPath $sec.Dir -Filter '*.trx' -ErrorAction SilentlyContinue
+        if (-not $secTrx -or $secTrx.Count -eq 0) { continue }
+
+        $secResults = foreach ($trx in $secTrx) {
+            [xml]$xml = Get-Content -LiteralPath $trx.FullName -Raw
+            $ns = @{ t = 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010' }
+            Select-Xml -Xml $xml -XPath '//t:Results/t:UnitTestResult' -Namespace $ns |
+                Select-Object -ExpandProperty Node |
+                Where-Object { $_.duration } |
+                ForEach-Object {
+                    [PSCustomObject]@{ Name = $_.testName; Duration = [TimeSpan]::Parse($_.duration) }
+                }
+        }
+
+        $slowest = $secResults | Sort-Object Duration -Descending | Select-Object -First 5
+        if (-not $slowest) { continue }
+
+        if (-not $anySlowest) {
+            Write-Host ''
+            Write-Host ('  {0,3}  {1,-62}  {2,9}' -f '#', 'Test', 'Duration') -ForegroundColor DarkGray
+            $anySlowest = $true
+        }
+
         Write-Host ''
-        Write-Host '  10 Slowest Tests' -ForegroundColor White
+        Write-Host "  5 Slowest — $($sec.Label)" -ForegroundColor White
         Write-Host $hr -ForegroundColor DarkGray
-        Write-Host ('  {0,3}  {1,-62}  {2,9}' -f '#', 'Test', 'Duration') -ForegroundColor DarkGray
-        Write-Host ('  {0}  {1}  {2}' -f ('─' * 3), ('─' * 62), ('─' * 9)) -ForegroundColor DarkGray
         $rank = 1
         foreach ($t in $slowest) {
             $dur = $t.Duration
@@ -367,6 +402,41 @@ function Write-TestSummary {
             $rank++
         }
         Write-Host $hr -ForegroundColor DarkGray
+    }
+
+    # Fallback: global slowest when no categorised subdirs (legacy Stats run)
+    if (-not $anySlowest) {
+        $allResults = foreach ($trx in $allTrxFiles) {
+            [xml]$xml = Get-Content -LiteralPath $trx.FullName -Raw
+            $ns = @{ t = 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010' }
+            Select-Xml -Xml $xml -XPath '//t:Results/t:UnitTestResult' -Namespace $ns |
+                Select-Object -ExpandProperty Node |
+                Where-Object { $_.duration } |
+                ForEach-Object {
+                    [PSCustomObject]@{ Name = $_.testName; Duration = [TimeSpan]::Parse($_.duration) }
+                }
+        }
+        $slowest = $allResults | Sort-Object Duration -Descending | Select-Object -First 5
+        if ($slowest) {
+            Write-Host ''
+            Write-Host '  5 Slowest Tests' -ForegroundColor White
+            Write-Host $hr -ForegroundColor DarkGray
+            Write-Host ('  {0,3}  {1,-62}  {2,9}' -f '#', 'Test', 'Duration') -ForegroundColor DarkGray
+            Write-Host ('  {0}  {1}  {2}' -f ('─' * 3), ('─' * 62), ('─' * 9)) -ForegroundColor DarkGray
+            $rank = 1
+            foreach ($t in $slowest) {
+                $dur = $t.Duration
+                $formatted = if ($dur.TotalMinutes -ge 1) {
+                    '{0}m {1:D2}.{2:D3}s' -f [int]$dur.TotalMinutes, $dur.Seconds, $dur.Milliseconds
+                } else {
+                    '{0:D2}.{1:D3}s' -f $dur.Seconds, $dur.Milliseconds
+                }
+                $shortName = if ($t.Name.Length -gt 62) { $t.Name.Substring(0, 59) + '...' } else { $t.Name }
+                Write-Host ('  {0,3}  {1,-62}  {2,9}' -f $rank, $shortName, $formatted) -ForegroundColor DarkYellow
+                $rank++
+            }
+            Write-Host $hr -ForegroundColor DarkGray
+        }
     }
 
     Write-Host ''
@@ -453,8 +523,10 @@ function Get-TrxTotalCount {
 
 # Maps build step descriptions to the TRX subdirectory that holds their results.
 $script:StepTrxDirMap = @{
-    'Running unit tests (excluding SystemTests)'                                     = 'unit'
-    'Running smoke system tests (TestCategory=SystemTest_Smoke)'                    = 'smoke'
+    'Running unit tests (TestCategory=UnitTests)'                                    = 'unit'
+    'Running domain tests (TestCategory=DomainTests)'                                = 'domain'
+    'Running integration tests (TestCategory=IntegrationTests)'                      = 'integration'
+    'Running smoke system tests (TestCategory=SystemTest_Smoke)'                     = 'smoke'
     'Running simulated system tests (TestCategory=SystemTest_Simulated)'             = 'simulated'
     'Running live system tests (TestCategory=SystemTest_Live)'                       = 'live'
     'Running remaining system tests (SystemTest excluding Smoke/Simulated/Live)'     = 'system'
@@ -614,25 +686,54 @@ function Invoke-UnitTests {
     }
     $unitDir = Join-Path $TestResultsDir 'unit'
     New-Item -ItemType Directory -Path $unitDir -Force | Out-Null
-    # All tests EXCEPT SystemTest-categorised tests (including sub-categories)
-    Invoke-Step 'Running unit tests (excluding SystemTests)' {
+    Invoke-Step 'Running unit tests (TestCategory=UnitTests)' {
         dotnet test $SolutionFile `
             --no-build `
             --configuration Release `
-            --filter 'TestCategory!=SystemTest&TestCategory!=SystemTest_Smoke&TestCategory!=SystemTest_Simulated&TestCategory!=SystemTest_Live' `
+            --filter 'TestCategory=UnitTests' `
             --logger 'trx' `
             --logger 'console;verbosity=normal' `
             --results-directory $unitDir
     }
 }
 
+function Invoke-DomainTests {
+    $domainDir = Join-Path $TestResultsDir 'domain'
+    New-Item -ItemType Directory -Path $domainDir -Force | Out-Null
+    Invoke-Step 'Running domain tests (TestCategory=DomainTests)' {
+        dotnet test $SolutionFile `
+            --no-build `
+            --configuration Release `
+            --filter 'TestCategory=DomainTests' `
+            --logger 'trx' `
+            --logger 'console;verbosity=normal' `
+            --results-directory $domainDir
+    }
+}
+
 function Invoke-AllTests {
-    # Run all four categories in order so the summary is broken out by section.
+    # Run all categories in order so the summary is broken out by section.
     Invoke-UnitTests
+    Invoke-DomainTests
+    Invoke-IntegrationTests
     Invoke-SmokeSystemTests
     Invoke-SimulatedSystemTests
     Invoke-LiveSystemTests
     Invoke-RemainingSystemTests
+}
+
+function Invoke-IntegrationTests {
+    $integrationDir = Join-Path $TestResultsDir 'integration'
+    New-Item -ItemType Directory -Path $integrationDir -Force | Out-Null
+    Invoke-Step 'Running integration tests (TestCategory=IntegrationTests)' {
+        dotnet test $SolutionFile `
+            --no-build `
+            --configuration Release `
+            --filter 'TestCategory=IntegrationTests' `
+            --logger 'trx' `
+            --logger 'console;verbosity=normal' `
+            --results-directory $integrationDir
+    }
 }
 
 function Invoke-SmokeSystemTests {
@@ -984,6 +1085,43 @@ switch ($Mode) {
         Write-BuildSummary
     }
 
+    'DomainTest' {
+        # ── Domain tests only ────────────────────────────────────────────────
+        Invoke-EnsureBuilt -VersionArgs $VersionArgs
+        if (Test-Path $TestResultsDir) {
+            Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -Recurse -ErrorAction SilentlyContinue |
+                Remove-Item -Force -ErrorAction SilentlyContinue
+        }
+        Invoke-DomainTests
+
+        Write-Host "`n==> Domain tests complete!" -ForegroundColor Green
+        Write-BuildSummary
+    }
+
+    'IntegrationTest' {
+        # ── Integration tests only ───────────────────────────────────────────
+        Invoke-EnsureBuilt -VersionArgs $VersionArgs
+        if (Test-Path $TestResultsDir) {
+            Get-ChildItem -LiteralPath $TestResultsDir -Filter '*.trx' -Recurse -ErrorAction SilentlyContinue |
+                Remove-Item -Force -ErrorAction SilentlyContinue
+        }
+        Invoke-IntegrationTests
+
+        Write-Host "`n==> Integration tests complete!" -ForegroundColor Green
+        Write-BuildSummary
+    }
+
+    'CodeTest' {
+        # ── All in-process tests: Unit + Domain + Integration ────────────────
+        Invoke-EnsureBuilt -VersionArgs $VersionArgs
+        Invoke-UnitTests  # clears stale trx files
+        Invoke-DomainTests
+        Invoke-IntegrationTests
+
+        Write-Host "`n==> Code tests complete!" -ForegroundColor Green
+        Write-BuildSummary
+    }
+
     'SystemTest' {
         # ── Smoke, simulated, then live system tests ─────────────────────────
         # Clear stale .trx files so the summary only reflects this run.
@@ -1062,9 +1200,11 @@ switch ($Mode) {
     }
 
     'Full' {
-        # ── Everything: Build + Test + SystemTest_Smoke + SystemTest_Simulated + SystemTest_Live + Package ──
+        # ── Everything: Build + Test + DomainTest + SystemTest_Smoke + SystemTest_Simulated + SystemTest_Live + Package ──
         Invoke-Build       -VersionArgs $VersionArgs
         Invoke-UnitTests
+        Invoke-DomainTests
+        Invoke-IntegrationTests
         Invoke-SmokeSystemTests
         Invoke-SimulatedSystemTests
         Invoke-LiveSystemTests
@@ -1089,6 +1229,8 @@ switch ($Mode) {
         $localRid = Get-CurrentRid
         Invoke-Build   -VersionArgs $VersionArgs
         Invoke-UnitTests
+        Invoke-DomainTests
+        Invoke-IntegrationTests
         if (-not $Fast) {
             Invoke-SmokeSystemTests
             Invoke-SimulatedSystemTests
@@ -1117,8 +1259,10 @@ switch ($Mode) {
         $localRid = Get-CurrentRid
         Invoke-Build   -VersionArgs $VersionArgs
         if ($Fast) {
-            Write-Host "`n==> Running unit tests only (-Fast)" -ForegroundColor Yellow
+            Write-Host "`n==> Running unit, domain, and integration tests only (-Fast)" -ForegroundColor Yellow
             Invoke-UnitTests
+            Invoke-DomainTests
+            Invoke-IntegrationTests
         }
         else {
             Invoke-AllTests

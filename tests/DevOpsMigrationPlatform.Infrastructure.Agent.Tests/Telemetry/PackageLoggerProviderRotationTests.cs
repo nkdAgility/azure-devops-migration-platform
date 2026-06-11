@@ -28,6 +28,8 @@ public class PackageLoggerProviderRotationTests
     /// Verifies that when log output stays under the segment size limit,
     /// diagnostics are appended through the package boundary.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task FlushBatch_UnderLimit_WritesToInitialSegment()
     {
@@ -70,6 +72,8 @@ public class PackageLoggerProviderRotationTests
     /// Verifies that when cumulative output exceeds the segment limit,
     /// diagnostics continue to append through the package boundary.
     /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task FlushBatch_ExceedsLimit_RotatesToNewSegment()
     {
@@ -127,6 +131,8 @@ public class PackageLoggerProviderRotationTests
         Assert.IsTrue(appendedContexts.TrueForAll(c => c.RunId == state.CurrentRunId));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task FlushBatch_RotationDisabled_NeverRotates()
     {
@@ -176,6 +182,8 @@ public class PackageLoggerProviderRotationTests
         Assert.IsTrue(appendedContexts.TrueForAll(c => c.RunId == state.CurrentRunId));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void CurrentLogPath_SegmentZero_ReturnsBaseName()
     {

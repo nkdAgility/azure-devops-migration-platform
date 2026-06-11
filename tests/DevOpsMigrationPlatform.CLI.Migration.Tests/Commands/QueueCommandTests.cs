@@ -47,6 +47,8 @@ public class QueueCommandTests
 {
     // ── Unit tests ─────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void QueueCommandSettings_WithValidLevel_PassesValidation()
     {
@@ -61,6 +63,8 @@ public class QueueCommandTests
         Assert.IsTrue(result.Successful, "Validation should pass for valid log level.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void QueueCommandSettings_WithInvalidLevel_FailsValidation()
     {
@@ -75,6 +79,8 @@ public class QueueCommandTests
         Assert.IsFalse(result.Successful, "Validation should fail for invalid log level.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void QueueCommandSettings_WithDiagnosticsFlag_PassesValidation()
     {
@@ -89,6 +95,8 @@ public class QueueCommandTests
         Assert.IsTrue(result.Successful, "Validation should pass when diagnostics flag is enabled.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void DetermineCurrentTaskPhase_WithOnlyTerminalTasks_ReturnsLastTerminalPhase()
     {
@@ -137,6 +145,8 @@ public class QueueCommandTests
         Assert.AreEqual("Import", phase, "Completed multi-stage jobs should remain on their last terminal phase.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void BuildProgressDisplay_WhenTaskListHasExplicitPhaseSummaries_UsesSummaryPhases()
     {
@@ -196,6 +206,8 @@ public class QueueCommandTests
             "Queue progress should render the explicit Analyse stage in addition to the task name when summary phases are present.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TryResolveLocalPackagePath_WithHttpUri_ReturnsNull()
     {
@@ -207,6 +219,8 @@ public class QueueCommandTests
         Assert.IsNull(result, "Non-file absolute URIs must not be treated as local filesystem paths.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void TryResolveLocalPackagePath_WithRelativePath_ReturnsFullPath()
     {
@@ -219,6 +233,8 @@ public class QueueCommandTests
         Assert.AreEqual(expected, result, "Relative package paths must resolve to a full local path.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void FormatPackageLocationForDisplay_WithQueryString_RemovesQuery()
     {
@@ -252,9 +268,9 @@ public class QueueCommandTests
     /// as a subprocess. The scenario config has <c>mode: Export</c>, so this must behave
     /// identically to the former <c>export</c> command.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
+    [TestMethod]
     public async Task Queue_Export_Sim_WritesRevisionFiles()
     {
         // ── Guard ─────────────────────────────────────────────────────────
@@ -336,9 +352,9 @@ public class QueueCommandTests
     /// expensive preflight operations (e.g. work item counting).
     /// Uses the simulated export config with the environment type overridden via env vars.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
     public async Task Queue_FailsFast_UnreachableControlPlane()
     {
         // ── Act — override to Hosted mode pointing at a port nothing listens on ──
@@ -381,9 +397,9 @@ public class QueueCommandTests
     /// Verifies that the CLI exits zero and logs import progress for both work items.
     /// See <c>scenarios/testdata/catalogue.json</c> for fixture details.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
     public async Task Queue_Import_Sim_Fixture_ImportsBothWorkItems()
     {
         // ── Act ───────────────────────────────────────────────────────────
@@ -422,9 +438,9 @@ public class QueueCommandTests
     }
 
 
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
     public async Task Queue_Inventory_Sim_WritesInventoryArtefacts()
     {
         var result = await CliRunner.RunTestAsync(
@@ -468,11 +484,10 @@ public class QueueCommandTests
     /// <c>AZDEVOPS_SYSTEM_TEST_ORG</c> holds the TFS collection URL and <c>AZDEVOPS_SYSTEM_TEST_PAT</c>
     /// holds the PAT for both ADO and TFS test targets. Do not introduce separate TFS_* env vars.
     /// </remarks>
-    [TestMethod]
-    [Timeout(180000)]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
-    [TestCategory("SystemTest_Live_TFS")]
+    [TestMethod]
+    [Timeout(180000)]
     public async Task Queue_Export_TFS_WritesRevisionFiles()
     {
         // ── Guard ─────────────────────────────────────────────────────────
@@ -532,9 +547,9 @@ public class QueueCommandTests
     /// <c>AZDEVOPS_SYSTEM_TEST_PROJECT</c> to be set.
     /// See <c>scenarios/testdata/catalogue.json</c> for fixture details.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
+    [TestMethod]
     public async Task Queue_Import_ADO_Fixture_CreatesIdmap()
     {
         const int expectedImportedWorkItemCount = 2;
@@ -1096,9 +1111,9 @@ public class QueueCommandTests
     /// Requires <c>AZDEVOPS_SYSTEM_TEST_ORG</c> and <c>AZDEVOPS_SYSTEM_TEST_PAT</c> to be set,
     /// and the target project must NOT have the <c>Custom.ReflectedWorkItemId</c> field.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
+    [TestMethod]
     public async Task Queue_Import_ADO_Fixture_FieldMissing_WritesErrorsJson()
     {
         // ── Guard ─────────────────────────────────────────────────────────
@@ -1197,11 +1212,10 @@ public class QueueCommandTests
     /// <c>AZDEVOPS_SYSTEM_TEST_ORG</c> holds the TFS collection URL and <c>AZDEVOPS_SYSTEM_TEST_PAT</c>
     /// holds the PAT for both ADO and TFS test targets. Do not introduce separate TFS_* env vars.
     /// </remarks>
-    [TestMethod]
-    [Timeout(120000)]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
-    [TestCategory("SystemTest_Live_TFS")]
+    [TestMethod]
+    [Timeout(120000)]
     public async Task Queue_Import_TFS_Fixture_CreatesIdmap()
     {
         // ── Guard ─────────────────────────────────────────────────────────

@@ -11,9 +11,10 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests;
 
 [TestClass]
-[TestCategory("NET481")]
 public class EndpointAuthenticationOptionsContractTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolvedAccessToken_HasJsonIgnoreAttribute_ForNet481Build()
     {
@@ -23,6 +24,8 @@ public class EndpointAuthenticationOptionsContractTests
         Assert.IsTrue(property.GetCustomAttributes(typeof(JsonIgnoreAttribute), inherit: false).Any());
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Serialize_DoesNotIncludeResolvedAccessToken_ForNet481Build()
     {

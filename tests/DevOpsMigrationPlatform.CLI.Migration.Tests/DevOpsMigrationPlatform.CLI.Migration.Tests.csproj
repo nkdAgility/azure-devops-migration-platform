@@ -34,6 +34,7 @@
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.Agent\DevOpsMigrationPlatform.Infrastructure.Agent.csproj" />
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.Simulated\DevOpsMigrationPlatform.Infrastructure.Simulated.csproj" />
+    <ProjectReference Include="..\DevOpsMigrationPlatform.Testing.Dsl\DevOpsMigrationPlatform.Testing.Dsl.csproj" />
   </ItemGroup>
 
 

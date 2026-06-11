@@ -1,0 +1,6 @@
+# Scenario-Test Inventory — inventory-multi-org (tfs)
+
+| # | Wiring State | Coverage Origin | Feature File | Scenario Name | Planned / Actual DSL Test Name | Mapping Status | Expected Tags | Actual Tags | Tag Compliance | Evidence |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1a | `wired` | `pre-existing` | `features/inventory/tfs/inventory-multi-org.feature` | `Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts` | `InventoryModules_WithoutInventoryAnalyser_PerModuleArtefactsStillProduced` | `matched` | `CodeTest`, `IntegrationTests`, `inventory`, `multi-org` | `CodeTest`, `IntegrationTests`, `inventory`, `multi-org` | `compliant` | `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/InventoryModulesTests.cs:35` |
+| 1b | `wired` | `pre-existing` | `features/inventory/tfs/inventory-multi-org.feature` | `Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts` | `InventoryModules_WithoutInventoryDiscoveryModule_PerModuleArtefactsStillProduced` | `matched` | `CodeTest`, `IntegrationTests`, `inventory`, `multi-org` | `CodeTest`, `IntegrationTests`, `inventory`, `multi-org` | `compliant` | `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Modules/InventoryModulesTests.cs:57` |

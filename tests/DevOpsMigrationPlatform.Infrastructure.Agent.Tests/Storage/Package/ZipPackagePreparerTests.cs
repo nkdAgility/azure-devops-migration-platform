@@ -19,6 +19,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 [TestClass]
 public sealed class ZipPackagePreparerTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PrepareForImportAsync_TraversalEntry_ThrowsValidationException()
     {

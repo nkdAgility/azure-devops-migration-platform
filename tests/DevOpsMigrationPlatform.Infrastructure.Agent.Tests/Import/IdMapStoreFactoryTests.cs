@@ -54,6 +54,8 @@ public class IdMapStoreFactoryTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Create_FromResolvedDatabasePath_InitializesIdMapDatabase()
     {
@@ -66,6 +68,8 @@ public class IdMapStoreFactoryTests
         Assert.IsTrue(File.Exists(dbPath));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Create_FromDatabasePath_ReturnsUsableStore()
     {
@@ -80,6 +84,8 @@ public class IdMapStoreFactoryTests
         Assert.AreEqual(20, targetId);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Create_FromConnection_ReturnsUsableStore()
     {

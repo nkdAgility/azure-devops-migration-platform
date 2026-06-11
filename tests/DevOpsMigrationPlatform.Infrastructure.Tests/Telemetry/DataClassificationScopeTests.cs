@@ -10,6 +10,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Telemetry;
 [TestClass]
 public class DataClassificationScopeTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Begin_SetsCurrentToClassification()
     {
@@ -19,6 +21,8 @@ public class DataClassificationScopeTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Begin_RestoresPreviousOnDispose()
     {
@@ -32,6 +36,8 @@ public class DataClassificationScopeTests
         Assert.IsNull(DataClassificationScope.Current);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Begin_NestedScopes_InnermostWins()
     {
@@ -50,6 +56,8 @@ public class DataClassificationScopeTests
         Assert.IsNull(DataClassificationScope.Current);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void DataClassificationState_HasCorrectLoggingScopeShape()
     {

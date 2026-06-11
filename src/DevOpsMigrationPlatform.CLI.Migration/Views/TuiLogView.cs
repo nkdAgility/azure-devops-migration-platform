@@ -37,8 +37,10 @@ public sealed class TuiLogView : FrameView
     private const int MaxLines = 10_000;
 
     private readonly IControlPlaneClient _client;
+    private readonly IUiDispatcher _dispatcher;
     private readonly ListView _listView;
     private readonly ObservableCollection<string> _lines = [];
+    private readonly object _linesLock = new();
 
     private FeedMode _mode = FeedMode.Trace;
     private CancellationTokenSource? _streamCts;
@@ -53,6 +55,15 @@ public sealed class TuiLogView : FrameView
     /// <summary>Minimum log level displayed in Diagnostics mode (default: Information).</summary>
     public string MinLevel { get; set; } = "Information";
 
+    /// <summary>
+    /// Thread-safe snapshot of the current line buffer.
+    /// Exposed for test assertions via <c>InternalsVisibleTo</c> — do not use in production code.
+    /// </summary>
+    internal IReadOnlyList<string> Lines
+    {
+        get { lock (_linesLock) { return [.. _lines]; } }
+    }
+
     /// <summary>Fired when a terminal SSE event (<c>job-ended</c>/<c>job-failed</c>) arrives.</summary>
     public event Action<string>? OnJobEnded;
 
@@ -60,9 +71,10 @@ public sealed class TuiLogView : FrameView
     public event Action<ProgressEvent>? OnProgressReceived;
     public event Action<string>? OnModeChanged;
 
-    public TuiLogView(IControlPlaneClient client)
+    public TuiLogView(IControlPlaneClient client, IUiDispatcher? dispatcher = null)
     {
         _client = client;
+        _dispatcher = dispatcher ?? new TerminalGuiDispatcher();
         Title = "Feed [Trace] (End=follow)";
         CanFocus = true;
 
@@ -121,7 +133,7 @@ public sealed class TuiLogView : FrameView
         // If user scrolled to the last item, re-enable auto-scroll
         _autoScroll = e.Item >= _lines.Count - 1;
 
-        Application.Invoke(() =>
+        _dispatcher.Invoke(() =>
         {
             Title = BuildTitle();
             SetNeedsDraw();
@@ -150,7 +162,7 @@ public sealed class TuiLogView : FrameView
             _ => FeedMode.Trace
         };
         _autoScroll = true;
-        Application.Invoke(() =>
+        _dispatcher.Invoke(() =>
         {
             Title = BuildTitle();
             SetNeedsDraw();
@@ -196,7 +208,7 @@ public sealed class TuiLogView : FrameView
             }
             catch (InvalidOperationException ioe) when (ioe.Message.Contains("Job failed"))
             {
-                Application.Invoke(() => AppendLine("\u2500\u2500 Job Failed \u2500\u2500"));
+                _dispatcher.Invoke(() => AppendLine("\u2500\u2500 Job Failed \u2500\u2500"));
                 OnJobEnded?.Invoke("Failed");
                 return;
             }
@@ -216,14 +228,14 @@ public sealed class TuiLogView : FrameView
         {
             var time = evt.Timestamp.ToLocalTime().ToString("HH:mm:ss");
             var line = $"{time} [{evt.Module}] [{evt.Stage}] {evt.Message}";
-            Application.Invoke(() => AppendLine(line));
+            _dispatcher.Invoke(() => AppendLine(line));
             OnProgressReceived?.Invoke(evt);
             ended = true; // at least one event received
         }
 
         if (!ended) return;
 
-        Application.Invoke(() => AppendLine("\u2500\u2500 Job Completed \u2500\u2500"));
+        _dispatcher.Invoke(() => AppendLine("\u2500\u2500 Job Completed \u2500\u2500"));
         OnJobEnded?.Invoke("Completed");
     }
 
@@ -238,13 +250,13 @@ public sealed class TuiLogView : FrameView
                 continue;
 
             var line = FormatMetricsFeedLine(evt);
-            Application.Invoke(() => AppendLine(line));
+            _dispatcher.Invoke(() => AppendLine(line));
             ended = true;
         }
 
         if (!ended) return;
 
-        Application.Invoke(() => AppendLine("\u2500\u2500 Job Completed \u2500\u2500"));
+        _dispatcher.Invoke(() => AppendLine("\u2500\u2500 Job Completed \u2500\u2500"));
         OnJobEnded?.Invoke("Completed");
     }
 
@@ -255,13 +267,13 @@ public sealed class TuiLogView : FrameView
         {
             var time = rec.Timestamp.ToLocalTime().ToString("HH:mm:ss.fff");
             var line = $"{time} {rec.Level,-12} {rec.Message}";
-            Application.Invoke(() => AppendLine(line));
+            _dispatcher.Invoke(() => AppendLine(line));
             ended = true;
         }
 
         if (!ended) return;
 
-        Application.Invoke(() => AppendLine("\u2500\u2500 Job Completed \u2500\u2500"));
+        _dispatcher.Invoke(() => AppendLine("\u2500\u2500 Job Completed \u2500\u2500"));
         OnJobEnded?.Invoke("Completed");
     }
 
@@ -315,28 +327,46 @@ public sealed class TuiLogView : FrameView
 
     private void AppendLine(string line)
     {
-        _lines.Add(line);
+        lock (_linesLock)
+        {
+            _lines.Add(line);
 
-        // Evict oldest lines when the buffer exceeds capacity
-        while (_lines.Count > MaxLines)
-            _lines.RemoveAt(0);
+            // Evict oldest lines when the buffer exceeds capacity
+            while (_lines.Count > MaxLines)
+                _lines.RemoveAt(0);
+        }
 
         // Re-assign source so Terminal.Gui recalculates MaxLength for the new content.
-        _listView.SetSource(_lines);
+        // These calls are no-ops (or safely ignored) when there is no active Application loop.
+        try
+        {
+            _listView.SetSource(_lines);
 
-        if (_autoScroll)
-            _listView.SelectedItem = _lines.Count - 1;
+            if (_autoScroll)
+                _listView.SelectedItem = _lines.Count - 1;
 
-        SetNeedsDraw();
+            SetNeedsDraw();
+        }
+        catch (InvalidOperationException) { /* No Application loop — suppress UI-only errors */ }
+        catch (NullReferenceException) { /* Terminal.Gui not initialised — suppress */ }
     }
 
     private void ClearLines()
     {
-        Application.Invoke(() =>
+        _dispatcher.Invoke(() =>
         {
-            _lines.Clear();
-            _listView.SetSource(_lines);
-            SetNeedsDraw();
+            lock (_linesLock)
+            {
+                _lines.Clear();
+            }
+
+            try
+            {
+                _listView.SetSource(_lines);
+                SetNeedsDraw();
+            }
+            catch (InvalidOperationException) { /* No Application loop — suppress */ }
+            catch (NullReferenceException) { /* Terminal.Gui not initialised — suppress */ }
         });
     }
 

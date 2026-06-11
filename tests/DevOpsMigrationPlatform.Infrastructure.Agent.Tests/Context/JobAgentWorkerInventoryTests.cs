@@ -26,6 +26,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class JobAgentWorkerInventoryTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task InventoryDispatch_WithTwoSourceEndpoints_RecordsWorkItemInventoryTwice()
     {
@@ -57,6 +59,8 @@ public sealed class JobAgentWorkerInventoryTests
             Times.Exactly(2));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task InventoryDispatch_WithTwoSourceEndpoints_LogsOrgCountAndInvokesInventoryTwice()
     {
@@ -78,6 +82,8 @@ public sealed class JobAgentWorkerInventoryTests
             e.Message.Contains("Starting multi-org inventory", System.StringComparison.Ordinal)));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task InventoryDispatch_WithTwoSourceEndpoints_EmitsPerOrgProgressWithCumulativeMetrics()
     {
@@ -112,6 +118,8 @@ public sealed class JobAgentWorkerInventoryTests
         progress.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task InventoryDispatch_WhenSecondOrgFails_LogsWarningAndContinues()
     {

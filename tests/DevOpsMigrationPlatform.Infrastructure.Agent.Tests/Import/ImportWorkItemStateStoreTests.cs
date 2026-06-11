@@ -21,6 +21,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 [TestClass]
 public class ImportWorkItemStateStoreTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ReadCursorAsync_WhenCursorExists_ReturnsDeserializedCursor()
     {
@@ -54,6 +56,8 @@ public class ImportWorkItemStateStoreTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task WriteCursorAsync_WritesSerializedCursorToExpectedKey()
     {
@@ -91,6 +95,8 @@ public class ImportWorkItemStateStoreTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task WriteCursorAsync_WhenPersistExceedsSla_ThrowsTimeoutException()
     {
@@ -117,6 +123,8 @@ public class ImportWorkItemStateStoreTests
         await Assert.ThrowsExactlyAsync<TimeoutException>(() => sut.WriteCursorAsync(cursor, CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SetWorkItemMappingAsync_ThenGetWorkItemMappingAsync_RoundTripsValue()
     {
@@ -134,6 +142,8 @@ public class ImportWorkItemStateStoreTests
         Assert.AreEqual(1001, targetId);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SetAttachmentMappingAsync_ThenGetAttachmentMappingAsync_RoundTripsValue()
     {
@@ -151,6 +161,8 @@ public class ImportWorkItemStateStoreTests
         Assert.AreEqual("target-attachment-1", targetAttachment);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SetEmbeddedImageMappingAsync_ThenGetEmbeddedImageMappingAsync_RoundTripsValue()
     {
@@ -168,6 +180,8 @@ public class ImportWorkItemStateStoreTests
         Assert.AreEqual("target-image-1", targetImage);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetCreatedNodePathKeysAsync_WhenNodeCreationRowsExist_ReturnsExistingNodeKeys()
     {
@@ -202,6 +216,8 @@ public class ImportWorkItemStateStoreTests
             new List<string>(keys));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SetCreatedNodePathAsync_ThenGetCreatedNodePathKeysAsync_RoundTripsNormalizedNodeKey()
     {
@@ -222,6 +238,8 @@ public class ImportWorkItemStateStoreTests
             new List<string>(keys));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task DisposeAsync_WhenIdMapIsInitialized_DisposesUnderlyingConnection()
     {
@@ -240,6 +258,8 @@ public class ImportWorkItemStateStoreTests
         Assert.AreEqual(ConnectionState.Closed, connection.State);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SetWorkItemMappingAsync_WhenInitializationFails_DisposesFailedConnection_AndRetriesWithNewConnection()
     {
@@ -262,6 +282,8 @@ public class ImportWorkItemStateStoreTests
         Assert.AreEqual(1001, mapped);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveResumeDecision_WhenNoCursor_StartsFromBeginning()
     {
@@ -273,6 +295,8 @@ public class ImportWorkItemStateStoreTests
         Assert.IsNull(decision.ResumeAtStage);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveResumeDecision_WhenFolderPrecedesLastProcessed_SkipsFolder()
     {
@@ -289,6 +313,8 @@ public class ImportWorkItemStateStoreTests
         Assert.IsNull(decision.ResumeAtStage);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveResumeDecision_WhenCursorIsCreatedOrUpdated_ResumesAtAppliedFields()
     {
@@ -306,6 +332,8 @@ public class ImportWorkItemStateStoreTests
         Assert.AreEqual(CursorStage.AppliedFields, decision.ResumeAtStage);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveResumeDecision_WhenCursorIsAppliedFields_ResumesAtAppliedLinks()
     {
@@ -323,6 +351,8 @@ public class ImportWorkItemStateStoreTests
         Assert.AreEqual(CursorStage.AppliedLinks, decision.ResumeAtStage);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveResumeDecision_WhenCursorIsAppliedLinks_ResumesAtUploadedAttachments()
     {
@@ -340,6 +370,8 @@ public class ImportWorkItemStateStoreTests
         Assert.AreEqual(CursorStage.UploadedAttachments, decision.ResumeAtStage);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveResumeDecision_WhenCursorIsUploadedAttachments_SkipsToPreventDuplicateWork()
     {
@@ -357,6 +389,8 @@ public class ImportWorkItemStateStoreTests
         Assert.IsNull(decision.ResumeAtStage);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveResumeDecision_WhenCursorIsCompleted_SkipsToPreventDuplicateWork()
     {
@@ -374,6 +408,8 @@ public class ImportWorkItemStateStoreTests
         Assert.IsNull(decision.ResumeAtStage);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveResumeDecision_WhenCursorStageIsUnknown_ThrowsInvalidDataException()
     {

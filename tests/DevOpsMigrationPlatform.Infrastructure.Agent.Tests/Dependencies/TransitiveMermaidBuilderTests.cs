@@ -12,6 +12,8 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands.Discovery;
 [TestClass]
 public class TransitiveMermaidBuilderTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Build_EmptyWalk_ContainsRootNodeWithDepth0Class()
     {
@@ -34,6 +36,8 @@ public class TransitiveMermaidBuilderTests
         Assert.IsTrue(mermaid.Contains("classDef depth0"), "Must contain depth0 classDef");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Build_Depth1Targets_GetDepth1Class()
     {
@@ -55,6 +59,8 @@ public class TransitiveMermaidBuilderTests
         Assert.IsTrue(mermaid.Contains(":::depth1"), "Depth-1 target must have depth1 class");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Build_Depth2Targets_GetDepth2Class()
     {
@@ -86,6 +92,8 @@ public class TransitiveMermaidBuilderTests
         Assert.IsTrue(mermaid.Contains(":::depth2"), "Depth-2 target must have depth2 class");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Build_CycleEdge_UsesDottedArrow()
     {
@@ -118,6 +126,8 @@ public class TransitiveMermaidBuilderTests
         Assert.IsTrue(mermaid.Contains("-->"), "Non-cycle edge must use solid arrow");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Build_CrossOrgTarget_GetsExternalClass()
     {
@@ -139,6 +149,8 @@ public class TransitiveMermaidBuilderTests
         Assert.IsTrue(mermaid.Contains(":::external"), "Cross-org target must have external class");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Build_UnresolvedTarget_GetsUnresolvedClass()
     {
@@ -180,6 +192,8 @@ public class TransitiveMermaidBuilderTests
         Assert.IsTrue(mermaid.Contains(":::unresolved"), "Unresolved target must have unresolved class");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Build_ContainsAllRequiredClassDefs()
     {
@@ -207,6 +221,8 @@ public class TransitiveMermaidBuilderTests
         Assert.IsTrue(mermaid.Contains("classDef collapsed"), "Missing classDef collapsed");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Build_OutputStartsWithFlowchartLR()
     {

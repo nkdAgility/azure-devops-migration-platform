@@ -80,6 +80,8 @@ public sealed class DependencyCaptureTests
             slowCaptureThresholdMs);
 
     // ── T023 — Happy path ──────────────────────────────────────────────────
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_HappyPath_CallsCreateForProjectAndCaptureProjectAsync()
     {
@@ -108,6 +110,8 @@ public sealed class DependencyCaptureTests
     }
 
     // ── T023 — Exception propagates ────────────────────────────────────────
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_WhenOrchestratorThrows_PropagatesException()
     {
@@ -135,6 +139,8 @@ public sealed class DependencyCaptureTests
     }
 
     // ── T031 — O-1 Traces ──────────────────────────────────────────────────
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CaptureAsync_O1_OpensRootSpanAndChildSpans()
     {
@@ -185,6 +191,8 @@ public sealed class DependencyCaptureTests
     }
 
     // ── T032 — O-2 Metrics ─────────────────────────────────────────────────
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_O2_SuccessPath_RecordsAllRequiredMetrics()
     {
@@ -235,6 +243,8 @@ public sealed class DependencyCaptureTests
         metrics.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_O2_FailurePath_RecordsFailedAndDurationAndDecrementsInFlight()
     {
@@ -276,6 +286,8 @@ public sealed class DependencyCaptureTests
     }
 
     // ── T033 — O-4 ProgressSink ────────────────────────────────────────────
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_O4_SuccessPath_EmitsCapturingAndCapturedEvents()
     {
@@ -319,6 +331,8 @@ public sealed class DependencyCaptureTests
         Assert.AreEqual(7, deps.ExternalLinksFound, "ExternalLinksFound must match orchestrator return value");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_O4_FailurePath_EmitsFailedEvent()
     {
@@ -353,6 +367,8 @@ public sealed class DependencyCaptureTests
     }
 
     // ── T044 — O-3 Log assertions ──────────────────────────────────────────
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_O3_SuccessPath_LogsStartAndCompletionWithStructuredParams()
     {
@@ -412,6 +428,8 @@ public sealed class DependencyCaptureTests
             "Expected exactly 2 LogInformation calls: start and completion");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_O3_FailurePath_LogsErrorWithStructuredParams()
     {
@@ -482,6 +500,8 @@ public sealed class DependencyCaptureTests
             && state.Any(kv => kv.Key == "JobId" && kv.Value?.ToString() == JobId);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_O3_WhenCsvAlreadyExists_LogsDebugWithOutputPath()
     {
@@ -527,6 +547,8 @@ public sealed class DependencyCaptureTests
             "LogDebug must be called exactly once with OutputPath when CSV already exists");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CaptureAsync_O3_WhenCaptureDurationExceedsThreshold_LogsWarning()
     {
@@ -562,6 +584,62 @@ public sealed class DependencyCaptureTests
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once,
             "LogWarning must be called exactly once with Dependency, DurationMs, ThresholdMs when slow");
+    }
+
+    // ── Cross-organisation link detection ─────────────────────────────────
+    // Scenario: Detect cross-organisation links
+    //   Given project "ProjectA" has work items linking to a different organisation
+    //   When I run dependency discovery for "ProjectA"
+    //   Then the dependencies report should flag cross-organisation links
+    //   And cross-organisation links should be counted separately
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task CaptureAsync_WhenProjectHasCrossOrgLinks_CapturedEventCountsCrossOrgLinksSeparately()
+    {
+        // Arrange: orchestrator returns counters with both cross-project and cross-org links
+        var emittedEvents = new List<ProgressEvent>();
+        var sink = new Mock<IProgressSink>(MockBehavior.Strict);
+        sink.Setup(s => s.Emit(It.IsAny<ProgressEvent>()))
+            .Callback<ProgressEvent>(e => emittedEvents.Add(e));
+
+        var factory = new Mock<IDependencyDiscoveryServiceFactory>(MockBehavior.Strict);
+        var orchestrator = new Mock<IDependencyOrchestrator>(MockBehavior.Strict);
+        var service = new Mock<IDependencyDiscoveryService>(MockBehavior.Strict);
+
+        factory.Setup(f => f.CreateForProject(
+                It.IsAny<IReadOnlyList<ScopedOrganisationEndpoint>>(),
+                OrgUrl, Project,
+                It.IsAny<JobPolicies>()))
+            .Returns(service.Object);
+
+        orchestrator.Setup(o => o.CaptureProjectAsync(
+                service.Object,
+                It.IsAny<InventoryContext>(),
+                It.IsAny<JobPolicies>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DependencyCounters
+            {
+                WorkItemsAnalysed = 10,
+                ExternalLinksFound = 5,
+                CrossProjectLinks = 3,
+                CrossOrgLinks = 2   // cross-org links to a different organisation
+            });
+
+        var capture = CreateCapture(factory, orchestrator, progressSink: sink.Object);
+        await capture.CaptureAsync(CreateContext(sink.Object), CancellationToken.None);
+
+        // Assert: the Captured event carries cross-org links separately from cross-project links
+        var capturedEvent = emittedEvents.FirstOrDefault(e => e.Stage == "Captured");
+        Assert.IsNotNull(capturedEvent, "A 'Captured' progress event must be emitted after dependency capture.");
+        var deps = capturedEvent!.Metrics?.Discovery?.Dependencies;
+        Assert.IsNotNull(deps, "Captured event must include Metrics.Discovery.Dependencies.");
+        Assert.AreEqual(2, deps.CrossOrgLinks,
+            "Cross-organisation links must be counted separately and reported as CrossOrgLinks.");
+        Assert.AreEqual(3, deps.CrossProjectLinks,
+            "Cross-project links must remain separate from cross-organisation links.");
+        Assert.AreEqual(5, deps.ExternalLinksFound,
+            "Total ExternalLinksFound must include both cross-project and cross-org links.");
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────

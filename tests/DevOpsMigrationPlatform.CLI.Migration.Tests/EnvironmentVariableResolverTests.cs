@@ -17,6 +17,8 @@ public class EnvironmentVariableResolverTests
         Environment.SetEnvironmentVariable(TestVarName, null);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resolve_PlainValue_ReturnsSameValue()
     {
@@ -24,6 +26,8 @@ public class EnvironmentVariableResolverTests
         Assert.AreEqual("hello", result);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resolve_NullValue_ReturnsEmpty()
     {
@@ -31,6 +35,8 @@ public class EnvironmentVariableResolverTests
         Assert.AreEqual(string.Empty, result);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resolve_EmptyValue_ReturnsEmpty()
     {
@@ -38,6 +44,8 @@ public class EnvironmentVariableResolverTests
         Assert.AreEqual(string.Empty, result);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resolve_EnvVarSet_ReturnsResolvedValue()
     {
@@ -48,6 +56,8 @@ public class EnvironmentVariableResolverTests
         Assert.AreEqual("resolved-value", result);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resolve_EnvVarNotSet_ThrowsInvalidOperation()
     {
@@ -60,6 +70,8 @@ public class EnvironmentVariableResolverTests
         Assert.IsTrue(ex.Message.Contains("myField"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Resolve_EmptyEnvRef_ThrowsInvalidOperation()
     {
@@ -69,18 +81,24 @@ public class EnvironmentVariableResolverTests
         Assert.IsTrue(ex.Message.Contains("empty"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void IsEnvReference_WithPrefix_ReturnsTrue()
     {
         Assert.IsTrue(EnvironmentVariableResolver.IsEnvReference("$ENV:MY_VAR"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void IsEnvReference_WithoutPrefix_ReturnsFalse()
     {
         Assert.IsFalse(EnvironmentVariableResolver.IsEnvReference("plain-value"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void IsEnvReference_Null_ReturnsFalse()
     {

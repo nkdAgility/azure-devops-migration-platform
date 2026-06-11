@@ -11,6 +11,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 [TestClass]
 public sealed class PackagePathRouterTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveMetaPath_MigrationConfig_UsesAuthoritativePath()
     {
@@ -20,6 +22,8 @@ public sealed class PackagePathRouterTests
         Assert.AreEqual(PackagePathTestHelper.MigrationConfigFileName, path);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveLogPath_Progress_UsesRunLogsFolder()
     {
@@ -29,6 +33,8 @@ public sealed class PackagePathRouterTests
         Assert.AreEqual(".migration/runs/20260509-120000/logs/progress.ndjson", path);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveContentPath_AbsoluteAddress_ThrowsValidationException()
     {
@@ -44,6 +50,8 @@ public sealed class PackagePathRouterTests
         Assert.AreEqual("PKG_ADDRESS_INVALID", ex.Code);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveContentPath_EscapingAddress_ThrowsValidationException()
     {
@@ -59,6 +67,8 @@ public sealed class PackagePathRouterTests
         Assert.AreEqual("PKG_ADDRESS_INVALID", ex.Code);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveIndexPath_RootDependencies_UsesPackageRootCsv()
     {
@@ -67,6 +77,8 @@ public sealed class PackagePathRouterTests
         Assert.AreEqual("dependencies.csv", path);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveIndexPath_OrgDependencies_UsesOrgScopedCsv()
     {
@@ -75,6 +87,8 @@ public sealed class PackagePathRouterTests
         Assert.AreEqual("acme/dependencies.csv", path);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveIndexPath_ProjectDependencies_UsesProjectScopedCsv()
     {
@@ -83,6 +97,8 @@ public sealed class PackagePathRouterTests
         Assert.AreEqual("acme/myproject/dependencies.csv", path);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveIndexPath_RootDependencyGraphArtefacts_UseStructuralRootPaths()
     {
@@ -95,6 +111,8 @@ public sealed class PackagePathRouterTests
             sut.ResolveIndexPath(new PackageIndexContext("discovery-project-dependencies.md")));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveIndexPath_ProjectDependencyGraph_UsesProjectScopedMarkdown()
     {
@@ -103,6 +121,8 @@ public sealed class PackagePathRouterTests
         Assert.AreEqual("org/ProjectA/dependency-graph.md", path);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveIndexPath_ProjectScoped_WithoutOrganisation_Throws()
     {
@@ -112,6 +132,8 @@ public sealed class PackagePathRouterTests
         Assert.AreEqual("PKG_INDEX_SCOPE_REQUIRED", ex.Code);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveIndexPath_PathInFileName_ThrowsValidationException()
     {

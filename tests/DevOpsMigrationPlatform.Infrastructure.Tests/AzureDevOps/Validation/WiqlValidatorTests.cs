@@ -8,10 +8,11 @@ using DevOpsMigrationPlatform.Abstractions.Validation;
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.AzureDevOps.Validation;
 
 [TestClass]
-[TestCategory("UnitTest")]
 [ExcludeFromCodeCoverage]
 public class WiqlValidatorTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_WithValidSelectQuery_ReturnsSuccess()
     {
@@ -26,6 +27,8 @@ public class WiqlValidatorTests
         Assert.IsNull(result.ErrorMessage);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_WithSelectWildcard_ReturnsSuccess()
     {
@@ -39,6 +42,8 @@ public class WiqlValidatorTests
         Assert.IsTrue(result.IsValid);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_WithNullQuery_ReturnsSuccess()
     {
@@ -53,6 +58,8 @@ public class WiqlValidatorTests
         Assert.IsNull(result.ErrorMessage);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_WithEmptyQuery_ReturnsSuccess()
     {
@@ -66,6 +73,8 @@ public class WiqlValidatorTests
         Assert.IsTrue(result.IsValid);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_WithUpdateQuery_ReturnsFail()
     {
@@ -81,6 +90,8 @@ public class WiqlValidatorTests
         Assert.IsTrue(result.ErrorMessage!.Contains("UPDATE", System.StringComparison.OrdinalIgnoreCase));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_WithDeleteQuery_ReturnsFail()
     {
@@ -96,6 +107,8 @@ public class WiqlValidatorTests
         Assert.IsTrue(result.ErrorMessage!.Contains("DELETE", System.StringComparison.OrdinalIgnoreCase));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_WithDropQuery_ReturnsFail()
     {
@@ -110,6 +123,8 @@ public class WiqlValidatorTests
         Assert.IsNotNull(result.ErrorMessage);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_WithInsertQuery_ReturnsFail()
     {
@@ -124,6 +139,8 @@ public class WiqlValidatorTests
         Assert.IsNotNull(result.ErrorMessage);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_WithSqlLineComment_ReturnsFail()
     {
@@ -139,6 +156,8 @@ public class WiqlValidatorTests
         Assert.IsTrue(result.IsValid, "WIQL doesn't natively support -- comments, but validation doesn't need to reject them");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_WithBlockCommentMarkers_SucceedsAsNoDestructiveOps()
     {
@@ -152,6 +171,8 @@ public class WiqlValidatorTests
         Assert.IsTrue(result.IsValid, "Valid SELECT doesn't contain destructive operations");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_WithDeclareStatement_ReturnsFail()
     {
@@ -166,6 +187,8 @@ public class WiqlValidatorTests
         Assert.IsNotNull(result.ErrorMessage);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_WithNonSelectStart_ReturnsFail()
     {
@@ -181,6 +204,8 @@ public class WiqlValidatorTests
         Assert.IsTrue(result.ErrorMessage!.Contains("must start with SELECT", System.StringComparison.OrdinalIgnoreCase));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_WithComplexValidQuery_ReturnsSuccess()
     {
@@ -202,6 +227,8 @@ public class WiqlValidatorTests
         Assert.IsNull(result.ErrorMessage);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_WithWhitespacePrefix_ReturnsSuccess()
     {
@@ -215,6 +242,8 @@ public class WiqlValidatorTests
         Assert.IsTrue(result.IsValid, "Query with whitespace should be trimmed and validated");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_WithCaseInsensitiveSelect_ReturnsSuccess()
     {
@@ -228,6 +257,8 @@ public class WiqlValidatorTests
         Assert.IsTrue(result.IsValid, "Case-insensitive SELECT should be valid");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_ReturnsFailureRecordWhenInvalid()
     {
@@ -243,6 +274,8 @@ public class WiqlValidatorTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(result.ErrorMessage), "Error message should not be empty");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_ReturnsSuccessRecordWhenValid()
     {

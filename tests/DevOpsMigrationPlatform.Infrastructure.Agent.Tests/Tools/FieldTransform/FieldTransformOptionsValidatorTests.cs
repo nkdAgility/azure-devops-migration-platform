@@ -30,6 +30,8 @@ public class FieldTransformOptionsValidatorTests
 
     // ── Passing cases ─────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_EmptyGroups_Succeeds()
     {
@@ -37,6 +39,8 @@ public class FieldTransformOptionsValidatorTests
         Assert.IsTrue(result.Succeeded);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_ValidRuleWithType_Succeeds()
     {
@@ -44,6 +48,8 @@ public class FieldTransformOptionsValidatorTests
         Assert.IsTrue(result.Succeeded);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_ValidRuleWithValidPattern_Succeeds()
     {
@@ -51,6 +57,8 @@ public class FieldTransformOptionsValidatorTests
         Assert.IsTrue(result.Succeeded);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_DisabledGroupSkipped_Succeeds()
     {
@@ -69,6 +77,8 @@ public class FieldTransformOptionsValidatorTests
         Assert.IsTrue(result.Succeeded, "Disabled groups should not be validated.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_DisabledRuleSkipped_Succeeds()
     {
@@ -78,6 +88,8 @@ public class FieldTransformOptionsValidatorTests
 
     // ── Failing cases ─────────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_RuleMissingType_Fails()
     {
@@ -86,6 +98,8 @@ public class FieldTransformOptionsValidatorTests
         StringAssert.Contains(string.Join("|", result.Failures!), ".Type is required");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_RuleNullType_Fails()
     {
@@ -106,6 +120,8 @@ public class FieldTransformOptionsValidatorTests
         StringAssert.Contains(string.Join("|", result.Failures!), "TransformGroups[0] ('MyGroup')");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_RuleWithInvalidPattern_Fails()
     {
@@ -115,6 +131,8 @@ public class FieldTransformOptionsValidatorTests
         StringAssert.Contains(string.Join("|", result.Failures!), "not a valid regular expression");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_MultipleRuleErrors_ReportsAll()
     {
@@ -139,6 +157,8 @@ public class FieldTransformOptionsValidatorTests
         StringAssert.Contains(failures, "Transforms[1]");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_UnknownTransformType_Fails()
     {
@@ -148,6 +168,8 @@ public class FieldTransformOptionsValidatorTests
         StringAssert.Contains(string.Join("|", result.Failures!), "UnknownTransform");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_CopyFieldMissingSourceField_Fails()
     {
@@ -161,6 +183,8 @@ public class FieldTransformOptionsValidatorTests
         StringAssert.Contains(string.Join("|", result.Failures!), "SourceField");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_IdentityFieldAsTargetField_Fails()
     {
@@ -175,6 +199,8 @@ public class FieldTransformOptionsValidatorTests
         StringAssert.Contains(string.Join("|", result.Failures!), "identity field");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Validate_ConditionalFieldInvalidConditionRegex_Fails()
     {

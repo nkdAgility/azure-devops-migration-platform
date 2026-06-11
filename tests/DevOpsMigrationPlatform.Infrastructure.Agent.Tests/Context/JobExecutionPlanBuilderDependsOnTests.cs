@@ -33,6 +33,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class JobExecutionPlanBuilderDependsOnTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_ImportPhase_WorkItemsDependsOnIdentitiesAndNodes()
     {
@@ -62,6 +64,8 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
             "WorkItems should depend on Nodes");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_ExportPhase_NoDependsOn()
     {
@@ -89,6 +93,8 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_ExportPhase_InventoryPrerequisiteContract_HoldsAcrossMarkerVariants()
     {
@@ -152,6 +158,8 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         Assert.IsTrue(presentExport.DependsOn.Contains("analyse.inventory.testorg.testproject"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_CircularDependency_ThrowsInvalidOperationException()
     {
@@ -171,6 +179,8 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
             "Exception message should mention circular dependency");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_DependencyOnDisabledModule_DependencyOmittedFromTask()
     {
@@ -203,6 +213,8 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
             "ModuleB should not depend on disabled ModuleA");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_DependencyOnNonExistentModule_LogsWarningAndOmitsDependency()
     {
@@ -230,6 +242,8 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
             "Expected warning log containing module and missing dependency names");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_PrepareKind_AddsAnalyseTasksFromPrepareDependencies()
     {
@@ -278,6 +292,8 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
             prepareTasks.Select(t => t.Id).ToList());
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_PrepareKind_PrepareTasksDependOnAnalyseTasks()
     {
@@ -321,6 +337,8 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
             prepareTask.DependsOn.ToList());
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_InventoryKind_MultiOrgProjects_BuildsScopedCaptureTasks()
     {
@@ -360,6 +378,8 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         Assert.IsTrue(ContainsId(captureIds, "capture.nodes.simulated.projectc"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_InventoryKind_NoProjectsConfigured_ProducesNoCaptureTasks()
     {
@@ -387,6 +407,8 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
             "No capture tasks should be generated when no projects are configured");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_DependenciesKind_DependencyCaptureTasksDependOnAnalyseInventory()
     {
@@ -419,6 +441,8 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task BuildPlanAsync_DependenciesKind_AnalyseDependenciesDependsOnAllDependencyCaptures()
     {

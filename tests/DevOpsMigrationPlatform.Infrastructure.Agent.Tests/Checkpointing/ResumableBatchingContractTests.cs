@@ -26,6 +26,8 @@ public class ResumableBatchingContractTests
 {
     // ── BatchContinuationToken ──────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void BatchContinuationToken_With_CreatesNewInstance()
     {
@@ -45,6 +47,8 @@ public class ResumableBatchingContractTests
 
     // ── ResumeDecision ──────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResumeDecision_Rejected_CarriesFingerprints()
     {
@@ -61,6 +65,8 @@ public class ResumableBatchingContractTests
 
     // ── ResumeRejectedException ─────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResumeRejectedException_CarriesDecision()
     {
@@ -76,6 +82,8 @@ public class ResumableBatchingContractTests
         Assert.IsTrue(ex.Message.Contains("RejectedQueryMismatch"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResumeRejectedException_NullDecision_Throws()
     {
@@ -84,6 +92,8 @@ public class ResumableBatchingContractTests
 
     // ── QueryFingerprintService ─────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Compute_SameQuery_ProducesSameFingerprint()
     {
@@ -93,6 +103,8 @@ public class ResumableBatchingContractTests
         Assert.AreEqual(fp1, fp2);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Compute_DifferentCasing_SameFingerprint()
     {
@@ -102,6 +114,8 @@ public class ResumableBatchingContractTests
         Assert.AreEqual(fp1, fp2);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Compute_DifferentWhitespace_SameFingerprint()
     {
@@ -111,6 +125,8 @@ public class ResumableBatchingContractTests
         Assert.AreEqual(fp1, fp2);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Compute_DifferentQuery_DifferentFingerprint()
     {
@@ -120,6 +136,8 @@ public class ResumableBatchingContractTests
         Assert.AreNotEqual(fp1, fp2);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Compute_WithParameters_IncludedInFingerprint()
     {
@@ -131,6 +149,8 @@ public class ResumableBatchingContractTests
         Assert.AreNotEqual(fp1, fp2);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Compute_ParameterOrder_DoesNotAffectFingerprint()
     {
@@ -142,12 +162,16 @@ public class ResumableBatchingContractTests
         Assert.AreEqual(fp1, fp2);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Compute_EmptyQuery_Throws()
     {
         Assert.ThrowsExactly<ArgumentException>(() => new QueryFingerprintService().Compute(""));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Compute_ReturnsLowercaseHex()
     {
@@ -159,6 +183,8 @@ public class ResumableBatchingContractTests
 
     // ── CheckpointingService: Continuation Token CRUD ───────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ReadContinuationTokenAsync_NoToken_ReturnsNull()
     {
@@ -177,6 +203,8 @@ public class ResumableBatchingContractTests
         package.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WriteThenRead_ContinuationToken_RoundTrips()
     {
@@ -203,6 +231,8 @@ public class ResumableBatchingContractTests
         Assert.IsFalse(result.Completed);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task DeleteContinuationTokenAsync_CallsStateStoreDelete()
     {
@@ -222,6 +252,8 @@ public class ResumableBatchingContractTests
 
     // ── PackagePathTestHelper ────────────────────────────────────────────────────
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ContinuationFile_ReturnsExpectedPath()
     {
@@ -229,6 +261,8 @@ public class ResumableBatchingContractTests
         Assert.AreEqual(".migration/Checkpoints/inventory.continuation.json", path);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ContinuationFile_LowercasesModuleName()
     {

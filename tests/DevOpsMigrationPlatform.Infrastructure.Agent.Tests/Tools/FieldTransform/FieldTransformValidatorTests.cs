@@ -25,6 +25,8 @@ public class FieldTransformValidatorTests
             NullLogger<FieldTransformValidator>.Instance,
             factory);
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_WhenToolDisabled_ReturnsValidReport()
     {
@@ -48,6 +50,8 @@ public class FieldTransformValidatorTests
         Assert.AreEqual(0, report.Entries.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_WithNoProviderFactory_ReturnsValidReport()
     {
@@ -72,6 +76,8 @@ public class FieldTransformValidatorTests
         Assert.AreEqual(0, report.Entries.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_WithEmptyType_ReturnsErrorEntry()
     {
@@ -98,6 +104,8 @@ public class FieldTransformValidatorTests
         Assert.AreEqual("Group1", report.Entries[0].GroupName);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_WithProviderFactory_WhenFieldExists_ReturnsValidReport()
     {
@@ -142,6 +150,8 @@ public class FieldTransformValidatorTests
         Assert.AreEqual(0, report.Entries.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_WithProviderFactory_WhenFieldMissing_ReturnsErrorEntry()
     {

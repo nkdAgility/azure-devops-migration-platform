@@ -23,9 +23,9 @@ public class ManageProgressCommandTests
     /// via the CLI, then calls <c>manage progress --job &lt;id&gt;</c> as a subprocess and
     /// asserts the exit code and observable output.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
     public async Task ManageProgressCommand_SystemTest_AfterExport_ExitsZero_AndShowsProgressEvents()
     {
         // ── Start control plane (reuse if already running) ──────────────────────

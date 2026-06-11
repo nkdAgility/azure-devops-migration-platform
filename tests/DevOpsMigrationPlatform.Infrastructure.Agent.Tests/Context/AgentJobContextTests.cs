@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -11,6 +12,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class AgentJobContextTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_InvalidMode_ThrowsInvalidOperationException()
     {
@@ -31,6 +34,8 @@ public sealed class AgentJobContextTests
         Assert.IsTrue(ex.Message.Contains("Export"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_InventoryMode_Succeeds()
     {
@@ -44,6 +49,8 @@ public sealed class AgentJobContextTests
         Assert.AreEqual("Inventory", context.Mode);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_DependenciesMode_Succeeds()
     {
@@ -57,6 +64,8 @@ public sealed class AgentJobContextTests
         Assert.AreEqual("Dependencies", context.Mode);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_RelativePackagePath_ThrowsInvalidOperationException()
     {
@@ -74,6 +83,8 @@ public sealed class AgentJobContextTests
         Assert.IsTrue(ex.Message.Contains("relative\\path"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_EmptyPackagePath_ThrowsInvalidOperationException()
     {
@@ -90,6 +101,8 @@ public sealed class AgentJobContextTests
         Assert.IsTrue(ex.Message.Contains("PackagePath must be an absolute path"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_UnixAbsolutePath_Succeeds()
     {
@@ -103,6 +116,8 @@ public sealed class AgentJobContextTests
         Assert.AreEqual("/tmp/package", context.PackagePath);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_UNCPath_Succeeds()
     {
@@ -117,6 +132,8 @@ public sealed class AgentJobContextTests
     }
 
     // T055: LogDebug called with Mode and ConfigVersion
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Constructor_LogsDebug_WithModeAndConfigVersion_WhenBothSet()
     {
@@ -140,6 +157,44 @@ public sealed class AgentJobContextTests
         {
             Assert.IsFalse(msg.Contains(@"C:\temp\package"), "PackagePath must not appear in logs");
         }
+    }
+
+    // S3: ContextIsReadOnly_ModuleAccesses_NoWritePath
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void IAgentJobContext_Interface_HasOnlyReadOnlyProperties()
+    {
+        var props = typeof(IAgentJobContext).GetProperties();
+
+        Assert.IsTrue(props.Length > 0, "IAgentJobContext must expose at least one property");
+        foreach (var prop in props)
+        {
+            Assert.IsTrue(prop.CanRead, $"Property '{prop.Name}' must be readable");
+            var setter = prop.GetSetMethod(nonPublic: false);
+            Assert.IsNull(setter, $"Property '{prop.Name}' must not have a public setter");
+        }
+    }
+
+    // S4: TfsSourceOnlyJob_ContextResolved_NoTargetInfo
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void AgentJobContext_ContextResolvesWithoutTargetEndpointDependency()
+    {
+        var accessor = new CurrentAgentJobContextAccessor();
+        accessor.Set(new AgentJobContext
+        {
+            Mode = "Export",
+            PackagePath = @"C:\exports\run-001",
+            ConfigVersion = "2.0"
+        });
+
+        var context = new ActiveJobAgentJobContext(accessor);
+
+        Assert.AreEqual("Export", context.Mode);
+        Assert.AreEqual(@"C:\exports\run-001", context.PackagePath);
+        // ITargetEndpointInfo is not accessed — this compiles and runs without it
     }
 
     private sealed class CapturingLogger(System.Collections.Generic.List<(LogLevel, string)> captured)

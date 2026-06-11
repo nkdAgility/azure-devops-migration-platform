@@ -16,6 +16,8 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests;
 [TestClass]
 public class LocalStackHostTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task WaitForHealthyAsync_RetriesHealthEndpointUntilItSucceeds()
     {
@@ -46,6 +48,8 @@ public class LocalStackHostTests
             "Standalone readiness should probe the health endpoint until it succeeds.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task WaitForHealthyAsync_ThrowsWhenProcessExitsBeforeHealthy()
     {
@@ -64,6 +68,8 @@ public class LocalStackHostTests
         StringAssert.Contains(ex.Message, "5101");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task EnsureProcessStaysAliveDuringStartupAsync_ThrowsWithCapturedOutputWhenProcessExitsEarly()
     {
@@ -80,6 +86,8 @@ public class LocalStackHostTests
         StringAssert.Contains(ex.Message, "fatal startup error");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task EnsureProcessStaysAliveDuringStartupAsync_DoesNotThrowWhenProcessSurvivesStartupWindow()
     {

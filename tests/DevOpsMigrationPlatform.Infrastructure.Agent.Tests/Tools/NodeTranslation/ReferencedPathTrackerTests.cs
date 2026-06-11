@@ -77,7 +77,8 @@ public class ReferencedPathTrackerTests
 
     
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
 
     public async Task RecordAreaPathAsync_NewPath_WritesArtifact()
@@ -112,7 +113,8 @@ public class ReferencedPathTrackerTests
 
     
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
 
     public async Task RecordAreaPathAsync_DuplicatePath_DoesNotWriteAgain()
@@ -147,7 +149,8 @@ public class ReferencedPathTrackerTests
 
     
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
 
     public async Task RecordAreaPathAsync_CaseInsensitiveDuplicate_DoesNotWriteAgain()
@@ -182,7 +185,8 @@ public class ReferencedPathTrackerTests
 
     
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
 
     public async Task InitializeAsync_LoadsExistingPaths()
@@ -225,7 +229,8 @@ public class ReferencedPathTrackerTests
 
     
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
 
     public async Task InitializeAsync_ThenRecordExisting_DoesNotWriteAgain()

@@ -28,6 +28,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Analysis;
 [TestClass]
 public sealed class InventoryAnalyserTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AnalyseAsync_WritesRootInventoryArtefactsWithContent()
     {
@@ -41,6 +43,8 @@ public sealed class InventoryAnalyserTests
         artefactStore.Verify(p => p.PersistIndexAsync(It.Is<PackageIndexContext>(c => c.FileName == "inventory.csv"), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AnalyseAsync_EmitsAnalyseInventoryActivityWithJobIdTag()
     {
@@ -60,6 +64,8 @@ public sealed class InventoryAnalyserTests
         Assert.AreEqual("job-1", activity.Tags.First(t => t.Key == "job.id").Value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AnalyseAsync_RecordsConsolidatedInventoryMetrics()
     {
@@ -79,6 +85,8 @@ public sealed class InventoryAnalyserTests
         metrics.Verify();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AnalyseAsync_LogsWarningsForMissingModuleFilesAndZeroTotals()
     {
@@ -91,6 +99,8 @@ public sealed class InventoryAnalyserTests
         Assert.IsTrue(logger.Entries.Any(e => e.Level == LogLevel.Warning && e.Message.Contains("Zero consolidated inventory total", StringComparison.Ordinal)));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AnalyseAsync_EmitsStartAndCompletionProgressEvents()
     {

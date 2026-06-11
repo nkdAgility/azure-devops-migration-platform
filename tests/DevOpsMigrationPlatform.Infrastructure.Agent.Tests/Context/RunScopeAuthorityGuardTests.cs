@@ -10,12 +10,16 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class RunScopeAuthorityGuardTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void IsRunScopedPath_WhenRunFolderPath_ReturnsTrue()
     {
         Assert.IsTrue(RunScopeAuthorityGuard.IsRunScopedPath(".migration/runs/20260507-110000/plan.json"));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void EnsureAuthoritativePath_WhenRunFolderPath_Throws()
     {

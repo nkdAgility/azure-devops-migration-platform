@@ -13,6 +13,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.Import;
 [TestClass]
 public sealed class SimulatedWorkItemTypeReadinessTargetFactoryTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateAsync_NoConfiguredTypes_FallsBackToDefaultKnownTypes()
     {

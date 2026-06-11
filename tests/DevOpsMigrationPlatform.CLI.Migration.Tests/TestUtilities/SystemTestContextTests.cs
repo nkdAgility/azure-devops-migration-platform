@@ -14,6 +14,8 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.TestUtilities;
 [TestClass]
 public sealed class SystemTestContextTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SetupLifecycleAsync_BindsExecutionProjectName()
     {
@@ -36,6 +38,8 @@ public sealed class SystemTestContextTests
         Assert.IsNotNull(context.LifecycleRecord);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task TeardownLifecycleAsync_AttemptsCleanupAfterSetup()
     {
@@ -56,6 +60,8 @@ public sealed class SystemTestContextTests
         Assert.AreEqual(ProjectLifecycleTeardownResult.Succeeded, context.LifecycleRecord.TeardownResult);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CleanupIsAttempted_WhenExecutionThrowsAfterSetup()
     {

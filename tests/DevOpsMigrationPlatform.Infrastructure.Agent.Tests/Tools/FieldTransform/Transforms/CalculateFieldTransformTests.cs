@@ -26,8 +26,8 @@ public class CalculateFieldTransformTests
             evaluator ?? new SimpleExpressionEvaluator(),
             NullLogger<CalculateFieldTransform>.Instance);
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
     [TestMethod]
     public void Apply_WithArithmeticExpression_ComputesResult()
     {
@@ -46,8 +46,8 @@ public class CalculateFieldTransformTests
         Assert.IsTrue(result.Actions[0].Modified);
     }
 
-    [TestCategory("UnitTests")]
-
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Apply_WithFieldReferences_ResolvesAndComputes()
     {
@@ -64,8 +64,8 @@ public class CalculateFieldTransformTests
         Assert.IsTrue(result.Actions[0].Modified);
     }
 
-    [TestCategory("UnitTests")]
-
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Apply_WithMissingFieldReference_ReturnsUnmodifiedFields()
     {
@@ -80,8 +80,8 @@ public class CalculateFieldTransformTests
         Assert.IsFalse(result.Actions[0].Modified);
     }
 
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-
     [TestMethod]
     public void Apply_WhenEvaluatorThrows_ReturnsUnmodifiedFields()
     {

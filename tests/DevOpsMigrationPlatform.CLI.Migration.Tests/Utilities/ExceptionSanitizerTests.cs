@@ -9,10 +9,11 @@ using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Utilities;
 
 [TestClass]
-[TestCategory("UnitTest")]
 [ExcludeFromCodeCoverage]
 public class ExceptionSanitizerTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void SanitizeMessage_WithNullMessage_ReturnsEmpty()
     {
@@ -26,6 +27,8 @@ public class ExceptionSanitizerTests
         Assert.AreEqual(string.Empty, result);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void SanitizeMessage_WithEmptyMessage_ReturnsEmpty()
     {
@@ -39,6 +42,8 @@ public class ExceptionSanitizerTests
         Assert.AreEqual(string.Empty, result);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void SanitizeException_WithInnerException_SanitizesBoth()
     {

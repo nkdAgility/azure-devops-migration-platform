@@ -2,10 +2,12 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
+using DevOpsMigrationPlatform.Infrastructure.Simulated.ProjectLifecycle;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -15,6 +17,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.ProjectLifecycle;
 [TestClass]
 public sealed class ProjectLifecycleServiceTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CreateAsync_DispatchesToConnectorRegistration()
     {
@@ -39,6 +43,8 @@ public sealed class ProjectLifecycleServiceTests
         Assert.AreEqual("proj-a", record.ProjectName);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task TeardownAsync_BlocksForeignProjectDeletion()
     {
@@ -65,6 +71,8 @@ public sealed class ProjectLifecycleServiceTests
         StringAssert.Contains(result.TeardownBlockingReason!, "not owned");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteWithGuaranteedTeardownAsync_AttemptsTeardownWhenExecutionFails()
     {
@@ -92,6 +100,8 @@ public sealed class ProjectLifecycleServiceTests
         Assert.IsTrue(FakeLifecycleProvider.TeardownCount > 0);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task CreateAsync_PreservesConnectorParityInLifecycleRecord()
     {
@@ -116,6 +126,93 @@ public sealed class ProjectLifecycleServiceTests
 
             Assert.AreEqual(connector, record.ConnectorType);
         }
+    }
+
+    // --- Scenarios from ephemeral-project-lifecycle.feature ---
+
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public async Task EphemeralLifecycle_SimulatedConnector_CreateAndTeardownBothSucceed()
+    {
+        // Scenario US1: Eligible run creates and tears down project successfully
+        var sut = new ProjectLifecycleService(
+            new ProjectLifecycleNameGenerator(),
+            new SimulatedProjectLifecycleProvider(),
+            NullLogger<ProjectLifecycleService>.Instance);
+
+        var created = await sut.CreateAsync(new ProjectLifecycleContext
+        {
+            RunId = Guid.NewGuid().ToString("N"),
+            ConnectorType = "Simulated",
+            NamePrefix = "bdd",
+            Endpoint = new Abstractions.Organisations.OrganisationEndpoint { Type = "Simulated", ResolvedUrl = "https://example.test" }
+        });
+
+        var tornDown = await sut.TeardownAsync(created);
+
+        Assert.AreEqual(ProjectLifecycleCreateResult.Succeeded, created.CreateResult, "Setup should succeed");
+        Assert.AreEqual(ProjectLifecycleTeardownResult.Succeeded, tornDown.TeardownResult, "Teardown should succeed");
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public async Task EphemeralLifecycle_TeardownIsAttemptedWhenTestExecutionFails()
+    {
+        // Scenario US2: Teardown is attempted when test execution fails
+        FakeLifecycleProvider.Reset();
+        var services = new ServiceCollection();
+        services.AddSingleton<FakeLifecycleProvider>();
+        services.AddSingleton(new KeyedProjectLifecycleProvider("Simulated", typeof(FakeLifecycleProvider)));
+        var provider = services.BuildServiceProvider();
+        var sut = new ProjectLifecycleService(
+            new ProjectLifecycleNameGenerator(),
+            new[] { new KeyedProjectLifecycleProvider("Simulated", typeof(FakeLifecycleProvider)) },
+            provider,
+            NullLogger<ProjectLifecycleService>.Instance);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            sut.ExecuteWithGuaranteedTeardownAsync(
+                new ProjectLifecycleContext
+                {
+                    RunId = "run-fail-exec",
+                    ConnectorType = "Simulated",
+                    ProjectName = "proj-fail"
+                },
+                (_, _) => throw new InvalidOperationException("execution failed")));
+
+        Assert.IsTrue(FakeLifecycleProvider.TeardownCount > 0, "Teardown should be attempted");
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void EphemeralLifecycle_EligibilityRespects_AzureDevOpsServicesConnector()
+    {
+        // Scenario US3 row 1: AzureDevOpsServices connector is eligible
+        var eligibility = new LifecycleEligibilityFlag
+        {
+            IsEnabled = true,
+            Connectors = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "AzureDevOpsServices" }
+        };
+
+        Assert.IsTrue(eligibility.IsEligibleForConnector("AzureDevOpsServices"));
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void EphemeralLifecycle_EligibilityRespects_TeamFoundationServerConnector()
+    {
+        // Scenario US3 row 2: TeamFoundationServer connector is eligible
+        var eligibility = new LifecycleEligibilityFlag
+        {
+            IsEnabled = true,
+            Connectors = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "TeamFoundationServer" }
+        };
+
+        Assert.IsTrue(eligibility.IsEligibleForConnector("TeamFoundationServer"));
     }
 
     private sealed class FakeLifecycleProvider : IProjectLifecycleProvider

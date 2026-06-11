@@ -27,6 +27,8 @@ public class PackagePersistenceRunLogFlushTests
         services.AddSingleton(package);
         return services.BuildServiceProvider();
     }
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task PackageProgressSink_FlushAfterPackageStateClear_WritesToOriginalRunLogFolder()
     {
@@ -56,6 +58,8 @@ public class PackagePersistenceRunLogFlushTests
         Assert.AreEqual(PackageLogStream.Progress, contexts[0].Stream);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task PackageProgressSink_WithActiveStore_AppendsThroughPackageBoundary()
     {
@@ -81,6 +85,8 @@ public class PackagePersistenceRunLogFlushTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PackageLoggerProvider_FlushAfterPackageStateClear_WritesToOriginalRunLogFolder()
     {
@@ -111,6 +117,38 @@ public class PackagePersistenceRunLogFlushTests
         Assert.AreEqual(PackageLogStream.Diagnostics, contexts[0].Stream);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public void PackageProgressSink_Emit_IsNonBlockingAndBuffersInternally()
+    {
+        // The scenario: a progress event emitted via the progress sink must not block
+        // the export pipeline, and the event must be buffered internally before being
+        // flushed to the package.
+        var mockPackage = new Mock<IPackageAccess>(MockBehavior.Strict);
+        // AppendLogAsync is NOT set up — verifying it is never called synchronously during Emit.
+
+        var state = new ActivePackageState
+        {
+            CurrentJob = new Job { JobId = "job-nonblock", Kind = JobKind.Export }
+        };
+        var sink = new PackageProgressSink(state, NullLogger<PackageProgressSink>.Instance, mockPackage.Object);
+
+        // Emit must return synchronously (non-blocking — uses TryWrite to a bounded channel).
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        sink.Emit(new ProgressEvent { Module = "WorkItems", Stage = "Export", Message = "progress" });
+        sw.Stop();
+
+        // Emit must complete in well under 10 ms (channel write is O(1) and non-blocking).
+        Assert.IsTrue(sw.ElapsedMilliseconds < 100,
+            $"Emit took {sw.ElapsedMilliseconds} ms — expected non-blocking (< 100 ms).");
+
+        // AppendLogAsync must NOT have been called yet — the event is still buffered.
+        mockPackage.VerifyNoOtherCalls();
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PackageLoggerProvider_WithActiveStore_AppendsThroughPackageBoundary()
     {

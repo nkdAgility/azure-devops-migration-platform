@@ -19,6 +19,8 @@ public class TfsNodeCreatorTests
     private const string ProjectName = "TargetProject";
     private const string ProjectUri = "vstfs:///Classification/TeamProject/1";
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnsureExistsAsync_AreaPath_CreatesMissingHierarchy()
     {
@@ -38,6 +40,8 @@ public class TfsNodeCreatorTests
         css.Verify(s => s.CreateNode("SubArea", "area-uri", null, null), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnsureExistsAsync_IterationPath_CreatesMissingHierarchy()
     {
@@ -57,6 +61,8 @@ public class TfsNodeCreatorTests
         css.Verify(s => s.CreateNode("Sprint 1", "iterations-uri", null, null), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task SetIterationDatesAsync_MissingPath_CreatesLeafWithDates()
     {
@@ -79,6 +85,8 @@ public class TfsNodeCreatorTests
         css.Verify(s => s.CreateNode("Sprint 2", "iterations-uri", start.UtcDateTime, finish.UtcDateTime), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnsureExistsAsync_AreaPath_WithProjectModelHierarchyRoot_CreatesHierarchy()
     {
@@ -98,6 +106,8 @@ public class TfsNodeCreatorTests
         css.Verify(s => s.CreateNode("Backend", "platform-uri", null, null), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnsureExistsAsync_FullTreeAcrossCalls_CreatesBranchesUnderSharedParent()
     {
@@ -126,6 +136,8 @@ public class TfsNodeCreatorTests
         css.Verify(s => s.CreateNode("Frontend", "platform-uri", null, null), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task NodeExistsAsync_NormalizesTrailingPathSeparators_FromTfsMetadata()
     {
@@ -146,6 +158,8 @@ public class TfsNodeCreatorTests
         Assert.IsTrue(exists);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task NodeExistsAsync_NormalizesForwardSlashPath_WithLeadingAndTrailingSeparators()
     {

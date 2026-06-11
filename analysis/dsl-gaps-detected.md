@@ -298,3 +298,310 @@ Scenario: Import is skipped when both ReplicateSourceTree and AutoCreateNodes ar
 ### Resolution options
 
 Same as GAP-008: add OTel in-memory exporter instrumentation to the export orchestrator tests.
+
+---
+
+## GAP-010: commands-execute-successfully — discovery inventory command does not exist
+
+**File:** `features/cli/execute/commands-execute-successfully.feature`
+**Scenario:** Discovery inventory command fails gracefully with invalid config
+**Family:** `commands-execute-successfully`
+**Wiring:** `unwired`
+**Gap type:** `behaviour-conflict`
+**Detected:** 2026-06-08
+**Status:** OPEN
+
+### Engineering detail
+
+The feature scenario invokes `devopsmigration discovery inventory --config invalid-path.json`. The CLI binary (`src/DevOpsMigrationPlatform.CLI.Migration/Program.cs`) registers the following top-level commands: `prepare`, `queue`, `manage`, `controlplane`, `agent`, `config`. There is no `discovery` command or `discovery inventory` sub-command registered anywhere in the application.
+
+Running the CLI with `["discovery", "inventory", "--config", "invalid-path.json"]` produces:
+
+```
+Unhandled exception. Spectre.Console.Cli.CommandParseException: Unknown command 'discovery'.
+```
+
+This is an unhandled exception, not a graceful failure. The feature specifies "no unhandled exceptions should occur" and a non-zero exit code with a clear error message — but the actual behaviour is an unhandled `CommandParseException` propagated to stderr as a raw stack trace.
+
+The test `CliCommand_DiscoveryInventory_InvalidConfigPath_FailsGracefully` was built using the in-process `MigrationPlatformHost.CreateDefaultBuilder`, which does not run Spectre.Console.Cli. It builds the DI host only, so the invalid config path is silently ignored (the JSON file is `optional: true`) and the host exits with code 0. The test therefore gets exit code 0 and empty stderr — asserting non-zero exit fails.
+
+To unblock conversion, either:
+1. Add a `discovery inventory` command to the CLI (matching the feature intent), or
+2. Rewrite the scenario to use an existing command (e.g. `queue --config invalid-path.json`) and verify graceful failure with that command.
+
+---
+
+## GAP-011: commands-execute-successfully — discovery inventory --help command does not exist
+
+**File:** `features/cli/execute/commands-execute-successfully.feature`
+**Scenario:** Help text displays correctly for all commands
+**Family:** `commands-execute-successfully`
+**Wiring:** `unwired`
+**Gap type:** `behaviour-conflict`
+**Detected:** 2026-06-08
+**Status:** OPEN
+
+### Engineering detail
+
+The feature scenario invokes `devopsmigration discovery inventory --help`. The CLI does not have a `discovery inventory` command (see GAP-010). Running out-of-process via `CliRunner`, the CLI exits non-zero with `CommandParseException: Unknown command 'discovery'` on stderr instead of displaying help text and exiting with code 0.
+
+The test `CliCommand_DiscoveryInventory_HelpFlag_DisplaysHelpAndExitsZero` uses `CliRunner.RunOutOfProcessAsync` and asserts exit code 0 and stdout containing `"inventory"` and `"--config"`. All assertions fail because the command does not exist.
+
+To unblock conversion, either:
+1. Add a `discovery inventory` command to the CLI, or
+2. Rewrite the scenario to test `--help` on an existing command (e.g. `queue --help`) and assert relevant help-text keywords for that command.
+
+---
+
+## GAP-012: commands-execute-successfully — missing required parameters scenario maps to non-error in-process path
+
+**File:** `features/cli/execute/commands-execute-successfully.feature`
+**Scenario:** Commands handle missing required parameters gracefully
+**Family:** `commands-execute-successfully`
+**Wiring:** `unwired`
+**Gap type:** `behaviour-conflict`
+**Detected:** 2026-06-08
+**Status:** OPEN
+
+### Engineering detail
+
+The feature scenario runs `devopsmigration discovery inventory` (no required parameters) and expects a non-zero exit code with a help suggestion. The command does not exist (see GAP-010), so the production CLI would throw `CommandParseException: Unknown command 'discovery'`.
+
+The test `CliCommand_MissingRequiredParameters_ShowsErrorAndSuggestsHelp` uses the in-process `MigrationPlatformHost.CreateDefaultBuilder` path, which does not invoke Spectre.Console.Cli argument parsing. Running `["discovery", "inventory"]` through the host builder simply builds DI, finds no app entrypoint to invoke, and exits with code 0 with empty stderr. The test asserts non-zero exit code and help suggestion — both fail.
+
+To unblock conversion, either:
+1. Add a `discovery inventory` command with required parameters to the CLI, or
+2. Rewrite the scenario to test an existing command invoked with missing required args (e.g. `queue` with no `--config`) and verify graceful argument-validation error behaviour through out-of-process invocation via `CliRunner`.
+
+---
+
+## GAP-013: system-test-local-execution — Valid env configuration scenario requires live ADO subprocess
+
+**File:** `features/cli/inventory/system-test-local-execution.feature`
+**Scenario:** `Developer runs system test with valid environment configuration`
+**Family:** `system-test-local-execution`
+**Wiring:** `unwired`
+**Gap type:** `test-failure`
+**Detected:** 2026-06-09
+**Status:** OPEN
+
+### Engineering detail
+
+The mapped test `ValidEnvConfiguration_ExecutesSuccessfully` (file:
+`tests/DevOpsMigrationPlatform.CLI.Migration.Tests/SystemTests/SystemTestLocalExecutionTests.cs:23`)
+invokes `dotnet test` as a subprocess against
+`tests/DevOpsMigrationPlatform.CLI.Migration.Tests` with filter
+`TestCategory=SystemTest` and a 30-second timeout.
+
+On 2026-06-09 the test run showed:
+- Environment variables `AZDEVOPS_SYSTEM_TEST_ORG` and `AZDEVOPS_SYSTEM_TEST_PAT`
+  appear to be set (the `SkipIfNotConfigured()` guard did not trigger).
+- The subprocess started but was killed after 30 seconds (exit code -1).
+- The `ShouldSucceed()` assertion then failed on exit code -1.
+
+Root causes:
+1. The 30-second timeout is insufficient for `dotnet test` to build and run a
+   system test that makes live ADO network calls.
+2. Scenario 1's full pass requires a live Azure DevOps organization accessible
+   from the test machine, which is not guaranteed in the current environment.
+
+To unblock conversion:
+1. Increase the subprocess timeout (e.g., `TimeSpan.FromMinutes(5)`) and run in
+   a dedicated system-test gate where `AZDEVOPS_SYSTEM_TEST_ORG` and
+   `AZDEVOPS_SYSTEM_TEST_PAT` point to a real, accessible ADO organization.
+2. Alternatively, narrow the scenario to assert only that `ValidateConnectivityAsync`
+   succeeds with valid credentials (an in-process assertion) rather than running a
+   full `dotnet test` subprocess — this avoids the network call and subprocess
+   overhead while still covering the connectivity intent.
+
+---
+
+## GAP-014: tfs-export — Export validates TFS server URL before starting
+
+**File:** `features/cli/export/tfs-export.feature`
+**Scenario:** `Export validates TFS server URL before starting`
+**Family:** `tfs-export`
+**Wiring:** `unwired`
+**Gap type:** `behaviour-conflict`
+**Detected:** `2026-06-09`
+**Status:** OPEN
+
+### Engineering detail
+
+The feature specifies that the CLI must emit a validation error when the TFS server URL is
+not a valid HTTP or HTTPS URL (e.g. "not-a-url"). Actual production behaviour in
+`QueueCommand.ExecuteAdoExportAsync` (lines 724-728) performs only an
+`IsNullOrWhiteSpace(orgUrl)` check — no HTTP/HTTPS format validation exists. A non-empty
+but non-HTTP/HTTPS URL such as "not-a-url" passes the guard and proceeds to the
+control-plane submission, which fails for an unrelated reason.
+
+The `AssertValidationErrorUrlRequired()` assertion in `TfsConfigValidationTests` would
+be a false positive: it matches "http" in the control-plane connection error URL
+(`http://localhost:<ephemeral>`), not in a URL validation message.
+
+The test `TfsExport_InvalidServerUrl_ValidationErrorShown` in
+`tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Cli/TfsExport/TfsConfigValidationTests.cs`
+carries `[Ignore]` until this gap is resolved.
+
+To unblock:
+1. Add HTTP/HTTPS URL format validation to `QueueCommand.ExecuteAdoExportAsync` (or to
+   the JSON schema's `Source.Url` field as `"format": "uri"`) before the package-URI check.
+2. The error message must reference "HTTP" or "HTTPS" or "URL" so that
+   `AssertValidationErrorUrlRequired()` matches on the correct message.
+3. Remove the `[Ignore]` attribute and re-run the test to confirm.
+
+---
+
+## GAP-015: tfs-export — TFS export being unavailable produces a clear error before any export begins
+
+**File:** `features/cli/export/tfs-export.feature`
+**Scenario:** `TFS export being unavailable produces a clear error before any export begins`
+**Family:** `tfs-export`
+**Wiring:** `unwired`
+**Gap type:** `behaviour-conflict`
+**Detected:** `2026-06-09`
+**Status:** OPEN
+
+### Engineering detail
+
+The feature specifies that when TFS export is unavailable, the CLI emits a clear error
+before any export begins. The DSL's `WithTfsUnavailable()` builder method sets an internal
+flag (`_tfsAvailable = false`) and the design intended to wire `ThrowingTfsJobServiceFactory`
+into the DI container via `RunInProcessAsync`. However:
+
+1. `RunInProcessAsync` only calls `MigrationPlatformHost.CreateDefaultBuilder(...).Build().StopAsync()`.
+   This constructs and tears down the DI container but does not execute any `ICommand` handler;
+   `QueueCommand.ExecuteInternalAsync` is never called. The service override has no effect.
+2. The `ThrowingTfsJobServiceFactory` stub in `TfsExportTestDoubles.cs` is commented out
+   because the test project does not reference `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel`.
+3. `RunOutOfProcessAsync` launches a subprocess where no DI override is possible.
+   The test would pass because the CLI prints "Exporting from..." before the control-plane
+   submission fails, and `AssertTfsUnavailableErrorShown` matches "export" in "Exporting".
+   This is a false positive.
+
+The test `TfsExport_TfsUnavailable_ClearErrorBeforeStart` in
+`tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Cli/TfsExport/TfsExportFaultHandlingTests.cs`
+carries `[Ignore]` until this gap is resolved.
+
+To unblock one of the following approaches is needed:
+a. Add `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel` project reference to the test
+   project, implement an in-process command execution path that runs `QueueCommand` directly
+   (not just builds/stops the host), and uncomment `ThrowingTfsJobServiceFactory`.
+b. OR add a CLI environment variable or config flag that causes `QueueCommand` to skip TFS
+   service creation, producing the "TFS export unavailable" error — then the subprocess
+   approach can work.
+
+---
+
+## GAP-016: tfs-export — Successful TFS export streams live progress to the terminal
+
+**File:** `features/cli/export/tfs-export.feature`
+**Scenario:** `Successful TFS export streams live progress to the terminal`
+**Family:** `tfs-export`
+**Wiring:** `unwired`
+**Gap type:** `infrastructure`
+**Detected:** `2026-06-09`
+**Status:** OPEN
+
+### Engineering detail
+
+The scenario requires a live TFS server at the configured URL and a running control-plane
+and TFS migration agent to complete an actual export. In a unit-test context (CI or local
+without TFS access), the CLI connects to the control plane, submits the job successfully,
+but no TFS agent processes it. The SSE follow-log stream times out or returns a job-failed
+state, causing the CLI to exit with code 1.
+
+The test `TfsExport_ValidConfig_LiveProgressDisplayed` in
+`tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Cli/TfsExport/TfsExportProgressVisibilityTests.cs`
+carries `[Ignore]` until a system-test TFS environment is available.
+
+To unblock: run this test in a dedicated integration/system-test gate where
+`AZDEVOPS_SYSTEM_TEST_ORG` (TFS collection URL) and `AZDEVOPS_SYSTEM_TEST_PAT` point to a
+real, accessible TFS collection, and the full control-plane + TFS migration agent stack is
+running.
+
+---
+
+## GAP-017: tfs-export — TFS export output is streamed to the operator in real time
+
+**File:** `features/cli/export/tfs-export.feature`
+**Scenario:** `TFS export output is streamed to the operator in real time`
+**Family:** `tfs-export`
+**Wiring:** `unwired`
+**Gap type:** `validity-gate`
+**Detected:** `2026-06-09`
+**Status:** OPEN
+
+### Engineering detail
+
+The test `TfsExport_OutputStreamed_StdoutAndStderrDistinguished` uses two assertions:
+- `AssertOutputLinesProduced()`: passes trivially because the CLI emits "Exporting from..."
+  before the job submission fails, regardless of whether streaming actually worked.
+- `AssertErrorOutputOnStderr()`: passes trivially when stderr is empty (the assertion body
+  short-circuits on `string.IsNullOrWhiteSpace(StandardError)`).
+
+Neither assertion proves real-time streaming behaviour or stderr/stdout channel distinction.
+The test is a false positive under the validity-gate rule.
+
+The test `TfsExport_OutputStreamed_StdoutAndStderrDistinguished` in
+`tests/DevOpsMigrationPlatform.CLI.Migration.Tests/Cli/TfsExport/TfsExportProgressVisibilityTests.cs`
+carries `[Ignore]` until this gap is resolved.
+
+To unblock:
+1. Implement a streaming assertion that captures output lines with timestamps and verifies
+   inter-line delay (proving incremental emission rather than buffered-at-end).
+2. OR inject a fake progress event source that emits a known sequence of events and assert
+   the exact lines appear in order on stdout.
+3. `AssertErrorOutputOnStderr` needs a scenario where an error actually IS emitted (e.g.
+   route a validation error to stderr) so the assertion is not trivially skipped.
+
+---
+
+## GAP-018: system-test-ci-execution — CLI has no `inventory` command; Scenario 1 test fails
+
+**File:** `features/cli/inventory/system-test-ci-execution.feature`
+**Scenario:** `System tests execute in CI environment with secrets`
+**Family:** `system-test-ci-execution`
+**Wiring:** `unwired`
+**Gap type:** `test-failure`
+**Detected:** `2026-06-09`
+**Status:** OPEN
+
+### Engineering detail
+
+The converted test `CiExecution_ValidSecrets_InventoryConnectsAndProducesOutput`
+(`tests/DevOpsMigrationPlatform.CLI.Migration.Tests/SystemTests/SystemTestCiExecutionTests.cs:24`)
+uses `InventoryCliRunner` which invokes:
+
+```
+dotnet run --project src/DevOpsMigrationPlatform.CLI.Migration/... -- inventory
+```
+
+The CLI (`src/DevOpsMigrationPlatform.CLI.Migration/Program.cs`) registers these
+top-level commands: `prepare`, `queue`, `manage`, `controlplane`, `agent`, `config`.
+There is no `inventory` subcommand. Running the above produces:
+
+```
+Unhandled exception. Spectre.Console.Cli.CommandParseException: Unknown command 'inventory'.
+```
+
+The subprocess exits non-zero. `DotnetTestResult.ShouldSucceed()` then fails the test
+with an assertion error referencing line 43 of the test file.
+
+Note: when live credentials (`AZDEVOPS_SYSTEM_TEST_ORG` + `AZDEVOPS_SYSTEM_TEST_PAT`)
+are absent, the test correctly becomes Inconclusive via `InconclusiveIfNotConfigured()`.
+The failure only manifests when credentials ARE present in the environment (e.g. a
+configured CI agent), which is exactly the scenario this test is supposed to verify.
+
+### Resolution options
+
+1. **Add an `inventory` subcommand to the CLI** — register a new `InventoryCommand` under
+   the top-level application that accepts `--org` / `--pat` parameters, runs the inventory
+   pipeline, and produces non-empty JSON output. The test can then pass when credentials
+   are configured.
+2. **Rewrite the scenario using an existing command** — replace the `inventory` invocation
+   with an existing command that exercises connectivity (e.g. `queue --config <path>`) and
+   update `InventoryCliRunner` (or introduce a new runner) accordingly.
+
+The `.feature` file is retained until one of the above is implemented and the test passes.
+

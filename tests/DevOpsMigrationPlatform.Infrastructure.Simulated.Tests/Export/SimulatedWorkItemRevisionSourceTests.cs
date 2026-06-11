@@ -37,6 +37,8 @@ public sealed class SimulatedWorkItemRevisionSourceTests
         return new SimulatedGeneratorConfig { Projects = projects };
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetRevisionsAsync_StreamsExpectedCount()
     {
@@ -51,6 +53,8 @@ public sealed class SimulatedWorkItemRevisionSourceTests
         Assert.AreEqual(6, revisions.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetRevisionsAsync_RevisionsAreDeterministic()
     {
@@ -75,6 +79,8 @@ public sealed class SimulatedWorkItemRevisionSourceTests
         }
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetRevisionsAsync_EmptyProjects_YieldsZeroRevisions()
     {
@@ -88,6 +94,8 @@ public sealed class SimulatedWorkItemRevisionSourceTests
         Assert.AreEqual(0, count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Constructor_RevisionsPerItemZero_ThrowsAtConstruction()
     {
@@ -110,6 +118,8 @@ public sealed class SimulatedWorkItemRevisionSourceTests
             () => _ = new SimulatedWorkItemRevisionSource(config));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetRevisionsAsync_RevisionIndexStartsAtZero()
     {
@@ -125,6 +135,8 @@ public sealed class SimulatedWorkItemRevisionSourceTests
         Assert.AreEqual(2, revisions[2].RevisionIndex);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetRevisionsAsync_WorkItemIdsAreSequential()
     {
@@ -140,6 +152,8 @@ public sealed class SimulatedWorkItemRevisionSourceTests
         Assert.AreEqual(3, revisions[2].WorkItemId);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task GetRevisionsAsync_CancellationToken_StopsStream()
     {

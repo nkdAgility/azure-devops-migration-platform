@@ -154,7 +154,7 @@ public sealed class DependencyDiscoveryService : IDependencyDiscoveryService
                 var effectiveToken = projectToken;
                 var effectiveWriter = projectCheckpointWriter ?? continuationCheckpointWriter;
                 var eventStream = service.AnalyseLinksAsync(endpointOptions, project, wiqlFilter,
-                    effectiveToken, effectiveWriter, cancellationToken);
+                    effectiveToken, effectiveWriter, cancellationToken: cancellationToken);
 
                 var resumed = effectiveToken is not null;
                 await foreach (var evt in WrapWithResumeFallbackAsync(

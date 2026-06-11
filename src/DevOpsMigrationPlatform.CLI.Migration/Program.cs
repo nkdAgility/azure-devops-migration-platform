@@ -6,6 +6,7 @@ using DevOpsMigrationPlatform.CLI.Commands.Agent;
 using DevOpsMigrationPlatform.CLI.Commands.ControlPlane;
 using DevOpsMigrationPlatform.CLI.Commands.Manage;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
+using DevOpsMigrationPlatform.CLI.Migration.Commands.Discovery;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -58,6 +59,22 @@ internal class Program
             config.PropagateExceptions();
             config.ValidateExamples();
 #endif
+
+            // ── Discovery commands (run locally, no control plane required) ──────────
+            config.AddBranch("discovery", branch =>
+            {
+                branch.SetDescription("Run local discovery analysis commands.");
+
+                branch.AddCommand<DependencyCommand>("dependencies")
+                    .WithDescription("Identify cross-project and cross-organisation work item links and write a CSV report.")
+                    .WithExample("discovery", "dependencies", "--config", "migration.json")
+                    .WithExample("discovery", "dependencies", "--config", "migration.json", "--output", "./reports/deps.csv");
+
+                branch.AddCommand<InventoryCommand>("inventory")
+                    .WithDescription("Count work items, revisions, repos, and pipelines per project and write an inventory.csv summary.")
+                    .WithExample("discovery", "inventory", "--organisation", "https://dev.azure.com/myorg", "--token", "<pat>")
+                    .WithExample("discovery", "inventory", "--config", "migration.json");
+            });
 
             // ── Migration commands (all read their configuration from --config) ──────
             config.AddChannelCommand<PrepareCommand>("prepare")

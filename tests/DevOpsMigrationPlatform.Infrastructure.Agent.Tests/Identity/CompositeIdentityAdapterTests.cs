@@ -15,7 +15,6 @@ using Moq;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Identity;
 
 [TestClass]
-[TestCategory("UnitTests")]
 public sealed class CompositeIdentityAdapterTests
 {
     private class StubAdapter : IIdentityAdapter
@@ -52,6 +51,8 @@ public sealed class CompositeIdentityAdapterTests
         return new CompositeIdentityAdapter(registrations, sp, target.Object);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FindByUpnAsync_DispatchesToConnectorMatchingTargetType()
     {
@@ -62,6 +63,8 @@ public sealed class CompositeIdentityAdapterTests
         Assert.AreEqual("ado", ado[0].Descriptor);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FindByDisplayNameAsync_DispatchesByTargetType_CaseInsensitive()
     {
@@ -69,6 +72,8 @@ public sealed class CompositeIdentityAdapterTests
         Assert.AreEqual("sim", result[0].Descriptor);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task FindByUpnAsync_UnknownConnectorType_Throws()
     {

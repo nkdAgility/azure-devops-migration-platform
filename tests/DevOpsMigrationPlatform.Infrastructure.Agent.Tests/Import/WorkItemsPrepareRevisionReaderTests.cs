@@ -13,6 +13,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Import;
 [TestClass]
 public sealed class WorkItemsPrepareRevisionReaderTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnumerateAsync_LegacyModuleOnlyLayout_FallsBackAndReadsRevision()
     {

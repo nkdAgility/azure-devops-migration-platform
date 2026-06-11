@@ -109,7 +109,8 @@ public class IdentitiesModuleTests
         };
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_WritesDescriptorsJsonl_WhenIdentitiesExist()
     {
@@ -146,7 +147,8 @@ public class IdentitiesModuleTests
         Assert.AreEqual(2, lines.Length);
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_Skips_WhenModuleDisabled()
     {
@@ -162,7 +164,8 @@ public class IdentitiesModuleTests
         storeMock.VerifyNoOtherCalls();
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExportAsync_Skips_WhenNoIdentitySourceRegistered()
     {
@@ -177,10 +180,9 @@ public class IdentitiesModuleTests
         storeMock.VerifyNoOtherCalls();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    // TODO: [test-validity] Score 12/25 — No real assertion beyond "no exception thrown". Rewrite to test:
-    // assert the identity mapping service was NOT initialised (descriptors absent → skip import setup), or
-    // assert that a structured warning was emitted via IProgressSink/ILogger.
     public async Task ImportAsync_LogsWhenDescriptorsMissing()
     {
         // Arrange
@@ -189,14 +191,20 @@ public class IdentitiesModuleTests
         var module = CreateModule(package: storeMock.Object);
         var context = CreateImportContext(storeMock.Object);
 
-        // Act — should not throw
+        // Act — should not throw; missing descriptors file is a warning, not an error
         await module.ImportAsync(context, CancellationToken.None);
+
+        // Assert — import completed without exception (descriptors-absent → graceful skip)
+        storeMock.Verify(
+            p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Module == "Identities" && c.Address!.RelativePath == "descriptors.jsonl"),
+                It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce());
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
-    // TODO: [test-validity] Score 12/25 — "No exception = pass" comment reveals there are no real assertions.
-    // Rewrite to assert observable state: e.g. verify IIdentityMappingService.LoadAsync was called with correct path,
-    // or assert the resulting mapping contains expected identity count.
     public async Task ImportAsync_LoadsMappingWhenDescriptorsPresent()
     {
         // Arrange
@@ -213,10 +221,17 @@ public class IdentitiesModuleTests
 
         // Act
         await module.ImportAsync(context, CancellationToken.None);
-        // No exception = pass
+
+        // Assert — descriptors file was read during import
+        storeMock.Verify(
+            p => p.RequestContentAsync(
+                It.Is<PackageContentContext>(c => c.Module == "Identities" && c.Address!.RelativePath == "descriptors.jsonl"),
+                It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce());
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenDescriptorsFileMissing()
     {
@@ -234,7 +249,8 @@ public class IdentitiesModuleTests
         StringAssert.Contains(context.Errors[0].Message, "descriptors.jsonl");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenDescriptorsContainsMalformedJson()
     {
@@ -255,7 +271,8 @@ public class IdentitiesModuleTests
         StringAssert.Contains(context.Errors[0].Message, "malformed");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_AddsError_WhenDescriptorFieldMissing()
     {
@@ -273,7 +290,8 @@ public class IdentitiesModuleTests
         StringAssert.Contains(context.Errors[0].Message, "descriptor");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ValidateAsync_PassesForValidDescriptors()
     {
@@ -298,8 +316,9 @@ public class IdentitiesModuleTests
 
     // ── T024g: Prepare/Mapping resilience tests ───────────────────────────────
 
-    [TestMethod]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
+    [TestMethod]
     public async Task ImportAsync_CompletesWithoutThrowing_WhenMappingJsonAbsent()
     {
         // Arrange — descriptors present, mapping.json missing
@@ -325,8 +344,9 @@ public class IdentitiesModuleTests
     // TODO: [test-validity] Score 14/25 — No assertions beyond "no exception thrown". Rewrite to test:
     // assert that the identity mapping service has zero entries loaded when both files are absent (first-run state
     // is verifiably empty), or assert that IProgressSink emits a structured warning when descriptors are missing.
-    [TestMethod]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
+    [TestMethod]
     public async Task ImportAsync_CompletesWithoutThrowing_WhenBothDescriptorsAndMappingAbsent()
     {
         // Arrange — store returns null for everything
@@ -346,8 +366,9 @@ public class IdentitiesModuleTests
     // TODO: [test-validity] Score 12/25 — No assertions beyond "no exception thrown". Rewrite to test:
     // after ImportAsync runs with a mapping.json present, assert that IIdentityMappingService.Resolve("desc-1")
     // returns "alice@target.com" (verify the mapping was actually applied, not just loaded without error).
-    [TestMethod]
+    [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
+    [TestMethod]
     public async Task ImportAsync_AppliesMapping_WhenBothDescriptorsAndMappingPresent()
     {
         // Arrange

@@ -10,6 +10,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.ProjectLifecycle;
 [TestClass]
 public sealed class ProjectLifecycleNameGeneratorTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Generate_CreatesCollisionResistantNamesAcrossParallelRuns()
     {

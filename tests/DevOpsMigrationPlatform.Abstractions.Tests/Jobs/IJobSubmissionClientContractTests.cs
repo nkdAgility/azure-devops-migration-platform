@@ -11,6 +11,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Jobs;
 [TestClass]
 public class IJobSubmissionClientContractTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void RunAsync_HasExpectedSignature()
     {

@@ -24,6 +24,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Import;
 [TestClass]
 public sealed class IdentityMappingValidatorTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EvaluateAsync_ReturnsWarningFindings_WhenIdentityMappingServiceLeavesEntriesUnresolved()
     {
@@ -66,6 +68,8 @@ public sealed class IdentityMappingValidatorTests
         identityMappingService.Verify(s => s.Resolve("bob@source.example"), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EvaluateAsync_ReportsUnresolved_WhenIdentityFallsBackToDefaultIdentityWithoutExplicitMapping()
     {
@@ -103,6 +107,8 @@ public sealed class IdentityMappingValidatorTests
         identityMappingService.Verify(s => s.Resolve("fallback@source.example"), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EvaluateAsync_DoesNotReportUnresolved_WhenIdentityHasExplicitSelfMapping()
     {
@@ -138,6 +144,8 @@ public sealed class IdentityMappingValidatorTests
         identityMappingService.Verify(s => s.Resolve("self@source.example"), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EvaluateAsync_ReturnsSortedWarningFindings_WhenMultipleIdentitiesAreUnresolved()
     {
@@ -178,6 +186,8 @@ public sealed class IdentityMappingValidatorTests
         Assert.AreEqual(ImportFailureSeverity.Warning, findings[1].Severity);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EvaluateAsync_ReturnsEmpty_WhenDescriptorArtefactIsMissing()
     {

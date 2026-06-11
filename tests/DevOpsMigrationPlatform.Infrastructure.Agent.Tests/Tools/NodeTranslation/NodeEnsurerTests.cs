@@ -185,9 +185,9 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
 
-
+    [TestCategory("UnitTests")]
 
     [TestMethod]
 
@@ -217,9 +217,9 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
 
-
+    [TestCategory("UnitTests")]
 
     [TestMethod]
 
@@ -251,9 +251,9 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
 
-
+    [TestCategory("UnitTests")]
 
     [TestMethod]
 
@@ -281,9 +281,9 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
 
-
+    [TestCategory("UnitTests")]
 
     [TestMethod]
 
@@ -357,9 +357,9 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
 
-
+    [TestCategory("UnitTests")]
 
     [TestMethod]
 
@@ -411,9 +411,9 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
 
-
+    [TestCategory("UnitTests")]
 
     [TestMethod]
 
@@ -467,9 +467,9 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
 
-
+    [TestCategory("UnitTests")]
 
     [TestMethod]
 
@@ -513,9 +513,9 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
 
-
+    [TestCategory("UnitTests")]
 
     [TestMethod]
 
@@ -563,9 +563,9 @@ public class NodeEnsurerTests
 
 
 
-    [TestCategory("DomainTests")]
+    [TestCategory("CodeTest")]
 
-
+    [TestCategory("UnitTests")]
 
     [TestMethod]
 

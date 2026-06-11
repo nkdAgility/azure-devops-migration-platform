@@ -9,6 +9,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class CursorUpdateMetricsTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ReplayCoverageRatio_EnforcesNearLatestThreshold_ForResume()
     {
@@ -16,6 +18,8 @@ public sealed class CursorUpdateMetricsTests
         Assert.IsTrue(ratio >= 0.95d, $"Expected replay coverage >= 0.95 but was {ratio:0.000}.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ReplayCoverageRatio_FallsBelowThreshold_WhenReplayWindowTooLarge()
     {

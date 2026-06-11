@@ -7,7 +7,6 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests;
 
 [TestClass]
-[TestCategory("NET481")]
 public class Net481GuardedTypesContractTests
 {
     private static readonly (string AssemblyName, string FullTypeName)[] ExpectedTypes =
@@ -51,6 +50,8 @@ public class Net481GuardedTypesContractTests
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.KeyedClassificationTreeReader")
     ];
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Type_IsAvailable_ForNet481Build()
     {

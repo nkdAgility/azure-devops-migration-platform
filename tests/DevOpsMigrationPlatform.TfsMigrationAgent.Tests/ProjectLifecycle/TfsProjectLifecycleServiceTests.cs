@@ -13,6 +13,8 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests.ProjectLifecycle;
 [TestClass]
 public sealed class TfsProjectLifecycleServiceTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task CreateAndTeardown_ReturnSuccessfulOutcome()
     {

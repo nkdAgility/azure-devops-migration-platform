@@ -10,6 +10,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class CursorUpdateProgressTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ShouldPersist_WhenElapsedIntervalExactlyMatchesThreshold()
     {
@@ -20,6 +22,8 @@ public sealed class CursorUpdateProgressTests
         Assert.IsTrue(shouldPersist);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ShouldNotPersist_WhenBatchAndIntervalThresholdsNotMet()
     {

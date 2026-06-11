@@ -17,6 +17,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
@@ -30,6 +31,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Analysis;
 [TestClass]
 public sealed class DependencyAnalyserTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AnalyseAsync_EmitsDependenciesActivityWithTags()
     {
@@ -50,6 +53,8 @@ public sealed class DependencyAnalyserTests
         Assert.AreEqual("Dependencies", activity.Tags.First(t => t.Key == "module").Value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AnalyseAsync_RecordsDependencyMetrics()
     {
@@ -64,6 +69,8 @@ public sealed class DependencyAnalyserTests
         metrics.Verify();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AnalyseAsync_EmitsStartAndCompletionProgressWithMetrics()
     {
@@ -78,6 +85,8 @@ public sealed class DependencyAnalyserTests
         Assert.IsTrue(events.Any(e => e.Stage == "Analysed" && e.Metrics is not null));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AnalyseAsync_LogsWarningWhenNoDependencyRows()
     {
@@ -89,6 +98,8 @@ public sealed class DependencyAnalyserTests
         logger.VerifyLog(LogLevel.Warning, "Zero cross-project dependency links written for job-1", Times.Once());
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AnalyseAsync_WritesAnalysisDependenciesCsvAndMmd()
     {
@@ -159,6 +170,8 @@ public sealed class DependencyAnalyserTests
             }]
         };
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task AnalyseAsync_EC5_WhenPerProjectCsvAbsent_ThrowsAndDoesNotWriteConsolidatedOutput()
     {
@@ -218,6 +231,150 @@ public sealed class DependencyAnalyserTests
         await Task.Yield();
         yield return "org/ProjectB/dependencies.csv";
     }
+
+    // ── US2: DependencyCapture writes per-project CSV that DependencyAnalyser consumes ──────────
+    // Scenario: DependencyCapture_ProducesPerProjectCsv_AnalyserConsumesUnchanged
+    //   Given capture.dependencies tasks have been executed via DependencyCapture
+    //   When the analyse.dependencies task runs via DependencyAnalyser
+    //   Then DependencyAnalyser.AnalyseAsync consumes the per-project CSV paths written by DependencyCapture
+    //   And no changes to DependencyAnalyser are required
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public async Task DependencyCapture_WritesPerProjectCsvThatDependencyAnalyserConsumes()
+    {
+        // Arrange: shared in-memory package — supports both PersistIndexAsync (capture) and
+        // RequestIndexAsync + EnumerateAllAsync (analyse) against the same dictionary.
+        const string OrgUrl = "https://dev.azure.com/testorg";
+        const string OrgFolder = "testorg"; // PackagePathResolver.ExtractOrgFolderName result
+        var package = PackageTestFactory.CreateLooseMock();
+
+        // Capture side: two DependencyCapture instances for ProjectA and ProjectB.
+        // The orchestrator mock writes a minimal valid CSV to the shared package for each project.
+        var captureA = CreateCsvWritingCapture(package, OrgUrl, "ProjectA");
+        var captureB = CreateCsvWritingCapture(package, OrgUrl, "ProjectB");
+
+        var ctxA = CreateCaptureContext(package.Object, OrgUrl, "ProjectA");
+        var ctxB = CreateCaptureContext(package.Object, OrgUrl, "ProjectB");
+
+        // Act (capture phase first — produces per-project CSV artefacts)
+        await captureA.CaptureAsync(ctxA, CancellationToken.None);
+        await captureB.CaptureAsync(ctxB, CancellationToken.None);
+
+        // Act (analyse phase — consumes the artefacts written above)
+        var analyser = new DependencyAnalyser(
+            new Mock<IDependencyDiscoveryServiceFactory>(MockBehavior.Strict).Object,
+            new Mock<IDependencyOrchestrator>(MockBehavior.Strict).Object,
+            NullLogger<DependencyAnalyser>.Instance);
+
+        var analyseContext = new OrganisationsAnalyseContext
+        {
+            Job = new Job { JobId = "contract-test-job", Kind = JobKind.Dependencies },
+            Package = package.Object,
+            Organisations =
+            [
+                new ScopedOrganisationEndpoint
+                {
+                    Endpoint = new SimulatedEndpointOptions { Type = "Simulated", Url = OrgUrl },
+                    Projects = ["ProjectA", "ProjectB"]
+                }
+            ]
+        };
+
+        // Assert: AnalyseAsync completes without throwing — the paths written by DependencyCapture
+        // are exactly the paths that DependencyAnalyser.AnalyseAsync expects.
+        await analyser.AnalyseAsync(analyseContext, CancellationToken.None);
+
+        // Verify the consolidated output exists (proves both per-project CSVs were found and read)
+        var consolidated = await package.Object.RequestIndexAsync(
+            new PackageIndexContext("dependencies.csv"), CancellationToken.None);
+        Assert.IsNotNull(consolidated, "Consolidated dependencies.csv must exist after AnalyseAsync");
+
+        // Verify the per-project paths written by DependencyCapture are still in the store
+        // (i.e. they were readable — not null — when AnalyseAsync enumerated them)
+        var projectAPayload = await package.Object.RequestIndexAsync(
+            new PackageIndexContext("dependencies.csv", Organisation: OrgFolder, Project: "ProjectA"),
+            CancellationToken.None);
+        var projectBPayload = await package.Object.RequestIndexAsync(
+            new PackageIndexContext("dependencies.csv", Organisation: OrgFolder, Project: "ProjectB"),
+            CancellationToken.None);
+
+        Assert.IsNotNull(projectAPayload, $"Per-project CSV for ProjectA must be readable at {OrgFolder}/ProjectA/dependencies.csv");
+        Assert.IsNotNull(projectBPayload, $"Per-project CSV for ProjectB must be readable at {OrgFolder}/ProjectB/dependencies.csv");
+    }
+
+    /// <summary>
+    /// Builds a <see cref="DependencyCapture"/> whose orchestrator writes a minimal valid
+    /// per-project CSV to the shared <paramref name="package"/> for <paramref name="project"/>.
+    /// </summary>
+    private static DependencyCapture CreateCsvWritingCapture(
+        Mock<IPackageAccess> package,
+        string orgUrl,
+        string project)
+    {
+        const string MinimalCsvHeader =
+            "SourceWorkItemId,SourceWorkItemType,SourceProject,SourceOrganisationUrl," +
+            "LinkType,LinkScope,TargetWorkItemId,TargetProject,TargetOrganisation,TargetStatus,LinkChangedDate,SourceWorkItemChangedDate,SourceWorkItemStateCategory\n";
+
+        var factory = new Mock<IDependencyDiscoveryServiceFactory>(MockBehavior.Strict);
+        var service = Mock.Of<IDependencyDiscoveryService>();
+        factory.Setup(f => f.CreateForProject(
+                It.IsAny<IReadOnlyList<ScopedOrganisationEndpoint>>(),
+                orgUrl, project,
+                It.IsAny<JobPolicies>()))
+            .Returns(service);
+
+        var orchestrator = new Mock<IDependencyOrchestrator>(MockBehavior.Strict);
+        orchestrator
+            .Setup(o => o.CaptureProjectAsync(
+                service,
+                It.IsAny<InventoryContext>(),
+                It.IsAny<JobPolicies>(),
+                It.IsAny<CancellationToken>()))
+            .Returns<IDependencyDiscoveryService, InventoryContext, JobPolicies, CancellationToken>(
+                async (_, ctx, _, ct) =>
+                {
+                    var orgFolder = PackagePathResolver.ExtractOrgFolderName(ctx.SourceEndpoint.ResolvedUrl);
+                    var sanitizedProject = PackagePathResolver.Sanitise(ctx.Project);
+                    var content = MinimalCsvHeader + $"1,Task,{sanitizedProject},{orgFolder},{{}},{{}},2,OtherProject,otherorg,Active,2024-01-01,2024-01-01,InProgress\n";
+                    await ctx.Package.PersistIndexAsync(
+                        new PackageIndexContext("dependencies.csv", Organisation: orgFolder, Project: sanitizedProject),
+                        new PackagePayload(new MemoryStream(Encoding.UTF8.GetBytes(content))),
+                        ct).ConfigureAwait(false);
+                    return new DependencyCounters { WorkItemsAnalysed = 1, ExternalLinksFound = 1, CrossProjectLinks = 1 };
+                });
+
+        return new DependencyCapture(factory.Object, orchestrator.Object, NullLogger<DependencyCapture>.Instance);
+    }
+
+    /// <summary>
+    /// Creates a minimal <see cref="InventoryContext"/> for a single capture call.
+    /// </summary>
+    private static InventoryContext CreateCaptureContext(
+        IPackageAccess package,
+        string orgUrl,
+        string project)
+        => new()
+        {
+            Job = new Job { JobId = "contract-test-job", Kind = JobKind.Dependencies },
+            Package = package,
+            SourceEndpoint = new OrganisationEndpoint
+            {
+                ResolvedUrl = orgUrl,
+                Type = "Simulated",
+                Authentication = new OrganisationEndpointAuthentication { Type = AuthenticationType.None }
+            },
+            Project = project,
+            Organisations =
+            [
+                new ScopedOrganisationEndpoint
+                {
+                    Endpoint = new SimulatedEndpointOptions { Url = orgUrl },
+                    Projects = [project]
+                }
+            ],
+            Policies = new JobPolicies()
+        };
 }
 
 internal static class DependencyAnalyserLoggerMoqExtensions

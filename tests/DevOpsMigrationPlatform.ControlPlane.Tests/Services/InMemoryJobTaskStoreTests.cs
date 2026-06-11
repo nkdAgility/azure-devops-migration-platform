@@ -19,6 +19,8 @@ public sealed class InMemoryJobTaskStoreTests
         return new JobTaskList { Tasks = tasks.AsReadOnly() };
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Store_ThenGetLatest_ReturnsSameList()
     {
@@ -33,6 +35,8 @@ public sealed class InMemoryJobTaskStoreTests
         Assert.AreEqual(2, result.Tasks.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void GetLatest_NoList_ReturnsNull()
     {
@@ -40,6 +44,8 @@ public sealed class InMemoryJobTaskStoreTests
         Assert.IsNull(store.GetLatest(Guid.NewGuid()));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void UpdateTask_ExistingTask_TransitionsStatus()
     {
@@ -57,6 +63,8 @@ public sealed class InMemoryJobTaskStoreTests
         Assert.IsNull(updated.CompletedAt);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void UpdateTask_CompletedStatus_SetsCompletedAt()
     {
@@ -73,6 +81,8 @@ public sealed class InMemoryJobTaskStoreTests
         Assert.AreEqual(now, task.CompletedAt);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void UpdateTask_UnknownTaskId_OtherTasksUnchanged()
     {
@@ -86,6 +96,8 @@ public sealed class InMemoryJobTaskStoreTests
         Assert.AreEqual(JobTaskStatus.Pending, task.Status);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void UpdateTask_KnownTotalProvided_MergesIntoStoredTask()
     {
@@ -102,6 +114,8 @@ public sealed class InMemoryJobTaskStoreTests
         Assert.AreEqual(12L, task.KnownTotal);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void UpdateTask_KnownTotalNull_PreservesExistingValue()
     {
@@ -123,6 +137,8 @@ public sealed class InMemoryJobTaskStoreTests
         Assert.AreEqual(3L, task.CompletedCount);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Remove_RemovesListForJob()
     {

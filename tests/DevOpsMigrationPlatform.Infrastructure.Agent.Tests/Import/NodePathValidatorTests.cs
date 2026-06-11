@@ -31,6 +31,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Import;
 [TestClass]
 public sealed class NodePathValidatorTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EvaluateAsync_ReturnsBlockingFindings_WhenDistinctPathsAreMissingOnTarget()
     {
@@ -96,6 +98,8 @@ public sealed class NodePathValidatorTests
         nodeCreator.Verify(n => n.NodeExistsAsync(ClassificationNodeType.Iteration, @"Project\Sprint 2", It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EvaluateAsync_IgnoresInvalidRevisionPayloads_AndEmptyNodeValues()
     {
@@ -146,6 +150,8 @@ public sealed class NodePathValidatorTests
         nodeCreator.VerifyNoOtherCalls();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task EvaluateAsync_WithSimulatedNodeCreator_NormalizesSlashAndTrailingSeparatorPathsForExistingNodes()
     {

@@ -15,6 +15,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 [TestClass]
 public sealed class PackageLogAppendTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AppendLogAsync_ProgressStream_AppendsToProgressRunLog()
     {
@@ -31,6 +33,8 @@ public sealed class PackageLogAppendTests
             await store.ReadAsync(".migration/runs/20260509-120500/logs/progress.ndjson", CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AppendLogAsync_DiagnosticsStream_AppendsToDiagnosticsRunLog()
     {

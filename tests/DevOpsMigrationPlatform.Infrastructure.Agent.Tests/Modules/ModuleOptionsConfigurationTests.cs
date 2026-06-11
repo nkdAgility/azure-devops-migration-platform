@@ -14,7 +14,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules;
 /// and surface validation errors for invalid inputs. (T098)
 /// </summary>
 [TestClass]
-[TestCategory("UnitTests")]
 public sealed class ModuleOptionsConfigurationTests
 {
     // ─── TeamsModuleOptions ──────────────────────────────────────────────────
@@ -22,6 +21,8 @@ public sealed class ModuleOptionsConfigurationTests
     // TODO: [test-validity] Score 13/25 — Tests Microsoft.Extensions.Configuration binding plumbing via SectionName constant.
     // Rewrite to test: when SectionName binding is wrong (e.g. typo), module silently stays disabled → assert that a
     // realistic misconfiguration produces a log warning or validation error rather than silent no-op.
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void TeamsModuleOptions_BindsEnabled_FromConfiguration()
     {
@@ -46,6 +47,8 @@ public sealed class ModuleOptionsConfigurationTests
     // TODO: [test-validity] Score 12/25 — Tests property initialiser defaults, not runtime or configuration behaviour.
     // Rewrite to test: when no Teams section is present in appsettings, assert that the migration run skips teams
     // (module disabled) rather than asserting raw property values.
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void TeamsModuleOptions_DefaultScope_IsAll()
     {
@@ -68,6 +71,8 @@ public sealed class ModuleOptionsConfigurationTests
         Assert.AreEqual(string.Empty, opts.Filter);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void TeamsModuleOptions_ExtensionDefaults_AreAllEnabled()
     {
@@ -92,6 +97,8 @@ public sealed class ModuleOptionsConfigurationTests
     // TODO: [test-validity] Score 15/25 — Tests that Scope and Filter strings bind from config — partially
     // redundant with BindsEnabled test. Rewrite to test: when Scope="teams" and Filter="^Foo", assert that only
     // matching teams are exported (exercise the filter regex logic, not just the property binding).
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void TeamsModuleOptions_BindsScopeAndFilter_FromConfiguration()
     {
@@ -114,6 +121,8 @@ public sealed class ModuleOptionsConfigurationTests
         Assert.AreEqual("^Platform", opts.Filter);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void TeamsModuleOptions_CanDisableIndividualExtensions()
     {
@@ -142,6 +151,8 @@ public sealed class ModuleOptionsConfigurationTests
     // TODO: [test-validity] Score 13/25 — Mirrors TeamsModuleOptions_BindsEnabled_FromConfiguration.
     // Rewrite to test: when NodeTranslation is enabled via config, NodesModule.ExportAsync
     // actually writes referenced-paths.json (observable outcome), rather than asserting raw property binding.
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void NodesModuleOptions_BindsEnabled_FromConfiguration()
     {
@@ -166,6 +177,8 @@ public sealed class ModuleOptionsConfigurationTests
 
     // TODO: [test-validity] Score 13/25 — Tests property initialiser defaults. Rewrite to test: when NodeTranslation
     // module is configured with defaults (Enabled:true), assert it writes to the artefact store on ExportAsync.
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void NodesModuleOptions_DefaultsAreCorrect()
     {
@@ -189,6 +202,8 @@ public sealed class ModuleOptionsConfigurationTests
     // TODO: [test-validity] Score 13/25 — Tests config binding of DefaultIdentity string. Rewrite to test: when
     // DefaultIdentity is set via config, IdentityMappingService.Resolve returns the default for an unknown descriptor
     // (exercise the mapping fallback, not just property binding).
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void IdentitiesModuleOptions_BindsDefaultIdentity_FromConfiguration()
     {
@@ -214,6 +229,8 @@ public sealed class ModuleOptionsConfigurationTests
     // TODO: [test-validity] Score 12/25 — Tests property initialiser default of DefaultIdentity="". Partially
     // redundant with BindsDefaultIdentity test. Rewrite to test: when DefaultIdentity is absent from config,
     // Resolve falls back to the source identity string, not an empty or null result.
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void IdentitiesModuleOptions_DefaultIdentity_IsEmptyStringByDefault()
     {

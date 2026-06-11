@@ -16,6 +16,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Storage.Package;
 [TestClass]
 public sealed class PackageMetaRoutingTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PersistMetaAsync_RelatedToRunTrue_WritesAuthoritativeAndRunAuditCopies()
     {
@@ -32,6 +34,8 @@ public sealed class PackageMetaRoutingTests
         Assert.AreEqual("{\"mode\":\"Export\"}", await store.ReadAsync(".migration/runs/" + active.CurrentRunId + "/audit/migration-config.json", CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task PersistMetaAsync_RelatedToRunFalse_WritesOnlyAuthoritativeCopy()
     {

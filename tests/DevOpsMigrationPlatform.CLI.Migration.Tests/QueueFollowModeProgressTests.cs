@@ -11,6 +11,8 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests;
 [TestClass]
 public sealed class QueueFollowModeProgressTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ApplyTelemetry_MaintainsSteadyForwardMovement()
     {
@@ -44,6 +46,8 @@ public sealed class QueueFollowModeProgressTests
         Assert.IsTrue(completedAfterSecond >= completedAfterFirst);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ApplyTelemetry_DoesNotRegressCompletedOrRevisionCounts_WhenOlderSnapshotArrives()
     {

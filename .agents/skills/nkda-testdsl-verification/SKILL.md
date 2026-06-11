@@ -27,11 +27,14 @@ description: Use when conversion and refactor are done and parity, artefact remo
 
 ## Required Test Execution Order
 
-1. Run the converted/affected feature-family tests first.
+1. Run the converted/affected feature-family tests first (`dotnet test <project> --filter "FullyQualifiedName~<TestClass>"`). Every mapped test must be green before proceeding.
 2. Score any intent-derived tests with test-validity dimensions and reject `WASTE` or `LOW VALUE` tests.
 3. Confirm scenario inventory coverage and tag compliance are complete.
-4. If and only if tests are green, validity gate passes, and inventory/tag checks pass, run the full repository test suite.
-5. Record commands, outcomes, validity scores, and inventory/tag verdict in `06-verification.md`.
+4. Run `dotnet build` from the repo root. If the build fails, return `FAIL` immediately — do not proceed. Investigate and fix any break, including NuGet version conflicts or compilation errors introduced by this or prior migrations.
+5. If and only if the build succeeds, tests are green, validity gate passes, and inventory/tag checks pass, run `dotnet test` from the repo root (the full unit test suite across all projects).
+6. Record commands, outcomes, build result, validity scores, and inventory/tag verdict in `06-verification.md`.
+
+**A commit must never be made unless all three — scenario tests green, full build green, full test suite green — are confirmed in that order.**
 
 ## Artefact Deletion Gate
 

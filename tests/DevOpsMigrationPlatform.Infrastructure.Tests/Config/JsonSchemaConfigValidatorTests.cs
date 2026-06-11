@@ -28,6 +28,8 @@ public sealed class JsonSchemaConfigValidatorTests
     }
   }
 
+  [TestCategory("CodeTest")]
+  [TestCategory("IntegrationTests")]
   [TestMethod]
   public void Validate_ValidJson_ReturnsEmptyList()
   {
@@ -49,6 +51,8 @@ public sealed class JsonSchemaConfigValidatorTests
     Assert.AreEqual(0, errors.Count);
   }
 
+  [TestCategory("CodeTest")]
+  [TestCategory("IntegrationTests")]
   [TestMethod]
   public void Validate_UnknownKey_ReturnsError()
   {
@@ -70,6 +74,8 @@ public sealed class JsonSchemaConfigValidatorTests
     Assert.IsTrue(errors.Any(e => e.JsonPath.Contains("unknownKey") || e.JsonPath == "#"));
   }
 
+  [TestCategory("CodeTest")]
+  [TestCategory("IntegrationTests")]
   [TestMethod]
   public void Validate_MissingRequiredField_ReturnsError()
   {
@@ -93,6 +99,8 @@ public sealed class JsonSchemaConfigValidatorTests
     Assert.IsNotNull(error.Constraint);
   }
 
+  [TestCategory("CodeTest")]
+  [TestCategory("IntegrationTests")]
   [TestMethod]
   public void Validate_WrongType_ReturnsError()
   {
@@ -113,6 +121,8 @@ public sealed class JsonSchemaConfigValidatorTests
     Assert.IsTrue(errors.Any(e => e.JsonPath.Contains("age")));
   }
 
+  [TestCategory("CodeTest")]
+  [TestCategory("IntegrationTests")]
   [TestMethod]
   public void Validate_SchemaFileDoesNotExist_ReturnsEmptyList()
   {
@@ -125,6 +135,8 @@ public sealed class JsonSchemaConfigValidatorTests
     Assert.AreEqual(0, errors.Count);
   }
 
+  [TestCategory("CodeTest")]
+  [TestCategory("IntegrationTests")]
   [TestMethod]
   public void Validate_MultipleErrors_ReturnsAll()
   {
@@ -147,6 +159,8 @@ public sealed class JsonSchemaConfigValidatorTests
     Assert.IsTrue(errors.Count >= 2);
   }
 
+  [TestCategory("CodeTest")]
+  [TestCategory("IntegrationTests")]
   [TestMethod]
   public void Validate_NestedObject_ValidatesCorrectly()
   {

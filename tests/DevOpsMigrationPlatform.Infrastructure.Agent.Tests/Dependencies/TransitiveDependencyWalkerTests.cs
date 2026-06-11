@@ -20,6 +20,8 @@ public class TransitiveDependencyWalkerTests
         _data = new Dictionary<string, List<TransitiveDependencyWalker.GroupedRow>>(StringComparer.OrdinalIgnoreCase);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Walk_NoDependencies_ReturnsZeroEdges()
     {
@@ -39,6 +41,8 @@ public class TransitiveDependencyWalkerTests
         Assert.AreEqual(0, result.MaxDepthReached);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Walk_NoDependencies_NoGroupedData_ReturnsZeroEdges()
     {
@@ -53,6 +57,8 @@ public class TransitiveDependencyWalkerTests
         Assert.AreEqual(1, result.VisitedProjects.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Walk_LinearChain_ReturnsCorrectDepths()
     {
@@ -85,6 +91,8 @@ public class TransitiveDependencyWalkerTests
         Assert.IsFalse(edgeBC.IsCycleEdge);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Walk_Cycle_DetectedAndRecorded()
     {
@@ -108,6 +116,8 @@ public class TransitiveDependencyWalkerTests
         Assert.AreEqual("ProjectA", cycleEdge.TargetProject);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Walk_UnresolvedTarget_MarkedAsUnresolved()
     {
@@ -128,6 +138,8 @@ public class TransitiveDependencyWalkerTests
             string.Equals(u.Project, "ProjectB", StringComparison.OrdinalIgnoreCase)));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Walk_CrossOrgTarget_ResolvesInTargetOrgFolder()
     {
@@ -153,6 +165,8 @@ public class TransitiveDependencyWalkerTests
         Assert.AreEqual("org2", crossOrgEdge.TargetOrganisation);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Walk_MaxDepthCapsTraversal()
     {
@@ -176,6 +190,8 @@ public class TransitiveDependencyWalkerTests
         Assert.AreEqual(1, result.Edges[0].Depth);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Walk_LargeFanOut_CompletesWithoutStackOverflow()
     {
@@ -205,6 +221,8 @@ public class TransitiveDependencyWalkerTests
         Assert.AreEqual(301, result.VisitedProjects.Count);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Walk_DiamondPattern_NoDuplicateEdges()
     {

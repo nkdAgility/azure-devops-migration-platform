@@ -19,6 +19,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Tools;
 [TestClass]
 public sealed class SimulatedPackageConfigBindingTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SimulatedWorkItemDiscoveryService_ReadsGenerator_FromCurrentPackageConfigAccessor()
     {
@@ -44,6 +46,8 @@ public sealed class SimulatedPackageConfigBindingTests
         Assert.AreEqual(6, summary.RevisionsCount);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task SimulatedWorkItemRevisionSourceFactory_ReadsGenerator_FromCurrentPackageConfigAccessor()
     {

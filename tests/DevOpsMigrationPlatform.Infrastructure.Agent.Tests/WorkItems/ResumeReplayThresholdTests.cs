@@ -9,6 +9,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.WorkItems;
 [TestClass]
 public sealed class ResumeReplayThresholdTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ReplayCoverageRatio_IsAtLeast95Percent_ForNearLatestResume()
     {
@@ -16,6 +18,8 @@ public sealed class ResumeReplayThresholdTests
         Assert.IsTrue(ratio >= 0.95d, $"Expected coverage >= 0.95 but was {ratio:0.000}.");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ReplayCoverageRatio_DropsBelow95Percent_WhenReplayExceedsAllowedWindow()
     {

@@ -15,6 +15,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Import;
 [TestClass]
 public class WorkItemModuleExtensionsTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void RegisterWorkItemServices_RegistersWorkItemOptionsValidator()
     {
@@ -28,6 +30,8 @@ public class WorkItemModuleExtensionsTests
         Assert.IsTrue(validators.Any(v => v is WorkItemOptionsValidator));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void RegisterWorkItemServices_InvalidWorkItemOptions_ThrowsOptionsValidationException()
     {
@@ -48,6 +52,8 @@ public class WorkItemModuleExtensionsTests
         Assert.ThrowsExactly<OptionsValidationException>(() => _ = options.Value);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void RegisterWorkItemServices_RegistersNodePathValidatorFailurePattern()
     {
@@ -60,6 +66,8 @@ public class WorkItemModuleExtensionsTests
                            && descriptor.ImplementationType == typeof(NodePathValidator)));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void RegisterWorkItemServices_RegistersWorkItemTypeValidatorFailurePattern()
     {
@@ -72,6 +80,8 @@ public class WorkItemModuleExtensionsTests
                           && descriptor.ImplementationType == typeof(WorkItemTypeValidator)));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void RegisterWorkItemServices_RegistersIdentityMappingValidatorFailurePattern()
     {

@@ -13,9 +13,9 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Commands;
 [DoNotParallelize]
 public class AdoPackageBoundaryIntegrationTests
 {
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
+    [TestMethod]
     public async Task Queue_Export_ADO_WritesAuthoritativeAndProjectScopedPackageState()
     {
         var orgEnv = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG");

@@ -35,6 +35,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules;
 [TestClass]
 public sealed class WorkItemsModuleImportTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_WhenIdentityMappingServiceMissing_ThrowsArgumentNullException()
     {
@@ -68,6 +70,8 @@ public sealed class WorkItemsModuleImportTests
         Assert.AreEqual("identityMappingService", ex.ParamName);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_WhenNodeTranslationToolMissing_ThrowsArgumentNullException()
     {
@@ -101,6 +105,8 @@ public sealed class WorkItemsModuleImportTests
         Assert.AreEqual("nodeTranslationTool", ex.ParamName);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Constructor_WhenFieldTransformToolMissing_ThrowsArgumentNullException()
     {
@@ -134,6 +140,8 @@ public sealed class WorkItemsModuleImportTests
         Assert.AreEqual("fieldTransformTool", ex.ParamName);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ImportAsync_WhenFieldTransformToolDisabledForImport_DoesNotThrow()
     {
@@ -149,6 +157,8 @@ public sealed class WorkItemsModuleImportTests
         validator.Validate();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void AddAzureDevOpsWorkItem_RegistersIdentityMappingService()
     {
@@ -162,6 +172,8 @@ public sealed class WorkItemsModuleImportTests
         Assert.IsNotNull(identityMappingService);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_DispatchesNodeReadinessBeforeRevisionReplay()
     {
@@ -338,6 +350,8 @@ public sealed class WorkItemsModuleImportTests
         nodeCreator.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_WithReplicateSourceTreeEnabled_ReplicatesSourceTreeBeforeRevisionReplay()
     {
@@ -526,6 +540,8 @@ public sealed class WorkItemsModuleImportTests
         nodeCreator.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ImportAsync_WhenReplayLeversDisableAttachmentsAndImages_PassesDisabledExtensionsToProcessor()
     {

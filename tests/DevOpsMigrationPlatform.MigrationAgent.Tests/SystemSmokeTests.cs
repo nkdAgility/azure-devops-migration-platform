@@ -13,9 +13,9 @@ namespace DevOpsMigrationPlatform.MigrationAgent.Tests;
 [DoNotParallelize]
 public class SystemSmokeTests
 {
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Smoke")]
+    [TestMethod]
     public async Task SystemTest_Smoke_AgentStartsWithoutStartupOrDiErrors()
     {
         var repoRoot = FindRepoRoot();

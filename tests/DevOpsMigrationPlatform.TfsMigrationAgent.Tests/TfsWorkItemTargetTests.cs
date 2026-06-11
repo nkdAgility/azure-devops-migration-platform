@@ -18,6 +18,8 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests;
 [TestClass]
 public sealed class TfsWorkItemTargetTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WorkItemTypeExistsAsync_ReturnsTrue_ForKnownType()
     {
@@ -28,6 +30,8 @@ public sealed class TfsWorkItemTargetTests
         Assert.IsTrue(exists);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task WorkItemTypeExistsAsync_ReturnsFalse_ForUnknownType()
     {
@@ -38,6 +42,8 @@ public sealed class TfsWorkItemTargetTests
         Assert.IsFalse(exists);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void AddTfsMigrationAgentServices_RegistersTfsWorkItemTypeReadinessTargetFactory()
     {
@@ -50,6 +56,8 @@ public sealed class TfsWorkItemTargetTests
         Assert.AreEqual(typeof(TfsActiveJobWorkItemTypeReadinessTargetFactory), factoryDescriptor.ImplementationType);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void AddTfsMigrationAgentServices_DoesNotOverrideExistingReadinessFactoryRegistration()
     {
@@ -68,6 +76,8 @@ public sealed class TfsWorkItemTargetTests
         Assert.AreSame(existingFactory, readinessFactoryDescriptors[0].ImplementationInstance);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveProjectName_Throws_WhenProjectNameIsMissing()
     {
@@ -77,6 +87,8 @@ public sealed class TfsWorkItemTargetTests
         StringAssert.Contains(exception.Message, "missing");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveProjectName_Throws_WithAvailableProjects_WhenProjectNameIsInvalid()
     {
@@ -88,6 +100,8 @@ public sealed class TfsWorkItemTargetTests
         StringAssert.Contains(exception.Message, "ProjectB");
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolveProjectName_ReturnsCanonicalProjectName_WhenInputCaseDiffers()
     {

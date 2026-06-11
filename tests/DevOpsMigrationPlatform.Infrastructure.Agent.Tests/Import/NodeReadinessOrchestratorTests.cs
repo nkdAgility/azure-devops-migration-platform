@@ -23,6 +23,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Import;
 [TestClass]
 public class NodeReadinessOrchestratorTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExecuteAsync_ReferencedPaths_EnsuresTranslatedAreaAndIterationPaths()
     {
@@ -72,6 +74,8 @@ public class NodeReadinessOrchestratorTests
             Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExecuteAsync_ReferencedPaths_TranslatesBeforeCreatingNodes()
     {
@@ -115,6 +119,8 @@ public class NodeReadinessOrchestratorTests
         creator.Verify(c => c.EnsureExistsAsync(ClassificationNodeType.Iteration, @"Source\Iteration", It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExecuteAsync_ReplicateSourceTree_EnsuresSnapshotNodesAndIterationDates()
     {
@@ -166,6 +172,8 @@ public class NodeReadinessOrchestratorTests
         creator.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExecuteAsync_ReplicateSourceTree_EnumeratesPackageForClassificationMetadata()
     {
@@ -251,6 +259,8 @@ public class NodeReadinessOrchestratorTests
         creator.VerifyAll();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExecuteAsync_NoNodeArtifacts_DoesNothing()
     {
@@ -272,6 +282,8 @@ public class NodeReadinessOrchestratorTests
         creator.VerifyNoOtherCalls();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task ExecuteAsync_ReferencedPaths_WithExternalAreaAndSkipEnabled_SkipsNodeCreation()
     {
@@ -306,6 +318,8 @@ public class NodeReadinessOrchestratorTests
             Times.Never);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteAsync_WhenResumeCursorExists_SeedsProcessedNodesFromCheckpointService()
     {
@@ -354,6 +368,8 @@ public class NodeReadinessOrchestratorTests
             Times.Never);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteAsync_WhenResumeAndRepeatedReferencedPaths_DoesNotAttemptDuplicatePathCreation()
     {
@@ -412,6 +428,8 @@ public class NodeReadinessOrchestratorTests
             Times.Once);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteAsync_WhenCursorMissing_StillSkipsCheckpointedNodes()
     {
@@ -460,6 +478,8 @@ public class NodeReadinessOrchestratorTests
             Times.Never);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ExecuteAsync_CreatedNodePaths_ArePersistedAndSkippedOnNextRun()
     {

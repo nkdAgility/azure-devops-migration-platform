@@ -13,6 +13,8 @@ namespace DevOpsMigrationPlatform.Abstractions.Tests.Options;
 [TestClass]
 public class EndpointAuthenticationOptionsTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ResolvedAccessToken_HasJsonIgnoreAttribute()
     {
@@ -22,6 +24,8 @@ public class EndpointAuthenticationOptionsTests
         Assert.IsTrue(property.GetCustomAttributes(typeof(JsonIgnoreAttribute), inherit: false).Any());
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Serialize_DoesNotIncludeResolvedAccessToken()
     {

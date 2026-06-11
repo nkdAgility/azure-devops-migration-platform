@@ -4,10 +4,8 @@
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
-using System.Text;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
-using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Telemetry;
@@ -16,7 +14,6 @@ internal sealed class ControlPlaneProgressSinkContext : IDisposable
 {
     public ActiveLeaseState LeaseState { get; } = new() { CurrentLeaseId = "test-lease-001" };
     public List<string> CapturedRequestBodies { get; } = new();
-    public List<string> DebugLogs { get; } = new();
     public HttpStatusCode NextResponseStatus { get; set; } = HttpStatusCode.NoContent;
     public bool ThrowHttpException { get; set; }
 

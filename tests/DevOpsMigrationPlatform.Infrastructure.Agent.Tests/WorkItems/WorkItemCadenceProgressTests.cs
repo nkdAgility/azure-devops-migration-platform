@@ -10,6 +10,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.WorkItems;
 [TestClass]
 public sealed class WorkItemCadenceProgressTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     [DataRow(50, 1, 10, true)]
     [DataRow(1, 11, 10, true)]

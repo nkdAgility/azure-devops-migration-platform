@@ -27,7 +27,8 @@ public class JobAgentWorkerConfigResumeTests
 
     // ── Scenario: Config file is not overwritten on resume ───────────────
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void GetSourceTargetMismatch_WhenSourceUrlChanged_ReturnsMismatchDescription()
     {
@@ -40,7 +41,8 @@ public class JobAgentWorkerConfigResumeTests
         StringAssert.Contains(result, "Source changed");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void GetSourceTargetMismatch_WhenEndpointsUnchanged_ReturnsNull()
     {
@@ -51,7 +53,8 @@ public class JobAgentWorkerConfigResumeTests
         Assert.IsNull(result, "Compatible re-submission should return null (no mismatch).");
     }
 
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void GetSourceTargetMismatch_WhenTargetProjectChanged_ReturnsMismatchDescription()
     {

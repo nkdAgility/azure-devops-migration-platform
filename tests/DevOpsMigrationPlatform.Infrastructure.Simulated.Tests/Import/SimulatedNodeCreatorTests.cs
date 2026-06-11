@@ -15,6 +15,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.Import;
 [TestClass]
 public sealed class SimulatedNodeCreatorTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnsureExistsAsync_AreaPath_AddsHierarchyToInMemoryStructure()
     {
@@ -27,6 +29,8 @@ public sealed class SimulatedNodeCreatorTests
         Assert.IsTrue(await sut.NodeExistsAsync(ClassificationNodeType.Area, @"TargetProject\Platform\Backend", CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnsureExistsAsync_IterationPath_IsStoredSeparatelyFromAreaPaths()
     {
@@ -38,6 +42,8 @@ public sealed class SimulatedNodeCreatorTests
         Assert.IsFalse(await sut.NodeExistsAsync(ClassificationNodeType.Area, @"TargetProject\Sprint 1", CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task EnsureExistsAsync_PathWithoutProjectPrefix_IsNormalizedToProjectHierarchy()
     {
@@ -49,6 +55,8 @@ public sealed class SimulatedNodeCreatorTests
         Assert.IsTrue(await sut.NodeExistsAsync(ClassificationNodeType.Area, @"TargetProject\Platform\Mobile", CancellationToken.None));
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task NodeExistsAsync_TrailingAndForwardSlashPathVariants_AreNormalizedAsEquivalent()
     {

@@ -9,6 +9,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.WorkItems;
 [TestClass]
 public sealed class WorkItemCadenceMetricsTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ReplayCoverageRatio_ForSingleReplayedItemFromHundred_RemainsHigh()
     {

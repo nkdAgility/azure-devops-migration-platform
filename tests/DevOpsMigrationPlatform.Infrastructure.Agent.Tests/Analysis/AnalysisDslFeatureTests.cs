@@ -27,6 +27,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Analysis;
 [TestClass]
 public sealed class AnalysisDslFeatureTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     [DataRow("AzureDevOpsServices")]
     [DataRow("Simulated")]
@@ -41,6 +43,8 @@ public sealed class AnalysisDslFeatureTests
         result.ShouldProduceDependenciesCsvWithAtLeastOneDataRow();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     [DataRow("AzureDevOpsServices")]
     [DataRow("Simulated")]
@@ -55,6 +59,8 @@ public sealed class AnalysisDslFeatureTests
         result.ShouldEmitZeroOutputWarning();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     [DataRow("AzureDevOpsServices")]
     [DataRow("Simulated")]
@@ -66,6 +72,8 @@ public sealed class AnalysisDslFeatureTests
             .ShouldRunInAnalysePhaseAfterInventory();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Inventory_AllModulesComplete_ConsolidatedInventoryJsonWritten()
     {
@@ -76,6 +84,8 @@ public sealed class AnalysisDslFeatureTests
         result.ShouldWriteRootInventoryJson();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Inventory_AllModulesComplete_InventoryCsvWritten()
     {
@@ -86,6 +96,8 @@ public sealed class AnalysisDslFeatureTests
         result.ShouldWriteInventoryCsvWithAtLeastOneDataRow();
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task Inventory_ZeroCountModule_EmitsWarning()
     {

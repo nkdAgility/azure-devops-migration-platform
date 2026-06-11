@@ -27,9 +27,9 @@ public class PrepareCommandTests
     /// as a subprocess. The prepare command submits a probe job that writes a single file
     /// to the artefact store and completes.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Live")]
+    [TestMethod]
     public async Task Prepare_ADO_WritesProbeFile()
     {
         // ── Guard ─────────────────────────────────────────────────────────
@@ -79,9 +79,9 @@ public class PrepareCommandTests
     /// <summary>
     /// Verifies simulated prepare runs end-to-end and returns success output.
     /// </summary>
-    [TestMethod]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
+    [TestMethod]
     public async Task Prepare_Sim_ExitsZero()
     {
         var result = await CliRunner.RunTestAsync(

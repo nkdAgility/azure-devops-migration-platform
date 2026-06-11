@@ -9,6 +9,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
 [TestClass]
 public sealed class RuntimeStateMetricsTests
 {
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ReplayCoverageRatio_WhenNoReplay_ReturnsOne()
     {
@@ -16,6 +18,8 @@ public sealed class RuntimeStateMetricsTests
         Assert.AreEqual(1d, ratio, 0.00001d);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void ReplayCoverageRatio_WhenReplayExceedsTotal_ClampsToZero()
     {
@@ -23,6 +27,8 @@ public sealed class RuntimeStateMetricsTests
         Assert.AreEqual(0d, ratio, 0.00001d);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     [DataRow(100, 4, 0.96d)]
     [DataRow(200, 5, 0.975d)]
@@ -33,6 +39,8 @@ public sealed class RuntimeStateMetricsTests
         Assert.AreEqual(expected, ratio, 0.00001d);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     [DataRow(0, 100)]
     [DataRow(-1, 10)]

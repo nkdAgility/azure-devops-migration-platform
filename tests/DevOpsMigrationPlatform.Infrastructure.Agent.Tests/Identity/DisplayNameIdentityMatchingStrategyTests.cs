@@ -9,13 +9,14 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Identity;
 
 [TestClass]
-[TestCategory("UnitTests")]
 public sealed class DisplayNameIdentityMatchingStrategyTests
 {
     private static readonly DisplayNameIdentityMatchingStrategy Strategy = new();
 
     private static IReadOnlyList<IdentityCandidate> Candidates(params IdentityCandidate[] items) => items;
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Match_SingleDisplayName_CaseInsensitive_ReturnsMatch()
     {
@@ -29,6 +30,8 @@ public sealed class DisplayNameIdentityMatchingStrategyTests
         Assert.AreEqual("desc-bob", result.Descriptor);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Match_WhitespaceAndUnicodeNfc_AreNormalised()
     {
@@ -41,6 +44,8 @@ public sealed class DisplayNameIdentityMatchingStrategyTests
         Assert.AreEqual("desc-rene", result.Descriptor);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Match_AmbiguousDisplayName_ReturnsAmbiguousWithCount()
     {
@@ -57,6 +62,8 @@ public sealed class DisplayNameIdentityMatchingStrategyTests
         Assert.AreEqual(2, result.MatchCount);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Match_NoDisplayNameMatch_ReturnsNone()
     {
@@ -65,6 +72,8 @@ public sealed class DisplayNameIdentityMatchingStrategyTests
         Assert.AreEqual(0, Strategy.Match("noupn@source.com", "Nobody Here", candidates).MatchCount);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public void Match_EmptySourceDisplayName_ReturnsNone()
     {

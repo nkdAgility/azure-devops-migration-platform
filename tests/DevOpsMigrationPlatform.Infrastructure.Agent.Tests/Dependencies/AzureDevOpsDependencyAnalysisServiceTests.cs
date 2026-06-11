@@ -18,6 +18,8 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Dependencies;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Platform.AzureDevOpsAccess;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Tests.Dsl;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Dependencies;
 
@@ -50,6 +52,8 @@ public class AzureDevOpsDependencyAnalysisServiceTests
             _loggerMock.Object);
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AnalyseLinksAsync_WithToken_SetsResumeEnabledTrue()
     {
@@ -87,6 +91,65 @@ public class AzureDevOpsDependencyAnalysisServiceTests
         Assert.AreSame(token, capturedScope.SavedContinuationToken, "The exact token should be passed through.");
     }
 
+    // ── dependency-pre-filter: Scenario 1 ────────────────────────────────────
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task AnalyseLinksAsync_WithTypeFilter_OnlyExpandsRelationsForMatchingItems()
+    {
+        // Arrange: 100 items — Bug (1–40), Task (41–80), Epic (81–100).
+        // The Bug-only filter is passed to AnalyseLinksAsync so the service
+        // builds a scope with FilterOptions, and the mock FetchAsync respects
+        // those FilterOptions, yielding only the 40 Bug items.
+        var bugFilter = new WorkItemFetchScopeBuilder().WithTypeFilter("Bug").BuildFilters();
+        var harness = new DependencyAnalysisHarness()
+            .WithFetchedItems(
+                FetchedWorkItemFactory.Range(1, 40, "Bug")
+                .Concat(FetchedWorkItemFactory.Range(41, 40, "Task"))
+                .Concat(FetchedWorkItemFactory.Range(81, 20, "Epic")));
+
+        // Act: pass the Bug-only filter so the service includes it in the scope.
+        await harness.ActAsync(fieldFilters: bugFilter);
+
+        // Assert: Relations-expand was called only for the 40 Bug IDs (1–40).
+        var expandedIds = harness.RelationsCapture.AllExpandedIds;
+        for (var id = 1; id <= 40; id++)
+            Assert.IsTrue(expandedIds.Contains(id), $"Expected Bug ID {id} to be Relations-expanded");
+        for (var id = 41; id <= 100; id++)
+            Assert.IsFalse(expandedIds.Contains(id), $"Expected non-Bug ID {id} NOT to be Relations-expanded");
+    }
+
+    // ── dependency-pre-filter: Scenario 2 ────────────────────────────────────
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task AnalyseLinksAsync_WithTypeFilter_EmitsNoDependencyFoundEventForNonMatchingTypes()
+    {
+        // Arrange: Bug IDs 1–10 and Task IDs 11–20.
+        // The Bug-only filter ensures FetchAsync only yields Bug items,
+        // so no DependencyFoundEvent can originate from a Task.
+        var bugFilter = new WorkItemFetchScopeBuilder().WithTypeFilter("Bug").BuildFilters();
+        var harness = new DependencyAnalysisHarness()
+            .WithFetchedItems(
+                FetchedWorkItemFactory.Range(1, 10, "Bug")
+                .Concat(FetchedWorkItemFactory.Range(11, 10, "Task")));
+
+        // Act: pass the Bug-only filter so the service scopes FetchAsync to Bugs.
+        var events = await harness.ActAsync(fieldFilters: bugFilter);
+
+        // Assert: no DependencyFoundEvent may carry a Task source type.
+        var foundEvents = events.OfType<DependencyFoundEvent>().ToList();
+        foreach (var ev in foundEvents)
+            Assert.AreNotEqual("Task", ev.Record.SourceWorkItemType,
+                "DependencyFoundEvent must not be emitted for non-matching type 'Task'");
+    }
+
+    // ── dependency-pre-filter: Scenario 3 (resume-enabled baseline) ──────────
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task AnalyseLinksAsync_WithNoToken_SetsResumeEnabledFalse()
     {
