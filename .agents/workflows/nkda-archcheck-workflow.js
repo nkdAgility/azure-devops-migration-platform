@@ -573,7 +573,18 @@ Steps:
   // ── Step 15 — Commit ──────────────────────────────────────────────────
   phase('Commit')
 
-  if (finalApplied.length > 0) {
+  const verificationPassed = verifyResult?.buildStatus === 'passed' &&
+    (verifyResult?.testStatus === 'passed' || verifyResult?.testStatus === 'skipped')
+
+  if (!verificationPassed && finalApplied.length > 0) {
+    log(`⛔ Verification failed (build: ${verifyResult?.buildStatus}, tests: ${verifyResult?.testStatus}) — skipping commit to prevent merging broken changes.`)
+    needsOperator.push(...finalApplied.map(r => ({
+      ...r,
+      changeClass:      'C',
+      blockerReason:    'Auto-fix left build or tests failing — requires operator review before committing',
+      requiredEvidence: ['Root cause investigation', 'Explicit operator consent', 'Test-first trace (RED→GREEN→REFACTOR)'],
+    })))
+  } else if (verificationPassed && finalApplied.length > 0) {
     await agent(
       `Commit all verified architecture fixes as a single git commit.
 
