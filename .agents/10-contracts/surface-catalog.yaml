@@ -48,7 +48,7 @@ surfaces:
   orchestration:
     concern: "Runtime workflow sequencing and stage orchestration"
     surface: "I*Orchestrator abstractions"
-    contract_doc: ".agents/10-contracts/specs/orchestrator-contract.md"
+    contract_doc: ".agents/10-contracts/specs/execution-contract.md"
     owners:
       - "Abstractions.Agent orchestration contracts"
       - "Infrastructure.Agent orchestrator implementations"

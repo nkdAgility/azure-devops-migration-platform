@@ -46,7 +46,7 @@ Status legend:
 | M2 | [WorkItemsModule — NodeStructure tool](#m2-workitemsmodule--nodestructure-tool) | ✅ | Area/iteration path mapping, creation, and language override |
 | M3 | [WorkItemsModule — WorkItemTypeMapping tool](#m3-workitemsmodule--workitemtypemapping-tool) | ❌ | Agile↔Scrum type remapping |
 | M4 | [WorkItemsModule — missing options](#m4-workitemsmodule--missing-options) | ❌ | CollapseRevisions, MaxRevisions, GracefulFailures, etc. |
-| M5 | [TeamsModule](#m5-teamsmodule) | ❌ Placeholder | Team settings, members, capacity, iteration paths |
+| M5 | [TeamsModule](#m5-teamsmodule) | ✅ | Team settings, members, capacity, iteration paths |
 | M6 | [TestManagementModule](#m6-testmanagementmodule) | ❌ Not started | Test plans, suites, cases, shared steps, configurations |
 | M7 | [GitModule](#m7-gitmodule) | ❌ Placeholder | Full git repository mirror migration |
 | M8 | [SharedQueriesModule](#m8-sharedqueriesmodule) | ❌ Not started | Shared query folders with project-name remapping |
@@ -92,9 +92,9 @@ Status legend:
 | P1 | [Checkpoint Reconciliation](#p1-checkpoint-reconciliation) | 🆕 🔶 | Rebuild missing/corrupted checkpoint state from existing package data across all modules. Implemented for discovery modules (`DependencyDiscoveryModule`); not yet generalised across all modules |
 | P4 | [Operator Interaction / Pending Questions](#p4-operator-interaction--pending-questions) | 🆕 ❌ | Allow a running MigrationJob to pause and request operator input via TUI or CLI follow-mode; Agent enters "Pending" state on Control Plane until the answer is provided |
 | P5 | [Cloud Deployment — Ring-Based ControlPlane + Agents](#p5-cloud-deployment--ring-based-controlplane--agents) | 🆕 ❌ | Deploy ControlPlaneHost and MigrationAgent(s) to Azure Container Apps via `azd up` with three deployment rings (canary, preview, release) on `devopsmigration.io` |
-| P6 | [Formal JSON Schema — Config Validation & Tooling](#p6-formal-json-schema--config-validation--tooling) | 🆕 ❌ | Bundle a machine-readable JSON Schema for the full migration config; use it for Tier 0 path-accurate error messages, VS Code IntelliSense, and config-generation tooling |
-| P7 | [Inventory — Eliminate DiscoveryOptions Round-Trip](#p7-inventory--eliminate-discoveryoptions-round-trip) | 🆕 ❌ | Refactor `InventoryService` to accept `OrganisationEndpoint` directly instead of round-tripping through `DiscoveryOptions` → `OrganisationEntry` → `MigrationEndpointOptions` → `OrganisationEndpoint` |
-| P8 | [Per-Project Task Expansion for Inventory](#p8-per-project-task-expansion-for-inventory) | 🆕 ❌ | Plan builder creates one Inventory task per project per org — module always operates on a single `(endpoint, project)` pair; multiplexing is the orchestrator's job |
+| P6 | [Formal JSON Schema — Config Validation & Tooling](#p6-formal-json-schema--config-validation--tooling) | ✅ | Bundle a machine-readable JSON Schema for the full migration config; use it for Tier 0 path-accurate error messages, VS Code IntelliSense, and config-generation tooling |
+| P7 | [Inventory — Eliminate DiscoveryOptions Round-Trip](#p7-inventory--eliminate-discoveryoptions-round-trip) | ✅ | Refactor `InventoryService` to accept `OrganisationEndpoint` directly |
+| P8 | [Per-Project Task Expansion for Inventory](#p8-per-project-task-expansion-for-inventory) | ✅ | Plan builder creates one Inventory task per project per org |
 
 ---
 
@@ -202,33 +202,6 @@ Options that belong directly on the `WorkItems` module config rather than as sep
 | Link count filter | `extensions[Links].filterIfCountMatches` | — | Skip import of links if the work item already has a matching link count |
 | Outbound link checking | `extensions[Links].checkOutboundLinks` | `false` | Validate that outbound link targets exist before import |
 | Inspect update history for link-added date | `extensions[Links].inspectUpdateHistoryForLinkAddedDate` | `false` | For dependency analysis, make an opt-in second pass over work item update history to populate `LinkChangedDate` from the first matching link-add event when the current relation payload does not expose a link timestamp. Slower than the default relations-only pass and should remain disabled by default. |
-
----
-
-### M5: TeamsModule
-
-**Current state**: Placeholder feature files exist. No implementation.
-
-**Why it matters**: Team settings, capacity, and iteration assignments are required to restore the full team operating model after migration.
-
-**Proposed Module**: `TeamsModule`
-
-**Scopes**:
-- `type: "teams"` with optional `filter` (team name pattern)
-- `type: "all"` — all teams in the project
-
-**Extensions**:
-
-| Extension | Description |
-|---|---|
-| `TeamIterations` | Export/import iteration path assignments per team |
-| `TeamMembers` | Export/import team member assignments |
-| `TeamCapacity` | Export/import sprint capacity planning data |
-| `TeamSettings` | Export/import team backlog, working days, and area config |
-
-**Dependency**: `TeamsModule` depends on `IdentitiesModule` (team members are identities).
-
-**Additional CLI feature**: Export the list of all teams to `teams.csv` as part of `discovery inventory`.
 
 ---
 
@@ -528,22 +501,22 @@ devopsmigration discovery org-sync --config organisations.json --dry-run
 
 ### D2: `discovery inventory` — missing artefact types
 
-**Status**: 🔶 Partially implemented — work items and revisions are counted; all other artefact types are missing  
+**Status**: 🔶 Partially implemented — work items, revisions, git repositories, and area paths are counted; test plans, pipelines, shared steps, and process template info are still missing  
 **Priority**: Medium
 
 **Purpose**: Extend the existing `discovery inventory` command with additional per-project artefact counts. These are additions to the existing command, not a new command. Equivalent to the artefact coverage in `Generate-ProjectStats.ps1`.
 
 **Additional counts to add to `discovery inventory`**:
 
-| Artefact | API |
-|---|---|
-| Build/release pipelines | `GET /_apis/pipelines` |
-| Test plans | `GET /_apis/testplan/plans` |
-| Test suites (tree, per plan) | `GET /_apis/testplan/plans/{id}/suites?asTreeView=True` |
-| Git repositories | `GET /_apis/git/repositories` |
-| Shared steps | WIQL `WorkItemType = 'Shared Steps'` |
-| Process base template name | `GET /_apis/projects/{id}/properties` |
-| Process template name (custom) | `GET /_apis/work/processes/{typeId}` |
+| Artefact | API | Status |
+|---|---|---|
+| Build/release pipelines | `GET /_apis/pipelines` | ❌ Missing |
+| Test plans | `GET /_apis/testplan/plans` | ❌ Missing |
+| Test suites (tree, per plan) | `GET /_apis/testplan/plans/{id}/suites?asTreeView=True` | ❌ Missing |
+| Git repositories | `GET /_apis/git/repositories` | ✅ Implemented |
+| Shared steps | WIQL `WorkItemType = 'Shared Steps'` | ❌ Missing |
+| Process base template name | `GET /_apis/projects/{id}/properties` | ❌ Missing |
+| Process template name (custom) | `GET /_apis/work/processes/{typeId}` | ❌ Missing |
 
 **Output additions**:
 - New columns appended to the existing `inventory.csv` and `inventory.json` output.
@@ -1017,165 +990,3 @@ devopsmigration config schema --module WorkItems --scope wiql
 
 ---
 
-### P6: Formal JSON Schema — Config Validation & Tooling
-
-**Status**: 🆕 ❌ Not implemented  
-**Priority**: High
-
-**Why it matters**:
-
-Today config validation is code-only (`MigrationOptionsValidator`, `NodeStructureOptionsValidator`, etc.). There is no machine-readable schema that:
-- Editors can use to provide IntelliSense, hover documentation, and inline error highlighting.
-- The CLI can use to produce precise, path-accurate Tier 0 error messages before `IOptions<T>` binding runs.
-- Config-generation tooling (e.g. `config generate`, future GUI tools) can use to compose and validate configs programmatically.
-- Operators can download and pin offline when working in air-gapped environments.
-
-The existing `docs/validation.md` Tier 0 table already references "Module scope schemas bundled inside the CLI binary — one JSON Schema file per module" as a required check; this feature makes that a reality.
-
-**Proposed artefacts**:
-
-| Artefact | Location | Description |
-|---|---|---|
-| `migration.schema.json` | Embedded resource in `DevOpsMigrationPlatform.CLI.Migration` | Full JSON Schema (draft 2020-12) for the `MigrationPlatform` root object |
-| `scopes/<module>.schema.json` | Embedded resource per module assembly | Per-module scope-parameter schema; contributed via `IModuleScopeSchemaProvider` |
-| Published schema URL | `https://schema.devopsmigration.io/migration/v1.json` | Canonical public URL for editor auto-discovery via `$schema` property |
-
-**Schema generation approach**:
-
-The schema is **generated at build time** from the C# Options classes using `NJsonSchema`. A `SchemaGenerator` build task:
-
-1. Reflects over all `IOptions<T>` types registered in `MigrationPlatform`.
-2. Honours `[Description]`, `[Required]`, `[JsonPropertyName]`, and `[AllowedValues]` attributes.
-3. Outputs a single `migration.schema.json` covering the full config surface including polymorphic `source`/`target`/`organisations` endpoint variants.
-4. Each module contributes its scope-parameter sub-schema via `IModuleScopeSchemaProvider`.
-
-**`$schema` property support**:
-
-```json
-{
-  "$schema": "https://schema.devopsmigration.io/migration/v1.json",
-  "MigrationPlatform": {
-    "configVersion": "1.0"
-  }
-}
-```
-
-When a config file contains `$schema`, VS Code and JetBrains IDEs automatically validate against it and provide hover documentation. The CLI uses the bundled schema regardless of whether `$schema` is present.
-
-**Tier 0 integration**:
-
-The Tier 0 structural check in `ConfigurationService.LoadConfigurationAsync` is augmented to run a JSON Schema validation pass *before* deserialization:
-
-1. Parse the raw JSON into a `JsonDocument`.
-2. Validate the document against the bundled `migration.schema.json` using `JsonSchema.Net`.
-3. Collect all validation errors, each annotated with the JSON Pointer path (e.g., `$.MigrationPlatform.source.type`).
-4. If any errors exist, throw a structured exception listing all errors — the CLI renders these as a human-readable block before exiting with code 1.
-5. Only if schema validation passes does deserialization into `MigrationOptions` proceed.
-
-**Error message format**:
-
-```
-Config validation failed — 2 errors found in 'migration.json':
-
-  [1] $.MigrationPlatform.source.type
-      Value "TFS" is not valid. Must be one of: AzureDevOpsServices, TeamFoundationServer, Simulated.
-
-  [2] $.MigrationPlatform.modules[0].name
-      Module "WorkItemz" is not registered. Known modules: WorkItems, Teams, Git, SharedQueries.
-```
-
-**Module scope schema registration**:
-
-Each module assembly registers a scope schema provider at startup:
-
-```csharp
-// In WorkItemsModuleServiceCollectionExtensions:
-services.AddSingleton<IModuleScopeSchemaProvider, WorkItemsScopeSchemaProvider>();
-```
-
-```csharp
-public sealed class WorkItemsScopeSchemaProvider : IModuleScopeSchemaProvider
-{
-    public string ModuleName => "WorkItems";
-    public JsonSchema GetScopeSchema(string scopeType) => scopeType switch
-    {
-        "wiql" => _wiqlScopeSchema,
-        "ids"  => _idsScopeSchema,
-        _      => throw new ArgumentOutOfRangeException(nameof(scopeType))
-    };
-}
-```
-
-The `IConfigSchemaService` composes all registered module scope schemas into the final `migration.schema.json` at startup and provides it to the CLI for both validation and `config schema` output.
-
-**Published schema versioning**:
-
-| Schema version | Tied to | URL |
-|---|---|---|
-| `v1` | `configVersion: "1.0"` | `https://schema.devopsmigration.io/migration/v1.json` |
-| `v2` (future) | `configVersion: "2.0"` | `https://schema.devopsmigration.io/migration/v2.json` |
-
-Breaking changes to the config shape bump the schema version and require a config upgrader (consistent with versioning rule 11 in `coding-standards.md`).
-
-**Tooling unlocked by this feature**:
-
-| Consumer | How the schema is used |
-|---|---|
-| VS Code / JetBrains | `$schema` property triggers IntelliSense, hover docs, and inline error highlighting |
-| `config validate` ([C7](#c7-config-validate)) | Runs schema-based validation on demand without queuing a job |
-| `config schema` ([C8](#c8-config-schema)) | Exports the schema for offline or pinned use |
-| `config generate` ([C1](#c1-config-generate)) | Validates generated configs before writing them to disk |
-| `queue` command | Tier 0 now returns path-accurate errors instead of generic deserialization failures |
-| Future GUI / web config builder | Schema drives form field types, allowed values, and required-field enforcement |
-| CI lint workflow | `devopsmigration config validate` as a lint step in pull request pipelines |
-
-**Libraries**:
-
-- `JsonSchema.Net` (`Gregsdennis.JsonSchema.Net`) — pure .NET, no native dependencies, supports Draft 2020-12. Used at **runtime** for validation.
-- `NJsonSchema` — used at **build time** for schema generation from C# types.
-
-**Key design constraints**:
-- Schema validation runs at Tier 0 — before any network call, before `IOptions<T>` binding.
-- Validation errors include JSON Pointer paths so operators can locate the problem without reading source code.
-- The schema is an embedded resource — no file-system reads required at runtime.
-- Module scope schemas are contributed via `IModuleScopeSchemaProvider` — no coupling between the core schema and module assemblies.
-- The published URL is only used for editor auto-discovery; the bundled embedded schema is authoritative at runtime.
-- No `IOptions<T>` validator is removed — schema validation is an additional Tier 0 gate, not a replacement.
-
----
-
-### P7: Inventory — Eliminate DiscoveryOptions Round-Trip
-
-**Current state**: `InventoryService` was built for the standalone CLI `discovery inventory` command. It reads `IOptions<DiscoveryOptions>`, iterates `opts.Organisations` (which are `OrganisationEntry` config objects), calls `entry.ToEndpointOptions()` to get `MigrationEndpointOptions`, then `.ToOrganisationEndpoint()` to get the runtime `OrganisationEndpoint`. When Inventory runs as a module inside the Migration Agent (Path 1 — single source), the module must fabricate a `ScopedOrganisationEndpoint` → pass it through `IInventoryServiceFactory` → which builds `DiscoveryOptions` → which `InventoryService` then decomposes back into an `OrganisationEndpoint`. This is a round-trip through config-time objects that adds no value.
-
-**Why it matters**: Every other module connects via DI-injected services + `ISourceEndpointInfo`. The `DiscoveryOptions` round-trip is legacy from the CLI's multi-org design leaking into the module path. It also caused an auth-loss bug: fabricating `MigrationEndpointOptions` from `ISourceEndpointInfo` lost the runtime-resolved PAT token because `MigrationEndpointOptions` is a config-time object that doesn't carry resolved auth.
-
-**Proposed solution**: `InventoryService` should accept `OrganisationEndpoint` directly (a single-endpoint overload exists as of spec 028.2). The multi-org overload that reads `DiscoveryOptions` stays for the standalone CLI path. The factory is only used for Path 2 (multi-org). Long term, consider whether `InventoryService` should work with a list of `OrganisationEndpoint` objects rather than `DiscoveryOptions` at all — the `DiscoveryOptions` → `OrganisationEntry` → `MigrationEndpointOptions` chain exists only because the CLI reads JSON config.
-
-**Interim state (028.2)**: `IInventoryService` has two overloads — `RunInventoryAsync(completedProjectKeys, ct)` for multi-org and `RunInventoryAsync(endpoint, projects, completedProjectKeys, ct)` for single source. The module branches cleanly between them. The `entry.ToEndpointOptions().ToOrganisationEndpoint()` chain remains in the multi-org path and should be eliminated when this item is implemented.
-
-**Related**: `IWorkItemLinkAnalysisService.AnalyseLinksAsync` still takes `MigrationEndpointOptions` — it should be standardised on `OrganisationEndpoint` as part of this work (deferred from 028.2 as out-of-scope).
-
----
-
-### P8: Per-Project Task Expansion for Inventory
-
-**Current state**: `JobExecutionPlanBuilder` creates one task per module. When Inventory has multiple organisations with multiple projects, the single Inventory task internally iterates all orgs × projects. This means the module contains iteration logic, multi-org orchestration, and per-project checkpointing — responsibilities that belong in the execution plan layer.
-
-**Why it matters**: Every other module operates on a single scope defined by the job. The Inventory module is the exception because it inherited multi-org iteration from the CLI discovery command. This makes it harder to parallelise, harder to resume at project granularity, and harder to reason about (the module has two fundamentally different execution paths).
-
-**Proposed solution**: When organisations are configured (multi-org path), `JobExecutionPlanBuilder` expands Inventory into N tasks — one per project per org. Each task carries a scoped `(OrganisationEndpoint, project)` pair. The module always operates on a single endpoint + single project. Multi-org multiplexing is the plan builder's responsibility, not the module's.
-
-**Impact**:
-
-| Component | Change |
-|-----------|--------|
-| `JobExecutionPlanBuilder` | Expand Inventory tasks: for each enabled org, enumerate projects (or call `IProjectDiscoveryService`), create one `JobTask` per `(org, project)` |
-| `InventoryDiscoveryModule` | Remove multi-org iteration. Always receive a single `(endpoint, project)` via task context. Simplifies to ~50% of current code |
-| `IInventoryServiceFactory` | May become unnecessary — the module calls discovery services directly with the endpoint from task context |
-| `InventoryService` | Multi-org `RunInventoryAsync` overload retained for standalone CLI; single-endpoint overload used by module |
-| Checkpointing | Per-project cursor becomes one cursor per task — natural, no special logic |
-| Resume | Failed project = re-run that one task. No re-scanning of completed projects |
-| Parallelism | Plan builder can run independent project tasks in parallel (tier-based scheduling) |
-
-**Prerequisite**: P7 (eliminate DiscoveryOptions round-trip) should be done first so the single-endpoint path is clean.

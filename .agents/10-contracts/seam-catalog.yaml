@@ -28,7 +28,7 @@ seams:
       - "Independent field transform pipelines"
   orchestration:
     owner: "I*Orchestrator abstractions"
-    contract_doc: ".agents/10-contracts/specs/orchestrator-contract.md"
+    contract_doc: ".agents/10-contracts/specs/execution-contract.md"
     policy_layers:
       - "Phase-specific orchestration wrappers"
       - "Module-specific orchestration adapters"

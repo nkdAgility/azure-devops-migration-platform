@@ -23,8 +23,8 @@ profiles:
       - ".agents/30-context/domains/migration-package-concept.md"
       - ".agents/30-context/domains/checkpointing-summary.md"
       - ".agents/30-context/domains/workitems-format-summary.md"
-      - ".agents/30-context/domains/capability-seam-contract.md"
-      - ".agents/30-context/domains/orchestrator-model.md"
+      - ".agents/30-context/architecture/execution-model.md"
+      - ".agents/10-contracts/specs/execution-contract.md"
   cli-tui:
     guardrails:
       - ".agents/20-guardrails/core/taxonomy-naming.md"
@@ -79,7 +79,7 @@ profiles:
       - ".agents/20-guardrails/workflow/definition-of-done.md"
     context:
       - ".agents/30-context/domains/connector-model.md"
-      - ".agents/30-context/domains/capability-seam-contract.md"
+      - ".agents/30-context/architecture/execution-model.md"
   docs-only:
     guardrails:
       - ".agents/20-guardrails/core/taxonomy-naming.md"

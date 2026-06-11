@@ -10,11 +10,11 @@ This glossary is mandatory and must be read before any other guardrail.
 
 - **Module**  
   Thin phase entrypoint/wrapper that delegates runtime flow.
-  Reference: `.agents/30-context/domains/module-model.md`
+  Reference: `.agents/30-context/architecture/execution-model.md`
 
 - **Orchestrator**  
   Workflow coordinator that defines order, stage boundaries, and phase flow.
-  Reference: `.agents/10-contracts/specs/orchestrator-contract.md`
+  Reference: `.agents/30-context/architecture/execution-model.md`
 
 - **Processor**  
   Unit-work executor for an ordered processing slice (for example per revision flow).
@@ -34,7 +34,7 @@ This glossary is mandatory and must be read before any other guardrail.
 
 - **Tool**  
   Reusable concern engine used as a shared behavior seam.
-  Reference: `.agents/30-context/domains/module-model.md`
+  Reference: `.agents/30-context/architecture/execution-model.md`
 
 - **Package**  
   Filesystem package boundary and source of truth for migration state and artefacts.
@@ -42,7 +42,7 @@ This glossary is mandatory and must be read before any other guardrail.
 
 - **Capability**  
   Named concern scope delivered through canonical seams and surfaces.
-  Reference: `.agents/30-context/domains/capability-seam-contract.md`
+  Reference: `.agents/30-context/architecture/execution-model.md`
 
 - **Contract**  
   Public abstraction surface (`I*`) defining behavior shape across runtime roles.
@@ -58,7 +58,7 @@ This glossary is mandatory and must be read before any other guardrail.
 
 ## Canonical Runtime Chain
 
-`Module -> Orchestrator(s) -> Package + Adapter(s) + Strategy(s).`
+`Module -> Orchestrator -> Extension -> Adapter / Tool -> PackageAccess`
 
 ## Term Distinctions
 
