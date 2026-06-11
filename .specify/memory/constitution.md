@@ -20,8 +20,12 @@ Principles added:
   None
 
 Sections modified:
+  Principle VIII — inner loop and Rules aligned to the canonical test taxonomy in
+    testing-rules.md: dual parent+specific tags; CodeTest family
+    (UnitTests / DomainTests / IntegrationTests) and SystemTest family
+    (SystemTest_Simulated / SystemTest_Live; SystemTest_Smoke operator-only)
   Technology Stack — test framework line updated (Reqnroll removed as the
-    primary framework; internal Test DSL named)
+    primary framework; internal Test DSL named; dual-tag taxonomy referenced)
   Reject Conditions — Gherkin-`.feature` reject condition restated in DSL terms
   Principle X / XI — "living feature files" restated as "living behavioural tests"
 
@@ -305,12 +309,15 @@ as a tested, reviewed increment backed by the internal Test DSL.
    proceeding.
 2. **Test Generation** — failing **code-first MSTest behavioural tests** written
    against the internal Test DSL (typed builders, runners, and assertions in
-   `tests/DevOpsMigrationPlatform.Testing`), tagged `[TestCategory("DomainTests")]`,
-   located at `tests/<Project>.Tests/<Area>/<Behaviour>Tests.cs`. No Gherkin,
+   `tests/DevOpsMigrationPlatform.Testing`), tagged
+   `[TestCategory("CodeTest")]` + `[TestCategory("DomainTests")]`, located at
+   `tests/<Project>.Tests/<Area>/<Behaviour>Tests.cs`. No Gherkin,
    no `[Binding]`/`[Given]`/`[When]`/`[Then]`, no string-based step APIs.
 3. **Implementation** — production code that makes the behavioural tests pass,
-   plus isolated unit tests (`[TestCategory("UnitTests")]`) for every method with
-   branching logic, calculation, or state transformation.
+   plus isolated `CodeTest` + `UnitTests` for every method with branching logic,
+   calculation, or state transformation, and `CodeTest` + `IntegrationTests`
+   wherever real infrastructure components (retry policies, HTTP clients,
+   serialisers) are wired together in-process.
 4. **Review** — Reviewer Agent produces `Approved` or `Rejected`.
 
 **Rules:**
@@ -326,6 +333,21 @@ as a tested, reviewed increment backed by the internal Test DSL.
   behavioural change to a legacy family obligates its migration to the DSL.
 - Test framework: MSTest + Moq (`MockBehavior.Strict`), with the internal Test
   DSL for behavioural tests. No xUnit, no NUnit, no new Reqnroll.
+- Every test MUST carry its parent-family tag **and** its specific category tag,
+  per the canonical taxonomy in
+  `.agents/20-guardrails/workflow/testing-rules.md` (that guardrail is the source
+  of truth; this principle defers to it). The families are:
+  - **`CodeTest`** (in-process, no system active): `UnitTests` (isolated class,
+    all deps mocked), `DomainTests` (internal DSL, real domain objects, no infra),
+    `IntegrationTests` (real infrastructure components wired in-process, no
+    network or connector).
+  - **`SystemTest`** (full system active): `SystemTest_Simulated` (Simulated
+    connector, no network), `SystemTest_Live` (live ADO/TFS, gated).
+    `SystemTest_Smoke` is operator-designated only — an agent MUST NOT assign it.
+- A category is determined by a test's intent and makeup, never by its runtime.
+  A test exceeding its category's speed budget MUST be fixed, not reclassified to
+  a slower tier. CodeTest is the CI default; push tests downward — prefer Unit,
+  then Domain/Integration, and treat Live as a last resort.
 
 ### X. Engineering Practice Discipline (NON-NEGOTIABLE)
 
@@ -437,9 +459,12 @@ constitution.
   ANSI, no `System.Console` inside TUI view classes.
 - **Test framework:** MSTest + Moq. MSTest is the runner; behavioural tests are
   code-first against the internal Test DSL (`tests/DevOpsMigrationPlatform.Testing`:
-  typed builders, runners, assertions), tagged `[TestCategory("DomainTests")]`.
-  Reqnroll/Gherkin is legacy migration debt only — no new `.feature` files or
-  `[Binding]` step definitions.
+  typed builders, runners, assertions), tagged `[TestCategory("CodeTest")]` +
+  `[TestCategory("DomainTests")]`. Every test carries its parent family
+  (`CodeTest` or `SystemTest`) plus its specific category per the canonical
+  taxonomy in `.agents/20-guardrails/workflow/testing-rules.md`. Reqnroll/Gherkin
+  is legacy migration debt only — no new `.feature` files or `[Binding]` step
+  definitions.
 - **Control plane data store:** PostgreSQL via EF Core + Npgsql in all
   environments (Standalone, Self-Hosted, Managed). No SQLite fallback, no
   in-memory database substitute.

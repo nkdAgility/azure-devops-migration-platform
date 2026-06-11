@@ -25,8 +25,9 @@ Each board config extension checks the registered capabilities at runtime and re
 // In the connector registration (AzureDevOpsServices):
 services.AddSingleton<IConnectorCapabilityProvider>(
     _ => new StaticConnectorCapabilityProvider(
-        ConnectorCapability.BoardConfig |
-        ConnectorCapability.Taskboard));
+        ConnectorCapability.BoardConfig |       // composite: BoardColumns | BoardRows | CardRules
+        ConnectorCapability.TaskboardColumns |
+        ConnectorCapability.Backlogs));
 
 // In the export orchestrator:
 if (!_capabilityProvider.Has(ConnectorCapability.BoardConfig))

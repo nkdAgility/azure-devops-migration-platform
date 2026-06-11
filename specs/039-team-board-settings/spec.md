@@ -57,7 +57,7 @@ correct lane names and descriptions.
 
 **Acceptance Scenarios**:
 
-1. **Given** a team board has custom swimlanes, **When** exported, **Then** the package records each swimlane's name and description.
+1. **Given** a team board has custom swimlanes, **When** exported, **Then** the package records each swimlane's name (with its internal id kept as source metadata only).
 2. **Given** a team board has only the default swimlane, **When** exported, **Then** the default lane is still recorded so the import is explicit.
 3. **Given** the Simulated connector is active, **When** swimlanes are exported, **Then** the output is structurally valid.
 4. **Given** the TeamFoundationServer connector is active and does not declare the `BoardRows` capability, **When** export runs, **Then** the extension detects the absent capability flag, emits a structured warning, and returns `Skipped` without aborting the export.
@@ -185,7 +185,7 @@ specification for columns, swimlanes, and card rules.
 ### Functional Requirements
 
 - **FR-001**: The system MUST export board column definitions for every board owned by each team, capturing: column name, WIP item limit, state mappings (work item type to state), split status, column type, and description.
-- **FR-002**: The system MUST export swimlane definitions for every board owned by each team, capturing: lane name and description.
+- **FR-002**: The system MUST export swimlane definitions for every board owned by each team, capturing the lane name (the portable key). The lane's internal id is retained as source metadata only (per FR-006). Note: the Azure DevOps `BoardRow` type exposes only id and name — there is no swimlane description or colour to capture.
 - **FR-003**: The system MUST export card rule settings for every board owned by each team.
 - **FR-004**: The system MUST export backlog level metadata for each team from the Backlogs endpoint, capturing: display name, work item type category reference name, and backlog level type. This is distinct from the backlog visibility flags already exported by the existing work settings extension via `TeamSettings.backlogVisibilities`; the two datasets are complementary and MUST NOT duplicate each other.
 - **FR-005**: The system MUST export sprint taskboard column definitions for each team, capturing: column name, state mapping, and order.
@@ -211,7 +211,7 @@ specification for columns, swimlanes, and card rules.
 
 - **Board**: A team-scoped Kanban board identified by name within a project. Board names are the portable migration key; internal board IDs are source metadata only.
 - **BoardColumn**: A stage in the Kanban workflow. Properties: name, WIP item limit (optional), state mappings (work item type → state name), split status (whether the column has incoming and outgoing sub-columns), column type (incoming / in-progress / outgoing), description.
-- **BoardRow (Swimlane)**: A horizontal lane on a board. Properties: name, description.
+- **BoardRow (Swimlane)**: A horizontal lane on a board. Properties: name (portable key), id (source metadata only). The Azure DevOps `BoardRow` type exposes only id and name — no description or colour.
 - **CardRuleSettings**: The complete set of field-value-based card styling rules for a board (e.g., colour-code cards matching a specific field value).
 - **BacklogLevel**: A backlog in the team's hierarchy as returned by the Backlogs endpoint. Properties: display name, work item type category reference name, backlog level type. Note: visibility flags are owned by the existing work settings export (via `TeamSettings.backlogVisibilities`) and are not part of this entity.
 - **TaskboardColumn**: A column on the sprint taskboard. Properties: name, state mapping, display order.

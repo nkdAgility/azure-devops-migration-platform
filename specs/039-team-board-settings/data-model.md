@@ -90,12 +90,16 @@ public sealed record BoardColumnStateMapping(
 
 ```csharp
 public sealed record BoardSwimLane(
-    string Name,
-    string? Color);
+    string? Id,            // source-only metadata (ADO BoardRow.Id); NOT an import key
+    string Name);          // portable key — ADO BoardRow exposes only Id + Name
 ```
+
+> Mirrors `Microsoft.TeamFoundation.Work.WebApi.BoardRow`, which has exactly `Id` and `Name`
+> — no colour or description. Earlier drafts had `Color`/`Description`; neither exists in the API.
 
 **Validation rules**:
 - `Name` must not be null or whitespace.
+- `Id` is retained as source metadata only (FR-006) and is never used as an import key.
 
 ---
 
@@ -121,10 +125,18 @@ public sealed record CardRule(
 
 ```csharp
 public sealed record BacklogMetadata(
-    string Name,           // display name e.g. "Stories"
-    string WitCategory,    // WIT category reference name e.g. "Microsoft.RequirementCategory"
-    int Rank);             // ordering within the backlog levels
+    string Name,             // display name e.g. "Stories" (BacklogLevelConfiguration.Name)
+    string WitCategory,      // WIT category reference name e.g. "Microsoft.RequirementCategory"
+    BacklogLevelType LevelType, // portfolio / requirement / task (BacklogLevelConfiguration.Type)
+    int Rank);               // ordering within the backlog levels (BacklogLevelConfiguration.Rank; task backlog = 0)
+
+// Domain mirror of Microsoft.TeamFoundation.Work.WebApi.BacklogType
+public enum BacklogLevelType { Portfolio, Requirement, Task }
 ```
+
+> Maps to `Microsoft.TeamFoundation.Work.WebApi.BacklogLevelConfiguration`, which exposes both
+> `Type` (the backlog level type required by FR-004) and `Rank` (ordering). The earlier draft
+> captured only `Rank` and omitted `Type`.
 
 **Note**: Backlog visibility flags are **not** stored here; they are part of the existing
 `TeamSettings` export (work settings). See FR-004 in spec.
@@ -309,9 +321,20 @@ public interface ITeamBoardAdapter
 public enum ConnectorCapability
 {
     None          = 0,
-    BoardConfig   = 1 << 0,   // Kanban columns, swimlanes, card rules
-    Taskboard     = 1 << 1,   // Sprint taskboard columns
-    Backlogs      = 1 << 2,   // Backlog metadata from /backlogs endpoint
+
+    // Granular board-config capabilities (spec FR-015 names these individually)
+    BoardColumns  = 1 << 0,   // Kanban board columns
+    BoardRows     = 1 << 1,   // Kanban board swimlanes (rows)
+    CardRules     = 1 << 2,   // Card styling rules
+
+    // Other board-related capabilities
+    Backlogs      = 1 << 3,   // Backlog metadata from /backlogs endpoint
+    TaskboardColumns = 1 << 4, // Sprint taskboard columns
+
+    // Composite — the Kanban board configuration as a whole.
+    // BoardConfig consists of BoardColumns + BoardRows + CardRules
+    // (extend this composite if further board-config sub-capabilities are added).
+    BoardConfig   = BoardColumns | BoardRows | CardRules,
 }
 
 public interface IConnectorCapabilityProvider
@@ -325,11 +348,13 @@ TFS registers with `ConnectorCapability.None` — it does NOT omit registration.
 This satisfies runtime-compatibility Rule 7: "DI registration must not be used to hide
 capability gaps." No null-guard (`if (_provider is null)`) appears in any orchestrator.
 
-| Connector | BoardConfig | Taskboard | Backlogs | Registration |
+| Connector | BoardConfig (Columns+Rows+CardRules) | TaskboardColumns | Backlogs | Registration |
 |-----------|-------------|-----------|----------|-------------|
-| AzureDevOpsServices | ✅ | ✅ | ✅ | `StaticConnectorCapabilityProvider(BoardConfig \| Taskboard \| Backlogs)` |
-| Simulated | ✅ | ✅ | ✅ | `StaticConnectorCapabilityProvider(BoardConfig \| Taskboard \| Backlogs)` |
+| AzureDevOpsServices | ✅ | ✅ | ✅ | `StaticConnectorCapabilityProvider(BoardConfig \| TaskboardColumns \| Backlogs)` |
+| Simulated | ✅ | ✅ | ✅ | `StaticConnectorCapabilityProvider(BoardConfig \| TaskboardColumns \| Backlogs)` |
 | TeamFoundationServer | ❌ | ❌ | ❌ | `TfsConnectorCapabilityProvider` → `ConnectorCapability.None` (explicit, testable) |
+
+> `BoardConfig` is a composite flag (`BoardColumns | BoardRows | CardRules`). A connector that registers `BoardConfig` therefore satisfies `Has(BoardColumns)`, `Has(BoardRows)`, and `Has(CardRules)`. Per-feature checks (e.g. swimlanes → `BoardRows`) let a future connector support a subset; today TFS supports none and ADO/Simulated support all.
 
 ---
 

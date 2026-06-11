@@ -23,7 +23,7 @@ dead-end via a new `ConnectorCapability` runtime flag mechanism rather than `#if
 **Language/Version**: C# 13 / .NET 10 (net10.0) for main path; .NET 4.8.1 (net481) for TFS dead-ends  
 **Primary Dependencies**: `Microsoft.TeamFoundation.WorkItemTracking.Client` (TFS), Azure DevOps .NET Client Libraries (`Microsoft.TeamFoundationServer.Client`)  
 **Storage**: `IArtefactStore` / `IStateStore` via `IPackageAccess` — no direct filesystem access  
-**Testing**: MSTest + Moq (MockBehavior.Strict) — test-first; `[TestMethod]` tests written before production code; existing `.feature` files are legacy and must not be modified  
+**Testing**: MSTest + Moq (MockBehavior.Strict) — test-first; tests written before production code. Every test carries its parent family + specific category per `.agents/20-guardrails/workflow/testing-rules.md`: `CodeTest`/`UnitTests` (isolated, mocked), `CodeTest`/`DomainTests` (behavioural scenarios via the internal Test DSL), `CodeTest`/`IntegrationTests` (adapter + mocked `WorkHttpClient` in-process), `SystemTest`/`SystemTest_Simulated` (Simulated connector end-to-end). No new `.feature` files — existing ones are legacy and must not be modified  
 **Target Platform**: net10.0 (AzureDevOpsServices, Simulated connectors); net481 stub (TFS)  
 **Project Type**: Library — module extension inside `DevOpsMigrationPlatform.Infrastructure.Agent`  
 **Performance Goals**: Board config export adds minimal per-team overhead (5–6 API calls per team); no bulk requirement  
@@ -117,6 +117,7 @@ src/DevOpsMigrationPlatform.Infrastructure.Simulated/
 # This satisfies runtime-compatibility-net10-net481 Rule 7:
 # "DI registration must not be used to hide capability gaps."
 # BoardConfigTeamExtension checks Has(ConnectorCapability.BoardConfig) == false → returns Skipped.
+# BoardConfig is the composite BoardColumns | BoardRows | CardRules; backlogs and taskboard gate on their own flags.
 # No null-guard (if _boardSource is null) appears anywhere in extension code.
 src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/
 └── Teams/
