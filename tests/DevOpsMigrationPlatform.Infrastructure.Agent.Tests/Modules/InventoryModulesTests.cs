@@ -10,11 +10,11 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules;
 [TestClass]
 public sealed class InventoryModulesTests
 {
-    // --- Scenario 1 ---
+    // --- Scenario: InventoryModules_AllModulesEnabled_ProducesPerModuleInventoryArtefacts ---
 
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("inventory")]
     [TestMethod]
     public async Task InventoryModules_AllModulesEnabled_ProducesPerModuleInventoryArtefacts()
     {
@@ -25,11 +25,12 @@ public sealed class InventoryModulesTests
         result.AssertAllStandardModuleArtefactsExist();
     }
 
-    // --- Scenario 2 ---
+    // --- Scenario: Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts (analyser vocabulary) ---
 
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
-    [TestCategory("UnitTest")]
+    [TestCategory("inventory")]
+    [TestCategory("multi-org")]
     [TestMethod]
     public async Task InventoryModules_WithoutInventoryAnalyser_PerModuleArtefactsStillProduced()
     {
@@ -41,6 +42,28 @@ public sealed class InventoryModulesTests
         // Guard: confirm the analyser was genuinely absent.
         Assert.IsFalse(result.InventoryAnalyserWasIncluded,
             "Test setup error: InventoryAnalyser should not have been included.");
+
+        // Primary assertion: all four data-module artefacts are still present.
+        result.AssertAllStandardModuleArtefactsExist();
+    }
+
+    // --- Scenario: Inventory_WithoutInventoryDiscoveryModule_ProducesSameArtefacts ---
+
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestCategory("inventory")]
+    [TestCategory("multi-org")]
+    [TestMethod]
+    public async Task InventoryModules_WithoutInventoryDiscoveryModule_PerModuleArtefactsStillProduced()
+    {
+        var result = await InventoryModulesScenario
+            .Arrange()
+            .WithoutInventoryDiscoveryModule()
+            .RunAsync();
+
+        // Guard: confirm the discovery module was genuinely absent.
+        Assert.IsFalse(result.InventoryAnalyserWasIncluded,
+            "Test setup error: InventoryDiscoveryModule (InventoryAnalyser) should not have been included.");
 
         // Primary assertion: all four data-module artefacts are still present.
         result.AssertAllStandardModuleArtefactsExist();

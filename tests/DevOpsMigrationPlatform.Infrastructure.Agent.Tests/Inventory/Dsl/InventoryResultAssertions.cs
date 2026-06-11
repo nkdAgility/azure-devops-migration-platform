@@ -59,20 +59,4 @@ internal static class InventoryResultAssertions
             $"Expected null BaseQuery (platform default) but got '{capturedScope.BaseQuery}'.");
     }
 
-    /// <summary>
-    /// Asserts that the captured scope's <c>Fields</c> list contains all of <paramref name="expectedFields"/>.
-    /// </summary>
-    public static void AssertFieldsInclude(WorkItemFetchScope? capturedScope, params string[] expectedFields)
-    {
-        Assert.IsNotNull(capturedScope,
-            "Expected a non-null WorkItemFetchScope but scope was null.");
-
-        foreach (var field in expectedFields)
-        {
-            Assert.IsTrue(
-                capturedScope.Fields?.Contains(field) == true,
-                $"Expected field '{field}' in scope Fields but it was absent. " +
-                $"Fields: [{string.Join(", ", capturedScope.Fields ?? System.Array.Empty<string>())}]");
-        }
-    }
 }
