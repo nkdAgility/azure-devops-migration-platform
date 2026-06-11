@@ -156,6 +156,12 @@ The existing `TeamsModule` uses boolean flags (`if (extensions.TeamSettings)` et
 inline in per-team orchestrators. This feature introduces a formal `ITeamExtension` contract
 that replaces that pattern going forward. Board config is the first extension built against it.
 
+**Sequencing**: the extension-system seam (the `ITeamExtension` contract plus the
+`TeamsModule`/`TeamsOrchestrator` refactor) lands as a **standalone, regression-green
+structural refactor first** — existing Teams export/import behaviour unchanged — before any
+board-config feature work. It is **Phase 1** in tasks.md (**Extension System**) — established
+first, gated on the existing Teams test suite staying green, an independently-shippable checkpoint.
+
 ### Contracts
 
 ```csharp

@@ -25,10 +25,37 @@ Each story phase starts with failing tests in `*Tests.cs`, then production code.
 
 ---
 
-## Phase 1: Setup (Records, Interfaces, Options)
+## Phase 1: Extension System (Module→Orchestrator Seam Refactor) 🥇 FIRST
 
-**Purpose**: Create all new abstraction types, interfaces, and options that the rest of the work depends on.
-No orchestrator or connector code yet — just the shape of the domain.
+**Purpose**: Establish the extension system before anything else. Introduce the `ITeamExtension`
+composition seam and refactor `TeamsModule`/`TeamsOrchestrator` to drive extensions, replacing the
+boolean-flag if-block pattern. This is a **standalone structural refactor** that MUST land
+independently green — existing Teams export/import behaviour (team identity, settings, iterations,
+members, area paths) is unchanged — **before** any board-config setup or feature work.
+Board config (Phase 4+) is the first extension built on this seam.
+
+**⚠️ Regression gate**: This phase changes `TeamsModule`/`TeamsOrchestrator`. The existing Teams test
+suite MUST stay green; no behavioural change to current Teams capabilities is permitted here.
+
+- [ ] T076 [P] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/IModuleExtension.cs` — cross-cutting marker interface: `Module`, `Name`, `Order`, `SupportsExport`, `SupportsImport` (see data-model.md Extension Architecture section)
+- [ ] T077 Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Teams/ITeamExtension.cs` — Teams per-entity extension contract: `IsEnabled(TeamsModuleExtensionsOptions)`, `ExportAsync(TeamExtensionContext, ct)`, `ImportAsync(TeamExtensionContext, ct)`; default interface method implementations for unsupported phases — depends on T076
+- [ ] T078 Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Teams/TeamExtensionContext.cs` — sealed record: `Organisation`, `Project`, `SourceProject`, `TeamDefinition`, `Slug`, `IPackageAccess`, `TeamsModuleExtensionsOptions`, `IProgressSink?`
+- [ ] T079 Write `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Teams/TeamExtensionDispatchTests.cs` — `[TestCategory("CodeTest")]` + `[TestCategory("UnitTests")]` methods: (a) enabled extension with SupportsExport=true has ExportAsync called per team; (b) disabled extension is not called; (c) SupportsImport=false extension has ImportAsync not called; (d) extensions invoked in Order sequence
+- [ ] T080 Extend `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/TeamsOrchestrator.cs` — `ExportAsync` and `ImportAsync` accept `IReadOnlyList<ITeamExtension>`; per-team loop builds `TeamExtensionContext` and calls each extension in order; handles per-extension errors without aborting the team loop — depends on T077, T078
+- [ ] T081 Extend `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/TeamsModule.cs` — inject `IEnumerable<ITeamExtension>` via constructor; in `ExportAsync` filter to `SupportsExport && IsEnabled`, sort by `Order`, pass list to orchestrator; same for `ImportAsync` — depends on T077, T080
+- [ ] T082 Verify all `[TestMethod]` tests in `TeamExtensionDispatchTests.cs` pass
+- [ ] T090 **Regression**: run the full existing Teams test suite and confirm current Teams export/import behaviour is unchanged after the seam refactor (no new behaviour introduced in this phase)
+- [ ] T091 **Conformance validation (STOP gate)**: validate the implemented extension system against the documented story line-by-line — `IModuleExtension`/`ITeamExtension`/`TeamExtensionContext` shapes vs `plan.md` (Extension Architecture) and `data-model.md`; the Module→Orchestrator seam vs `.agents/30-context/architecture/execution-model.md` and `.agents/10-contracts/specs/execution-contract.md`; the "one type, both directions" invariant (no split export/import extensions). Produce a pass/deviation list.
+- [ ] T092 **Deviation handling (fail-closed)**: if T091 finds **any** deviation between the implementation and the documented story, **STOP** — do not start Phase 2. Either correct the implementation to match the docs, or, if the docs are wrong, update the docs (plan/data-model/execution-model/-contract) and re-run T091. Phase 1 is complete only when T091 reports **zero** deviations.
+
+**Checkpoint (HARD GATE — deviations stop the line)**: Extension dispatch tests green. Existing Teams suite green (regression). T091 conformance validation reports **zero** deviations from the documented extension story. `TeamsModule` resolves, filters, orders, and passes `IReadOnlyList<ITeamExtension>` to `TeamsOrchestrator`, which owns the per-team loop. **No Phase 2 work begins until this checkpoint passes with zero deviations.** This is a clean, independently-shippable checkpoint — the extension system is established, tested, and validated against its documented story first.
+
+---
+
+## Phase 2: Setup (Board-Config Records, Adapter Contract, Options)
+
+**Purpose**: Create the board-config abstraction types, adapter contract, and options.
+No connector code yet — just the shape of the domain, built on the extension seam from Phase 1.
 
 - [ ] T001 Add board config metric constants to `src/DevOpsMigrationPlatform.Abstractions/Telemetry/WellKnownAgentMetricNames.cs` (add `// --- Teams Board Config Export/Import ---` section with 9 constants per Observability section in plan.md)
 - [ ] T002 [P] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Teams/BoardColumnStateMapping.cs` (sealed record: `WorkItemType`, `State`)
@@ -41,19 +68,16 @@ No orchestrator or connector code yet — just the shape of the domain.
 - [ ] T009 Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Teams/TeamBoardConfig.cs` (sealed class `TeamBoardConfig` with `TeamName`, `ExportedAt`, `Boards`, `CardRules?`, `Backlogs`, `TaskboardColumns`) — depends on T005–T008
 - [ ] T010 Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Teams/ITeamBoardAdapter.cs` — single adapter contract covering both export (Get*) and import (Update*) methods; see contracts/ITeamBoardAdapter.md
 - [ ] T012 Extend `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/TeamsModuleOptions.cs` — add `BoardConfigImportMode` enum and `BoardConfigExtensionsOptions` sealed class (Columns, SwimLanes, CardRules, Backlogs, TaskboardColumns bools + ImportMode); add `BoardConfig` property to `TeamsModuleExtensionsOptions`
-- [ ] T076 [P] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/IModuleExtension.cs` — cross-cutting marker interface: `Module`, `Name`, `Order`, `SupportsExport`, `SupportsImport` (see data-model.md Extension Architecture section)
-- [ ] T077 Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Teams/ITeamExtension.cs` — Teams per-entity extension contract: `IsEnabled(TeamsModuleExtensionsOptions)`, `ExportAsync(TeamExtensionContext, ct)`, `ImportAsync(TeamExtensionContext, ct)`; default interface method implementations for unsupported phases — depends on T076
-- [ ] T078 Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Teams/TeamExtensionContext.cs` — sealed record: `Organisation`, `Project`, `SourceProject`, `TeamDefinition`, `Slug`, `IPackageAccess`, `TeamsModuleExtensionsOptions`, `IProgressSink?`
 
-**Checkpoint**: All new abstraction types compile. No orchestrator or connector code yet. Every new `.cs` file (production and test) MUST begin with the SPDX header block (`// SPDX-License-Identifier: AGPL-3.0-only` / `// Copyright (c) Naked Agility Limited`) — SA1633 fails the build otherwise.
+**Checkpoint**: All board-config abstraction types compile. No connector code yet. Every new `.cs` file (production and test) MUST begin with the SPDX header block (`// SPDX-License-Identifier: AGPL-3.0-only` / `// Copyright (c) Naked Agility Limited`) — SA1633 fails the build otherwise.
 
 ---
 
-## Phase 2: Foundational (ConnectorCapability Mechanism)
+## Phase 3: Foundational (ConnectorCapability Mechanism)
 
 **Purpose**: Introduce the `ConnectorCapability` runtime flag mechanism. This MUST be complete before
-any board config orchestrator code is written, because orchestrators depend on `IConnectorCapabilityProvider`.
-TFS must register an explicit `ConnectorCapability.None` declaration — no null-guards in orchestrators.
+any board config extension code is written, because `BoardConfigTeamExtension` depends on `IConnectorCapabilityProvider`.
+TFS must register an explicit `ConnectorCapability.None` declaration — no null-guards in the extension. Depends on Phase 1 (the extension seam, green) and Phase 2 (T010 adapter contract + T012 options).
 
 **⚠️ CRITICAL**: Guardrail Rule 29 + runtime-compatibility Rule 7 forbid null-guard patterns.
 TFS MUST register `IConnectorCapabilityProvider` explicitly. No `if (_provider is null)` guards.
@@ -68,16 +92,12 @@ TFS MUST register `IConnectorCapabilityProvider` explicitly. No `if (_provider i
 - [ ] T019 [P] Register `StaticConnectorCapabilityProvider(BoardConfig | TaskboardColumns | Backlogs)` in AzureDevOpsServices connector DI setup (`BoardConfig` composite covers BoardColumns+BoardRows+CardRules)
 - [ ] T020 [P] Register `StaticConnectorCapabilityProvider(BoardConfig | TaskboardColumns | Backlogs)` in Simulated connector DI setup (`BoardConfig` composite covers BoardColumns+BoardRows+CardRules)
 - [ ] T021 Verify all `[TestMethod]` tests in `ConnectorCapabilityTests.cs` pass (unit test — no real connectors needed)
-- [ ] T079 Write `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Teams/TeamExtensionDispatchTests.cs` — `[TestCategory("CodeTest")]` + `[TestCategory("UnitTests")]` methods: (a) enabled extension with SupportsExport=true has ExportAsync called per team; (b) disabled extension is not called; (c) SupportsImport=false extension has ImportAsync not called; (d) extensions invoked in Order sequence
-- [ ] T080 Extend `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/TeamsOrchestrator.cs` — `ExportAsync` and `ImportAsync` accept `IReadOnlyList<ITeamExtension>`; per-team loop builds `TeamExtensionContext` and calls each extension in order; handles per-extension errors without aborting the team loop — depends on T077, T078
-- [ ] T081 Extend `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/TeamsModule.cs` — inject `IEnumerable<ITeamExtension>` via constructor; in `ExportAsync` filter to `SupportsExport && IsEnabled`, sort by `Order`, pass list to orchestrator; same for `ImportAsync` — depends on T077, T080
-- [ ] T082 Verify all `[TestMethod]` tests in `TeamExtensionDispatchTests.cs` pass
 
-**Checkpoint**: ConnectorCapability tests green. Extension dispatch tests green. TeamsModule passes filtered, ordered extensions to TeamsOrchestrator. Ready for board config extension work.
+**Checkpoint**: ConnectorCapability tests green. Capability providers registered for all three connectors (TFS = `None` explicit). Ready for board config extension work (the seam from Phase 2 is already live).
 
 ---
 
-## Phase 3: User Story 1 — Export Board Columns (Priority: P1) 🎯 MVP
+## Phase 4: User Story 1 — Export Board Columns (Priority: P1) 🎯 MVP
 
 **Goal**: Capture Kanban board column definitions (name, WIP limit, state mappings, split, type, description) per team into `Teams/{slug}/board-config.json`.
 
@@ -85,7 +105,7 @@ TFS MUST register `IConnectorCapabilityProvider` explicitly. No `if (_provider i
 
 ### Tests (write first — must fail before implementation)
 
-- [ ] T022 Write `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Teams/BoardConfigTeamExtensionTests.cs` — `[TestCategory("CodeTest")]` + `[TestCategory("DomainTests")]` methods covering all 5 US1 acceptance scenarios (multi-board teams, missing WIP limit, Simulated connector, TFS capability absent → Skipped); written against the internal Test DSL — add board-config scenario builders/runners/assertions to `tests/DevOpsMigrationPlatform.Testing/` if not already present; US6 import test methods added in Phase 8 to the same class
+- [ ] T022 Write `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Teams/BoardConfigTeamExtensionTests.cs` — `[TestCategory("CodeTest")]` + `[TestCategory("DomainTests")]` methods covering all 5 US1 acceptance scenarios (multi-board teams, missing WIP limit, Simulated connector, TFS capability absent → Skipped); written against the internal Test DSL — add board-config scenario builders/runners/assertions to `tests/DevOpsMigrationPlatform.Testing/` if not already present; US6 import test methods added in Phase 9 to the same class
 
 ### Implementation for User Story 1
 
@@ -105,7 +125,7 @@ TFS MUST register `IConnectorCapabilityProvider` explicitly. No `if (_provider i
 
 ---
 
-## Phase 4: User Story 2 — Export Swimlanes Per Team (Priority: P2)
+## Phase 5: User Story 2 — Export Swimlanes Per Team (Priority: P2)
 
 **Goal**: Add swimlane (row) data to the per-team `board-config.json` artefact.
 
@@ -127,7 +147,7 @@ TFS MUST register `IConnectorCapabilityProvider` explicitly. No `if (_provider i
 
 ---
 
-## Phase 5: User Story 3 — Export Card Rule Settings Per Team (Priority: P3)
+## Phase 6: User Story 3 — Export Card Rule Settings Per Team (Priority: P3)
 
 **Goal**: Add card rule settings to the per-team `board-config.json`.
 
@@ -149,7 +169,7 @@ TFS MUST register `IConnectorCapabilityProvider` explicitly. No `if (_provider i
 
 ---
 
-## Phase 6: User Story 4 — Export Backlog Metadata Per Team (Priority: P3)
+## Phase 7: User Story 4 — Export Backlog Metadata Per Team (Priority: P3)
 
 **Goal**: Add backlog level display names and WIT categories (from the Backlogs endpoint) to `board-config.json`. Must NOT duplicate backlog visibility flags already in `team.json`.
 
@@ -171,7 +191,7 @@ TFS MUST register `IConnectorCapabilityProvider` explicitly. No `if (_provider i
 
 ---
 
-## Phase 7: User Story 5 — Export Sprint Taskboard Columns Per Team (Priority: P4)
+## Phase 8: User Story 5 — Export Sprint Taskboard Columns Per Team (Priority: P4)
 
 **Goal**: Add sprint taskboard column definitions to `board-config.json`.
 
@@ -193,7 +213,7 @@ TFS MUST register `IConnectorCapabilityProvider` explicitly. No `if (_provider i
 
 ---
 
-## Phase 8: User Story 6 — Import Board Configuration to Target (Priority: P1)
+## Phase 9: User Story 6 — Import Board Configuration to Target (Priority: P1)
 
 **Goal**: Read `board-config.json` from the package and apply it to the target team's boards using the configured `importMode` (Replace/Merge/Skip).
 
@@ -227,7 +247,7 @@ TFS MUST register `IConnectorCapabilityProvider` explicitly. No `if (_provider i
 
 ---
 
-## Phase 9: Polish & Cross-Cutting Concerns
+## Phase 10: Polish & Cross-Cutting Concerns
 
 **Purpose**: Connector acceptance tests, Simulated round-trip, and documentation.
 
@@ -240,7 +260,7 @@ TFS MUST register `IConnectorCapabilityProvider` explicitly. No `if (_provider i
 
 ---
 
-## Phase 10: Documentation Sync (MANDATORY — Spec-Completion Gate)
+## Phase 11: Documentation Sync (MANDATORY — Spec-Completion Gate)
 
 **Purpose**: Constitution v2.0.0 Governance (Spec-Completion Gate + v1.3.4 doc-sync phase)
 requires every canonical doc named in a doc-task to be updated, and `discrepancies.md`
@@ -261,22 +281,23 @@ fully resolved, before the spec branch may merge. This phase is not optional.
 
 ### Phase Dependencies
 
-- **Phase 1 (Setup)**: No dependencies — start immediately. Parallel tasks T002–T007 run in parallel.
-- **Phase 2 (Foundational)**: Depends on Phase 1 (T012 required for T016 DI registration). **BLOCKS all story phases.**
-- **Phase 3 (US1)**: Depends on Phase 2 complete. T022 (feature file) must be written before T023–T026.
-- **Phase 4 (US2)**: Depends on Phase 3 complete (orchestrator skeleton and SimulatedBoardAdapter exist).
-- **Phase 5 (US3)**: Depends on Phase 3 complete. Can start in parallel with Phase 4.
-- **Phase 6 (US4)**: Depends on Phase 3 complete. Can start in parallel with Phases 4–5.
-- **Phase 7 (US5)**: Depends on Phase 3 complete. Can start in parallel with Phases 4–6.
-- **Phase 8 (US6)**: Depends on all export phases (3–7) complete — reads artefacts they write.
-- **Phase 9 (Polish)**: Depends on Phase 8 complete.
-- **Phase 10 (Documentation Sync)**: Depends on Phase 9 complete. MANDATORY Spec-Completion Gate — branch MUST NOT merge until all doc-tasks are `[x]` and `discrepancies.md` is fully resolved.
+- **Phase 1 (Extension System)** 🥇: No dependencies — **start immediately, first up.** Standalone structural refactor (T076–T082, T090, T091, T092): extension contracts + `TeamsModule`/`TeamsOrchestrator` refactor + tests + regression + **conformance validation against the documented story**. Lands independently green (existing Teams suite unchanged). **HARD GATE: T091 must report zero deviations from the documented extension story; any deviation STOPS the line (T092) until the implementation or the docs are corrected.** No Phase 2+ work begins until the gate passes. **BLOCKS all board-config setup and feature phases.**
+- **Phase 2 (Setup)**: Board-config records/adapter contract/options. Depends on Phase 1 (seam established). Parallel tasks T002–T007 run in parallel.
+- **Phase 3 (Foundational — ConnectorCapability)**: Depends on Phase 1 (seam live) and Phase 2 (T010 adapter contract, T012 options). **BLOCKS all story phases.**
+- **Phase 4 (US1)**: Depends on Phases 2 + 3 complete. T022 (failing tests) must be written before T023–T026.
+- **Phase 5 (US2)**: Depends on Phase 4 complete (extension skeleton and SimulatedBoardAdapter exist).
+- **Phase 6 (US3)**: Depends on Phase 4 complete. Can start in parallel with Phase 5.
+- **Phase 7 (US4)**: Depends on Phase 4 complete. Can start in parallel with Phases 5–6.
+- **Phase 8 (US5)**: Depends on Phase 4 complete. Can start in parallel with Phases 5–7.
+- **Phase 9 (US6)**: Depends on all export phases (4–8) complete — reads artefacts they write.
+- **Phase 10 (Polish)**: Depends on Phase 9 complete.
+- **Phase 11 (Documentation Sync)**: Depends on Phase 10 complete. MANDATORY Spec-Completion Gate — branch MUST NOT merge until all doc-tasks are `[x]` and `discrepancies.md` is fully resolved.
 
 ### User Story Dependencies
 
 | Story | Priority | Depends on | Parallel with |
 |---|---|---|---|
-| US1 (Export Columns) | P1 | Phase 2 | — |
+| US1 (Export Columns) | P1 | Phases 2 + 3 | — |
 | US2 (Export Swimlanes) | P2 | US1 complete | US3, US4, US5 |
 | US3 (Export Card Rules) | P3 | US1 complete | US2, US4, US5 |
 | US4 (Export Backlogs) | P3 | US1 complete | US2, US3, US5 |
@@ -304,7 +325,7 @@ fully resolved, before the spec branch may merge. This phase is not optional.
 
 ---
 
-## Parallel Example: Phase 3 (US1)
+## Parallel Example: Phase 4 (US1)
 
 ```
 # Group 1 — write failing tests first:
@@ -331,12 +352,13 @@ T031: Verify all 5 US1 test methods green
 
 ### MVP First (US1 + US6 columns only)
 
-1. Complete Phase 1 (Setup) — all records and interfaces
-2. Complete Phase 2 (ConnectorCapability) — CRITICAL blocker
-3. Complete Phase 3 (US1 — Export Columns)
-4. Complete Phase 8 up to T055 (US6 — Import Columns, Replace mode only)
-5. **STOP and VALIDATE**: Export + import column round-trip with Simulated connector
-6. Demo to stakeholders — board columns migrate end-to-end
+1. Complete Phase 1 (Extension System) — standalone seam refactor; land independently green (FIRST, CRITICAL blocker)
+2. Complete Phase 2 (Setup) — board records, adapter contract, options
+3. Complete Phase 3 (ConnectorCapability) — CRITICAL blocker
+4. Complete Phase 4 (US1 — Export Columns)
+5. Complete Phase 9 up to T055 (US6 — Import Columns, Replace mode only)
+6. **STOP and VALIDATE**: Export + import column round-trip with Simulated connector
+7. Demo to stakeholders — board columns migrate end-to-end
 
 ### Incremental Delivery (add each export story, then full import)
 
@@ -346,11 +368,11 @@ T031: Verify all 5 US1 test methods green
 4. Add US4 (backlogs) → extend `board-config.json`, extend import
 5. Add US5 (taskboard) → extend `board-config.json`, extend import
 6. Complete US6 Merge + Skip modes
-7. Phase 9 polish
+7. Phase 10 polish
 
 ### Single-Developer Sequential
 
-1. Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 → Phase 7 → Phase 8 → Phase 9
+1. Phase 1 (extension seam, regression-green) → Phase 2 (setup) → Phase 3 → Phase 4 → Phase 5 → Phase 6 → Phase 7 → Phase 8 → Phase 9 → Phase 10 → Phase 11
 
 ---
 
