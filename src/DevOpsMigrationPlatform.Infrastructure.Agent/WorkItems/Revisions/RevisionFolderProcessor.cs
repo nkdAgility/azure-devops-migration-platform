@@ -57,6 +57,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     private readonly NodeTranslationOptions? _nodeStructureOptions;
     private readonly IPackageAccess? _package;
     private readonly LinksWorkItemExtension _linksExtension;
+    private readonly AttachmentsWorkItemExtension _attachmentsExtension;
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
 
@@ -82,7 +83,8 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         IPackageAccess? package = null,
         AttachmentReplayService? attachmentReplayService = null,
         EmbeddedImageReplayService? embeddedImageReplayService = null,
-        LinksWorkItemExtension? linksExtension = null)
+        LinksWorkItemExtension? linksExtension = null,
+        AttachmentsWorkItemExtension? attachmentsExtension = null)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));
@@ -103,6 +105,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         _nodeStructureOptions = nodeStructureOptions;
         _package = package;
         _linksExtension = linksExtension ?? new LinksWorkItemExtension(Options.Create(new LinksExtensionOptions()));
+        _attachmentsExtension = attachmentsExtension ?? new AttachmentsWorkItemExtension(Options.Create(new AttachmentsExtensionOptions()));
 
         if (_fieldTransformTool == null)
             _logger.LogWarning("[WorkItems] IFieldTransformTool is not registered — field transforms will be skipped for all revisions. Call AddFieldTransformToolServices() in your DI setup to enable field transforms.");
@@ -310,15 +313,23 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         if (ext.AttachmentsEnabled && ShouldRunStage(CursorStage.UploadedAttachments, resumeAtStage))
         {
             _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.UploadedAttachments, folderPath);
-            await _attachmentReplayService
-                .ReplayAsync(
-                    revision,
-                    folderPath,
-                    resolvedTargetId,
-                    ReadPackageBinaryAsync,
-                    await EnumerateAttachmentBinariesAsync(folderPath, ct).ConfigureAwait(false),
-                    ct)
-                .ConfigureAwait(false);
+            await _attachmentsExtension.ImportAsync(
+                new WorkItemExtensionContext
+                {
+                    Organisation = _organisation,
+                    ProjectName = _project,
+                    EntityId = revision.WorkItemId.ToString(),
+                    TargetEntityId = resolvedTargetId.ToString(),
+                    Package = _package!,
+                    Revision = revision,
+                    TargetWorkItemId = resolvedTargetId,
+                    FolderPath = folderPath,
+                    Target = _target,
+                    IdMapStore = _idMapStore,
+                    ReadBinaryAsync = ReadPackageBinaryAsync,
+                    AvailableBinaryPaths = await EnumerateAttachmentBinariesAsync(folderPath, ct).ConfigureAwait(false),
+                },
+                ct).ConfigureAwait(false);
 
             await WriteCursorAsync(folderPath, CursorStage.UploadedAttachments, ct).ConfigureAwait(false);
         }

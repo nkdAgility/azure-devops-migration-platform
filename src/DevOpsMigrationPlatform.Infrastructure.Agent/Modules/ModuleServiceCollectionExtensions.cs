@@ -89,6 +89,12 @@ public static class ModuleServiceCollectionExtensions
         services.AddOptions<LinksExtensionOptions>();
         services.AddSingleton<LinksWorkItemExtension>();
 
+#if NET7_0_OR_GREATER
+        services.AddSchemaEntry<AttachmentsExtensionOptions>("Work item Attachments extension (attachment binary replay) configuration");
+#endif
+        services.AddOptions<AttachmentsExtensionOptions>();
+        services.AddSingleton<AttachmentsWorkItemExtension>();
+
         services.TryAddSingleton<IWorkItemExportOrchestratorFactory, WorkItemExportOrchestratorFactory>();
         services.AddScoped<IWorkItemsImportCapabilityValidator, WorkItemsImportCapabilityValidator>();
         services.AddSingleton<IWorkItemsNodeReadinessOrchestrator>(sp =>

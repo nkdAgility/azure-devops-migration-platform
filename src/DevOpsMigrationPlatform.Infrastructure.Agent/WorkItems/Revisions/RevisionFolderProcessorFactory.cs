@@ -24,6 +24,7 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
     private readonly IPackageAccess _package;
     private readonly NodeTranslationOptions? _nodeStructureOptions;
     private readonly LinksWorkItemExtension? _linksExtension;
+    private readonly AttachmentsWorkItemExtension? _attachmentsExtension;
 
     public RevisionFolderProcessorFactory(
         ILoggerFactory loggerFactory,
@@ -32,7 +33,8 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
         IFieldTransformTool? fieldTransformTool = null,
         INodeTranslationTool? nodeStructureTool = null,
         IOptions<NodeTranslationOptions>? nodeStructureOptions = null,
-        LinksWorkItemExtension? linksExtension = null)
+        LinksWorkItemExtension? linksExtension = null,
+        AttachmentsWorkItemExtension? attachmentsExtension = null)
     {
         _loggerFactory = loggerFactory ?? throw new System.ArgumentNullException(nameof(loggerFactory));
         _package = package ?? throw new System.ArgumentNullException(nameof(package));
@@ -41,6 +43,7 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
         _nodeStructureTool = nodeStructureTool;
         _nodeStructureOptions = nodeStructureOptions?.Value;
         _linksExtension = linksExtension;
+        _attachmentsExtension = attachmentsExtension;
     }
 
     /// <inheritdoc/>
@@ -76,5 +79,6 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
             nodeStructureContext: nodeStructureContext,
             nodeStructureOptions: _nodeStructureOptions,
             package: _package,
-            linksExtension: _linksExtension);
+            linksExtension: _linksExtension,
+            attachmentsExtension: _attachmentsExtension);
 }

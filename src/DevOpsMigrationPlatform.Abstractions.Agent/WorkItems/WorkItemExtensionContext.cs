@@ -44,4 +44,23 @@ public sealed record WorkItemExtensionContext : IExtensionContext
     /// the target is resolved per job, while extensions are run-wide. Null on export.
     /// </summary>
     public IWorkItemTarget? Target { get; init; }
+
+    /// <summary>
+    /// The per-job id-map store for this import. Carried on the context (not ctor-injected) because it is
+    /// resolved per job alongside the target. Used by attachment replay to dedupe already-uploaded
+    /// attachments. Null on export and for extensions that do not need it.
+    /// </summary>
+    public IIdMapStore? IdMapStore { get; init; }
+
+    /// <summary>
+    /// Reads a package binary by relative path. Supplied by the per-revision driver so extensions can
+    /// stream attachment/binary content without owning package-access plumbing. Null when not applicable.
+    /// </summary>
+    public System.Func<string, System.Threading.CancellationToken, System.Threading.Tasks.Task<System.IO.Stream?>>? ReadBinaryAsync { get; init; }
+
+    /// <summary>
+    /// The set of binary paths enumerated for this revision folder, used by attachment replay to confirm a
+    /// referenced binary exists before upload. Null when not enumerated / not applicable.
+    /// </summary>
+    public System.Collections.Generic.ISet<string>? AvailableBinaryPaths { get; init; }
 }
