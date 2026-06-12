@@ -22,7 +22,7 @@ public sealed class LinksWorkItemExtensionTests
     [TestMethod]
     public void Contract_DeclaresWorkItemsLinksImportOnly()
     {
-        var ext = new LinksWorkItemExtension(Mock.Of<IWorkItemTarget>(), Options.Create(new LinksExtensionOptions()));
+        var ext = new LinksWorkItemExtension(Options.Create(new LinksExtensionOptions()));
 
         Assert.AreEqual("WorkItems", ext.Module);
         Assert.AreEqual("Links", ext.Name);
@@ -36,7 +36,7 @@ public sealed class LinksWorkItemExtensionTests
     [TestMethod]
     public void IsEnabled_ReflectsOwnOptions()
     {
-        var ext = new LinksWorkItemExtension(Mock.Of<IWorkItemTarget>(), Options.Create(new LinksExtensionOptions { Enabled = false }));
+        var ext = new LinksWorkItemExtension(Options.Create(new LinksExtensionOptions { Enabled = false }));
         Assert.IsFalse(ext.IsEnabled);
     }
 
@@ -55,9 +55,9 @@ public sealed class LinksWorkItemExtensionTests
             .Returns(Task.CompletedTask)
             .Verifiable();
 
-        var ext = new LinksWorkItemExtension(target.Object, Options.Create(new LinksExtensionOptions()));
+        var ext = new LinksWorkItemExtension(Options.Create(new LinksExtensionOptions()));
 
-        await ext.ImportAsync(CreateContext(related, external, hyper, targetId: 4242), CancellationToken.None);
+        await ext.ImportAsync(CreateContext(related, external, hyper, targetId: 4242, target: target.Object), CancellationToken.None);
 
         target.Verify();
     }
@@ -66,7 +66,8 @@ public sealed class LinksWorkItemExtensionTests
         IReadOnlyList<RelatedWorkItemLink> related,
         IReadOnlyList<ExternalWorkItemLink> external,
         IReadOnlyList<HyperlinkWorkItemLink> hyper,
-        int targetId)
+        int targetId,
+        IWorkItemTarget? target = null)
         => new()
         {
             Organisation = "org",
@@ -76,6 +77,7 @@ public sealed class LinksWorkItemExtensionTests
             Package = Mock.Of<IPackageAccess>(),
             TargetWorkItemId = targetId,
             FolderPath = "WorkItems/2026-01-15/1-42-3",
+            Target = target,
             Revision = new WorkItemRevision
             {
                 WorkItemId = 42,

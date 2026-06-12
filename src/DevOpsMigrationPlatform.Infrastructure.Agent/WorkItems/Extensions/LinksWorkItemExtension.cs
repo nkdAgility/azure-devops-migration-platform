@@ -17,14 +17,10 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 /// </summary>
 public sealed class LinksWorkItemExtension : IModuleExtension
 {
-    private readonly IWorkItemTarget _target;
     private readonly LinksExtensionOptions _options;
 
-    public LinksWorkItemExtension(IWorkItemTarget target, IOptions<LinksExtensionOptions> options)
-    {
-        _target = target ?? throw new ArgumentNullException(nameof(target));
-        _options = (options ?? throw new ArgumentNullException(nameof(options))).Value;
-    }
+    public LinksWorkItemExtension(IOptions<LinksExtensionOptions> options)
+        => _options = (options ?? throw new ArgumentNullException(nameof(options))).Value;
 
     public string Module => "WorkItems";
     public string Name => "Links";
@@ -39,9 +35,11 @@ public sealed class LinksWorkItemExtension : IModuleExtension
     {
         if (context is not WorkItemExtensionContext ctx)
             throw new ArgumentException($"Expected {nameof(WorkItemExtensionContext)}.", nameof(context));
+        if (ctx.Target is null)
+            throw new ArgumentException("WorkItemExtensionContext.Target is required for import.", nameof(context));
 
         var revision = ctx.Revision;
-        return _target.AddLinksAsync(
+        return ctx.Target.AddLinksAsync(
             ctx.TargetWorkItemId,
             revision.RelatedLinks,
             revision.ExternalLinks,

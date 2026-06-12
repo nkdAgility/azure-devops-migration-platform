@@ -38,4 +38,10 @@ public sealed record WorkItemExtensionContext : IExtensionContext
 
     /// <summary>Relative package folder for this revision (e.g. <c>WorkItems/2026-01-15/&lt;ticks&gt;-42-3</c>).</summary>
     public required string FolderPath { get; init; }
+
+    /// <summary>
+    /// The per-job target connector for this import. Carried on the context (not ctor-injected) because
+    /// the target is resolved per job, while extensions are run-wide. Null on export.
+    /// </summary>
+    public IWorkItemTarget? Target { get; init; }
 }

@@ -5,6 +5,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -22,6 +23,7 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
     private readonly IFieldTransformTool? _fieldTransformTool;
     private readonly IPackageAccess _package;
     private readonly NodeTranslationOptions? _nodeStructureOptions;
+    private readonly LinksWorkItemExtension? _linksExtension;
 
     public RevisionFolderProcessorFactory(
         ILoggerFactory loggerFactory,
@@ -29,7 +31,8 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
         IPlatformMetrics? metrics = null,
         IFieldTransformTool? fieldTransformTool = null,
         INodeTranslationTool? nodeStructureTool = null,
-        IOptions<NodeTranslationOptions>? nodeStructureOptions = null)
+        IOptions<NodeTranslationOptions>? nodeStructureOptions = null,
+        LinksWorkItemExtension? linksExtension = null)
     {
         _loggerFactory = loggerFactory ?? throw new System.ArgumentNullException(nameof(loggerFactory));
         _package = package ?? throw new System.ArgumentNullException(nameof(package));
@@ -37,6 +40,7 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
         _fieldTransformTool = fieldTransformTool;
         _nodeStructureTool = nodeStructureTool;
         _nodeStructureOptions = nodeStructureOptions?.Value;
+        _linksExtension = linksExtension;
     }
 
     /// <inheritdoc/>
@@ -71,5 +75,6 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
             nodeStructureTool: _nodeStructureTool,
             nodeStructureContext: nodeStructureContext,
             nodeStructureOptions: _nodeStructureOptions,
-            package: _package);
+            package: _package,
+            linksExtension: _linksExtension);
 }

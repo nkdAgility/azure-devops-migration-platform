@@ -14,13 +14,16 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Identity;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 
@@ -53,6 +56,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     private readonly ProjectMapping? _nodeTranslationContext;
     private readonly NodeTranslationOptions? _nodeStructureOptions;
     private readonly IPackageAccess? _package;
+    private readonly LinksWorkItemExtension _linksExtension;
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
 
@@ -77,7 +81,8 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         NodeTranslationOptions? nodeStructureOptions = null,
         IPackageAccess? package = null,
         AttachmentReplayService? attachmentReplayService = null,
-        EmbeddedImageReplayService? embeddedImageReplayService = null)
+        EmbeddedImageReplayService? embeddedImageReplayService = null,
+        LinksWorkItemExtension? linksExtension = null)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));
@@ -97,6 +102,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         _nodeTranslationContext = nodeStructureContext;
         _nodeStructureOptions = nodeStructureOptions;
         _package = package;
+        _linksExtension = linksExtension ?? new LinksWorkItemExtension(Options.Create(new LinksExtensionOptions()));
 
         if (_fieldTransformTool == null)
             _logger.LogWarning("[WorkItems] IFieldTransformTool is not registered — field transforms will be skipped for all revisions. Call AddFieldTransformToolServices() in your DI setup to enable field transforms.");
@@ -274,15 +280,23 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
             await WriteCursorAsync(folderPath, CursorStage.AppliedFields, ct).ConfigureAwait(false);
         }
 
-        // Stage C — AppliedLinks
+        // Stage C — AppliedLinks (delegated to the Links capability port; cursor/enablement unchanged)
         if (ext.LinksEnabled && ShouldRunStage(CursorStage.AppliedLinks, resumeAtStage))
         {
             _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.AppliedLinks, folderPath);
-            await _target.AddLinksAsync(
-                resolvedTargetId,
-                revision.RelatedLinks,
-                revision.ExternalLinks,
-                revision.Hyperlinks,
+            await _linksExtension.ImportAsync(
+                new WorkItemExtensionContext
+                {
+                    Organisation = _organisation,
+                    ProjectName = _project,
+                    EntityId = revision.WorkItemId.ToString(),
+                    TargetEntityId = resolvedTargetId.ToString(),
+                    Package = _package!,
+                    Revision = revision,
+                    TargetWorkItemId = resolvedTargetId,
+                    FolderPath = folderPath,
+                    Target = _target,
+                },
                 ct).ConfigureAwait(false);
             await WriteCursorAsync(folderPath, CursorStage.AppliedLinks, ct).ConfigureAwait(false);
         }

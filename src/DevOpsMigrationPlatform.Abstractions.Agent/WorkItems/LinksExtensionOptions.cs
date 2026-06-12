@@ -8,9 +8,12 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 /// (no shared module-wide options god-object).
 /// </summary>
 public sealed class LinksExtensionOptions
+#if NET7_0_OR_GREATER
+    : DevOpsMigrationPlatform.Abstractions.Options.IConfigSection
+#endif
 {
-    /// <summary>Configuration section path.</summary>
-    public const string SectionName = "MigrationPlatform:Modules:WorkItems:Extensions:Links";
+    /// <summary>The canonical config section path for this options type.</summary>
+    public static string SectionName => "MigrationPlatform:Modules:WorkItems:Extensions:Links";
 
     /// <summary>Whether related-link / external-link / hyperlink import is enabled. Default: <c>true</c>.</summary>
     public bool Enabled { get; init; } = true;

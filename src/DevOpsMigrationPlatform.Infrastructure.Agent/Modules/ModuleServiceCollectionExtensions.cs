@@ -81,6 +81,14 @@ public static class ModuleServiceCollectionExtensions
             });
 
         services.RegisterWorkItemServices(configuration);
+
+        // Work-item capability extensions (IModuleExtension ports). Each owns its own IOptions<T>.
+#if NET7_0_OR_GREATER
+        services.AddSchemaEntry<LinksExtensionOptions>("Work item Links extension (related/external/hyperlinks) configuration");
+#endif
+        services.AddOptions<LinksExtensionOptions>();
+        services.AddSingleton<LinksWorkItemExtension>();
+
         services.TryAddSingleton<IWorkItemExportOrchestratorFactory, WorkItemExportOrchestratorFactory>();
         services.AddScoped<IWorkItemsImportCapabilityValidator, WorkItemsImportCapabilityValidator>();
         services.AddSingleton<IWorkItemsNodeReadinessOrchestrator>(sp =>
