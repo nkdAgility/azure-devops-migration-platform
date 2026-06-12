@@ -52,7 +52,8 @@ public class WorkItemResolutionProcessorTests
             .Returns<string>(id => id);
     }
 
-    private WorkItemResolutionProcessor CreateSut()
+    private WorkItemResolutionProcessor CreateSut(
+        DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.LinksWorkItemExtension? linksExtension = null)
         => new WorkItemResolutionProcessor(
             _mockTarget.Object,
             _mockIdMapStore.Object,
@@ -61,7 +62,12 @@ public class WorkItemResolutionProcessorTests
             NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
-            package: _mockPackage.Object);
+            package: _mockPackage.Object,
+            linksExtension: linksExtension);
+
+    private static DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.LinksWorkItemExtension DisabledLinks()
+        => new(Microsoft.Extensions.Options.Options.Create(
+            new DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.LinksExtensionOptions { Enabled = false }));
 
     // ── ProcessAsync_WhenRevisionJsonMissing_SkipsFolder ──────────────────────
 
@@ -196,9 +202,9 @@ public class WorkItemResolutionProcessorTests
         _mockIdMapStore.Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(10);
         _mockTarget.Setup(t => t.WorkItemExistsAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
-        var ext = new WorkItemsModuleExtensions { LinksEnabled = false };
+        var ext = new WorkItemsModuleExtensions();
 
-        var sut = CreateSut();
+        var sut = CreateSut(linksExtension: DisabledLinks());
         await sut.ProcessAsync(Folder, ext, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()), Times.Never);

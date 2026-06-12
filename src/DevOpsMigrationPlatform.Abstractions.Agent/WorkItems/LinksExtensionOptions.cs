@@ -16,5 +16,5 @@ public sealed class LinksExtensionOptions
     public static string SectionName => "MigrationPlatform:Modules:WorkItems:Extensions:Links";
 
     /// <summary>Whether related-link / external-link / hyperlink import is enabled. Default: <c>true</c>.</summary>
-    public bool Enabled { get; init; } = true;
+    public bool Enabled { get; set; } = true;
 }

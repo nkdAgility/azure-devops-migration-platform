@@ -16,5 +16,5 @@ public sealed class CommentsExtensionOptions
     public static string SectionName => "MigrationPlatform:Modules:WorkItems:Extensions:Comments";
 
     /// <summary>Whether inline-comment replay is enabled during import. Default: <c>true</c>.</summary>
-    public bool Enabled { get; init; } = true;
+    public bool Enabled { get; set; } = true;
 }

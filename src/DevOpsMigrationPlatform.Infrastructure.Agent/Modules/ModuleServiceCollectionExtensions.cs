@@ -86,19 +86,22 @@ public static class ModuleServiceCollectionExtensions
 #if NET7_0_OR_GREATER
         services.AddSchemaEntry<LinksExtensionOptions>("Work item Links extension (related/external/hyperlinks) configuration");
 #endif
-        services.AddOptions<LinksExtensionOptions>();
+        services.AddOptions<LinksExtensionOptions>()
+            .Configure<IOptions<WorkItemsModuleOptions>>((o, wi) => o.Enabled = wi.Value.Extensions.Links.Enabled);
         services.AddSingleton<LinksWorkItemExtension>();
 
 #if NET7_0_OR_GREATER
         services.AddSchemaEntry<AttachmentsExtensionOptions>("Work item Attachments extension (attachment binary replay) configuration");
 #endif
-        services.AddOptions<AttachmentsExtensionOptions>();
+        services.AddOptions<AttachmentsExtensionOptions>()
+            .Configure<IOptions<WorkItemsModuleOptions>>((o, wi) => o.Enabled = wi.Value.Extensions.Attachments.Enabled);
         services.AddSingleton<AttachmentsWorkItemExtension>();
 
 #if NET7_0_OR_GREATER
         services.AddSchemaEntry<CommentsExtensionOptions>("Work item Comments extension (inline comment replay) configuration");
 #endif
-        services.AddOptions<CommentsExtensionOptions>();
+        services.AddOptions<CommentsExtensionOptions>()
+            .Configure<IOptions<WorkItemsModuleOptions>>((o, wi) => o.Enabled = wi.Value.Extensions.Comments.Enabled);
         services.AddSingleton<CommentsWorkItemExtension>();
 
         services.TryAddSingleton<IWorkItemExportOrchestratorFactory, WorkItemExportOrchestratorFactory>();

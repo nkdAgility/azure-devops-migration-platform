@@ -282,8 +282,8 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
             await WriteCursorAsync(folderPath, CursorStage.AppliedFields, ct).ConfigureAwait(false);
         }
 
-        // Stage C — AppliedLinks (delegated to the Links capability port; cursor/enablement unchanged)
-        if (ext.LinksEnabled && ShouldRunStage(CursorStage.AppliedLinks, resumeAtStage))
+        // Stage C — AppliedLinks (delegated to the Links capability port; enablement from the port's own IsEnabled)
+        if (_linksExtension.IsEnabled && ShouldRunStage(CursorStage.AppliedLinks, resumeAtStage))
         {
             _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.AppliedLinks, folderPath);
             await _linksExtension.ImportAsync(
@@ -302,14 +302,14 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
                 ct).ConfigureAwait(false);
             await WriteCursorAsync(folderPath, CursorStage.AppliedLinks, ct).ConfigureAwait(false);
         }
-        else if (!ext.LinksEnabled && ShouldRunStage(CursorStage.AppliedLinks, resumeAtStage))
+        else if (!_linksExtension.IsEnabled && ShouldRunStage(CursorStage.AppliedLinks, resumeAtStage))
         {
             // Skip stage but still advance cursor so resume logic is consistent
             await WriteCursorAsync(folderPath, CursorStage.AppliedLinks, ct).ConfigureAwait(false);
         }
 
-        // Stage D — UploadedAttachments
-        if (ext.AttachmentsEnabled && ShouldRunStage(CursorStage.UploadedAttachments, resumeAtStage))
+        // Stage D — UploadedAttachments (enablement from the Attachments port's own IsEnabled)
+        if (_attachmentsExtension.IsEnabled && ShouldRunStage(CursorStage.UploadedAttachments, resumeAtStage))
         {
             _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.UploadedAttachments, folderPath);
             await _attachmentsExtension.ImportAsync(
@@ -332,13 +332,13 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
 
             await WriteCursorAsync(folderPath, CursorStage.UploadedAttachments, ct).ConfigureAwait(false);
         }
-        else if (!ext.AttachmentsEnabled && ShouldRunStage(CursorStage.UploadedAttachments, resumeAtStage))
+        else if (!_attachmentsExtension.IsEnabled && ShouldRunStage(CursorStage.UploadedAttachments, resumeAtStage))
         {
             await WriteCursorAsync(folderPath, CursorStage.UploadedAttachments, ct).ConfigureAwait(false);
         }
 
-        // Inline comments (delegated to the Comments capability port; enablement gate unchanged, no cursor stage)
-        if (ext.Comments.Enabled)
+        // Inline comments (delegated to the Comments capability port; enablement from the port's own IsEnabled, no cursor stage)
+        if (_commentsExtension.IsEnabled)
         {
             await _commentsExtension.ImportAsync(
                 new WorkItemExtensionContext
