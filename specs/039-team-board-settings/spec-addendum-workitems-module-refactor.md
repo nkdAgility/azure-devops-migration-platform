@@ -1,13 +1,29 @@
 # Spec Addendum — WorkItems Module Refactor (extension-model alignment)
 
-**Status**: Context-capture / planning. No code or tests changed by this addendum.
+**Status**: **In progress — Stage 1 COMPLETE (test-first, verified green). Stages 2–4 pending.** Design
+accepted in [ADR 0019](../../docs/adr/0019-workitems-extension-seam-and-staged-cursor-pipeline.md).
+
+Stage 1 delivered:
+- **Increment 1 — inventory move (RED→GREEN→REFACTOR).** `WorkItemsOrchestratorInventoryTests` written
+  and run **RED** (NotImplementedException ×4) → orchestrator `CaptureAsync` implemented **GREEN** (4/4)
+  → module delegates; dead `ApplyImportReplayLevers` + unused activity sources removed. Also closed a
+  DI-vs-factory duplicate-construction regression (DI now passes the inventory deps).
+- **Increment 2 — factory removed, module thinned.** `IWorkItemsOrchestratorFactory` /
+  `WorkItemsOrchestratorFactory` **deleted**; DI composes the orchestrator graph directly; `WorkItemsModule`
+  is now a thin façade taking only `IWorkItemsOrchestrator` (ctor collapsed from ~30 params to 1, all
+  phases delegate). Obsolete fat-ctor guard-clause tests and the redundant module-inventory tests removed;
+  the module-isolation test reframed to the thin module + orchestrator. Behavioural construction relocated
+  to a `WorkItemsModuleTestFactory` test helper.
+
+**Gate: full suite green (1064/1064), both net481 + net10 build.** Remaining: Stages 2–4 (staged cursor
+pipeline + Links → Attachments → Comments), each failing-test-first per §6/§10.
 **Parent feature**: [039-team-board-settings](spec.md) (extension architecture established here).
-**Scope**: `WorkItemsModule` and `WorkItemsOrchestrator` (and the `WorkItems/**` runtime).
+**Scope**: `WorkItemsModule`, `WorkItemsOrchestrator`, and the `WorkItems/**` per-revision runtime.
 **Why it lives here**: 039 established the canonical extension model
 ([execution-contract](../../.agents/10-contracts/specs/execution-contract.md),
-[execution-model](../../.agents/30-context/architecture/execution-model.md)). This addendum
-records how WorkItems is brought into line with it, captured during design discussion so the
-context is not lost. It is **not** an approval to edit Teams or WorkItems code.
+[execution-model](../../.agents/30-context/architecture/execution-model.md)). This addendum is the
+approved plan for bringing WorkItems into line with it. It is **not** an approval to begin editing
+code; implementation must follow the test-first session model in §10.
 
 ---
 
@@ -206,11 +222,14 @@ running the green parity tests too. Therefore:
   is compile-red, fixed immediately in the same step. This is test-first in spirit, not a runnable red.
 - **Never leave the test project non-compiling across commits** — that loses the safety net.
 
-### Ordering discipline
-1. First real slice = **Phase 2 (seam) + one extension (Links)** as a single red→green→refactor, so a
-   working extension path exists before mass-moving the rest.
-2. Each commit: driver test red → production green → old path deleted → **all** parity tests green.
-3. Never advance with a red parity test or a non-compiling project.
+### Ordering discipline (aligned with the corrected sequence in §9)
+1. First slice = **Stage 1 (thin the module)** — Step 1.1 dead-code removal, then the inventory move,
+   then composition-to-DI / ctor-slim — each as its own RED→GREEN→REFACTOR increment. Only after
+   Stage 1 is green do Stages 2–4 (staged cursor pipeline, then Links → Attachments → Comments).
+2. Each commit: driver test RED (shown failing) → minimal production GREEN → widen to full suite green
+   → REFACTOR (consolidate behind the seam) staying green.
+3. Never advance with a red parity test or a non-compiling project; never edit production before a
+   pasted RED.
 
 ---
 
@@ -223,7 +242,165 @@ running the green parity tests too. Therefore:
 
 ---
 
-## 8. Cross-references
+## 8. Seam-location correction (found at implementation kickoff)
+
+**The original plan (§4) assumed `WorkItemsOrchestrator` owns the per-work-item loop, like
+`TeamsOrchestrator`. Code review on kickoff proved this false.** Recording it so the plan is not
+re-attempted on the wrong assumption.
+
+Actual structure:
+- `WorkItemsOrchestrator.ExportAsync` only *configures and delegates* to
+  `_exportOrchestratorFactory.Create(...).ExportAsync(source, ct)`; `ImportAsync` delegates to
+  `WorkItemsImportRuntime`. It does **not** loop entities.
+- The per-entity loop **and** the capability dispatch live in **`RevisionFolderProcessor`** (import),
+  interleaved with **`CursorStage` checkpoint staging**:
+  - `ext.EmbeddedImages.Enabled` → field-value rewrite (~L253)
+  - `ext.LinksEnabled` → `CursorStage.AppliedLinks` (~L278)
+  - `ext.AttachmentsEnabled` → `CursorStage.UploadedAttachments` (~L296)
+  - `ext.Comments.Enabled` → inline comments (~L317)
+
+Consequences:
+1. **Phase 2 (drop the extension list into the orchestrator loop) is inapplicable as written** — the
+   loop is not in `WorkItemsOrchestrator`. The real extension seam is the **per-revision stage
+   pipeline** in `RevisionFolderProcessor` (import) and the export equivalent.
+2. **Phase 3 is higher-risk than Teams** — each facet is a **checkpointed resume stage**
+   (`CursorStage`), not a free-standing `if`-block. Extracting it means restructuring the stage
+   pipeline and its cursor/checkpoint semantics — the "do not unpick" zone.
+
+**Resolved** (operator): the extension seam lands at the **revision-stage pipeline** in
+`RevisionFolderProcessor` (the architecturally correct, forward-looking location). The cursor
+*format* is preserved, not changed (see §9 "on-disk cursor format does NOT change"), so the
+"touches checkpoint staging" risk is the *dispatch mechanism*, not the persisted contract.
+Governance: paperwork before code — Stages 2+ gated on ADR + consent (see §10).
+
+---
+
+## 9. Corrected architecture — the sound, future-proof target (supersedes §4 Phase 2/3)
+
+The kickoff discovery (§8) showed the real per-revision import pipeline is a **fixed, ordered,
+checkpointed stage sequence** in `RevisionFolderProcessor`:
+
+```
+A CreatedOrUpdated     core   (create/update + id-map)
+B AppliedFields        core   (fields + identity + node-translation; EmbeddedImages rewrite lives INSIDE here)
+C AppliedLinks         Links capability        (own CursorStage)
+D UploadedAttachments  Attachments capability  (own CursorStage)
+  inline comments      Comments capability     (NO cursor stage)
+E Completed            core
+```
+
+### The real problem
+`CursorStage` is a **hard-coded enum** — the capability set is baked into the *checkpoint contract*.
+Disabled capabilities still write their cursor to keep resume consistent. **This is the boolean-flag
+anti-pattern at the checkpoint layer.** Adding a capability requires editing the enum and the resume
+logic. Not future-proof.
+
+### The keystone refactor
+Generalise the pipeline so **stages are extension-keyed, not a fixed enum**:
+
+```
+stages = [ core:CreatedOrUpdated, core:AppliedFields, ...ordered extensions..., core:Completed ]
+foreach revision:
+  resumeAt = cursor.read(folder)              // last completed stage NAME
+  foreach stage in stages:
+    if already-done(stage.Name, resumeAt): continue
+    await stage.Execute(ctx)                   // core step OR extension.ImportAsync
+    cursor.write(folder, stage.Name)           // keyed by NAME, not a fixed enum value
+```
+
+Cursor keyed by **stage name** (the extension `Name`) is strictly more robust than the positional
+enum — resume matches by identity; adding/removing/reordering a capability needs **no enum change and
+no core edit**. `RevisionFolderProcessor` becomes the real **sub-orchestrator** owning the loop +
+cursor; Links/Attachments/Comments become `IModuleExtension` stages with both directions.
+
+### The on-disk cursor format does NOT change (no upgrader)
+Restructuring *where capability logic lives* does not govern the persisted cursor format. The
+generalised pipeline **reuses the existing marker strings** (`CreatedOrUpdated`, `AppliedFields`,
+`AppliedLinks`, `UploadedAttachments`, `Completed`) as the stage `Name`s. Therefore:
+- An in-flight migration paused on the old code **resumes unchanged** on the new code — same strings on disk.
+- A *new* capability adds a *new* marker string. That is **additive and backward-compatible** (old
+  packages simply lack it → "marker not present = run the stage"), which is the existing resume
+  semantics — not a breaking change.
+- **No version bump and no upgrader are required** for the pipeline generalisation (architecture-boundary
+  Rule 9 is satisfied because the format is preserved, not changed). `CursorStage` may keep the existing
+  constants as the canonical stage-name registry; the change is the *dispatch mechanism* (ordered list
+  vs hard-coded switch), not the persisted contract.
+
+### EmbeddedImages placement (decided)
+EmbeddedImages is **not** a peer pipeline stage — it is a field-value rewrite *inside* the core
+AppliedFields step (download + store + rewrite `<img>` refs). It is modelled as a **field-rewrite
+contributor invoked by the core fields stage** (a FieldTransform-with-I/O), **not** a standalone
+stage. This is the decided forward-looking placement: it keeps the AppliedFields cursor marker
+meaning intact and avoids fragmenting field application across two stages.
+
+### Corrected sequence
+- **Stage 1 — Thin the module** (old Phase 1, unchanged): move inventory down, composition to
+  DI/factory, drop tool fields, delete dead `ApplyImportReplayLevers`, slim ctor. Independent and
+  safe; do first.
+- **Stage 2 — Generalise the cursor/stage pipeline** (NEW keystone, replaces old Phase 2): convert the
+  fixed `CursorStage` enum + inline stage `if`-blocks into an ordered, **name-keyed** stage pipeline
+  in `RevisionFolderProcessor` (and the export-side folder writer). Behaviour-preserving; parity-gated.
+  Resume now matches by stage name.
+- **Stage 3 — Introduce the extension stage abstraction**: `WorkItemExtensionContext : IExtensionContext`;
+  the pipeline runs an ordered `IReadOnlyList<IModuleExtension>` as its non-core stages. Wire existing
+  capabilities as stages — still hard-coded, no behaviour change.
+- **Stage 4 — Extract facets one per commit** (Links → Attachments → Comments), each moving its stage
+  logic into `{Facet}WorkItemExtension` with its own `IOptions<T>`; cursor is now name-keyed so resume
+  keeps working. Handle EmbeddedImages per the field-rewrite-contributor decision above.
+- **Stage 5 — Retire god-object + `RevisionsEnabled`; per-extension config; docs; tool-definition fix.**
+
+### Why this is the future-proof end-state
+- New capability = new `IModuleExtension` stage. No enum edit, no core edit, no resume-logic edit.
+- Checkpoint/resume is generic and identity-based, not positional.
+- Core (create/update, fields, id-map) stays core; facets are pluggable; tools are consumed within
+  stages. Module is thin; `RevisionFolderProcessor` is the sub-orchestrator that owns the loop+cursor.
+
+---
+
+## 10. Governance (mandatory before Stage 2+ code)
+
+Per `.agents/20-guardrails/core/change-governance.md` and `change-classes.yaml`. **Paperwork before
+code — always.**
+
+### Change classification (all stages NOT STARTED)
+| Stage | Class | Why | Required evidence (test-first) |
+|---|---|---|---|
+| Step 1.1 — delete dead `ApplyImportReplayLevers` | **A** | internal, behind surface, no entrypoint | failing test first, then green suite; Rule 30 remediation |
+| Stage 1 — thin the module | **B** | behaviour at a canonical surface (orchestrator gains inventory ownership), no new public surface | RED→GREEN→REFACTOR per increment · behavioural tests across slices · 5-perspective evidence · doc update |
+| Stages 2–5 — cursor pipeline + extension seam | **C** | adds/replaces a canonical surface (extension seam) + alters dispatch behind the cursor contract | operator consent · ADR · contract-compatibility tests · test-first RED→GREEN→REFACTOR trace |
+
+**Every stage, including Stage 1 and Step 1.1, is failing-test-first.** Per
+`test-first-workflow.md` line 47, no addition, fix, or behaviour change may begin from existing code
+without a failing test — the RED test is written and run (and shown failing) **before** any production
+edit. The ADR for the Class C scope is recorded and accepted:
+[ADR 0019](../../docs/adr/0019-workitems-extension-seam-and-staged-cursor-pipeline.md).
+
+### Capability Seam Decision (mandatory design evidence — capability-ethos rules)
+- **Concern**: per-work-item capability application (links, attachments, comments) during import/export.
+- **Canonical seam owner**: `RevisionFolderProcessor` (the per-revision sub-orchestrator) drives an
+  ordered, named **stage pipeline**; each non-core stage is an `IModuleExtension`.
+- **Canonical public surface**: `IModuleExtension` (single extension contract) over
+  `WorkItemExtensionContext : IExtensionContext`. No `I{Domain}Extension`.
+- **Allowed adapter/policy responsibilities**: enablement (`IsEnabled` from own `IOptions<T>`), order,
+  capability gating, checkpoint interaction. Phase/slice policy lives in the extension, not in a new engine.
+- **Prohibited parallel entry points**: no second per-revision dispatch path; extensions **call** the
+  canonical seams (`IWorkItemTarget`, `IIdMapStore`, the tools) — they must **not** reimplement
+  create/update, id-map, field, or translation engines (capability-ethos rules 2–3, 5).
+- **Tools consumed (not reimplemented)**: `IIdentityTranslationTool`, `INodeTranslationTool`,
+  `IFieldTransformTool`, embedded-image replay service.
+
+### Mandatory remediation note (Rule 30)
+Touching `RevisionFolderProcessor` / `WorkItemsImportRuntime` obligates remediating *known*
+non-compliance in those classes within the touched scope as the first task — or an explicit
+operator-approved bounded follow-up. To be enumerated in the ADR.
+
+### Architecture-perspective evidence (required for Class B/C)
+ADR must carry evidence across: Modular Monolith · Clean · Hexagonal · Vertical Slice · Screaming ·
+Architecture Deepening (`.agents/20-guardrails/core/architecture-perspectives-ethos.md`).
+
+---
+
+## 11. Cross-references
 - [execution-contract.md](../../.agents/10-contracts/specs/execution-contract.md) — canonical layer rules
 - [execution-model.md](../../.agents/30-context/architecture/execution-model.md) — full layer model
 - [contracts/IModuleExtension.md](contracts/IModuleExtension.md) — the single extension contract

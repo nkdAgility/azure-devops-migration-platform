@@ -32,3 +32,4 @@ Each ADR records an important architectural decision: what was decided, why, wha
 | [0016](0016-unified-package-access.md) | Unified package access | Accepted |
 | [0017](0017-capability-seam-ethos-and-tdd-architecture-governance.md) | Capability seam ethos and TDD architecture governance | Accepted |
 | [0018](0018-compatibility-only-guard-clauses.md) | Compatibility-only guard clauses | Accepted |
+| [0019](0019-workitems-extension-seam-and-staged-cursor-pipeline.md) | WorkItems extension seam and staged cursor pipeline | Accepted |

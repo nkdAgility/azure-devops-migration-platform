@@ -142,20 +142,7 @@ public sealed class ServicesFeaturesDslTests
         sourceEndpoint.SetupGet(e => e.Project).Returns("ProjectA");
 
         var module = new WorkItemsModule(
-            sourceFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Export.IWorkItemRevisionSourceFactory>(),
-            logger: Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemsModule>.Instance,
-            options: Microsoft.Extensions.Options.Options.Create(new WorkItemsModuleOptions()),
-            sourceEndpointInfo: sourceEndpoint.Object,
-            orchestratorLogger: Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemsImportRuntime>.Instance,
-            importTargetFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemTargetFactory>(),
-            resolutionStrategyFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemResolutionStrategyFactory>(),
-            checkpointingFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing.ICheckpointingServiceFactory>(),
-            idMapStoreFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Storage.IIdMapStoreFactory>(),
-            processorFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Export.IWorkItemResolutionProcessorFactory>(),
-            targetEndpointInfo: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Context.ITargetEndpointInfo>(),
-            identityMappingService: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Identity.IIdentityMappingService>(),
-            nodeTranslationTool: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Tools.INodeTranslationTool>(),
-            fieldTransformTool: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Tools.IFieldTransformTool>());
+            Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IWorkItemsOrchestrator>());
 
         Assert.IsTrue(module.DependsOn.Any(d => d.ModuleType == typeof(IdentitiesModule) && d.AppliesToImport));
     }

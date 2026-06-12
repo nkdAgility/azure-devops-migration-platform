@@ -22,41 +22,45 @@ public sealed class ModuleIsolationTests
     // ── Scenario: ModuleConstructed_IsolatedOptions_NoFullGraph ─────────────
 
     /// <summary>
-    /// WorkItemsModule constructor receives IOptions&lt;WorkItemsModuleOptions&gt;,
-    /// ISourceEndpointInfo, ITargetEndpointInfo, and does NOT receive MigrationPlatformOptions.
+    /// ADR 0019: <c>WorkItemsModule</c> is a thin façade taking only <c>IWorkItemsOrchestrator</c>;
+    /// it holds no logic and receives no config. The isolated options slice
+    /// (<c>IOptions&lt;WorkItemsModuleOptions&gt;</c>, not the full platform graph) now lives on
+    /// <c>WorkItemsOrchestrator</c>, which is composed by DI.
     /// </summary>
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public void WorkItemsModule_Constructor_ReceivesIsolatedOptionsSlice_NotFullGraph()
     {
-        // Arrange
-        var ctors = typeof(DevOpsMigrationPlatform.Infrastructure.Agent.Modules.WorkItemsModule)
-            .GetConstructors(BindingFlags.Public | BindingFlags.Instance);
-
-        Assert.IsTrue(ctors.Length > 0, "WorkItemsModule must have at least one public constructor.");
-        var ctor = ctors[0];
-        var parameters = ctor.GetParameters();
-        var paramTypes = parameters.Select(p => p.ParameterType).ToArray();
-
-        // Assert isolated options slice present
-        Assert.IsTrue(
-            paramTypes.Any(t => t == typeof(IOptions<WorkItemsModuleOptions>)),
-            "WorkItemsModule constructor must accept IOptions<WorkItemsModuleOptions>.");
-
-        // Assert endpoint info present
-        Assert.IsTrue(
-            paramTypes.Any(t => t == typeof(ISourceEndpointInfo)),
-            "WorkItemsModule constructor must accept ISourceEndpointInfo.");
+        // The thin module takes only the orchestrator and no platform graph.
+        var moduleCtor = typeof(DevOpsMigrationPlatform.Infrastructure.Agent.Modules.WorkItemsModule)
+            .GetConstructors(BindingFlags.Public | BindingFlags.Instance)
+            .Single();
+        var moduleParamTypes = moduleCtor.GetParameters().Select(p => p.ParameterType).ToArray();
 
         Assert.IsTrue(
-            paramTypes.Any(t => t == typeof(ITargetEndpointInfo)),
-            "WorkItemsModule constructor must accept ITargetEndpointInfo.");
-
-        // Assert full platform options graph is NOT injected
+            moduleParamTypes.Any(t => t == typeof(DevOpsMigrationPlatform.Abstractions.Agent.Modules.IWorkItemsOrchestrator)),
+            "Thin WorkItemsModule must accept IWorkItemsOrchestrator.");
         Assert.IsFalse(
-            paramTypes.Any(t => t == typeof(MigrationPlatformOptions)),
-            "WorkItemsModule constructor must NOT receive the full MigrationPlatformOptions graph.");
+            moduleParamTypes.Any(t => t == typeof(MigrationPlatformOptions)),
+            "WorkItemsModule must NOT receive the full MigrationPlatformOptions graph.");
+
+        // The orchestrator (the real owner) receives the isolated options slice + endpoint info,
+        // and never the full platform graph.
+        var orchestratorCtor = typeof(DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution.WorkItemsOrchestrator)
+            .GetConstructors(BindingFlags.Public | BindingFlags.Instance)
+            .Single();
+        var orchestratorParamTypes = orchestratorCtor.GetParameters().Select(p => p.ParameterType).ToArray();
+
+        Assert.IsTrue(
+            orchestratorParamTypes.Any(t => t == typeof(IOptions<WorkItemsModuleOptions>)),
+            "WorkItemsOrchestrator must accept IOptions<WorkItemsModuleOptions>.");
+        Assert.IsTrue(
+            orchestratorParamTypes.Any(t => t == typeof(ISourceEndpointInfo)),
+            "WorkItemsOrchestrator must accept ISourceEndpointInfo.");
+        Assert.IsFalse(
+            orchestratorParamTypes.Any(t => t == typeof(MigrationPlatformOptions)),
+            "WorkItemsOrchestrator must NOT receive the full MigrationPlatformOptions graph.");
     }
 
     // ── Scenario: ModuleUnitTest_IsolatedOptions_MinimalDependencies ────────

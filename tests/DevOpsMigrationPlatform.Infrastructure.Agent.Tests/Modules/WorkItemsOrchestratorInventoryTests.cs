@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
-using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
@@ -20,10 +22,12 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
-using Microsoft.Extensions.Logging;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Configuration;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -31,8 +35,12 @@ using Moq;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules;
 
+/// <summary>
+/// Destination tests for the inventory/capture phase after it moves from <c>WorkItemsModule</c>
+/// into <see cref="WorkItemsOrchestrator"/> (ADR 0019, Stage 1). Drives the move RED→GREEN.
+/// </summary>
 [TestClass]
-public sealed class WorkItemsModuleInventoryTests
+public sealed class WorkItemsOrchestratorInventoryTests
 {
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
@@ -48,8 +56,8 @@ public sealed class WorkItemsModuleInventoryTests
         };
         ActivitySource.AddActivityListener(listener);
 
-        var module = CreateModule();
-        await module.CaptureAsync(CreateContext(), CancellationToken.None);
+        var orchestrator = CreateOrchestrator();
+        await orchestrator.CaptureAsync(CreateContext(), CancellationToken.None);
 
         var activity = activities.Single(a => a.OperationName == "inventory.workitems");
         Assert.AreEqual("job-1", activity.Tags.First(t => t.Key == "job.id").Value);
@@ -69,26 +77,38 @@ public sealed class WorkItemsModuleInventoryTests
         metrics.Setup(m => m.RecordInventoryWorkItemsDuration(It.IsAny<double>(), It.IsAny<MetricsTagList>()))
             .Verifiable();
 
-        var module = CreateModule(PlatformMetrics: metrics.Object);
-        await module.CaptureAsync(CreateContext(), CancellationToken.None);
+        var orchestrator = CreateOrchestrator(metrics: metrics.Object);
+        await orchestrator.CaptureAsync(CreateContext(), CancellationToken.None);
 
         metrics.Verify();
     }
 
     [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task CaptureAsync_EmitsStartAndCompletionProgressWithMetrics()
+    public async Task CaptureAsync_DrivesInventoryOrchestrator_WhenPresent()
     {
-        var sink = new Mock<IProgressSink>(MockBehavior.Loose);
-        var events = new List<ProgressEvent>();
-        sink.Setup(s => s.Emit(It.IsAny<ProgressEvent>())).Callback<ProgressEvent>(events.Add);
+        var inventoryOrchestrator = new Mock<IInventoryOrchestrator>(MockBehavior.Strict);
+        var ran = false;
+        inventoryOrchestrator
+            .Setup(o => o.RunAsync(
+                "WorkItems",
+                It.IsAny<IAsyncEnumerable<InventoryProgressEvent>>(),
+                It.IsAny<InventoryContext>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .Returns<string, IAsyncEnumerable<InventoryProgressEvent>, InventoryContext, int, CancellationToken>(
+                async (_, stream, _, _, ct) =>
+                {
+                    ran = true;
+                    await foreach (var _ in stream.WithCancellation(ct).ConfigureAwait(false)) { }
+                });
 
-        var module = CreateModule();
-        await module.CaptureAsync(CreateContext(progressSink: sink.Object), CancellationToken.None);
+        var orchestrator = CreateOrchestrator(inventoryOrchestrator: inventoryOrchestrator.Object);
+        await orchestrator.CaptureAsync(CreateContext(), CancellationToken.None);
 
-        Assert.IsTrue(events.Any(e => e.Stage == "Inventorying"));
-        Assert.IsTrue(events.Any(e => e.Stage == "Inventoried" && e.Metrics is not null));
+        Assert.IsTrue(ran, "CaptureAsync must drive the IInventoryOrchestrator when one is supplied.");
+        inventoryOrchestrator.VerifyAll();
     }
 
     [TestCategory("CodeTest")]
@@ -96,17 +116,25 @@ public sealed class WorkItemsModuleInventoryTests
     [TestMethod]
     public async Task CaptureAsync_LogsWarningWhenNoWorkItemsFound()
     {
-        var logger = new Mock<ILogger<WorkItemsModule>>(MockBehavior.Loose);
-        var module = CreateModule(logger: logger.Object, workItemCount: 0, revisionCount: 0);
+        var logger = new Mock<Microsoft.Extensions.Logging.ILogger<WorkItemsModule>>(MockBehavior.Loose);
+        var orchestrator = CreateOrchestrator(logger: logger.Object, workItemCount: 0, revisionCount: 0);
 
-        await module.CaptureAsync(CreateContext(), CancellationToken.None);
+        await orchestrator.CaptureAsync(CreateContext(), CancellationToken.None);
 
-        logger.VerifyLog(LogLevel.Warning, "Zero items inventoried for WorkItems in ProjectA", Times.Once());
+        logger.Verify(
+            x => x.Log(
+                Microsoft.Extensions.Logging.LogLevel.Warning,
+                It.IsAny<Microsoft.Extensions.Logging.EventId>(),
+                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("Zero items inventoried for WorkItems in ProjectA")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once());
     }
 
-    private static WorkItemsModule CreateModule(
-        ILogger<WorkItemsModule>? logger = null,
-        IPlatformMetrics? PlatformMetrics = null,
+    private static WorkItemsOrchestrator CreateOrchestrator(
+        Microsoft.Extensions.Logging.ILogger<WorkItemsModule>? logger = null,
+        IPlatformMetrics? metrics = null,
+        IInventoryOrchestrator? inventoryOrchestrator = null,
         int workItemCount = 2,
         int revisionCount = 4)
     {
@@ -119,22 +147,7 @@ public sealed class WorkItemsModuleInventoryTests
         var targetEndpoint = new Mock<ITargetEndpointInfo>();
         targetEndpoint.SetupGet(s => s.Project).Returns("ProjectA");
         targetEndpoint.SetupGet(s => s.Url).Returns("https://target.example");
-        targetEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
         targetEndpoint.SetupGet(s => s.OrganisationSlug).Returns("test-target-org");
-
-        var orchestrator = new Mock<IInventoryOrchestrator>(MockBehavior.Strict);
-        orchestrator
-            .Setup(o => o.RunAsync(
-                "WorkItems",
-                It.IsAny<IAsyncEnumerable<InventoryProgressEvent>>(),
-                It.IsAny<InventoryContext>(),
-                It.IsAny<int>(),
-                It.IsAny<CancellationToken>()))
-            .Returns<string, IAsyncEnumerable<InventoryProgressEvent>, InventoryContext, int, CancellationToken>(
-                async (_, stream, _, _, ct) =>
-                {
-                    await foreach (var _ in stream.WithCancellation(ct).ConfigureAwait(false)) { }
-                });
 
         var discovery = new Mock<IWorkItemDiscoveryService>(MockBehavior.Strict);
         discovery
@@ -146,25 +159,43 @@ public sealed class WorkItemsModuleInventoryTests
                 It.IsAny<CancellationToken>()))
             .Returns(CountSummaries(workItemCount, revisionCount));
 
-        return new WorkItemsModule(
-            Mock.Of<IWorkItemRevisionSourceFactory>(),
-            logger ?? NullLogger<WorkItemsModule>.Instance,
-            Options.Create(new WorkItemsModuleOptions()),
-            sourceEndpoint.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance,
+        var options = Options.Create(new WorkItemsModuleOptions());
+        var importRuntime = new WorkItemsImportRuntime(
             Mock.Of<IWorkItemTargetFactory>(),
             Mock.Of<IWorkItemResolutionStrategyFactory>(),
             Mock.Of<ICheckpointingServiceFactory>(),
             Mock.Of<IIdMapStoreFactory>(),
             Mock.Of<IWorkItemResolutionProcessorFactory>(),
+            null,
+            Mock.Of<IWorkItemsImportCapabilityValidator>(),
+            Mock.Of<IWorkItemsNodeReadinessOrchestrator>(),
+            null,
+            NullLogger<WorkItemsImportRuntime>.Instance,
+            NullLogger<WorkItemsModule>.Instance,
+            sourceEndpoint.Object,
             targetEndpoint.Object,
-            identityMappingService: Mock.Of<IIdentityMappingService>(),
-            nodeTranslationTool: Mock.Of<INodeTranslationTool>(),
-            fieldTransformTool: Mock.Of<IFieldTransformTool>(),
-            fetchService: null,
-            inventoryOrchestrator: orchestrator.Object,
-            PlatformMetrics: PlatformMetrics,
-            discoveryService: discovery.Object);
+            options);
+
+        var importPreparer = new ImportPreparer(options, "test-org", "ProjectA", Array.Empty<IImportFailurePattern>());
+
+        return new WorkItemsOrchestrator(
+            Mock.Of<IWorkItemRevisionSourceFactory>(),
+            null,
+            null,
+            null,
+            Mock.Of<IWorkItemExportOrchestratorFactory>(),
+            Mock.Of<ICheckpointingServiceFactory>(),
+            logger ?? NullLogger<WorkItemsModule>.Instance,
+            metrics,
+            discovery.Object,
+            null,
+            null,
+            options,
+            sourceEndpoint.Object,
+            importPreparer,
+            importRuntime,
+            inventoryOrchestrator: inventoryOrchestrator,
+            repoDiscoveryService: null);
     }
 
     private static InventoryContext CreateContext(IProgressSink? progressSink = null)
@@ -178,7 +209,7 @@ public sealed class WorkItemsModuleInventoryTests
         };
 
     private static bool HasTag(MetricsTagList tags, string key, string value)
-        => tags.Any(t => t.Key == key && string.Equals(t.Value?.ToString(), value, System.StringComparison.Ordinal));
+        => tags.Any(t => t.Key == key && string.Equals(t.Value?.ToString(), value, StringComparison.Ordinal));
 
     private static async IAsyncEnumerable<ProjectDiscoverySummary> CountSummaries(int workItemCount, int revisionCount)
     {
@@ -191,17 +222,4 @@ public sealed class WorkItemsModuleInventoryTests
         };
         await Task.CompletedTask;
     }
-}
-
-internal static class LoggerMoqExtensions
-{
-    public static void VerifyLog<T>(this Mock<ILogger<T>> logger, LogLevel level, string template, Times times)
-        => logger.Verify(
-            x => x.Log(
-                level,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains(template)),
-                It.IsAny<System.Exception>(),
-                It.IsAny<System.Func<It.IsAnyType, System.Exception?, string>>()),
-            times);
 }

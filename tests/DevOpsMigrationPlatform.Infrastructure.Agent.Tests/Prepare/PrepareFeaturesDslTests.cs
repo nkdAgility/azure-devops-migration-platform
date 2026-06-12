@@ -537,21 +537,9 @@ public sealed class PrepareFeaturesDslTests
 
     private static WorkItemsModule CreateWorkItemsModule(string connectorType, IEnumerable<IImportFailurePattern>? patterns = null)
     {
-        return new WorkItemsModule(
-            Mock.Of<Abstractions.Agent.Export.IWorkItemRevisionSourceFactory>(),
-            NullLogger<WorkItemsModule>.Instance,
-            Options.Create(new WorkItemsModuleOptions()),
-            CreateSourceEndpoint(connectorType),
-            NullLogger<WorkItemsImportRuntime>.Instance,
-            Mock.Of<Abstractions.Agent.WorkItems.IWorkItemTargetFactory>(),
-            Mock.Of<Abstractions.Agent.WorkItems.IWorkItemResolutionStrategyFactory>(),
-            Mock.Of<ICheckpointingServiceFactory>(),
-            Mock.Of<IIdMapStoreFactory>(),
-            Mock.Of<IWorkItemResolutionProcessorFactory>(),
-            CreateTargetEndpoint(connectorType),
-            identityMappingService: Mock.Of<Abstractions.Agent.Identity.IIdentityMappingService>(),
-            nodeTranslationTool: Mock.Of<Abstractions.Agent.Tools.INodeTranslationTool>(),
-            fieldTransformTool: Mock.Of<Abstractions.Agent.Tools.IFieldTransformTool>(),
+        return TestUtilities.WorkItemsModuleTestFactory.Create(
+            sourceEndpointInfo: CreateSourceEndpoint(connectorType),
+            targetEndpointInfo: CreateTargetEndpoint(connectorType),
             importFailurePatterns: patterns);
     }
 

@@ -82,7 +82,6 @@ public static class ModuleServiceCollectionExtensions
 
         services.RegisterWorkItemServices(configuration);
         services.TryAddSingleton<IWorkItemExportOrchestratorFactory, WorkItemExportOrchestratorFactory>();
-        services.TryAddSingleton<IWorkItemsOrchestratorFactory, WorkItemsOrchestratorFactory>();
         services.AddScoped<IWorkItemsImportCapabilityValidator, WorkItemsImportCapabilityValidator>();
         services.AddSingleton<IWorkItemsNodeReadinessOrchestrator>(sp =>
             new WorkItemsNodeReadinessOrchestrator(
@@ -144,7 +143,9 @@ public static class ModuleServiceCollectionExtensions
                 sp.GetRequiredService<IOptions<WorkItemsModuleOptions>>(),
                 sp.GetRequiredService<ISourceEndpointInfo>(),
                 sp.GetRequiredService<ImportPreparer>(),
-                sp.GetRequiredService<WorkItemsImportRuntime>()));
+                sp.GetRequiredService<WorkItemsImportRuntime>(),
+                sp.GetService<IInventoryOrchestrator>(),
+                sp.GetService<IRepoDiscoveryService>()));
         services.AddScoped<IWorkItemsOrchestrator>(sp => sp.GetRequiredService<WorkItemsOrchestrator>());
         services.AddTransient<IModule, WorkItemsModule>();
         return services;
