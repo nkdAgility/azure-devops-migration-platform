@@ -42,13 +42,22 @@ facets (Links, Attachments, Comments) are now hexagonal ports with no inline dup
 integrity-critical cursor/resume engine was never touched.
 
 ### Remaining
-- **Stage 5 — retire the `WorkItemsModuleExtensions` god-object**: move enablement from the shared flags
-  (`ext.LinksEnabled` / `ext.AttachmentsEnabled` / `ext.Comments.Enabled`) to each extension's own
-  `IsEnabled` (per-extension config bound from the operator config); retire `RevisionsEnabled`; doc sync;
-  apply the tool-definition fix (drop the wrong "tools do no I/O" clause). Behaviour-changing — do
-  test-first, dedicated.
-- **Stage 2 — cursor-engine generalisation (deferred by design)**: integrity-critical; not required for
-  the hexagonal split, which is already achieved.
+- **Stage 5 — tool-definition fix** ✅ DONE: the wrong "tools do no I/O" rule is rescinded across the
+  execution-contract + terminology/domain-model primers (a Tool is defined by its singleton/central-config
+  shape, not purity; it may do I/O and hold run-wide derived state, but no per-consumer mutable state).
+- **Stage 5 — god-object enablement retirement (coupled, deferred with Stage 2).** Moving facet
+  enablement from the shared `WorkItemsModuleExtensions` flags to each extension's own `IsEnabled` is
+  NOT a clean standalone step: the flags are read in multiple places (the processor's three stage gates
+  AND `WorkItemStreamOrchestrator.EmitReplaySkipVisibilityEvents`), asserted by ~5 tests, and the
+  processor still maps each extension to a fixed cursor stage — which is exactly what Stage 2 generalises.
+  The god-object also still carries non-extension config (`Query`, filters, `ResolutionStrategy`,
+  `Revisions`), so it cannot be removed wholesale. This enablement migration is therefore folded into the
+  Stage 2 dedicated effort. **The capabilities already own their logic as ports; only the *enablement
+  source* still flows through the god-object gate — a coherent, working seam, not a loose end.**
+- **Stage 2 — cursor-engine generalisation (deferred by design)**: integrity-critical. When done, it
+  carries the facet enablement migration with it (the processor receives the module-filtered, ordered
+  enabled-extension list and drives them, removing the god-object gates). Not required for the hexagonal
+  split, which is already achieved.
 **Parent feature**: [039-team-board-settings](spec.md) (extension architecture established here).
 **Scope**: `WorkItemsModule`, `WorkItemsOrchestrator`, and the `WorkItems/**` per-revision runtime.
 **Why it lives here**: 039 established the canonical extension model
