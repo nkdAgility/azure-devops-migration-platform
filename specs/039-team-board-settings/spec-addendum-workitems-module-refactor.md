@@ -45,15 +45,18 @@ integrity-critical cursor/resume engine was never touched.
 - **Stage 5 — tool-definition fix** ✅ DONE: the wrong "tools do no I/O" rule is rescinded across the
   execution-contract + terminology/domain-model primers (a Tool is defined by its singleton/central-config
   shape, not purity; it may do I/O and hold run-wide derived state, but no per-consumer mutable state).
-- **Stage 5 — god-object enablement retirement (coupled, deferred with Stage 2).** Moving facet
-  enablement from the shared `WorkItemsModuleExtensions` flags to each extension's own `IsEnabled` is
-  NOT a clean standalone step: the flags are read in multiple places (the processor's three stage gates
-  AND `WorkItemStreamOrchestrator.EmitReplaySkipVisibilityEvents`), asserted by ~5 tests, and the
-  processor still maps each extension to a fixed cursor stage — which is exactly what Stage 2 generalises.
-  The god-object also still carries non-extension config (`Query`, filters, `ResolutionStrategy`,
-  `Revisions`), so it cannot be removed wholesale. This enablement migration is therefore folded into the
-  Stage 2 dedicated effort. **The capabilities already own their logic as ports; only the *enablement
-  source* still flows through the god-object gate — a coherent, working seam, not a loose end.**
+- **Stage 5 — facet enablement migration** ✅ DONE: the processor's three stage gates now read each
+  extension's own `IsEnabled` (`_linksExtension`/`_attachmentsExtension`/`_commentsExtension`), bound
+  from the same operator config (`Extensions.{Links,Attachments,Comments}.Enabled`) for exact parity.
+  The cursor/resume markers are byte-identical; only the *enablement source* moved from the god-object
+  flags to the ports. Parity-gated (one test re-pointed to inject a disabled port). The capabilities now
+  own both their logic AND their enablement.
+- **Stage 5 — residual god-object cleanup (folded into Stage 2).** `RevisionsEnabled` still gates the
+  *stream orchestrator's* revision-processing loop and the replay-levers path; the stream orchestrator's
+  skip-visibility events still read `ext.AttachmentsEnabled`/`ext.EmbeddedImages.Enabled`. These live in
+  the same stream-orchestrator surface that Stage 2 restructures, so they are folded into that effort.
+  The god-object also still carries non-extension config (`Query`, filters, `ResolutionStrategy`) that
+  is not extension-owned and stays. Not a loose end — a coherent residual seam.
 - **Stage 2 — cursor-engine generalisation (deferred by design)**: integrity-critical. When done, it
   carries the facet enablement migration with it (the processor receives the module-filtered, ordered
   enabled-extension list and drives them, removing the god-object gates). Not required for the hexagonal
