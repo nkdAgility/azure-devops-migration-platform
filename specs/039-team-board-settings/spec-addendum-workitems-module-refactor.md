@@ -23,12 +23,32 @@ Stage 1 delivered:
   markers and the enablement gate are unchanged (the integrity-critical cursor logic is untouched —
   only the link-application call is rerouted).
 
-**Gate: full Infrastructure.Agent suite green (1067/1067); full solution green (exit 0, all projects
-incl. net481 TfsMigrationAgent); both TFMs build.** Remaining facets — Attachments, then Comments —
-follow the same port-extraction pattern (each failing-test-first, cursor untouched). The optional
-cursor-engine generalisation (§9 Stage 2) remains a separate, dedicated effort because the resume
-logic is integrity-critical; the hexagonal split (capability ports vs checkpoint delivery) is already
-achieved for Links without it.
+- **Increment 4 — Attachments facet extracted AND wired.** `AttachmentsExtensionOptions`,
+  `AttachmentsWorkItemExtension : IModuleExtension`; the `UploadedAttachments` stage delegates to the
+  port (inline `_attachmentReplayService.ReplayAsync` removed). `WorkItemExtensionContext` extended
+  additively (`IdMapStore`, `ReadBinaryAsync`, `AvailableBinaryPaths`). Test-first. Cursor untouched.
+- **Increment 5 — Comments facet extracted AND wired.** `CommentsExtensionOptions`,
+  `CommentsWorkItemExtension : IModuleExtension`; the inline-comment step delegates to the port
+  (`ProcessInlineCommentsAsync` removed). Context extended additively (`ReadTextAsync`). Comments has
+  no cursor stage — kept that way. Test-first.
+- **EmbeddedImages — confirmed already in the decided shape.** It is a field-value rewrite *inside* the
+  core AppliedFields step (`_embeddedImageReplayService.RewriteFieldValuesAsync`), i.e. a field-rewrite
+  contributor, not a peer pipeline stage. Per §9 this is correct as-is; it is NOT modelled as a
+  side-effecting `IModuleExtension` (which returns `Task`, not rewritten fields). No extraction needed.
+- **Cleanup** — removed the now-dead `_attachmentReplayService` field/param (Rule 30).
+
+**Gate: full Infrastructure.Agent suite green (1073/1073); both TFMs build.** All three per-revision
+facets (Links, Attachments, Comments) are now hexagonal ports with no inline duplication; the
+integrity-critical cursor/resume engine was never touched.
+
+### Remaining
+- **Stage 5 — retire the `WorkItemsModuleExtensions` god-object**: move enablement from the shared flags
+  (`ext.LinksEnabled` / `ext.AttachmentsEnabled` / `ext.Comments.Enabled`) to each extension's own
+  `IsEnabled` (per-extension config bound from the operator config); retire `RevisionsEnabled`; doc sync;
+  apply the tool-definition fix (drop the wrong "tools do no I/O" clause). Behaviour-changing — do
+  test-first, dedicated.
+- **Stage 2 — cursor-engine generalisation (deferred by design)**: integrity-critical; not required for
+  the hexagonal split, which is already achieved.
 **Parent feature**: [039-team-board-settings](spec.md) (extension architecture established here).
 **Scope**: `WorkItemsModule`, `WorkItemsOrchestrator`, and the `WorkItems/**` per-revision runtime.
 **Why it lives here**: 039 established the canonical extension model

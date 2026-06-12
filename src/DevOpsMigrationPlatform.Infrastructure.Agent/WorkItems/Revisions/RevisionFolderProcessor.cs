@@ -51,7 +51,6 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     private readonly string? _jobId;
     private readonly IFieldTransformTool? _fieldTransformTool;
     private readonly INodeTranslationTool? _nodeStructureTool;
-    private readonly AttachmentReplayService _attachmentReplayService;
     private readonly EmbeddedImageReplayService _embeddedImageReplayService;
     private readonly ProjectMapping? _nodeTranslationContext;
     private readonly NodeTranslationOptions? _nodeStructureOptions;
@@ -82,7 +81,6 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         ProjectMapping? nodeStructureContext = null,
         NodeTranslationOptions? nodeStructureOptions = null,
         IPackageAccess? package = null,
-        AttachmentReplayService? attachmentReplayService = null,
         EmbeddedImageReplayService? embeddedImageReplayService = null,
         LinksWorkItemExtension? linksExtension = null,
         AttachmentsWorkItemExtension? attachmentsExtension = null,
@@ -99,8 +97,6 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         _jobId = jobId;
         _fieldTransformTool = fieldTransformTool;
         _nodeStructureTool = nodeStructureTool;
-        _attachmentReplayService = attachmentReplayService
-            ?? new AttachmentReplayService(target, idMapStore, NullLogger<AttachmentReplayService>.Instance);
         _embeddedImageReplayService = embeddedImageReplayService
             ?? new EmbeddedImageReplayService(target, NullLogger<EmbeddedImageReplayService>.Instance);
         _nodeTranslationContext = nodeStructureContext;
