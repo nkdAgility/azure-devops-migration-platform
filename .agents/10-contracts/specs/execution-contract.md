@@ -113,7 +113,7 @@ than one module. Module-specific data reaches the extension through the concrete
 ### Tool rules
 
 27. A Tool is a **singleton service with one central config for the entire run**, declared once at the `MigrationPlatform.Tools.*` config root. There is one instance, shared by every consumer — contrast with an extension, which is instantiated with its own custom config. (Tool = singleton + single run-wide config; Extension = own custom config per instance.)
-28. Tools are stateless and pure — no I/O, no network calls, no filesystem access; no state between invocations.
+28. A Tool **may perform I/O** (network, identity/cache lookups, package-mediated reads) when that is how it provides its service — the former "tools are pure / no I/O" rule is **rescinded**. What defines a tool is rule 27 (one singleton, one run-wide central config), not purity. A tool may hold run-wide derived state (e.g. a Prepare-phase translation cache) and must be safe for concurrent use by its many consumers; it must not carry per-consumer/per-call mutable state.
 29. Tools are a separate category from extensions: a tool **provides a service** consumed directly via DI; an extension **extends behaviour** and may call tools. Tools are not wrapped per-module and are not entries in any module's extension list. `INodeTranslationTool`, `IIdentityTranslationTool`, and field-transform are Tools — not extensions.
 
 ### PackageAccess rules
@@ -131,7 +131,7 @@ Any of the following constitutes an architectural violation requiring correction
 - A module contains an entity loop or checkpoint logic
 - An orchestrator is split by phase (e.g. `{Domain}ExportOrchestrator` + `{Domain}ImportOrchestrator`)
 - An adapter is split by direction
-- A tool performs I/O
+- A tool carries per-consumer/per-call mutable state, or is unsafe for concurrent use by its consumers
 - A tool is registered as anything other than a run-wide singleton, or carries per-consumer config
 - A tool is wrapped as an extension or listed in a module's extension list
 - A module calls a tool directly — modules are thin and delegate to their orchestrator (orchestrators and extensions may consume tools via DI)
