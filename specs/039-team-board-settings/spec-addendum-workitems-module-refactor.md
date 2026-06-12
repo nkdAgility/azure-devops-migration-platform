@@ -15,8 +15,20 @@ Stage 1 delivered:
   the module-isolation test reframed to the thin module + orchestrator. Behavioural construction relocated
   to a `WorkItemsModuleTestFactory` test helper.
 
-**Gate: full suite green (1064/1064), both net481 + net10 build.** Remaining: Stages 2–4 (staged cursor
-pipeline + Links → Attachments → Comments), each failing-test-first per §6/§10.
+- **Increment 3 — Links facet extracted AND wired (RED→GREEN→REFACTOR).** `WorkItemExtensionContext`
+  (per-revision domain port context, carries the per-job target), `LinksExtensionOptions` (own
+  `IOptions<T>`), `LinksWorkItemExtension : IModuleExtension` (link application as a domain capability),
+  driven by `LinksWorkItemExtensionTests`. The per-revision processor now delegates the AppliedLinks
+  stage to the port — **inline `_target.AddLinksAsync` removed, no duplication**. Checkpoint/resume
+  markers and the enablement gate are unchanged (the integrity-critical cursor logic is untouched —
+  only the link-application call is rerouted).
+
+**Gate: full Infrastructure.Agent suite green (1067/1067); full solution green (exit 0, all projects
+incl. net481 TfsMigrationAgent); both TFMs build.** Remaining facets — Attachments, then Comments —
+follow the same port-extraction pattern (each failing-test-first, cursor untouched). The optional
+cursor-engine generalisation (§9 Stage 2) remains a separate, dedicated effort because the resume
+logic is integrity-critical; the hexagonal split (capability ports vs checkpoint delivery) is already
+achieved for Links without it.
 **Parent feature**: [039-team-board-settings](spec.md) (extension architecture established here).
 **Scope**: `WorkItemsModule`, `WorkItemsOrchestrator`, and the `WorkItems/**` per-revision runtime.
 **Why it lives here**: 039 established the canonical extension model
