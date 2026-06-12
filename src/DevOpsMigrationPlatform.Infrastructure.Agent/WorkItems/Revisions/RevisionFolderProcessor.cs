@@ -58,6 +58,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     private readonly IPackageAccess? _package;
     private readonly LinksWorkItemExtension _linksExtension;
     private readonly AttachmentsWorkItemExtension _attachmentsExtension;
+    private readonly CommentsWorkItemExtension _commentsExtension;
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
 
@@ -84,7 +85,8 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         AttachmentReplayService? attachmentReplayService = null,
         EmbeddedImageReplayService? embeddedImageReplayService = null,
         LinksWorkItemExtension? linksExtension = null,
-        AttachmentsWorkItemExtension? attachmentsExtension = null)
+        AttachmentsWorkItemExtension? attachmentsExtension = null,
+        CommentsWorkItemExtension? commentsExtension = null)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));
@@ -106,6 +108,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         _package = package;
         _linksExtension = linksExtension ?? new LinksWorkItemExtension(Options.Create(new LinksExtensionOptions()));
         _attachmentsExtension = attachmentsExtension ?? new AttachmentsWorkItemExtension(Options.Create(new AttachmentsExtensionOptions()));
+        _commentsExtension = commentsExtension ?? new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()));
 
         if (_fieldTransformTool == null)
             _logger.LogWarning("[WorkItems] IFieldTransformTool is not registered — field transforms will be skipped for all revisions. Call AddFieldTransformToolServices() in your DI setup to enable field transforms.");
@@ -338,10 +341,24 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
             await WriteCursorAsync(folderPath, CursorStage.UploadedAttachments, ct).ConfigureAwait(false);
         }
 
-        // Inline comments
+        // Inline comments (delegated to the Comments capability port; enablement gate unchanged, no cursor stage)
         if (ext.Comments.Enabled)
         {
-            await ProcessInlineCommentsAsync(resolvedTargetId, folderPath, ct).ConfigureAwait(false);
+            await _commentsExtension.ImportAsync(
+                new WorkItemExtensionContext
+                {
+                    Organisation = _organisation,
+                    ProjectName = _project,
+                    EntityId = revision.WorkItemId.ToString(),
+                    TargetEntityId = resolvedTargetId.ToString(),
+                    Package = _package!,
+                    Revision = revision,
+                    TargetWorkItemId = resolvedTargetId,
+                    FolderPath = folderPath,
+                    Target = _target,
+                    ReadTextAsync = ReadPackageTextAsync,
+                },
+                ct).ConfigureAwait(false);
         }
 
         // Final cursor — Completed
@@ -468,22 +485,6 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
 
     private string ResolveIdentity(string identity)
         => _identityTranslationTool?.IsEnabled == true ? _identityTranslationTool.Translate(identity) : identity;
-
-    private async Task ProcessInlineCommentsAsync(int targetWorkItemId, string folderPath, CancellationToken ct)
-    {
-        var commentJson = await ReadPackageTextAsync($"{folderPath}/comment.json", ct).ConfigureAwait(false);
-        if (commentJson is null) return;
-
-        var comments = JsonSerializer.Deserialize<List<WorkItemComment>>(commentJson, _jsonOptions);
-        if (comments is null || comments.Count == 0) return;
-
-        foreach (var comment in comments)
-        {
-            if (comment.IsDeleted) continue;
-            var text = comment.RenderedText ?? comment.Text;
-            await _target.CreateCommentAsync(targetWorkItemId, text, ct).ConfigureAwait(false);
-        }
-    }
 
     private async Task<string?> ReadPackageTextAsync(string path, CancellationToken ct)
     {

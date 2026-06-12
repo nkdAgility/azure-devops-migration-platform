@@ -63,4 +63,11 @@ public sealed record WorkItemExtensionContext : IExtensionContext
     /// referenced binary exists before upload. Null when not enumerated / not applicable.
     /// </summary>
     public System.Collections.Generic.ISet<string>? AvailableBinaryPaths { get; init; }
+
+    /// <summary>
+    /// Reads a package text artefact by relative path (returns null if absent). Supplied by the per-revision
+    /// driver so extensions can read JSON sidecars (e.g. <c>comment.json</c>) without owning package-access
+    /// plumbing or the legacy-path fallback logic. Null when not applicable.
+    /// </summary>
+    public System.Func<string, System.Threading.CancellationToken, System.Threading.Tasks.Task<string?>>? ReadTextAsync { get; init; }
 }

@@ -95,6 +95,12 @@ public static class ModuleServiceCollectionExtensions
         services.AddOptions<AttachmentsExtensionOptions>();
         services.AddSingleton<AttachmentsWorkItemExtension>();
 
+#if NET7_0_OR_GREATER
+        services.AddSchemaEntry<CommentsExtensionOptions>("Work item Comments extension (inline comment replay) configuration");
+#endif
+        services.AddOptions<CommentsExtensionOptions>();
+        services.AddSingleton<CommentsWorkItemExtension>();
+
         services.TryAddSingleton<IWorkItemExportOrchestratorFactory, WorkItemExportOrchestratorFactory>();
         services.AddScoped<IWorkItemsImportCapabilityValidator, WorkItemsImportCapabilityValidator>();
         services.AddSingleton<IWorkItemsNodeReadinessOrchestrator>(sp =>
