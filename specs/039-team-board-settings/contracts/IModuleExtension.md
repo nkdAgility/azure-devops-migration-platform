@@ -9,71 +9,79 @@
 
 ## Purpose
 
-Cross-cutting marker interface for all per-entity module extensions.
-Every module-specific extension interface (e.g. `ITeamExtension`) extends this.
+The **single, cross-cutting** contract for all per-entity module extensions. Every extension —
+Teams or otherwise — implements `IModuleExtension` **directly**. There is **no** `I{Domain}Extension`
+sub-interface; extensions are module-neutral and interchangeable, and the same extension may be bound
+to more than one module in the same form.
 
-The interface allows platform tooling to discover, enumerate, and order
-extensions uniformly across modules without coupling to any specific module type.
+Export and import are capabilities **on one extension**, not separate types. An extension is
+instantiated with its **own custom config** (its own `IOptions<T>`) — contrast a Tool, a run-wide
+singleton with one central config.
 
 ---
 
 ## Contract
 
 ```csharp
-/// <summary>Cross-cutting marker for all per-entity module extensions.</summary>
 public interface IModuleExtension
 {
-    /// <summary>
-    /// Name of the module this extension belongs to (e.g. "Teams", "WorkItems").
-    /// Used for filtering and diagnostics.
-    /// </summary>
+    /// <summary>Owning module name (e.g. "Teams", "WorkItems").</summary>
     string Module { get; }
 
-    /// <summary>
-    /// Name of this extension (e.g. "BoardConfig", "TeamSettings").
-    /// Must be unique within the owning module.
-    /// </summary>
+    /// <summary>Unique name within the module (e.g. "BoardConfig").</summary>
     string Name { get; }
 
-    /// <summary>
-    /// Declared execution order within the module. Lower values execute first.
-    /// Extensions with the same Order value execute in DI registration order.
-    /// </summary>
+    /// <summary>Execution order within the module. Lower runs first.</summary>
     int Order { get; }
 
-    /// <summary>
-    /// True when this extension participates in the export pipeline.
-    /// </summary>
+    /// <summary>True when this extension participates in export.</summary>
     bool SupportsExport { get; }
 
-    /// <summary>
-    /// True when this extension participates in the import pipeline.
-    /// </summary>
+    /// <summary>True when this extension participates in import.</summary>
     bool SupportsImport { get; }
+
+    /// <summary>
+    /// Parameterless. The extension answers from its OWN IOptions&lt;T&gt;:
+    /// a mandatory extension returns true; an optional extension returns its own Enabled.
+    /// Never reads a shared, module-level options object.
+    /// </summary>
+    bool IsEnabled { get; }
+
+    /// <summary>Export phase for one entity. Cast context to the concrete type.</summary>
+    Task ExportAsync(IExtensionContext context, CancellationToken ct);
+
+    /// <summary>Import phase for one entity. TargetEntityId is set before this call.</summary>
+    Task ImportAsync(IExtensionContext context, CancellationToken ct);
 }
 ```
+
+`IExtensionContext` is the module-neutral per-entity context (`Organisation`, `ProjectName`,
+`EntityId`, `TargetEntityId`, `Package`). Each module supplies a concrete record implementing it;
+extensions cast to the type they require.
 
 ---
 
 ## Constraints
 
-- `Module` must not be null or whitespace.
-- `Name` must not be null or whitespace.
-- `Name` must be unique within the owning module's extension set (enforced at runtime by the orchestrator's ordering step).
-- `Order` has no enforced range; negative values are permitted for extensions that must run before framework defaults.
-- At least one of `SupportsExport` or `SupportsImport` should be `true` — an extension that supports neither is a no-op and will be ignored by orchestrators.
+- All extensions implement `IModuleExtension` directly — no `I{Domain}Extension`.
+- `Module` / `Name` must not be null or whitespace; `Name` unique within the module.
+- `IsEnabled` is **parameterless** and reads the extension's **own** `IOptions<T>` — pure, no I/O, no shared module options object.
+- Default / mandatory / optional status is a property of the module→extension **binding**, not the extension. Mandatory extensions are forced enabled; disabling one is a fail-closed config error.
+- `Order` has no enforced range; negatives permitted for extensions that must run before defaults.
+- At least one of `SupportsExport` / `SupportsImport` should be `true`.
 
 ---
 
 ## Implementors
 
-| Interface | Module | Notes |
-|-----------|--------|-------|
-| `ITeamExtension` | Teams | Per-team export/import extension |
+| Class | Module | Notes |
+|-------|--------|-------|
+| `BoardConfigTeamExtension` | Teams | Per-team board-config export/import extension |
 
 ---
 
 ## Related
 
-- [`ITeamExtension.md`](ITeamExtension.md) — Teams-specific extension contract
-- [`IModule.cs`](../../../../src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IModule.cs) — `IModuleExtension` mirrors the `SupportsExport`/`SupportsImport` pattern from `IModule`
+- [`BoardConfigTeamExtension.md`](BoardConfigTeamExtension.md) — worked example: a Teams capability realised as an `IModuleExtension`
+- [`.agents/10-contracts/specs/execution-contract.md`](../../../.agents/10-contracts/specs/execution-contract.md) — canonical interface surface and rules
+- [`IModule.cs`](../../../../src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/IModule.cs) — `IModuleExtension` mirrors the both-directions phase shape of `IModule`

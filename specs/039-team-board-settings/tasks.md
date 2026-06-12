@@ -4,7 +4,7 @@
 
 **Branch**: `039-team-board-settings`
 **Spec**: [spec.md](spec.md) | **Plan**: [plan.md](plan.md) | **Data model**: [data-model.md](data-model.md)
-**Contracts**: [IModuleExtension](contracts/IModuleExtension.md) · [ITeamExtension](contracts/ITeamExtension.md) · [ITeamBoardAdapter](contracts/ITeamBoardAdapter.md)
+**Contracts**: [IModuleExtension](contracts/IModuleExtension.md) (the single extension contract) · [BoardConfigTeamExtension](contracts/BoardConfigTeamExtension.md) · [ITeamBoardAdapter](contracts/ITeamBoardAdapter.md)
 **Research**: [research.md](research.md) | **Quickstart**: [quickstart.md](quickstart.md)
 
 **Test approach**: Test-first — failing tests are written **before** implementation.
@@ -27,28 +27,63 @@ Each story phase starts with failing tests in `*Tests.cs`, then production code.
 
 ## Phase 1: Extension System (Module→Orchestrator Seam Refactor) 🥇 FIRST
 
-**Purpose**: Establish the extension system before anything else. Introduce the `ITeamExtension`
-composition seam and refactor `TeamsModule`/`TeamsOrchestrator` to drive extensions, replacing the
-boolean-flag if-block pattern. This is a **standalone structural refactor** that MUST land
-independently green — existing Teams export/import behaviour (team identity, settings, iterations,
-members, area paths) is unchanged — **before** any board-config setup or feature work.
-Board config (Phase 4+) is the first extension built on this seam.
+**Purpose**: Establish the extension system **and convert every existing per-team capability to it.**
+Introduce the single `IModuleExtension` composition seam (no `I{Domain}Extension`), refactor
+`TeamsModule`/`TeamsOrchestrator` to drive extensions, and **convert the genuine per-team capabilities**
+— TeamSettings, TeamIterations, TeamMembers, TeamCapacity — from the boolean-flag if-block pattern
+inside `TeamExportOrchestrator`/`TeamImportOrchestrator` into registered `IModuleExtension`
+implementations. (`NodeTranslation` and `IdentityLookup` are **Tools** — run-wide singleton services
+consumed directly via DI — not extensions, and are not converted into the list.) When this phase is
+done **no `if (extensions.X)` dispatch remains**;
+the inner orchestrators dissolve into the extension list. Behaviour is preserved (parity), but the
+dispatch mechanism is fully converted. This lands before any board-config work; board config (Phase 4+)
+is then just one more extension on a seam that already carries all the others.
 
-**⚠️ Regression gate**: This phase changes `TeamsModule`/`TeamsOrchestrator`. The existing Teams test
-suite MUST stay green; no behavioural change to current Teams capabilities is permitted here.
+**⚠️ Regression gate**: The existing Teams test suite MUST stay green — behaviour is preserved
+(parity) even though every capability moves to the new format.
 
-- [ ] T076 [P] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/IModuleExtension.cs` — cross-cutting marker interface: `Module`, `Name`, `Order`, `SupportsExport`, `SupportsImport` (see data-model.md Extension Architecture section)
-- [ ] T077 Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Teams/ITeamExtension.cs` — Teams per-entity extension contract: `IsEnabled(TeamsModuleExtensionsOptions)`, `ExportAsync(TeamExtensionContext, ct)`, `ImportAsync(TeamExtensionContext, ct)`; default interface method implementations for unsupported phases — depends on T076
-- [ ] T078 Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Teams/TeamExtensionContext.cs` — sealed record: `Organisation`, `Project`, `SourceProject`, `TeamDefinition`, `Slug`, `IPackageAccess`, `TeamsModuleExtensionsOptions`, `IProgressSink?`
-- [ ] T079 Write `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Teams/TeamExtensionDispatchTests.cs` — `[TestCategory("CodeTest")]` + `[TestCategory("UnitTests")]` methods: (a) enabled extension with SupportsExport=true has ExportAsync called per team; (b) disabled extension is not called; (c) SupportsImport=false extension has ImportAsync not called; (d) extensions invoked in Order sequence
-- [ ] T080 Extend `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/TeamsOrchestrator.cs` — `ExportAsync` and `ImportAsync` accept `IReadOnlyList<ITeamExtension>`; per-team loop builds `TeamExtensionContext` and calls each extension in order; handles per-extension errors without aborting the team loop — depends on T077, T078
-- [ ] T081 Extend `src/DevOpsMigrationPlatform.Infrastructure.Agent/Modules/TeamsModule.cs` — inject `IEnumerable<ITeamExtension>` via constructor; in `ExportAsync` filter to `SupportsExport && IsEnabled`, sort by `Order`, pass list to orchestrator; same for `ImportAsync` — depends on T077, T080
+**⚠️ Completion gate**: Phase 1 is NOT complete while any capability still uses the old boolean-flag
+dispatch. "Seam added, zero extensions converted" does not satisfy this phase.
+
+- [x] T076 [P] Create `src/DevOpsMigrationPlatform.Abstractions.Agent/IModuleExtension.cs` — the single extension contract: `Module`, `Name`, `Order`, `SupportsExport`, `SupportsImport`, parameterless `IsEnabled`, `ExportAsync(IExtensionContext, ct)`, `ImportAsync(IExtensionContext, ct)` (see data-model.md Extension Architecture section)
+- [x] T077 Create `src/DevOpsMigrationPlatform.Abstractions.Agent/IExtensionContext.cs` — module-neutral per-entity context base: `Organisation`, `ProjectName`, `EntityId`, `TargetEntityId`, `Package`. (There is **no** `ITeamExtension` — all extensions implement `IModuleExtension` directly.) — depends on T076
+- [ ] T078 ⛔ **Teams — needs operator approval before touching.** Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Teams/TeamExtensionContext.cs` — sealed record implementing `IExtensionContext`: adds `Team`, `Slug`, `SourceProjectName` (carries **no** shared module-options object)
+- [ ] T079 Write `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Teams/TeamExtensionDispatchTests.cs` — `[TestCategory("CodeTest")]` + `[TestCategory("UnitTests")]` methods: (a) enabled extension with SupportsExport=true has ExportAsync called per team; (b) extension whose own `IsEnabled` is false is not called; (c) SupportsImport=false extension has ImportAsync not called; (d) extensions invoked in Order sequence
+- [ ] T080 ⛔ **Teams — needs operator approval before touching.** Extend `TeamsOrchestrator.cs` — `ExportAsync`/`ImportAsync` accept `IReadOnlyList<IModuleExtension>`; per-team loop builds `TeamExtensionContext` (sets `TargetEntityId` before import) and calls each extension in order; handles per-extension errors without aborting the team loop — depends on T077, T078
+- [ ] T081 ⛔ **Teams — needs operator approval before touching.** Extend `TeamsModule.cs` — inject `IEnumerable<IModuleExtension>`; build the list via default/mandatory/optional tiers (mandatory forced enabled; disabling = fail-closed error), filter `SupportsExport`/`SupportsImport`, sort by `Order`, pass to orchestrator — depends on T077, T080
 - [ ] T082 Verify all `[TestMethod]` tests in `TeamExtensionDispatchTests.cs` pass
-- [ ] T090 **Regression**: run the full existing Teams test suite and confirm current Teams export/import behaviour is unchanged after the seam refactor (no new behaviour introduced in this phase)
-- [ ] T091 **Conformance validation (STOP gate)**: validate the implemented extension system against the documented story line-by-line — `IModuleExtension`/`ITeamExtension`/`TeamExtensionContext` shapes vs `plan.md` (Extension Architecture) and `data-model.md`; the Module→Orchestrator seam vs `.agents/30-context/architecture/execution-model.md` and `.agents/10-contracts/specs/execution-contract.md`; the "one type, both directions" invariant (no split export/import extensions). Produce a pass/deviation list.
+
+### Convert every existing per-team capability to `IModuleExtension`
+
+> **Confirmed model:** the orchestrator establishes the team first (the existing team-creation /
+> definition bit — `CreateOrUpdateTeamAsync` on import; definition write on export), owns the ordering,
+> and puts the resolved `targetTeamId` into `TeamExtensionContext`. It then runs the four aspect
+> extensions in `Order`. Team definition/creation is the orchestrator's per-entity step, NOT one of the
+> convertible extensions. Each aspect extension owns its capability logic AND its own storage artifact
+> (aspects are stored separately — they do NOT aggregate into one `team.json`).
+>
+> Each conversion: create `{Capability}TeamExtension : IModuleExtension` (export+import) under
+> `Infrastructure.Agent/Teams/Extensions/`, give it its **own** `IOptions<T>`, move the capability
+> logic out of `TeamExportOrchestrator`/`TeamImportOrchestrator` into it, give it its own artifact,
+> register it via `AddTeamsModule`, and delete the corresponding `if (extensions.X)` block. Behaviour
+> preserved (parity). **All tasks in this section are ⛔ Teams — they require operator approval before
+> any Teams code is touched.**
+
+- [ ] T100 ⛔ **Teams — needs operator approval.** `TargetEntityId` already on `IExtensionContext`/`TeamExtensionContext`; have `TeamsOrchestrator` establish the team first per entity (move `CreateOrUpdateTeamAsync` / definition handling into the orchestrator's per-entity step) and thread `targetTeamId` into the context before invoking extensions
+- [ ] T101 ⛔ **Teams — needs operator approval.** Storage: split the per-aspect artifacts out of `team.json` (settings/iterations/members/capacity each own their artifact under `Teams/{slug}/`); bump the package schema version and add a `team.json`→split **upgrader** (Constitution VII — breaking package-format change); update Teams validation accordingly
+
+- [x] T097 **Design decision — RESOLVED**: `NodeTranslation` and `IdentityLookup` are **Tools**, not extensions. They are run-wide singleton services (one central config under `MigrationPlatform.Tools.*`) consumed directly via DI by the orchestrator/extensions — not standalone entries in the extension list. They are therefore **not** converted to extensions; existing code keeps consuming the tools directly. (Recorded in data-model.md / execution-contract.md.)
+- [ ] T093 ⛔ **Teams — needs operator approval.** Convert **TeamSettings** → `TeamSettingsTeamExtension : IModuleExtension` in `Infrastructure.Agent/Teams/Extensions/`; own `IOptions<T>`; register; remove `extensions.TeamSettings` block from the inner orchestrators
+- [ ] T094 ⛔ **Teams — needs operator approval.** Convert **TeamIterations** → `TeamIterationsTeamExtension : IModuleExtension` (calls `INodeTranslationTool` directly for path recording); own `IOptions<T>`; register; remove `extensions.TeamIterations` block
+- [ ] T095 ⛔ **Teams — needs operator approval.** Convert **TeamMembers** → `TeamMembersTeamExtension : IModuleExtension` (calls `IIdentityTranslationTool` directly for member resolution); own `IOptions<T>`; register; remove `extensions.TeamMembers` block
+- [ ] T096 ⛔ **Teams — needs operator approval.** Convert **TeamCapacity** → `TeamCapacityTeamExtension : IModuleExtension`; own `IOptions<T>`; register; remove `extensions.TeamCapacity` block
+- [ ] T098 Resolve `NodeTranslation` area-path recording per T097; remove the remaining `extensions.NodeTranslation` block(s); confirm `TeamExportOrchestrator`/`TeamImportOrchestrator` contain **no `if (extensions.X)` dispatch** (the inner orchestrators dissolve into the extension list or become per-extension helpers)
+- [ ] T099 Write `[TestCategory("CodeTest")]` + `[TestCategory("DomainTests")]` behaviour-parity tests for each converted extension (settings/iterations/members/capacity), proving identical package output to the pre-conversion path
+- [ ] T090 **Regression**: run the full existing Teams test suite and confirm Teams export/import behaviour is unchanged after the seam refactor **and the conversion of all extensions** (parity preserved)
+- [ ] T091 **Conformance validation (STOP gate)**: validate the implemented extension system against the documented story line-by-line — `IModuleExtension`/`IExtensionContext`/`TeamExtensionContext` shapes vs `plan.md` (Extension Architecture) and `data-model.md`; the Module→Orchestrator seam vs `.agents/30-context/architecture/execution-model.md` and `.agents/10-contracts/specs/execution-contract.md`; the "one type, both directions" invariant (no split export/import extensions). Produce a pass/deviation list.
 - [ ] T092 **Deviation handling (fail-closed)**: if T091 finds **any** deviation between the implementation and the documented story, **STOP** — do not start Phase 2. Either correct the implementation to match the docs, or, if the docs are wrong, update the docs (plan/data-model/execution-model/-contract) and re-run T091. Phase 1 is complete only when T091 reports **zero** deviations.
 
-**Checkpoint (HARD GATE — deviations stop the line)**: Extension dispatch tests green. Existing Teams suite green (regression). T091 conformance validation reports **zero** deviations from the documented extension story. `TeamsModule` resolves, filters, orders, and passes `IReadOnlyList<ITeamExtension>` to `TeamsOrchestrator`, which owns the per-team loop. **No Phase 2 work begins until this checkpoint passes with zero deviations.** This is a clean, independently-shippable checkpoint — the extension system is established, tested, and validated against its documented story first.
+**Checkpoint (HARD GATE — deviations stop the line)**: Extension dispatch tests green. Existing Teams suite green (regression). T091 conformance validation reports **zero** deviations from the documented extension story. `TeamsModule` resolves, tiers, filters, orders, and passes `IReadOnlyList<IModuleExtension>` to `TeamsOrchestrator`, which owns the per-team loop. **No Phase 2 work begins until this checkpoint passes with zero deviations.** This is a clean, independently-shippable checkpoint — the extension system is established, tested, and validated against its documented story first.
 
 ---
 
@@ -67,7 +102,7 @@ No connector code yet — just the shape of the domain, built on the extension s
 - [ ] T008 Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Teams/BoardConfig.cs` (sealed record: `BoardName`, `Columns`, `SwimLanes`) — depends on T003, T004
 - [ ] T009 Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Teams/TeamBoardConfig.cs` (sealed class `TeamBoardConfig` with `TeamName`, `ExportedAt`, `Boards`, `CardRules?`, `Backlogs`, `TaskboardColumns`) — depends on T005–T008
 - [ ] T010 Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Teams/ITeamBoardAdapter.cs` — single adapter contract covering both export (Get*) and import (Update*) methods; see contracts/ITeamBoardAdapter.md
-- [ ] T012 Extend `src/DevOpsMigrationPlatform.Abstractions.Agent/Modules/TeamsModuleOptions.cs` — add `BoardConfigImportMode` enum and `BoardConfigExtensionsOptions` sealed class (Columns, SwimLanes, CardRules, Backlogs, TaskboardColumns bools + ImportMode); add `BoardConfig` property to `TeamsModuleExtensionsOptions`
+- [ ] T012 Create `src/DevOpsMigrationPlatform.Abstractions.Agent/Teams/BoardConfigExtensionOptions.cs` — the board-config extension's **own** options (bound via `IOptions<BoardConfigExtensionOptions>`): `Enabled` + `Columns`, `SwimLanes`, `CardRules`, `Backlogs`, `TaskboardColumns` bools + `BoardConfigImportMode` enum + `ImportMode`. **Not** nested inside a shared module-options god-object.
 
 **Checkpoint**: All board-config abstraction types compile. No connector code yet. Every new `.cs` file (production and test) MUST begin with the SPDX header block (`// SPDX-License-Identifier: AGPL-3.0-only` / `// Copyright (c) Naked Agility Limited`) — SA1633 fails the build otherwise.
 
@@ -109,11 +144,11 @@ TFS MUST register `IConnectorCapabilityProvider` explicitly. No `if (_provider i
 
 ### Implementation for User Story 1
 
-- [ ] T023 [P] [US1] Create skeleton `src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/Extensions/BoardConfigTeamExtension.cs` implementing `ITeamExtension` — `Name="BoardConfig"`, `SupportsExport=true`, `SupportsImport=true`, `Order=100`; `IsEnabled` checks `options.BoardConfig`; `ExportAsync` checks the composite `ConnectorCapability.BoardConfig` (= BoardColumns+BoardRows+CardRules) first for the Kanban board and returns early/Skipped if absent; backlogs and taskboard sections gate independently on `Has(ConnectorCapability.Backlogs)` and `Has(ConnectorCapability.TaskboardColumns)`; inject `ITeamBoardAdapter`, `IConnectorCapabilityProvider`, `ILogger`
+- [ ] T023 [P] [US1] Create skeleton `src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/Extensions/BoardConfigTeamExtension.cs` implementing `IModuleExtension` — `Module="Teams"`, `Name="BoardConfig"`, `SupportsExport=true`, `SupportsImport=true`, `Order=100`; parameterless `IsEnabled => _options.Enabled` reading its **own** `IOptions<BoardConfigExtensionOptions>`; `ExportAsync(IExtensionContext)` casts to `TeamExtensionContext`, checks the composite `ConnectorCapability.BoardConfig` (= BoardColumns+BoardRows+CardRules) first for the Kanban board and returns early/Skipped if absent; backlogs and taskboard sections gate independently on `Has(ConnectorCapability.Backlogs)` and `Has(ConnectorCapability.TaskboardColumns)`; inject `ITeamBoardAdapter`, `IConnectorCapabilityProvider`, `ILogger`
 - [ ] T024 [P] [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.Simulated/Teams/SimulatedBoardAdapter.cs` — implements `ITeamBoardAdapter`; `GetBoardsAsync` returns 2 deterministic boards each with 3 columns (one with no WIP limit, one split); swimlanes/card rules/backlogs/taskboard return empty stubs; `Update*` methods capture calls in-memory for test assertion
 - [ ] T025 [US1] Create `src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/Teams/AzureDevOpsBoardAdapter.cs` — implements `ITeamBoardAdapter`; `GetBoardsAsync` calls `WorkHttpClient.GetBoardsAsync` + `GetBoardColumnsAsync` with `TeamContext`; `Update*` methods call the corresponding PUT endpoints; swimlanes/card rules/backlogs/taskboard stubs to be filled in later stories — depends on T023
 - [ ] T026 [US1] Complete `BoardConfigTeamExtension.ExportAsync`: iterate boards from `GetBoardsAsync`, build `TeamBoardConfig`, serialize to JSON, persist to `Teams/{slug}/board-config.json` via `ctx.Package.PersistContentAsync` — depends on T023, T024
-- [ ] T027 [US1] Register `BoardConfigTeamExtension` as `ITeamExtension` (transient) in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamsServiceCollectionExtensions.cs` `AddTeamsModule` — depends on T026; no changes to `TeamsModule.cs` required (extension discovery is automatic via DI)
+- [ ] T027 [US1] Register `BoardConfigTeamExtension` as `IModuleExtension` (transient) and its `IOptions<BoardConfigExtensionOptions>` in `src/DevOpsMigrationPlatform.Infrastructure.Agent/Teams/TeamsServiceCollectionExtensions.cs` `AddTeamsModule` — depends on T026; no changes to `TeamsModule.cs` required (extension discovery is automatic via DI)
 - [ ] T029 [US1] Add O-1 `ActivitySource` span (`teams.boardconfig.export`), O-2 metrics (`platform.teams.export.boardconfig.count/duration_ms/errors/in_flight`), and O-3 structured `ILogger` events (started/completed/skipped/error) to `BoardConfigTeamExtension.ExportAsync` per plan.md Observability section
 - [ ] T030 [US1] Add O-4 `IProgressSink` progress events via `ctx.ProgressSink` in `BoardConfigTeamExtension.ExportAsync`: emit `{ Module="Teams", Stage="BoardConfigExporting", teamSlug }` at start and `{ Stage="BoardConfigExported", teamSlug, boardCount, durationMs }` on completion; emit `{ Stage="BoardConfigSkipped", reason }` when capability absent
 - [ ] T031 [US1] Verify all US1 `[TestMethod]` tests in `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Teams/BoardConfigTeamExtensionTests.cs` pass
@@ -268,7 +303,7 @@ fully resolved, before the spec branch may merge. This phase is not optional.
 
 - [ ] T084 Create/update `specs/039-team-board-settings/discrepancies.md` — record any deviations between spec, plan, and implementation (including the ConnectorCapability composite/granular decision and the SC-001 budget note); every entry MUST be marked `Resolved` or `N/A` before merge
 - [ ] T085 Update `.agents/30-context/domains/connector-model.md` — document the `ConnectorCapability` mechanism (composite `BoardConfig` = `BoardColumns | BoardRows | CardRules`, plus `Backlogs`, `TaskboardColumns`) and the explicit-registration / no-null-guard rule
-- [ ] T086 Update `.agents/30-context/architecture/execution-model.md` (and `execution-contract.md` if affected) — add `BoardConfigTeamExtension` as the worked example of the Extension layer (one `ITeamExtension`, both export+import, capability-gated adapter seam)
+- [ ] T086 Update `.agents/30-context/architecture/execution-model.md` (and `execution-contract.md` if affected) — add `BoardConfigTeamExtension` as the worked example of the Extension layer (one `IModuleExtension`, both export+import, capability-gated adapter seam)
 - [ ] T087 Update `docs/capabilities-guide.md` (and any connector-coverage doc) — record board configuration export/import as a Teams capability, including the TFS `Skipped` behaviour
 - [ ] T088 Review `analysis/pending-actions.md` — remove any item now implemented by this spec
 - [ ] T089 Run the Mandatory Compliance Review Loop: re-read each doc touched above against the implementation, fix any drift, repeat until zero violations

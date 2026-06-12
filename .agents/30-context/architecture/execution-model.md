@@ -9,12 +9,23 @@ For the Job/Task layer above this, see `job-lifecycle.md` and `task-execution-co
 
 ```
 Module
-  └── Orchestrator
-        └── Extension  (IModuleExtension)
-              ├── Adapter     (*Adapter)
-              ├── Tool        (*Tool)
-              └── PackageAccess
+  │   builds the list of Extensions (IModuleExtension): resolve from DI,
+  │   filter IsEnabled + SupportsExport/SupportsImport, sort by Order
+  │
+  │   ── passes IReadOnlyList<IModuleExtension> ──▶  Orchestrator
+  │                                                    │  does the orchestration:
+  │                                                    │  foreach entity → invoke each Extension
+  ▼                                                    ▼
+(the Module owns the extension list;            Extension  (IModuleExtension)
+ the Orchestrator runs it — it does               ├── Adapter     (*Adapter)
+ not own or contain the extensions)               ├── Tool        (*Tool)
+                                                   └── PackageAccess
 ```
+
+The relationship is **ownership + handoff**, not containment: the **Module** creates and
+owns the extension list and passes it to the **Orchestrator**, which orchestrates (entity
+loop, checkpointing, metrics) and invokes each extension per entity. The orchestrator never
+owns extensions, and extension/capability logic never lives inside an orchestrator.
 
 **One type, both directions — at every layer.**
 Modules have `ExportAsync` + `ImportAsync`. Extensions have `ExportAsync` + `ImportAsync`.
@@ -31,7 +42,7 @@ Adapters have read + write methods. There are no export-only or import-only type
 ### Owns
 - Configuration and endpoint resolution
 - Phase entrypoint (`ExportAsync`, `ImportAsync`, `PrepareAsync`, `ValidateAsync`, `CaptureAsync`)
-- Extension discovery: resolves `IEnumerable<IModuleExtension>` from DI, filters `IsEnabled`, filters `SupportsExport`/`SupportsImport`, sorts by `Order`, passes `IReadOnlyList<IModuleExtension>` to orchestrator
+- Extension list-building: resolves `IEnumerable<IModuleExtension>` from DI, applies the **default / mandatory / optional** tiers (mandatory forced enabled — disabling one is a fail-closed config error), filters `SupportsExport`/`SupportsImport`, sorts by `Order`, passes `IReadOnlyList<IModuleExtension>` to orchestrator
 - Delegation to `I{Domain}Orchestrator`
 
 ### Must not own
@@ -88,7 +99,8 @@ The module filters and sorts extensions; the orchestrator iterates entities and 
 ```
 Module:
   1. resolve IEnumerable<IModuleExtension> from DI
-  2. filter IsEnabled(options)
+  2. apply tiers: default (auto-include) + mandatory (force enabled; disabling = fail-closed error)
+                 + optional (include when extension.IsEnabled)
   3. filter SupportsExport | SupportsImport
   4. sort by Order
   5. pass IReadOnlyList<IModuleExtension> → Orchestrator
@@ -110,48 +122,63 @@ Orchestrator:
 ## Layer: Extension
 
 **Naming**: `{Capability}{Domain}Extension` — e.g. `BoardConfigTeamExtension`  
-**Interface**: `IModuleExtension` (cross-cutting); module-specific sub-interface e.g. `ITeamExtension`  
+**Interface**: `IModuleExtension` — the single, cross-cutting extension contract. There is **no** `I{Domain}Extension` sub-interface.  
 **Lives in**: `Infrastructure.Agent/{Domain}/Extensions/`
+
+An extension is thin, module-neutral, and interchangeable with other extensions. It extends a
+module's per-entity behaviour and may call tools. It is **instantiated with its own custom config**
+(its own `IOptions<T>`) — contrast the Tool layer, which is a run-wide singleton with one central config.
 
 ### Owns
 - One cohesive capability's export + import logic
-- Wrapping the adapter(s) and tool(s) needed for that capability
-- `IsEnabled(options)` — pure function of options, no I/O
-- `ExportAsync(ExtensionContext, ct)` and `ImportAsync(ExtensionContext, ct)`
+- Wrapping the adapter(s) and calling the tool(s) needed for that capability
+- Parameterless `IsEnabled` — answered from its **own** `IOptions<T>`, pure, no I/O
+- `ExportAsync(IExtensionContext, ct)` and `ImportAsync(IExtensionContext, ct)`
 
 ### Must not own
 - Other capabilities (one extension = one concern)
 - Loop control or checkpoint logic
 - Knowledge of other extensions
+- A shared, module-wide options god-object (each extension owns its own distinct config)
 
 ### IModuleExtension contract
 ```csharp
 public interface IModuleExtension
 {
-    string Module { get; }       // e.g. "Teams"
+    string Module { get; }       // owning module name, e.g. "Teams"
     string Name { get; }         // e.g. "BoardConfig" — unique within module
     int Order { get; }           // lower runs first
     bool SupportsExport { get; }
     bool SupportsImport { get; }
+    bool IsEnabled { get; }      // parameterless — reads its OWN IOptions<T>
+
+    Task ExportAsync(IExtensionContext context, CancellationToken ct);
+    Task ImportAsync(IExtensionContext context, CancellationToken ct);
 }
 ```
 
-### Module-specific extension contracts
-Module-specific extension interfaces extend `IModuleExtension` and add:
-- `IsEnabled(TModuleExtensionsOptions)` — enablement check
-- `ExportAsync(TExtensionContext, ct)`
-- `ImportAsync(TExtensionContext, ct)`
+All extensions implement `IModuleExtension` **directly**. Export and import are capabilities
+**on one extension** — not separate types, and not a domain-specific sub-interface.
 
-Export and import are capabilities **on one extension** — not separate types.
+### Per-extension configuration
+Each extension owns its own, distinct `IOptions<T>`:
+- A **mandatory** extension has no `Enabled` knob and returns `IsEnabled => true`.
+- An **optional** extension exposes `Enabled` (plus any extension-specific settings) and returns it.
 
-### ExtensionContext
-A sealed record passed per entity per invocation. Contains:
-- Entity identity (e.g. `TeamDefinition`, `Slug`)
-- `IPackageAccess` — read (import) or write (export) the package
-- Module options
-- `IProgressSink?`
+Adding an extension never requires editing a central config class. An extension may be bound to
+more than one module in the same form; whether it is **default**, **mandatory**, or **optional** is a
+property of the module→extension **binding**, decided when the module builds its list — not of the
+extension type.
 
-Extensions must not cache state between entity invocations.
+### IExtensionContext
+A module-neutral, sealed record passed per entity per invocation. The base contract:
+- `Organisation`, `ProjectName`, `EntityId`
+- `TargetEntityId` — null during export; set by the orchestrator before import invocation
+- `Package` (`IPackageAccess`) — read (import) or write (export) the package
+
+The host module supplies a concrete record implementing `IExtensionContext` (carrying domain data,
+e.g. the team definition and slug); extensions cast to the concrete type they require. Extensions
+must not cache state between entity invocations.
 
 ### ConnectorCapability guard
 Extensions check `IConnectorCapabilityProvider.Has(ConnectorCapability.X)` before calling their adapter.
@@ -196,18 +223,27 @@ Each capability has three adapter implementations:
 **Naming**: `I{Concern}Tool` / `{Concern}Tool` — e.g. `INodeTranslationTool`, `IIdentityTranslationTool`  
 **Lives in**: `Abstractions.Agent/Tools/` (interface); `Infrastructure.Agent/Tools/` (implementation)
 
+A Tool and an Orchestrator are the same idea — a worker — differing in breadth: an orchestrator
+coordinates many things within its sphere; a tool encapsulates one piece of functionality made
+available everywhere. A Tool is a **singleton with one central config for the entire run**, declared
+once at `MigrationPlatform.Tools.*`. One instance, one config, shared by every consumer.
+
 ### Owns
-- Pure stateless transformation logic
+- Pure stateless transformation / lookup logic
 - No I/O, no network calls, no filesystem access
-- Shared logic consumed by multiple extensions across multiple modules
+- A single capability, provided as a service to many consumers
 
 ### Must not own
 - Phase knowledge
 - State between invocations
 - Orchestration decisions
+- Per-consumer config (config is run-wide and central)
 
 ### Injected into
-Extensions that need shared transformation logic. Modules and orchestrators do not call tools directly — they delegate to extensions which wrap the tools they need.
+Consumed directly via DI by whoever needs it — an orchestrator or an extension. A tool is **not**
+wrapped per-module and is **not** an entry in any module's extension list; it is a separate category
+from extensions (tool = provides a service; extension = extends behaviour). Modules, being thin, do
+not call tools directly — they delegate to their orchestrator.
 
 ### Examples
 - `INodeTranslationTool` — translates iteration/area paths from source project naming to target
@@ -253,8 +289,8 @@ Extension → Tool           Logic seam
 |---|---|---|---|
 | Module | `IModule` (fixed) | `{Domain}Module` | `Infrastructure.Agent/Modules/` |
 | Orchestrator | `I{Domain}Orchestrator` | `{Domain}Orchestrator` | `Infrastructure.Agent/Modules/` or `/{Domain}/` |
-| Extension (cross-cutting) | `IModuleExtension` | — | `Abstractions.Agent/` |
-| Extension (module-specific) | `I{Domain}Extension` | `{Capability}{Domain}Extension` | `Infrastructure.Agent/{Domain}/Extensions/` |
+| Extension (contract) | `IModuleExtension` (fixed — no `I{Domain}Extension`) | `{Capability}{Domain}Extension` | contract in `Abstractions.Agent/`; impl in `Infrastructure.Agent/{Domain}/Extensions/` |
+| Extension context | `IExtensionContext` | `{Domain}ExtensionContext` | `Abstractions.Agent/` |
 | Adapter (interface) | `I{Domain}Adapter` | — | `Abstractions.Agent/{Domain}/` |
 | Adapter (impl) | — | `{Connector}{Domain}Adapter` | `Infrastructure.{Connector}/{Domain}/` |
 | Tool (interface) | `I{Concern}Tool` | — | `Abstractions.Agent/Tools/` |

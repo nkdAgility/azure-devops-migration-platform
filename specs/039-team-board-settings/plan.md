@@ -7,13 +7,18 @@
 ## Summary
 
 Export and import per-team board configuration (Kanban columns, swimlanes, card rules, backlog
-metadata, sprint taskboard columns) delivered as a formal `ITeamExtension` — a new per-entity
-extension contract that mirrors `IModule` (capabilities declared, phases implemented). Board config
-is the first extension built against this pattern; the same pattern replaces the existing
-boolean-flag if-blocks for `TeamSettings`, `TeamIterations`, etc. as they are touched.
+metadata, sprint taskboard columns) delivered as a formal `IModuleExtension` — the single per-entity
+extension contract that mirrors `IModule` (capabilities declared, phases implemented). All extensions
+implement `IModuleExtension` directly; there is **no** `I{Domain}Extension` sub-interface. Board config
+is built against this pattern. In Phase 1 the same pattern replaces the existing boolean-flag
+if-blocks for genuine per-team capabilities (`TeamSettings`, `TeamIterations`, `TeamMembers`,
+`TeamCapacity`): each is converted to an `IModuleExtension` and the inner
+`TeamExportOrchestrator`/`TeamImportOrchestrator` boolean dispatch is removed. (`NodeTranslation` and
+`IdentityLookup` are **Tools**, not extensions — run-wide singleton services consumed directly via DI,
+not entries in the extension list.)
 
-The `TeamsModule` resolves all registered `ITeamExtension` implementations from DI, filters to
-those enabled by options, and passes the ordered list to `TeamsOrchestrator`. The orchestrator
+The `TeamsModule` resolves all registered `IModuleExtension` implementations from DI, applies the
+default/mandatory/optional tiers, and passes the ordered list to `TeamsOrchestrator`. The orchestrator
 owns the per-team loop and invokes each extension per team — it does not know what any extension
 does. Board config artefacts are written to `Teams/{slug}/board-config.json`. TFS connectors
 dead-end via a new `ConnectorCapability` runtime flag mechanism rather than `#if NET481` guards.
@@ -42,7 +47,7 @@ dead-end via a new `ConnectorCapability` runtime flag mechanism rather than `#if
 | IV – Cursor-Based Checkpointing | Board config export happens inside the existing per-team checkpoint loop in `TeamsOrchestrator`. | ✅ |
 | V – Observability | ActivitySource tags on all new operations; structured log at export and import per team. | ✅ NEEDS IMPLEMENTATION |
 | VI – No Coupling Between Modules | Board config lives entirely within `TeamsModule`. No cross-module reads. | ✅ |
-| VII – Options via IOptions&lt;T&gt; | `BoardConfigExtensionsOptions` nested inside `TeamsModuleExtensionsOptions`. `IOptions<TeamsModuleOptions>` pattern. | ✅ |
+| VII – Options via IOptions&lt;T&gt; | `BoardConfigExtensionOptions` is the extension's **own** distinct options, bound via `IOptions<BoardConfigExtensionOptions>` — not nested in a shared module god-object. | ✅ |
 | VIII – Sealed Options Classes | New options class is `sealed` with `SectionName` inherited from parent. | ✅ |
 | IX – Abstractions Boundary | New source/target interfaces in `DevOpsMigrationPlatform.Abstractions.Agent`. Connectors implement in their own projects. | ✅ |
 | X – No Direct DB / HTTP | All data via injected source/target interfaces (same pattern as `ITeamSource`). | ✅ |
@@ -68,12 +73,12 @@ specs/039-team-board-settings/
 ### Source Code (repository root)
 
 ```text
-# Extension architecture — cross-cutting marker and Teams-specific contract
+# Extension architecture — single contract + module-neutral context + Teams concrete context
 src/DevOpsMigrationPlatform.Abstractions.Agent/
-├── IModuleExtension.cs                   # NEW — cross-cutting marker (Module, Name, SupportsExport, SupportsImport)
+├── IModuleExtension.cs                   # NEW — the single extension contract (Module, Name, Order, Supports*, parameterless IsEnabled, ExportAsync/ImportAsync over IExtensionContext)
+├── IExtensionContext.cs                  # NEW — module-neutral per-entity context base
 └── Teams/
-    ├── ITeamExtension.cs                 # NEW — per-entity extension contract (IsEnabled, ExportAsync, ImportAsync)
-    └── TeamExtensionContext.cs           # NEW — context passed to every extension per team
+    └── TeamExtensionContext.cs           # NEW — concrete IExtensionContext the Teams module supplies
 
 # Abstractions — board config data records
 src/DevOpsMigrationPlatform.Abstractions.Agent/
@@ -87,20 +92,20 @@ src/DevOpsMigrationPlatform.Abstractions.Agent/
     ├── TeamBoardConfig.cs                # NEW — top-level package model (per team)
     └── ITeamBoardAdapter.cs              # NEW — single adapter contract (export + import)
 
-# Options — extend existing TeamsModuleExtensionsOptions
+# Options — the extension owns its OWN distinct options (not nested in a module god-object)
 src/DevOpsMigrationPlatform.Abstractions.Agent/
-└── Modules/
-    └── TeamsModuleOptions.cs             # EXTEND — add BoardConfig sub-options
+└── Teams/
+    └── BoardConfigExtensionOptions.cs    # NEW — bound via IOptions<BoardConfigExtensionOptions>; carries Enabled + per-type flags
 
 # Infrastructure — extension implementation, orchestrator wiring, DI registration
 src/DevOpsMigrationPlatform.Infrastructure.Agent/
 ├── Teams/
 │   └── Extensions/
-│       └── BoardConfigTeamExtension.cs   # NEW — implements ITeamExtension; owns export+import board config logic
+│       └── BoardConfigTeamExtension.cs   # NEW — implements IModuleExtension; owns export+import board config logic
 └── Modules/
-    ├── TeamsModule.cs                    # EXTEND — resolve IEnumerable<ITeamExtension> from DI, filter enabled, pass to orchestrator
-    ├── TeamsOrchestrator.cs              # EXTEND — accept IReadOnlyList<ITeamExtension>, invoke per team in loop
-    └── TeamsServiceCollectionExtensions.cs   # EXTEND — register BoardConfigTeamExtension as ITeamExtension
+    ├── TeamsModule.cs                    # EXTEND — resolve IEnumerable<IModuleExtension> from DI, apply tiers, pass to orchestrator
+    ├── TeamsOrchestrator.cs              # EXTEND — accept IReadOnlyList<IModuleExtension>, invoke per team in loop
+    └── TeamsServiceCollectionExtensions.cs   # EXTEND — register BoardConfigTeamExtension as IModuleExtension
 
 # Connector — AzureDevOpsServices implementation
 src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/
@@ -141,8 +146,8 @@ tests/DevOpsMigrationPlatform.Infrastructure.Simulated.Tests/
     └── SimulatedBoardAdapterImportTests.cs         # Import modes: Replace / Merge / Skip
 ```
 
-**Structure Decision**: Board config is delivered as a formal `ITeamExtension`. The `TeamsModule`
-owns extension discovery and enablement; `TeamsOrchestrator` owns the per-team loop and invokes
+**Structure Decision**: Board config is delivered as a formal `IModuleExtension`. The `TeamsModule`
+owns extension list-building and enablement; `TeamsOrchestrator` owns the per-team loop and invokes
 extensions without knowing their content. `BoardConfigTeamExtension` encapsulates both export and
 import in one class — export and import are capabilities on an extension, not different types.
 All new abstractions land in `DevOpsMigrationPlatform.Abstractions.Agent`; connector
@@ -153,10 +158,14 @@ implementations in their respective projects; TFS registers capability explicitl
 ### Design Decision
 
 The existing `TeamsModule` uses boolean flags (`if (extensions.TeamSettings)` etc.) checked
-inline in per-team orchestrators. This feature introduces a formal `ITeamExtension` contract
-that replaces that pattern going forward. Board config is the first extension built against it.
+inline in per-team orchestrators. This feature introduces the single `IModuleExtension` contract
+(no `I{Domain}Extension`) that replaces that pattern. Phase 1 converts the genuine per-team
+capabilities (TeamSettings, TeamIterations, TeamMembers, TeamCapacity) to `IModuleExtension`
+implementations and removes the boolean-flag dispatch; board config is then one more extension on
+that seam. `NodeTranslation` and `IdentityLookup` are **Tools** (run-wide singleton services consumed
+via DI), not extensions, and are not converted into the extension list.
 
-**Sequencing**: the extension-system seam (the `ITeamExtension` contract plus the
+**Sequencing**: the extension-system seam (the `IModuleExtension` contract plus the
 `TeamsModule`/`TeamsOrchestrator` refactor) lands as a **standalone, regression-green
 structural refactor first** — existing Teams export/import behaviour unchanged — before any
 board-config feature work. It is **Phase 1** in tasks.md (**Extension System**) — established
@@ -165,53 +174,68 @@ first, gated on the existing Teams test suite staying green, an independently-sh
 ### Contracts
 
 ```csharp
-// DevOpsMigrationPlatform.Abstractions.Agent — cross-cutting marker
+// DevOpsMigrationPlatform.Abstractions.Agent — the SINGLE extension contract.
+// All extensions implement this directly. There is NO I{Domain}Extension sub-interface.
 public interface IModuleExtension
 {
     string Module { get; }           // "Teams", "WorkItems", …
     string Name   { get; }           // "BoardConfig", "TeamSettings", …
+    int    Order  { get; }           // lower runs first
     bool SupportsExport { get; }
     bool SupportsImport { get; }
+    bool IsEnabled { get; }          // parameterless — reads this extension's OWN IOptions<T>
+
+    Task ExportAsync(IExtensionContext context, CancellationToken ct);
+    Task ImportAsync(IExtensionContext context, CancellationToken ct);
 }
 
-// DevOpsMigrationPlatform.Abstractions.Agent.Teams — Teams-specific extension contract
-public interface ITeamExtension : IModuleExtension
+// DevOpsMigrationPlatform.Agent — module-neutral per-entity context base
+public interface IExtensionContext
 {
-    string IModuleExtension.Module => "Teams";
-    bool IsEnabled(TeamsModuleExtensionsOptions options);
-    Task ExportAsync(TeamExtensionContext context, CancellationToken ct);
-    Task ImportAsync(TeamExtensionContext context, CancellationToken ct);
+    string Organisation { get; }
+    string ProjectName  { get; }
+    string EntityId     { get; }
+    string? TargetEntityId { get; } // null on export; set by orchestrator before import
+    IPackageAccess Package { get; }
 }
 
-// Context passed to every ITeamExtension per team — export and import share the same record
-public sealed record TeamExtensionContext(
-    string Organisation,
-    string Project,
-    string SourceProject,
-    TeamDefinition Team,
-    string Slug,
-    IPackageAccess Package,
-    TeamsModuleExtensionsOptions Extensions,
-    IProgressSink? ProgressSink);
+// DevOpsMigrationPlatform.Abstractions.Agent.Teams — concrete context the Teams module supplies.
+// Extensions cast IExtensionContext to this. It carries NO shared module-options object.
+public sealed record TeamExtensionContext : IExtensionContext
+{
+    public required string Organisation { get; init; }
+    public required string ProjectName  { get; init; }
+    public required string EntityId     { get; init; }   // source team id
+    public string? TargetEntityId { get; init; }         // set by orchestrator on import
+    public required IPackageAccess Package { get; init; }
+
+    public required TeamDefinition Team { get; init; }
+    public required string Slug { get; init; }
+    public string? SourceProjectName { get; init; }      // for path translation on import
+}
+
+// Each extension owns its own distinct options, bound via IOptions<BoardConfigExtensionOptions>.
 ```
 
 ### Module → Orchestrator Seam
 
-`TeamsModule` owns **what** extensions are active. It resolves `IEnumerable<ITeamExtension>`
-from DI, filters by `IsEnabled` and `SupportsExport`/`SupportsImport`, and passes an ordered
-`IReadOnlyList<ITeamExtension>` to the orchestrator.
+`TeamsModule` owns **what** extensions are active. It resolves `IEnumerable<IModuleExtension>`
+from DI, applies the default/mandatory/optional tiers, filters by `SupportsExport`/`SupportsImport`,
+and passes an ordered `IReadOnlyList<IModuleExtension>` to the orchestrator.
 
 `TeamsOrchestrator` owns **when** extensions run. It drives the per-team loop, checkpointing,
 metrics, and progress events — invoking each extension per team without knowing its content.
 
 ```
 TeamsModule.ExportAsync()
-  │  resolves IEnumerable<ITeamExtension> from DI
-  │  filters:  e.SupportsExport && e.IsEnabled(options.Extensions)
+  │  resolves IEnumerable<IModuleExtension> from DI
+  │  tiers:    default + mandatory (force enabled; disabling = fail-closed error) + optional (e.IsEnabled)
+  │  filters:  e.SupportsExport
   │  orders:   by declared Order (e.g. BoardConfig after TeamSettings)
   ↓
-TeamsOrchestrator.ExportAsync(teamSource, context, extensions, options, ct)
+TeamsOrchestrator.ExportAsync(teamSource, context, …, extensions, ct)
   │  foreach team:
+  │    build TeamExtensionContext (set TargetEntityId before import)
   │    foreach extension in extensions:
   │      await extension.ExportAsync(ctx, ct)
   ↓
@@ -226,12 +250,12 @@ BoardConfigTeamExtension.ExportAsync(ctx, ct)
 `BoardConfigTeamExtension` implements both `ExportAsync` and `ImportAsync`. Export and import
 are capabilities on an extension — `SupportsExport` and `SupportsImport` declare which phases
 it participates in. Splitting into `BoardConfigExportExtension` and `BoardConfigImportExtension`
-would be the same mistake as `ITeamExportExtension` vs `ITeamImportExtension`: it fragments a
-cohesive concern and forces every consumer to reason about two registrations for one feature.
+would fragment a cohesive concern and force every consumer to reason about two registrations
+for one feature.
 
 ### Ordering
 
-Extension ordering is declared on `ITeamExtension` via an `int Order` property (lower = earlier).
+Extension ordering is declared on `IModuleExtension` via an `int Order` property (lower = earlier).
 `TeamsModule` sorts before passing to the orchestrator. For this feature, `BoardConfig` runs last
 among export extensions (after team definition, settings, iterations, members, area paths) so
 that team identity is confirmed in the package before board config is written.

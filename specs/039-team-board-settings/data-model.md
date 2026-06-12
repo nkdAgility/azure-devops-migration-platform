@@ -155,12 +155,19 @@ public sealed record TaskboardColumn(
 
 ---
 
-## Options (Extensions to TeamsModuleExtensionsOptions)
+## Options (per-extension — the extension owns its own `IOptions<T>`)
+
+Each extension owns its own, distinct options class. The board-config extension's config is **not**
+nested inside a shared `TeamsModuleExtensionsOptions` god-object — it is bound independently via
+`IOptions<BoardConfigExtensionOptions>`:
 
 ```csharp
-/// <summary>Controls board configuration export/import extensions.</summary>
-public sealed class BoardConfigExtensionsOptions
+/// <summary>Config for the board-config extension. Bound via IOptions<BoardConfigExtensionOptions>.</summary>
+public sealed class BoardConfigExtensionOptions
 {
+    /// <summary>Optional extension → carries Enabled (a mandatory extension would not).</summary>
+    public bool Enabled { get; init; } = true;
+
     /// <summary>Export/import Kanban board columns.</summary>
     public bool Columns { get; init; } = true;
 
@@ -188,89 +195,81 @@ public sealed class BoardConfigExtensionsOptions
 public enum BoardConfigImportMode { Replace, Merge, Skip }
 ```
 
-`TeamsModuleExtensionsOptions` gains a new property:
-
-```csharp
-/// <summary>Controls which board configuration extensions are active.</summary>
-public BoardConfigExtensionsOptions BoardConfig { get; init; } = new();
-```
+The extension returns `IsEnabled => _options.Enabled` from its **own** `IOptions<BoardConfigExtensionOptions>`.
+Adding an extension never requires editing a central config class.
 
 ---
 
 ## Extension Architecture Contracts
 
-### `IModuleExtension` — cross-cutting marker
+### `IModuleExtension` — the single extension contract
+
+Namespace: `DevOpsMigrationPlatform.Abstractions.Agent`
+
+All extensions implement this **directly**. There is **no** `I{Domain}Extension` sub-interface.
+
+```csharp
+public interface IModuleExtension
+{
+    string Module { get; }       // owning module, e.g. "Teams"
+    string Name { get; }         // unique within module, e.g. "BoardConfig"
+    int Order { get; }           // lower runs first
+    bool SupportsExport { get; }
+    bool SupportsImport { get; }
+
+    /// <summary>Parameterless — reads this extension's OWN IOptions<T>. Mandatory → true; optional → own Enabled.</summary>
+    bool IsEnabled { get; }
+
+    Task ExportAsync(IExtensionContext context, CancellationToken ct);
+    Task ImportAsync(IExtensionContext context, CancellationToken ct);
+}
+```
+
+**No default interface methods** — `Abstractions.Agent` targets `net481;net10.0` and net481 cannot
+compile DIMs (CS8701). Every member is implemented on the class. Under "one type, both directions" an
+extension normally implements both phases; a single-direction extension declares a one-line no-op
+(`=> Task.CompletedTask`) for the unsupported phase and sets the matching `Supports*` flag `false`.
+No abstract base class (single both-directions implementer today — YAGNI).
+
+---
+
+### `IExtensionContext` — module-neutral per-entity context
 
 Namespace: `DevOpsMigrationPlatform.Abstractions.Agent`
 
 ```csharp
-/// <summary>Cross-cutting marker for all per-entity module extensions.</summary>
-public interface IModuleExtension
+public interface IExtensionContext
 {
-    /// <summary>Name of the module this extension belongs to (e.g. "Teams").</summary>
-    string Module { get; }
-
-    /// <summary>Name of this extension (e.g. "BoardConfig", "TeamSettings").</summary>
-    string Name { get; }
-
-    /// <summary>Declared execution order within the module. Lower = earlier.</summary>
-    int Order { get; }
-
-    bool SupportsExport { get; }
-    bool SupportsImport { get; }
+    string Organisation { get; }
+    string ProjectName { get; }
+    string EntityId { get; }
+    string? TargetEntityId { get; }   // null on export; set by orchestrator before import
+    IPackageAccess Package { get; }
 }
 ```
 
 ---
 
-### `ITeamExtension` — Teams per-entity extension contract
+### `TeamExtensionContext` — Teams concrete context
 
 Namespace: `DevOpsMigrationPlatform.Abstractions.Agent.Teams`
 
+The host module supplies this concrete record; it does **not** carry a shared module options object —
+each extension reads its own config. Extensions cast `IExtensionContext` to this type.
+
 ```csharp
-/// <summary>
-/// Extension that participates in per-team export and/or import.
-/// Export and import are capabilities on a single extension — not separate types.
-/// </summary>
-public interface ITeamExtension : IModuleExtension
+public sealed record TeamExtensionContext : IExtensionContext
 {
-    string IModuleExtension.Module => "Teams";
+    public required string Organisation { get; init; }
+    public required string ProjectName { get; init; }
+    public required string EntityId { get; init; }      // source team id
+    public string? TargetEntityId { get; init; }        // set by orchestrator on import
+    public required IPackageAccess Package { get; init; }
 
-    /// <summary>Returns true when this extension is active under the current options.</summary>
-    bool IsEnabled(TeamsModuleExtensionsOptions options);
-
-    /// <summary>Executes the export phase for one team.</summary>
-    Task ExportAsync(TeamExtensionContext context, CancellationToken ct);
-
-    /// <summary>Executes the import phase for one team.</summary>
-    Task ImportAsync(TeamExtensionContext context, CancellationToken ct);
+    public required TeamDefinition Team { get; init; }
+    public required string Slug { get; init; }
+    public string? SourceProjectName { get; init; }     // for path translation on import
 }
-```
-
-**Default implementations** (via interface default methods where `SupportsExport`/`SupportsImport` is false):
-- `ExportAsync` returns `Task.CompletedTask` when `SupportsExport == false`
-- `ImportAsync` returns `Task.CompletedTask` when `SupportsImport == false`
-
----
-
-### `TeamExtensionContext` — shared per-team context
-
-Namespace: `DevOpsMigrationPlatform.Abstractions.Agent.Teams`
-
-```csharp
-/// <summary>
-/// Passed to every ITeamExtension per team. Export and import share the same record.
-/// Extensions read from Package (import) or write to Package (export) via IPackageAccess.
-/// </summary>
-public sealed record TeamExtensionContext(
-    string Organisation,
-    string Project,
-    string SourceProject,
-    TeamDefinition Team,
-    string Slug,
-    IPackageAccess Package,
-    TeamsModuleExtensionsOptions Extensions,
-    IProgressSink? ProgressSink);
 ```
 
 ---

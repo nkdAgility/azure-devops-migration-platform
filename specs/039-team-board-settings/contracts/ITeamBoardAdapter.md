@@ -15,7 +15,7 @@ Adapter contract for per-team board configuration. Covers both directions:
 
 A single adapter implementation handles both. This mirrors the module and
 extension pattern: `IModule` carries both `ExportAsync` and `ImportAsync`;
-`ITeamExtension` carries both; so does the adapter.
+`IModuleExtension` carries both; so does the adapter.
 
 ---
 
@@ -178,6 +178,6 @@ public interface ITeamBoardAdapter
 
 ## Related
 
-- [`ITeamExtension.md`](ITeamExtension.md) — extension that consumes this adapter
-- [`IModuleExtension.md`](IModuleExtension.md) — cross-cutting marker
+- [`BoardConfigTeamExtension.md`](BoardConfigTeamExtension.md) — the extension that consumes this adapter (implements `IModuleExtension`)
+- [`IModuleExtension.md`](IModuleExtension.md) — the single extension contract
 - [`data-model.md`](../data-model.md) — full record definitions

@@ -32,8 +32,13 @@ see `.agents/30-context/architecture/execution-model.md`.
 
 | Interface | Scope |
 |---|---|
-| `IModuleExtension` | Cross-cutting marker; `Module`, `Name`, `Order`, `SupportsExport`, `SupportsImport` |
-| `ITeamExtension : IModuleExtension` | Teams per-entity extension; `IsEnabled`, `ExportAsync(TeamExtensionContext, ct)`, `ImportAsync(TeamExtensionContext, ct)` |
+| `IModuleExtension` | The **single, cross-cutting** extension contract. All extensions implement it directly — `Module`, `Name`, `Order`, `SupportsExport`, `SupportsImport`, parameterless `IsEnabled`, `ExportAsync(IExtensionContext, ct)`, `ImportAsync(IExtensionContext, ct)` |
+| `IExtensionContext` | Module-neutral per-entity context — `Organisation`, `ProjectName`, `EntityId`, `TargetEntityId`, `Package`. A module supplies a concrete record implementing it; extensions cast to the type they require |
+
+There is **no `I{Domain}Extension`** sub-interface (e.g. no `ITeamExtension`). Extensions are
+module-neutral and interchangeable; the same extension, in the same form, may be bound to more
+than one module. Module-specific data reaches the extension through the concrete
+`IExtensionContext` the host module builds — not through a domain-specific extension type.
 
 ### Adapter layer
 
@@ -68,8 +73,12 @@ see `.agents/30-context/architecture/execution-model.md`.
 
 ### Module rules
 
-4. Modules are thin wrappers — no entity loops, no checkpoint logic.
-5. Modules resolve `IEnumerable<IModuleExtension>` from DI, filter by `IsEnabled` + `SupportsExport`/`SupportsImport`, sort by `Order`, and pass `IReadOnlyList` to the orchestrator.
+4. Modules are thin wrappers — no entity loops, no checkpoint logic. A module is the thin, uniform standard front for the orchestrator of the same name; all modules are interchangeable in shape.
+5. Modules build the extension list and pass `IReadOnlyList<IModuleExtension>` to the orchestrator. List-building has three tiers:
+   - **Default** extensions are included automatically.
+   - **Mandatory** extensions MUST be present and enabled for that module; their effective-enabled is forced `true`. An operator attempting to disable a mandatory extension is a **fail-closed configuration error**, never a silent skip.
+   - **Optional** extensions are included only when the operator adds them and their own `IsEnabled` is `true`.
+   After tiering, the module filters by `SupportsExport`/`SupportsImport` and sorts by `Order`. Mandatory/default status is a property of the **module→extension binding**, not of the extension type — the same extension may be mandatory for one module and optional for another.
 6. Module configuration lives under `MigrationPlatform.Modules.{ModuleName}` and is bound via `IOptions<T>`.
 7. A module failure must not crash other modules.
 8. Modules must not access the filesystem directly — all package I/O through `IPackageAccess`.
@@ -86,29 +95,31 @@ see `.agents/30-context/architecture/execution-model.md`.
 
 14. One extension = one capability. Extensions must not implement logic for multiple concerns.
 15. Extensions check `IConnectorCapabilityProvider.Has(...)` before calling their adapter. Capability absence → return Skipped; never null-guard the adapter injection.
-16. `IsEnabled` must be a pure function of options — no I/O, no state.
-17. Extensions must not cache state between entity invocations.
-18. `OperationCanceledException` must propagate — extensions must not swallow cancellation.
-19. Extension `Name` must be unique within its module.
+16. `IsEnabled` is a **parameterless** property. Each extension answers from its **own** `IOptions<T>` — a mandatory extension returns `true`; an optional extension returns its own `Enabled` setting. `IsEnabled` must be pure (no I/O, no state) and must not read any shared, module-level options object.
+17. Each extension owns its **own, distinct** `IOptions<T>` — its config is local to the extension and is not nested inside a shared module-wide options god-object. Adding an extension never requires editing a central config class.
+18. An extension is module-neutral: it implements `IModuleExtension` directly (no `I{Domain}Extension`) and operates over `IExtensionContext`, casting to the concrete context the host module supplies. The same extension may be bound to multiple modules in the same form.
+19. Extensions must not cache state between entity invocations.
+20. `OperationCanceledException` must propagate — extensions must not swallow cancellation.
+21. Extension `Name` must be unique within its module.
 
 ### Adapter rules
 
-20. Adapters carry both read (export) and write (import) methods in one type.
-21. Adapters own SDK mechanics only — no orchestration, no sequencing, no transformation logic.
-22. TFS connectors that do not support a concern omit the adapter registration. The capability flag is the guard — not a null check in the extension.
-23. `Get*` methods must not throw for an entity with no data — return empty sequence or empty list.
-24. `Update*` methods must throw a domain exception if the target entity does not exist (extension handles this with a structured warning).
+22. Adapters carry both read (export) and write (import) methods in one type.
+23. Adapters own SDK mechanics only — no orchestration, no sequencing, no transformation logic.
+24. TFS connectors that do not support a concern omit the adapter registration. The capability flag is the guard — not a null check in the extension.
+25. `Get*` methods must not throw for an entity with no data — return empty sequence or empty list.
+26. `Update*` methods must throw a domain exception if the target entity does not exist (extension handles this with a structured warning).
 
 ### Tool rules
 
-25. Tools are stateless and pure — no I/O, no network calls, no filesystem access.
-26. Tools are injected into extensions, not called directly by modules or orchestrators.
-27. Tools must not hold state between invocations.
+27. A Tool is a **singleton service with one central config for the entire run**, declared once at the `MigrationPlatform.Tools.*` config root. There is one instance, shared by every consumer — contrast with an extension, which is instantiated with its own custom config. (Tool = singleton + single run-wide config; Extension = own custom config per instance.)
+28. Tools are stateless and pure — no I/O, no network calls, no filesystem access; no state between invocations.
+29. Tools are a separate category from extensions: a tool **provides a service** consumed directly via DI; an extension **extends behaviour** and may call tools. Tools are not wrapped per-module and are not entries in any module's extension list. `INodeTranslationTool`, `IIdentityTranslationTool`, and field-transform are Tools — not extensions.
 
 ### PackageAccess rules
 
-28. All package reads and writes go through `IPackageAccess` — no direct filesystem access anywhere in the hierarchy.
-29. The package is the boundary between export and import — it is the source of truth.
+30. All package reads and writes go through `IPackageAccess` — no direct filesystem access anywhere in the hierarchy.
+31. The package is the boundary between export and import — it is the source of truth.
 
 ---
 
@@ -121,7 +132,12 @@ Any of the following constitutes an architectural violation requiring correction
 - An orchestrator is split by phase (e.g. `{Domain}ExportOrchestrator` + `{Domain}ImportOrchestrator`)
 - An adapter is split by direction
 - A tool performs I/O
-- A module or orchestrator calls a tool directly (bypassing extensions)
+- A tool is registered as anything other than a run-wide singleton, or carries per-consumer config
+- A tool is wrapped as an extension or listed in a module's extension list
+- A module calls a tool directly — modules are thin and delegate to their orchestrator (orchestrators and extensions may consume tools via DI)
+- An extension reads enablement from a shared module-wide options object instead of its own `IOptions<T>`
+- An `I{Domain}Extension` sub-interface is introduced instead of implementing `IModuleExtension` directly
+- A mandatory extension is silently skipped instead of raising a fail-closed configuration error
 - An extension null-guards its adapter instead of checking `ConnectorCapability`
 - An extension swallows `OperationCanceledException`
 - A phase method is removed by a compile-time guard on an abstraction contract
