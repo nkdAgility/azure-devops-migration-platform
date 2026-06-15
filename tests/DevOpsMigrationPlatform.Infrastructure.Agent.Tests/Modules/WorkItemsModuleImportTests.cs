@@ -195,7 +195,10 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<IIdentityTranslationTool?>(),
                 It.IsAny<string>(),
                 It.IsAny<string>(),
-                It.IsAny<ProjectMapping?>()))
+                It.IsAny<ProjectMapping?>(),
+                It.IsAny<bool>(),
+                It.IsAny<bool>(),
+                It.IsAny<bool>()))
             .Returns(revisionProcessor.Object);
 
         var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
@@ -376,7 +379,10 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<IIdentityTranslationTool?>(),
                 It.IsAny<string>(),
                 It.IsAny<string>(),
-                It.IsAny<ProjectMapping?>()))
+                It.IsAny<ProjectMapping?>(),
+                It.IsAny<bool>(),
+                It.IsAny<bool>(),
+                It.IsAny<bool>()))
             .Returns(revisionProcessor.Object);
 
         var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
@@ -521,8 +527,12 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<IIdentityTranslationTool?>(),
                 It.IsAny<string>(),
                 It.IsAny<string>(),
-                It.IsAny<ProjectMapping?>()))
-            .Returns(revisionProcessor.Object);
+                It.IsAny<ProjectMapping?>(),
+                false,  // attachmentsEnabledByLever — lever disables
+                false,  // linksEnabledByLever — lever disables
+                false)) // embeddedImagesEnabledByLever — lever disables
+            .Returns(revisionProcessor.Object)
+            .Verifiable("Orchestrator must pass lever-computed disabled flags to the processor factory.");
 
         var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
         sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
@@ -588,6 +598,7 @@ public sealed class WorkItemsModuleImportTests
             CancellationToken.None);
 
         revisionProcessor.VerifyAll();
+        processorFactory.Verify();
     }
 
     private static PackagePayload CreatePayload<T>(T value)

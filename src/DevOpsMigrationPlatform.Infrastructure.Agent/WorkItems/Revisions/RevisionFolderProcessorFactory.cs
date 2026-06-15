@@ -2,11 +2,14 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
@@ -67,8 +70,22 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
         IIdentityTranslationTool? identityTranslationTool,
         string organisation,
         string project,
-        ProjectMapping? nodeStructureContext)
-        => new WorkItemResolutionProcessor(
+        ProjectMapping? nodeStructureContext,
+        bool attachmentsEnabledByLever = true,
+        bool linksEnabledByLever = true,
+        bool embeddedImagesEnabledByLever = true)
+    {
+        var linksExtension = linksEnabledByLever
+            ? _linksExtension
+            : DisabledLinks();
+        var attachmentsExtension = attachmentsEnabledByLever
+            ? _attachmentsExtension
+            : DisabledAttachments();
+        var embeddedImagesOptions = embeddedImagesEnabledByLever
+            ? (EmbeddedImagesExtensionOptionsConfig?)null
+            : new EmbeddedImagesExtensionOptionsConfig { Enabled = false };
+
+        return new WorkItemResolutionProcessor(
             target,
             idMapStore,
             checkpointing,
@@ -82,7 +99,16 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
             nodeStructureContext: nodeStructureContext,
             nodeStructureOptions: _nodeStructureOptions,
             package: _package,
-            linksExtension: _linksExtension,
-            attachmentsExtension: _attachmentsExtension,
-            commentsExtension: _commentsExtension);
+            linksExtension: linksExtension,
+            attachmentsExtension: attachmentsExtension,
+            commentsExtension: _commentsExtension,
+            embeddedImagesOptions: embeddedImagesOptions);
+    }
+
+    private static LinksWorkItemExtension DisabledLinks()
+        => new(Options.Create(new LinksExtensionOptions { Enabled = false }));
+
+    private AttachmentsWorkItemExtension DisabledAttachments()
+        => new(Options.Create(new AttachmentsExtensionOptions { Enabled = false }),
+               NullLogger<AttachmentReplayTool>.Instance);
 }

@@ -573,7 +573,10 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             _identityTranslationTool,
             sourceOrganisation,
             sourceProjectName,
-            nodeStructureContext);
+            nodeStructureContext,
+            attachmentsEnabledByLever: ext.AttachmentsEnabled,
+            linksEnabledByLever: ext.LinksEnabled,
+            embeddedImagesEnabledByLever: ext.EmbeddedImages.Enabled);
 
         var importFilters = startupPolicy.ImportFilters;
 

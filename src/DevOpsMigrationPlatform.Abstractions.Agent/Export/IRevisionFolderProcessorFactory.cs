@@ -5,6 +5,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 /// <summary>
@@ -27,7 +28,8 @@ public interface IWorkItemResolutionProcessorFactory
 
     /// <summary>
     /// Creates a new <see cref="IWorkItemResolutionProcessor"/> with NodeTranslation context
-    /// for area/iteration path translation.
+    /// and optional per-job replay-lever overrides. When a lever disables an extension that
+    /// config has enabled, pass <see langword="false"/> for the relevant parameter.
     /// </summary>
     IWorkItemResolutionProcessor Create(
         IWorkItemTarget target,
@@ -36,5 +38,8 @@ public interface IWorkItemResolutionProcessorFactory
         IIdentityTranslationTool? identityTranslationTool,
         string organisation,
         string project,
-        DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping? nodeStructureContext);
+        DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping? nodeStructureContext,
+        bool attachmentsEnabledByLever = true,
+        bool linksEnabledByLever = true,
+        bool embeddedImagesEnabledByLever = true);
 }
