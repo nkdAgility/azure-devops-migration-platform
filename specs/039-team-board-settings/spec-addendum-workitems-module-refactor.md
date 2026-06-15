@@ -17,6 +17,9 @@
 - Stage 3/4 (export gating) — `AttachmentsWorkItemExtension` and `CommentsWorkItemExtension` injected into `WorkItemsOrchestrator`. `ExportAsync` reads `IsEnabled` from extension objects instead of `ext.AttachmentsEnabled` / `ext.Comments.Enabled`.
 - `RevisionFolderProcessor` embedded-image gate — `ext.EmbeddedImages.Enabled` replaced by injected `EmbeddedImagesExtensionOptionsConfig`; `ImportEmbeddedImagesContext.BuildProcessor` updated to forward `Extensions.EmbeddedImages`.
 - Import startup log — `ext.LinksEnabled` replaced by `_options.Value.Extensions.Links.Enabled`.
+- `RevisionsEnabled` — removed from god-object (was never read; early-return guard and startup log read `_options.Value.Extensions.Revisions.Enabled`).
+- Dead `FromModule` factory and all 8 private helpers deleted from `WorkItemsModuleExtensions`.
+- Loop-level `commentsEnabled` gate — migrated from `ext.Comments.Enabled` to `_commentsExtension.IsEnabled`; `Comments` property removed from god-object; dead `Comments = ext.Comments` line removed from `ApplyReplayLevers`.
 
 ---
 
@@ -25,6 +28,8 @@
 ### Residual god-object cleanup (Stage 5 — blocked)
 
 `EmitReplaySkipVisibilityEvents` in `WorkItemsOrchestrator` reads `ext.AttachmentsEnabled` and `ext.EmbeddedImages.Enabled` from the god-object. These values are post-lever (after `ApplyReplayLevers`), so they can't trivially be replaced by reading from the processor's extension objects (which are pre-lever). Retirement requires threading levered enablement into the stage objects or into the processor factory — Stage 5 work.
+
+`ApplyReplayLevers` reads `ext.AttachmentsEnabled`, `ext.LinksEnabled`, and `ext.EmbeddedImages.Enabled` to compute levered values. These flow to `EmitReplaySkipVisibilityEvents`. Retirement also Stage 5.
 
 ---
 
@@ -40,13 +45,14 @@ EmbeddedImages export stays as a field-rewrite contributor inside the core `Appl
 
 ### Stage 4/5 — Retire the god-object (`WorkItemsModuleExtensions`)
 
-Once all gates are migrated off it:
-- `ext.LinksEnabled` — migrated (processor reads `_linksExtension.IsEnabled`; startup log reads `_options.Value.Extensions.Links.Enabled`).
-- `ext.AttachmentsEnabled` — residual in `EmitReplaySkipVisibilityEvents` and `ApplyReplayLevers` only (Stage 5).
-- `ext.EmbeddedImages.Enabled` — residual in `EmitReplaySkipVisibilityEvents` and `ApplyReplayLevers` only (Stage 5); per-revision gate now uses injected options.
-- `ext.RevisionsEnabled` — only in the early-return guard (correct shape) and `ApplyReplayLevers`. Retire from god-object; promote to orchestrator-level option or remove.
-- `ext.Comments.Enabled` — residual at L654 (intentionally retained: loop-level levered gate) and `ApplyReplayLevers`. Migrate loop gate after Stage 5.
-- Non-extension config (`Query`, filters, `ResolutionStrategy`) stays — not extension-owned.
+Remaining extension-owned god-object fields (all Stage 5 blocked):
+- `ext.AttachmentsEnabled` — residual in `EmitReplaySkipVisibilityEvents` and `ApplyReplayLevers`.
+- `ext.LinksEnabled` — residual in `ApplyReplayLevers` only.
+- `ext.EmbeddedImages.Enabled` / `.DownloadTimeoutSeconds` — residual in `EmitReplaySkipVisibilityEvents` and `ApplyReplayLevers`.
+
+Non-extension config (`Query`, filters, `ResolutionStrategy`) stays — not extension-owned.
+
+Already retired: `Comments`, `RevisionsEnabled`.
 
 ---
 
