@@ -1110,7 +1110,6 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         return new WorkItemsModuleExtensions
         {
             Query = ext.Query,
-            RevisionsEnabled = ext.RevisionsEnabled,
             LinksEnabled = linksEnabled,
             AttachmentsEnabled = attachmentsEnabled,
             Comments = ext.Comments,

@@ -29,9 +29,6 @@ public sealed class WorkItemsModuleExtensions
     /// <summary>WIQL query selecting work items to export.</summary>
     public string Query { get; init; } = DefaultWiqlQuery;
 
-    /// <summary>Whether revision history export is enabled. Default: <c>true</c>.</summary>
-    public bool RevisionsEnabled { get; init; } = true;
-
     /// <summary>Whether related-link export is enabled. Default: <c>true</c>.</summary>
     public bool LinksEnabled { get; init; } = true;
 
@@ -92,7 +89,6 @@ public sealed class WorkItemsModuleExtensions
         var query = GetWiqlQuery(module.Scopes);
         var (includeFilters, excludeFilters) = ParseFilterScopes(module.Scopes);
 
-        bool revisionsEnabled = true;
         bool linksEnabled = true;
         bool attachmentsEnabled = true;
         var comments = new CommentsExtensionOptionsConfig();
@@ -103,9 +99,6 @@ public sealed class WorkItemsModuleExtensions
         {
             switch (ext.Type)
             {
-                case "Revisions":
-                    revisionsEnabled = ext.Enabled;
-                    break;
                 case "Links":
                     linksEnabled = ext.Enabled;
                     break;
@@ -127,7 +120,6 @@ public sealed class WorkItemsModuleExtensions
         return new WorkItemsModuleExtensions
         {
             Query = query,
-            RevisionsEnabled = revisionsEnabled,
             LinksEnabled = linksEnabled,
             AttachmentsEnabled = attachmentsEnabled,
             Comments = comments,
@@ -178,7 +170,6 @@ public sealed class WorkItemsModuleExtensions
         return new WorkItemsModuleExtensions
         {
             Query = options.Scope.Query,
-            RevisionsEnabled = options.Extensions.Revisions.Enabled,
             LinksEnabled = options.Extensions.Links.Enabled,
             AttachmentsEnabled = options.Extensions.Attachments.Enabled,
             Comments = options.Extensions.Comments,
