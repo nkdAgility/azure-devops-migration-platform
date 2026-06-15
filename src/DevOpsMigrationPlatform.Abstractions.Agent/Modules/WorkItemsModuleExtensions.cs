@@ -12,7 +12,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 /// <summary>
 /// Resolved configuration for the WorkItems module, derived from
 /// <see cref="WorkItemsModuleOptions"/> via <see cref="FromOptions"/>.
-/// Each named extension ("Links", "Attachments", "Comments", "EmbeddedImages")
+/// Each named extension ("Links", "Attachments", "EmbeddedImages")
 /// is independently enabled/disabled. Missing extensions fall back to enabled defaults.
 /// </summary>
 public sealed class WorkItemsModuleExtensions
@@ -28,9 +28,6 @@ public sealed class WorkItemsModuleExtensions
 
     /// <summary>Whether attachment binary download is enabled. Default: <c>true</c>.</summary>
     public bool AttachmentsEnabled { get; init; } = true;
-
-    /// <summary>Comments extension configuration. Default: enabled, no deleted comments.</summary>
-    public CommentsExtensionOptionsConfig Comments { get; init; } = new CommentsExtensionOptionsConfig();
 
     /// <summary>EmbeddedImages extension options. Default: enabled, 30 s timeout.</summary>
     public EmbeddedImagesExtensionOptionsConfig EmbeddedImages { get; init; } = new EmbeddedImagesExtensionOptionsConfig();
@@ -102,7 +99,6 @@ public sealed class WorkItemsModuleExtensions
             Query = options.Scope.Query,
             LinksEnabled = options.Extensions.Links.Enabled,
             AttachmentsEnabled = options.Extensions.Attachments.Enabled,
-            Comments = options.Extensions.Comments,
             EmbeddedImages = options.Extensions.EmbeddedImages,
             ResolutionStrategy = new WorkItemResolutionStrategyOptions
             {

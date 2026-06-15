@@ -109,8 +109,7 @@ public class SkipUnresolvableContext
 
         var ext = new WorkItemsModuleExtensions
         {
-            LinksEnabled = false, AttachmentsEnabled = false,
-            Comments = new() { Enabled = false }
+            LinksEnabled = false, AttachmentsEnabled = false
         };
 
         try
