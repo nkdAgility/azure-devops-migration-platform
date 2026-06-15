@@ -31,6 +31,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Configuration;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using Microsoft.Extensions.Logging;
@@ -61,6 +62,8 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
     private readonly IInventoryOrchestrator? _inventoryOrchestrator;
     private readonly IRepoDiscoveryService? _repoDiscoveryService;
     private readonly ImportPreparer _importPreparer;
+    private readonly AttachmentsWorkItemExtension _attachmentsExtension;
+    private readonly CommentsWorkItemExtension _commentsExtension;
 
     // Shared deps
     private readonly ICheckpointingServiceFactory _checkpointingFactory;
@@ -107,7 +110,9 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         IOptions<WorkItemOptions>? workItemOptions = null,
         IOptions<NodesModuleOptions>? nodesModuleOptions = null,
         IInventoryOrchestrator? inventoryOrchestrator = null,
-        IRepoDiscoveryService? repoDiscoveryService = null)
+        IRepoDiscoveryService? repoDiscoveryService = null,
+        AttachmentsWorkItemExtension? attachmentsExtension = null,
+        CommentsWorkItemExtension? commentsExtension = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _attachmentBinarySource = attachmentBinarySource;
@@ -135,6 +140,8 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         _nodesModuleOptions = nodesModuleOptions;
         _inventoryOrchestrator = inventoryOrchestrator;
         _repoDiscoveryService = repoDiscoveryService;
+        _attachmentsExtension = attachmentsExtension ?? new AttachmentsWorkItemExtension(Options.Create(new AttachmentsExtensionOptions()));
+        _commentsExtension = commentsExtension ?? new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()));
     }
 
     /// <summary>
@@ -332,12 +339,12 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         {
             _logger.LogInformation(
                 "[WorkItems] Exporting from {OrgUrl}/{Project} (attachments={AttachmentsEnabled}, comments={CommentsEnabled})",
-                orgUrl, project, ext.AttachmentsEnabled, ext.Comments.Enabled);
+                orgUrl, project, _attachmentsExtension.IsEnabled, _commentsExtension.IsEnabled);
         }
 
-        if (ext.AttachmentsEnabled && _attachmentBinarySource == null)
+        if (_attachmentsExtension.IsEnabled && _attachmentBinarySource == null)
             _logger.LogWarning("[WorkItems] AttachmentsEnabled is true but no IAttachmentBinarySource is registered — attachment binaries will NOT be written to the package. Register a connector-specific IAttachmentBinarySource to enable attachment export.");
-        if (ext.Comments.Enabled && _inlineCommentSourceFactory == null)
+        if (_commentsExtension.IsEnabled && _inlineCommentSourceFactory == null)
             _logger.LogWarning("[WorkItems] Comments.Enabled is true but no IWorkItemCommentSourceFactory is registered — inline comments will NOT be exported. Register a connector-specific IWorkItemCommentSourceFactory to enable comment export.");
 
         var allFilters = ext.IncludeFilters.Concat(ext.ExcludeFilters).ToList();
@@ -366,7 +373,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         var checkpointingService = _checkpointingFactory.Create(context.Package);
 
 #if !NET481
-        var inlineFactory = ext.Comments.Enabled ? _inlineCommentSourceFactory : null;
+        var inlineFactory = _commentsExtension.IsEnabled ? _inlineCommentSourceFactory : null;
 #else
         var inlineFactory = (IWorkItemCommentSourceFactory?)null;
 #endif
@@ -377,7 +384,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             project,
             checkpointingService,
 #if !NET481
-            ext.AttachmentsEnabled ? _attachmentBinarySource : null,
+            _attachmentsExtension.IsEnabled ? _attachmentBinarySource : null,
 #else
             _attachmentBinarySource,
 #endif

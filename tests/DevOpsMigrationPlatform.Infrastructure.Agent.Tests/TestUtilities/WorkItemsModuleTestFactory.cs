@@ -66,7 +66,9 @@ internal static class WorkItemsModuleTestFactory
         IIdentityTranslationTool? identityTranslationTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
         IEnumerable<IImportFailurePattern>? importFailurePatterns = null,
-        ImportPreparer? importPreparer = null)
+        ImportPreparer? importPreparer = null,
+        DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.AttachmentsWorkItemExtension? attachmentsExtension = null,
+        DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.CommentsWorkItemExtension? commentsExtension = null)
         => new(CreateOrchestrator(
             sourceFactory, logger, options, sourceEndpointInfo, importTargetFactory,
             resolutionStrategyFactory, checkpointingFactory, idMapStoreFactory, processorFactory,
@@ -74,7 +76,8 @@ internal static class WorkItemsModuleTestFactory
             inventoryOrchestrator, metrics, discoveryService, exportProgressStoreFactory,
             referencedPathTracker, nodesOrchestrator, nodeReadinessOrchestrator, nodesModuleOptions,
             fieldTransformTool, workItemImportOptions, exportOrchestratorFactory, identityTranslationTool,
-            repoDiscoveryService, importFailurePatterns, importPreparer));
+            repoDiscoveryService, importFailurePatterns, importPreparer,
+            attachmentsExtension, commentsExtension));
 
     public static WorkItemsOrchestrator CreateOrchestrator(
         IWorkItemRevisionSourceFactory? sourceFactory = null,
@@ -104,7 +107,9 @@ internal static class WorkItemsModuleTestFactory
         IIdentityTranslationTool? identityTranslationTool = null,
         IRepoDiscoveryService? repoDiscoveryService = null,
         IEnumerable<IImportFailurePattern>? importFailurePatterns = null,
-        ImportPreparer? importPreparer = null)
+        ImportPreparer? importPreparer = null,
+        DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.AttachmentsWorkItemExtension? attachmentsExtension = null,
+        DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.CommentsWorkItemExtension? commentsExtension = null)
     {
         options ??= Options.Create(new WorkItemsModuleOptions());
         logger ??= NullLogger<WorkItemsModule>.Instance;
@@ -153,7 +158,9 @@ internal static class WorkItemsModuleTestFactory
             workItemImportOptions,
             nodesModuleOptions,
             inventoryOrchestrator,
-            repoDiscoveryService);
+            repoDiscoveryService,
+            attachmentsExtension,
+            commentsExtension);
     }
 
     private static ISourceEndpointInfo DefaultSourceEndpoint()
