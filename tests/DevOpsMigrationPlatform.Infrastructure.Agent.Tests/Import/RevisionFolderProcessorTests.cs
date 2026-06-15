@@ -78,7 +78,8 @@ public class WorkItemResolutionProcessorTests
 
     private static DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.AttachmentsWorkItemExtension DisabledAttachments()
         => new(Microsoft.Extensions.Options.Options.Create(
-            new DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.AttachmentsExtensionOptions { Enabled = false }));
+            new DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.AttachmentsExtensionOptions { Enabled = false }),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments.AttachmentReplayTool>.Instance);
 
     // ── ProcessAsync_WhenRevisionJsonMissing_SkipsFolder ──────────────────────
 

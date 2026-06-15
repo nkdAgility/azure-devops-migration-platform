@@ -15,7 +15,9 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -58,7 +60,8 @@ public sealed class WorkItemsOrchestratorExportTests
         var spy = new ExportFactorySpy();
 
         var disabledAttachments = new AttachmentsWorkItemExtension(
-            Options.Create(new AttachmentsExtensionOptions { Enabled = false }));
+            Options.Create(new AttachmentsExtensionOptions { Enabled = false }),
+            NullLogger<AttachmentReplayTool>.Instance);
 
         var orchestrator = WorkItemsModuleTestFactory.CreateOrchestrator(
             exportOrchestratorFactory: spy,

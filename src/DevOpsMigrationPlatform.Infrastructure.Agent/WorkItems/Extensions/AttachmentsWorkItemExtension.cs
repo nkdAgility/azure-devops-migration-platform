@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
-using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
@@ -20,9 +20,15 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 public sealed class AttachmentsWorkItemExtension : IModuleExtension
 {
     private readonly AttachmentsExtensionOptions _options;
+    private readonly ILogger<AttachmentReplayTool> _logger;
 
-    public AttachmentsWorkItemExtension(IOptions<AttachmentsExtensionOptions> options)
-        => _options = (options ?? throw new ArgumentNullException(nameof(options))).Value;
+    public AttachmentsWorkItemExtension(
+        IOptions<AttachmentsExtensionOptions> options,
+        ILogger<AttachmentReplayTool> logger)
+    {
+        _options = (options ?? throw new ArgumentNullException(nameof(options))).Value;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
 
     public string Module => "WorkItems";
     public string Name => "Attachments";
@@ -47,7 +53,7 @@ public sealed class AttachmentsWorkItemExtension : IModuleExtension
         var replayTool = new AttachmentReplayTool(
             ctx.Target,
             ctx.IdMapStore,
-            NullLogger<AttachmentReplayTool>.Instance);
+            _logger);
 
         await replayTool.ReplayAsync(
             ctx.Revision,

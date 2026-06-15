@@ -107,7 +107,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         _nodeStructureOptions = nodeStructureOptions;
         _package = package;
         _linksExtension = linksExtension ?? new LinksWorkItemExtension(Options.Create(new LinksExtensionOptions()));
-        _attachmentsExtension = attachmentsExtension ?? new AttachmentsWorkItemExtension(Options.Create(new AttachmentsExtensionOptions()));
+        _attachmentsExtension = attachmentsExtension ?? new AttachmentsWorkItemExtension(Options.Create(new AttachmentsExtensionOptions()), Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments.AttachmentReplayTool>.Instance);
         _commentsExtension = commentsExtension ?? new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()));
         _injectedExtensionStages = extensionStages;
         _embeddedImagesEnabled = embeddedImagesOptions?.Enabled ?? true;

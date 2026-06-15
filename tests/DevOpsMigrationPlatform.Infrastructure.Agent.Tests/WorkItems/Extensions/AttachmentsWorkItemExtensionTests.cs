@@ -9,7 +9,9 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -24,7 +26,7 @@ public sealed class AttachmentsWorkItemExtensionTests
     [TestMethod]
     public void Contract_DeclaresWorkItemsAttachmentsImportOnly()
     {
-        var ext = new AttachmentsWorkItemExtension(Options.Create(new AttachmentsExtensionOptions()));
+        var ext = new AttachmentsWorkItemExtension(Options.Create(new AttachmentsExtensionOptions()), NullLogger<AttachmentReplayTool>.Instance);
 
         Assert.AreEqual("WorkItems", ext.Module);
         Assert.AreEqual("Attachments", ext.Name);
@@ -39,7 +41,7 @@ public sealed class AttachmentsWorkItemExtensionTests
     [TestMethod]
     public void IsEnabled_ReflectsOwnOptions()
     {
-        var ext = new AttachmentsWorkItemExtension(Options.Create(new AttachmentsExtensionOptions { Enabled = false }));
+        var ext = new AttachmentsWorkItemExtension(Options.Create(new AttachmentsExtensionOptions { Enabled = false }), NullLogger<AttachmentReplayTool>.Instance);
         Assert.IsFalse(ext.IsEnabled);
     }
 
@@ -73,7 +75,7 @@ public sealed class AttachmentsWorkItemExtensionTests
         Func<string, CancellationToken, Task<Stream?>> readBinary =
             (_, _) => Task.FromResult<Stream?>(new MemoryStream(new byte[] { 1, 2, 3 }));
 
-        var ext = new AttachmentsWorkItemExtension(Options.Create(new AttachmentsExtensionOptions()));
+        var ext = new AttachmentsWorkItemExtension(Options.Create(new AttachmentsExtensionOptions()), NullLogger<AttachmentReplayTool>.Instance);
 
         await ext.ImportAsync(
             CreateContext(
