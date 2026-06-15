@@ -13,40 +13,15 @@
 - Stage 5 — tool-definition fix (rescinded wrong "tools do no I/O" rule).
 - Stage 5 — import-side facet enablement migrated: processor stage gates now read each extension's own `IsEnabled`.
 - Stage 3 taxonomy remediation — `WorkItemsImportRuntime`, `WorkItemStreamOrchestrator`, `WorkItemRevisionImporter` deleted; all logic consolidated into `WorkItemsOrchestrator`. Self-instantiation anti-pattern (HX-C1) eliminated. `RevisionsEnabled` early-return guard added; `commentsEnabled` local extracted from loop body.
+- Stage 2 (core) — `CommentsWorkItemExtension` moved from ad-hoc inline call into the ordered `extensionStages` array with `CursorStage.AppliedComments` cursor write. `WorkItemRevisionStage` made `public`. Extension stage list made injectable via `WorkItemResolutionProcessor` ctor parameter.
 
 ---
 
 ## Pending
 
-### Stage 2 — Cursor-engine generalisation (keystone)
+### Residual god-object cleanup (Stage 2 tail / Stage 5 prerequisite)
 
-**Governance**: Class C — requires test-first RED→GREEN→REFACTOR trace per increment.
-
-**Problem**: `CursorStage` is a hard-coded string registry; the stage pipeline in `RevisionFolderProcessor` is a fixed `if`-block sequence. Adding a capability requires editing the enum and the resume logic.
-
-**Target**: Convert the fixed stage sequence into an ordered, name-keyed pipeline:
-
-```
-stages = [ core:CreatedOrUpdated, core:AppliedFields, ...ordered extensions..., core:Completed ]
-foreach revision:
-  resumeAt = cursor.read(folder)
-  foreach stage in stages:
-    if already-done(stage.Name, resumeAt): continue
-    await stage.Execute(ctx)
-    cursor.write(folder, stage.Name)
-```
-
-Stage names reuse the existing cursor marker strings (`CreatedOrUpdated`, `AppliedFields`, `AppliedLinks`, `UploadedAttachments`, `Completed`) — no on-disk format change, no upgrader needed.
-
-`RevisionFolderProcessor` becomes the explicit sub-orchestrator owning the loop + cursor. The ordered list of non-core stages is an `IReadOnlyList<WorkItemRevisionStage>` (the descriptor already exists at `WorkItems/Revisions/WorkItemRevisionStage.cs`).
-
-**Increments** (each RED→GREEN→REFACTOR):
-1. Convert `RevisionFolderProcessor` from inline `if`-blocks to the ordered name-keyed loop. Same hard-wired stages; behaviour-identical; parity tests stay green.
-2. Make the stage list injectable so tests can vary it. Wire the existing `LinksWorkItemExtension`, `AttachmentsWorkItemExtension`, `CommentsWorkItemExtension` as stages via `WorkItemRevisionStage` descriptors. No behaviour change.
-
-**Residual god-object cleanup (fold into this stage)**:
-- `EmitReplaySkipVisibilityEvents` in `WorkItemsOrchestrator` still reads `ext.AttachmentsEnabled` and `ext.EmbeddedImages.Enabled` via the god-object. Once the stage list is injectable these can read from the stage's own `IsEnabled`.
-- `ext.EmbeddedImages.Enabled` in `CreateArtefactContext` (line ~1100 in `WorkItemsOrchestrator.cs`).
+`EmitReplaySkipVisibilityEvents` in `WorkItemsOrchestrator` reads `ext.AttachmentsEnabled` and `ext.EmbeddedImages.Enabled` from the god-object. These values are post-lever (after `ApplyReplayLevers`), so they can't trivially be replaced by reading from the processor's extension objects (which are pre-lever). Retirement requires threading levered enablement into the stage objects or into the processor factory — Stage 5 work.
 
 ---
 
