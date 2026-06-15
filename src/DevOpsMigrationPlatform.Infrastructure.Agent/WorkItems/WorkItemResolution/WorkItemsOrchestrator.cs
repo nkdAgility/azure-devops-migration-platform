@@ -1112,7 +1112,6 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             Query = ext.Query,
             LinksEnabled = linksEnabled,
             AttachmentsEnabled = attachmentsEnabled,
-            Comments = ext.Comments,
             EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig
             {
                 Enabled = embeddedImagesEnabled,
