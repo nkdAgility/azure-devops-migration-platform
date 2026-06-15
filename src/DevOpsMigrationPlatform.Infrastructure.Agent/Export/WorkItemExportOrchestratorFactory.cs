@@ -3,9 +3,11 @@
 
 using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Configuration;
 
@@ -31,7 +33,9 @@ public sealed class WorkItemExportOrchestratorFactory : IWorkItemExportOrchestra
         IWorkItemDiscoveryService? discoveryService,
         IExportProgressStoreFactory? exportProgressStoreFactory,
         string? packageUri,
-        IReferencedPathTracker? referencedPathTracker = null)
+        IReferencedPathTracker? referencedPathTracker = null,
+        IReadOnlyList<IModuleExtension>? exportExtensions = null,
+        MigrationEndpointOptions? endpoint = null)
     {
         return new WorkItemExportOrchestrator(
             package,
@@ -40,7 +44,7 @@ public sealed class WorkItemExportOrchestratorFactory : IWorkItemExportOrchestra
             checkpointingService,
             attachmentBinarySource,
             progressSink,
-            endpoint: null,
+            endpoint: endpoint,
             inlineCommentSourceFactory: inlineCommentSourceFactory,
             fetchService: fetchService,
             filterOptions: filterOptions,
@@ -54,7 +58,8 @@ public sealed class WorkItemExportOrchestratorFactory : IWorkItemExportOrchestra
             packageUri: packageUri
 #if !NET481
             ,
-            referencedPathTracker: referencedPathTracker
+            referencedPathTracker: referencedPathTracker,
+            exportExtensions: exportExtensions
 #endif
             );
     }

@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
@@ -373,7 +374,17 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         var checkpointingService = _checkpointingFactory.Create(context.Package);
 
 #if !NET481
-        var inlineFactory = _commentsExtension.IsEnabled ? _inlineCommentSourceFactory : null;
+        // When export extensions are provided (the facet-based path), the inline attachment/comment
+        // code inside WorkItemExportOrchestrator is bypassed. Pass null so the orchestrator skips
+        // those legacy code paths and delegates to the extensions instead.
+        // When no export extensions are configured, fall through to the legacy inline path.
+        var exportExtensions = new List<IModuleExtension>
+        {
+            _attachmentsExtension,
+            _commentsExtension
+        };
+        var inlineFactory = (IWorkItemCommentSourceFactory?)null;
+        var sourceEndpoint = context.Organisations.Count > 0 ? context.Organisations[0].Endpoint : null;
 #else
         var inlineFactory = (IWorkItemCommentSourceFactory?)null;
 #endif
@@ -384,7 +395,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             project,
             checkpointingService,
 #if !NET481
-            _attachmentsExtension.IsEnabled ? _attachmentBinarySource : null,
+            null, // attachmentBinarySource: handled by AttachmentsWorkItemExtension
 #else
             _attachmentBinarySource,
 #endif
@@ -401,7 +412,9 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             discoveryService: _discoveryService,
             exportProgressStoreFactory: _exportProgressStoreFactory,
             packageUri: null,
-            referencedPathTracker: _referencedPathTracker
+            referencedPathTracker: _referencedPathTracker,
+            exportExtensions: exportExtensions,
+            endpoint: sourceEndpoint
 #else
             wiqlQuery: wiqlQuery,
             discoveryService: discoveryService481,

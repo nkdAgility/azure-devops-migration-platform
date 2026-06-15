@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent;
 using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
@@ -104,7 +105,9 @@ public sealed class WorkItemsOrchestratorExportTests
             IWorkItemDiscoveryService? discoveryService,
             IExportProgressStoreFactory? exportProgressStoreFactory,
             string? packageUri,
-            IReferencedPathTracker? referencedPathTracker = null)
+            IReferencedPathTracker? referencedPathTracker = null,
+            IReadOnlyList<IModuleExtension>? exportExtensions = null,
+            MigrationEndpointOptions? endpoint = null)
         {
             CapturedCommentFactory = inlineCommentSourceFactory;
             CapturedAttachmentSource = attachmentBinarySource;

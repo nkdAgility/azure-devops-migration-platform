@@ -3,9 +3,11 @@
 
 using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Configuration;
 
@@ -31,5 +33,7 @@ public interface IWorkItemExportOrchestratorFactory
         IWorkItemDiscoveryService? discoveryService,
         IExportProgressStoreFactory? exportProgressStoreFactory,
         string? packageUri,
-        IReferencedPathTracker? referencedPathTracker = null);
+        IReferencedPathTracker? referencedPathTracker = null,
+        IReadOnlyList<IModuleExtension>? exportExtensions = null,
+        MigrationEndpointOptions? endpoint = null);
 }

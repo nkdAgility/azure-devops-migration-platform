@@ -20,8 +20,10 @@ using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 #if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Agent;
 #endif
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
@@ -73,6 +75,7 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
     private readonly string? _packageUri;
 #if !NET481
     private readonly IReferencedPathTracker? _referencedPathTracker;
+    private readonly IReadOnlyList<IModuleExtension>? _exportExtensions;
 #endif
 
     public WorkItemExportOrchestrator(
@@ -96,6 +99,7 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
         string? packageUri = null
 #if !NET481
         , IReferencedPathTracker? referencedPathTracker = null
+        , IReadOnlyList<IModuleExtension>? exportExtensions = null
 #endif
         )
     {
@@ -119,6 +123,7 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
         _packageUri = packageUri;
 #if !NET481
         _referencedPathTracker = referencedPathTracker;
+        _exportExtensions = exportExtensions;
 #endif
     }
 
@@ -541,7 +546,14 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
                 // For comment edit/delete revisions, fetch the matching comment versions by timestamp
                 // and write them as comment.json beside revision.json in the same revision folder.
                 // FR-5: Comment API failures are non-fatal — log via progress and continue.
-                if (_inlineCommentSourceFactory != null &&
+                // When export extensions are registered (the facet-based path), skip inline comment
+                // export — the enabled comments extension handles it instead.
+#if !NET481
+                var useInlineComments = _exportExtensions == null || _exportExtensions.Count == 0;
+#else
+                var useInlineComments = true;
+#endif
+                if (useInlineComments && _inlineCommentSourceFactory != null &&
                     _endpoint != null &&
                     !string.IsNullOrEmpty(_project) &&
                     IsCommentEditOrDeleteRevision(revision))
@@ -711,8 +723,15 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
 
                 // Write attachment binaries beside revision.json when a binary source is available.
                 // Delta detection: skip re-downloading when the same URL appears on adjacent revisions.
+                // When export extensions are registered (the facet-based path), skip the inline
+                // attachment download — the enabled attachment extension handles it instead.
                 var currentAttachmentUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                if (_attachmentBinarySource != null)
+#if !NET481
+                var useInlineAttachments = _exportExtensions == null || _exportExtensions.Count == 0;
+#else
+                var useInlineAttachments = true;
+#endif
+                if (useInlineAttachments && _attachmentBinarySource != null)
                 {
                     foreach (var attachment in revision.Attachments)
                     {
@@ -901,6 +920,52 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
                 }
 
                 previousAttachmentUrls = currentAttachmentUrls;
+
+#if !NET481
+                // Invoke any registered export-side facet extensions (e.g. AttachmentsWorkItemExtension,
+                // CommentsWorkItemExtension) that have SupportsExport = true and IsEnabled = true.
+                if (_exportExtensions is { Count: > 0 })
+                {
+                    var revisionExportContext = new WorkItemRevisionExportContext
+                    {
+                        Organisation = _organisation,
+                        ProjectName = _project,
+                        EntityId = revision.WorkItemId.ToString(),
+                        Package = _package,
+                        WorkItemId = revision.WorkItemId,
+                        RevisionIndex = revision.RevisionIndex,
+                        Revision = revision,
+                        FolderPath = folderPath,
+                        SourceEndpoint = _endpoint
+                    };
+
+                    foreach (var ext in _exportExtensions)
+                    {
+                        if (!ext.IsEnabled || !ext.SupportsExport)
+                            continue;
+                        try
+                        {
+                            await ext.ExportAsync(revisionExportContext, cancellationToken).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            _progressSink?.Emit(new ProgressEvent
+                            {
+                                Module = "WorkItems",
+                                Stage = "Export",
+                                Message = $"[WorkItems] Extension '{ext.Name}' export failed for WI {revision.WorkItemId} rev {revision.RevisionIndex}: {ex.Message}"
+                            });
+                            _logger?.LogWarning(ex,
+                                "[WorkItems] Extension '{ExtensionName}' export failed for WI {WorkItemId} rev {RevisionIndex}.",
+                                ext.Name, revision.WorkItemId, revision.RevisionIndex);
+                        }
+                    }
+                }
+#endif
 
                 // Accumulate historical counts from the cursor so the persisted value always
                 // reflects the cumulative total across all runs, not just this run's exports.

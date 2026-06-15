@@ -3,6 +3,8 @@
 
 using System.Linq;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
@@ -95,14 +97,22 @@ public static class ModuleServiceCollectionExtensions
 #endif
         services.AddOptions<AttachmentsExtensionOptions>()
             .Configure<IOptions<WorkItemsModuleOptions>>((o, wi) => o.Enabled = wi.Value.Extensions.Attachments.Enabled);
-        services.AddSingleton<AttachmentsWorkItemExtension>();
+        services.AddSingleton<AttachmentsWorkItemExtension>(sp =>
+            new AttachmentsWorkItemExtension(
+                sp.GetRequiredService<IOptions<AttachmentsExtensionOptions>>(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments.AttachmentReplayTool>>(),
+                sp.GetService<IAttachmentBinarySource>()));
 
 #if NET7_0_OR_GREATER
         services.AddSchemaEntry<CommentsExtensionOptions>("Work item Comments extension (inline comment replay) configuration");
 #endif
         services.AddOptions<CommentsExtensionOptions>()
             .Configure<IOptions<WorkItemsModuleOptions>>((o, wi) => o.Enabled = wi.Value.Extensions.Comments.Enabled);
-        services.AddSingleton<CommentsWorkItemExtension>();
+        services.AddSingleton<CommentsWorkItemExtension>(sp =>
+            new CommentsWorkItemExtension(
+                sp.GetRequiredService<IOptions<CommentsExtensionOptions>>(),
+                sp.GetService<IWorkItemCommentSourceFactory>(),
+                sp.GetService<Microsoft.Extensions.Logging.ILogger<CommentsWorkItemExtension>>()));
 
         services.TryAddSingleton<IWorkItemExportOrchestratorFactory, WorkItemExportOrchestratorFactory>();
         services.AddScoped<IWorkItemsImportCapabilityValidator, WorkItemsImportCapabilityValidator>();
