@@ -37,7 +37,9 @@
 
 ### Export-side facet extraction
 
-Once the export-side pipeline is generalised, set `SupportsExport: true` for `LinksWorkItemExtension`, `AttachmentsWorkItemExtension`, `CommentsWorkItemExtension` and move their export logic out of the export path inline.
+Set `SupportsExport: true` for `LinksWorkItemExtension`, `AttachmentsWorkItemExtension`, `CommentsWorkItemExtension` and implement `ExportAsync` on each, moving the attachment-binary and inline-comment export logic out of `WorkItemsOrchestrator.ExportAsync` inline code.
+
+Requires `IExtensionContext` to expose the export-side dependencies (`IAttachmentBinarySource`, `IWorkItemCommentSourceFactory`) that the extensions need. Currently `WorkItemsOrchestrator.ExportAsync` reads `_attachmentsExtension.IsEnabled` and `_commentsExtension.IsEnabled` already from the injected extension objects; the extension objects just need `ExportAsync` bodies wired to the right sources.
 
 EmbeddedImages export stays as a field-rewrite contributor inside the core `AppliedFields` step — not a peer pipeline stage.
 
