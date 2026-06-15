@@ -15,12 +15,14 @@
 - Stage 3 taxonomy remediation — `WorkItemsImportRuntime`, `WorkItemStreamOrchestrator`, `WorkItemRevisionImporter` deleted; all logic consolidated into `WorkItemsOrchestrator`. Self-instantiation anti-pattern (HX-C1) eliminated. `RevisionsEnabled` early-return guard added; `commentsEnabled` local extracted from loop body.
 - Stage 2 (core) — `CommentsWorkItemExtension` moved from ad-hoc inline call into the ordered `extensionStages` array with `CursorStage.AppliedComments` cursor write. `WorkItemRevisionStage` made `public`. Extension stage list made injectable via `WorkItemResolutionProcessor` ctor parameter.
 - Stage 3/4 (export gating) — `AttachmentsWorkItemExtension` and `CommentsWorkItemExtension` injected into `WorkItemsOrchestrator`. `ExportAsync` reads `IsEnabled` from extension objects instead of `ext.AttachmentsEnabled` / `ext.Comments.Enabled`.
+- `RevisionFolderProcessor` embedded-image gate — `ext.EmbeddedImages.Enabled` replaced by injected `EmbeddedImagesExtensionOptionsConfig`; `ImportEmbeddedImagesContext.BuildProcessor` updated to forward `Extensions.EmbeddedImages`.
+- Import startup log — `ext.LinksEnabled` replaced by `_options.Value.Extensions.Links.Enabled`.
 
 ---
 
 ## Pending
 
-### Residual god-object cleanup (Stage 2 tail / Stage 5 prerequisite)
+### Residual god-object cleanup (Stage 5 — blocked)
 
 `EmitReplaySkipVisibilityEvents` in `WorkItemsOrchestrator` reads `ext.AttachmentsEnabled` and `ext.EmbeddedImages.Enabled` from the god-object. These values are post-lever (after `ApplyReplayLevers`), so they can't trivially be replaced by reading from the processor's extension objects (which are pre-lever). Retirement requires threading levered enablement into the stage objects or into the processor factory — Stage 5 work.
 
@@ -36,24 +38,14 @@ EmbeddedImages export stays as a field-rewrite contributor inside the core `Appl
 
 ---
 
-### EmbeddedImages — residual god-object gate
-
-`ext.EmbeddedImages.Enabled` is still read from the god-object (`WorkItemsModuleExtensions`) in:
-- `EmitReplaySkipVisibilityEvents` (`WorkItemsOrchestrator.cs` ~L1033)
-- `CreateArtefactContext` (`WorkItemsOrchestrator.cs` ~L1100)
-
-This should read from a proper `EmbeddedImagesExtensionOptions` bound to the same operator config. Fold into Stage 2 cleanup or do as a standalone Stage 5 increment before Stage 2 if it's simpler.
-
----
-
 ### Stage 4/5 — Retire the god-object (`WorkItemsModuleExtensions`)
 
 Once all gates are migrated off it:
-- `ext.LinksEnabled` (already migrated — processor reads `_linksExtension.IsEnabled`)
-- `ext.AttachmentsEnabled` (residual: `EmitReplaySkipVisibilityEvents`, export-side log — Stage 2/3)
-- `ext.EmbeddedImages.Enabled` (above)
-- `ext.RevisionsEnabled` — now only in the early-return guard in `WorkItemsOrchestrator.ImportAsync` and the log line. Per §9 decided model this is core, not an extension toggle; the guard is the right shape. Retire the flag from the god-object; promote to an orchestrator-level option or remove entirely.
-- `ext.Comments.Enabled` — residual: export-side log and export factory call in `ExportAsync`. Migrate to `CommentsExtensionOptions.IsEnabled`.
+- `ext.LinksEnabled` — migrated (processor reads `_linksExtension.IsEnabled`; startup log reads `_options.Value.Extensions.Links.Enabled`).
+- `ext.AttachmentsEnabled` — residual in `EmitReplaySkipVisibilityEvents` and `ApplyReplayLevers` only (Stage 5).
+- `ext.EmbeddedImages.Enabled` — residual in `EmitReplaySkipVisibilityEvents` and `ApplyReplayLevers` only (Stage 5); per-revision gate now uses injected options.
+- `ext.RevisionsEnabled` — only in the early-return guard (correct shape) and `ApplyReplayLevers`. Retire from god-object; promote to orchestrator-level option or remove.
+- `ext.Comments.Enabled` — residual at L654 (intentionally retained: loop-level levered gate) and `ApplyReplayLevers`. Migrate loop gate after Stage 5.
 - Non-extension config (`Query`, filters, `ResolutionStrategy`) stays — not extension-owned.
 
 ---
