@@ -317,6 +317,10 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
                     };
                     await _attachmentsExtension.ImportAsync(ctx, token).ConfigureAwait(false);
                 }),
+
+            new(CursorStage.AppliedComments,
+                IsEnabled: () => _commentsExtension.IsEnabled,
+                ExecuteAsync: (ctx, token) => _commentsExtension.ImportAsync(ctx, token)),
         ];
 
         foreach (var stage in extensionStages)
@@ -327,10 +331,6 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
                 await stage.ExecuteAsync(baseCtx, ct).ConfigureAwait(false);
             await WriteCursorAsync(folderPath, stage.CursorName, ct).ConfigureAwait(false);
         }
-
-        // Comments — no cursor stage by design; always replays from the last cursor-bearing stage.
-        if (_commentsExtension.IsEnabled)
-            await _commentsExtension.ImportAsync(baseCtx, ct).ConfigureAwait(false);
 
         // Final cursor — Completed
         _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.Completed, folderPath);

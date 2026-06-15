@@ -119,10 +119,21 @@ public class ImportResumeDecisionResolverTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public void Resolve_ExactFolder_StageUploadedAttachments_Skips()
+    public void Resolve_ExactFolder_StageUploadedAttachments_ResumesAtAppliedComments()
     {
-        // UploadedAttachments → next is Completed → treated as done (Skip)
         var cursor = new CursorEntry { LastProcessed = Folder, Stage = CursorStage.UploadedAttachments };
+        var decision = ImportResumeDecisionResolver.Resolve(Folder, cursor);
+        Assert.IsFalse(decision.ShouldSkip);
+        Assert.AreEqual(CursorStage.AppliedComments, decision.ResumeAtStage);
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void Resolve_ExactFolder_StageAppliedComments_Skips()
+    {
+        // AppliedComments → next is Completed → treated as done (Skip)
+        var cursor = new CursorEntry { LastProcessed = Folder, Stage = CursorStage.AppliedComments };
         var decision = ImportResumeDecisionResolver.Resolve(Folder, cursor);
         Assert.IsTrue(decision.ShouldSkip);
     }

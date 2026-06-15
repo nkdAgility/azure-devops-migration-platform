@@ -20,13 +20,14 @@ public class WorkItemRevisionStagePipelineTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public void StageNames_ContainsFourStagesInExecutionOrder()
+    public void StageNames_ContainsFiveStagesInExecutionOrder()
     {
-        Assert.AreEqual(4, WorkItemRevisionStagePipeline.StageNames.Count);
+        Assert.AreEqual(5, WorkItemRevisionStagePipeline.StageNames.Count);
         Assert.AreEqual(CursorStage.CreatedOrUpdated,    WorkItemRevisionStagePipeline.StageNames[0]);
         Assert.AreEqual(CursorStage.AppliedFields,       WorkItemRevisionStagePipeline.StageNames[1]);
         Assert.AreEqual(CursorStage.AppliedLinks,        WorkItemRevisionStagePipeline.StageNames[2]);
         Assert.AreEqual(CursorStage.UploadedAttachments, WorkItemRevisionStagePipeline.StageNames[3]);
+        Assert.AreEqual(CursorStage.AppliedComments,     WorkItemRevisionStagePipeline.StageNames[4]);
     }
 
     // ── GetNextStage mirrors the resolver's original switch ──────────────────
@@ -55,9 +56,16 @@ public class WorkItemRevisionStagePipelineTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public void GetNextStage_UploadedAttachments_ReturnsCompleted()
-        => Assert.AreEqual(CursorStage.Completed,
+    public void GetNextStage_UploadedAttachments_ReturnsAppliedComments()
+        => Assert.AreEqual(CursorStage.AppliedComments,
             WorkItemRevisionStagePipeline.GetNextStage(CursorStage.UploadedAttachments));
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public void GetNextStage_AppliedComments_ReturnsCompleted()
+        => Assert.AreEqual(CursorStage.Completed,
+            WorkItemRevisionStagePipeline.GetNextStage(CursorStage.AppliedComments));
 
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
@@ -97,6 +105,8 @@ public class WorkItemRevisionStagePipelineTests
             CursorStage.AppliedLinks, CursorStage.AppliedLinks));
         Assert.IsTrue(WorkItemRevisionStagePipeline.ShouldRunStage(
             CursorStage.UploadedAttachments, CursorStage.AppliedLinks));
+        Assert.IsTrue(WorkItemRevisionStagePipeline.ShouldRunStage(
+            CursorStage.AppliedComments, CursorStage.AppliedLinks));
     }
 
     [TestCategory("CodeTest")]
@@ -112,5 +122,7 @@ public class WorkItemRevisionStagePipelineTests
             CursorStage.AppliedLinks, CursorStage.AppliedFields));
         Assert.IsTrue(WorkItemRevisionStagePipeline.ShouldRunStage(
             CursorStage.UploadedAttachments, CursorStage.AppliedFields));
+        Assert.IsTrue(WorkItemRevisionStagePipeline.ShouldRunStage(
+            CursorStage.AppliedComments, CursorStage.AppliedFields));
     }
 }

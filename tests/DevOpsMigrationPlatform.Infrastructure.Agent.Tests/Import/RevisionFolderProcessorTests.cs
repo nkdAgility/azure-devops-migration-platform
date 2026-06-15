@@ -601,6 +601,29 @@ public class WorkItemResolutionProcessorTests
             .Returns(Task.CompletedTask);
     }
 
+    // ── ProcessAsync_WhenResumingFromAppliedComments_SkipsCommentStage ─────────
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ProcessAsync_WhenResumingFromAppliedComments_SkipsCommentStage()
+    {
+        SetupRevisionJson();
+        _mockIdMapStore
+            .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(55);
+        _mockIdMapStore
+            .Setup(s => s.GetAttachmentIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+        SetupCursorWrites();
+        SetupTargetFieldsAndLinks(targetId: 55);
+
+        var sut = CreateSut();
+        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), CursorStage.AppliedComments, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        _mockTarget.Verify(t => t.CreateCommentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     private void SetupCursorWrites()
     {
         _mockCheckpointing

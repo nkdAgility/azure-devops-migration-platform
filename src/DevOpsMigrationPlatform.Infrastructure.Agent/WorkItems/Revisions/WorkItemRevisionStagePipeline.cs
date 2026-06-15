@@ -25,6 +25,7 @@ internal static class WorkItemRevisionStagePipeline
         CursorStage.AppliedFields,
         CursorStage.AppliedLinks,
         CursorStage.UploadedAttachments,
+        CursorStage.AppliedComments,
     ];
 
     /// <summary>
