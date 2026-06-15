@@ -112,24 +112,6 @@ public static class ModuleServiceCollectionExtensions
                 sp.GetService<INodesOrchestrator>(),
                 sp.GetService<IPlatformMetrics>(),
                 sp.GetRequiredService<ILogger<WorkItemsModule>>()));
-        services.AddScoped<WorkItemsImportRuntime>(sp =>
-            new WorkItemsImportRuntime(
-                sp.GetRequiredService<IWorkItemTargetFactory>(),
-                sp.GetRequiredService<IWorkItemResolutionStrategyFactory>(),
-                sp.GetRequiredService<ICheckpointingServiceFactory>(),
-                sp.GetRequiredService<IIdMapStoreFactory>(),
-                sp.GetRequiredService<IWorkItemResolutionProcessorFactory>(),
-                sp.GetService<IIdentityTranslationTool>(),
-                sp.GetRequiredService<IWorkItemsImportCapabilityValidator>(),
-                sp.GetRequiredService<IWorkItemsNodeReadinessOrchestrator>(),
-                sp.GetService<IPlatformMetrics>(),
-                sp.GetRequiredService<ILogger<WorkItemsImportRuntime>>(),
-                sp.GetRequiredService<ILogger<WorkItemsModule>>(),
-                sp.GetRequiredService<ISourceEndpointInfo>(),
-                sp.GetRequiredService<ITargetEndpointInfo>(),
-                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<WorkItemsModuleOptions>>(),
-                sp.GetService<Microsoft.Extensions.Options.IOptions<WorkItemOptions>>(),
-                sp.GetService<Microsoft.Extensions.Options.IOptions<NodesModuleOptions>>()));
         services.AddScoped<ImportPreparer>(sp =>
         {
             var patterns = sp.GetServices<IImportFailurePattern>()?.ToArray();
@@ -166,7 +148,16 @@ public static class ModuleServiceCollectionExtensions
                 sp.GetRequiredService<IOptions<WorkItemsModuleOptions>>(),
                 sp.GetRequiredService<ISourceEndpointInfo>(),
                 sp.GetRequiredService<ImportPreparer>(),
-                sp.GetRequiredService<WorkItemsImportRuntime>(),
+                sp.GetRequiredService<IWorkItemTargetFactory>(),
+                sp.GetRequiredService<IWorkItemResolutionStrategyFactory>(),
+                sp.GetRequiredService<IIdMapStoreFactory>(),
+                sp.GetRequiredService<IWorkItemResolutionProcessorFactory>(),
+                sp.GetService<IIdentityTranslationTool>(),
+                sp.GetRequiredService<IWorkItemsImportCapabilityValidator>(),
+                sp.GetRequiredService<IWorkItemsNodeReadinessOrchestrator>(),
+                sp.GetRequiredService<ITargetEndpointInfo>(),
+                sp.GetService<IOptions<WorkItemOptions>>(),
+                sp.GetService<IOptions<NodesModuleOptions>>(),
                 sp.GetService<IInventoryOrchestrator>(),
                 sp.GetService<IRepoDiscoveryService>()));
         services.AddScoped<IWorkItemsOrchestrator>(sp => sp.GetRequiredService<WorkItemsOrchestrator>());

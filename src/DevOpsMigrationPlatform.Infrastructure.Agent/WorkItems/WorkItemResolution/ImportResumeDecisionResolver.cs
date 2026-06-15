@@ -2,8 +2,8 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
-using System.IO;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 
@@ -29,7 +29,7 @@ internal static class ImportResumeDecisionResolver
         if (string.Equals(cursor.Stage, CursorStage.Completed, StringComparison.Ordinal))
             return ImportResumeDecision.Skip;
 
-        var nextStage = GetNextStage(cursor.Stage);
+        var nextStage = WorkItemRevisionStagePipeline.GetNextStage(cursor.Stage);
         return nextStage is null || string.Equals(nextStage, CursorStage.Completed, StringComparison.Ordinal)
             ? ImportResumeDecision.Skip
             : new ImportResumeDecision(false, nextStage);
@@ -37,14 +37,4 @@ internal static class ImportResumeDecisionResolver
 
     private static string NormalizeFolderPath(string path)
         => path.Trim().Replace('\\', '/').TrimEnd('/');
-
-    private static string? GetNextStage(string? currentStage) => currentStage switch
-    {
-        CursorStage.CreatedOrUpdated => CursorStage.AppliedFields,
-        CursorStage.AppliedFields => CursorStage.AppliedLinks,
-        CursorStage.AppliedLinks => CursorStage.UploadedAttachments,
-        CursorStage.UploadedAttachments => CursorStage.Completed,
-        CursorStage.Completed => null,
-        _ => throw new InvalidDataException($"Unsupported cursor stage '{currentStage}'.")
-    };
 }

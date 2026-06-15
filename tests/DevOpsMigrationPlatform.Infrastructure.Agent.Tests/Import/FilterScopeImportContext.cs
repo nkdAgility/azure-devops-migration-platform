@@ -8,8 +8,9 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using System.Collections.Generic;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -41,20 +42,19 @@ public class FilterScopeImportContext
         MockPackage = PackageTestFactory.CreateLooseMock();
     }
 
-    public WorkItemsImportRuntime BuildOrchestrator()
+    public WorkItemRevisionLoopDriver BuildOrchestrator()
     {
-        var processorLogger = NullLogger<WorkItemResolutionProcessor>.Instance;
         var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
             MockCheckpointing.Object,
             (IIdentityTranslationTool?)null,
-            processorLogger,
+            NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
             package: MockPackage.Object);
 
-        return new WorkItemsImportRuntime(
+        return new WorkItemRevisionLoopDriver(new WorkItemRevisionJobScope(
             MockPackage.Object,
             "https://dev.azure.com/contoso",
             "Shop",
@@ -64,8 +64,8 @@ public class FilterScopeImportContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance,
-            filterOptions: FilterOptions.Count > 0 ? FilterOptions : null);
+            JobId: null,
+            FilterOptions: FilterOptions.Count > 0 ? (IReadOnlyList<WorkItemFieldFilterOptions>)FilterOptions : null));
     }
 
     public static async IAsyncEnumerable<string> ToAsyncEnumerable(

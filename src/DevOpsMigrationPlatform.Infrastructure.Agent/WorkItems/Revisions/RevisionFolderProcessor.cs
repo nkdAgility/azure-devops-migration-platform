@@ -199,7 +199,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         revActivity?.SetTag("revision.index", revision.RevisionIndex);
 
         // Stage A — CreatedOrUpdated
-        if (ShouldRunStage(CursorStage.CreatedOrUpdated, resumeAtStage))
+        if (WorkItemRevisionStagePipeline.ShouldRunStage(CursorStage.CreatedOrUpdated, resumeAtStage))
         {
             _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.CreatedOrUpdated, folderPath);
             var targetId = await _idMapStore.GetTargetWorkItemIdAsync(revision.WorkItemId, ct).ConfigureAwait(false);
@@ -249,7 +249,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
             ?? throw new InvalidOperationException($"No target ID mapping for source work item {revision.WorkItemId} after Stage A.");
 
         // Stage B — AppliedFields
-        if (ShouldRunStage(CursorStage.AppliedFields, resumeAtStage))
+        if (WorkItemRevisionStagePipeline.ShouldRunStage(CursorStage.AppliedFields, resumeAtStage))
         {
             _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.AppliedFields, folderPath);
             // Identity resolution — NOTE: IIdentityMappingService.Resolve is synchronous per the existing interface.
@@ -282,80 +282,55 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
             await WriteCursorAsync(folderPath, CursorStage.AppliedFields, ct).ConfigureAwait(false);
         }
 
-        // Stage C — AppliedLinks (delegated to the Links capability port; enablement from the port's own IsEnabled)
-        if (_linksExtension.IsEnabled && ShouldRunStage(CursorStage.AppliedLinks, resumeAtStage))
+        // Stages C, D — extension-driven, cursor-bearing. Loop driven by WorkItemRevisionStagePipeline.
+        // Disabled extension: skip execute but still write cursor (resume consistency).
+        // New extension = add one entry here; no other edit needed.
+        var baseCtx = new WorkItemExtensionContext
         {
-            _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.AppliedLinks, folderPath);
-            await _linksExtension.ImportAsync(
-                new WorkItemExtensionContext
+            Organisation = _organisation,
+            ProjectName = _project,
+            EntityId = revision.WorkItemId.ToString(),
+            TargetEntityId = resolvedTargetId.ToString(),
+            Package = _package!,
+            Revision = revision,
+            TargetWorkItemId = resolvedTargetId,
+            FolderPath = folderPath,
+            Target = _target,
+            IdMapStore = _idMapStore,
+            ReadBinaryAsync = ReadPackageBinaryAsync,
+            ReadTextAsync = ReadPackageTextAsync,
+        };
+
+        WorkItemRevisionStage[] extensionStages =
+        [
+            new(CursorStage.AppliedLinks,
+                IsEnabled: () => _linksExtension.IsEnabled,
+                ExecuteAsync: (ctx, token) => _linksExtension.ImportAsync(ctx, token)),
+
+            new(CursorStage.UploadedAttachments,
+                IsEnabled: () => _attachmentsExtension.IsEnabled,
+                ExecuteAsync: async (ctx, token) =>
                 {
-                    Organisation = _organisation,
-                    ProjectName = _project,
-                    EntityId = revision.WorkItemId.ToString(),
-                    TargetEntityId = resolvedTargetId.ToString(),
-                    Package = _package!,
-                    Revision = revision,
-                    TargetWorkItemId = resolvedTargetId,
-                    FolderPath = folderPath,
-                    Target = _target,
-                },
-                ct).ConfigureAwait(false);
-            await WriteCursorAsync(folderPath, CursorStage.AppliedLinks, ct).ConfigureAwait(false);
-        }
-        else if (!_linksExtension.IsEnabled && ShouldRunStage(CursorStage.AppliedLinks, resumeAtStage))
+                    ctx = ctx with
+                    {
+                        AvailableBinaryPaths = await EnumerateAttachmentBinariesAsync(folderPath, token).ConfigureAwait(false)
+                    };
+                    await _attachmentsExtension.ImportAsync(ctx, token).ConfigureAwait(false);
+                }),
+        ];
+
+        foreach (var stage in extensionStages)
         {
-            // Skip stage but still advance cursor so resume logic is consistent
-            await WriteCursorAsync(folderPath, CursorStage.AppliedLinks, ct).ConfigureAwait(false);
+            if (!WorkItemRevisionStagePipeline.ShouldRunStage(stage.CursorName, resumeAtStage)) continue;
+            _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", stage.CursorName, folderPath);
+            if (stage.IsEnabled())
+                await stage.ExecuteAsync(baseCtx, ct).ConfigureAwait(false);
+            await WriteCursorAsync(folderPath, stage.CursorName, ct).ConfigureAwait(false);
         }
 
-        // Stage D — UploadedAttachments (enablement from the Attachments port's own IsEnabled)
-        if (_attachmentsExtension.IsEnabled && ShouldRunStage(CursorStage.UploadedAttachments, resumeAtStage))
-        {
-            _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.UploadedAttachments, folderPath);
-            await _attachmentsExtension.ImportAsync(
-                new WorkItemExtensionContext
-                {
-                    Organisation = _organisation,
-                    ProjectName = _project,
-                    EntityId = revision.WorkItemId.ToString(),
-                    TargetEntityId = resolvedTargetId.ToString(),
-                    Package = _package!,
-                    Revision = revision,
-                    TargetWorkItemId = resolvedTargetId,
-                    FolderPath = folderPath,
-                    Target = _target,
-                    IdMapStore = _idMapStore,
-                    ReadBinaryAsync = ReadPackageBinaryAsync,
-                    AvailableBinaryPaths = await EnumerateAttachmentBinariesAsync(folderPath, ct).ConfigureAwait(false),
-                },
-                ct).ConfigureAwait(false);
-
-            await WriteCursorAsync(folderPath, CursorStage.UploadedAttachments, ct).ConfigureAwait(false);
-        }
-        else if (!_attachmentsExtension.IsEnabled && ShouldRunStage(CursorStage.UploadedAttachments, resumeAtStage))
-        {
-            await WriteCursorAsync(folderPath, CursorStage.UploadedAttachments, ct).ConfigureAwait(false);
-        }
-
-        // Inline comments (delegated to the Comments capability port; enablement from the port's own IsEnabled, no cursor stage)
+        // Comments — no cursor stage by design; always replays from the last cursor-bearing stage.
         if (_commentsExtension.IsEnabled)
-        {
-            await _commentsExtension.ImportAsync(
-                new WorkItemExtensionContext
-                {
-                    Organisation = _organisation,
-                    ProjectName = _project,
-                    EntityId = revision.WorkItemId.ToString(),
-                    TargetEntityId = resolvedTargetId.ToString(),
-                    Package = _package!,
-                    Revision = revision,
-                    TargetWorkItemId = resolvedTargetId,
-                    FolderPath = folderPath,
-                    Target = _target,
-                    ReadTextAsync = ReadPackageTextAsync,
-                },
-                ct).ConfigureAwait(false);
-        }
+            await _commentsExtension.ImportAsync(baseCtx, ct).ConfigureAwait(false);
 
         // Final cursor — Completed
         _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.Completed, folderPath);
@@ -436,12 +411,6 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     }
 
     // --- Helpers ---
-
-    private static bool ShouldRunStage(string stage, string? resumeAtStage)
-    {
-        if (resumeAtStage is null) return true;
-        return string.CompareOrdinal(stage, resumeAtStage) >= 0;
-    }
 
     private static string GetWorkItemType(IReadOnlyList<WorkItemField> fields)
     {

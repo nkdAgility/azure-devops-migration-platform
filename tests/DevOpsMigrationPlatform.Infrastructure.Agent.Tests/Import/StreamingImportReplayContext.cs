@@ -8,8 +8,8 @@ using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -44,20 +44,19 @@ public class StreamingImportReplayContext
         MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
     }
 
-    public WorkItemsImportRuntime BuildOrchestrator()
+    public WorkItemRevisionLoopDriver BuildOrchestrator()
     {
-        var processorLogger = NullLogger<WorkItemResolutionProcessor>.Instance;
         var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
             MockCheckpointing.Object,
             (IIdentityTranslationTool?)null,
-            processorLogger,
+            NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
             package: MockPackage.Object);
 
-        return new WorkItemsImportRuntime(
+        return new WorkItemRevisionLoopDriver(new WorkItemRevisionJobScope(
             MockPackage.Object,
             "https://dev.azure.com/contoso",
             "Shop",
@@ -67,7 +66,8 @@ public class StreamingImportReplayContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance);
+            JobId: null,
+            FilterOptions: null));
     }
 
     /// <summary>

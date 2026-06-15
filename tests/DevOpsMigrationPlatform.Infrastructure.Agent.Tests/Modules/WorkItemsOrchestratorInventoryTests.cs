@@ -160,22 +160,6 @@ public sealed class WorkItemsOrchestratorInventoryTests
             .Returns(CountSummaries(workItemCount, revisionCount));
 
         var options = Options.Create(new WorkItemsModuleOptions());
-        var importRuntime = new WorkItemsImportRuntime(
-            Mock.Of<IWorkItemTargetFactory>(),
-            Mock.Of<IWorkItemResolutionStrategyFactory>(),
-            Mock.Of<ICheckpointingServiceFactory>(),
-            Mock.Of<IIdMapStoreFactory>(),
-            Mock.Of<IWorkItemResolutionProcessorFactory>(),
-            null,
-            Mock.Of<IWorkItemsImportCapabilityValidator>(),
-            Mock.Of<IWorkItemsNodeReadinessOrchestrator>(),
-            null,
-            NullLogger<WorkItemsImportRuntime>.Instance,
-            NullLogger<WorkItemsModule>.Instance,
-            sourceEndpoint.Object,
-            targetEndpoint.Object,
-            options);
-
         var importPreparer = new ImportPreparer(options, "test-org", "ProjectA", Array.Empty<IImportFailurePattern>());
 
         return new WorkItemsOrchestrator(
@@ -193,7 +177,14 @@ public sealed class WorkItemsOrchestratorInventoryTests
             options,
             sourceEndpoint.Object,
             importPreparer,
-            importRuntime,
+            Mock.Of<IWorkItemTargetFactory>(),
+            Mock.Of<IWorkItemResolutionStrategyFactory>(),
+            Mock.Of<IIdMapStoreFactory>(),
+            Mock.Of<IWorkItemResolutionProcessorFactory>(),
+            null,
+            Mock.Of<IWorkItemsImportCapabilityValidator>(),
+            Mock.Of<IWorkItemsNodeReadinessOrchestrator>(),
+            targetEndpoint.Object,
             inventoryOrchestrator: inventoryOrchestrator,
             repoDiscoveryService: null);
     }

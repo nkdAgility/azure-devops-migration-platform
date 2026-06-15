@@ -9,8 +9,8 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -70,7 +70,7 @@ public class ImportCursorResumeContext
             .Returns(ValueTask.CompletedTask);
     }
 
-    public WorkItemsImportRuntime BuildOrchestrator()
+    public WorkItemRevisionLoopDriver BuildOrchestrator()
     {
         var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
@@ -82,7 +82,7 @@ public class ImportCursorResumeContext
             ProjectName,
             package: MockPackage.Object);
 
-        return new WorkItemsImportRuntime(
+        return new WorkItemRevisionLoopDriver(new WorkItemRevisionJobScope(
             MockPackage.Object,
             EndpointUrl,
             ProjectName,
@@ -92,6 +92,7 @@ public class ImportCursorResumeContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance);
+            JobId: null,
+            FilterOptions: null));
     }
 }

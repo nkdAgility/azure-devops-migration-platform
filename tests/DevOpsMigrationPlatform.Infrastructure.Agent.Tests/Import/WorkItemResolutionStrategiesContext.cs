@@ -6,8 +6,8 @@ using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -46,7 +46,7 @@ public class WorkItemResolutionStrategiesContext
         MockPackage = PackageTestFactory.CreateLooseMock();
     }
 
-    public WorkItemsImportRuntime BuildOrchestrator()
+    public WorkItemRevisionLoopDriver BuildOrchestrator()
     {
         var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
@@ -58,7 +58,7 @@ public class WorkItemResolutionStrategiesContext
             "Shop",
             package: MockPackage.Object);
 
-        return new WorkItemsImportRuntime(
+        return new WorkItemRevisionLoopDriver(new WorkItemRevisionJobScope(
             MockPackage.Object,
             "https://dev.azure.com/contoso",
             "Shop",
@@ -68,6 +68,7 @@ public class WorkItemResolutionStrategiesContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance);
+            JobId: null,
+            FilterOptions: null));
     }
 }

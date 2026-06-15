@@ -43,7 +43,6 @@ internal static class WorkItemsModuleTestFactory
         ILogger<WorkItemsModule>? logger = null,
         IOptions<WorkItemsModuleOptions>? options = null,
         ISourceEndpointInfo? sourceEndpointInfo = null,
-        ILogger<WorkItemsImportRuntime>? orchestratorLogger = null,
         IWorkItemTargetFactory? importTargetFactory = null,
         IWorkItemResolutionStrategyFactory? resolutionStrategyFactory = null,
         ICheckpointingServiceFactory? checkpointingFactory = null,
@@ -69,7 +68,7 @@ internal static class WorkItemsModuleTestFactory
         IEnumerable<IImportFailurePattern>? importFailurePatterns = null,
         ImportPreparer? importPreparer = null)
         => new(CreateOrchestrator(
-            sourceFactory, logger, options, sourceEndpointInfo, orchestratorLogger, importTargetFactory,
+            sourceFactory, logger, options, sourceEndpointInfo, importTargetFactory,
             resolutionStrategyFactory, checkpointingFactory, idMapStoreFactory, processorFactory,
             targetEndpointInfo, attachmentBinarySource, inlineCommentSourceFactory, fetchService,
             inventoryOrchestrator, metrics, discoveryService, exportProgressStoreFactory,
@@ -82,7 +81,6 @@ internal static class WorkItemsModuleTestFactory
         ILogger<WorkItemsModule>? logger = null,
         IOptions<WorkItemsModuleOptions>? options = null,
         ISourceEndpointInfo? sourceEndpointInfo = null,
-        ILogger<WorkItemsImportRuntime>? orchestratorLogger = null,
         IWorkItemTargetFactory? importTargetFactory = null,
         IWorkItemResolutionStrategyFactory? resolutionStrategyFactory = null,
         ICheckpointingServiceFactory? checkpointingFactory = null,
@@ -115,24 +113,6 @@ internal static class WorkItemsModuleTestFactory
         var cpf = checkpointingFactory ?? Mock.Of<ICheckpointingServiceFactory>();
         var fieldTransform = fieldTransformTool ?? Mock.Of<IFieldTransformTool>();
 
-        var runtime = new WorkItemsImportRuntime(
-            importTargetFactory ?? Mock.Of<IWorkItemTargetFactory>(),
-            resolutionStrategyFactory ?? Mock.Of<IWorkItemResolutionStrategyFactory>(),
-            cpf,
-            idMapStoreFactory ?? Mock.Of<IIdMapStoreFactory>(),
-            processorFactory ?? Mock.Of<IWorkItemResolutionProcessorFactory>(),
-            identityTranslationTool,
-            new WorkItemsImportCapabilityValidator(fieldTransform),
-            new WorkItemsNodeReadinessOrchestrator(nodeReadinessOrchestrator, nodesOrchestrator, metrics, logger),
-            metrics,
-            orchestratorLogger ?? NullLogger<WorkItemsImportRuntime>.Instance,
-            logger,
-            sourceEndpointInfo,
-            targetEndpointInfo,
-            options,
-            workItemImportOptions,
-            nodesModuleOptions);
-
         var patterns = importFailurePatterns?.ToArray();
         patterns = patterns is { Length: > 0 }
             ? patterns
@@ -162,7 +142,16 @@ internal static class WorkItemsModuleTestFactory
             options,
             sourceEndpointInfo,
             preparer,
-            runtime,
+            importTargetFactory ?? Mock.Of<IWorkItemTargetFactory>(),
+            resolutionStrategyFactory ?? Mock.Of<IWorkItemResolutionStrategyFactory>(),
+            idMapStoreFactory ?? Mock.Of<IIdMapStoreFactory>(),
+            processorFactory ?? Mock.Of<IWorkItemResolutionProcessorFactory>(),
+            identityTranslationTool,
+            new WorkItemsImportCapabilityValidator(fieldTransform),
+            new WorkItemsNodeReadinessOrchestrator(nodeReadinessOrchestrator, nodesOrchestrator, metrics, logger),
+            targetEndpointInfo,
+            workItemImportOptions,
+            nodesModuleOptions,
             inventoryOrchestrator,
             repoDiscoveryService);
     }

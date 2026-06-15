@@ -11,8 +11,8 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -419,7 +419,7 @@ public class WorkItemOrchestratorFilterTests
             "Shop",
             package: _mockPackage.Object);
 
-        var orchestrator = new WorkItemsImportRuntime(
+        var driver = new WorkItemRevisionLoopDriver(new WorkItemRevisionJobScope(
             _mockPackage.Object,
             "unknown",
             string.Empty,
@@ -429,9 +429,10 @@ public class WorkItemOrchestratorFilterTests
             _mockIdMap.Object,
             processor,
             _mockTarget.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance);
+            JobId: null,
+            FilterOptions: null));
 
-        await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
+        await driver.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
 
         _mockTarget.Verify(
             t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
@@ -440,7 +441,7 @@ public class WorkItemOrchestratorFilterTests
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private WorkItemsImportRuntime BuildOrchestrator(
+    private WorkItemRevisionLoopDriver BuildOrchestrator(
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null)
     {
         var processor = new WorkItemResolutionProcessor(
@@ -453,7 +454,7 @@ public class WorkItemOrchestratorFilterTests
             "Shop",
             package: _mockPackage.Object);
 
-        return new WorkItemsImportRuntime(
+        return new WorkItemRevisionLoopDriver(new WorkItemRevisionJobScope(
             _mockPackage.Object,
             "https://dev.azure.com/contoso",
             "Shop",
@@ -463,8 +464,8 @@ public class WorkItemOrchestratorFilterTests
             _mockIdMap.Object,
             processor,
             _mockTarget.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance,
-            filterOptions: filterOptions);
+            JobId: null,
+            FilterOptions: filterOptions));
     }
 
     private void AddRevisionFolder(int wiId, int revIndex, string areaPath)
