@@ -520,9 +520,9 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
 
         _logger.LogInformation(
             "[WorkItems] Importing into {OrgUrl}/{Project} (revisions={Revisions}, links={Links}, attachments={Attachments}, comments={Comments})",
-            orgUrl, project, ext.RevisionsEnabled, ext.LinksEnabled, _attachmentsExtension.IsEnabled, _commentsExtension.IsEnabled);
+            orgUrl, project, _options.Value.Extensions.Revisions.Enabled, ext.LinksEnabled, _attachmentsExtension.IsEnabled, _commentsExtension.IsEnabled);
 
-        if (!ext.RevisionsEnabled)
+        if (!_options.Value.Extensions.Revisions.Enabled)
         {
             _logger.LogInformation("[WorkItems] Revisions disabled — import phase skipped.");
             return TaskExecutionResult.Skipped("Revisions disabled.");
@@ -705,7 +705,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
                     else
                         await WriteCompletedCursorAsync(scope, folderPath, ct).ConfigureAwait(false);
                 }
-                else if (ext.RevisionsEnabled)
+                else if (_options.Value.Extensions.Revisions.Enabled)
                 {
                     ParseRevisionFolder(folderName, out var wiId, out var revIdx);
 
