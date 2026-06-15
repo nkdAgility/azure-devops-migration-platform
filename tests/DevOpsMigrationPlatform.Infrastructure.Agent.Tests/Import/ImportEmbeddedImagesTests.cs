@@ -53,7 +53,6 @@ public class ImportEmbeddedImagesTests
         // Act
         await processor.ProcessAsync(
             "WorkItems/2024-01-01/00000638000000000001-1-0",
-            ctx.Extensions,
             resumeAtStage: null,
             ctx.MockResolutionStrategy.Object,
             CancellationToken.None);
@@ -117,7 +116,6 @@ public class ImportEmbeddedImagesTests
         // Act
         await processor.ProcessAsync(
             "WorkItems/2024-01-01/00000638000000000001-1-0",
-            ctx.Extensions,
             resumeAtStage: null,
             ctx.MockResolutionStrategy.Object,
             CancellationToken.None);

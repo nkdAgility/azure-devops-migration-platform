@@ -55,6 +55,7 @@ public class WorkItemResolutionProcessorTests
 
     private WorkItemResolutionProcessor CreateSut(
         DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.LinksWorkItemExtension? linksExtension = null,
+        DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.AttachmentsWorkItemExtension? attachmentsExtension = null,
         IReadOnlyList<WorkItemRevisionStage>? extensionStages = null,
         DevOpsMigrationPlatform.Abstractions.Options.EmbeddedImagesExtensionOptionsConfig? embeddedImagesOptions = null)
         => new WorkItemResolutionProcessor(
@@ -67,12 +68,17 @@ public class WorkItemResolutionProcessorTests
             "Shop",
             package: _mockPackage.Object,
             linksExtension: linksExtension,
+            attachmentsExtension: attachmentsExtension,
             extensionStages: extensionStages,
             embeddedImagesOptions: embeddedImagesOptions);
 
     private static DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.LinksWorkItemExtension DisabledLinks()
         => new(Microsoft.Extensions.Options.Options.Create(
             new DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.LinksExtensionOptions { Enabled = false }));
+
+    private static DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.AttachmentsWorkItemExtension DisabledAttachments()
+        => new(Microsoft.Extensions.Options.Options.Create(
+            new DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.AttachmentsExtensionOptions { Enabled = false }));
 
     // ── ProcessAsync_WhenRevisionJsonMissing_SkipsFolder ──────────────────────
 
@@ -84,7 +90,7 @@ public class WorkItemResolutionProcessorTests
         SetupPackageText($"{Folder}/revision.json", null);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         // No target calls should be made
         _mockTarget.VerifyNoOtherCalls();
@@ -123,7 +129,7 @@ public class WorkItemResolutionProcessorTests
             .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.CreateWorkItemAsync("Task", It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -146,7 +152,7 @@ public class WorkItemResolutionProcessorTests
         SetupTargetFieldsAndLinks(targetId: 77);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockTarget.Verify(t => t.UpdateFieldsAsync(77, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -185,7 +191,7 @@ public class WorkItemResolutionProcessorTests
         SetupTargetFieldsAndLinks(targetId: 10);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.UpdateFieldsAsync(10, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -207,10 +213,8 @@ public class WorkItemResolutionProcessorTests
         _mockIdMapStore.Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(10);
         _mockTarget.Setup(t => t.WorkItemExistsAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
-        var ext = new WorkItemsModuleExtensions();
-
         var sut = CreateSut(linksExtension: DisabledLinks());
-        await sut.ProcessAsync(Folder, ext, null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -229,10 +233,8 @@ public class WorkItemResolutionProcessorTests
         SetupResolutionStrategyNoOp();
         SetupTargetFieldsAndLinks(targetId: 10);
 
-        var ext = new WorkItemsModuleExtensions { AttachmentsEnabled = false };
-
-        var sut = CreateSut();
-        await sut.ProcessAsync(Folder, ext, null, _mockResolutionStrategy.Object, CancellationToken.None);
+        var sut = CreateSut(attachmentsExtension: DisabledAttachments());
+        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.UploadAttachmentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockPackage.Verify(p => p.RequestContentBinaryAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -256,7 +258,7 @@ public class WorkItemResolutionProcessorTests
         SetupTargetFieldsAndLinks(targetId: 50);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), CursorStage.AppliedLinks, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ProcessAsync(Folder, CursorStage.AppliedLinks, _mockResolutionStrategy.Object, CancellationToken.None);
 
         // Stage A and B should be skipped
         _mockTarget.Verify(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -302,7 +304,7 @@ public class WorkItemResolutionProcessorTests
             .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockIdentityMapping.Verify(s => s.Translate("source@example.com"), Times.Once);
         Assert.IsNotNull(capturedFields);
@@ -345,7 +347,7 @@ public class WorkItemResolutionProcessorTests
             .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockIdentityMapping.Verify(s => s.Translate("source@example.com"), Times.Once);
         Assert.IsNotNull(capturedFields);
@@ -406,7 +408,7 @@ public class WorkItemResolutionProcessorTests
             nodeStructureOptions: new NodeTranslationOptions { SkipOnUnresolvableArea = true },
             package: _mockPackage.Object);
 
-        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.CreateWorkItemAsync("Task", It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockTarget.Verify(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -442,7 +444,7 @@ public class WorkItemResolutionProcessorTests
             .ReturnsAsync(true);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         Assert.IsNotNull(capturedFields);
         Assert.AreEqual(@"External\Area", capturedFields!.Single(f => f.ReferenceName == "System.AreaPath").Value);
@@ -479,7 +481,7 @@ public class WorkItemResolutionProcessorTests
             .ReturnsAsync(true);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         Assert.IsNotNull(capturedFields);
         Assert.AreEqual("Title Before Import", capturedFields!.Single(f => f.ReferenceName == "System.Title").Value);
@@ -514,7 +516,7 @@ public class WorkItemResolutionProcessorTests
             .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.UploadAttachmentAsync(10, "evidence.zip", It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockIdMapStore.Verify(
@@ -626,7 +628,7 @@ public class WorkItemResolutionProcessorTests
         _mockTarget.Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         var sut = CreateSut(extensionStages: Array.Empty<WorkItemRevisionStage>());
-        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockTarget.Verify(t => t.UploadAttachmentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -651,7 +653,7 @@ public class WorkItemResolutionProcessorTests
         SetupTargetFieldsAndLinks(targetId: 55);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), CursorStage.AppliedComments, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ProcessAsync(Folder, CursorStage.AppliedComments, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.CreateCommentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -675,7 +677,7 @@ public class WorkItemResolutionProcessorTests
         var disabledEmbeddedImages = new DevOpsMigrationPlatform.Abstractions.Options.EmbeddedImagesExtensionOptionsConfig { Enabled = false };
 
         var sut = CreateSut(embeddedImagesOptions: disabledEmbeddedImages);
-        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(
             t => t.UploadEmbeddedImageAsync(It.IsAny<string>(), It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()),

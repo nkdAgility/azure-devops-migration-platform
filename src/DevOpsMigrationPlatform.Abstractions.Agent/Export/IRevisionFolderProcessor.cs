@@ -3,7 +3,6 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
@@ -23,7 +22,6 @@ public interface IWorkItemResolutionProcessor
     /// Process a single revision folder, resuming from <paramref name="resumeAtStage"/> if provided.
     /// </summary>
     /// <param name="folderPath">Relative folder path, e.g. <c>WorkItems/2026-01-15/638760000000000001-42-3</c>.</param>
-    /// <param name="ext">Module extension flags controlling which stages run.</param>
     /// <param name="resumeAtStage">
     /// If not null, skip all stages that lexicographically precede this value.
     /// Pass <see langword="null"/> to start from Stage A.
@@ -32,7 +30,6 @@ public interface IWorkItemResolutionProcessor
     /// <param name="ct">Cancellation token.</param>
     Task ProcessAsync(
         string folderPath,
-        WorkItemsModuleExtensions ext,
         string? resumeAtStage,
         IWorkItemResolutionStrategy resolutionStrategy,
         CancellationToken ct);

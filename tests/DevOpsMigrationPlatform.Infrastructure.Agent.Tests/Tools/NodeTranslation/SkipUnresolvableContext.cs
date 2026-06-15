@@ -107,14 +107,9 @@ public class SkipUnresolvableContext
             nodeStructureTool: tool, nodeStructureContext: context, nodeStructureOptions: opts,
             package: PackageMock.Object);
 
-        var ext = new WorkItemsModuleExtensions
-        {
-            LinksEnabled = false, AttachmentsEnabled = false
-        };
-
         try
         {
-            await processor.ProcessAsync(FolderPath, ext, null, ResolutionStrategyMock.Object, CancellationToken.None);
+            await processor.ProcessAsync(FolderPath, null, ResolutionStrategyMock.Object, CancellationToken.None);
         }
         catch (InvalidOperationException ex)
         {

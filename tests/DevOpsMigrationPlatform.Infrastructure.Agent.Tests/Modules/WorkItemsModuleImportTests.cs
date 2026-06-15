@@ -180,7 +180,6 @@ public sealed class WorkItemsModuleImportTests
         revisionProcessor
             .Setup(p => p.ProcessAsync(
                 "WorkItems/2026-05-13/638827200000000000-42-0/",
-                It.IsAny<WorkItemsModuleExtensions>(),
                 It.IsAny<string?>(),
                 It.IsAny<IWorkItemResolutionStrategy>(),
                 It.IsAny<CancellationToken>()))
@@ -362,7 +361,6 @@ public sealed class WorkItemsModuleImportTests
         revisionProcessor
             .Setup(p => p.ProcessAsync(
                 "WorkItems/2026-05-13/638827200000000000-42-0/",
-                It.IsAny<WorkItemsModuleExtensions>(),
                 It.IsAny<string?>(),
                 It.IsAny<IWorkItemResolutionStrategy>(),
                 It.IsAny<CancellationToken>()))
@@ -506,15 +504,12 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<IWorkItemResolutionStrategy>(),
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-        WorkItemsModuleExtensions? capturedExtensions = null;
         revisionProcessor
             .Setup(p => p.ProcessAsync(
                 "WorkItems/2026-05-13/638827200000000000-42-0/",
-                It.IsAny<WorkItemsModuleExtensions>(),
                 It.IsAny<string?>(),
                 It.IsAny<IWorkItemResolutionStrategy>(),
                 It.IsAny<CancellationToken>()))
-            .Callback<string, WorkItemsModuleExtensions, string?, IWorkItemResolutionStrategy, CancellationToken>((_, ext, _, _, _) => capturedExtensions = ext)
             .Returns(Task.CompletedTask);
 
         var processorFactory = new Mock<IWorkItemResolutionProcessorFactory>(MockBehavior.Strict);
@@ -592,10 +587,6 @@ public sealed class WorkItemsModuleImportTests
             },
             CancellationToken.None);
 
-        Assert.IsNotNull(capturedExtensions);
-        Assert.IsFalse(capturedExtensions!.LinksEnabled);
-        Assert.IsFalse(capturedExtensions!.AttachmentsEnabled);
-        Assert.IsFalse(capturedExtensions.EmbeddedImages.Enabled);
         revisionProcessor.VerifyAll();
     }
 

@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
 using System;
@@ -90,7 +90,6 @@ public sealed class ServicesFeaturesDslTests
 
         await processor.ProcessAsync(
             "WorkItems/2024-01-01/00000638000000000001-1-0",
-            new WorkItemsModuleExtensions(),
             resumeAtStage: null,
             Mock.Of<IWorkItemResolutionStrategy>(),
             CancellationToken.None);
@@ -117,7 +116,6 @@ public sealed class ServicesFeaturesDslTests
 
         await processor.ProcessAsync(
             "WorkItems/2024-01-01/00000638000000000001-1-0",
-            new WorkItemsModuleExtensions(),
             resumeAtStage: null,
             Mock.Of<IWorkItemResolutionStrategy>(),
             CancellationToken.None);

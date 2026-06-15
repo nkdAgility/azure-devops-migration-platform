@@ -85,7 +85,7 @@ public class PreventDuplicateWorkItemsTests
         ctx.SetupCommonMocks();
 
         await ctx.BuildProcessor().ProcessAsync(
-            folderPath, new WorkItemsModuleExtensions(), null,
+            folderPath, null,
             ctx.MockResolutionStrategy.Object, CancellationToken.None);
     }
 
