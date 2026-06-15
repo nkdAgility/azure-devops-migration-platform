@@ -86,10 +86,8 @@ public class ImportEmbeddedImagesTests
         var ctx = new ImportEmbeddedImagesContext
         {
             OriginalUrl = originalUrl,
-            Extensions = new WorkItemsModuleExtensions
-            {
-                EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig { Enabled = false }
-            }
+            Extensions = new WorkItemsModuleExtensions(),
+            EmbeddedImagesOptions = new EmbeddedImagesExtensionOptionsConfig { Enabled = false }
         };
 
         ctx.RevisionJson = $$"""

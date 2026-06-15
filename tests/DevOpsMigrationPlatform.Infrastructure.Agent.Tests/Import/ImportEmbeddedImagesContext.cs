@@ -6,6 +6,7 @@ using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -27,6 +28,8 @@ public class ImportEmbeddedImagesContext
 
     public WorkItemsModuleExtensions Extensions { get; set; } = new WorkItemsModuleExtensions();
 
+    public EmbeddedImagesExtensionOptionsConfig? EmbeddedImagesOptions { get; set; }
+
     public string? RevisionJson { get; set; }
     public string? OriginalUrl { get; set; }
     public string? TargetUrl { get; set; }
@@ -47,7 +50,7 @@ public class ImportEmbeddedImagesContext
             "https://dev.azure.com/contoso",
             "Shop",
             package: MockPackage.Object,
-            embeddedImagesOptions: Extensions.EmbeddedImages);
+            embeddedImagesOptions: EmbeddedImagesOptions);
     }
 
     public void SetupMocks()

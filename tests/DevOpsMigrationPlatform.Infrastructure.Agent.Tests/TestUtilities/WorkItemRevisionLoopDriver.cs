@@ -30,18 +30,18 @@ public sealed class WorkItemRevisionLoopDriver
     private readonly WorkItemsOrchestrator _orchestrator;
     private readonly WorkItemRevisionJobScope _scope;
 
-    internal WorkItemRevisionLoopDriver(WorkItemRevisionJobScope scope, WorkItemsOrchestrator? orchestrator = null, CommentsWorkItemExtension? commentsExtension = null)
+    internal WorkItemRevisionLoopDriver(WorkItemRevisionJobScope scope, WorkItemsOrchestrator? orchestrator = null, CommentsWorkItemExtension? commentsExtension = null, WorkItemsModuleOptions? moduleOptions = null)
     {
         _scope = scope;
-        _orchestrator = orchestrator ?? CreateMinimalOrchestrator(commentsExtension);
+        _orchestrator = orchestrator ?? CreateMinimalOrchestrator(commentsExtension, moduleOptions);
     }
 
     public Task ImportAsync(WorkItemsModuleExtensions ext, ResumeMode resumeMode, CancellationToken ct)
         => _orchestrator.RunRevisionFolderLoopAsync(_scope, ext, resumeMode, ct);
 
-    internal static WorkItemsOrchestrator CreateMinimalOrchestrator(CommentsWorkItemExtension? commentsExtension = null)
+    internal static WorkItemsOrchestrator CreateMinimalOrchestrator(CommentsWorkItemExtension? commentsExtension = null, WorkItemsModuleOptions? moduleOptions = null)
     {
-        var options = Options.Create(new WorkItemsModuleOptions());
+        var options = Options.Create(moduleOptions ?? new WorkItemsModuleOptions());
         return new WorkItemsOrchestrator(
             Mock.Of<IWorkItemRevisionSourceFactory>(),
             null,

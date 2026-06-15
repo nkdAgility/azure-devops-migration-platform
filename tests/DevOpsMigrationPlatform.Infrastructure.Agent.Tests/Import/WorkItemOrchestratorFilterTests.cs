@@ -318,9 +318,15 @@ public class WorkItemOrchestratorFilterTests
     {
         AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
 
-        var orchestrator = BuildOrchestrator();
+        var orchestrator = BuildOrchestrator(moduleOptions: new WorkItemsModuleOptions
+        {
+            Extensions = new WorkItemsExtensionsOptions
+            {
+                Attachments = new EnabledExtensionOptions { Enabled = false }
+            }
+        });
         await orchestrator.ImportAsync(
-            new WorkItemsModuleExtensions { AttachmentsEnabled = false },
+            new WorkItemsModuleExtensions(),
             ResumeMode.Auto,
             CancellationToken.None);
 
@@ -339,16 +345,15 @@ public class WorkItemOrchestratorFilterTests
     {
         AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
 
-        var orchestrator = BuildOrchestrator();
-        await orchestrator.ImportAsync(
-            new WorkItemsModuleExtensions
+        var orchestrator = BuildOrchestrator(moduleOptions: new WorkItemsModuleOptions
+        {
+            Extensions = new WorkItemsExtensionsOptions
             {
-                EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig
-                {
-                    Enabled = false,
-                    DownloadTimeoutSeconds = 30
-                }
-            },
+                EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig { Enabled = false }
+            }
+        });
+        await orchestrator.ImportAsync(
+            new WorkItemsModuleExtensions(),
             ResumeMode.Auto,
             CancellationToken.None);
 
@@ -442,7 +447,8 @@ public class WorkItemOrchestratorFilterTests
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private WorkItemRevisionLoopDriver BuildOrchestrator(
-        IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null)
+        IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
+        WorkItemsModuleOptions? moduleOptions = null)
     {
         var processor = new WorkItemResolutionProcessor(
             _mockTarget.Object,
@@ -454,18 +460,20 @@ public class WorkItemOrchestratorFilterTests
             "Shop",
             package: _mockPackage.Object);
 
-        return new WorkItemRevisionLoopDriver(new WorkItemRevisionJobScope(
-            _mockPackage.Object,
-            "https://dev.azure.com/contoso",
-            "Shop",
-            _mockCps.Object,
-            _mockProgress.Object,
-            _mockStrategy.Object,
-            _mockIdMap.Object,
-            processor,
-            _mockTarget.Object,
-            JobId: null,
-            FilterOptions: filterOptions));
+        return new WorkItemRevisionLoopDriver(
+            new WorkItemRevisionJobScope(
+                _mockPackage.Object,
+                "https://dev.azure.com/contoso",
+                "Shop",
+                _mockCps.Object,
+                _mockProgress.Object,
+                _mockStrategy.Object,
+                _mockIdMap.Object,
+                processor,
+                _mockTarget.Object,
+                JobId: null,
+                FilterOptions: filterOptions),
+            moduleOptions: moduleOptions);
     }
 
     private void AddRevisionFolder(int wiId, int revIndex, string areaPath)

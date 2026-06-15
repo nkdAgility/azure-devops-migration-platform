@@ -566,6 +566,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         });
 
         var nodeStructureContext = new ProjectMapping(sourceProjectName, project);
+        var (attachmentsEnabled, linksEnabled, embeddedImagesEnabled) = ComputeLeveredExtensionFlags();
         var processor = _processorFactory.Create(
             target,
             idMapStore,
@@ -574,9 +575,9 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             sourceOrganisation,
             sourceProjectName,
             nodeStructureContext,
-            attachmentsEnabledByLever: ext.AttachmentsEnabled,
-            linksEnabledByLever: ext.LinksEnabled,
-            embeddedImagesEnabledByLever: ext.EmbeddedImages.Enabled);
+            attachmentsEnabledByLever: attachmentsEnabled,
+            linksEnabledByLever: linksEnabled,
+            embeddedImagesEnabledByLever: embeddedImagesEnabled);
 
         var importFilters = startupPolicy.ImportFilters;
 
@@ -655,6 +656,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         using var _dc = DataClassificationScope.Begin(DataClassification.Customer);
 
         var commentsEnabled = _commentsExtension.IsEnabled;
+        var (loopAttachmentsEnabled, _, loopEmbeddedImagesEnabled) = ComputeLeveredExtensionFlags();
 
         if (resumeMode == ResumeMode.ForceFresh)
         {
@@ -762,7 +764,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
                     revisionActivity?.SetTag("workitem.id", wiId);
                     revisionActivity?.SetTag("revision.index", revIdx);
 
-                    EmitReplaySkipVisibilityEvents(scope, ext.AttachmentsEnabled, ext.EmbeddedImages.Enabled, resumeAtStage);
+                    EmitReplaySkipVisibilityEvents(scope, loopAttachmentsEnabled, loopEmbeddedImagesEnabled, resumeAtStage);
 
                     await scope.Processor.ProcessAsync(folderPath, resumeAtStage, scope.ResolutionStrategy, ct)
                         .ConfigureAwait(false);
@@ -1081,16 +1083,17 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
 
     private ImportStartupPolicy AssembleStartupPolicy(Job job)
     {
-        var extensions = ApplyReplayLevers(WorkItemsModuleExtensions.FromOptions(_options.Value));
+        var extensions = WorkItemsModuleExtensions.FromOptions(_options.Value);
         var importFilters = extensions.IncludeFilters.Concat(extensions.ExcludeFilters).ToList();
         var resumeMode = job.Resume?.Mode ?? ResumeMode.Auto;
         return new ImportStartupPolicy(extensions, importFilters, resumeMode);
     }
 
-    private WorkItemsModuleExtensions ApplyReplayLevers(WorkItemsModuleExtensions ext)
+    private (bool attachments, bool links, bool embeddedImages) ComputeLeveredExtensionFlags()
     {
+        var moduleExt = _options.Value.Extensions;
         if (_workItemOptions is null)
-            return ext;
+            return (moduleExt.Attachments.Enabled, moduleExt.Links.Enabled, moduleExt.EmbeddedImages.Enabled);
 
         var replayOptions = _workItemOptions.Value;
         var hasExplicitLeverConfig =
@@ -1101,31 +1104,16 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             replayOptions.FieldTransform;
 
         if (!hasExplicitLeverConfig)
-            return ext;
+            return (moduleExt.Attachments.Enabled, moduleExt.Links.Enabled, moduleExt.EmbeddedImages.Enabled);
 
-        var moduleExt = _options.Value.Extensions;
-        var attachmentsEnabled = moduleExt.Attachments.Enabled &&
-                                 (!replayOptions.RevisionReplay || replayOptions.AttachmentReplay);
-        var linksEnabled = moduleExt.Links.Enabled &&
-                           (!replayOptions.RevisionReplay || replayOptions.LinkReplay);
-        var embeddedImagesEnabled = moduleExt.EmbeddedImages.Enabled &&
-                                    (!replayOptions.RevisionReplay || replayOptions.EmbeddedImageReplay);
-
-        return new WorkItemsModuleExtensions
-        {
-            Query = ext.Query,
-            LinksEnabled = linksEnabled,
-            AttachmentsEnabled = attachmentsEnabled,
-            EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig
-            {
-                Enabled = embeddedImagesEnabled,
-                DownloadTimeoutSeconds = moduleExt.EmbeddedImages.DownloadTimeoutSeconds
-            },
-            ResolutionStrategy = ext.ResolutionStrategy,
-            IncludeFilters = ext.IncludeFilters,
-            ExcludeFilters = ext.ExcludeFilters
-        };
+        return (
+            moduleExt.Attachments.Enabled && (!replayOptions.RevisionReplay || replayOptions.AttachmentReplay),
+            moduleExt.Links.Enabled && (!replayOptions.RevisionReplay || replayOptions.LinkReplay),
+            moduleExt.EmbeddedImages.Enabled && (!replayOptions.RevisionReplay || replayOptions.EmbeddedImageReplay)
+        );
     }
+
+
 
     // -------------------------------------------------------------------------
     // Shared helpers

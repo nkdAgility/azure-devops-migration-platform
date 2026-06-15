@@ -23,15 +23,6 @@ public sealed class WorkItemsModuleExtensions
     /// <summary>WIQL query selecting work items to export.</summary>
     public string Query { get; init; } = DefaultWiqlQuery;
 
-    /// <summary>Whether related-link export is enabled. Default: <c>true</c>.</summary>
-    public bool LinksEnabled { get; init; } = true;
-
-    /// <summary>Whether attachment binary download is enabled. Default: <c>true</c>.</summary>
-    public bool AttachmentsEnabled { get; init; } = true;
-
-    /// <summary>EmbeddedImages extension options. Default: enabled, 30 s timeout.</summary>
-    public EmbeddedImagesExtensionOptionsConfig EmbeddedImages { get; init; } = new EmbeddedImagesExtensionOptionsConfig();
-
     /// <summary>
     /// Resolution strategy options. A <c>WorkItemResolutionStrategy</c> extension with a valid
     /// <c>strategy</c> value (<c>"TargetField"</c> or <c>"TargetHyperlink"</c>) is required for
@@ -97,9 +88,6 @@ public sealed class WorkItemsModuleExtensions
         return new WorkItemsModuleExtensions
         {
             Query = options.Scope.Query,
-            LinksEnabled = options.Extensions.Links.Enabled,
-            AttachmentsEnabled = options.Extensions.Attachments.Enabled,
-            EmbeddedImages = options.Extensions.EmbeddedImages,
             ResolutionStrategy = new WorkItemResolutionStrategyOptions
             {
                 Strategy = rs.Strategy,
