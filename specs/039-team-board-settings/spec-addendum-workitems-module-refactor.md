@@ -20,6 +20,10 @@
 - `RevisionsEnabled` — removed from god-object (was never read; early-return guard and startup log read `_options.Value.Extensions.Revisions.Enabled`).
 - Dead `FromModule` factory and all 8 private helpers deleted from `WorkItemsModuleExtensions`.
 - Loop-level `commentsEnabled` gate — migrated from `ext.Comments.Enabled` to `_commentsExtension.IsEnabled`; `Comments` property removed from god-object; dead `Comments = ext.Comments` line removed from `ApplyReplayLevers`.
+- Taxonomy rename — `AttachmentReplayService` → `AttachmentReplayTool`, `EmbeddedImageReplayService` → `EmbeddedImageRewriteTool`. `Service` is not a permitted role noun.
+- HX-C1 DI wiring — `AttachmentsWorkItemExtension` and `CommentsWorkItemExtension` now resolved via `GetRequiredService` in the `WorkItemsOrchestrator` factory lambda; `??` fallback no longer fires in production.
+- DC-C1 dead parameter — `WorkItemsModuleExtensions ext` removed from `IWorkItemResolutionProcessor.ProcessAsync`; was declared but never read.
+- SA-H1 file rename — `RevisionFolderProcessor.cs` → `WorkItemResolutionProcessor.cs` to match class name.
 
 ---
 
@@ -61,7 +65,7 @@ Already retired: `Comments`, `RevisionsEnabled`.
 - **Revisions are core, not an extension.** The per-entity loop IS the revision stream. `RevisionsEnabled` is a mislabelled core kill-switch; the early-return guard is the correct shape.
 - **EmbeddedImages is not a peer pipeline stage.** It is a field-value rewrite inside core `AppliedFields`. Modelled as a field-rewrite contributor; extract to its own `IOptions<EmbeddedImagesExtensionOptions>` but do NOT make it a cursor stage.
 - **Cursor format does not change.** Stage names are the existing marker strings. No upgrader.
-- **`RevisionFolderProcessor` is the sub-orchestrator.** It owns the per-revision loop + cursor. `WorkItemsOrchestrator` delegates to it; the orchestrator does not loop entities itself.
+- **`WorkItemResolutionProcessor` is the sub-orchestrator.** It owns the per-revision loop + cursor. `WorkItemsOrchestrator` delegates to it; the orchestrator does not loop entities itself.
 - **`WorkItemRevisionStage`** is the descriptor (`CursorName`, `IsEnabled`, `ExecuteAsync`) — already exists, already used for extension stages.
 
 ---
