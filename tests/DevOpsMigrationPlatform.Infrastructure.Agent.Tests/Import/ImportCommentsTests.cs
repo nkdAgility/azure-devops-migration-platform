@@ -6,8 +6,10 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -99,11 +101,14 @@ public class ImportCommentsTests
         ctx.MockIdMapStore.Setup(s => s.DisposeAsync()).Returns(new ValueTask());
         ctx.MockResolutionStrategy.Setup(s => s.SeedAsync(It.IsAny<IIdMapStore>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
-        ctx.Extensions = new WorkItemsModuleExtensions { Comments = new CommentsExtensionOptionsConfig { Enabled = false } };
+        ctx.Extensions = new WorkItemsModuleExtensions();
         SetupCheckpointing(ctx);
 
+        var disabledComments = new CommentsWorkItemExtension(
+            Microsoft.Extensions.Options.Options.Create(new CommentsExtensionOptions { Enabled = false }));
+
         // Act
-        var orchestrator = ctx.BuildOrchestrator();
+        var orchestrator = ctx.BuildOrchestrator(commentsExtension: disabledComments);
         await orchestrator.ImportAsync(ctx.Extensions, ResumeMode.Auto, CancellationToken.None);
 
         // Assert — Comments API never called; cursor advanced past each folder

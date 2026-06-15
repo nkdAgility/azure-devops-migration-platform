@@ -7,6 +7,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -35,7 +36,7 @@ public class ImportCommentsContext
         MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
     }
 
-    public WorkItemRevisionLoopDriver BuildOrchestrator()
+    public WorkItemRevisionLoopDriver BuildOrchestrator(CommentsWorkItemExtension? commentsExtension = null)
     {
         var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
@@ -47,17 +48,19 @@ public class ImportCommentsContext
             "Shop",
             package: MockPackage.Object);
 
-        return new WorkItemRevisionLoopDriver(new WorkItemRevisionJobScope(
-            MockPackage.Object,
-            "https://dev.azure.com/contoso",
-            "Shop",
-            MockCheckpointing.Object,
-            MockProgressSink.Object,
-            MockResolutionStrategy.Object,
-            MockIdMapStore.Object,
-            processor,
-            MockTarget.Object,
-            JobId: null,
-            FilterOptions: null));
+        return new WorkItemRevisionLoopDriver(
+            new WorkItemRevisionJobScope(
+                MockPackage.Object,
+                "https://dev.azure.com/contoso",
+                "Shop",
+                MockCheckpointing.Object,
+                MockProgressSink.Object,
+                MockResolutionStrategy.Object,
+                MockIdMapStore.Object,
+                processor,
+                MockTarget.Object,
+                JobId: null,
+                FilterOptions: null),
+            commentsExtension: commentsExtension);
     }
 }

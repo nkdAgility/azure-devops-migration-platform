@@ -651,7 +651,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
 
         using var _dc = DataClassificationScope.Begin(DataClassification.Customer);
 
-        var commentsEnabled = ext.Comments.Enabled;
+        var commentsEnabled = _commentsExtension.IsEnabled;
 
         if (resumeMode == ResumeMode.ForceFresh)
         {

@@ -11,6 +11,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -29,16 +30,16 @@ public sealed class WorkItemRevisionLoopDriver
     private readonly WorkItemsOrchestrator _orchestrator;
     private readonly WorkItemRevisionJobScope _scope;
 
-    internal WorkItemRevisionLoopDriver(WorkItemRevisionJobScope scope, WorkItemsOrchestrator? orchestrator = null)
+    internal WorkItemRevisionLoopDriver(WorkItemRevisionJobScope scope, WorkItemsOrchestrator? orchestrator = null, CommentsWorkItemExtension? commentsExtension = null)
     {
         _scope = scope;
-        _orchestrator = orchestrator ?? CreateMinimalOrchestrator();
+        _orchestrator = orchestrator ?? CreateMinimalOrchestrator(commentsExtension);
     }
 
     public Task ImportAsync(WorkItemsModuleExtensions ext, ResumeMode resumeMode, CancellationToken ct)
         => _orchestrator.RunRevisionFolderLoopAsync(_scope, ext, resumeMode, ct);
 
-    internal static WorkItemsOrchestrator CreateMinimalOrchestrator()
+    internal static WorkItemsOrchestrator CreateMinimalOrchestrator(CommentsWorkItemExtension? commentsExtension = null)
     {
         var options = Options.Create(new WorkItemsModuleOptions());
         return new WorkItemsOrchestrator(
@@ -63,6 +64,7 @@ public sealed class WorkItemRevisionLoopDriver
             null,
             Mock.Of<IWorkItemsImportCapabilityValidator>(),
             Mock.Of<IWorkItemsNodeReadinessOrchestrator>(),
-            Mock.Of<ITargetEndpointInfo>());
+            Mock.Of<ITargetEndpointInfo>(),
+            commentsExtension: commentsExtension);
     }
 }
