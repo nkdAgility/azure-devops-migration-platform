@@ -55,7 +55,8 @@ public class WorkItemResolutionProcessorTests
 
     private WorkItemResolutionProcessor CreateSut(
         DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.LinksWorkItemExtension? linksExtension = null,
-        IReadOnlyList<WorkItemRevisionStage>? extensionStages = null)
+        IReadOnlyList<WorkItemRevisionStage>? extensionStages = null,
+        DevOpsMigrationPlatform.Abstractions.Options.EmbeddedImagesExtensionOptionsConfig? embeddedImagesOptions = null)
         => new WorkItemResolutionProcessor(
             _mockTarget.Object,
             _mockIdMapStore.Object,
@@ -66,7 +67,8 @@ public class WorkItemResolutionProcessorTests
             "Shop",
             package: _mockPackage.Object,
             linksExtension: linksExtension,
-            extensionStages: extensionStages);
+            extensionStages: extensionStages,
+            embeddedImagesOptions: embeddedImagesOptions);
 
     private static DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.LinksWorkItemExtension DisabledLinks()
         => new(Microsoft.Extensions.Options.Options.Create(
@@ -652,6 +654,33 @@ public class WorkItemResolutionProcessorTests
         await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), CursorStage.AppliedComments, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.CreateCommentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    // ── ProcessAsync_WhenEmbeddedImagesDisabled_DoesNotUploadEmbeddedImages ──────
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ProcessAsync_WhenEmbeddedImagesDisabled_DoesNotUploadEmbeddedImages()
+    {
+        var json = """{"WorkItemId":1,"RevisionIndex":0,"Fields":[{"ReferenceName":"System.WorkItemType","Value":"Task"},{"ReferenceName":"System.Description","Value":"<img src=\"embedded://img-1\"/>"}],"Attachments":[],"RelatedLinks":[],"ExternalLinks":[],"Hyperlinks":[],"EmbeddedImages":[{"id":"img-1","binaryFile":"embedded/img-1.png"}]}""";
+        SetupPackageText($"{Folder}/revision.json", json);
+        SetupPackageText($"{Folder}/comment.json", null);
+        SetupNoMapping();
+        SetupTargetCreate(newTargetId: 10);
+        SetupCursorWrites();
+        SetupResolutionStrategyNoOp();
+        SetupTargetFieldsAndLinks(targetId: 10);
+
+        var disabledEmbeddedImages = new DevOpsMigrationPlatform.Abstractions.Options.EmbeddedImagesExtensionOptionsConfig { Enabled = false };
+
+        var sut = CreateSut(embeddedImagesOptions: disabledEmbeddedImages);
+        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        _mockTarget.Verify(
+            t => t.UploadEmbeddedImageAsync(It.IsAny<string>(), It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "EmbeddedImages disabled — UploadEmbeddedImageAsync must not be called.");
     }
 
     private void SetupCursorWrites()

@@ -46,7 +46,8 @@ public class ImportEmbeddedImagesContext
             NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
-            package: MockPackage.Object);
+            package: MockPackage.Object,
+            embeddedImagesOptions: Extensions.EmbeddedImages);
     }
 
     public void SetupMocks()

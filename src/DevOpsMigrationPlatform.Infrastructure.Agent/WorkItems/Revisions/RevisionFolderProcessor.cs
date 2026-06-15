@@ -59,6 +59,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     private readonly AttachmentsWorkItemExtension _attachmentsExtension;
     private readonly CommentsWorkItemExtension _commentsExtension;
     private readonly IReadOnlyList<WorkItemRevisionStage>? _injectedExtensionStages;
+    private readonly bool _embeddedImagesEnabled;
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
 
@@ -86,7 +87,8 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         LinksWorkItemExtension? linksExtension = null,
         AttachmentsWorkItemExtension? attachmentsExtension = null,
         CommentsWorkItemExtension? commentsExtension = null,
-        IReadOnlyList<WorkItemRevisionStage>? extensionStages = null)
+        IReadOnlyList<WorkItemRevisionStage>? extensionStages = null,
+        EmbeddedImagesExtensionOptionsConfig? embeddedImagesOptions = null)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));
@@ -108,6 +110,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         _attachmentsExtension = attachmentsExtension ?? new AttachmentsWorkItemExtension(Options.Create(new AttachmentsExtensionOptions()));
         _commentsExtension = commentsExtension ?? new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()));
         _injectedExtensionStages = extensionStages;
+        _embeddedImagesEnabled = embeddedImagesOptions?.Enabled ?? true;
 
         if (_fieldTransformTool == null)
             _logger.LogWarning("[WorkItems] IFieldTransformTool is not registered — field transforms will be skipped for all revisions. Call AddFieldTransformToolServices() in your DI setup to enable field transforms.");
@@ -261,7 +264,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
             var fields = ApplyIdentityResolution(importFields, identityResolutionContext);
 
             // Embedded images — upload and rewrite URLs if extension enabled
-            if (ext.EmbeddedImages.Enabled && revision.EmbeddedImages.Count > 0)
+            if (_embeddedImagesEnabled && revision.EmbeddedImages.Count > 0)
             {
                 fields = await _embeddedImageReplayService
                     .RewriteFieldValuesAsync(fields, revision.EmbeddedImages, folderPath, ReadPackageBinaryAsync, ct)
