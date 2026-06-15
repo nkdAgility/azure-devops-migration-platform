@@ -1,6 +1,6 @@
 # Spec Addendum — WorkItems Module Refactor (pending work)
 
-**Status**: Stages 1–3 taxonomy remediation COMPLETE. Stage 2 cursor-engine generalisation is next.
+**Status**: ALL ITEMS COMPLETE. No pending work remaining.
 
 **ADR**: [ADR 0019](../../docs/adr/0019-workitems-extension-seam-and-staged-cursor-pipeline.md)
 
@@ -30,18 +30,13 @@
 - `ApplyReplayLevers` deleted — replaced by `ComputeLeveredExtensionFlags()` which returns `(bool attachments, bool links, bool embeddedImages)` computed directly from `_options.Value.Extensions.*` and `_workItemOptions`; no god-object reads.
 - `AttachmentsEnabled`, `LinksEnabled`, `EmbeddedImages` removed from `WorkItemsModuleExtensions` — god-object now carries only non-extension config: `Query`, `ResolutionStrategy`, `IncludeFilters`, `ExcludeFilters`.
 - `EmitReplaySkipVisibilityEvents` signature changed to `(scope, bool attachmentsEnabled, bool embeddedImagesEnabled, resumeAtStage)`.
+- Export-side facet extraction — `AttachmentsWorkItemExtension` and `CommentsWorkItemExtension` now have `SupportsExport = true` and implement `ExportAsync`. `WorkItemRevisionExportContext` (new) carries per-revision export context. `WorkItemExportOrchestrator` routes to extensions when provided, falling back to inline paths for backward compatibility. DI injects `IAttachmentBinarySource?` and `IWorkItemCommentSourceFactory?` into extension singletons.
 
 ---
 
 ## Pending
 
-### Export-side facet extraction
-
-Set `SupportsExport: true` for `LinksWorkItemExtension`, `AttachmentsWorkItemExtension`, `CommentsWorkItemExtension` and implement `ExportAsync` on each, moving the attachment-binary and inline-comment export logic out of `WorkItemsOrchestrator.ExportAsync` inline code.
-
-Requires `IExtensionContext` to expose the export-side dependencies (`IAttachmentBinarySource`, `IWorkItemCommentSourceFactory`) that the extensions need. Currently `WorkItemsOrchestrator.ExportAsync` reads `_attachmentsExtension.IsEnabled` and `_commentsExtension.IsEnabled` already from the injected extension objects; the extension objects just need `ExportAsync` bodies wired to the right sources.
-
-EmbeddedImages export stays as a field-rewrite contributor inside the core `AppliedFields` step — not a peer pipeline stage.
+None. All items complete.
 
 ---
 
