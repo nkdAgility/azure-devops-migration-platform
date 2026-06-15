@@ -4,7 +4,7 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -12,7 +12,7 @@ using Moq;
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
 
 [TestClass]
-public class EmbeddedImageReplayServiceTests
+public class EmbeddedImageRewriteToolTests
 {
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
@@ -41,7 +41,7 @@ public class EmbeddedImageReplayServiceTests
             .Setup(t => t.UploadEmbeddedImageAsync("img1.png", It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("https://target.example/image.png");
 
-        var sut = new EmbeddedImageReplayService(target.Object, NullLogger<EmbeddedImageReplayService>.Instance);
+        var sut = new EmbeddedImageRewriteTool(target.Object, NullLogger<EmbeddedImageRewriteTool>.Instance);
         var rewritten = await sut.RewriteFieldValuesAsync(
             fields,
             images,
@@ -75,7 +75,7 @@ public class EmbeddedImageReplayServiceTests
             .Setup(t => t.UploadEmbeddedImageAsync("images/flow.png", It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("https://target.example/images/flow.png");
 
-        var sut = new EmbeddedImageReplayService(target.Object, NullLogger<EmbeddedImageReplayService>.Instance);
+        var sut = new EmbeddedImageRewriteTool(target.Object, NullLogger<EmbeddedImageRewriteTool>.Instance);
         var rewritten = await sut.RewriteFieldValuesAsync(
             fields,
             Array.Empty<EmbeddedImageMetadata>(),

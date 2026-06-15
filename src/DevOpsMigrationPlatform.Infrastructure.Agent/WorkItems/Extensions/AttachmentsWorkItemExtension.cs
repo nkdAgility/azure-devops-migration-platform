@@ -44,12 +44,12 @@ public sealed class AttachmentsWorkItemExtension : IModuleExtension
         if (ctx.ReadBinaryAsync is null)
             throw new ArgumentException("WorkItemExtensionContext.ReadBinaryAsync is required for attachment import.", nameof(context));
 
-        var replayService = new AttachmentReplayService(
+        var replayTool = new AttachmentReplayTool(
             ctx.Target,
             ctx.IdMapStore,
-            NullLogger<AttachmentReplayService>.Instance);
+            NullLogger<AttachmentReplayTool>.Instance);
 
-        await replayService.ReplayAsync(
+        await replayTool.ReplayAsync(
             ctx.Revision,
             ctx.FolderPath,
             ctx.TargetWorkItemId,

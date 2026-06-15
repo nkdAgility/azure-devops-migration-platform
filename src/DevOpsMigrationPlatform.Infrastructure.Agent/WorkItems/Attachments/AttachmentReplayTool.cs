@@ -16,16 +16,16 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
 /// <summary>
 /// Replays revision attachments to the target system and persists source-to-target attachment mappings.
 /// </summary>
-public sealed class AttachmentReplayService
+public sealed class AttachmentReplayTool
 {
     private readonly IWorkItemTarget _target;
     private readonly IIdMapStore _idMapStore;
-    private readonly ILogger<AttachmentReplayService> _logger;
+    private readonly ILogger<AttachmentReplayTool> _logger;
 
-    public AttachmentReplayService(
+    public AttachmentReplayTool(
         IWorkItemTarget target,
         IIdMapStore idMapStore,
-        ILogger<AttachmentReplayService> logger)
+        ILogger<AttachmentReplayTool> logger)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));

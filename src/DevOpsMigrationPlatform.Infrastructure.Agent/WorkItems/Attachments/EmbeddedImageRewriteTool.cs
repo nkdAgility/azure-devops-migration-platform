@@ -17,17 +17,17 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
 /// <summary>
 /// Uploads embedded images and rewrites field values from source image URLs to target URLs.
 /// </summary>
-public sealed class EmbeddedImageReplayService
+public sealed class EmbeddedImageRewriteTool
 {
     private static readonly Regex MarkdownImageRegex = new(@"!\[[^\]]*\]\((?<url>[^)\s]+)[^)]*\)", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex HtmlImageRegex = new(@"<img\b[^>]*\bsrc\s*=\s*[""'](?<url>[^""']+)[""'][^>]*>", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
     private readonly IWorkItemTarget _target;
-    private readonly ILogger<EmbeddedImageReplayService> _logger;
+    private readonly ILogger<EmbeddedImageRewriteTool> _logger;
 
-    public EmbeddedImageReplayService(
+    public EmbeddedImageRewriteTool(
         IWorkItemTarget target,
-        ILogger<EmbeddedImageReplayService> logger)
+        ILogger<EmbeddedImageRewriteTool> logger)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
