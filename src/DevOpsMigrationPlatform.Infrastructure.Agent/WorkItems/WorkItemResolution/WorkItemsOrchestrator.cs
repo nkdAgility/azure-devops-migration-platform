@@ -762,7 +762,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
                     revisionActivity?.SetTag("workitem.id", wiId);
                     revisionActivity?.SetTag("revision.index", revIdx);
 
-                    EmitReplaySkipVisibilityEvents(scope, ext, resumeAtStage);
+                    EmitReplaySkipVisibilityEvents(scope, ext.AttachmentsEnabled, ext.EmbeddedImages.Enabled, resumeAtStage);
 
                     await scope.Processor.ProcessAsync(folderPath, resumeAtStage, scope.ResolutionStrategy, ct)
                         .ConfigureAwait(false);
@@ -1038,9 +1038,9 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
     // Import: visibility events and cursor
     // -------------------------------------------------------------------------
 
-    private void EmitReplaySkipVisibilityEvents(WorkItemRevisionJobScope scope, WorkItemsModuleExtensions ext, string? resumeAtStage)
+    private void EmitReplaySkipVisibilityEvents(WorkItemRevisionJobScope scope, bool attachmentsEnabled, bool embeddedImagesEnabled, string? resumeAtStage)
     {
-        if (!ext.EmbeddedImages.Enabled && WorkItemRevisionStagePipeline.ShouldRunStage(CursorStage.AppliedFields, resumeAtStage))
+        if (!embeddedImagesEnabled && WorkItemRevisionStagePipeline.ShouldRunStage(CursorStage.AppliedFields, resumeAtStage))
         {
             scope.ProgressSink.Emit(new ProgressEvent
             {
@@ -1053,7 +1053,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             });
         }
 
-        if (!ext.AttachmentsEnabled && WorkItemRevisionStagePipeline.ShouldRunStage(CursorStage.UploadedAttachments, resumeAtStage))
+        if (!attachmentsEnabled && WorkItemRevisionStagePipeline.ShouldRunStage(CursorStage.UploadedAttachments, resumeAtStage))
         {
             scope.ProgressSink.Emit(new ProgressEvent
             {
@@ -1103,11 +1103,12 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         if (!hasExplicitLeverConfig)
             return ext;
 
-        var attachmentsEnabled = ext.AttachmentsEnabled &&
+        var moduleExt = _options.Value.Extensions;
+        var attachmentsEnabled = moduleExt.Attachments.Enabled &&
                                  (!replayOptions.RevisionReplay || replayOptions.AttachmentReplay);
-        var linksEnabled = ext.LinksEnabled &&
+        var linksEnabled = moduleExt.Links.Enabled &&
                            (!replayOptions.RevisionReplay || replayOptions.LinkReplay);
-        var embeddedImagesEnabled = ext.EmbeddedImages.Enabled &&
+        var embeddedImagesEnabled = moduleExt.EmbeddedImages.Enabled &&
                                     (!replayOptions.RevisionReplay || replayOptions.EmbeddedImageReplay);
 
         return new WorkItemsModuleExtensions
@@ -1118,7 +1119,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig
             {
                 Enabled = embeddedImagesEnabled,
-                DownloadTimeoutSeconds = ext.EmbeddedImages.DownloadTimeoutSeconds
+                DownloadTimeoutSeconds = moduleExt.EmbeddedImages.DownloadTimeoutSeconds
             },
             ResolutionStrategy = ext.ResolutionStrategy,
             IncludeFilters = ext.IncludeFilters,
