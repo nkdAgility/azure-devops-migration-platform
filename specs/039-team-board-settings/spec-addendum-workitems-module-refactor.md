@@ -27,22 +27,13 @@
 - HX-C2 NullLogger injection — `AttachmentsWorkItemExtension` now receives `ILogger<AttachmentReplayTool>` via ctor instead of silently using `NullLogger` internally.
 - Replay lever bug fix — `ApplyReplayLevers` computed levered booleans that previously only flowed to telemetry; processor used singleton extension `IsEnabled` (config-level), ignoring levers entirely. Fixed by adding `attachmentsEnabledByLever`, `linksEnabledByLever`, `embeddedImagesEnabledByLever` params to `IWorkItemResolutionProcessorFactory.Create()`; factory synthesises disabled extension instances when a lever suppresses an extension; orchestrator passes `ext.AttachmentsEnabled`, `ext.LinksEnabled`, `ext.EmbeddedImages.Enabled` (post-lever values) to `Create()`. Stages are now actually skipped, not just logged.
 
-- `ApplyReplayLevers` input-side god-object reads retired — now reads `_options.Value.Extensions.*` directly instead of `ext.AttachmentsEnabled`, `ext.LinksEnabled`, `ext.EmbeddedImages.*`; god-object properties are still set on the returned object (consumed at call sites) but are no longer the source of truth going into the computation.
-- `EmitReplaySkipVisibilityEvents` — god-object parameter replaced with two `bool` parameters (`attachmentsEnabled`, `embeddedImagesEnabled`); call site passes `ext.AttachmentsEnabled` and `ext.EmbeddedImages.Enabled` (post-lever values from `ApplyReplayLevers` output).
+- `ApplyReplayLevers` deleted — replaced by `ComputeLeveredExtensionFlags()` which returns `(bool attachments, bool links, bool embeddedImages)` computed directly from `_options.Value.Extensions.*` and `_workItemOptions`; no god-object reads.
+- `AttachmentsEnabled`, `LinksEnabled`, `EmbeddedImages` removed from `WorkItemsModuleExtensions` — god-object now carries only non-extension config: `Query`, `ResolutionStrategy`, `IncludeFilters`, `ExcludeFilters`.
+- `EmitReplaySkipVisibilityEvents` signature changed to `(scope, bool attachmentsEnabled, bool embeddedImagesEnabled, resumeAtStage)`.
 
 ---
 
 ## Pending
-
-### Retire the god-object (`WorkItemsModuleExtensions`) extension-owned fields
-
-Remaining reads of `AttachmentsEnabled`, `LinksEnabled`, `EmbeddedImages.*` are all reads of the **post-lever output** from `ApplyReplayLevers` (lines 577-579 and 765 in `WorkItemsOrchestrator`). These are correct; they read levered values not raw config. Full retirement requires either extracting a dedicated levered-state type from `AssembleStartupPolicy` or moving the lever computation to happen at those call sites directly, eliminating the need to carry these values through the god-object at all.
-
-Non-extension config (`Query`, filters, `ResolutionStrategy`) stays — not extension-owned.
-
-Already retired: `Comments`, `RevisionsEnabled`, input-side reads in `ApplyReplayLevers`.
-
----
 
 ### Export-side facet extraction
 
