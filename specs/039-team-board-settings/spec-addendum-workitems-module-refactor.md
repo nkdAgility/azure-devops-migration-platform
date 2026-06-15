@@ -24,6 +24,8 @@
 - HX-C1 DI wiring — `AttachmentsWorkItemExtension` and `CommentsWorkItemExtension` now resolved via `GetRequiredService` in the `WorkItemsOrchestrator` factory lambda; `??` fallback no longer fires in production.
 - DC-C1 dead parameter — `WorkItemsModuleExtensions ext` removed from `IWorkItemResolutionProcessor.ProcessAsync`; was declared but never read.
 - SA-H1 file rename — `RevisionFolderProcessor.cs` → `WorkItemResolutionProcessor.cs` to match class name.
+- HX-C2 NullLogger injection — `AttachmentsWorkItemExtension` now receives `ILogger<AttachmentReplayTool>` via ctor instead of silently using `NullLogger` internally.
+- Replay lever bug fix — `ApplyReplayLevers` computed levered booleans that previously only flowed to telemetry; processor used singleton extension `IsEnabled` (config-level), ignoring levers entirely. Fixed by adding `attachmentsEnabledByLever`, `linksEnabledByLever`, `embeddedImagesEnabledByLever` params to `IWorkItemResolutionProcessorFactory.Create()`; factory synthesises disabled extension instances when a lever suppresses an extension; orchestrator passes `ext.AttachmentsEnabled`, `ext.LinksEnabled`, `ext.EmbeddedImages.Enabled` (post-lever values) to `Create()`. Stages are now actually skipped, not just logged.
 
 ---
 
