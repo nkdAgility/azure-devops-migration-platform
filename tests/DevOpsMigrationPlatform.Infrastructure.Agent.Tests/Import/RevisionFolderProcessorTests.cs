@@ -11,6 +11,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -53,7 +54,8 @@ public class WorkItemResolutionProcessorTests
     }
 
     private WorkItemResolutionProcessor CreateSut(
-        DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.LinksWorkItemExtension? linksExtension = null)
+        DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.LinksWorkItemExtension? linksExtension = null,
+        IReadOnlyList<WorkItemRevisionStage>? extensionStages = null)
         => new WorkItemResolutionProcessor(
             _mockTarget.Object,
             _mockIdMapStore.Object,
@@ -63,7 +65,8 @@ public class WorkItemResolutionProcessorTests
             "https://dev.azure.com/contoso",
             "Shop",
             package: _mockPackage.Object,
-            linksExtension: linksExtension);
+            linksExtension: linksExtension,
+            extensionStages: extensionStages);
 
     private static DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.LinksWorkItemExtension DisabledLinks()
         => new(Microsoft.Extensions.Options.Options.Create(
@@ -599,6 +602,33 @@ public class WorkItemResolutionProcessorTests
         _mockTarget
             .Setup(t => t.AddLinksAsync(targetId, It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+    }
+
+    // ── ProcessAsync_WhenInjectedStageListIsEmpty_SkipsAllExtensionStages ───────
+
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
+    [TestMethod]
+    public async Task ProcessAsync_WhenInjectedStageListIsEmpty_SkipsAllExtensionStages()
+    {
+        SetupRevisionJson();
+        _mockIdMapStore
+            .SetupSequence(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int?)null)
+            .ReturnsAsync(10);
+        _mockIdMapStore.Setup(s => s.SetWorkItemMappingAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        SetupTargetCreate(newTargetId: 10);
+        SetupCursorWrites();
+        SetupResolutionStrategyNoOp();
+        _mockTarget.Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockTarget.Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        var sut = CreateSut(extensionStages: Array.Empty<WorkItemRevisionStage>());
+        await sut.ProcessAsync(Folder, new WorkItemsModuleExtensions(), null, _mockResolutionStrategy.Object, CancellationToken.None);
+
+        _mockTarget.Verify(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockTarget.Verify(t => t.UploadAttachmentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockTarget.Verify(t => t.CreateCommentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── ProcessAsync_WhenResumingFromAppliedComments_SkipsCommentStage ─────────

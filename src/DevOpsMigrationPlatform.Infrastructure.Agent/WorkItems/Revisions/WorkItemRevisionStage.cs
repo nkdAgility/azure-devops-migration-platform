@@ -13,7 +13,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 /// Core stages (CreatedOrUpdated, AppliedFields) are handled inline due to their
 /// complex early-return control flow; extension stages use this descriptor.
 /// </summary>
-internal sealed record WorkItemRevisionStage(
+public sealed record WorkItemRevisionStage(
     string CursorName,
     Func<bool> IsEnabled,
     Func<WorkItemExtensionContext, CancellationToken, Task> ExecuteAsync

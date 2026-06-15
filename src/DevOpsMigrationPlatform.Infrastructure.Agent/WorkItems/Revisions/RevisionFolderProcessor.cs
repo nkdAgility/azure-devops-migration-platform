@@ -58,6 +58,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     private readonly LinksWorkItemExtension _linksExtension;
     private readonly AttachmentsWorkItemExtension _attachmentsExtension;
     private readonly CommentsWorkItemExtension _commentsExtension;
+    private readonly IReadOnlyList<WorkItemRevisionStage>? _injectedExtensionStages;
 
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Migration);
 
@@ -84,7 +85,8 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         EmbeddedImageReplayService? embeddedImageReplayService = null,
         LinksWorkItemExtension? linksExtension = null,
         AttachmentsWorkItemExtension? attachmentsExtension = null,
-        CommentsWorkItemExtension? commentsExtension = null)
+        CommentsWorkItemExtension? commentsExtension = null,
+        IReadOnlyList<WorkItemRevisionStage>? extensionStages = null)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));
@@ -105,6 +107,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         _linksExtension = linksExtension ?? new LinksWorkItemExtension(Options.Create(new LinksExtensionOptions()));
         _attachmentsExtension = attachmentsExtension ?? new AttachmentsWorkItemExtension(Options.Create(new AttachmentsExtensionOptions()));
         _commentsExtension = commentsExtension ?? new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()));
+        _injectedExtensionStages = extensionStages;
 
         if (_fieldTransformTool == null)
             _logger.LogWarning("[WorkItems] IFieldTransformTool is not registered — field transforms will be skipped for all revisions. Call AddFieldTransformToolServices() in your DI setup to enable field transforms.");
@@ -301,7 +304,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
             ReadTextAsync = ReadPackageTextAsync,
         };
 
-        WorkItemRevisionStage[] extensionStages =
+        IReadOnlyList<WorkItemRevisionStage> extensionStages = _injectedExtensionStages ??
         [
             new(CursorStage.AppliedLinks,
                 IsEnabled: () => _linksExtension.IsEnabled,
