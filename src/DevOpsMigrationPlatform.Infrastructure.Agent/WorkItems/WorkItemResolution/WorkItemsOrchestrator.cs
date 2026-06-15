@@ -520,7 +520,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
 
         _logger.LogInformation(
             "[WorkItems] Importing into {OrgUrl}/{Project} (revisions={Revisions}, links={Links}, attachments={Attachments}, comments={Comments})",
-            orgUrl, project, _options.Value.Extensions.Revisions.Enabled, ext.LinksEnabled, _attachmentsExtension.IsEnabled, _commentsExtension.IsEnabled);
+            orgUrl, project, _options.Value.Extensions.Revisions.Enabled, _options.Value.Extensions.Links.Enabled, _attachmentsExtension.IsEnabled, _commentsExtension.IsEnabled);
 
         if (!_options.Value.Extensions.Revisions.Enabled)
         {
