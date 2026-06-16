@@ -111,7 +111,13 @@ Orchestrator:
     foreach extension → ExportAsync / ImportAsync
 ```
 
-### Invariants
+
+> **Teams Module — simplified model (no mandatory tier yet)**: The current `TeamsModule`
+> passes `IEnumerable<IModuleExtension>` (all registered extensions) through to
+> `TeamsOrchestrator`. The orchestrator filters (by `Module == "Teams"`, `IsEnabled`,
+> and `SupportsExport`/`SupportsImport`) and sorts by `Order`. The three-tier concept
+> (default / mandatory / optional) is a future extension point; no Teams extensions are
+> currently mandatory. This is a deliberate simplified variant — not a deviation from the spec.### Invariants
 - One orchestrator per concern — do not split by phase (no `{Domain}ExportOrchestrator` + `{Domain}ImportOrchestrator`).
 - Phase methods remain symmetric (`ExportAsync`, `ImportAsync`) unless contract change governance is satisfied.
 - Compile-time phase guards (`#if`) on orchestrator abstraction contracts are forbidden.

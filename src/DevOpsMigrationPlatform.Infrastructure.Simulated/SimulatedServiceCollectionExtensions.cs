@@ -101,6 +101,12 @@ public static class SimulatedServiceCollectionExtensions
 
         // Team target — in-memory simulation of team creation, keyed for composite dispatch.
         services.AddTeamTarget<SimulatedTeamTarget>("Simulated");
+        // Board configuration capability — Simulated connector supports all granular flags.
+        services.AddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.IConnectorCapabilityProvider>(
+            _ => new global::DevOpsMigrationPlatform.Infrastructure.Agent.ConnectorCapability.StaticConnectorCapabilityProvider(
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.BoardConfig |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TaskboardColumns |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.Backlogs));
         services.AddProjectLifecycleProvider<SimulatedProjectLifecycleProvider>("Simulated");
         services.AddProjectProcessProvider<SimulatedProjectProcessProvider>("Simulated");
 

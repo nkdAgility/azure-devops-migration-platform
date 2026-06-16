@@ -78,6 +78,12 @@ public static class TfsMigrationAgentServiceExtensions
         // Registered via the keyed composite dispatch seam so identity lookups route by connector type.
         services.AddIdentityAdapter<TfsIdentityAdapter>("TeamFoundationServer");
         services.AddSingleton<ITeamSource, TfsActiveJobTeamSource>();
+        // TFS has no board API - register explicit None capability and null adapter so
+        // BoardConfigTeamExtension can be constructed via DI; the capability check fires first.
+        services.AddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.IConnectorCapabilityProvider,
+            global::DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Teams.TfsConnectorCapabilityProvider>();
+        services.AddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.Teams.ITeamBoardAdapter,
+            global::DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Teams.TfsNullBoardAdapter>();
         services.AddSingleton<INodeCreator, TfsActiveJobNodeCreator>();
         services.AddSingleton<TfsActiveJobWorkItemTypeReadinessTargetFactory>();
         services.TryAddSingleton<IWorkItemTypeReadinessTargetFactory>(sp => sp.GetRequiredService<TfsActiveJobWorkItemTypeReadinessTargetFactory>());
