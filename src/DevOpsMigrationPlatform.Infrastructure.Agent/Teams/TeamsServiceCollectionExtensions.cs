@@ -2,9 +2,12 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Teams.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -55,6 +58,12 @@ public static class TeamsServiceCollectionExtensions
         services.AddTransient<TeamImportOrchestrator>();
 #endif
         services.AddSingleton<TeamSlugGenerator>();
+
+        // BoardConfig extension — own IOptions<BoardConfigExtensionOptions> bound from config.
+        services.AddOptions<BoardConfigExtensionOptions>()
+            .BindConfiguration(BoardConfigExtensionOptions.SectionName);
+        services.AddSingleton<BoardConfigTeamExtension>();
+        services.AddSingleton<IModuleExtension>(sp => sp.GetRequiredService<BoardConfigTeamExtension>());
 
         return services;
     }

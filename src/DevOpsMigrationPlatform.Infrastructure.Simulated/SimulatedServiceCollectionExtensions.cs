@@ -5,8 +5,10 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
+using DevOpsMigrationPlatform.Infrastructure.Simulated.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
@@ -109,6 +111,8 @@ public static class SimulatedServiceCollectionExtensions
                 global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.Backlogs));
         services.AddProjectLifecycleProvider<SimulatedProjectLifecycleProvider>("Simulated");
         services.AddProjectProcessProvider<SimulatedProjectProcessProvider>("Simulated");
+        // Board adapter — provides deterministic boards for testing.
+        services.AddSingleton<ITeamBoardAdapter, SimulatedBoardAdapter>();
 
         return services;
     }

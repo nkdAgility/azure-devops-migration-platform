@@ -9,6 +9,9 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 /// </summary>
 public sealed class BoardConfigExtensionOptions
 {
+    /// <summary>Configuration section path for binding.</summary>
+    public static string SectionName => "MigrationPlatform:Modules:Teams:Extensions:BoardConfig";
+
     /// <summary>Optional extension — carries Enabled (a mandatory extension would not).</summary>
     public bool Enabled { get; init; } = true;
 
