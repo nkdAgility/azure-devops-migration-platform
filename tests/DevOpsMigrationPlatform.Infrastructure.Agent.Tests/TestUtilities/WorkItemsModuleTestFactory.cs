@@ -4,6 +4,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent;
 using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
@@ -22,6 +23,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Configuration;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments.ImportFailures;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Nodes;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions.ImportFailures;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -67,8 +69,7 @@ internal static class WorkItemsModuleTestFactory
         IRepoDiscoveryService? repoDiscoveryService = null,
         IEnumerable<IImportFailurePattern>? importFailurePatterns = null,
         ImportPreparer? importPreparer = null,
-        DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.AttachmentsWorkItemExtension? attachmentsExtension = null,
-        DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.CommentsWorkItemExtension? commentsExtension = null)
+        CommentsWorkItemExtension? commentsExtension = null)
         => new(CreateOrchestrator(
             sourceFactory, logger, options, sourceEndpointInfo, importTargetFactory,
             resolutionStrategyFactory, checkpointingFactory, idMapStoreFactory, processorFactory,
@@ -77,7 +78,7 @@ internal static class WorkItemsModuleTestFactory
             referencedPathTracker, nodesOrchestrator, nodeReadinessOrchestrator, nodesModuleOptions,
             fieldTransformTool, workItemImportOptions, exportOrchestratorFactory, identityTranslationTool,
             repoDiscoveryService, importFailurePatterns, importPreparer,
-            attachmentsExtension, commentsExtension));
+            commentsExtension));
 
     public static WorkItemsOrchestrator CreateOrchestrator(
         IWorkItemRevisionSourceFactory? sourceFactory = null,
@@ -108,8 +109,7 @@ internal static class WorkItemsModuleTestFactory
         IRepoDiscoveryService? repoDiscoveryService = null,
         IEnumerable<IImportFailurePattern>? importFailurePatterns = null,
         ImportPreparer? importPreparer = null,
-        DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.AttachmentsWorkItemExtension? attachmentsExtension = null,
-        DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.CommentsWorkItemExtension? commentsExtension = null)
+        CommentsWorkItemExtension? commentsExtension = null)
     {
         options ??= Options.Create(new WorkItemsModuleOptions());
         logger ??= NullLogger<WorkItemsModule>.Instance;
@@ -135,7 +135,6 @@ internal static class WorkItemsModuleTestFactory
         return new WorkItemsOrchestrator(
             sourceFactory ?? Mock.Of<IWorkItemRevisionSourceFactory>(),
             attachmentBinarySource,
-            inlineCommentSourceFactory,
             fetchService,
             exportOrchestratorFactory ?? new WorkItemExportOrchestratorFactory(),
             cpf,
@@ -155,12 +154,13 @@ internal static class WorkItemsModuleTestFactory
             new WorkItemsImportCapabilityValidator(fieldTransform),
             new WorkItemsNodeReadinessOrchestrator(nodeReadinessOrchestrator, nodesOrchestrator, metrics, logger),
             targetEndpointInfo,
+            commentsExtension != null
+                ? new IModuleExtension[] { commentsExtension }
+                : new IModuleExtension[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
             workItemImportOptions,
             nodesModuleOptions,
             inventoryOrchestrator,
-            repoDiscoveryService,
-            attachmentsExtension,
-            commentsExtension);
+            repoDiscoveryService);
     }
 
     private static ISourceEndpointInfo DefaultSourceEndpoint()

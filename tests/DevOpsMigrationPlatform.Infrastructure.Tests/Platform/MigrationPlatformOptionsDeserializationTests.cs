@@ -96,8 +96,6 @@ public class MigrationPlatformOptionsDeserializationTests
                   },
                   "extensions": {
                     "revisions": { "enabled": true },
-                    "links": { "enabled": true },
-                    "attachments": { "enabled": false },
                     "comments": { "enabled": true, "includeDeleted": true },
                     "embeddedImages": { "enabled": true, "downloadTimeoutSeconds": 45 }
                   }
@@ -113,8 +111,6 @@ public class MigrationPlatformOptionsDeserializationTests
         wi.Scope.Query);
 
     Assert.IsTrue(wi.Extensions.Revisions.Enabled);
-    Assert.IsTrue(wi.Extensions.Links.Enabled);
-    Assert.IsFalse(wi.Extensions.Attachments.Enabled);
     Assert.IsTrue(wi.Extensions.Comments.Enabled);
     Assert.IsTrue(wi.Extensions.Comments.IncludeDeleted);
     Assert.IsTrue(wi.Extensions.EmbeddedImages.Enabled);

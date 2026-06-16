@@ -21,11 +21,7 @@ internal sealed class MissingAttachmentBinaryImportFailurePattern : IImportFailu
         ImportFailurePatternContext context,
         CancellationToken cancellationToken)
     {
-        if (!context.WorkItemsOptions.Extensions.Attachments.Enabled)
-        {
-            return [];
-        }
-
+        // Attachments are always-on core behaviour — no enablement guard needed.
         var findings = new List<ImportFailureFinding>();
         var package = context.PrepareContext.Package;
         var organisation = context.Organisation;

@@ -9,7 +9,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
-using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.Framework.Client;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
@@ -188,6 +187,28 @@ public sealed class TfsWorkItemTarget : IWorkItemTarget
         if (changed)
             workItem.Save();
 
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task ApplyRevisionAsync(
+        int targetWorkItemId,
+        IReadOnlyList<WorkItemField> fields,
+        IReadOnlyList<RelatedWorkItemLink> relatedLinks,
+        IReadOnlyList<ExternalWorkItemLink> externalLinks,
+        IReadOnlyList<HyperlinkWorkItemLink> hyperlinks,
+        IReadOnlyList<AttachmentUploadResult> attachmentResults,
+        CancellationToken ct)
+    {
+        // TFS Object Model does not support combining fields + links + attachments in a
+        // single API call. Delegate to the existing separate methods internally.
+        ct.ThrowIfCancellationRequested();
+        UpdateFieldsAsync(targetWorkItemId, fields, ct).GetAwaiter().GetResult();
+        AddLinksAsync(targetWorkItemId, relatedLinks, externalLinks, hyperlinks, ct).GetAwaiter().GetResult();
+        // Attachment relations are added implicitly by UploadAttachmentAsync for TFS OM
+        // (it writes the file and saves the work item directly). At this point the binaries
+        // have already been uploaded and attached by the caller via UploadAttachmentAsync,
+        // so nothing more is needed here for attachments.
         return Task.CompletedTask;
     }
 

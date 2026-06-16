@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
@@ -18,9 +19,11 @@ using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -95,10 +98,14 @@ public sealed class ServicesFeaturesDslTests
             CancellationToken.None);
 
         target.Verify(
-            t => t.UpdateFieldsAsync(
+            t => t.ApplyRevisionAsync(
                 It.IsAny<int>(),
                 It.Is<IReadOnlyList<WorkItemField>>(f =>
                     f.Any(x => x.ReferenceName == "System.AssignedTo" && (string?)x.Value == "user@target.com")),
+                It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<AttachmentUploadResult>>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
         mapping.Verify(t => t.Translate("user@source.com"), Times.Once);
@@ -121,10 +128,14 @@ public sealed class ServicesFeaturesDslTests
             CancellationToken.None);
 
         target.Verify(
-            t => t.UpdateFieldsAsync(
+            t => t.ApplyRevisionAsync(
                 It.IsAny<int>(),
                 It.Is<IReadOnlyList<WorkItemField>>(f =>
                     f.Any(x => x.ReferenceName == "System.CreatedBy" && (string?)x.Value == "someuser@domain.com")),
+                It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<AttachmentUploadResult>>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
         mapping.Verify(t => t.Translate("someuser@domain.com"), Times.Once);
@@ -342,10 +353,7 @@ public sealed class ServicesFeaturesDslTests
             .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(10);
         target
-            .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        target
-            .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         target
             .Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
@@ -367,6 +375,7 @@ public sealed class ServicesFeaturesDslTests
             Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
             package: package.Object);
 
         return (processor, target, identityTool);

@@ -2,9 +2,11 @@
 // Copyright (c) Naked Agility Limited
 
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -64,13 +66,17 @@ public class ImportEmbeddedImagesTests
 
         // Assert — description field has target URL, not original URL
         ctx.MockTarget.Verify(
-            t => t.UpdateFieldsAsync(
+            t => t.ApplyRevisionAsync(
                 It.IsAny<int>(),
                 It.Is<IReadOnlyList<WorkItemField>>(f =>
                     f.Any(x => x.ReferenceName == "System.Description" &&
                                x.Value != null &&
                                x.Value.ToString()!.Contains(targetUrl) &&
                                !x.Value.ToString()!.Contains(originalUrl))),
+                It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<AttachmentUploadResult>>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -125,12 +131,16 @@ public class ImportEmbeddedImagesTests
 
         // Assert — original URL preserved in field value
         ctx.MockTarget.Verify(
-            t => t.UpdateFieldsAsync(
+            t => t.ApplyRevisionAsync(
                 It.IsAny<int>(),
                 It.Is<IReadOnlyList<WorkItemField>>(f =>
                     f.Any(x => x.ReferenceName == "System.Description" &&
                                x.Value != null &&
                                x.Value.ToString()!.Contains(originalUrl))),
+                It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<AttachmentUploadResult>>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }

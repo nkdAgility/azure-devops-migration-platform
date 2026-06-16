@@ -196,8 +196,6 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<ProjectMapping?>(),
-                It.IsAny<bool>(),
-                It.IsAny<bool>(),
                 It.IsAny<bool>()))
             .Returns(revisionProcessor.Object);
 
@@ -380,8 +378,6 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<ProjectMapping?>(),
-                It.IsAny<bool>(),
-                It.IsAny<bool>(),
                 It.IsAny<bool>()))
             .Returns(revisionProcessor.Object);
 
@@ -528,11 +524,9 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<ProjectMapping?>(),
-                false,  // attachmentsEnabledByLever — lever disables
-                false,  // linksEnabledByLever — lever disables
                 false)) // embeddedImagesEnabledByLever — lever disables
             .Returns(revisionProcessor.Object)
-            .Verifiable("Orchestrator must pass lever-computed disabled flags to the processor factory.");
+            .Verifiable("Orchestrator must pass lever-computed disabled embeddedImages flag to the processor factory.");
 
         var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
         sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
@@ -555,8 +549,6 @@ public sealed class WorkItemsModuleImportTests
             Extensions = new WorkItemsExtensionsOptions
             {
                 Revisions = new EnabledExtensionOptions { Enabled = true },
-                Links = new EnabledExtensionOptions { Enabled = true },
-                Attachments = new EnabledExtensionOptions { Enabled = true },
                 EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig { Enabled = true, DownloadTimeoutSeconds = 30 }
             }
         };

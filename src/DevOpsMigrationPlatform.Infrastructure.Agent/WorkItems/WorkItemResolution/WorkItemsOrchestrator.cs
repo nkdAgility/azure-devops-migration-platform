@@ -54,7 +54,6 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
     // Export/capture/prepare deps
     private readonly IWorkItemRevisionSourceFactory _sourceFactory;
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
-    private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IWorkItemExportOrchestratorFactory _exportOrchestratorFactory;
     private readonly IWorkItemDiscoveryService? _discoveryService;
@@ -63,7 +62,6 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
     private readonly IInventoryOrchestrator? _inventoryOrchestrator;
     private readonly IRepoDiscoveryService? _repoDiscoveryService;
     private readonly ImportPreparer _importPreparer;
-    private readonly AttachmentsWorkItemExtension _attachmentsExtension;
     private readonly CommentsWorkItemExtension _commentsExtension;
 
     // Shared deps
@@ -88,7 +86,6 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
     public WorkItemsOrchestrator(
         IWorkItemRevisionSourceFactory sourceFactory,
         IAttachmentBinarySource? attachmentBinarySource,
-        IWorkItemCommentSourceFactory? inlineCommentSourceFactory,
         IWorkItemFetchService? fetchService,
         IWorkItemExportOrchestratorFactory exportOrchestratorFactory,
         ICheckpointingServiceFactory checkpointingFactory,
@@ -108,16 +105,14 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         IWorkItemsImportCapabilityValidator capabilityValidator,
         IWorkItemsNodeReadinessOrchestrator nodeReadinessOrchestrator,
         ITargetEndpointInfo targetEndpointInfo,
+        IEnumerable<IModuleExtension> moduleExtensions,
         IOptions<WorkItemOptions>? workItemOptions = null,
         IOptions<NodesModuleOptions>? nodesModuleOptions = null,
         IInventoryOrchestrator? inventoryOrchestrator = null,
-        IRepoDiscoveryService? repoDiscoveryService = null,
-        AttachmentsWorkItemExtension? attachmentsExtension = null,
-        CommentsWorkItemExtension? commentsExtension = null)
+        IRepoDiscoveryService? repoDiscoveryService = null)
     {
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _attachmentBinarySource = attachmentBinarySource;
-        _inlineCommentSourceFactory = inlineCommentSourceFactory;
         _fetchService = fetchService;
         _exportOrchestratorFactory = exportOrchestratorFactory ?? throw new ArgumentNullException(nameof(exportOrchestratorFactory));
         _checkpointingFactory = checkpointingFactory ?? throw new ArgumentNullException(nameof(checkpointingFactory));
@@ -141,8 +136,8 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         _nodesModuleOptions = nodesModuleOptions;
         _inventoryOrchestrator = inventoryOrchestrator;
         _repoDiscoveryService = repoDiscoveryService;
-        _attachmentsExtension = attachmentsExtension ?? new AttachmentsWorkItemExtension(Options.Create(new AttachmentsExtensionOptions()), Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments.AttachmentReplayTool>.Instance);
-        _commentsExtension = commentsExtension ?? new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()));
+        _commentsExtension = moduleExtensions.OfType<CommentsWorkItemExtension>().FirstOrDefault()
+            ?? throw new ArgumentException("No CommentsWorkItemExtension found in moduleExtensions. Register it in DI.", nameof(moduleExtensions));
     }
 
     /// <summary>
@@ -339,14 +334,14 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         using (_logger.BeginDataScope(DataClassification.Customer))
         {
             _logger.LogInformation(
-                "[WorkItems] Exporting from {OrgUrl}/{Project} (attachments={AttachmentsEnabled}, comments={CommentsEnabled})",
-                orgUrl, project, _attachmentsExtension.IsEnabled, _commentsExtension.IsEnabled);
+                "[WorkItems] Exporting from {OrgUrl}/{Project} (attachments=always-on, comments={CommentsEnabled})",
+                orgUrl, project, _commentsExtension.IsEnabled);
         }
 
-        if (_attachmentsExtension.IsEnabled && _attachmentBinarySource == null)
-            _logger.LogWarning("[WorkItems] AttachmentsEnabled is true but no IAttachmentBinarySource is registered — attachment binaries will NOT be written to the package. Register a connector-specific IAttachmentBinarySource to enable attachment export.");
-        if (_commentsExtension.IsEnabled && _inlineCommentSourceFactory == null)
-            _logger.LogWarning("[WorkItems] Comments.Enabled is true but no IWorkItemCommentSourceFactory is registered — inline comments will NOT be exported. Register a connector-specific IWorkItemCommentSourceFactory to enable comment export.");
+        if (_attachmentBinarySource == null)
+            _logger.LogWarning("[WorkItems] No IAttachmentBinarySource is registered — attachment binaries will NOT be written to the package. Register a connector-specific IAttachmentBinarySource to enable attachment export.");
+        if (_commentsExtension.IsEnabled && !_commentsExtension.SupportsExport)
+            _logger.LogWarning("[WorkItems] Comments.Enabled is true but no IWorkItemCommentSourceFactory is registered — comments will NOT be exported. Register a connector-specific IWorkItemCommentSourceFactory to enable comment export.");
 
         var allFilters = ext.IncludeFilters.Concat(ext.ExcludeFilters).ToList();
 
@@ -374,19 +369,13 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         var checkpointingService = _checkpointingFactory.Create(context.Package);
 
 #if !NET481
-        // When export extensions are provided (the facet-based path), the inline attachment/comment
-        // code inside WorkItemExportOrchestrator is bypassed. Pass null so the orchestrator skips
-        // those legacy code paths and delegates to the extensions instead.
-        // When no export extensions are configured, fall through to the legacy inline path.
+        // Attachment binary download is always-on inline behaviour; pass _attachmentBinarySource directly.
+        // Only CommentsWorkItemExtension remains as an extension-based facet.
         var exportExtensions = new List<IModuleExtension>
         {
-            _attachmentsExtension,
             _commentsExtension
         };
-        var inlineFactory = (IWorkItemCommentSourceFactory?)null;
         var sourceEndpoint = context.Organisations.Count > 0 ? context.Organisations[0].Endpoint : null;
-#else
-        var inlineFactory = (IWorkItemCommentSourceFactory?)null;
 #endif
 
         var orchestrator = _exportOrchestratorFactory.Create(
@@ -395,12 +384,11 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             project,
             checkpointingService,
 #if !NET481
-            null, // attachmentBinarySource: handled by AttachmentsWorkItemExtension
+            _attachmentBinarySource,
 #else
             _attachmentBinarySource,
 #endif
             context.ProgressSink,
-            inlineCommentSourceFactory: inlineFactory,
             fetchService: allFilters.Count > 0 ? _fetchService : null,
             filterOptions: allFilters.Count > 0 ? allFilters : null,
             metrics: _metrics,
@@ -532,8 +520,8 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         });
 
         _logger.LogInformation(
-            "[WorkItems] Importing into {OrgUrl}/{Project} (revisions={Revisions}, links={Links}, attachments={Attachments}, comments={Comments})",
-            orgUrl, project, _options.Value.Extensions.Revisions.Enabled, _options.Value.Extensions.Links.Enabled, _attachmentsExtension.IsEnabled, _commentsExtension.IsEnabled);
+            "[WorkItems] Importing into {OrgUrl}/{Project} (revisions={Revisions}, links=always-on, attachments=always-on, comments={Comments})",
+            orgUrl, project, _options.Value.Extensions.Revisions.Enabled, _commentsExtension.IsEnabled);
 
         if (!_options.Value.Extensions.Revisions.Enabled)
         {
@@ -579,7 +567,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         });
 
         var nodeStructureContext = new ProjectMapping(sourceProjectName, project);
-        var (attachmentsEnabled, linksEnabled, embeddedImagesEnabled) = ComputeLeveredExtensionFlags();
+        var embeddedImagesEnabled = ComputeLeveredExtensionFlags();
         var processor = _processorFactory.Create(
             target,
             idMapStore,
@@ -588,8 +576,6 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             sourceOrganisation,
             sourceProjectName,
             nodeStructureContext,
-            attachmentsEnabledByLever: attachmentsEnabled,
-            linksEnabledByLever: linksEnabled,
             embeddedImagesEnabledByLever: embeddedImagesEnabled);
 
         var importFilters = startupPolicy.ImportFilters;
@@ -669,7 +655,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         using var _dc = DataClassificationScope.Begin(DataClassification.Customer);
 
         var commentsEnabled = _commentsExtension.IsEnabled;
-        var (loopAttachmentsEnabled, _, loopEmbeddedImagesEnabled) = ComputeLeveredExtensionFlags();
+        var loopEmbeddedImagesEnabled = ComputeLeveredExtensionFlags();
 
         if (resumeMode == ResumeMode.ForceFresh)
         {
@@ -777,7 +763,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
                     revisionActivity?.SetTag("workitem.id", wiId);
                     revisionActivity?.SetTag("revision.index", revIdx);
 
-                    EmitReplaySkipVisibilityEvents(scope, loopAttachmentsEnabled, loopEmbeddedImagesEnabled, resumeAtStage);
+                    EmitReplaySkipVisibilityEvents(scope, loopEmbeddedImagesEnabled, resumeAtStage);
 
                     await scope.Processor.ProcessAsync(folderPath, resumeAtStage, scope.ResolutionStrategy, ct)
                         .ConfigureAwait(false);
@@ -1053,7 +1039,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
     // Import: visibility events and cursor
     // -------------------------------------------------------------------------
 
-    private void EmitReplaySkipVisibilityEvents(WorkItemRevisionJobScope scope, bool attachmentsEnabled, bool embeddedImagesEnabled, string? resumeAtStage)
+    private void EmitReplaySkipVisibilityEvents(WorkItemRevisionJobScope scope, bool embeddedImagesEnabled, string? resumeAtStage)
     {
         if (!embeddedImagesEnabled && WorkItemRevisionStagePipeline.ShouldRunStage(CursorStage.AppliedFields, resumeAtStage))
         {
@@ -1062,19 +1048,6 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
                 Module = "WorkItems",
                 Stage = CursorStage.AppliedFields,
                 Message = "Embedded image replay skipped because the replay lever is disabled.",
-                Timestamp = DateTimeOffset.UtcNow,
-                LastCheckpointAt = DateTimeOffset.UtcNow,
-                NextCheckpointDueAt = null
-            });
-        }
-
-        if (!attachmentsEnabled && WorkItemRevisionStagePipeline.ShouldRunStage(CursorStage.UploadedAttachments, resumeAtStage))
-        {
-            scope.ProgressSink.Emit(new ProgressEvent
-            {
-                Module = "WorkItems",
-                Stage = CursorStage.UploadedAttachments,
-                Message = "Attachment replay skipped because the replay lever is disabled.",
                 Timestamp = DateTimeOffset.UtcNow,
                 LastCheckpointAt = DateTimeOffset.UtcNow,
                 NextCheckpointDueAt = null
@@ -1102,11 +1075,11 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         return new ImportStartupPolicy(extensions, importFilters, resumeMode);
     }
 
-    private (bool attachments, bool links, bool embeddedImages) ComputeLeveredExtensionFlags()
+    private bool ComputeLeveredExtensionFlags()
     {
         var moduleExt = _options.Value.Extensions;
         if (_workItemOptions is null)
-            return (moduleExt.Attachments.Enabled, moduleExt.Links.Enabled, moduleExt.EmbeddedImages.Enabled);
+            return moduleExt.EmbeddedImages.Enabled;
 
         var replayOptions = _workItemOptions.Value;
         var hasExplicitLeverConfig =
@@ -1117,13 +1090,9 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             replayOptions.FieldTransform;
 
         if (!hasExplicitLeverConfig)
-            return (moduleExt.Attachments.Enabled, moduleExt.Links.Enabled, moduleExt.EmbeddedImages.Enabled);
+            return moduleExt.EmbeddedImages.Enabled;
 
-        return (
-            moduleExt.Attachments.Enabled && (!replayOptions.RevisionReplay || replayOptions.AttachmentReplay),
-            moduleExt.Links.Enabled && (!replayOptions.RevisionReplay || replayOptions.LinkReplay),
-            moduleExt.EmbeddedImages.Enabled && (!replayOptions.RevisionReplay || replayOptions.EmbeddedImageReplay)
-        );
+        return moduleExt.EmbeddedImages.Enabled && (!replayOptions.RevisionReplay || replayOptions.EmbeddedImageReplay);
     }
 
 

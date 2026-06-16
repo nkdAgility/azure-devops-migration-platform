@@ -12,6 +12,7 @@ using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.Services.WebApi.Patch;
 using Microsoft.VisualStudio.Services.WebApi.Patch.Json;
+using AttachmentUploadResult = DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.AttachmentUploadResult;
 using PlatformWorkItemField = DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.WorkItemField;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.WorkItems.WorkItemResolution;
@@ -171,28 +172,104 @@ internal sealed class AzureDevOpsWorkItemTarget : IWorkItemTarget, IDisposable
             .CreateAttachmentAsync(content, fileName: fileName, cancellationToken: ct)
             .ConfigureAwait(false);
 
-        var attachmentUrl = attachment.Url
+        return attachment.Url
             ?? throw new InvalidOperationException($"Attachment upload for {fileName} returned no URL.");
+    }
 
-        var patch = new JsonPatchDocument
+    /// <inheritdoc/>
+    public async Task ApplyRevisionAsync(
+        int targetWorkItemId,
+        IReadOnlyList<PlatformWorkItemField> fields,
+        IReadOnlyList<RelatedWorkItemLink> relatedLinks,
+        IReadOnlyList<ExternalWorkItemLink> externalLinks,
+        IReadOnlyList<HyperlinkWorkItemLink> hyperlinks,
+        IReadOnlyList<AttachmentUploadResult> attachmentResults,
+        CancellationToken ct)
+    {
+        ThrowIfDisposed();
+
+        var patch = BuildFieldPatch(fields, Operation.Add);
+
+        var existing = await GetExistingRelationsAsync(targetWorkItemId, ct).ConfigureAwait(false);
+        var existingRelatedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var existingExternalUris = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var existingHyperlinkUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var existingAttachmentUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var r in existing.RelatedLinks)
+            existingRelatedIds.Add(r.RelatedWorkItemId.ToString());
+        foreach (var e in existing.ExternalLinks)
+            existingExternalUris.Add(e.LinkedArtifactUri ?? string.Empty);
+        foreach (var h in existing.Hyperlinks)
+            existingHyperlinkUrls.Add(h.Location ?? string.Empty);
+
+        foreach (var rel in relatedLinks)
         {
-            new JsonPatchOperation
+            if (existingRelatedIds.Contains(rel.RelatedWorkItemId.ToString())) continue;
+            patch.Add(new JsonPatchOperation
+            {
+                Operation = Operation.Add,
+                Path = "/relations/-",
+                Value = new
+                {
+                    rel = rel.ArtifactLinkType,
+                    url = $"/_apis/wit/workItems/{rel.RelatedWorkItemId}",
+                    attributes = rel.Comment is not null ? new { comment = rel.Comment } : null
+                }
+            });
+        }
+
+        foreach (var ext in externalLinks)
+        {
+            if (string.IsNullOrEmpty(ext.LinkedArtifactUri) || existingExternalUris.Contains(ext.LinkedArtifactUri)) continue;
+            patch.Add(new JsonPatchOperation
+            {
+                Operation = Operation.Add,
+                Path = "/relations/-",
+                Value = new
+                {
+                    rel = ext.ArtifactLinkType,
+                    url = ext.LinkedArtifactUri,
+                    attributes = ext.Comment is not null ? new { comment = ext.Comment } : null
+                }
+            });
+        }
+
+        foreach (var hyper in hyperlinks)
+        {
+            if (string.IsNullOrEmpty(hyper.Location) || existingHyperlinkUrls.Contains(hyper.Location)) continue;
+            patch.Add(new JsonPatchOperation
+            {
+                Operation = Operation.Add,
+                Path = "/relations/-",
+                Value = new
+                {
+                    rel = "Hyperlink",
+                    url = hyper.Location,
+                    attributes = hyper.Comment is not null ? new { comment = hyper.Comment } : null
+                }
+            });
+        }
+
+        foreach (var att in attachmentResults)
+        {
+            if (string.IsNullOrEmpty(att.AttachmentUrl) || existingAttachmentUrls.Contains(att.AttachmentUrl)) continue;
+            patch.Add(new JsonPatchOperation
             {
                 Operation = Operation.Add,
                 Path = "/relations/-",
                 Value = new
                 {
                     rel = "AttachedFile",
-                    url = attachmentUrl,
-                    attributes = new { name = fileName }
+                    url = att.AttachmentUrl,
+                    attributes = new { name = att.FileName }
                 }
-            }
-        };
+            });
+        }
+
         await _witClient
             .UpdateWorkItemAsync(patch, targetWorkItemId, cancellationToken: ct)
             .ConfigureAwait(false);
-
-        return attachmentUrl;
     }
 
     /// <inheritdoc/>

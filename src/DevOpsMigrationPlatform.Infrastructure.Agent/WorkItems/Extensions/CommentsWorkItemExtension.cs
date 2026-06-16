@@ -71,7 +71,7 @@ public sealed class CommentsWorkItemExtension : IModuleExtension
 
         if (ctx.SourceEndpoint == null)
         {
-            _logger?.LogDebug("[Comments] WI {WorkItemId} rev {RevisionIndex}: no source endpoint available — skipping comment export.",
+            _logger?.LogWarning("[Comments] WI {WorkItemId} rev {RevisionIndex}: no source endpoint available — skipping comment export.",
                 ctx.WorkItemId, ctx.RevisionIndex);
             return;
         }

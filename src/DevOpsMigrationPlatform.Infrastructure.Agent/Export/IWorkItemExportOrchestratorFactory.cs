@@ -6,7 +6,6 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Configuration;
@@ -22,7 +21,6 @@ public interface IWorkItemExportOrchestratorFactory
         ICheckpointingService checkpointingService,
         IAttachmentBinarySource? attachmentBinarySource,
         IProgressSink? progressSink,
-        IWorkItemCommentSourceFactory? inlineCommentSourceFactory,
         IWorkItemFetchService? fetchService,
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions,
         IPlatformMetrics? metrics,

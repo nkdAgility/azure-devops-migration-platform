@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -16,9 +17,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -27,7 +26,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules;
 
 /// <summary>
 /// Tests for <see cref="WorkItemsOrchestrator.ExportAsync"/> extension-gate behaviour.
-/// Drives Stage 3/4: extension enablement controls factory forwarding without reading from the god-object.
 /// </summary>
 [TestClass]
 public sealed class WorkItemsOrchestratorExportTests
@@ -35,7 +33,7 @@ public sealed class WorkItemsOrchestratorExportTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public async Task ExportAsync_WhenCommentsDisabled_PassesNullCommentFactoryToExportOrchestrator()
+    public async Task ExportAsync_WhenCommentsDisabled_CommentsExtensionIsNotEnabled()
     {
         var spy = new ExportFactorySpy();
 
@@ -44,35 +42,34 @@ public sealed class WorkItemsOrchestratorExportTests
 
         var orchestrator = WorkItemsModuleTestFactory.CreateOrchestrator(
             exportOrchestratorFactory: spy,
-            commentsExtension: disabledComments,
-            inlineCommentSourceFactory: Mock.Of<IWorkItemCommentSourceFactory>());
+            commentsExtension: disabledComments);
 
         await orchestrator.ExportAsync(CreateExportContext(), CancellationToken.None);
 
-        Assert.IsNull(spy.CapturedCommentFactory,
-            "When CommentsWorkItemExtension.IsEnabled is false, the comment factory must not be forwarded.");
+        // Verify the extension passed to the export orchestrator has IsEnabled = false.
+        var capturedExt = spy.CapturedExtensions?.OfType<CommentsWorkItemExtension>().FirstOrDefault();
+        Assert.IsNotNull(capturedExt, "CommentsWorkItemExtension should be in the export extensions list.");
+        Assert.IsFalse(capturedExt.IsEnabled,
+            "When CommentsExtensionOptions.Enabled is false, IsEnabled must be false.");
     }
 
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public async Task ExportAsync_WhenAttachmentsDisabled_PassesNullAttachmentSourceToExportOrchestrator()
+    public async Task ExportAsync_WhenAttachmentBinarySourceProvided_ForwardsSourceToExportOrchestrator()
     {
+        // Attachments are always-on core behaviour — the binary source is always forwarded if available.
         var spy = new ExportFactorySpy();
-
-        var disabledAttachments = new AttachmentsWorkItemExtension(
-            Options.Create(new AttachmentsExtensionOptions { Enabled = false }),
-            NullLogger<AttachmentReplayTool>.Instance);
+        var binarySource = Mock.Of<IAttachmentBinarySource>();
 
         var orchestrator = WorkItemsModuleTestFactory.CreateOrchestrator(
             exportOrchestratorFactory: spy,
-            attachmentsExtension: disabledAttachments,
-            attachmentBinarySource: Mock.Of<IAttachmentBinarySource>());
+            attachmentBinarySource: binarySource);
 
         await orchestrator.ExportAsync(CreateExportContext(), CancellationToken.None);
 
-        Assert.IsNull(spy.CapturedAttachmentSource,
-            "When AttachmentsWorkItemExtension.IsEnabled is false, the attachment source must not be forwarded.");
+        Assert.AreEqual(binarySource, spy.CapturedAttachmentSource,
+            "Attachment binary source should always be forwarded to the export orchestrator.");
     }
 
     private static ExportContext CreateExportContext() => new()
@@ -84,8 +81,8 @@ public sealed class WorkItemsOrchestratorExportTests
 
     private sealed class ExportFactorySpy : IWorkItemExportOrchestratorFactory
     {
-        public IWorkItemCommentSourceFactory? CapturedCommentFactory { get; private set; }
         public IAttachmentBinarySource? CapturedAttachmentSource { get; private set; }
+        public IReadOnlyList<IModuleExtension>? CapturedExtensions { get; private set; }
 
         public IWorkItemExportOrchestrator Create(
             IPackageAccess package,
@@ -94,7 +91,6 @@ public sealed class WorkItemsOrchestratorExportTests
             ICheckpointingService checkpointingService,
             IAttachmentBinarySource? attachmentBinarySource,
             IProgressSink? progressSink,
-            IWorkItemCommentSourceFactory? inlineCommentSourceFactory,
             IWorkItemFetchService? fetchService,
             IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions,
             IPlatformMetrics? metrics,
@@ -109,8 +105,8 @@ public sealed class WorkItemsOrchestratorExportTests
             IReadOnlyList<IModuleExtension>? exportExtensions = null,
             MigrationEndpointOptions? endpoint = null)
         {
-            CapturedCommentFactory = inlineCommentSourceFactory;
             CapturedAttachmentSource = attachmentBinarySource;
+            CapturedExtensions = exportExtensions;
             var stub = new Mock<IWorkItemExportOrchestrator>(MockBehavior.Loose);
             stub.Setup(o => o.ExportAsync(It.IsAny<IWorkItemRevisionSource>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);

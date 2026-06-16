@@ -13,6 +13,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
+using DevOpsMigrationPlatform.Abstractions.Agent;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -27,6 +28,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Configuration;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -166,7 +168,6 @@ public sealed class WorkItemsOrchestratorInventoryTests
             Mock.Of<IWorkItemRevisionSourceFactory>(),
             null,
             null,
-            null,
             Mock.Of<IWorkItemExportOrchestratorFactory>(),
             Mock.Of<ICheckpointingServiceFactory>(),
             logger ?? NullLogger<WorkItemsModule>.Instance,
@@ -185,6 +186,7 @@ public sealed class WorkItemsOrchestratorInventoryTests
             Mock.Of<IWorkItemsImportCapabilityValidator>(),
             Mock.Of<IWorkItemsNodeReadinessOrchestrator>(),
             targetEndpoint.Object,
+            new IModuleExtension[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
             inventoryOrchestrator: inventoryOrchestrator,
             repoDiscoveryService: null);
     }

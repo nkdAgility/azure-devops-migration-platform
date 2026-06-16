@@ -7,17 +7,13 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 /// Typed extension options for the WorkItems module.
 /// Each property represents exactly one extension instance.
 /// Bound from <c>MigrationPlatform:Modules:WorkItems:Extensions</c>.
+/// Note: Links and Attachments are intrinsic core behaviour — they are always applied
+/// and no longer configurable as extensions.
 /// </summary>
 public sealed class WorkItemsExtensionsOptions
 {
     /// <summary>Revision history export. Default: enabled.</summary>
     public EnabledExtensionOptions Revisions { get; init; } = new();
-
-    /// <summary>Related-link export. Default: enabled.</summary>
-    public EnabledExtensionOptions Links { get; init; } = new();
-
-    /// <summary>Attachment binary download. Default: enabled.</summary>
-    public EnabledExtensionOptions Attachments { get; init; } = new();
 
     /// <summary>Comments extension. Default: enabled, no deleted comments.</summary>
     public CommentsExtensionOptionsConfig Comments { get; init; } = new();

@@ -16,8 +16,10 @@ using Microsoft.Extensions.Logging;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 
 /// <summary>
-/// Orchestrates per-team import in fixed order:
-/// settings → NodeTranslation (iterations/areas) → iterations → members → capacity.
+/// Orchestrates per-team import: creates or updates the team on the target system and
+/// returns the resolved target team ID. All capability sub-concerns (settings, iterations,
+/// members, capacity, area paths) are now delegated to registered
+/// <see cref="Abstractions.Agent.IModuleExtension"/> implementations.
 /// </summary>
 public sealed class TeamImportOrchestrator
 {
@@ -44,12 +46,15 @@ public sealed class TeamImportOrchestrator
     }
 
     /// <summary>
-    /// Imports a single team from the package into the target system.
+    /// Creates or updates a single team on the target system and returns the target team ID.
+    /// Capability imports (settings, iterations, members, capacity, area paths) are handled
+    /// by the registered <see cref="Abstractions.Agent.IModuleExtension"/> implementations
+    /// which are dispatched by <see cref="Modules.TeamsOrchestrator"/> after this call.
     /// </summary>
     /// <param name="projectName">Target project name.</param>
     /// <param name="sourceProjectName">Source project name — used for path translation.</param>
     /// <param name="teamPackage">The team package to import.</param>
-    /// <param name="extensions">Extension toggles.</param>
+    /// <param name="extensions">Extension toggles (retained for backward compatibility; not used for capability dispatch).</param>
     /// <param name="ct">Cancellation token.</param>
     public async Task<string> ImportTeamAsync(
         string projectName,
@@ -70,154 +75,11 @@ public sealed class TeamImportOrchestrator
                 teamPackage.Definition.Name);
         }
 
-        // 1. Create or update team
+        // Create or update team — returns the target team ID that extensions will use.
         // TODO T051+: ITeamTarget still requires MigrationEndpointOptions parameter
-        // This interface needs IOptions<TargetEndpointOptions> injection or to be split into Info + Options
         var targetTeamId = await _teamTarget.CreateOrUpdateTeamAsync(
             null!, projectName, teamPackage.Definition, ct).ConfigureAwait(false);
 
-        // 2. Settings
-        if (extensions.TeamSettings && teamPackage.Settings is not null)
-        {
-            await _teamTarget.SetTeamSettingsAsync(
-                null!, projectName, targetTeamId, teamPackage.Settings, ct).ConfigureAwait(false);
-        }
-
-        // 3. Iterations (with path translation)
-        if (extensions.TeamIterations)
-        {
-            var projectMapping = new ProjectMapping(sourceProjectName, projectName);
-            foreach (var iteration in teamPackage.Iterations)
-            {
-                try
-                {
-                    var translatedPath = TranslatePath("System.IterationPath", iteration.Path, projectMapping);
-                    if (translatedPath is null)
-                    {
-                        _logger.LogWarning(
-                            "[Teams] Could not translate iteration path '{Path}' for team '{Team}' — skipping.",
-                            iteration.Path, teamPackage.Definition.Name);
-                        continue;
-                    }
-
-                    var translatedIteration = iteration with { Path = translatedPath };
-                    await _teamTarget.AssignIterationAsync(
-                        null!, projectName, targetTeamId, translatedIteration, ct).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex,
-                        "[Teams] Failed to assign iteration '{Path}' for team '{Team}' — skipping.",
-                        iteration.Path, teamPackage.Definition.Name);
-                }
-            }
-        }
-
-        // 4. Members (with identity mapping)
-        if (extensions.TeamMembers)
-        {
-            foreach (var member in teamPackage.Members)
-            {
-                try
-                {
-                    var identityApplied = extensions.IdentityLookup && _identityTranslationTool?.IsEnabled == true;
-                    var resolvedDescriptor = identityApplied ? _identityTranslationTool!.Translate(member.Descriptor) : member.Descriptor;
-
-                    // GAP-006/FR-010: when identity translation falls back to the configured default
-                    // (i.e. the source member could not be resolved on the target), skip the add and
-                    // log a structured warning rather than importing the member under the wrong identity.
-                    var defaultIdentity = _identityTranslationTool?.DefaultIdentity;
-                    if (identityApplied
-                        && !string.IsNullOrEmpty(defaultIdentity)
-                        && string.Equals(resolvedDescriptor, defaultIdentity, StringComparison.OrdinalIgnoreCase)
-                        && !string.Equals(member.Descriptor, defaultIdentity, StringComparison.OrdinalIgnoreCase))
-                    {
-                        _logger.LogWarning(
-                            "[Teams] Member '{MemberDescriptor}' ({Member}) resolved to the configured default identity — skipping add to team '{Team}' (unresolvable member).",
-                            member.Descriptor, member.DisplayName, teamPackage.Definition.Name);
-                        continue;
-                    }
-
-                    var resolvedMember = member with { Descriptor = resolvedDescriptor };
-                    await _teamTarget.AddMemberAsync(
-                        null!, projectName, targetTeamId, resolvedMember, ct).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex,
-                        "[Teams] Failed to add member '{Member}' to team '{Team}' — skipping.",
-                        member.DisplayName, teamPackage.Definition.Name);
-                }
-            }
-        }
-
-        // 5. Area paths (with path translation)
-        if (extensions.NodeTranslation && teamPackage.AreaPaths is not null)
-        {
-            var projectMapping = new ProjectMapping(sourceProjectName, projectName);
-            var defaultPath = TranslatePath("System.AreaPath", teamPackage.AreaPaths.DefaultAreaPath, projectMapping);
-            if (defaultPath is not null)
-            {
-                var translatedPaths = new System.Collections.Generic.List<string>();
-                foreach (var path in teamPackage.AreaPaths.IncludedAreaPaths)
-                {
-                    var translated = TranslatePath("System.AreaPath", path, projectMapping);
-                    if (translated is not null)
-                        translatedPaths.Add(translated);
-                    else
-                        _logger.LogWarning("[Teams] Could not translate area path '{Path}' — skipping.", path);
-                }
-
-                var translatedAreaPaths = new TeamAreaPaths(defaultPath, translatedPaths);
-                await _teamTarget.SetAreaPathsAsync(
-                    null!, projectName, targetTeamId, translatedAreaPaths, ct).ConfigureAwait(false);
-            }
-        }
-
-        // 6. Capacity
-        if (extensions.TeamCapacity && teamPackage.CapacityByIteration.Count > 0)
-        {
-            foreach (var capacityByIteration in teamPackage.CapacityByIteration)
-            {
-                var iterationId = capacityByIteration.Key;
-                var capacity = capacityByIteration.Value;
-                try
-                {
-                    await _teamTarget.SetCapacityAsync(
-                        null!, projectName, targetTeamId, iterationId, capacity, ct).ConfigureAwait(false);
-                }
-                catch (Exception ex) when (ex.Message.IndexOf("not supported", StringComparison.OrdinalIgnoreCase) >= 0
-                    || ex.Message.IndexOf("NotImplemented", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    _logger.LogInformation(
-                        "[Teams] Capacity not supported on target for iteration '{IterationId}' — skipping.", iterationId);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex,
-                        "[Teams] Failed to set capacity for iteration '{IterationId}' in team '{Team}' — skipping.",
-                        iterationId, teamPackage.Definition.Name);
-                }
-            }
-        }
-
         return targetTeamId;
-    }
-
-    private string? TranslatePath(string fieldName, string? sourcePath, ProjectMapping projectMapping)
-    {
-        // FR-009/GAP-005: null, empty, or whitespace-only input is untranslatable — return null
-        // so the caller skips the path and logs a warning (no silent pass-through of garbage).
-        if (string.IsNullOrWhiteSpace(sourcePath))
-            return null;
-
-        if (_nodeTranslationTool is null || !_nodeTranslationTool.IsEnabled)
-            return sourcePath; // translation tool inactive — pass the source path through unchanged
-
-        var result = _nodeTranslationTool.TranslatePath(fieldName, sourcePath!, projectMapping);
-
-        // FR-009/GAP-005: when the tool cannot map the path, return null (do NOT fall back to the
-        // untranslated source path) — the caller skips it and logs a structured warning.
-        return result.TargetPath;
     }
 }

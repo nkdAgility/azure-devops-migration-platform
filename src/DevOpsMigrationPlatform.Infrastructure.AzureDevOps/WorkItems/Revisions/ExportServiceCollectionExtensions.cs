@@ -94,6 +94,9 @@ public static class ExportServiceCollectionExtensions
                 global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.BoardConfig |
                 global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TaskboardColumns |
                 global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.Backlogs));
+        // Board adapter — Phase 4 stub; real implementation delivered in later stories.
+        services.TryAddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.Teams.ITeamBoardAdapter,
+            global::DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Teams.AzureDevOpsBoardAdapter>();
 
         // Embedded image download and processing
         services.AddHttpClient<AzureDevOpsEmbeddedImageDownloader>()
