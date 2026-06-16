@@ -2,115 +2,121 @@
 
 ## Status
 
-Accepted — operator consent given in-session (Class C consent evidence per
-`.agents/10-contracts/change-classes.yaml`). **No code implemented yet.** Implementation, when it
-begins, is mandatory test-first (RED→GREEN→REFACTOR per `test-first-workflow.md`), parity-gated.
+Implemented. Corrected in-session after initial implementation revealed a misclassification of Links
+and Attachments as extensions. See **Corrective Refinement** below.
 
 ## Context
 
-`WorkItemsModule` is not a thin module: `CaptureAsync` holds the inventory loop inline, the constructor
-is a ~30-dependency composition root, it holds tools only to forward them, and it carries a dead
-`ApplyImportReplayLevers` method (live copy lives in `WorkItemsImportRuntime`). Removing it is the
-first Class A / Rule 30 remediation increment — to be done failing-test-first like everything else.
+`WorkItemsModule` was not a thin module: `CaptureAsync` held the inventory loop inline, the constructor
+was a ~30-dependency composition root, and per-revision capability dispatch was a boolean-flag `if (ext.X)`
+switch driven by a `WorkItemsModuleExtensions` god-object. The capability set was baked into a fixed
+`CursorStage` enum checkpoint sequence, meaning adding a capability required editing the enum and the
+resume logic.
 
-The per-work-item capability logic (Links, Attachments, Comments, EmbeddedImages) does **not** live in
-`WorkItemsOrchestrator` — that type only configures and delegates. The real per-revision loop and the
-capability dispatch live in `RevisionFolderProcessor`, interleaved with a **fixed `CursorStage` enum**
-checkpoint sequence (`CreatedOrUpdated → AppliedFields → AppliedLinks → UploadedAttachments → Completed`).
-
-Two anti-patterns result:
-1. Capability dispatch is a boolean-flag `if (ext.X)` switch (`WorkItemsModuleExtensions` god-object).
-2. The capability set is baked into the **checkpoint contract** (`CursorStage` enum) — adding a
-   capability means editing the enum and the resume logic.
-
-This is the same flag-dispatch anti-pattern the 039 extension model
-(`.agents/30-context/architecture/execution-model.md`) was created to dissolve.
+This was the same flag-dispatch anti-pattern the 039 extension model was created to dissolve.
 
 ## Decision
 
-1. **Single extension seam.** Links, Attachments, and Comments become `IModuleExtension` implementations
-   (the canonical extension contract — no `I{Domain}Extension`), each with its own `IOptions<T>`, both
-   directions, consuming `WorkItemExtensionContext : IExtensionContext`.
+### Core decisions (in force)
 
-2. **`RevisionFolderProcessor` is the canonical per-revision sub-orchestrator.** It owns the loop, the
-   cursor, metrics, and progress, and drives an **ordered, named stage pipeline**: core stages
-   (`CreatedOrUpdated`, `AppliedFields`, `Completed`) plus the ordered enabled `IModuleExtension`
-   stages. No parallel per-revision dispatch path is introduced.
+1. **Single extension seam via `IModuleExtension`.** Per-revision capabilities that meet the Extension
+   Seam Ethos (see below) become `IModuleExtension` implementations with their own `IOptions<T>`, both
+   export and import directions, consuming `WorkItemExtensionContext : IExtensionContext`.
 
-3. **Cursor dispatch becomes name-keyed; the on-disk cursor format is preserved.** Stages are iterated
-   as an ordered list and resume matches by stage **name**, reusing the existing marker strings as the
-   stage names. Existing in-flight packages resume unchanged; a new capability adds a new marker
-   string, which is additive and backward-compatible ("marker absent → run the stage"). **No version
-   bump and no upgrader** — the persisted contract (Architecture-boundary Rule 9 / ADR 0003) is
-   unchanged; only the dispatch mechanism changes.
+2. **`WorkItemResolutionProcessor` is the canonical per-revision sub-orchestrator.** It owns the loop,
+   the cursor, metrics, and progress, and drives an ordered named stage pipeline: core stages
+   (`CreatedOrUpdated`, `AppliedFields`) plus ordered enabled `IModuleExtension` stages.
 
-4. **EmbeddedImages is a field-rewrite contributor, not a stage.** It is a field-value rewrite invoked
-   *inside* the core `AppliedFields` stage (download + store + rewrite `<img>` refs — a
-   FieldTransform-with-I/O), keeping field application as one cursor marker.
+3. **Cursor dispatch is name-keyed; the on-disk cursor format is preserved.** Stages are iterated as
+   an ordered list and resume matches by stage name, reusing existing marker strings. Existing in-flight
+   packages resume unchanged; a new capability adds a new marker string (additive, backward-compatible).
+   No version bump, no upgrader.
 
-5. **Tools stay singular and are consumed, not reimplemented.** Extensions and core stages call
-   `IWorkItemTarget`, `IIdMapStore`, `IIdentityTranslationTool`, `INodeTranslationTool`,
-   `IFieldTransformTool`, and the embedded-image replay service — they must not duplicate those engines
-   (capability-ethos rules 2, 3, 5).
+4. **EmbeddedImages is a field-rewrite contributor, not a stage.** It is a field-value rewrite inside
+   the core `AppliedFields` stage, not a separable extension.
 
-6. **Revisions are core, not an extension.** The revision stream is the loop spine; `RevisionsEnabled`
-   is retired as an extension toggle.
+5. **The module is thin.** Inventory lives in the orchestrator. Object-graph construction lives in DI.
+   Phase methods delegate.
 
-7. **The module becomes thin.** Inventory moves into the orchestrator; object-graph construction moves
-   to DI / `WorkItemsOrchestratorFactory`; tool fields leave the module; the constructor collapses to a
-   handful of dependencies; phase methods delegate.
+6. **Revisions are core, not an extension.** The revision stream is the loop spine.
+
+7. **Revision save is a single atomic PATCH.** Fields, link relations, and attachment relations are
+   sent in one `JsonPatchDocument` to `PATCH /_apis/wit/workItems/{id}`. Attachment binaries are
+   uploaded first (separate endpoint) to obtain URLs, which then feed into the unified PATCH.
+
+### Extension Seam Ethos (governs what may be an IModuleExtension)
+
+A valid `IModuleExtension` for WorkItems requires **all** of the following:
+
+- The concern operates on a **distinct domain object** with its own identity and lifecycle — not a
+  property or sub-object of a `WorkItemRevision`.
+- The core entity is **complete and correct** without the extension having run.
+- The extension's write is a **separate operation** — not part of the work item's atomic save.
+
+This test is not "can this be turned off?" It is "if this is absent, is the entity still whole?"
+
+Full policy text is in `.agents/20-guardrails/core/capability-ethos-rules.md` § Extension Seam Ethos.
+
+### Corrective Refinement — Links and Attachments are NOT extensions
+
+The initial implementation incorrectly extracted `LinksWorkItemExtension` and
+`AttachmentsWorkItemExtension` as `IModuleExtension` implementations. The Extension Seam Ethos test
+rejects both:
+
+- **Links** are a structural property of a `WorkItemRevision`. The revision is incomplete without its
+  links. The ADO API models links as `/relations` on the work item resource — part of the same document
+  written by the revision PATCH.
+- **Attachments** are the same: attachment relations are part of the work item document. Their binary
+  content is uploaded separately to obtain a URL, but the relation itself is written in the same PATCH
+  as fields and links.
+
+Both were deleted. Their replay logic is unconditional core behaviour in `WorkItemResolutionProcessor`
+and `WorkItemExportOrchestrator`. No configuration can disable core entity concerns.
+
+### CommentsWorkItemExtension — the only valid WorkItems extension
+
+`WorkItemComment` is a distinct ADO entity (`/_apis/wit/workItems/{id}/comments`) with its own ID and
+lifecycle. A work item is complete and correct without comments. The write is a separate `POST` call —
+not part of the revision PATCH. `CommentsWorkItemExtension` passes all three seam ethos tests and
+remains the sole `IModuleExtension` for WorkItems.
 
 ## Capability Seam Decision
 
-- **Concern**: per-work-item capability application (links, attachments, comments) during export/import.
-- **Canonical seam owner**: `RevisionFolderProcessor` (per-revision sub-orchestrator) running an ordered
-  named stage pipeline.
-- **Canonical public surface**: `IModuleExtension` over `WorkItemExtensionContext : IExtensionContext`.
-- **Allowed adapter/policy responsibilities**: enablement (`IsEnabled` from own `IOptions<T>`), order,
-  capability gating, checkpoint interaction.
-- **Prohibited parallel entry points**: no second per-revision dispatch; no reimplementation of
-  create/update, id-map, field, or translation engines.
+| Field | Value |
+|---|---|
+| **Concern** | Per-work-item capability application (comments) during export/import |
+| **Canonical seam owner** | `WorkItemResolutionProcessor` (per-revision sub-orchestrator) |
+| **Canonical public surface** | `IModuleExtension` over `WorkItemExtensionContext : IExtensionContext` |
+| **Allowed adapter/policy responsibilities** | Enablement (`IsEnabled` from own `IOptions<T>`), order, cursor interaction |
+| **Prohibited parallel entry points** | No second per-revision dispatch; no reimplementation of create/update, id-map, field, or translation engines; no inline duplicate of any extension concern |
 
 ## Compatibility
 
-- **Cursor / package format**: unchanged. Existing markers preserved; new capability markers are
-  additive. No upgrader required.
-- **Public contract**: `IWorkItemsOrchestrator` gains inventory ownership (Stage 1) and the extension
-  list flows to the per-revision sub-orchestrator (Stages 2–4). Contract-compatibility tests pin
-  import/resume parity and cursor-string stability.
-
-### Server call-count parity (invariant + required contract test)
-- **Invariant**: the refactor makes **zero** change to source/target API call volume, order, or
-  shape. It is structural only. Each capability issues exactly the calls it does today.
-- **Extensions consume context, never re-query**: an extension reads its data from
-  `WorkItemExtensionContext` (the already-streamed revision + package). It must **not** make a fresh
-  source/target call for data the core already fetched. *Core streams once; extensions consume.*
-- **Required contract test**: a call-count parity test using the Simulated adapters (which capture
-  every write call) asserts the per-revision target-call sequence is identical before and after the
-  refactor, and that no extension introduces an additional source/target round-trip. A change in call
-  count is a parity failure, not an accepted outcome.
+- **Cursor / package format**: unchanged. Existing markers preserved; new capability markers are additive.
+- **API call shape**: the single-PATCH consolidation changes the call shape from three separate PATCHes
+  (fields, links, attachments) to one. Call count per revision decreases; semantics are identical.
 
 ## Architecture-perspective evidence
 
-- **Modular Monolith**: capability boundaries become explicit, independently-configured extensions.
-- **Clean**: contracts (`IModuleExtension`, `IExtensionContext`) in abstractions; engines in infra.
-- **Hexagonal**: extensions are ports into per-capability behaviour; tools/adapters are the driven side.
-- **Vertical Slice**: each facet (links/attachments/comments) is end-to-end (export+import+config) in one type.
-- **Screaming**: `{Facet}WorkItemExtension` names declare intent; `RevisionFolderProcessor` owns the loop.
-- **Architecture Deepening**: dissolves flag-dispatch and enum-baked capability set; future capability = add an extension.
+- **Modular Monolith**: only genuinely separable concerns (comments) are extensions; intrinsic concerns are inline.
+- **Clean**: contracts in abstractions; engines in infra.
+- **Hexagonal**: `CommentsWorkItemExtension` is a port into comment-specific behaviour; tools/adapters are the driven side.
+- **Vertical Slice**: comments facet is end-to-end (export + import + config) in one type.
+- **Screaming**: `CommentsWorkItemExtension` declares intent; `WorkItemResolutionProcessor` owns the loop.
+- **Architecture Deepening**: flag-dispatch dissolved; future capability = add an extension iff it passes the seam ethos test.
 
 ## Consequences
 
-- Adding a work-item capability requires no enum edit, no core edit, no resume-logic edit.
-- `RevisionFolderProcessor` is the single canonical per-revision seam owner.
-- Touching `RevisionFolderProcessor` / `WorkItemsImportRuntime` triggers Rule 30 remediation of known
-  non-compliance in touched scope (enumerated during implementation, or operator-approved follow-up).
-- Delivery is test-first (RED→GREEN→REFACTOR), parity-gated, one facet per commit.
+- Adding a work-item capability that passes the Extension Seam Ethos requires no core edit.
+- Adding a concern that fails the seam ethos test must go inline in the core pipeline — no extension wrapper.
+- `WorkItemResolutionProcessor` is the single canonical per-revision seam owner.
+- Extensions are registered as `IModuleExtension` in DI and flow via `IEnumerable<IModuleExtension>`;
+  orchestrators must not construct extensions with `new` or hold a `?? new` fallback.
 
 ## Enforced By
 
 - `.agents/10-contracts/specs/execution-contract.md`
-- `.agents/20-guardrails/core/capability-ethos-rules.md`
+- `.agents/20-guardrails/core/capability-ethos-rules.md` — Extension Seam Ethos section
 - `.agents/20-guardrails/core/architecture-boundaries.md`
 - `.agents/20-guardrails/workflow/test-first-workflow.md`
 

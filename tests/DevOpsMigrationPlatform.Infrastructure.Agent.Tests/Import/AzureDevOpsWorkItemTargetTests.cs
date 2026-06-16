@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.WorkItems.WorkItemResolution;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
@@ -105,6 +106,7 @@ public sealed class AzureDevOpsWorkItemTargetTests
             async () => await target.UpdateFieldsAsync(1, [], ct),
             async () => await target.AddLinksAsync(1, [], [], [], ct),
             async () => await target.UploadAttachmentAsync(1, "file.bin", new MemoryStream(), ct),
+            async () => await target.ApplyRevisionAsync(1, [], [], [], [], [], ct),
             async () => await target.UploadEmbeddedImageAsync("image.png", new MemoryStream(), ct),
             async () => await target.CreateCommentAsync(1, "test", ct),
             async () => await target.GetExistingRelationsAsync(1, ct),

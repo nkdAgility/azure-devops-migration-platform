@@ -8,12 +8,15 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -54,8 +57,6 @@ public class WorkItemResolutionProcessorTests
     }
 
     private WorkItemResolutionProcessor CreateSut(
-        DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.LinksWorkItemExtension? linksExtension = null,
-        DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.AttachmentsWorkItemExtension? attachmentsExtension = null,
         IReadOnlyList<WorkItemRevisionStage>? extensionStages = null,
         DevOpsMigrationPlatform.Abstractions.Options.EmbeddedImagesExtensionOptionsConfig? embeddedImagesOptions = null)
         => new WorkItemResolutionProcessor(
@@ -66,20 +67,10 @@ public class WorkItemResolutionProcessorTests
             NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
             package: _mockPackage.Object,
-            linksExtension: linksExtension,
-            attachmentsExtension: attachmentsExtension,
             extensionStages: extensionStages,
             embeddedImagesOptions: embeddedImagesOptions);
-
-    private static DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.LinksWorkItemExtension DisabledLinks()
-        => new(Microsoft.Extensions.Options.Options.Create(
-            new DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.LinksExtensionOptions { Enabled = false }));
-
-    private static DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions.AttachmentsWorkItemExtension DisabledAttachments()
-        => new(Microsoft.Extensions.Options.Options.Create(
-            new DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.AttachmentsExtensionOptions { Enabled = false }),
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments.AttachmentReplayTool>.Instance);
 
     // ── ProcessAsync_WhenRevisionJsonMissing_SkipsFolder ──────────────────────
 
@@ -123,10 +114,7 @@ public class WorkItemResolutionProcessorTests
         SetupCursorWrites();
         SetupResolutionStrategyNoOp();
         _mockTarget
-            .Setup(t => t.UpdateFieldsAsync(99, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        _mockTarget
-            .Setup(t => t.AddLinksAsync(99, It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.ApplyRevisionAsync(99, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
@@ -156,7 +144,7 @@ public class WorkItemResolutionProcessorTests
         await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
-        _mockTarget.Verify(t => t.UpdateFieldsAsync(77, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockTarget.Verify(t => t.ApplyRevisionAsync(77, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [TestCategory("CodeTest")]
@@ -194,51 +182,55 @@ public class WorkItemResolutionProcessorTests
         var sut = CreateSut();
         await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
-        _mockTarget.Verify(t => t.UpdateFieldsAsync(10, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockTarget.Verify(t => t.ApplyRevisionAsync(10, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    // ── ProcessAsync_WhenLinksDisabled_SkipsStageC ────────────────────────────
+    // ── ProcessAsync_LinksAlwaysApplied_StageC ────────────────────────────────
 
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public async Task ProcessAsync_WhenLinksDisabled_SkipsStageC()
+    public async Task ProcessAsync_LinksAlwaysApplied_StageB()
     {
+        // Links are now part of the combined ApplyRevisionAsync call in Stage B.
         SetupRevisionJson();
         SetupNoMapping();
         SetupTargetCreate(newTargetId: 10);
         SetupCursorWrites();
         SetupResolutionStrategyNoOp();
 
-        _mockTarget.Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockIdMapStore.Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(10);
         _mockTarget.Setup(t => t.WorkItemExistsAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _mockTarget.Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
-        var sut = CreateSut(linksExtension: DisabledLinks());
+        var sut = CreateSut();
         await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
-        _mockTarget.Verify(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockTarget.Verify(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.Once,
+            "Links must always be applied — they are part of the combined ApplyRevisionAsync call.");
     }
 
-    // ── ProcessAsync_WhenAttachmentsDisabled_SkipsStageD ─────────────────────
+    // ── ProcessAsync_AttachmentsAlwaysAttempted_StageD ───────────────────────
 
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public async Task ProcessAsync_WhenAttachmentsDisabled_SkipsStageD()
+    public async Task ProcessAsync_AttachmentsAlwaysAttempted_StageB()
     {
+        // Attachments are now part of the combined ApplyRevisionAsync call in Stage B.
+        // (With no attachments in revision.json, no binary upload calls are made but the stage runs.)
         SetupRevisionJson();
         SetupNoMapping();
         SetupTargetCreate(newTargetId: 10);
         SetupCursorWrites();
         SetupResolutionStrategyNoOp();
-        SetupTargetFieldsAndLinks(targetId: 10);
+        SetupApplyRevision(targetId: 10);
 
-        var sut = CreateSut(attachmentsExtension: DisabledAttachments());
+        var sut = CreateSut();
         await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
+        // No attachments in minimal revision JSON, so no binary upload calls — but stage ran without error.
         _mockTarget.Verify(t => t.UploadAttachmentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()), Times.Never);
-        _mockPackage.Verify(p => p.RequestContentBinaryAsync(It.IsAny<PackageContentContext>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── ProcessAsync_WhenResumingFromAppliedFields_SkipsStagesAandB ──────────
@@ -248,24 +240,21 @@ public class WorkItemResolutionProcessorTests
     [TestMethod]
     public async Task ProcessAsync_WhenResumingFromAppliedLinks_SkipsCreatedOrUpdatedAndAppliedFields()
     {
+        // AppliedLinks is now subsumed by AppliedFields (the combined stage).
+        // Resuming at AppliedLinks means the combined B stage already ran — so everything is skipped.
         SetupRevisionJson();
         _mockIdMapStore
             .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(50); // already mapped
-        _mockIdMapStore
-            .Setup(s => s.GetAttachmentIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
         SetupCursorWrites();
-        SetupTargetFieldsAndLinks(targetId: 50);
+        SetupApplyRevision(targetId: 50);
 
         var sut = CreateSut();
         await sut.ProcessAsync(Folder, CursorStage.AppliedLinks, _mockResolutionStrategy.Object, CancellationToken.None);
 
-        // Stage A and B should be skipped
+        // Stage A and B should both be skipped (AppliedLinks > AppliedFields lexicographically)
         _mockTarget.Verify(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
-        _mockTarget.Verify(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
-        // Stage C should run
-        _mockTarget.Verify(t => t.AddLinksAsync(50, It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockTarget.Verify(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── ProcessAsync_WhenIdentityFieldPresent_ResolvesViaService ─────────────
@@ -290,10 +279,6 @@ public class WorkItemResolutionProcessorTests
         SetupResolutionStrategyNoOp();
 
         IReadOnlyList<WorkItemField>? capturedFields = null;
-        _mockTarget
-            .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
-            .Callback<int, IReadOnlyList<WorkItemField>, CancellationToken>((_, fields, _) => capturedFields = fields)
-            .Returns(Task.CompletedTask);
         _mockIdMapStore
             .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(10);
@@ -301,7 +286,8 @@ public class WorkItemResolutionProcessorTests
             .Setup(t => t.WorkItemExistsAsync(10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _mockTarget
-            .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()))
+            .Callback<int, IReadOnlyList<WorkItemField>, IReadOnlyList<RelatedWorkItemLink>, IReadOnlyList<ExternalWorkItemLink>, IReadOnlyList<HyperlinkWorkItemLink>, IReadOnlyList<AttachmentUploadResult>, CancellationToken>((_, fields, _, _, _, _, _) => capturedFields = fields)
             .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
@@ -333,10 +319,6 @@ public class WorkItemResolutionProcessorTests
         SetupResolutionStrategyNoOp();
 
         IReadOnlyList<WorkItemField>? capturedFields = null;
-        _mockTarget
-            .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
-            .Callback<int, IReadOnlyList<WorkItemField>, CancellationToken>((_, fields, _) => capturedFields = fields)
-            .Returns(Task.CompletedTask);
         _mockIdMapStore
             .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(10);
@@ -344,7 +326,8 @@ public class WorkItemResolutionProcessorTests
             .Setup(t => t.WorkItemExistsAsync(10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _mockTarget
-            .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()))
+            .Callback<int, IReadOnlyList<WorkItemField>, IReadOnlyList<RelatedWorkItemLink>, IReadOnlyList<ExternalWorkItemLink>, IReadOnlyList<HyperlinkWorkItemLink>, IReadOnlyList<AttachmentUploadResult>, CancellationToken>((_, fields, _, _, _, _, _) => capturedFields = fields)
             .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
@@ -404,6 +387,7 @@ public class WorkItemResolutionProcessorTests
             NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
             nodeStructureTool: nodeTranslationTool.Object,
             nodeStructureContext: new ProjectMapping("Source", "Target"),
             nodeStructureOptions: new NodeTranslationOptions { SkipOnUnresolvableArea = true },
@@ -412,7 +396,7 @@ public class WorkItemResolutionProcessorTests
         await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.CreateWorkItemAsync("Task", It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Once);
-        _mockTarget.Verify(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockTarget.Verify(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockIdMapStore.Verify(s => s.RecordSkippedRevisionAsync(1, "UnresolvablePath", It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -430,19 +414,16 @@ public class WorkItemResolutionProcessorTests
         SetupResolutionStrategyNoOp();
 
         IReadOnlyList<WorkItemField>? capturedFields = null;
-        _mockTarget
-            .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
-            .Callback<int, IReadOnlyList<WorkItemField>, CancellationToken>((_, fields, _) => capturedFields = fields)
-            .Returns(Task.CompletedTask);
-        _mockTarget
-            .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
         _mockIdMapStore
             .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(10);
         _mockTarget
             .Setup(t => t.WorkItemExistsAsync(10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        _mockTarget
+            .Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()))
+            .Callback<int, IReadOnlyList<WorkItemField>, IReadOnlyList<RelatedWorkItemLink>, IReadOnlyList<ExternalWorkItemLink>, IReadOnlyList<HyperlinkWorkItemLink>, IReadOnlyList<AttachmentUploadResult>, CancellationToken>((_, fields, _, _, _, _, _) => capturedFields = fields)
+            .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
         await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
@@ -467,19 +448,16 @@ public class WorkItemResolutionProcessorTests
         SetupResolutionStrategyNoOp();
 
         IReadOnlyList<WorkItemField>? capturedFields = null;
-        _mockTarget
-            .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
-            .Callback<int, IReadOnlyList<WorkItemField>, CancellationToken>((_, fields, _) => capturedFields = fields)
-            .Returns(Task.CompletedTask);
-        _mockTarget
-            .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
         _mockIdMapStore
             .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(10);
         _mockTarget
             .Setup(t => t.WorkItemExistsAsync(10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        _mockTarget
+            .Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()))
+            .Callback<int, IReadOnlyList<WorkItemField>, IReadOnlyList<RelatedWorkItemLink>, IReadOnlyList<ExternalWorkItemLink>, IReadOnlyList<HyperlinkWorkItemLink>, IReadOnlyList<AttachmentUploadResult>, CancellationToken>((_, fields, _, _, _, _, _) => capturedFields = fields)
+            .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
         await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
@@ -507,7 +485,7 @@ public class WorkItemResolutionProcessorTests
         SetupTargetCreate(newTargetId: 10);
         SetupCursorWrites();
         SetupResolutionStrategyNoOp();
-        SetupTargetFieldsAndLinks(targetId: 10);
+        SetupApplyRevision(targetId: 10);
 
         _mockTarget
             .Setup(t => t.UploadAttachmentAsync(10, "evidence.zip", It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()))
@@ -594,6 +572,9 @@ public class WorkItemResolutionProcessorTests
     }
 
     private void SetupTargetFieldsAndLinks(int targetId)
+        => SetupApplyRevision(targetId);
+
+    private void SetupApplyRevision(int targetId)
     {
         _mockIdMapStore
             .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
@@ -602,10 +583,7 @@ public class WorkItemResolutionProcessorTests
             .Setup(t => t.WorkItemExistsAsync(targetId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _mockTarget
-            .Setup(t => t.UpdateFieldsAsync(targetId, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        _mockTarget
-            .Setup(t => t.AddLinksAsync(targetId, It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.ApplyRevisionAsync(targetId, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
     }
 
@@ -625,13 +603,12 @@ public class WorkItemResolutionProcessorTests
         SetupTargetCreate(newTargetId: 10);
         SetupCursorWrites();
         SetupResolutionStrategyNoOp();
-        _mockTarget.Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockTarget.Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockTarget.Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         var sut = CreateSut(extensionStages: Array.Empty<WorkItemRevisionStage>());
         await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
-        _mockTarget.Verify(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockTarget.Verify(t => t.UploadAttachmentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockTarget.Verify(t => t.CreateCommentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -676,6 +653,7 @@ public class WorkItemResolutionProcessorTests
         SetupTargetFieldsAndLinks(targetId: 10);
 
         var disabledEmbeddedImages = new DevOpsMigrationPlatform.Abstractions.Options.EmbeddedImagesExtensionOptionsConfig { Enabled = false };
+        _mockTarget.Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var sut = CreateSut(embeddedImagesOptions: disabledEmbeddedImages);
         await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);

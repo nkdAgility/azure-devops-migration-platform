@@ -51,6 +51,24 @@ Before implementation, the spec/plan must include a **Capability Seam Decision**
 
 Missing this block is non-compliant.
 
+## Extension Seam Ethos
+
+An extension seam exists where the domain has a genuine boundary — where one concern ends and another begins. The presence of an optional behaviour or a feature flag does not constitute a seam. The seam is in the domain, not in the configuration.
+
+A concern is intrinsic when the core entity is incomplete or incorrect without it. Intrinsic concerns belong inside the core pipeline. A disabled intrinsic concern produces a degraded entity. An absent extension produces no change to the entity's correctness.
+
+**The test is not "can this be turned off?" The test is "if this is absent, is the entity still whole?"**
+
+A valid extension seam requires all of the following to hold:
+
+- The concern operates on a distinct domain object with its own identity and lifecycle — not a property or sub-object of the core entity.
+- The core entity is complete and correct without it.
+- The target system accepts the core entity independently of whether the extension has run — the extension's write is a separate operation, not part of the core entity's atomic save.
+
+Where any condition does not hold, the concern belongs inside the core pipeline, governed by options on the module, not abstracted behind an `IModuleExtension`.
+
+**Reject any `IModuleExtension` whose data is a property of the core entity or whose write is part of the core entity's atomic save to the target system.**
+
 ## Exception Protocol
 
 Any exception to these rules must follow the repository Guardrail Challenge Protocol:

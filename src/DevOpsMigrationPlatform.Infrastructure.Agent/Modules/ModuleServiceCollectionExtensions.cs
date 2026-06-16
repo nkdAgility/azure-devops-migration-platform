@@ -3,12 +3,13 @@
 
 using System.Linq;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent;
 using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
@@ -85,24 +86,7 @@ public static class ModuleServiceCollectionExtensions
         services.RegisterWorkItemServices(configuration);
 
         // Work-item capability extensions (IModuleExtension ports). Each owns its own IOptions<T>.
-#if NET7_0_OR_GREATER
-        services.AddSchemaEntry<LinksExtensionOptions>("Work item Links extension (related/external/hyperlinks) configuration");
-#endif
-        services.AddOptions<LinksExtensionOptions>()
-            .Configure<IOptions<WorkItemsModuleOptions>>((o, wi) => o.Enabled = wi.Value.Extensions.Links.Enabled);
-        services.AddSingleton<LinksWorkItemExtension>();
-
-#if NET7_0_OR_GREATER
-        services.AddSchemaEntry<AttachmentsExtensionOptions>("Work item Attachments extension (attachment binary replay) configuration");
-#endif
-        services.AddOptions<AttachmentsExtensionOptions>()
-            .Configure<IOptions<WorkItemsModuleOptions>>((o, wi) => o.Enabled = wi.Value.Extensions.Attachments.Enabled);
-        services.AddSingleton<AttachmentsWorkItemExtension>(sp =>
-            new AttachmentsWorkItemExtension(
-                sp.GetRequiredService<IOptions<AttachmentsExtensionOptions>>(),
-                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments.AttachmentReplayTool>>(),
-                sp.GetService<IAttachmentBinarySource>()));
-
+        // Note: Links and Attachments are now unconditional core behaviour — no extension registration needed.
 #if NET7_0_OR_GREATER
         services.AddSchemaEntry<CommentsExtensionOptions>("Work item Comments extension (inline comment replay) configuration");
 #endif
@@ -113,6 +97,7 @@ public static class ModuleServiceCollectionExtensions
                 sp.GetRequiredService<IOptions<CommentsExtensionOptions>>(),
                 sp.GetService<IWorkItemCommentSourceFactory>(),
                 sp.GetService<Microsoft.Extensions.Logging.ILogger<CommentsWorkItemExtension>>()));
+        services.AddSingleton<IModuleExtension>(sp => sp.GetRequiredService<CommentsWorkItemExtension>());
 
         services.TryAddSingleton<IWorkItemExportOrchestratorFactory, WorkItemExportOrchestratorFactory>();
         services.AddScoped<IWorkItemsImportCapabilityValidator, WorkItemsImportCapabilityValidator>();
@@ -146,7 +131,6 @@ public static class ModuleServiceCollectionExtensions
             new WorkItemsOrchestrator(
                 sp.GetRequiredService<IWorkItemRevisionSourceFactory>(),
                 sp.GetService<IAttachmentBinarySource>(),
-                sp.GetService<IWorkItemCommentSourceFactory>(),
                 sp.GetService<IWorkItemFetchService>(),
                 sp.GetRequiredService<IWorkItemExportOrchestratorFactory>(),
                 sp.GetRequiredService<ICheckpointingServiceFactory>(),
@@ -166,12 +150,11 @@ public static class ModuleServiceCollectionExtensions
                 sp.GetRequiredService<IWorkItemsImportCapabilityValidator>(),
                 sp.GetRequiredService<IWorkItemsNodeReadinessOrchestrator>(),
                 sp.GetRequiredService<ITargetEndpointInfo>(),
+                sp.GetServices<IModuleExtension>(),
                 sp.GetService<IOptions<WorkItemOptions>>(),
                 sp.GetService<IOptions<NodesModuleOptions>>(),
                 sp.GetService<IInventoryOrchestrator>(),
-                sp.GetService<IRepoDiscoveryService>(),
-                sp.GetRequiredService<AttachmentsWorkItemExtension>(),
-                sp.GetRequiredService<CommentsWorkItemExtension>()));
+                sp.GetService<IRepoDiscoveryService>()));
         services.AddScoped<IWorkItemsOrchestrator>(sp => sp.GetRequiredService<WorkItemsOrchestrator>());
         services.AddTransient<IModule, WorkItemsModule>();
         return services;

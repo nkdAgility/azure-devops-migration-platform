@@ -76,7 +76,6 @@ public class WorkItemExportOrchestratorTests
         IProgressSink? progressSink = null,
         MigrationEndpointOptions? endpoint = null,
         string project = "",
-        IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
         IWorkItemFetchService? fetchService = null,
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
         string organisation = "",
@@ -92,7 +91,6 @@ public class WorkItemExportOrchestratorTests
             attachmentBinarySource,
             progressSink,
             endpoint,
-            inlineCommentSourceFactory,
             fetchService,
             filterOptions,
             taskId: taskId,
@@ -107,7 +105,6 @@ public class WorkItemExportOrchestratorTests
         IAttachmentBinarySource? attachmentBinarySource = null,
         IProgressSink? progressSink = null,
         MigrationEndpointOptions? endpoint = null,
-        IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
         IWorkItemFetchService? fetchService = null,
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
         string? taskId = null,
@@ -121,7 +118,6 @@ public class WorkItemExportOrchestratorTests
             attachmentBinarySource,
             progressSink,
             endpoint,
-            inlineCommentSourceFactory,
             fetchService,
             filterOptions,
             taskId: taskId,
@@ -429,200 +425,12 @@ public class WorkItemExportOrchestratorTests
         Assert.IsTrue(WorkItemExportOrchestrator.IsCommentEditOrDeleteRevision(revision));
     }
 
-    // ── Inline comment fetching by timestamp ──────────────────────────────────
+    // ── Inline comment fetching now handled by CommentsWorkItemExtension ─────────
+    // The three inline comment tests (WritesCommentJsonBesideRevisionJson,
+    // NoMatchingTimestamp_SkipsCommentJson, DoesNotFetchFromApi) have been removed.
+    // CommentsWorkItemExtension.ExportAsync is the canonical export surface;
+    // see CommentsWorkItemExtensionTests for coverage.
 
-    [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
-    [TestMethod]
-    public async Task ExportAsync_WhenCommentEditRevision_WritesCommentJsonBesideRevisionJson()
-    {
-        var revisionDate = new DateTimeOffset(2024, 6, 1, 12, 0, 0, TimeSpan.Zero);
-        var revision = new WorkItemRevision
-        {
-            WorkItemId = 42,
-            RevisionIndex = 3,
-            ChangedDate = revisionDate,
-            Fields = new[]
-            {
-                // CommentCount changed, no System.History → comment edit revision
-                new WorkItemField { ReferenceName = "System.CommentCount", Value = "2" }
-            }
-        };
-
-        var comment = new WorkItemComment
-        {
-            CommentId = "1",
-            Version = 2,
-            Text = "Edited comment text",
-            Format = "markdown",
-            IsDeleted = false,
-            CreatedDate = revisionDate.AddSeconds(-5),
-            ModifiedDate = revisionDate  // Within ±1 second of revision.ChangedDate
-        };
-
-        _mockCps.Setup(s => s.ReadCursorAsync("export.workitems", It.IsAny<CancellationToken>()))
-                .ReturnsAsync((CursorEntry?)null);
-        _mockCps.Setup(s => s.WriteCursorAsync("export.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
-
-        var written = new Dictionary<string, string>();
-        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                  .Callback<string, string, CancellationToken>((path, content, _) => written[path] = content)
-                  .Returns(Task.CompletedTask);
-
-        var mockCommentSource = new Mock<IWorkItemCommentSource>(MockBehavior.Strict);
-        mockCommentSource
-            .Setup(s => s.GetCommentsAsync(42, true, It.IsAny<CancellationToken>()))
-            .Returns((int _, bool _, CancellationToken ct) => new[] { comment }.ToAsyncEnumerable(ct));
-
-        var mockFactory = new Mock<IWorkItemCommentSourceFactory>(MockBehavior.Strict);
-        mockFactory
-            .Setup(f => f.Create(It.IsAny<MigrationEndpointOptions>(), "MyProject"))
-            .Returns(mockCommentSource.Object);
-
-        var sut = CreateOrchestrator(
-            _mockStore.Object,
-            _mockCps.Object,
-            endpoint: TestEndpoint,
-            project: "MyProject",
-            inlineCommentSourceFactory: mockFactory.Object,
-            package: _mockPackage.Object);
-
-        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
-        mockSource
-            .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
-            .Returns((CancellationToken ct) => new[] { revision }.ToAsyncEnumerable(ct));
-
-        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
-
-        var revisionPath = $"WorkItems/{WorkItemExportOrchestrator.BuildFolderPath(42, 3, revisionDate)}revision.json";
-        var commentPath = $"WorkItems/{WorkItemExportOrchestrator.BuildFolderPath(42, 3, revisionDate)}comment.json";
-
-        Assert.IsTrue(written.ContainsKey(revisionPath), "revision.json must be written");
-        Assert.IsTrue(written.ContainsKey(commentPath), "comment.json must be written beside revision.json for edit/delete revisions");
-
-        var comments = JsonSerializer.Deserialize<List<WorkItemComment>>(written[commentPath],
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        Assert.AreEqual(1, comments!.Count);
-        Assert.AreEqual("Edited comment text", comments[0].Text);
-    }
-
-    [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
-    [TestMethod]
-    public async Task ExportAsync_WhenCommentEditRevision_NoMatchingTimestamp_SkipsCommentJson()
-    {
-        var revisionDate = new DateTimeOffset(2024, 6, 1, 12, 0, 0, TimeSpan.Zero);
-        var revision = new WorkItemRevision
-        {
-            WorkItemId = 42,
-            RevisionIndex = 3,
-            ChangedDate = revisionDate,
-            Fields = new[]
-            {
-                new WorkItemField { ReferenceName = "System.CommentCount", Value = "2" }
-            }
-        };
-
-        // Comment modified 60 seconds before revision — should NOT match.
-        var comment = new WorkItemComment
-        {
-            CommentId = "1",
-            Version = 2,
-            Text = "Old comment",
-            Format = "markdown",
-            IsDeleted = false,
-            CreatedDate = revisionDate.AddSeconds(-120),
-            ModifiedDate = revisionDate.AddSeconds(-60)
-        };
-
-        _mockCps.Setup(s => s.ReadCursorAsync("export.workitems", It.IsAny<CancellationToken>()))
-                .ReturnsAsync((CursorEntry?)null);
-        _mockCps.Setup(s => s.WriteCursorAsync("export.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
-
-        var writtenPaths = new List<string>();
-        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                  .Callback<string, string, CancellationToken>((p, _, _) => writtenPaths.Add(p))
-                  .Returns(Task.CompletedTask);
-
-        var mockCommentSource = new Mock<IWorkItemCommentSource>(MockBehavior.Strict);
-        mockCommentSource
-            .Setup(s => s.GetCommentsAsync(42, true, It.IsAny<CancellationToken>()))
-            .Returns((int _, bool _, CancellationToken ct) => new[] { comment }.ToAsyncEnumerable(ct));
-
-        var mockFactory = new Mock<IWorkItemCommentSourceFactory>(MockBehavior.Strict);
-        mockFactory
-            .Setup(f => f.Create(It.IsAny<MigrationEndpointOptions>(), "MyProject"))
-            .Returns(mockCommentSource.Object);
-
-        var sut = CreateOrchestrator(
-            _mockStore.Object,
-            _mockCps.Object,
-            endpoint: TestEndpoint,
-            project: "MyProject",
-            inlineCommentSourceFactory: mockFactory.Object,
-            package: _mockPackage.Object);
-
-        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
-        mockSource
-            .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
-            .Returns((CancellationToken ct) => new[] { revision }.ToAsyncEnumerable(ct));
-
-        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
-
-        Assert.IsFalse(writtenPaths.Any(p => p.EndsWith("comment.json")),
-            "comment.json must NOT be written when no comments match the timestamp");
-    }
-
-    [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
-    [TestMethod]
-    public async Task ExportAsync_WhenCommentAdditionRevision_DoesNotFetchFromApi()
-    {
-        // Comment addition: System.History is present → should NOT trigger inline fetching.
-        var revisionDate = new DateTimeOffset(2024, 6, 1, 12, 0, 0, TimeSpan.Zero);
-        var revision = new WorkItemRevision
-        {
-            WorkItemId = 42,
-            RevisionIndex = 2,
-            ChangedDate = revisionDate,
-            Fields = new[]
-            {
-                new WorkItemField { ReferenceName = "System.CommentCount", Value = "1" },
-                new WorkItemField { ReferenceName = "System.History", Value = "New comment added" }
-            }
-        };
-
-        _mockCps.Setup(s => s.ReadCursorAsync("export.workitems", It.IsAny<CancellationToken>()))
-                .ReturnsAsync((CursorEntry?)null);
-        _mockCps.Setup(s => s.WriteCursorAsync("export.workitems", It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
-
-        _mockStore.Setup(s => s.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                  .Returns(Task.CompletedTask);
-
-        // Factory should NEVER be called for a comment addition revision.
-        var mockFactory = new Mock<IWorkItemCommentSourceFactory>(MockBehavior.Strict);
-
-        var sut = CreateOrchestrator(
-            _mockStore.Object,
-            _mockCps.Object,
-            endpoint: TestEndpoint,
-            project: "MyProject",
-            inlineCommentSourceFactory: mockFactory.Object,
-            package: _mockPackage.Object);
-
-        var mockSource = new Mock<IWorkItemRevisionSource>(MockBehavior.Strict);
-        mockSource
-            .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
-            .Returns((CancellationToken ct) => new[] { revision }.ToAsyncEnumerable(ct));
-
-        await sut.ExportAsync(mockSource.Object, CancellationToken.None);
-
-        // Strict mock will throw if Create() is invoked — test passes if no call made.
-        mockFactory.Verify(f => f.Create(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>()), Times.Never);
-    }
 
     // ── Attachment delta detection ────────────────────────────────────────────
 

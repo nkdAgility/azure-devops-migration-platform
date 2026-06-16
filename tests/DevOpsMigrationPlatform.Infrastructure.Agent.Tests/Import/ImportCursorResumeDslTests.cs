@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -78,8 +79,7 @@ public class ImportCursorResumeDslTests
     {
         ctx.MockTarget.Setup(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ImportedWorkItemResult { TargetWorkItemId = targetId, IsNewlyCreated = true });
-        ctx.MockTarget.Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        ctx.MockTarget.Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        ctx.MockTarget.Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         ctx.MockTarget.Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
         if (!alreadyMapped)
             ctx.MockIdMapStore.SetupSequence(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
@@ -140,8 +140,10 @@ public class ImportCursorResumeDslTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public async Task ImportAsync_MidFolderCursor_SkipsCompletedStagesAndContinuesFromAppliedLinks()
+    public async Task ImportAsync_MidFolderCursor_SkipsCompletedStagesWhenResumedAfterAppliedFields()
     {
+        // AppliedLinks/UploadedAttachments are now subsumed by the combined Stage B (AppliedFields).
+        // Resuming at AppliedFields means the combined PATCH already ran — nothing left to do except comments.
         var ctx = new ImportCursorResumeContext();
         ctx.AllFolderPaths = new List<string>
         {
@@ -174,10 +176,10 @@ public class ImportCursorResumeDslTests
         ctx.MockTarget.Verify(
             t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
             Times.Never);
-        // AddLinksAsync (AppliedLinks stage) must be called
+        // ApplyRevisionAsync must NOT be called (cursor is AppliedFields — combined B stage is done)
         ctx.MockTarget.Verify(
-            t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()),
-            Times.Once);
+            t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     // ── Scenario: Force-fresh deletes the cursor but preserves the ID map ──────

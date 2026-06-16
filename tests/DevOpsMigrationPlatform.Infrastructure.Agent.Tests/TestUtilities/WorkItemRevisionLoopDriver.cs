@@ -4,6 +4,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
@@ -46,7 +47,6 @@ public sealed class WorkItemRevisionLoopDriver
             Mock.Of<IWorkItemRevisionSourceFactory>(),
             null,
             null,
-            null,
             Mock.Of<IWorkItemExportOrchestratorFactory>(),
             Mock.Of<ICheckpointingServiceFactory>(),
             NullLogger<WorkItemsModule>.Instance,
@@ -65,6 +65,8 @@ public sealed class WorkItemRevisionLoopDriver
             Mock.Of<IWorkItemsImportCapabilityValidator>(),
             Mock.Of<IWorkItemsNodeReadinessOrchestrator>(),
             Mock.Of<ITargetEndpointInfo>(),
-            commentsExtension: commentsExtension);
+            commentsExtension != null
+                ? new IModuleExtension[] { commentsExtension }
+                : new IModuleExtension[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) });
     }
 }

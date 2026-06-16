@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -116,8 +117,8 @@ public class FilterScopeImportTests
         await ctx.BuildOrchestrator().ImportAsync(ctx.Extensions, ResumeMode.Auto, CancellationToken.None);
 
         // Assert — 1 and 3 imported, 2 skipped
-        ctx.MockTarget.Verify(t => t.UpdateFieldsAsync(It.Is<int>(id => id == 1 || id == 3), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
-        ctx.MockTarget.Verify(t => t.UpdateFieldsAsync(It.Is<int>(id => id == 2), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
+        ctx.MockTarget.Verify(t => t.ApplyRevisionAsync(It.Is<int>(id => id == 1 || id == 3), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        ctx.MockTarget.Verify(t => t.ApplyRevisionAsync(It.Is<int>(id => id == 2), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [TestCategory("CodeTest")]
@@ -136,7 +137,7 @@ public class FilterScopeImportTests
         await ctx.BuildOrchestrator().ImportAsync(ctx.Extensions, ResumeMode.Auto, CancellationToken.None);
 
         // Assert — work item 1 imported because its LAST revision is Active
-        ctx.MockTarget.Verify(t => t.UpdateFieldsAsync(It.Is<int>(id => id == 1), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        ctx.MockTarget.Verify(t => t.ApplyRevisionAsync(It.Is<int>(id => id == 1), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
     [TestCategory("CodeTest")]
@@ -154,7 +155,7 @@ public class FilterScopeImportTests
         await ctx.BuildOrchestrator().ImportAsync(ctx.Extensions, ResumeMode.Auto, CancellationToken.None);
 
         // Assert — work item 2 not imported
-        ctx.MockTarget.Verify(t => t.UpdateFieldsAsync(It.Is<int>(id => id == 2), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
+        ctx.MockTarget.Verify(t => t.ApplyRevisionAsync(It.Is<int>(id => id == 2), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [TestCategory("CodeTest")]
@@ -174,7 +175,7 @@ public class FilterScopeImportTests
         await ctx.BuildOrchestrator().ImportAsync(ctx.Extensions, ResumeMode.Auto, CancellationToken.None);
 
         // Assert — no work items imported
-        ctx.MockTarget.Verify(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
+        ctx.MockTarget.Verify(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [TestCategory("CodeTest")]
@@ -194,7 +195,7 @@ public class FilterScopeImportTests
         await ctx.BuildOrchestrator().ImportAsync(ctx.Extensions, ResumeMode.Auto, CancellationToken.None);
 
         // Assert — all 3 imported
-        ctx.MockTarget.Verify(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.AtLeast(3));
+        ctx.MockTarget.Verify(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.AtLeast(3));
     }
 }
 

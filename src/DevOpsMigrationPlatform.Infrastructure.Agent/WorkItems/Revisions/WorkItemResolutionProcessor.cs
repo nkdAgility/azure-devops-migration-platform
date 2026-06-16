@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent;
 using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -55,8 +56,6 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     private readonly ProjectMapping? _nodeTranslationContext;
     private readonly NodeTranslationOptions? _nodeStructureOptions;
     private readonly IPackageAccess? _package;
-    private readonly LinksWorkItemExtension _linksExtension;
-    private readonly AttachmentsWorkItemExtension _attachmentsExtension;
     private readonly CommentsWorkItemExtension _commentsExtension;
     private readonly IReadOnlyList<WorkItemRevisionStage>? _injectedExtensionStages;
     private readonly bool _embeddedImagesEnabled;
@@ -76,6 +75,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         ILogger logger,
         string organisation,
         string project,
+        IEnumerable<IModuleExtension> moduleExtensions,
         IPlatformMetrics? metrics = null,
         string? jobId = null,
         IFieldTransformTool? fieldTransformTool = null,
@@ -84,9 +84,6 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         NodeTranslationOptions? nodeStructureOptions = null,
         IPackageAccess? package = null,
         EmbeddedImageRewriteTool? embeddedImageReplayService = null,
-        LinksWorkItemExtension? linksExtension = null,
-        AttachmentsWorkItemExtension? attachmentsExtension = null,
-        CommentsWorkItemExtension? commentsExtension = null,
         IReadOnlyList<WorkItemRevisionStage>? extensionStages = null,
         EmbeddedImagesExtensionOptionsConfig? embeddedImagesOptions = null)
     {
@@ -106,9 +103,8 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         _nodeTranslationContext = nodeStructureContext;
         _nodeStructureOptions = nodeStructureOptions;
         _package = package;
-        _linksExtension = linksExtension ?? new LinksWorkItemExtension(Options.Create(new LinksExtensionOptions()));
-        _attachmentsExtension = attachmentsExtension ?? new AttachmentsWorkItemExtension(Options.Create(new AttachmentsExtensionOptions()), Microsoft.Extensions.Logging.Abstractions.NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments.AttachmentReplayTool>.Instance);
-        _commentsExtension = commentsExtension ?? new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()));
+        _commentsExtension = moduleExtensions.OfType<CommentsWorkItemExtension>().FirstOrDefault()
+            ?? throw new ArgumentException("No CommentsWorkItemExtension found in moduleExtensions. Register it in DI.", nameof(moduleExtensions));
         _injectedExtensionStages = extensionStages;
         _embeddedImagesEnabled = embeddedImagesOptions?.Enabled ?? true;
 
@@ -252,7 +248,11 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         var resolvedTargetId = await _idMapStore.GetTargetWorkItemIdAsync(revision.WorkItemId, ct).ConfigureAwait(false)
             ?? throw new InvalidOperationException($"No target ID mapping for source work item {revision.WorkItemId} after Stage A.");
 
-        // Stage B — AppliedFields
+        // Stage B — AppliedFields (combined: fields + links + attachments in a single PATCH)
+        // On resume, AppliedLinks and UploadedAttachments cursors from previous runs are treated as
+        // equivalent to AppliedFields (all three are now subsumed). ShouldRunStage uses lexicographic
+        // ordering: if resumeAtStage >= AppliedFields this block is skipped, which covers all three
+        // old cursor values since AppliedLinks > AppliedFields and UploadedAttachments > AppliedLinks.
         if (WorkItemRevisionStagePipeline.ShouldRunStage(CursorStage.AppliedFields, resumeAtStage))
         {
             _logger.LogDebug("[WorkItems] Stage marker: {Stage} for {Folder}", CursorStage.AppliedFields, folderPath);
@@ -282,13 +282,32 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
                 fields = translatedFields;
             }
 
-            await _target.UpdateFieldsAsync(resolvedTargetId, fields, ct).ConfigureAwait(false);
+            // Pre-step: upload all attachment binaries (separate POST calls — returns URLs)
+            var availableBinaryPaths = await EnumerateAttachmentBinariesAsync(folderPath, ct).ConfigureAwait(false);
+            var replayTool = new AttachmentReplayTool(
+                _target,
+                _idMapStore,
+                _logger as ILogger<AttachmentReplayTool> ?? NullLogger<AttachmentReplayTool>.Instance);
+            var attachmentResults = await replayTool.UploadBinariesAsync(
+                revision, folderPath, resolvedTargetId, ReadPackageBinaryAsync, availableBinaryPaths, ct)
+                .ConfigureAwait(false);
+
+            // Single PATCH: fields + all link relations + all attachment relations
+            await _target.ApplyRevisionAsync(
+                resolvedTargetId,
+                fields,
+                revision.RelatedLinks,
+                revision.ExternalLinks,
+                revision.Hyperlinks,
+                attachmentResults,
+                ct).ConfigureAwait(false);
+
             await WriteCursorAsync(folderPath, CursorStage.AppliedFields, ct).ConfigureAwait(false);
         }
 
-        // Stages C, D — extension-driven, cursor-bearing. Loop driven by WorkItemRevisionStagePipeline.
-        // Disabled extension: skip execute but still write cursor (resume consistency).
-        // New extension = add one entry here; no other edit needed.
+        // Extension stages — comments and any injected stages.
+        // AppliedLinks and UploadedAttachments are intentionally omitted from the default list:
+        // they are now subsumed by the Stage B combined PATCH above.
         var baseCtx = new WorkItemExtensionContext
         {
             Organisation = _organisation,
@@ -307,23 +326,8 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
 
         IReadOnlyList<WorkItemRevisionStage> extensionStages = _injectedExtensionStages ??
         [
-            new(CursorStage.AppliedLinks,
-                IsEnabled: () => _linksExtension.IsEnabled,
-                ExecuteAsync: (ctx, token) => _linksExtension.ImportAsync(ctx, token)),
-
-            new(CursorStage.UploadedAttachments,
-                IsEnabled: () => _attachmentsExtension.IsEnabled,
-                ExecuteAsync: async (ctx, token) =>
-                {
-                    ctx = ctx with
-                    {
-                        AvailableBinaryPaths = await EnumerateAttachmentBinariesAsync(folderPath, token).ConfigureAwait(false)
-                    };
-                    await _attachmentsExtension.ImportAsync(ctx, token).ConfigureAwait(false);
-                }),
-
             new(CursorStage.AppliedComments,
-                IsEnabled: () => _commentsExtension.IsEnabled,
+                IsEnabled: () => _commentsExtension.IsEnabled && _commentsExtension.SupportsImport,
                 ExecuteAsync: (ctx, token) => _commentsExtension.ImportAsync(ctx, token)),
         ];
 

@@ -28,8 +28,8 @@ public interface IWorkItemResolutionProcessorFactory
 
     /// <summary>
     /// Creates a new <see cref="IWorkItemResolutionProcessor"/> with NodeTranslation context
-    /// and optional per-job replay-lever overrides. When a lever disables an extension that
-    /// config has enabled, pass <see langword="false"/> for the relevant parameter.
+    /// and optional per-job replay-lever override for embedded images.
+    /// Links and attachments are unconditional core behaviour and are always processed.
     /// </summary>
     IWorkItemResolutionProcessor Create(
         IWorkItemTarget target,
@@ -39,7 +39,5 @@ public interface IWorkItemResolutionProcessorFactory
         string organisation,
         string project,
         DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping? nodeStructureContext,
-        bool attachmentsEnabledByLever = true,
-        bool linksEnabledByLever = true,
         bool embeddedImagesEnabledByLever = true);
 }

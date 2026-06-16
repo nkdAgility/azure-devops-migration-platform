@@ -7,10 +7,13 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
@@ -54,6 +57,7 @@ public class StreamingImportReplayContext
             NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
             package: MockPackage.Object);
 
         return new WorkItemRevisionLoopDriver(new WorkItemRevisionJobScope(

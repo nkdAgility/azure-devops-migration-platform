@@ -142,6 +142,17 @@ public static class WellKnownAgentMetricNames
     public const string TeamsExportErrors = "platform.teams.export.errors";
     public const string TeamsExportInFlight = "platform.teams.export.in_flight";
 
+    // --- Teams Board Config Export/Import ---
+    public const string TeamsBoardConfigExportCount = "platform.teams.export.boardconfig.count";
+    public const string TeamsBoardConfigExportDurationMs = "platform.teams.export.boardconfig.duration_ms";
+    public const string TeamsBoardConfigExportErrors = "platform.teams.export.boardconfig.errors";
+    public const string TeamsBoardConfigExportInFlight = "platform.teams.export.boardconfig.in_flight";
+    public const string TeamsBoardConfigImportCount = "platform.teams.import.boardconfig.count";
+    public const string TeamsBoardConfigImportDurationMs = "platform.teams.import.boardconfig.duration_ms";
+    public const string TeamsBoardConfigImportErrors = "platform.teams.import.boardconfig.errors";
+    public const string TeamsBoardConfigImportInFlight = "platform.teams.import.boardconfig.in_flight";
+    public const string TeamsBoardConfigImportSkipped = "platform.teams.import.boardconfig.skipped";
+
     // --- Teams Import ---
     public const string TeamsImportCount = "platform.teams.import.count";
     public const string TeamsImportDurationMs = "platform.teams.import.duration_ms";

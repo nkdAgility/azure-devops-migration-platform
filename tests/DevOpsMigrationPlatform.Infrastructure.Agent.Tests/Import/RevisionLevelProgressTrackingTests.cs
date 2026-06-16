@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -109,11 +110,8 @@ public class RevisionLevelProgressTrackingTests
             .Setup(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ImportedWorkItemResult { TargetWorkItemId = 10, IsNewlyCreated = true });
         ctx.MockTarget
-            .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
-            .Callback<int, IReadOnlyList<WorkItemField>, CancellationToken>((tid, _, _) => ctx.UpdateFieldsCalls.Add(tid))
-            .Returns(Task.CompletedTask);
-        ctx.MockTarget
-            .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()))
+            .Callback<int, IReadOnlyList<WorkItemField>, IReadOnlyList<RelatedWorkItemLink>, IReadOnlyList<ExternalWorkItemLink>, IReadOnlyList<HyperlinkWorkItemLink>, IReadOnlyList<AttachmentUploadResult>, CancellationToken>((tid, _, _, _, _, _, _) => ctx.UpdateFieldsCalls.Add(tid))
             .Returns(Task.CompletedTask);
         ctx.MockTarget
             .Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
