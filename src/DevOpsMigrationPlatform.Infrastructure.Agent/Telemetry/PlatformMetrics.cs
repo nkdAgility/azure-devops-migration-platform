@@ -135,6 +135,13 @@ public sealed class PlatformMetrics : IPlatformMetrics, IDisposable
     private readonly Counter<long> _teamExportErrors;
     private readonly UpDownCounter<long> _teamExportInFlight;
 
+    // --- Teams Board Config Import ---
+    private readonly Counter<long> _boardConfigImportCount;
+    private readonly Histogram<double> _boardConfigImportDuration;
+    private readonly Counter<long> _boardConfigImportErrors;
+    private readonly UpDownCounter<long> _boardConfigImportInFlight;
+    private readonly Counter<long> _boardConfigImportSkipped;
+
     // --- Teams Import ---
     private readonly Counter<long> _teamImportCount;
     private readonly Histogram<double> _teamImportDuration;
@@ -350,6 +357,13 @@ public sealed class PlatformMetrics : IPlatformMetrics, IDisposable
         _teamExportDuration = _meter.CreateHistogram<double>(WellKnownAgentMetricNames.TeamsExportDurationMs, unit: "ms");
         _teamExportErrors = _meter.CreateCounter<long>(WellKnownAgentMetricNames.TeamsExportErrors, unit: "{error}");
         _teamExportInFlight = _meter.CreateUpDownCounter<long>(WellKnownAgentMetricNames.TeamsExportInFlight, unit: "{team}");
+
+        // Teams Board Config Import
+        _boardConfigImportCount = _meter.CreateCounter<long>(WellKnownAgentMetricNames.TeamsBoardConfigImportCount, unit: "{team}");
+        _boardConfigImportDuration = _meter.CreateHistogram<double>(WellKnownAgentMetricNames.TeamsBoardConfigImportDurationMs, unit: "ms");
+        _boardConfigImportErrors = _meter.CreateCounter<long>(WellKnownAgentMetricNames.TeamsBoardConfigImportErrors, unit: "{error}");
+        _boardConfigImportInFlight = _meter.CreateUpDownCounter<long>(WellKnownAgentMetricNames.TeamsBoardConfigImportInFlight, unit: "{team}");
+        _boardConfigImportSkipped = _meter.CreateCounter<long>(WellKnownAgentMetricNames.TeamsBoardConfigImportSkipped, unit: "{team}");
 
         // Teams Import
         _teamImportCount = _meter.CreateCounter<long>(WellKnownAgentMetricNames.TeamsImportCount, unit: "{team}");
@@ -612,6 +626,13 @@ public sealed class PlatformMetrics : IPlatformMetrics, IDisposable
     public void DecrementTeamExportInFlight(MetricsTagList tags) => _teamExportInFlight.Add(-1, ToTagList(tags));
 
     // --- Teams Import ---
+    public void RecordBoardConfigImportCount(MetricsTagList tags) => _boardConfigImportCount.Add(1, ToTagList(tags));
+    public void RecordBoardConfigImportDuration(double milliseconds, MetricsTagList tags) => _boardConfigImportDuration.Record(milliseconds, ToTagList(tags));
+    public void RecordBoardConfigImportError(MetricsTagList tags) => _boardConfigImportErrors.Add(1, ToTagList(tags));
+    public void IncrementBoardConfigImportInFlight(MetricsTagList tags) => _boardConfigImportInFlight.Add(1, ToTagList(tags));
+    public void DecrementBoardConfigImportInFlight(MetricsTagList tags) => _boardConfigImportInFlight.Add(-1, ToTagList(tags));
+    public void RecordBoardConfigImportSkipped(MetricsTagList tags) => _boardConfigImportSkipped.Add(1, ToTagList(tags));
+
     public void RecordTeamImportCount(MetricsTagList tags) => _teamImportCount.Add(1, ToTagList(tags));
     public void RecordTeamImportDuration(double milliseconds, MetricsTagList tags) => _teamImportDuration.Record(milliseconds, ToTagList(tags));
     public void RecordTeamImportError(MetricsTagList tags) => _teamImportErrors.Add(1, ToTagList(tags));

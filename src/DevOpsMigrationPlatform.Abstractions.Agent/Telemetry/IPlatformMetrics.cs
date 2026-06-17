@@ -133,6 +133,14 @@ public interface IPlatformMetrics
     void IncrementTeamExportInFlight(MetricsTagList tags);
     void DecrementTeamExportInFlight(MetricsTagList tags);
 
+    // --- Teams Board Config Import ---
+    void RecordBoardConfigImportCount(MetricsTagList tags);
+    void RecordBoardConfigImportDuration(double milliseconds, MetricsTagList tags);
+    void RecordBoardConfigImportError(MetricsTagList tags);
+    void IncrementBoardConfigImportInFlight(MetricsTagList tags);
+    void DecrementBoardConfigImportInFlight(MetricsTagList tags);
+    void RecordBoardConfigImportSkipped(MetricsTagList tags);
+
     // --- Teams Import ---
     void RecordTeamImportCount(MetricsTagList tags);
     void RecordTeamImportDuration(double milliseconds, MetricsTagList tags);

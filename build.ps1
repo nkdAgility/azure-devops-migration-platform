@@ -392,11 +392,7 @@ function Write-TestSummary {
         $rank = 1
         foreach ($t in $slowest) {
             $dur = $t.Duration
-            $formatted = if ($dur.TotalMinutes -ge 1) {
-                '{0}m {1:D2}.{2:D3}s' -f [int]$dur.TotalMinutes, $dur.Seconds, $dur.Milliseconds
-            } else {
-                '{0:D2}.{1:D3}s' -f $dur.Seconds, $dur.Milliseconds
-            }
+            $formatted = '{0}:{1:D2}.{2:D3}' -f [int]$dur.TotalMinutes, $dur.Seconds, $dur.Milliseconds
             $shortName = if ($t.Name.Length -gt 62) { $t.Name.Substring(0, 59) + '...' } else { $t.Name }
             Write-Host ('  {0,3}  {1,-62}  {2,9}' -f $rank, $shortName, $formatted) -ForegroundColor DarkYellow
             $rank++
@@ -426,11 +422,7 @@ function Write-TestSummary {
             $rank = 1
             foreach ($t in $slowest) {
                 $dur = $t.Duration
-                $formatted = if ($dur.TotalMinutes -ge 1) {
-                    '{0}m {1:D2}.{2:D3}s' -f [int]$dur.TotalMinutes, $dur.Seconds, $dur.Milliseconds
-                } else {
-                    '{0:D2}.{1:D3}s' -f $dur.Seconds, $dur.Milliseconds
-                }
+                $formatted = '{0}:{1:D2}.{2:D3}' -f [int]$dur.TotalMinutes, $dur.Seconds, $dur.Milliseconds
                 $shortName = if ($t.Name.Length -gt 62) { $t.Name.Substring(0, 59) + '...' } else { $t.Name }
                 Write-Host ('  {0,3}  {1,-62}  {2,9}' -f $rank, $shortName, $formatted) -ForegroundColor DarkYellow
                 $rank++
@@ -502,8 +494,7 @@ function Write-BuildSummary {
 function Format-Elapsed {
     param([double]$TotalSeconds)
     $ts = [TimeSpan]::FromSeconds($TotalSeconds)
-    if ($ts.TotalMinutes -ge 1) { '{0}m {1:D2}s' -f [int]$ts.TotalMinutes, $ts.Seconds }
-    else { '{0:D2}s {1:D3}ms' -f $ts.Seconds, $ts.Milliseconds }
+    '{0}:{1:D2}.{2:D3}' -f [int]$ts.TotalMinutes, $ts.Seconds, $ts.Milliseconds
 }
 
 function Get-TrxTotalCount {

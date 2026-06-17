@@ -197,7 +197,8 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
                         Package = _package!,
                         Team = team,
                         Slug = slug,
-                        SourceProjectName = projectName
+                        SourceProjectName = projectName,
+                        ProgressSink = sink
                     };
 
                     foreach (var ext in _exportExtensions)
@@ -391,7 +392,8 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
                         Package = context.Package,
                         Team = teamPackage.Definition,
                         Slug = slug,
-                        SourceProjectName = sourceProjectName
+                        SourceProjectName = sourceProjectName,
+                        ProgressSink = importSink
                     };
 
                     foreach (var ext in _importExtensions)

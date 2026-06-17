@@ -29,6 +29,7 @@ public static class TeamsServiceCollectionExtensions
 #if NET7_0_OR_GREATER
         // Register schema entry for migration.schema.json generation
         services.AddSchemaEntry<TeamsModuleOptions>("Teams export/import module configuration");
+        services.AddSchemaEntry<BoardConfigExtensionOptions>("Board configuration export/import extension");
 #endif
 
         // Scoped (not Singleton) so each per-job DI scope gets its own TeamsOrchestrator

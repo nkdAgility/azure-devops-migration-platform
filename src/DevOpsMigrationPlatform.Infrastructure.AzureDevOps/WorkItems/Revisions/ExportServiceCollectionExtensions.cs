@@ -94,7 +94,7 @@ public static class ExportServiceCollectionExtensions
                 global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.BoardConfig |
                 global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TaskboardColumns |
                 global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.Backlogs));
-        // Board adapter — Phase 4 stub; real implementation delivered in later stories.
+        // Board adapter — full implementation using WorkHttpClient; uses source endpoint for reads and target for writes.
         services.TryAddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.Teams.ITeamBoardAdapter,
             global::DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Teams.AzureDevOpsBoardAdapter>();
 

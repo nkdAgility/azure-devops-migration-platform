@@ -44,6 +44,30 @@ Registered via `AddIdentityAdapter<T>("<connectorType>")` and dispatched by `Com
 - All interfaces in `DevOpsMigrationPlatform.Abstractions`.
 - Concrete implementations in `DevOpsMigrationPlatform.Infrastructure.*`.
 
+## ConnectorCapability Mechanism
+
+`ConnectorCapability` is an enum declared in `DevOpsMigrationPlatform.Abstractions.Agent`.
+Each connector registers its supported capabilities via `IConnectorCapabilityProvider`.
+Extensions gate their work behind `_capProvider.Has(Cap.X)` — no null guards, no try/catch
+for capability detection.
+
+### Board Configuration Capability Flags
+
+| Flag | Meaning | ADO | TFS |
+|---|---|---|---|
+| `BoardConfig` | Composite: board columns, swimlanes, card rules | ✔ | ✗ |
+| `Backlogs` | Backlog level metadata | ✔ | ✗ |
+| `TaskboardColumns` | Sprint taskboard columns | ✔ | ✗ |
+
+When `BoardConfig` is absent the `BoardConfigTeamExtension` emits a `BoardConfigSkipped`
+progress event and returns immediately — no artefact is written, no error is raised.
+
+### Explicit-registration rule
+
+A connector registers its capabilities explicitly at DI startup.
+No implicit defaults. If a flag is not registered, `Has(Cap.X)` returns `false`.
+This prevents silent capability leakage when a new connector type is added.
+
 ## Simulated Dependency Discovery
 
 `SimulatedDependencyDiscoveryServiceFactory` implements `IDependencyDiscoveryServiceFactory` for the Simulated connector. It is registered via `AddSimulatedDependencyAnalysis()` using `TryAddSingleton` (ADO factory takes precedence when both are present). The factory delegates to `SimulatedWorkItemLinkAnalysisService` (keyed `"Simulated"`) which returns an empty link sequence — no network calls are made.

@@ -49,10 +49,34 @@ public sealed class SimulatedBoardAdapter : ITeamBoardAdapter
         new BoardColumn("Done",        BoardColumnType.Outgoing,   null, false, null, []),
     ];
 
+    private static readonly BoardSwimLane[] s_storiesSwimLanes =
+    [
+        new BoardSwimLane("swimlane-1", "Expedite"),
+        new BoardSwimLane("swimlane-2", "Normal"),
+    ];
+
     private static readonly BoardConfig[] s_boards =
     [
-        new BoardConfig("Stories", s_storiesColumns, []),
+        new BoardConfig("Stories", s_storiesColumns, s_storiesSwimLanes),
         new BoardConfig("Epics",   s_epicsColumns,   []),
+    ];
+
+    private static readonly CardRuleSettings s_storiesCardRules = new(
+    [
+        new CardRule("High Priority", "#ff0000", true, "[Priority] = 1"),
+    ]);
+
+    private static readonly BacklogMetadata[] s_backlogs =
+    [
+        new BacklogMetadata("Epics",   "Microsoft.EpicCategory",        BacklogLevelType.Portfolio,   1),
+        new BacklogMetadata("Stories", "Microsoft.RequirementCategory",  BacklogLevelType.Requirement, 2),
+    ];
+
+    private static readonly TaskboardColumn[] s_taskboardColumns =
+    [
+        new TaskboardColumn("To Do",       BoardColumnType.Incoming,   0, []),
+        new TaskboardColumn("In Progress", BoardColumnType.InProgress, 1, []),
+        new TaskboardColumn("Done",        BoardColumnType.Outgoing,   2, []),
     ];
 
     // -------------------------------------------------------------------------
@@ -74,24 +98,30 @@ public sealed class SimulatedBoardAdapter : ITeamBoardAdapter
 
     public Task<CardRuleSettings?> GetCardRuleSettingsAsync(
         string project, string teamId, string boardName, CancellationToken ct)
-        => Task.FromResult<CardRuleSettings?>(null); // US3
+        => Task.FromResult<CardRuleSettings?>(boardName == "Stories" ? s_storiesCardRules : null);
 
     public async IAsyncEnumerable<BacklogMetadata> GetBacklogsAsync(
         string project, string teamId,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        // US4 — return empty sequence
-        await Task.CompletedTask;
-        yield break;
+        foreach (var b in s_backlogs)
+        {
+            ct.ThrowIfCancellationRequested();
+            yield return b;
+            await Task.CompletedTask;
+        }
     }
 
     public async IAsyncEnumerable<TaskboardColumn> GetTaskboardColumnsAsync(
         string project, string teamId,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        // US5 — return empty sequence
-        await Task.CompletedTask;
-        yield break;
+        foreach (var col in s_taskboardColumns)
+        {
+            ct.ThrowIfCancellationRequested();
+            yield return col;
+            await Task.CompletedTask;
+        }
     }
 
     public Task<IReadOnlyList<BoardColumn>> GetBoardColumnsAsync(

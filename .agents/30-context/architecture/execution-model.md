@@ -304,6 +304,31 @@ Extension → Tool           Logic seam
 
 ---
 
+## Worked Example: BoardConfigTeamExtension
+
+`BoardConfigTeamExtension` is the canonical worked example for the Extension layer.
+
+| Aspect | Value |
+|---|---|
+| Module | `"Teams"` |
+| Name | `"BoardConfig"` |
+| Order | `100` |
+| Config | `IOptions<BoardConfigExtensionOptions>` (own config; not nested in TeamsModuleOptions) |
+| Adapter | `ITeamBoardAdapter` — both export reads and import writes in one type |
+| Capability gate | `_capProvider.Has(ConnectorCapability.BoardConfig)` — skip if absent, never throw |
+| Export path | `ExportAsync` → reads boards/swimlanes/card rules/backlogs/taskboard columns from adapter → serialises to `Teams/{slug}/board-config.json` |
+| Import path | `ImportAsync` (O-1/O-2 shell) → `ImportCoreAsync` (logic) — reads package artefact, applies `ImportMode` (Replace/Merge/Skip), writes to target via adapter |
+| FR-013 filter | Invalid state mappings (referencing absent target states) are filtered before `UpdateBoardColumnsAsync`, with per-column log warnings |
+| Telemetry | O-1 Activity span; O-2 six `IPlatformMetrics` instruments (count/duration/errors/in-flight/skipped); O-3 `ILogger`; O-4 `IProgressSink` events |
+| Test coverage | `BoardConfigTeamExtensionTests` (DomainTests) + `SimulatedBoardAdapterExportTests` / `SimulatedBoardAdapterImportTests` (SystemTest_Simulated) + `AzureDevOpsBoardAdapterTests` (IntegrationTests) |
+
+Key design decisions:
+- `ImportAsync` is split into a public `ImportAsync` (Activity span + InFlight metrics) and private `ImportCoreAsync` (logic + skip/error/count/duration). This avoids nesting a try/catch inside the Activity inside early-return guards.
+- The adapter is registered in the AzureDevOps connector project; TFS registers `ConnectorCapability.None` and no `ITeamBoardAdapter` — the extension never null-guards the adapter.
+- `BuildValidStatesMap` reads the target board's current columns (not a dedicated API) to determine valid states. WITs absent from the map pass through; only present WITs with absent states are filtered.
+
+---
+
 ## Telemetry Obligations
 
 Every layer from Module down must satisfy four telemetry obligations:

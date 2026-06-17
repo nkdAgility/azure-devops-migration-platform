@@ -1,13 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+#if NET7_0_OR_GREATER
+using DevOpsMigrationPlatform.Abstractions.Options;
+#endif
+
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 
 /// <summary>
 /// Config for the board-config extension.
 /// Bound via <c>IOptions&lt;BoardConfigExtensionOptions&gt;</c> — not nested in a shared module god-object.
 /// </summary>
+#if NET7_0_OR_GREATER
+public sealed class BoardConfigExtensionOptions : IConfigSection
+#else
 public sealed class BoardConfigExtensionOptions
+#endif
 {
     /// <summary>Configuration section path for binding.</summary>
     public static string SectionName => "MigrationPlatform:Modules:Teams:Extensions:BoardConfig";

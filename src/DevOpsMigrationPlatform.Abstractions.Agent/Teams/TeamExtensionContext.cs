@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Abstractions.Storage;
+using DevOpsMigrationPlatform.Abstractions.Streaming;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 
@@ -54,4 +55,7 @@ public sealed record TeamExtensionContext : IExtensionContext
 
     /// <summary>Source project name. Used for path translation during import.</summary>
     public required string SourceProjectName { get; init; }
+
+    /// <summary>Progress event sink. Null in unit-test contexts where no sink is wired.</summary>
+    public IProgressSink? ProgressSink { get; init; }
 }
