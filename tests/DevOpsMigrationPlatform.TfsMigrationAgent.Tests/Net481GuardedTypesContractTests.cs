@@ -37,7 +37,7 @@ public class Net481GuardedTypesContractTests
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution.CompositeWorkItemTargetFactory"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution.KeyedWorkItemTargetFactory"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution.NullResolutionStrategy"),
-        ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Identity.PassThroughIdentityMappingService"),
+        ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Identity.PassThroughIdentityMappingService"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityTranslation.IdentityTranslationToolServiceCollectionExtensions"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityTranslation.IdentityTranslationTool"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.ReferencedPathTracker"),
