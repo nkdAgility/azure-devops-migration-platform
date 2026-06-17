@@ -3,9 +3,8 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 public interface IWorkItemExportOrchestrator
 {

@@ -78,12 +78,23 @@ public class BoardConfigTeamExtensionTests
         Mock<ITeamBoardAdapter> adapter,
         Mock<IConnectorCapabilityProvider> capProvider,
         BoardConfigExtensionOptions? options = null)
-        => new(
+    {
+        // Provide a safe default for GetBoardConfigSnapshotAsync so tests that don't
+        // need specific target state don't have to set it up explicitly.
+        if (!adapter.Setups.Any(s => s.ToString()!.Contains(nameof(ITeamBoardAdapter.GetBoardConfigSnapshotAsync))))
+        {
+            adapter.Setup(a => a.GetBoardConfigSnapshotAsync(
+                    It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                   .ReturnsAsync(TargetBoardSnapshot.Empty);
+        }
+
+        return new(
             Options.Create(options ?? new BoardConfigExtensionOptions()),
             adapter.Object,
             capProvider.Object,
             metrics: null,
             logger: NullLogger<BoardConfigTeamExtension>.Instance);
+    }
 
     private static BoardColumn MakeColumn(string name, int? itemLimit = null, bool isSplit = false)
         => new(name, BoardColumnType.InProgress, itemLimit, isSplit, null, []);
@@ -912,10 +923,14 @@ public class BoardConfigTeamExtensionTests
         var adapter     = new Mock<ITeamBoardAdapter>(MockBehavior.Loose);
 
         // Target has existing boards — Skip mode should not update
-        adapter.Setup(a => a.GetBoardsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-               .Returns(BoardsFrom(MakeBoard("Stories", MakeColumn("Active"))));
-        adapter.Setup(a => a.GetCurrentTaskboardColumnsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-               .ReturnsAsync(new[] { new TaskboardColumn("To Do", BoardColumnType.Incoming, 0, []) });
+        adapter.Setup(a => a.GetBoardConfigSnapshotAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(new TargetBoardSnapshot
+               {
+                   BoardNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Stories" },
+                   BoardColumns = new Dictionary<string, IReadOnlyList<BoardColumn>>(StringComparer.OrdinalIgnoreCase),
+                   BoardSwimLanes = new Dictionary<string, IReadOnlyList<BoardSwimLane>>(StringComparer.OrdinalIgnoreCase),
+                   TaskboardColumns = new[] { new TaskboardColumn("To Do", BoardColumnType.Incoming, 0, []) },
+               });
 
         var package = PackageWith(boardConfig);
         var options = new BoardConfigExtensionOptions { ImportMode = BoardConfigImportMode.Skip };
@@ -1041,8 +1056,17 @@ public class BoardConfigTeamExtensionTests
 
         var boardConfig = MakeBoardConfig(columns: packageColumns);
         var adapter     = new Mock<ITeamBoardAdapter>(MockBehavior.Loose);
-        adapter.Setup(a => a.GetBoardColumnsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-               .ReturnsAsync((IReadOnlyList<BoardColumn>)targetColumns);
+        adapter.Setup(a => a.GetBoardConfigSnapshotAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(new TargetBoardSnapshot
+               {
+                   BoardNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                   BoardColumns = new Dictionary<string, IReadOnlyList<BoardColumn>>(StringComparer.OrdinalIgnoreCase)
+                   {
+                       ["Stories"] = targetColumns,
+                   },
+                   BoardSwimLanes = new Dictionary<string, IReadOnlyList<BoardSwimLane>>(StringComparer.OrdinalIgnoreCase),
+                   TaskboardColumns = [],
+               });
 
         IReadOnlyList<BoardColumn>? merged = null;
         adapter.Setup(a => a.UpdateBoardColumnsAsync(
@@ -1079,10 +1103,17 @@ public class BoardConfigTeamExtensionTests
 
         var boardConfig = MakeBoardConfig(lanes: packageLanes);
         var adapter     = new Mock<ITeamBoardAdapter>(MockBehavior.Loose);
-        adapter.Setup(a => a.GetBoardSwimLanesAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-               .ReturnsAsync((IReadOnlyList<BoardSwimLane>)targetLanes);
-        adapter.Setup(a => a.GetBoardColumnsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-               .ReturnsAsync(Array.Empty<BoardColumn>());
+        adapter.Setup(a => a.GetBoardConfigSnapshotAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(new TargetBoardSnapshot
+               {
+                   BoardNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                   BoardColumns = new Dictionary<string, IReadOnlyList<BoardColumn>>(StringComparer.OrdinalIgnoreCase),
+                   BoardSwimLanes = new Dictionary<string, IReadOnlyList<BoardSwimLane>>(StringComparer.OrdinalIgnoreCase)
+                   {
+                       ["Stories"] = targetLanes,
+                   },
+                   TaskboardColumns = [],
+               });
 
         IReadOnlyList<BoardSwimLane>? merged = null;
         adapter.Setup(a => a.UpdateSwimLanesAsync(
@@ -1134,12 +1165,14 @@ public class BoardConfigTeamExtensionTests
         };
 
         var adapter = new Mock<ITeamBoardAdapter>(MockBehavior.Loose);
-        adapter.Setup(a => a.GetBoardColumnsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-               .ReturnsAsync(Array.Empty<BoardColumn>());
-        adapter.Setup(a => a.GetBoardSwimLanesAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-               .ReturnsAsync(Array.Empty<BoardSwimLane>());
-        adapter.Setup(a => a.GetCurrentTaskboardColumnsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-               .ReturnsAsync((IReadOnlyList<TaskboardColumn>)targetTaskCols);
+        adapter.Setup(a => a.GetBoardConfigSnapshotAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(new TargetBoardSnapshot
+               {
+                   BoardNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                   BoardColumns = new Dictionary<string, IReadOnlyList<BoardColumn>>(StringComparer.OrdinalIgnoreCase),
+                   BoardSwimLanes = new Dictionary<string, IReadOnlyList<BoardSwimLane>>(StringComparer.OrdinalIgnoreCase),
+                   TaskboardColumns = targetTaskCols,
+               });
 
         IReadOnlyList<TaskboardColumn>? merged = null;
         adapter.Setup(a => a.UpdateTaskboardColumnsAsync(
@@ -1191,9 +1224,18 @@ public class BoardConfigTeamExtensionTests
 
         var boardConfig = MakeBoardConfig(columns: packageColumns);
         var adapter = new Mock<ITeamBoardAdapter>(MockBehavior.Loose);
-        adapter.Setup(a => a.GetBoardColumnsAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-               .ReturnsAsync((IReadOnlyList<BoardColumn>)targetColumns);
+        adapter.Setup(a => a.GetBoardConfigSnapshotAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(new TargetBoardSnapshot
+               {
+                   BoardNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                   BoardColumns = new Dictionary<string, IReadOnlyList<BoardColumn>>(StringComparer.OrdinalIgnoreCase)
+                   {
+                       ["Stories"] = targetColumns,
+                   },
+                   BoardSwimLanes = new Dictionary<string, IReadOnlyList<BoardSwimLane>>(StringComparer.OrdinalIgnoreCase),
+                   TaskboardColumns = [],
+               });
 
         IReadOnlyList<BoardColumn>? captured = null;
         adapter.Setup(a => a.UpdateBoardColumnsAsync(
@@ -1273,10 +1315,8 @@ public class BoardConfigTeamExtensionTests
         var adapter = new Mock<ITeamBoardAdapter>(MockBehavior.Loose);
 
         // Target reports no existing boards and no taskboard columns → Skip behaves like Replace
-        adapter.Setup(a => a.GetBoardsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-               .Returns(BoardsFrom());
-        adapter.Setup(a => a.GetCurrentTaskboardColumnsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-               .ReturnsAsync(Array.Empty<TaskboardColumn>());
+        adapter.Setup(a => a.GetBoardConfigSnapshotAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(TargetBoardSnapshot.Empty);
 
         var package = PackageWith(boardConfig);
         var options = new BoardConfigExtensionOptions { ImportMode = BoardConfigImportMode.Skip };

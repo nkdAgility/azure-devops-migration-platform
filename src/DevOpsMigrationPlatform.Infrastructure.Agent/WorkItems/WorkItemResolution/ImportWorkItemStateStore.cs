@@ -12,8 +12,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Nodes;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 

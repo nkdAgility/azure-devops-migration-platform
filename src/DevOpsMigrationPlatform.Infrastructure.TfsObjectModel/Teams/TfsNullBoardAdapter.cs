@@ -68,4 +68,8 @@ public sealed class TfsNullBoardAdapter : ITeamBoardAdapter
     public Task<IReadOnlyList<TaskboardColumn>> GetCurrentTaskboardColumnsAsync(
         string project, string teamId, CancellationToken ct)
         => throw NotSupported();
+
+    public Task<TargetBoardSnapshot> GetBoardConfigSnapshotAsync(
+        string project, string teamId, CancellationToken ct)
+        => throw NotSupported();
 }

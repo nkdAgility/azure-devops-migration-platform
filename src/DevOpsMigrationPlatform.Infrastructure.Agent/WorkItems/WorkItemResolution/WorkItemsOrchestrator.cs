@@ -765,7 +765,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
 
                     EmitReplaySkipVisibilityEvents(scope, loopEmbeddedImagesEnabled, resumeAtStage);
 
-                    await scope.Processor.ProcessAsync(folderPath, resumeAtStage, scope.ResolutionStrategy, ct)
+                    await scope.Processor.ImportRevisionAsync(folderPath, resumeAtStage, scope.ResolutionStrategy, ct)
                         .ConfigureAwait(false);
 
                     await scope.IdMapStore.UpdateLastRevisionIndexAsync(wiId, revIdx, ct).ConfigureAwait(false);

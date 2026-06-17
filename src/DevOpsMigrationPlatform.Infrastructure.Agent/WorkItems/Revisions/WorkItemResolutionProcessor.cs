@@ -152,7 +152,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     /// </param>
     /// <param name="resolutionStrategy">Strategy for live fallback ID lookup after Stage A.</param>
     /// <param name="ct">Cancellation token.</param>
-    public async Task ProcessAsync(
+    public async Task ImportRevisionAsync(
         string folderPath,
         string? resumeAtStage,
         IWorkItemResolutionStrategy resolutionStrategy,

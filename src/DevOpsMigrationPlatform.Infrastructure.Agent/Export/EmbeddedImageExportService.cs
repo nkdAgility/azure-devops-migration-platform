@@ -44,7 +44,7 @@ public class EmbeddedImageExportService : IEmbeddedImageExportService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<string> ProcessHtmlAsync(
+    public async Task<string> ExportImagesFromHtmlAsync(
         string html,
         string folderPath,
         CancellationToken cancellationToken)
@@ -93,7 +93,7 @@ public class EmbeddedImageExportService : IEmbeddedImageExportService
         return doc.DocumentNode.OuterHtml;
     }
 
-    public async Task<string> ProcessMarkdownAsync(
+    public async Task<string> ExportImagesFromMarkdownAsync(
         string markdown,
         string folderPath,
         CancellationToken cancellationToken)

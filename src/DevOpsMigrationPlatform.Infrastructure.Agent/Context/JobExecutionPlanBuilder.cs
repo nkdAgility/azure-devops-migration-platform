@@ -173,7 +173,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
             if (isComplete && !isModeSwitch)
             {
                 // All tasks are terminal: return the completed plan as-is.
-                // ExecuteTasksAsync will find 0 pending tasks and return true immediately,
+                // DispatchTasksAsync will find 0 pending tasks and return true immediately,
                 // making the resume a no-op — the correct behaviour for a job that is already done.
                 _logger.LogInformation(
                     "Existing plan is complete ({TaskCount} tasks all terminal). Returning completed plan — resume is a no-op.",

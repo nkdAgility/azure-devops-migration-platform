@@ -21,6 +21,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using DevOpsMigrationPlatform.Infrastructure.Config;
 using DevOpsMigrationPlatform.Infrastructure.Simulated;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -91,7 +92,8 @@ public static class MigrationAgentServiceExtensions
         builder.Services.TryAddSingleton<IAgentJobContext, ActiveJobAgentJobContext>();
         builder.Services.AddFieldTransformToolServices();
 
-        // Package config store — reads migration-config.json from the package at job pickup.
+        // Package storage and config store — filesystem store must be registered before config loader.
+        builder.Services.AddPackageStorageServices();
         builder.Services.AddPackageMigrationConfigLoader();
 
         // Register IModule implementations.

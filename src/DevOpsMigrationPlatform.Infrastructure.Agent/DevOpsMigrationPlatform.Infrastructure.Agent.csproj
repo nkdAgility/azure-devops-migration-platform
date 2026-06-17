@@ -13,7 +13,6 @@
     <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.Agent\DevOpsMigrationPlatform.Abstractions.Agent.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.Abstractions.Storage\DevOpsMigrationPlatform.Abstractions.Storage.csproj" />
     <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
-    <ProjectReference Include="..\DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem\DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />

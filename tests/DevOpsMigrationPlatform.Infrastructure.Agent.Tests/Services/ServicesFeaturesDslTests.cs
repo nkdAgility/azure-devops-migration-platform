@@ -91,7 +91,7 @@ public sealed class ServicesFeaturesDslTests
             "user@source.com",
             toolSetup: tool => tool.Setup(t => t.Translate("user@source.com")).Returns("user@target.com"));
 
-        await processor.ProcessAsync(
+        await processor.ImportRevisionAsync(
             "WorkItems/2024-01-01/00000638000000000001-1-0",
             resumeAtStage: null,
             Mock.Of<IWorkItemResolutionStrategy>(),
@@ -121,7 +121,7 @@ public sealed class ServicesFeaturesDslTests
             "someuser@domain.com",
             toolSetup: tool => tool.Setup(t => t.Translate(It.IsAny<string>())).Returns<string>(s => s));
 
-        await processor.ProcessAsync(
+        await processor.ImportRevisionAsync(
             "WorkItems/2024-01-01/00000638000000000001-1-0",
             resumeAtStage: null,
             Mock.Of<IWorkItemResolutionStrategy>(),

@@ -259,6 +259,32 @@ internal sealed class AzureDevOpsBoardAdapter : ITeamBoardAdapter
         }
     }
 
+    public async Task<TargetBoardSnapshot> GetBoardConfigSnapshotAsync(
+        string project, string teamId, CancellationToken ct)
+    {
+        ISet<string> boardNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await foreach (var b in GetBoardsAsync(project, teamId, ct).ConfigureAwait(false))
+            boardNames.Add(b.BoardName);
+
+        var boardColumns = new Dictionary<string, IReadOnlyList<BoardColumn>>(StringComparer.OrdinalIgnoreCase);
+        var boardSwimLanes = new Dictionary<string, IReadOnlyList<BoardSwimLane>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in boardNames)
+        {
+            boardColumns[name] = await GetBoardColumnsAsync(project, teamId, name, ct).ConfigureAwait(false);
+            boardSwimLanes[name] = await GetBoardSwimLanesAsync(project, teamId, name, ct).ConfigureAwait(false);
+        }
+
+        var taskboardColumns = await GetCurrentTaskboardColumnsAsync(project, teamId, ct).ConfigureAwait(false);
+
+        return new TargetBoardSnapshot
+        {
+            BoardNames = boardNames,
+            BoardColumns = boardColumns,
+            BoardSwimLanes = boardSwimLanes,
+            TaskboardColumns = taskboardColumns
+        };
+    }
+
     // -------------------------------------------------------------------------
     // Import — write to target
     // -------------------------------------------------------------------------

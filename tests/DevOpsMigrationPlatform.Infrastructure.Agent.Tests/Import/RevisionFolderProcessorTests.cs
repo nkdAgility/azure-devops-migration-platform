@@ -82,7 +82,7 @@ public class WorkItemResolutionProcessorTests
         SetupPackageText($"{Folder}/revision.json", null);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         // No target calls should be made
         _mockTarget.VerifyNoOtherCalls();
@@ -118,7 +118,7 @@ public class WorkItemResolutionProcessorTests
             .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.CreateWorkItemAsync("Task", It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -141,7 +141,7 @@ public class WorkItemResolutionProcessorTests
         SetupTargetFieldsAndLinks(targetId: 77);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockTarget.Verify(t => t.ApplyRevisionAsync(77, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -180,7 +180,7 @@ public class WorkItemResolutionProcessorTests
         SetupTargetFieldsAndLinks(targetId: 10);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.ApplyRevisionAsync(10, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -204,7 +204,7 @@ public class WorkItemResolutionProcessorTests
         _mockTarget.Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.Once,
             "Links must always be applied — they are part of the combined ApplyRevisionAsync call.");
@@ -227,7 +227,7 @@ public class WorkItemResolutionProcessorTests
         SetupApplyRevision(targetId: 10);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         // No attachments in minimal revision JSON, so no binary upload calls — but stage ran without error.
         _mockTarget.Verify(t => t.UploadAttachmentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -250,7 +250,7 @@ public class WorkItemResolutionProcessorTests
         SetupApplyRevision(targetId: 50);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, CursorStage.AppliedLinks, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ImportRevisionAsync(Folder, CursorStage.AppliedLinks, _mockResolutionStrategy.Object, CancellationToken.None);
 
         // Stage A and B should both be skipped (AppliedLinks > AppliedFields lexicographically)
         _mockTarget.Verify(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -291,7 +291,7 @@ public class WorkItemResolutionProcessorTests
             .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockIdentityMapping.Verify(s => s.Translate("source@example.com"), Times.Once);
         Assert.IsNotNull(capturedFields);
@@ -331,7 +331,7 @@ public class WorkItemResolutionProcessorTests
             .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockIdentityMapping.Verify(s => s.Translate("source@example.com"), Times.Once);
         Assert.IsNotNull(capturedFields);
@@ -393,7 +393,7 @@ public class WorkItemResolutionProcessorTests
             nodeStructureOptions: new NodeTranslationOptions { SkipOnUnresolvableArea = true },
             package: _mockPackage.Object);
 
-        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.CreateWorkItemAsync("Task", It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockTarget.Verify(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -426,7 +426,7 @@ public class WorkItemResolutionProcessorTests
             .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         Assert.IsNotNull(capturedFields);
         Assert.AreEqual(@"External\Area", capturedFields!.Single(f => f.ReferenceName == "System.AreaPath").Value);
@@ -460,7 +460,7 @@ public class WorkItemResolutionProcessorTests
             .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         Assert.IsNotNull(capturedFields);
         Assert.AreEqual("Title Before Import", capturedFields!.Single(f => f.ReferenceName == "System.Title").Value);
@@ -495,7 +495,7 @@ public class WorkItemResolutionProcessorTests
             .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.UploadAttachmentAsync(10, "evidence.zip", It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockIdMapStore.Verify(
@@ -607,7 +607,7 @@ public class WorkItemResolutionProcessorTests
         _mockTarget.Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         var sut = CreateSut(extensionStages: Array.Empty<WorkItemRevisionStage>());
-        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.UploadAttachmentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockTarget.Verify(t => t.CreateCommentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -631,7 +631,7 @@ public class WorkItemResolutionProcessorTests
         SetupTargetFieldsAndLinks(targetId: 55);
 
         var sut = CreateSut();
-        await sut.ProcessAsync(Folder, CursorStage.AppliedComments, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ImportRevisionAsync(Folder, CursorStage.AppliedComments, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(t => t.CreateCommentAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -656,7 +656,7 @@ public class WorkItemResolutionProcessorTests
         _mockTarget.Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var sut = CreateSut(embeddedImagesOptions: disabledEmbeddedImages);
-        await sut.ProcessAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
+        await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
         _mockTarget.Verify(
             t => t.UploadEmbeddedImageAsync(It.IsAny<string>(), It.IsAny<System.IO.Stream>(), It.IsAny<CancellationToken>()),

@@ -53,7 +53,7 @@ public class ImportEmbeddedImagesTests
         var processor = ctx.BuildProcessor();
 
         // Act
-        await processor.ProcessAsync(
+        await processor.ImportRevisionAsync(
             "WorkItems/2024-01-01/00000638000000000001-1-0",
             resumeAtStage: null,
             ctx.MockResolutionStrategy.Object,
@@ -118,7 +118,7 @@ public class ImportEmbeddedImagesTests
         var processor = ctx.BuildProcessor();
 
         // Act
-        await processor.ProcessAsync(
+        await processor.ImportRevisionAsync(
             "WorkItems/2024-01-01/00000638000000000001-1-0",
             resumeAtStage: null,
             ctx.MockResolutionStrategy.Object,

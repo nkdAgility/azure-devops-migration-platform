@@ -139,6 +139,10 @@ public sealed class SimulatedBoardAdapter : ITeamBoardAdapter
         string project, string teamId, CancellationToken ct)
         => Task.FromResult<IReadOnlyList<TaskboardColumn>>([]);
 
+    public Task<TargetBoardSnapshot> GetBoardConfigSnapshotAsync(
+        string project, string teamId, CancellationToken ct)
+        => Task.FromResult(TargetBoardSnapshot.Empty);
+
     // -------------------------------------------------------------------------
     // Import (write) methods — capture for test assertion
     // -------------------------------------------------------------------------

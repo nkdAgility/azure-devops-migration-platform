@@ -3,7 +3,7 @@
 
 using DevOpsMigrationPlatform.Abstractions;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Identity;
+namespace DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 
 /// <summary>
 /// A no-op <see cref="IIdentityMappingService"/> that returns the source identity unchanged.

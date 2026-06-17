@@ -5,14 +5,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DevOpsMigrationPlatform.Abstractions;
-using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.Revisions;
 
 using PlatformWorkItemField = DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.WorkItemField;
 
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.WorkItems.Revisions;
 
 /// <summary>
-/// Maps a pair of consecutive Azure DevOps REST API <see cref="WorkItem"/> revisions to a
+/// Maps a pair of consecutive SDK-free <see cref="RawWorkItemRevisionData"/> revisions to a
 /// <see cref="WorkItemRevision"/>, capturing only the delta (fields and links added in the
 /// current revision that were not present in the previous one).
 /// </summary>
@@ -23,7 +23,7 @@ public interface IAzureDevOpsWorkItemRevisionMapper
     /// <paramref name="previous"/> is the immediately preceding revision, or <c>null</c> for
     /// revision index 0.
     /// </summary>
-    WorkItemRevision Map(WorkItem current, WorkItem? previous);
+    WorkItemRevision Map(RawWorkItemRevisionData current, RawWorkItemRevisionData? previous);
 }
 
 /// <summary>
@@ -35,7 +35,7 @@ internal sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRe
     private const string HyperlinkRel = "Hyperlink";
     private const string ArtifactLinkRel = "ArtifactLink";
 
-    public WorkItemRevision Map(WorkItem current, WorkItem? previous)
+    public WorkItemRevision Map(RawWorkItemRevisionData current, RawWorkItemRevisionData? previous)
     {
         if (current is null) throw new ArgumentNullException(nameof(current));
         if (!current.Id.HasValue) throw new ArgumentException("WorkItem.Id must have a value.", nameof(current));
@@ -62,23 +62,21 @@ internal sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRe
 
     // ── Helpers ─────────────────────────────────────────────────────────────
 
-    private static int GetRevisionIndex(WorkItem workItem)
+    private static int GetRevisionIndex(RawWorkItemRevisionData workItem)
     {
         if (workItem.Rev.HasValue)
             return workItem.Rev.Value - 1; // Azure DevOps uses 1-based revision numbers; we use 0-based index
 
-        if (workItem.Fields != null &&
-            workItem.Fields.TryGetValue("System.Rev", out var revObj) &&
+        if (workItem.Fields.TryGetValue("System.Rev", out var revObj) &&
             revObj is IConvertible c)
             return c.ToInt32(null) - 1;
 
         return 0;
     }
 
-    private static DateTimeOffset GetChangedDate(WorkItem workItem)
+    private static DateTimeOffset GetChangedDate(RawWorkItemRevisionData workItem)
     {
-        if (workItem.Fields != null &&
-            workItem.Fields.TryGetValue("System.ChangedDate", out var raw))
+        if (workItem.Fields.TryGetValue("System.ChangedDate", out var raw))
         {
             if (raw is DateTime dt)
                 return new DateTimeOffset(dt, TimeSpan.Zero);
@@ -91,19 +89,17 @@ internal sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRe
         return DateTimeOffset.UtcNow;
     }
 
-    private static IReadOnlyList<PlatformWorkItemField> MapFields(WorkItem current, WorkItem? previous)
+    private static IReadOnlyList<PlatformWorkItemField> MapFields(
+        RawWorkItemRevisionData current, RawWorkItemRevisionData? previous)
     {
         var result = new List<PlatformWorkItemField>();
-
-        if (current.Fields is null)
-            return result;
 
         foreach (var kvp in current.Fields)
         {
             var currentValue = kvp.Value?.ToString();
 
             // Only include fields that changed relative to the previous revision.
-            if (previous?.Fields != null &&
+            if (previous is not null &&
                 previous.Fields.TryGetValue(kvp.Key, out var prevValue) &&
                 string.Equals(prevValue?.ToString(), currentValue, StringComparison.Ordinal))
             {
@@ -125,17 +121,14 @@ internal sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRe
         IReadOnlyList<RelatedWorkItemLink> related,
         IReadOnlyList<HyperlinkWorkItemLink> hyperlinks,
         IReadOnlyList<AttachmentMetadata> attachments)
-    MapRelations(WorkItem current, WorkItem? previous)
+    MapRelations(RawWorkItemRevisionData current, RawWorkItemRevisionData? previous)
     {
         var external = new List<ExternalWorkItemLink>();
         var related = new List<RelatedWorkItemLink>();
         var hyperlinks = new List<HyperlinkWorkItemLink>();
         var attachments = new List<AttachmentMetadata>();
 
-        if (current.Relations is null)
-            return (external, related, hyperlinks, attachments);
-
-        var prevRelations = previous?.Relations ?? Enumerable.Empty<WorkItemRelation>();
+        var prevRelations = previous?.Relations ?? [];
 
         foreach (var relation in current.Relations)
         {
@@ -196,8 +189,8 @@ internal sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRe
     }
 
     private static bool ExistsInPrevious(
-        WorkItemRelation current,
-        IEnumerable<WorkItemRelation> previousRelations)
+        RawWorkItemRelation current,
+        IReadOnlyList<RawWorkItemRelation> previousRelations)
     {
         foreach (var prev in previousRelations)
         {
@@ -210,15 +203,13 @@ internal sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRe
         return false;
     }
 
-    private static T? TryGetAttribute<T>(WorkItemRelation relation, string key)
+    private static T? TryGetAttribute<T>(RawWorkItemRelation relation, string key)
     {
-        if (relation.Attributes is null)
-            return default;
         if (!relation.Attributes.TryGetValue(key, out var value))
             return default;
         try
         {
-            return (T)Convert.ChangeType(value, typeof(T));
+            return (T?)Convert.ChangeType(value, typeof(T));
         }
         catch
         {

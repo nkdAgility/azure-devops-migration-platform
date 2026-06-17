@@ -28,7 +28,7 @@ public interface IWorkItemResolutionProcessor
     /// </param>
     /// <param name="resolutionStrategy">Strategy for live fallback ID lookup in Stage A.</param>
     /// <param name="ct">Cancellation token.</param>
-    Task ProcessAsync(
+    Task ImportRevisionAsync(
         string folderPath,
         string? resumeAtStage,
         IWorkItemResolutionStrategy resolutionStrategy,

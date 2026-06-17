@@ -34,7 +34,7 @@ public class EmbeddedImageExportServiceTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public async Task ProcessHtmlAsync_WhenAdoImageUrl_DownloadsAndRewritesSrc()
+    public async Task ExportImagesFromHtmlAsync_WhenAdoImageUrl_DownloadsAndRewritesSrc()
     {
         var imageBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47 }; // PNG magic
         var downloader = new Mock<IEmbeddedImageDownloader>(MockBehavior.Strict);
@@ -45,7 +45,7 @@ public class EmbeddedImageExportServiceTests
         var sut = CreateSut(downloader);
         var html = """<p><img src="https://dev.azure.com/org/proj/_apis/wit/attachments/abc123"></p>""";
 
-        var result = await sut.ProcessHtmlAsync(html, "WorkItems/rev/folder", CancellationToken.None);
+        var result = await sut.ExportImagesFromHtmlAsync(html, "WorkItems/rev/folder", CancellationToken.None);
 
         Assert.IsFalse(result.Contains("https://dev.azure.com"), "Original URL should be replaced.");
         Assert.IsTrue(result.Contains("image-"), "Rewritten src should contain local filename prefix.");
@@ -56,7 +56,7 @@ public class EmbeddedImageExportServiceTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public async Task ProcessHtmlAsync_WhenSameUrlTwice_DownloadsOnce()
+    public async Task ExportImagesFromHtmlAsync_WhenSameUrlTwice_DownloadsOnce()
     {
         var imageBytes = new byte[] { 1, 2, 3, 4 };
         var downloader = new Mock<IEmbeddedImageDownloader>();
@@ -67,7 +67,7 @@ public class EmbeddedImageExportServiceTests
         var sut = CreateSut(downloader);
         var html = """<p><img src="https://dev.azure.com/org/proj/_apis/wit/attachments/shared123"><img src="https://dev.azure.com/org/proj/_apis/wit/attachments/shared123"></p>""";
 
-        await sut.ProcessHtmlAsync(html, "WorkItems/rev/folder", CancellationToken.None);
+        await sut.ExportImagesFromHtmlAsync(html, "WorkItems/rev/folder", CancellationToken.None);
 
         downloader.Verify(d => d.TryDownloadAsync(
             "https://dev.azure.com/org/proj/_apis/wit/attachments/shared123",
@@ -81,7 +81,7 @@ public class EmbeddedImageExportServiceTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public async Task ProcessHtmlAsync_WhenDownloaderReturnsNull_PreservesOriginalUrl()
+    public async Task ExportImagesFromHtmlAsync_WhenDownloaderReturnsNull_PreservesOriginalUrl()
     {
         var downloader = new Mock<IEmbeddedImageDownloader>();
         downloader
@@ -91,7 +91,7 @@ public class EmbeddedImageExportServiceTests
         var sut = CreateSut(downloader);
         var html = """<p><img src="https://example.com/external-image.png"></p>""";
 
-        var result = await sut.ProcessHtmlAsync(html, "WorkItems/rev/folder", CancellationToken.None);
+        var result = await sut.ExportImagesFromHtmlAsync(html, "WorkItems/rev/folder", CancellationToken.None);
 
         Assert.IsTrue(result.Contains("https://example.com/external-image.png"), "External URL should be preserved.");
     }
@@ -101,7 +101,7 @@ public class EmbeddedImageExportServiceTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public async Task ProcessHtmlAsync_When404_PreservesUrlAndContinues()
+    public async Task ExportImagesFromHtmlAsync_When404_PreservesUrlAndContinues()
     {
         var downloader = new Mock<IEmbeddedImageDownloader>();
         downloader
@@ -112,7 +112,7 @@ public class EmbeddedImageExportServiceTests
         var html = """<p><img src="https://dev.azure.com/org/proj/_apis/wit/attachments/deleted404"></p>""";
 
         // Should not throw
-        var result = await sut.ProcessHtmlAsync(html, "WorkItems/rev/folder", CancellationToken.None);
+        var result = await sut.ExportImagesFromHtmlAsync(html, "WorkItems/rev/folder", CancellationToken.None);
 
         Assert.IsTrue(result.Contains("deleted404"), "URL should be preserved when download fails.");
     }
@@ -122,7 +122,7 @@ public class EmbeddedImageExportServiceTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public async Task ProcessMarkdownAsync_WhenMarkdownImageUrl_RewritesToLocalFilename()
+    public async Task ExportImagesFromMarkdownAsync_WhenMarkdownImageUrl_RewritesToLocalFilename()
     {
         var imageBytes = new byte[] { 0xFF, 0xD8, 0xFF }; // JPEG magic
         var downloader = new Mock<IEmbeddedImageDownloader>(MockBehavior.Strict);
@@ -133,7 +133,7 @@ public class EmbeddedImageExportServiceTests
         var sut = CreateSut(downloader);
         var markdown = "![alt text](https://dev.azure.com/org/proj/_apis/wit/attachments/md567)";
 
-        var result = await sut.ProcessMarkdownAsync(markdown, "WorkItems/rev/folder", CancellationToken.None);
+        var result = await sut.ExportImagesFromMarkdownAsync(markdown, "WorkItems/rev/folder", CancellationToken.None);
 
         Assert.IsFalse(result.Contains("https://dev.azure.com"), "Original URL should be replaced.");
         Assert.IsTrue(result.Contains("![alt text]"), "Alt text should be preserved.");

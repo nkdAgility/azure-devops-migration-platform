@@ -8,7 +8,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Abstractions.Organisations;
-using DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.VisualStudio.Services.Common;

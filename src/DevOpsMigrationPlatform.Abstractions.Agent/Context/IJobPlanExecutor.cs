@@ -22,7 +22,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Context;
 /// </summary>
 /// <remarks>
 /// Dispatch is driven by <see cref="JobTask.TaskKind"/>, not by <c>Phase</c>.
-/// Use <see cref="ExecuteTasksAsync"/> for all job kinds.
+/// Use <see cref="DispatchTasksAsync"/> for all job kinds.
 /// </remarks>
 public interface IJobPlanExecutor
 {
@@ -46,7 +46,7 @@ public interface IJobPlanExecutor
     /// <param name="endpointsByUrl">Map of organisation URL → endpoint, used to scope Capture tasks.</param>
     /// <param name="stateStore">State store for persisting the plan after each task transition.</param>
     /// <param name="ct">Cancellation token propagated to all running tasks.</param>
-    Task<bool> ExecuteTasksAsync(
+    Task<bool> DispatchTasksAsync(
         JobTaskList plan,
         IReadOnlyDictionary<string, ICapture> captureHandlersByName,
         IReadOnlyDictionary<string, IAnalyser> analysersByName,
@@ -60,7 +60,7 @@ public interface IJobPlanExecutor
     /// Executes Export-phase tasks in <paramref name="plan"/>.
     /// Returns <c>true</c> if all executed tasks succeeded; <c>false</c> if any failed.
     /// </summary>
-    Task<bool> ExecuteExportPhaseAsync(
+    Task<bool> ExportAsync(
         JobTaskList plan,
         IReadOnlyDictionary<string, IModule> modulesByName,
         IReadOnlyDictionary<string, IAnalyser> analysersByName,
@@ -73,7 +73,7 @@ public interface IJobPlanExecutor
     /// Executes Import-phase tasks in dependency-tier order.
     /// Returns <c>true</c> if all executed tasks succeeded; <c>false</c> if any failed.
     /// </summary>
-    Task<bool> ExecuteImportPhaseAsync(
+    Task<bool> ImportAsync(
         JobTaskList plan,
         IReadOnlyDictionary<string, IModule> modulesByName,
         ImportContext importContext,

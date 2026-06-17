@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
@@ -20,13 +21,14 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Identity;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using Microsoft.Extensions.Logging;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.JobLifecycle.TfsExecution;
@@ -59,7 +61,8 @@ public static class TfsMigrationAgentServiceExtensions
         // for localhost communication.
         services.AddCoreAgentServices(configuration, controlPlaneBaseUrl);
 
-        // Package config store — reads migration-config.json from the package at job pickup.
+        // Package storage and config store — filesystem store must be registered before config loader.
+        services.AddPackageStorageServices();
         services.AddPackageMigrationConfigLoader();
 
         // Per-job TFS Object Model service factory — creates TFS connections, revision sources,

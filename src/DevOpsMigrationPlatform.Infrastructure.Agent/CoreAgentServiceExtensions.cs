@@ -10,7 +10,6 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
-using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -118,7 +117,6 @@ public static class CoreAgentServiceExtensions
     private static IServiceCollection AddPackageExecutionServices(this IServiceCollection services)
     {
         services.AddSingleton<IPhaseTrackingServiceFactory, PhaseTrackingServiceFactory>();
-        services.AddPackageManagementServices();
         services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();
         return services;
     }

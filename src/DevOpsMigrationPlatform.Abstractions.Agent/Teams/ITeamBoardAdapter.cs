@@ -124,4 +124,14 @@ public interface ITeamBoardAdapter
         string project,
         string teamId,
         CancellationToken ct);
+
+    /// <summary>
+    /// Returns a snapshot of the current board configuration state of the target team.
+    /// Batches all target reads that are needed for import planning into one call,
+    /// eliminating scattered per-board reads inside the import loop.
+    /// </summary>
+    Task<TargetBoardSnapshot> GetBoardConfigSnapshotAsync(
+        string project,
+        string teamId,
+        CancellationToken ct);
 }

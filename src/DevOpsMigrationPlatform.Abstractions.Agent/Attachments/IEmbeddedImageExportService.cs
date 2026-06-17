@@ -20,7 +20,7 @@ public interface IEmbeddedImageExportService
     /// <param name="folderPath">The destination folder path (e.g., "WorkItems/2026-02-25/...") where images will be stored.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The modified HTML with image URLs rewritten to local filenames; external URLs are preserved.</returns>
-    Task<string> ProcessHtmlAsync(
+    Task<string> ExportImagesFromHtmlAsync(
         string html,
         string folderPath,
         CancellationToken cancellationToken);
@@ -33,7 +33,7 @@ public interface IEmbeddedImageExportService
     /// <param name="folderPath">The destination folder path where images will be stored.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The modified Markdown with image references rewritten to local filenames; external URLs are preserved.</returns>
-    Task<string> ProcessMarkdownAsync(
+    Task<string> ExportImagesFromMarkdownAsync(
         string markdown,
         string folderPath,
         CancellationToken cancellationToken);

@@ -2,8 +2,9 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Identity;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Identity;
+namespace DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 
 /// <summary>
 /// Creates <see cref="SqliteIdMapStore"/> instances.

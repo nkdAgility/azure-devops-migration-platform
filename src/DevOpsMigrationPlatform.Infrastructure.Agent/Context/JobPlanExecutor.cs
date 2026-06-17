@@ -66,7 +66,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         _package = package;
     }
 
-    public async Task<bool> ExecuteTasksAsync(
+    public async Task<bool> DispatchTasksAsync(
         JobTaskList plan,
         IReadOnlyDictionary<string, ICapture> captureHandlersByName,
         IReadOnlyDictionary<string, IAnalyser> analysersByName,
@@ -93,14 +93,14 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         if (tasks.Count == 0)
         {
             _logger.LogInformation(
-                "ExecuteTasksAsync: no tasks to execute (all skipped, completed, or failed). Failed task(s) present: {HasFailedTasks}.",
+                "DispatchTasksAsync: no tasks to execute (all skipped, completed, or failed). Failed task(s) present: {HasFailedTasks}.",
                 hasCanonicalFailures);
             return !hasCanonicalFailures;
         }
 
         var tiers = ExtractTiers(tasks);
         _logger.LogInformation(
-            "ExecuteTasksAsync: {TaskCount} task(s) in {TierCount} tier(s).",
+            "DispatchTasksAsync: {TaskCount} task(s) in {TierCount} tier(s).",
             tasks.Count, tiers.Count);
 
         bool anyFailed = false;
@@ -177,7 +177,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         if (anyFailed || hasCanonicalFailures)
         {
             _logger.LogWarning(
-                "ExecuteTasksAsync completed with {FailedCount} newly failed task(s). Persisted failed task(s) present: {HasFailedTasks}.",
+                "DispatchTasksAsync completed with {FailedCount} newly failed task(s). Persisted failed task(s) present: {HasFailedTasks}.",
                 failedTasks.Count,
                 hasCanonicalFailures);
             return false;
@@ -256,7 +256,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         return plan;
     }
 
-    public async Task<bool> ExecuteExportPhaseAsync(
+    public async Task<bool> ExportAsync(
         JobTaskList plan,
         IReadOnlyDictionary<string, IModule> modulesByName,
         IReadOnlyDictionary<string, IAnalyser> analysersByName,
@@ -474,7 +474,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         return parts.Length >= 2 ? parts[1] : null;
     }
 
-    public async Task<bool> ExecuteImportPhaseAsync(
+    public async Task<bool> ImportAsync(
         JobTaskList plan,
         IReadOnlyDictionary<string, IModule> modulesByName,
         ImportContext importContext,

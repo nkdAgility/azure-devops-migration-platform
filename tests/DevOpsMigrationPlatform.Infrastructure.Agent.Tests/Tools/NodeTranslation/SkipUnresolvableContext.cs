@@ -111,7 +111,7 @@ public class SkipUnresolvableContext
 
         try
         {
-            await processor.ProcessAsync(FolderPath, null, ResolutionStrategyMock.Object, CancellationToken.None);
+            await processor.ImportRevisionAsync(FolderPath, null, ResolutionStrategyMock.Object, CancellationToken.None);
         }
         catch (InvalidOperationException ex)
         {

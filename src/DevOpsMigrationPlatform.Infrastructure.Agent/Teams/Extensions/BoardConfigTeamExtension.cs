@@ -110,24 +110,18 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
             Message = $"Exporting board config for team '{ctx.Slug}'."
         });
         var sw = Stopwatch.StartNew();
+        var plan = BoardConfigExportPlan.From(_options, _capProvider);
 
         var boards = new List<BoardConfig>();
         var cardRulesPerBoard = new Dictionary<string, CardRuleSettings?>();
 
         await foreach (var board in _adapter.GetBoardsAsync(ctx.ProjectName, ctx.EntityId, ct).ConfigureAwait(false))
         {
-            var columns = _options.Columns
-                ? board.Columns
-                : (IReadOnlyList<BoardColumn>)[];
-
-            var swimLanes = _options.SwimLanes
-                ? board.SwimLanes
-                : (IReadOnlyList<BoardSwimLane>)[];
-
+            var columns = plan.ExportColumns ? board.Columns : (IReadOnlyList<BoardColumn>)[];
+            var swimLanes = plan.ExportSwimLanes ? board.SwimLanes : (IReadOnlyList<BoardSwimLane>)[];
             boards.Add(new BoardConfig(board.BoardName, columns, swimLanes));
 
-            // US3 — card rules per board
-            if (_options.CardRules && _capProvider.Has(Cap.BoardConfig))
+            if (plan.ExportCardRules)
             {
                 var rules = await _adapter.GetCardRuleSettingsAsync(
                     ctx.ProjectName, ctx.EntityId, board.BoardName, ct).ConfigureAwait(false);
@@ -135,9 +129,8 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
             }
         }
 
-        // US3 — aggregate card rules (null if disabled or no rules found)
         CardRuleSettings? aggregatedCardRules = null;
-        if (_options.CardRules && cardRulesPerBoard.Count > 0)
+        if (plan.ExportCardRules && cardRulesPerBoard.Count > 0)
         {
             var allRules = cardRulesPerBoard.Values
                 .Where(r => r is not null)
@@ -147,17 +140,15 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
                 aggregatedCardRules = new CardRuleSettings(allRules);
         }
 
-        // US4 — backlogs
         var backlogs = new List<BacklogMetadata>();
-        if (_options.Backlogs && _capProvider.Has(Cap.Backlogs))
+        if (plan.ExportBacklogs)
         {
             await foreach (var b in _adapter.GetBacklogsAsync(ctx.ProjectName, ctx.EntityId, ct).ConfigureAwait(false))
                 backlogs.Add(b);
         }
 
-        // US5 — taskboard columns
         var taskboardColumns = new List<TaskboardColumn>();
-        if (_options.TaskboardColumns && _capProvider.Has(Cap.TaskboardColumns))
+        if (plan.ExportTaskboardColumns)
         {
             await foreach (var col in _adapter.GetTaskboardColumnsAsync(ctx.ProjectName, ctx.EntityId, ct).ConfigureAwait(false))
                 taskboardColumns.Add(col);
@@ -308,36 +299,22 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
 
         var targetId = ctx.TargetEntityId!;
 
-        // For Skip mode — check which boards and taskboard columns already exist on target
-        HashSet<string>? existingBoards = null;
-        bool taskboardAlreadyExists = false;
-        if (_options.ImportMode == BoardConfigImportMode.Skip)
-        {
-            existingBoards = [];
-            await foreach (var b in _adapter.GetBoardsAsync(ctx.ProjectName, targetId, ct).ConfigureAwait(false))
-                existingBoards.Add(b.BoardName);
-
-            if (_options.TaskboardColumns && _capProvider.Has(Cap.TaskboardColumns))
-            {
-                var existing = await _adapter.GetCurrentTaskboardColumnsAsync(ctx.ProjectName, targetId, ct).ConfigureAwait(false);
-                taskboardAlreadyExists = existing.Count > 0;
-            }
-        }
+        // Batch all target reads before writing.
+        // Even in Replace mode we need target column data to validate state mappings (FR-013).
+        var snapshot = await _adapter.GetBoardConfigSnapshotAsync(ctx.ProjectName, targetId, ct).ConfigureAwait(false);
 
         foreach (var board in teamBoardConfig.Boards)
         {
             if (_options.ImportMode == BoardConfigImportMode.Skip &&
-                existingBoards is not null &&
-                existingBoards.Contains(board.BoardName))
+                snapshot.BoardNames.Contains(board.BoardName))
                 continue;
 
             try
             {
                 if (_options.Columns)
                 {
-                    var targetColumns = await _adapter.GetBoardColumnsAsync(
-                        ctx.ProjectName, targetId, board.BoardName, ct).ConfigureAwait(false)
-                        ?? (IReadOnlyList<BoardColumn>)[];
+                    snapshot.BoardColumns.TryGetValue(board.BoardName, out var targetColumns);
+                    targetColumns ??= [];
 
                     var validStates = BuildValidStatesMap(targetColumns);
 
@@ -353,11 +330,11 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
 
                 if (_options.SwimLanes)
                 {
+                    snapshot.BoardSwimLanes.TryGetValue(board.BoardName, out var targetLanes);
+                    targetLanes ??= [];
+
                     var lanes = _options.ImportMode == BoardConfigImportMode.Merge
-                        ? MergeByName(
-                            board.SwimLanes,
-                            await _adapter.GetBoardSwimLanesAsync(ctx.ProjectName, targetId, board.BoardName, ct).ConfigureAwait(false),
-                            l => l.Name)
+                        ? MergeByName(board.SwimLanes, targetLanes, l => l.Name)
                         : board.SwimLanes;
                     await _adapter.UpdateSwimLanesAsync(
                         ctx.ProjectName, targetId, board.BoardName, lanes, ct).ConfigureAwait(false);
@@ -379,13 +356,11 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
             _capProvider.Has(Cap.TaskboardColumns) &&
             teamBoardConfig.TaskboardColumns.Count > 0)
         {
+            var taskboardAlreadyExists = snapshot.TaskboardColumns.Count > 0;
             if (_options.ImportMode != BoardConfigImportMode.Skip || !taskboardAlreadyExists)
             {
                 var taskCols = _options.ImportMode == BoardConfigImportMode.Merge
-                    ? MergeByName(
-                        teamBoardConfig.TaskboardColumns,
-                        await _adapter.GetCurrentTaskboardColumnsAsync(ctx.ProjectName, targetId, ct).ConfigureAwait(false),
-                        c => c.Name)
+                    ? MergeByName(teamBoardConfig.TaskboardColumns, snapshot.TaskboardColumns, c => c.Name)
                     : teamBoardConfig.TaskboardColumns;
                 await _adapter.UpdateTaskboardColumnsAsync(
                     ctx.ProjectName, targetId, taskCols, ct).ConfigureAwait(false);
@@ -455,6 +430,22 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
             result.Add(col with { StateMappings = filtered });
         }
         return result;
+    }
+
+    // Aggregates all capability-gate checks for the export path into one place.
+    private sealed record BoardConfigExportPlan(
+        bool ExportColumns,
+        bool ExportSwimLanes,
+        bool ExportCardRules,
+        bool ExportBacklogs,
+        bool ExportTaskboardColumns)
+    {
+        public static BoardConfigExportPlan From(BoardConfigExtensionOptions options, IConnectorCapabilityProvider caps) => new(
+            ExportColumns:          options.Columns,
+            ExportSwimLanes:        options.SwimLanes,
+            ExportCardRules:        options.CardRules        && caps.Has(Cap.BoardConfig),
+            ExportBacklogs:         options.Backlogs         && caps.Has(Cap.Backlogs),
+            ExportTaskboardColumns: options.TaskboardColumns && caps.Has(Cap.TaskboardColumns));
     }
 
     // Package items override target items with the same key; target-only items are appended.

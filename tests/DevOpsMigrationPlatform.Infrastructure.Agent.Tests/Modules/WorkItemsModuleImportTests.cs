@@ -178,7 +178,7 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         revisionProcessor
-            .Setup(p => p.ProcessAsync(
+            .Setup(p => p.ImportRevisionAsync(
                 "WorkItems/2026-05-13/638827200000000000-42-0/",
                 It.IsAny<string?>(),
                 It.IsAny<IWorkItemResolutionStrategy>(),
@@ -360,7 +360,7 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         revisionProcessor
-            .Setup(p => p.ProcessAsync(
+            .Setup(p => p.ImportRevisionAsync(
                 "WorkItems/2026-05-13/638827200000000000-42-0/",
                 It.IsAny<string?>(),
                 It.IsAny<IWorkItemResolutionStrategy>(),
@@ -507,7 +507,7 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         revisionProcessor
-            .Setup(p => p.ProcessAsync(
+            .Setup(p => p.ImportRevisionAsync(
                 "WorkItems/2026-05-13/638827200000000000-42-0/",
                 It.IsAny<string?>(),
                 It.IsAny<IWorkItemResolutionStrategy>(),
