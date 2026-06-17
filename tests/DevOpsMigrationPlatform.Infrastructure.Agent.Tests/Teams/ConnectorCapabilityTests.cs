@@ -8,6 +8,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Teams;
 
 [TestClass]
+[TestCategory("CodeTest")]
+[TestCategory("UnitTests")]
 public class ConnectorCapabilityTests
 {
     // (a) connector with capability returns Has(flag) == true

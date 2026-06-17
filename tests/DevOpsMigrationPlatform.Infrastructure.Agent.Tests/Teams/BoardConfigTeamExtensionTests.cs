@@ -24,6 +24,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Teams;
 /// All test methods are [TestCategory("CodeTest")][TestCategory("DomainTests")].
 /// </summary>
 [TestClass]
+[TestCategory("CodeTest")]
+[TestCategory("DomainTests")]
 public class BoardConfigTeamExtensionTests
 {
     // ---------------------------------------------------------------------------

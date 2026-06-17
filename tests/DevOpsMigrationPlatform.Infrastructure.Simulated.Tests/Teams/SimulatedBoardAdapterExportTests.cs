@@ -23,6 +23,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.Teams;
 /// BoardConfigTeamExtension.ExportAsync → board-config.json payload → verify JSON shape.
 /// </summary>
 [TestClass]
+[TestCategory("SystemTest")]
+[TestCategory("SystemTest_Simulated")]
 public sealed class SimulatedBoardAdapterExportTests
 {
     // ---------------------------------------------------------------------------

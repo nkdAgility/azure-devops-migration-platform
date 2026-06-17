@@ -23,6 +23,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Teams;
 /// Each test proves that ExportAsync writes the expected artifact to the package.
 /// </summary>
 [TestClass]
+[TestCategory("CodeTest")]
+[TestCategory("DomainTests")]
 public class TeamExtensionParityTests
 {
     private static TeamExtensionContext BuildContext(Mock<IPackageAccess> package, string slug = "alpha-team")

@@ -26,6 +26,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Tests.Teams;
 /// wires the real adapter to a mocked <see cref="WorkHttpClient"/> — no network.
 /// </summary>
 [TestClass]
+[TestCategory("CodeTest")]
+[TestCategory("IntegrationTests")]
 public sealed class AzureDevOpsBoardAdapterTests
 {
     // ---------------------------------------------------------------------------

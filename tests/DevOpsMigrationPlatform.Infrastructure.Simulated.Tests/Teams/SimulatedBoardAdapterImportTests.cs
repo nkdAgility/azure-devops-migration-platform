@@ -25,6 +25,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.Teams;
 /// Modes: Replace, Merge, Skip.
 /// </summary>
 [TestClass]
+[TestCategory("SystemTest")]
+[TestCategory("SystemTest_Simulated")]
 public sealed class SimulatedBoardAdapterImportTests
 {
     private static readonly JsonSerializerOptions s_writeOptions = new()

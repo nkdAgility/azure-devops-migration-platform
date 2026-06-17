@@ -25,6 +25,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Tests.Teams;
 /// must complete within 5 minutes.
 /// </summary>
 [TestClass]
+[TestCategory("SystemTest")]
+[TestCategory("SystemTest_Simulated")]
 public sealed class TeamBoardConfigPerformanceTests
 {
     [TestCategory("SystemTest")]
