@@ -141,7 +141,25 @@ public sealed class SimulatedBoardAdapter : ITeamBoardAdapter
 
     public Task<TargetBoardSnapshot> GetBoardConfigSnapshotAsync(
         string project, string teamId, CancellationToken ct)
-        => Task.FromResult(TargetBoardSnapshot.Empty);
+    {
+        var boardNames = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+        {
+            "Stories",
+            "Epics",
+        };
+        var boardColumns = new Dictionary<string, IReadOnlyList<BoardColumn>>
+        {
+            ["Stories"] = s_storiesColumns,
+            ["Epics"]   = s_epicsColumns,
+        };
+        var snapshot = new TargetBoardSnapshot
+        {
+            BoardNames    = boardNames,
+            BoardColumns  = boardColumns,
+            TaskboardColumns = s_taskboardColumns,
+        };
+        return Task.FromResult(snapshot);
+    }
 
     // -------------------------------------------------------------------------
     // Import (write) methods — capture for test assertion
