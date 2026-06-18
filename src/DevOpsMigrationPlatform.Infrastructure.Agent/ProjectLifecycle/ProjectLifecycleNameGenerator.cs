@@ -6,12 +6,9 @@ using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
+using DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle;
 
-public interface IProjectLifecycleNameGenerator
-{
-    string Generate(string runId, string connectorType, string? namePrefix = null);
-}
+namespace DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
 
 /// <summary>
 /// Generates run-correlated, collision-resistant project names.

@@ -88,6 +88,15 @@ public static class ExportServiceCollectionExtensions
 
         // Team target — Azure DevOps Teams REST API keyed by connector type.
         services.AddTeamTarget<AzureDevOpsTeamTarget>("AzureDevOpsServices");
+        // Board configuration capability — ADO supports all granular flags.
+        services.AddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.IConnectorCapabilityProvider>(
+            _ => new global::DevOpsMigrationPlatform.Infrastructure.Agent.ConnectorCapability.StaticConnectorCapabilityProvider(
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.BoardConfig |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TaskboardColumns |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.Backlogs));
+        // Board adapter — full implementation using WorkHttpClient; uses source endpoint for reads and target for writes.
+        services.TryAddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.Teams.ITeamBoardAdapter,
+            global::DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Teams.AzureDevOpsBoardAdapter>();
 
         // Embedded image download and processing
         services.AddHttpClient<AzureDevOpsEmbeddedImageDownloader>()

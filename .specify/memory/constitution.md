@@ -1,6 +1,46 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change:    1.4.1 → 2.0.0
+Bump rationale:    Principle VIII redefined — the mandated test methodology moves
+                   from Reqnroll/Gherkin ATDD to the code-first internal Test DSL.
+                   New behaviour is now expressed as typed, code-first MSTest
+                   behavioural tests (builders/runners/assertions in
+                   tests/DevOpsMigrationPlatform.Testing, tagged
+                   [TestCategory("DomainTests")]) — NOT Gherkin `.feature` files.
+                   Existing `.feature`/Reqnroll families are legacy migration debt
+                   governed by `.agents/20-guardrails/workflow/testing-rules.md`
+                   (Touch = Convert); no new `.feature` files are added.
+                   MAJOR bump because a NON-NEGOTIABLE principle is redefined.
+
+Principles modified:
+  VIII. ATDD-First Development → VIII. Test-First Development (internal DSL)
+
+Principles added:
+  None
+
+Sections modified:
+  Principle VIII — inner loop and Rules aligned to the canonical test taxonomy in
+    testing-rules.md: dual parent+specific tags; CodeTest family
+    (UnitTests / DomainTests / IntegrationTests) and SystemTest family
+    (SystemTest_Simulated / SystemTest_Live; SystemTest_Smoke operator-only)
+  Technology Stack — test framework line updated (Reqnroll removed as the
+    primary framework; internal Test DSL named; dual-tag taxonomy referenced)
+  Reject Conditions — Gherkin-`.feature` reject condition restated in DSL terms
+  Principle X / XI — "living feature files" restated as "living behavioural tests"
+
+Templates updated:
+  ✅ .specify/templates/plan-template.md — no changes required
+  ✅ .specify/templates/spec-template.md — no changes required
+  ✅ .specify/templates/tasks-template.md — no changes required
+
+Deferred TODOs:
+  None
+-->
+
+<!--
+SYNC IMPACT REPORT
+==================
 Version change:    1.4.0 → 1.4.1
 Bump rationale:    Principle V bullet 3 amended — removed `DependsOn` reference.
                    Module ordering is operator-controlled via configuration,
@@ -247,11 +287,11 @@ flow through the `IOptions<T>` model — never raw `IConfiguration` in services.
   Principle). Classes combining orchestration, IO, and business rules MUST be
   split along those boundaries.
 
-### VIII. ATDD-First Development (NON-NEGOTIABLE)
+### VIII. Test-First Development (NON-NEGOTIABLE)
 
 Development follows a two-loop cycle. The **SpecKit outer loop** captures
-intent and produces a plan; the **ATDD inner loop** delivers each scenario as
-a tested, reviewed increment.
+intent and produces a plan; the **test-first inner loop** delivers each scenario
+as a tested, reviewed increment backed by the internal Test DSL.
 
 **SpecKit outer loop (feature → tasks):**
 
@@ -261,28 +301,53 @@ a tested, reviewed increment.
 3. `/speckit.tasks` — produce `tasks.md` with one task per acceptance scenario
    (or coherent group), ordered by dependency.
 
-**ATDD inner loop (one task → one commit):**
+**Test-first inner loop (one task → one commit):**
 
 1. **Specification** — the accepted scenario from `spec.md` feeds the
-   Specification Agent, which produces a Gherkin `.feature` file plus
-   architecture notes. Human must approve before proceeding.
-2. **Test Generation** — failing Reqnroll `[Binding]` step definitions
-   (`*Steps.cs` + `*Context.cs`) under `tests/<Project>.Tests/<Area>/`.
-3. **Implementation** — production code that makes the steps pass, plus unit
-   tests for every method with branching logic, calculation, or state
-   transformation.
+   Specification Agent, which produces architecture notes plus a behavioural
+   test plan expressed in typed domain concepts. Human must approve before
+   proceeding.
+2. **Test Generation** — failing **code-first MSTest behavioural tests** written
+   against the internal Test DSL (typed builders, runners, and assertions in
+   `tests/DevOpsMigrationPlatform.Testing`), tagged
+   `[TestCategory("CodeTest")]` + `[TestCategory("DomainTests")]`, located at
+   `tests/<Project>.Tests/<Area>/<Behaviour>Tests.cs`. No Gherkin,
+   no `[Binding]`/`[Given]`/`[When]`/`[Then]`, no string-based step APIs.
+3. **Implementation** — production code that makes the behavioural tests pass,
+   plus isolated `CodeTest` + `UnitTests` for every method with branching logic,
+   calculation, or state transformation, and `CodeTest` + `IntegrationTests`
+   wherever real infrastructure components (retry policies, HTTP clients,
+   serialisers) are wired together in-process.
 4. **Review** — Reviewer Agent produces `Approved` or `Rejected`.
 
 **Rules:**
 
-- No production code before a failing acceptance test exists.
+- No production code before a failing behavioural test exists.
 - **One scenario → one session → one commit.** Sessions spanning multiple
   scenarios are forbidden.
-- ATDD phases MUST NOT be skipped or reordered.
-- Gherkin `.feature` files live under
-  `features/<operation>[/<connector>/<module>]/`.
-- Test framework: Reqnroll.MSTest + Moq (`MockBehavior.Strict`). No xUnit, no
-  NUnit.
+- Test-first phases MUST NOT be skipped or reordered.
+- New behaviour MUST be expressed as code-first DSL behavioural tests. New
+  Gherkin `.feature` files MUST NOT be added. Legacy `.feature`/Reqnroll
+  families are migration debt governed by
+  `.agents/20-guardrails/workflow/testing-rules.md` (Touch = Convert): any
+  behavioural change to a legacy family obligates its migration to the DSL.
+- Test framework: MSTest + Moq (`MockBehavior.Strict`), with the internal Test
+  DSL for behavioural tests. No xUnit, no NUnit, no new Reqnroll.
+- Every test MUST carry its parent-family tag **and** its specific category tag,
+  per the canonical taxonomy in
+  `.agents/20-guardrails/workflow/testing-rules.md` (that guardrail is the source
+  of truth; this principle defers to it). The families are:
+  - **`CodeTest`** (in-process, no system active): `UnitTests` (isolated class,
+    all deps mocked), `DomainTests` (internal DSL, real domain objects, no infra),
+    `IntegrationTests` (real infrastructure components wired in-process, no
+    network or connector).
+  - **`SystemTest`** (full system active): `SystemTest_Simulated` (Simulated
+    connector, no network), `SystemTest_Live` (live ADO/TFS, gated).
+    `SystemTest_Smoke` is operator-designated only — an agent MUST NOT assign it.
+- A category is determined by a test's intent and makeup, never by its runtime.
+  A test exceeding its category's speed budget MUST be fixed, not reclassified to
+  a slower tier. CodeTest is the CI default; push tests downward — prefer Unit,
+  then Domain/Integration, and treat Live as a last resort.
 
 ### X. Engineering Practice Discipline (NON-NEGOTIABLE)
 
@@ -344,7 +409,8 @@ concrete examples for each.
 20. **Operational Readiness** — Health-check endpoints; correlation IDs in logs;
     runbooks; measurable MTTR.
 21. **Documentation as an Engineering Asset** — ADRs for significant decisions;
-    XML doc-comments on all public abstractions; living feature files.
+    XML doc-comments on all public abstractions; living code-first behavioural
+    tests (internal Test DSL).
 
 ### XI. Full Connector Coverage (NON-NEGOTIABLE)
 
@@ -363,7 +429,8 @@ for all three connectors: **Simulated**, **AzureDevOpsServices**, and
 - Deferring a connector implementation to "a follow-up PR" or "a future task"
   is forbidden.
 21. **Documentation as an Engineering Asset** — ADRs for significant decisions;
-    XML doc-comments on all public abstractions; living feature files.
+    XML doc-comments on all public abstractions; living code-first behavioural
+    tests (internal Test DSL).
 
 Any proposal that violates any of these categories MUST be rejected. The detailed
 enforcement rules, prohibited patterns, and code examples live in
@@ -390,8 +457,14 @@ constitution.
   `services.AddOptions<T>().BindConfiguration(T.SectionName).ValidateDataAnnotations()`.
 - **TUI layer:** Terminal.Gui for all interactive terminal rendering. No raw
   ANSI, no `System.Console` inside TUI view classes.
-- **Test framework:** Reqnroll.MSTest + Moq. MSTest is the runner; Reqnroll
-  provides BDD bindings.
+- **Test framework:** MSTest + Moq. MSTest is the runner; behavioural tests are
+  code-first against the internal Test DSL (`tests/DevOpsMigrationPlatform.Testing`:
+  typed builders, runners, assertions), tagged `[TestCategory("CodeTest")]` +
+  `[TestCategory("DomainTests")]`. Every test carries its parent family
+  (`CodeTest` or `SystemTest`) plus its specific category per the canonical
+  taxonomy in `.agents/20-guardrails/workflow/testing-rules.md`. Reqnroll/Gherkin
+  is legacy migration debt only — no new `.feature` files or `[Binding]` step
+  definitions.
 - **Control plane data store:** PostgreSQL via EF Core + Npgsql in all
   environments (Standalone, Self-Hosted, Managed). No SQLite fallback, no
   in-memory database substitute.
@@ -425,7 +498,11 @@ Reject any proposal that:
 - Creates agent rule files under `/docs` — all agent rules live in
   `.agents/20-guardrails/`.
 - Writes tests using xUnit or NUnit.
-- Implements a new module without an accepted Gherkin `.feature` file.
+- Implements a new module without accepted failing code-first behavioural tests
+  (internal Test DSL, `[TestCategory("DomainTests")]`) covering its scenarios.
+- Adds new behaviour as a Gherkin `.feature` file or new Reqnroll
+  `[Binding]`/`[Given]`/`[When]`/`[Then]` step definitions instead of code-first
+  DSL behavioural tests.
 - Uses `new` to construct a registered service inside production or module code
   instead of receiving it via constructor injection.
 - Reads configuration via raw `IConfiguration` key access or
@@ -518,5 +595,5 @@ Reject any proposal that:
 - All pull requests and agent reviews MUST verify compliance against this
   constitution and the guardrails before approving.
 
-**Version**: 1.4.1 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-04-28
+**Version**: 2.0.0 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-06-11
 

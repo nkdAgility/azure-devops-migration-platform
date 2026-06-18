@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
@@ -85,10 +86,7 @@ public class StreamingImportReplayTests
             .Setup(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ImportedWorkItemResult { TargetWorkItemId = targetId, IsNewlyCreated = true });
         ctx.MockTarget
-            .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        ctx.MockTarget
-            .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         ctx.MockTarget
             .Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
@@ -132,9 +130,9 @@ public class StreamingImportReplayTests
         // Act
         await ctx.BuildOrchestrator().ImportAsync(ctx.Extensions, ResumeMode.Auto, CancellationToken.None);
 
-        // Assert — one UpdateFieldsAsync call per revision folder
+        // Assert — one ApplyRevisionAsync call per revision folder
         ctx.MockTarget.Verify(
-            t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()),
             Times.Exactly(folderPaths.Count));
 
         // Assert — EnumerateAsync called once (no re-sort)
@@ -218,11 +216,15 @@ public class StreamingImportReplayTests
 
         // Assert — fields contain title and state
         ctx.MockTarget.Verify(
-            t => t.UpdateFieldsAsync(
+            t => t.ApplyRevisionAsync(
                 It.IsAny<int>(),
                 It.Is<IReadOnlyList<WorkItemField>>(f =>
                     f.Any(x => x.ReferenceName == "System.Title" && (string?)x.Value == "My Title") &&
                     f.Any(x => x.ReferenceName == "System.State" && (string?)x.Value == "Active")),
+                It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<AttachmentUploadResult>>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -243,7 +245,7 @@ public class StreamingImportReplayTests
 
         // Assert — target was updated (identity passed through)
         ctx.MockTarget.Verify(
-            t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 

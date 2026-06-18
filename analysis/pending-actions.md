@@ -212,6 +212,12 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 
 ---
 
+## spec 039 — Team Board Settings
+
+> **Status**: ✅ **Complete.** All tasks T001–T089 implemented and verified. `BoardConfigTeamExtension`, `ITeamBoardAdapter`, `SimulatedBoardAdapter`, `AzureDevOpsBoardAdapter`, `BoardConfigExtensionOptions`, `BoardConfigImportMode`, `TeamBoardConfig`, and `ConnectorCapability` flags (`BoardConfig`, `Backlogs`, `TaskboardColumns`) all implemented. 28 new tests added (16 system tests, 11 integration tests, 1 performance test). Schema entry registered. Docs updated: `docs/capabilities-guide.md`, `.agents/30-context/domains/connector-model.md`, `.agents/30-context/architecture/execution-model.md`. Discrepancies D-001 through D-008 all Resolved. net481 build compatibility fixed.
+
+---
+
 ## Summary Table
 
 | Area | Not Started 🔴 | Partial 🟡 | Reconciled/N/A ⬜ | Blocking? |
@@ -225,8 +231,9 @@ Items are grouped by feature spec and categorised as **Code**, **Tests**, or **D
 | spec 009 — Import orchestrator | ✅ Complete | — | — | — |
 | spec 013 — ADO Work Items Import | ✅ Complete (T001–T051) | — | — | — |
 | spec 015 — Work Item Scoped Fetch | ✅ Complete (T001–T031) | — | — | — |
+| spec 039 — Team Board Settings | ✅ Complete (T001–T089) | — | — | — |
 
-**Remaining real work**: 12 items total (3 in spec 004, 5 in spec 005, 3 in spec 006, 1 in spec 007). None are blocking. Specs 006 (code/docs), 007 (code fix applied), 008-simulated, 008-tui, 009, 013, and 015 are fully complete.
+**Remaining real work**: 12 items total (3 in spec 004, 5 in spec 005, 3 in spec 006, 1 in spec 007). None are blocking. Specs 006 (code/docs), 007 (code fix applied), 008-simulated, 008-tui, 009, 013, 015, and 039 are fully complete.
 
 
 ---

@@ -679,7 +679,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 var analysersByName = jobScope.ServiceProvider.GetServices<IAnalyser>()
                     .ToDictionary(a => a.Name, StringComparer.OrdinalIgnoreCase);
 
-                var inventoryOk = await planExecutor.ExecuteTasksAsync(
+                var inventoryOk = await planExecutor.DispatchTasksAsync(
                     executionPlan, captureHandlersByName, analysersByName,
                     baseInventoryContext, baseExportContext: null, importContext: null,
                     endpointsByUrl, ct).ConfigureAwait(false);
@@ -724,7 +724,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                         }
                     }
 
-                    var exportOk = await planExecutor.ExecuteExportPhaseAsync(
+                    var exportOk = await planExecutor.ExportAsync(
                         executionPlan,
                         moduleMap,
                         analyserMap,
@@ -798,7 +798,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 {
                     // Execute import phase using the plan executor.
                     var moduleMap = jobModules.ToDictionary(m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
-                    var importOk = await planExecutor.ExecuteImportPhaseAsync(
+                    var importOk = await planExecutor.ImportAsync(
                         executionPlan, moduleMap, importContext, ct).ConfigureAwait(false);
 
                     failed = !importOk;
@@ -994,7 +994,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
                 try
                 {
-                    var depsOk = await planExecutor.ExecuteTasksAsync(
+                    var depsOk = await planExecutor.DispatchTasksAsync(
                         discoveryPlan, captureHandlersByName, depAnalysersByName,
                         baseInventoryContext, baseExportContext: null, importContext: null,
                         endpointsByUrl, ct).ConfigureAwait(false);
@@ -1048,7 +1048,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     /// <summary>
     /// Builds the unified <c>captureHandlersByName</c> dictionary used by
-    /// <see cref="IJobPlanExecutor.ExecuteTasksAsync"/> to dispatch <c>capture.*</c> tasks.
+    /// <see cref="IJobPlanExecutor.DispatchTasksAsync"/> to dispatch <c>capture.*</c> tasks.
     /// <para>
     /// Step 1: Adds all <see cref="IModule"/> instances where <see cref="IModule.SupportsInventory"/> is <c>true</c>,
     /// cast to <see cref="ICapture"/>.

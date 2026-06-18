@@ -22,6 +22,7 @@ using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Configuration;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.WorkItems.WorkItemResolution;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -35,110 +36,10 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules;
 [TestClass]
 public sealed class WorkItemsModuleImportTests
 {
-    [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
-    [TestMethod]
-    public void Constructor_WhenIdentityMappingServiceMissing_ThrowsArgumentNullException()
-    {
-        var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
-        sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
-        sourceEndpoint.SetupGet(s => s.Url).Returns("https://source.example");
-        sourceEndpoint.SetupGet(s => s.OrganisationSlug).Returns("source.example");
-        sourceEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
-
-        var targetEndpoint = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
-        targetEndpoint.SetupGet(s => s.Project).Returns("TargetProject");
-        targetEndpoint.SetupGet(s => s.Url).Returns("https://target.example");
-        targetEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
-
-        var ex = Assert.ThrowsExactly<ArgumentNullException>(() => new WorkItemsModule(
-            Mock.Of<IWorkItemRevisionSourceFactory>(),
-            NullLogger<WorkItemsModule>.Instance,
-            Options.Create(new WorkItemsModuleOptions()),
-            sourceEndpoint.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance,
-            new Mock<IWorkItemTargetFactory>(MockBehavior.Strict).Object,
-            Mock.Of<IWorkItemResolutionStrategyFactory>(),
-            Mock.Of<ICheckpointingServiceFactory>(),
-            Mock.Of<IIdMapStoreFactory>(),
-            Mock.Of<IWorkItemResolutionProcessorFactory>(),
-            targetEndpoint.Object,
-            identityMappingService: null!,
-            nodeTranslationTool: Mock.Of<INodeTranslationTool>(),
-            fieldTransformTool: Mock.Of<IFieldTransformTool>()));
-
-        Assert.AreEqual("identityMappingService", ex.ParamName);
-    }
-
-    [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
-    [TestMethod]
-    public void Constructor_WhenNodeTranslationToolMissing_ThrowsArgumentNullException()
-    {
-        var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
-        sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
-        sourceEndpoint.SetupGet(s => s.Url).Returns("https://source.example");
-        sourceEndpoint.SetupGet(s => s.OrganisationSlug).Returns("source.example");
-        sourceEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
-
-        var targetEndpoint = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
-        targetEndpoint.SetupGet(s => s.Project).Returns("TargetProject");
-        targetEndpoint.SetupGet(s => s.Url).Returns("https://target.example");
-        targetEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
-
-        var ex = Assert.ThrowsExactly<ArgumentNullException>(() => new WorkItemsModule(
-            Mock.Of<IWorkItemRevisionSourceFactory>(),
-            NullLogger<WorkItemsModule>.Instance,
-            Options.Create(new WorkItemsModuleOptions()),
-            sourceEndpoint.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance,
-            new Mock<IWorkItemTargetFactory>(MockBehavior.Strict).Object,
-            Mock.Of<IWorkItemResolutionStrategyFactory>(),
-            Mock.Of<ICheckpointingServiceFactory>(),
-            Mock.Of<IIdMapStoreFactory>(),
-            Mock.Of<IWorkItemResolutionProcessorFactory>(),
-            targetEndpoint.Object,
-            identityMappingService: Mock.Of<IIdentityMappingService>(),
-            nodeTranslationTool: null!,
-            fieldTransformTool: Mock.Of<IFieldTransformTool>()));
-
-        Assert.AreEqual("nodeTranslationTool", ex.ParamName);
-    }
-
-    [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
-    [TestMethod]
-    public void Constructor_WhenFieldTransformToolMissing_ThrowsArgumentNullException()
-    {
-        var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
-        sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
-        sourceEndpoint.SetupGet(s => s.Url).Returns("https://source.example");
-        sourceEndpoint.SetupGet(s => s.OrganisationSlug).Returns("source.example");
-        sourceEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
-
-        var targetEndpoint = new Mock<ITargetEndpointInfo>(MockBehavior.Strict);
-        targetEndpoint.SetupGet(s => s.Project).Returns("TargetProject");
-        targetEndpoint.SetupGet(s => s.Url).Returns("https://target.example");
-        targetEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
-
-        var ex = Assert.ThrowsExactly<ArgumentNullException>(() => new WorkItemsModule(
-            Mock.Of<IWorkItemRevisionSourceFactory>(),
-            NullLogger<WorkItemsModule>.Instance,
-            Options.Create(new WorkItemsModuleOptions()),
-            sourceEndpoint.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance,
-            new Mock<IWorkItemTargetFactory>(MockBehavior.Strict).Object,
-            Mock.Of<IWorkItemResolutionStrategyFactory>(),
-            Mock.Of<ICheckpointingServiceFactory>(),
-            Mock.Of<IIdMapStoreFactory>(),
-            Mock.Of<IWorkItemResolutionProcessorFactory>(),
-            targetEndpoint.Object,
-            identityMappingService: Mock.Of<IIdentityMappingService>(),
-            nodeTranslationTool: Mock.Of<INodeTranslationTool>(),
-            fieldTransformTool: null!));
-
-        Assert.AreEqual("fieldTransformTool", ex.ParamName);
-    }
+    // NOTE: The former Constructor_When{IdentityMappingService,NodeTranslationTool,FieldTransformTool}Missing
+    // tests were removed (ADR 0019): WorkItemsModule is now a thin façade taking only
+    // IWorkItemsOrchestrator, so those guard clauses no longer live on the module. Dependency
+    // validation belongs to the orchestrator/runtime graph, composed by DI.
 
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
@@ -277,9 +178,8 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         revisionProcessor
-            .Setup(p => p.ProcessAsync(
+            .Setup(p => p.ImportRevisionAsync(
                 "WorkItems/2026-05-13/638827200000000000-42-0/",
-                It.IsAny<WorkItemsModuleExtensions>(),
                 It.IsAny<string?>(),
                 It.IsAny<IWorkItemResolutionStrategy>(),
                 It.IsAny<CancellationToken>()))
@@ -295,7 +195,8 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<IIdentityTranslationTool?>(),
                 It.IsAny<string>(),
                 It.IsAny<string>(),
-                It.IsAny<ProjectMapping?>()))
+                It.IsAny<ProjectMapping?>(),
+                It.IsAny<bool>()))
             .Returns(revisionProcessor.Object);
 
         var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
@@ -313,20 +214,14 @@ public sealed class WorkItemsModuleImportTests
             .Setup(t => t.IsEnabledForPhase(FieldTransformPhase.Import))
             .Returns(true);
 
-        var module = new WorkItemsModule(
-            Mock.Of<IWorkItemRevisionSourceFactory>(),
-            NullLogger<WorkItemsModule>.Instance,
-            Options.Create(new WorkItemsModuleOptions()),
-            sourceEndpoint.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance,
-            importTargetFactory.Object,
-            resolutionStrategyFactory.Object,
-            checkpointFactory.Object,
-            idMapStoreFactory.Object,
-            processorFactory.Object,
-            targetEndpoint.Object,
-            identityMappingService: Mock.Of<IIdentityMappingService>(),
-            nodeTranslationTool: nodeTranslationTool.Object,
+        var module = WorkItemsModuleTestFactory.Create(
+            sourceEndpointInfo: sourceEndpoint.Object,
+            importTargetFactory: importTargetFactory.Object,
+            resolutionStrategyFactory: resolutionStrategyFactory.Object,
+            checkpointingFactory: checkpointFactory.Object,
+            idMapStoreFactory: idMapStoreFactory.Object,
+            processorFactory: processorFactory.Object,
+            targetEndpointInfo: targetEndpoint.Object,
             fieldTransformTool: fieldTransformTool.Object,
             nodeReadinessOrchestrator: nodeReadiness);
 
@@ -465,9 +360,8 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         revisionProcessor
-            .Setup(p => p.ProcessAsync(
+            .Setup(p => p.ImportRevisionAsync(
                 "WorkItems/2026-05-13/638827200000000000-42-0/",
-                It.IsAny<WorkItemsModuleExtensions>(),
                 It.IsAny<string?>(),
                 It.IsAny<IWorkItemResolutionStrategy>(),
                 It.IsAny<CancellationToken>()))
@@ -483,7 +377,8 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<IIdentityTranslationTool?>(),
                 It.IsAny<string>(),
                 It.IsAny<string>(),
-                It.IsAny<ProjectMapping?>()))
+                It.IsAny<ProjectMapping?>(),
+                It.IsAny<bool>()))
             .Returns(revisionProcessor.Object);
 
         var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
@@ -502,20 +397,14 @@ public sealed class WorkItemsModuleImportTests
             .Setup(t => t.IsEnabledForPhase(FieldTransformPhase.Import))
             .Returns(true);
 
-        var module = new WorkItemsModule(
-            Mock.Of<IWorkItemRevisionSourceFactory>(),
-            NullLogger<WorkItemsModule>.Instance,
-            Options.Create(new WorkItemsModuleOptions()),
-            sourceEndpoint.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance,
-            importTargetFactory.Object,
-            resolutionStrategyFactory.Object,
-            checkpointFactory.Object,
-            idMapStoreFactory.Object,
-            processorFactory.Object,
-            targetEndpoint.Object,
-            identityMappingService: Mock.Of<IIdentityMappingService>(),
-            nodeTranslationTool: nodeTranslationTool.Object,
+        var module = WorkItemsModuleTestFactory.Create(
+            sourceEndpointInfo: sourceEndpoint.Object,
+            importTargetFactory: importTargetFactory.Object,
+            resolutionStrategyFactory: resolutionStrategyFactory.Object,
+            checkpointingFactory: checkpointFactory.Object,
+            idMapStoreFactory: idMapStoreFactory.Object,
+            processorFactory: processorFactory.Object,
+            targetEndpointInfo: targetEndpoint.Object,
             fieldTransformTool: fieldTransformTool.Object,
             nodeReadinessOrchestrator: nodeReadiness,
             nodesModuleOptions: Options.Create(new NodesModuleOptions { ReplicateSourceTree = true }));
@@ -617,15 +506,12 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<IWorkItemResolutionStrategy>(),
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-        WorkItemsModuleExtensions? capturedExtensions = null;
         revisionProcessor
-            .Setup(p => p.ProcessAsync(
+            .Setup(p => p.ImportRevisionAsync(
                 "WorkItems/2026-05-13/638827200000000000-42-0/",
-                It.IsAny<WorkItemsModuleExtensions>(),
                 It.IsAny<string?>(),
                 It.IsAny<IWorkItemResolutionStrategy>(),
                 It.IsAny<CancellationToken>()))
-            .Callback<string, WorkItemsModuleExtensions, string?, IWorkItemResolutionStrategy, CancellationToken>((_, ext, _, _, _) => capturedExtensions = ext)
             .Returns(Task.CompletedTask);
 
         var processorFactory = new Mock<IWorkItemResolutionProcessorFactory>(MockBehavior.Strict);
@@ -637,8 +523,10 @@ public sealed class WorkItemsModuleImportTests
                 It.IsAny<IIdentityTranslationTool?>(),
                 It.IsAny<string>(),
                 It.IsAny<string>(),
-                It.IsAny<ProjectMapping?>()))
-            .Returns(revisionProcessor.Object);
+                It.IsAny<ProjectMapping?>(),
+                false)) // embeddedImagesEnabledByLever — lever disables
+            .Returns(revisionProcessor.Object)
+            .Verifiable("Orchestrator must pass lever-computed disabled embeddedImages flag to the processor factory.");
 
         var sourceEndpoint = new Mock<ISourceEndpointInfo>(MockBehavior.Strict);
         sourceEndpoint.SetupGet(s => s.Project).Returns("SourceProject");
@@ -661,8 +549,6 @@ public sealed class WorkItemsModuleImportTests
             Extensions = new WorkItemsExtensionsOptions
             {
                 Revisions = new EnabledExtensionOptions { Enabled = true },
-                Links = new EnabledExtensionOptions { Enabled = true },
-                Attachments = new EnabledExtensionOptions { Enabled = true },
                 EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig { Enabled = true, DownloadTimeoutSeconds = 30 }
             }
         };
@@ -676,20 +562,15 @@ public sealed class WorkItemsModuleImportTests
             FieldTransform = true
         };
 
-        var module = new WorkItemsModule(
-            Mock.Of<IWorkItemRevisionSourceFactory>(),
-            NullLogger<WorkItemsModule>.Instance,
-            Options.Create(moduleOptions),
-            sourceEndpoint.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance,
-            importTargetFactory.Object,
-            resolutionStrategyFactory.Object,
-            checkpointFactory.Object,
-            idMapStoreFactory.Object,
-            processorFactory.Object,
-            targetEndpoint.Object,
-            identityMappingService: Mock.Of<IIdentityMappingService>(),
-            nodeTranslationTool: Mock.Of<INodeTranslationTool>(),
+        var module = WorkItemsModuleTestFactory.Create(
+            options: Options.Create(moduleOptions),
+            sourceEndpointInfo: sourceEndpoint.Object,
+            importTargetFactory: importTargetFactory.Object,
+            resolutionStrategyFactory: resolutionStrategyFactory.Object,
+            checkpointingFactory: checkpointFactory.Object,
+            idMapStoreFactory: idMapStoreFactory.Object,
+            processorFactory: processorFactory.Object,
+            targetEndpointInfo: targetEndpoint.Object,
             fieldTransformTool: fieldTransformTool.Object,
             workItemImportOptions: Options.Create(replayLevers));
 
@@ -708,11 +589,8 @@ public sealed class WorkItemsModuleImportTests
             },
             CancellationToken.None);
 
-        Assert.IsNotNull(capturedExtensions);
-        Assert.IsFalse(capturedExtensions!.LinksEnabled);
-        Assert.IsFalse(capturedExtensions!.AttachmentsEnabled);
-        Assert.IsFalse(capturedExtensions.EmbeddedImages.Enabled);
         revisionProcessor.VerifyAll();
+        processorFactory.Verify();
     }
 
     private static PackagePayload CreatePayload<T>(T value)

@@ -45,13 +45,30 @@ public interface IWorkItemTarget
         CancellationToken ct);
 
     /// <summary>
-    /// Upload an attachment binary and attach it to the target work item.
-    /// Returns the target attachment identifier (URL or GUID).
+    /// Upload an attachment binary to the target storage.
+    /// Returns the URL (or identifier) of the uploaded binary.
+    /// The relation between the work item and the attachment is added later
+    /// via <see cref="ApplyRevisionAsync"/>.
     /// </summary>
     Task<string> UploadAttachmentAsync(
         int targetWorkItemId,
         string fileName,
         Stream content,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Apply all revision data to an existing target work item in a single call:
+    /// fields, link relations, and attachment relations.
+    /// Attachment binaries must already be uploaded via <see cref="UploadAttachmentAsync"/>
+    /// before calling this method; <paramref name="attachmentResults"/> carries the resulting URLs.
+    /// </summary>
+    Task ApplyRevisionAsync(
+        int targetWorkItemId,
+        IReadOnlyList<WorkItemField> fields,
+        IReadOnlyList<RelatedWorkItemLink> relatedLinks,
+        IReadOnlyList<ExternalWorkItemLink> externalLinks,
+        IReadOnlyList<HyperlinkWorkItemLink> hyperlinks,
+        IReadOnlyList<AttachmentUploadResult> attachmentResults,
         CancellationToken ct);
 
     /// <summary>

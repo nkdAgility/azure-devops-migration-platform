@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
 using System;
@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Options;
@@ -18,9 +19,11 @@ using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -88,18 +91,21 @@ public sealed class ServicesFeaturesDslTests
             "user@source.com",
             toolSetup: tool => tool.Setup(t => t.Translate("user@source.com")).Returns("user@target.com"));
 
-        await processor.ProcessAsync(
+        await processor.ImportRevisionAsync(
             "WorkItems/2024-01-01/00000638000000000001-1-0",
-            new WorkItemsModuleExtensions(),
             resumeAtStage: null,
             Mock.Of<IWorkItemResolutionStrategy>(),
             CancellationToken.None);
 
         target.Verify(
-            t => t.UpdateFieldsAsync(
+            t => t.ApplyRevisionAsync(
                 It.IsAny<int>(),
                 It.Is<IReadOnlyList<WorkItemField>>(f =>
                     f.Any(x => x.ReferenceName == "System.AssignedTo" && (string?)x.Value == "user@target.com")),
+                It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<AttachmentUploadResult>>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
         mapping.Verify(t => t.Translate("user@source.com"), Times.Once);
@@ -115,18 +121,21 @@ public sealed class ServicesFeaturesDslTests
             "someuser@domain.com",
             toolSetup: tool => tool.Setup(t => t.Translate(It.IsAny<string>())).Returns<string>(s => s));
 
-        await processor.ProcessAsync(
+        await processor.ImportRevisionAsync(
             "WorkItems/2024-01-01/00000638000000000001-1-0",
-            new WorkItemsModuleExtensions(),
             resumeAtStage: null,
             Mock.Of<IWorkItemResolutionStrategy>(),
             CancellationToken.None);
 
         target.Verify(
-            t => t.UpdateFieldsAsync(
+            t => t.ApplyRevisionAsync(
                 It.IsAny<int>(),
                 It.Is<IReadOnlyList<WorkItemField>>(f =>
                     f.Any(x => x.ReferenceName == "System.CreatedBy" && (string?)x.Value == "someuser@domain.com")),
+                It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<AttachmentUploadResult>>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
         mapping.Verify(t => t.Translate("someuser@domain.com"), Times.Once);
@@ -142,20 +151,7 @@ public sealed class ServicesFeaturesDslTests
         sourceEndpoint.SetupGet(e => e.Project).Returns("ProjectA");
 
         var module = new WorkItemsModule(
-            sourceFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Export.IWorkItemRevisionSourceFactory>(),
-            logger: Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemsModule>.Instance,
-            options: Microsoft.Extensions.Options.Options.Create(new WorkItemsModuleOptions()),
-            sourceEndpointInfo: sourceEndpoint.Object,
-            orchestratorLogger: Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemsImportRuntime>.Instance,
-            importTargetFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemTargetFactory>(),
-            resolutionStrategyFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemResolutionStrategyFactory>(),
-            checkpointingFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing.ICheckpointingServiceFactory>(),
-            idMapStoreFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Storage.IIdMapStoreFactory>(),
-            processorFactory: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Export.IWorkItemResolutionProcessorFactory>(),
-            targetEndpointInfo: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Context.ITargetEndpointInfo>(),
-            identityMappingService: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Identity.IIdentityMappingService>(),
-            nodeTranslationTool: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Tools.INodeTranslationTool>(),
-            fieldTransformTool: Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Tools.IFieldTransformTool>());
+            Mock.Of<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IWorkItemsOrchestrator>());
 
         Assert.IsTrue(module.DependsOn.Any(d => d.ModuleType == typeof(IdentitiesModule) && d.AppliesToImport));
     }
@@ -357,10 +353,7 @@ public sealed class ServicesFeaturesDslTests
             .Setup(s => s.GetTargetWorkItemIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(10);
         target
-            .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        target
-            .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         target
             .Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
@@ -382,6 +375,7 @@ public sealed class ServicesFeaturesDslTests
             Microsoft.Extensions.Logging.Abstractions.NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
             package: package.Object);
 
         return (processor, target, identityTool);

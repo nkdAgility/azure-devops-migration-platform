@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.Revisions;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Attachments;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
@@ -85,6 +86,7 @@ internal sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSourc
     {
         int skip = 0;
         WorkItem? previous = null;
+        RawWorkItemRevisionData? previousRaw = null;
 
         while (true)
         {
@@ -108,8 +110,10 @@ internal sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSourc
                 // source can access them later in the same export run.
                 RegisterAttachmentUrls(workItemId, previous, current);
 
-                var mapped = _mapper.Map(current, previous);
+                var currentRaw = ToRaw(current);
+                var mapped = _mapper.Map(currentRaw, previousRaw);
                 previous = current;
+                previousRaw = currentRaw;
 
                 yield return mapped;
             }
@@ -119,6 +123,29 @@ internal sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSourc
 
             skip += page.Count;
         }
+    }
+
+    private static RawWorkItemRevisionData ToRaw(WorkItem wi)
+    {
+        var fields = new Dictionary<string, object?>(wi.Fields?.Count ?? 0);
+        if (wi.Fields is not null)
+            foreach (var kvp in wi.Fields)
+                fields[kvp.Key] = kvp.Value;
+
+        var relations = new List<RawWorkItemRelation>(wi.Relations?.Count ?? 0);
+        if (wi.Relations is not null)
+        {
+            foreach (var r in wi.Relations)
+            {
+                var attrs = new Dictionary<string, object?>(r.Attributes?.Count ?? 0);
+                if (r.Attributes is not null)
+                    foreach (var kvp in r.Attributes)
+                        attrs[kvp.Key] = kvp.Value;
+                relations.Add(new RawWorkItemRelation { Rel = r.Rel, Url = r.Url, Attributes = attrs });
+            }
+        }
+
+        return new RawWorkItemRevisionData { Id = wi.Id, Rev = wi.Rev, Fields = fields, Relations = relations };
     }
 
     private void RegisterAttachmentUrls(int workItemId, WorkItem? previous, WorkItem current)

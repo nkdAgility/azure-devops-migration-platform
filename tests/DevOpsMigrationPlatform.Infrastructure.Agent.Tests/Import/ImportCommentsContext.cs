@@ -5,10 +5,13 @@ using System.Collections.Generic;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
@@ -35,8 +38,9 @@ public class ImportCommentsContext
         MockPackage = PackageTestFactory.CreateDelegatingMock(MockArtefactStore.Object);
     }
 
-    public WorkItemsImportRuntime BuildOrchestrator()
+    public WorkItemRevisionLoopDriver BuildOrchestrator(CommentsWorkItemExtension? commentsExtension = null)
     {
+        var extension = commentsExtension ?? new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()));
         var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
@@ -45,18 +49,22 @@ public class ImportCommentsContext
             NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
+            moduleExtensions: new[] { extension },
             package: MockPackage.Object);
 
-        return new WorkItemsImportRuntime(
-            MockPackage.Object,
-            "https://dev.azure.com/contoso",
-            "Shop",
-            MockCheckpointing.Object,
-            MockProgressSink.Object,
-            MockResolutionStrategy.Object,
-            MockIdMapStore.Object,
-            processor,
-            MockTarget.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance);
+        return new WorkItemRevisionLoopDriver(
+            new WorkItemRevisionJobScope(
+                MockPackage.Object,
+                "https://dev.azure.com/contoso",
+                "Shop",
+                MockCheckpointing.Object,
+                MockProgressSink.Object,
+                MockResolutionStrategy.Object,
+                MockIdMapStore.Object,
+                processor,
+                MockTarget.Object,
+                JobId: null,
+                FilterOptions: null),
+            commentsExtension: commentsExtension);
     }
 }

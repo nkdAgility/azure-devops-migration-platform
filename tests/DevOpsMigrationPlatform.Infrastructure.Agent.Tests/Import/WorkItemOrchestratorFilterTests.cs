@@ -9,11 +9,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -105,10 +108,10 @@ public class WorkItemOrchestratorFilterTests
         await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
 
         _mockTarget.Verify(
-            t => t.UpdateFieldsAsync(1, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.ApplyRevisionAsync(1, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()),
             Times.AtLeastOnce, "Work item 1 should be imported.");
         _mockTarget.Verify(
-            t => t.UpdateFieldsAsync(2, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.ApplyRevisionAsync(2, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()),
             Times.Never, "Work item 2 should be skipped.");
     }
 
@@ -124,7 +127,7 @@ public class WorkItemOrchestratorFilterTests
         await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
 
         _mockTarget.Verify(
-            t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()),
             Times.Exactly(2), "Both work items should be imported when no filter is configured.");
     }
 
@@ -145,10 +148,10 @@ public class WorkItemOrchestratorFilterTests
         await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
 
         _mockTarget.Verify(
-            t => t.UpdateFieldsAsync(1, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.ApplyRevisionAsync(1, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()),
             Times.AtLeastOnce, "Work item 1 should not be excluded.");
         _mockTarget.Verify(
-            t => t.UpdateFieldsAsync(2, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.ApplyRevisionAsync(2, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()),
             Times.Never, "Work item 2 should be excluded by NotRegex filter.");
     }
 
@@ -172,7 +175,7 @@ public class WorkItemOrchestratorFilterTests
         await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
 
         _mockTarget.Verify(
-            t => t.UpdateFieldsAsync(1, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.ApplyRevisionAsync(1, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()),
             Times.Exactly(3), "All revisions should import when the latest revision matches the filter.");
     }
 
@@ -185,11 +188,15 @@ public class WorkItemOrchestratorFilterTests
         AddRevisionFolder(wiId: 2, revIndex: 0, areaPath: @"MyOrg\TeamA");
         var processedOrder = new List<int>();
 
-        _mockTarget.Setup(t => t.UpdateFieldsAsync(
+        _mockTarget.Setup(t => t.ApplyRevisionAsync(
                     It.IsAny<int>(),
                     It.IsAny<IReadOnlyList<WorkItemField>>(),
+                    It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(),
+                    It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(),
+                    It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(),
+                    It.IsAny<IReadOnlyList<AttachmentUploadResult>>(),
                     It.IsAny<CancellationToken>()))
-            .Callback<int, IReadOnlyList<WorkItemField>, CancellationToken>((id, _, _) => processedOrder.Add(id))
+            .Callback<int, IReadOnlyList<WorkItemField>, IReadOnlyList<RelatedWorkItemLink>, IReadOnlyList<ExternalWorkItemLink>, IReadOnlyList<HyperlinkWorkItemLink>, IReadOnlyList<AttachmentUploadResult>, CancellationToken>((id, _, _, _, _, _, _) => processedOrder.Add(id))
             .Returns(Task.CompletedTask);
 
         var filters = new List<WorkItemFieldFilterOptions>
@@ -225,7 +232,7 @@ public class WorkItemOrchestratorFilterTests
         await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
 
         _mockTarget.Verify(
-            t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()),
             Times.Never,
             "UploadedAttachments cursor stage should advance to Completed and skip duplicate reprocessing.");
     }
@@ -242,7 +249,7 @@ public class WorkItemOrchestratorFilterTests
         await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
 
         _mockTarget.Verify(
-            t => t.UpdateFieldsAsync(1, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.ApplyRevisionAsync(1, It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()),
             Times.Once,
             "A duplicate folder entry should be skipped after cursor progression is updated in-run.");
     }
@@ -275,8 +282,8 @@ public class WorkItemOrchestratorFilterTests
 
         var updatedIdsInOrder = new List<int>();
         _mockTarget
-            .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
-            .Callback<int, IReadOnlyList<WorkItemField>, CancellationToken>((id, _, _) => updatedIdsInOrder.Add(id))
+            .Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()))
+            .Callback<int, IReadOnlyList<WorkItemField>, IReadOnlyList<RelatedWorkItemLink>, IReadOnlyList<ExternalWorkItemLink>, IReadOnlyList<HyperlinkWorkItemLink>, IReadOnlyList<AttachmentUploadResult>, CancellationToken>((id, _, _, _, _, _, _) => updatedIdsInOrder.Add(id))
             .Returns(Task.CompletedTask);
 
         // WI 1: existing valid mapping -> update existing
@@ -314,41 +321,19 @@ public class WorkItemOrchestratorFilterTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public async Task ImportAsync_WhenAttachmentReplayDisabled_EmitsSkipReasonEvent()
-    {
-        AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
-
-        var orchestrator = BuildOrchestrator();
-        await orchestrator.ImportAsync(
-            new WorkItemsModuleExtensions { AttachmentsEnabled = false },
-            ResumeMode.Auto,
-            CancellationToken.None);
-
-        _mockProgress.Verify(
-            p => p.Emit(It.Is<ProgressEvent>(e =>
-                e.Stage == CursorStage.UploadedAttachments &&
-                e.Message != null &&
-                e.Message.Contains("Attachment replay skipped", StringComparison.OrdinalIgnoreCase))),
-            Times.AtLeastOnce);
-    }
-
-    [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
-    [TestMethod]
     public async Task ImportAsync_WhenEmbeddedImageReplayDisabled_EmitsSkipReasonEvent()
     {
         AddRevisionFolder(wiId: 1, revIndex: 0, areaPath: @"MyOrg\TeamA");
 
-        var orchestrator = BuildOrchestrator();
-        await orchestrator.ImportAsync(
-            new WorkItemsModuleExtensions
+        var orchestrator = BuildOrchestrator(moduleOptions: new WorkItemsModuleOptions
+        {
+            Extensions = new WorkItemsExtensionsOptions
             {
-                EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig
-                {
-                    Enabled = false,
-                    DownloadTimeoutSeconds = 30
-                }
-            },
+                EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig { Enabled = false }
+            }
+        });
+        await orchestrator.ImportAsync(
+            new WorkItemsModuleExtensions(),
             ResumeMode.Auto,
             CancellationToken.None);
 
@@ -417,9 +402,10 @@ public class WorkItemOrchestratorFilterTests
             NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
             package: _mockPackage.Object);
 
-        var orchestrator = new WorkItemsImportRuntime(
+        var driver = new WorkItemRevisionLoopDriver(new WorkItemRevisionJobScope(
             _mockPackage.Object,
             "unknown",
             string.Empty,
@@ -429,19 +415,21 @@ public class WorkItemOrchestratorFilterTests
             _mockIdMap.Object,
             processor,
             _mockTarget.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance);
+            JobId: null,
+            FilterOptions: null));
 
-        await orchestrator.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
+        await driver.ImportAsync(new WorkItemsModuleExtensions(), ResumeMode.Auto, CancellationToken.None);
 
         _mockTarget.Verify(
-            t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()),
+            t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()),
             Times.AtLeastOnce);
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private WorkItemsImportRuntime BuildOrchestrator(
-        IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null)
+    private WorkItemRevisionLoopDriver BuildOrchestrator(
+        IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
+        WorkItemsModuleOptions? moduleOptions = null)
     {
         var processor = new WorkItemResolutionProcessor(
             _mockTarget.Object,
@@ -451,20 +439,23 @@ public class WorkItemOrchestratorFilterTests
             NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
             package: _mockPackage.Object);
 
-        return new WorkItemsImportRuntime(
-            _mockPackage.Object,
-            "https://dev.azure.com/contoso",
-            "Shop",
-            _mockCps.Object,
-            _mockProgress.Object,
-            _mockStrategy.Object,
-            _mockIdMap.Object,
-            processor,
-            _mockTarget.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance,
-            filterOptions: filterOptions);
+        return new WorkItemRevisionLoopDriver(
+            new WorkItemRevisionJobScope(
+                _mockPackage.Object,
+                "https://dev.azure.com/contoso",
+                "Shop",
+                _mockCps.Object,
+                _mockProgress.Object,
+                _mockStrategy.Object,
+                _mockIdMap.Object,
+                processor,
+                _mockTarget.Object,
+                JobId: null,
+                FilterOptions: filterOptions),
+            moduleOptions: moduleOptions);
     }
 
     private void AddRevisionFolder(int wiId, int revIndex, string areaPath)

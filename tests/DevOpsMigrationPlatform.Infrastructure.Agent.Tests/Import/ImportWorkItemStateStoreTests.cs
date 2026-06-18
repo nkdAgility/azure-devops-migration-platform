@@ -373,7 +373,7 @@ public class ImportWorkItemStateStoreTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public void ResolveResumeDecision_WhenCursorIsUploadedAttachments_SkipsToPreventDuplicateWork()
+    public void ResolveResumeDecision_WhenCursorIsUploadedAttachments_ResumesAtAppliedComments()
     {
         var sut = new ImportWorkItemStateStore(new Mock<IPackageAccess>(MockBehavior.Strict).Object);
         var folder = "WorkItems/2026-01-01/638712000000000000-42-3";
@@ -385,8 +385,8 @@ public class ImportWorkItemStateStoreTests
 
         var decision = sut.ResolveWorkItemFolderResumeDecision(folder, cursor);
 
-        Assert.IsTrue(decision.ShouldSkip);
-        Assert.IsNull(decision.ResumeAtStage);
+        Assert.IsFalse(decision.ShouldSkip);
+        Assert.AreEqual(CursorStage.AppliedComments, decision.ResumeAtStage);
     }
 
     [TestCategory("CodeTest")]

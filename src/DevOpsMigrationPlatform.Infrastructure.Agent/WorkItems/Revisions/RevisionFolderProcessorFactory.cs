@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System.Collections.Generic;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
+using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Abstractions.Options;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -22,10 +26,12 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
     private readonly IFieldTransformTool? _fieldTransformTool;
     private readonly IPackageAccess _package;
     private readonly NodeTranslationOptions? _nodeStructureOptions;
+    private readonly IEnumerable<IModuleExtension> _moduleExtensions;
 
     public RevisionFolderProcessorFactory(
         ILoggerFactory loggerFactory,
         IPackageAccess package,
+        IEnumerable<IModuleExtension> moduleExtensions,
         IPlatformMetrics? metrics = null,
         IFieldTransformTool? fieldTransformTool = null,
         INodeTranslationTool? nodeStructureTool = null,
@@ -33,6 +39,7 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
     {
         _loggerFactory = loggerFactory ?? throw new System.ArgumentNullException(nameof(loggerFactory));
         _package = package ?? throw new System.ArgumentNullException(nameof(package));
+        _moduleExtensions = moduleExtensions ?? throw new System.ArgumentNullException(nameof(moduleExtensions));
         _metrics = metrics;
         _fieldTransformTool = fieldTransformTool;
         _nodeStructureTool = nodeStructureTool;
@@ -57,8 +64,14 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
         IIdentityTranslationTool? identityTranslationTool,
         string organisation,
         string project,
-        ProjectMapping? nodeStructureContext)
-        => new WorkItemResolutionProcessor(
+        ProjectMapping? nodeStructureContext,
+        bool embeddedImagesEnabledByLever = true)
+    {
+        var embeddedImagesOptions = embeddedImagesEnabledByLever
+            ? (EmbeddedImagesExtensionOptionsConfig?)null
+            : new EmbeddedImagesExtensionOptionsConfig { Enabled = false };
+
+        return new WorkItemResolutionProcessor(
             target,
             idMapStore,
             checkpointing,
@@ -66,10 +79,13 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
             _loggerFactory.CreateLogger<WorkItemResolutionProcessor>(),
             organisation,
             project,
-            _metrics,
+            _moduleExtensions,
+            metrics: _metrics,
             fieldTransformTool: _fieldTransformTool,
             nodeStructureTool: _nodeStructureTool,
             nodeStructureContext: nodeStructureContext,
             nodeStructureOptions: _nodeStructureOptions,
-            package: _package);
+            package: _package,
+            embeddedImagesOptions: embeddedImagesOptions);
+    }
 }

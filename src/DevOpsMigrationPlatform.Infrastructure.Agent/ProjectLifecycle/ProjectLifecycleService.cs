@@ -222,13 +222,6 @@ public sealed class ProjectLifecycleService : IProjectLifecycleService
     }
 }
 
-public interface IProjectLifecycleProvider
-{
-    Task CreateActionAsync(ProjectLifecycleContext context, string projectName, CancellationToken cancellationToken);
-
-    Task TeardownActionAsync(ProjectLifecycleRecord record, CancellationToken cancellationToken);
-}
-
 /// <summary>
 /// Registration descriptor for a keyed <see cref="IProjectLifecycleProvider"/>.
 /// </summary>

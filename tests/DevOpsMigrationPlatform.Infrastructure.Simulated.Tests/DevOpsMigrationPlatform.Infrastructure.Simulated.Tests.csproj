@@ -20,6 +20,7 @@
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Abstractions\DevOpsMigrationPlatform.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Abstractions.Agent\DevOpsMigrationPlatform.Abstractions.Agent.csproj" />
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.Agent\DevOpsMigrationPlatform.Infrastructure.Agent.csproj" />
   </ItemGroup>
 
 </Project>

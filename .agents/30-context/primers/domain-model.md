@@ -24,7 +24,7 @@ A cross-cutting analysis component that implements `IAnalyser`. Analysers run af
 
 ## Tool
 
-A stateless transformation or lookup service declared at the config root under `MigrationPlatform:Tools.*`. Tools perform pure data transforms or identity lookups with no I/O and no mutable state. Available tools: FieldTransform, NodeTranslation, IdentityLookup. Tools must satisfy full observability requirements (O-1 through O-4).
+A singleton service with one run-wide central config, declared at the config root under `MigrationPlatform:Tools.*`, consumed directly via DI. Tools provide data transforms or identity/path lookups; they **may perform I/O** (e.g. a Prepare-phase identity cache lookup) and may hold run-wide derived state, but carry no per-consumer/per-call mutable state and must be safe for concurrent use. What defines a tool is its single-instance/single-config shape, not purity. Available tools: FieldTransform, NodeTranslation, IdentityLookup. Tools must satisfy full observability requirements (O-1 through O-4).
 FieldTransform behavior and configuration semantics are contract-owned by `.agents/10-contracts/specs/field-transform-contract.md`.
 
 ## Connector

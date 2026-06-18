@@ -18,8 +18,8 @@ public sealed class PackageRuntimeBoundaryEnforcementTests
     {
         @"src\DevOpsMigrationPlatform.Infrastructure.Agent\Modules\WorkItemsModule.cs",
         @"src\DevOpsMigrationPlatform.Infrastructure.Agent\Export\WorkItemExportOrchestrator.cs",
-        @"src\DevOpsMigrationPlatform.Infrastructure.Agent\WorkItems\WorkItemResolution\WorkItemsImportRuntime.cs",
-        @"src\DevOpsMigrationPlatform.Infrastructure.Agent\WorkItems\Revisions\RevisionFolderProcessor.cs",
+        @"src\DevOpsMigrationPlatform.Infrastructure.Agent\WorkItems\WorkItemResolution\WorkItemsOrchestrator.cs",
+        @"src\DevOpsMigrationPlatform.Infrastructure.Agent\WorkItems\Revisions\WorkItemResolutionProcessor.cs",
         @"src\DevOpsMigrationPlatform.Infrastructure.Agent\Modules\DependencyOrchestrator.cs",
         @"src\DevOpsMigrationPlatform.Infrastructure.Agent\Modules\IdentitiesOrchestrator.cs",
         @"src\DevOpsMigrationPlatform.Infrastructure.Agent\Modules\NodesOrchestrator.cs",

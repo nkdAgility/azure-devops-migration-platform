@@ -177,7 +177,7 @@ public sealed class JobAgentWorkerDispatchTests
             .ReturnsAsync(_plan);
 
         _planExecutor
-            .Setup(executor => executor.ExecuteExportPhaseAsync(
+            .Setup(executor => executor.ExportAsync(
                 It.IsAny<JobTaskList>(),
                 It.IsAny<IReadOnlyDictionary<string, IModule>>(),
                 It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
@@ -188,7 +188,7 @@ public sealed class JobAgentWorkerDispatchTests
             .ReturnsAsync(true);
 
         _planExecutor
-            .Setup(executor => executor.ExecuteImportPhaseAsync(
+            .Setup(executor => executor.ImportAsync(
                 It.IsAny<JobTaskList>(),
                 It.IsAny<IReadOnlyDictionary<string, IModule>>(),
                 It.IsAny<ImportContext>(),
@@ -196,7 +196,7 @@ public sealed class JobAgentWorkerDispatchTests
             .ReturnsAsync(true);
 
         _planExecutor
-            .Setup(executor => executor.ExecuteTasksAsync(
+            .Setup(executor => executor.DispatchTasksAsync(
                 It.IsAny<JobTaskList>(),
                 It.IsAny<IReadOnlyDictionary<string, ICapture>>(),
                 It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
@@ -242,7 +242,7 @@ public sealed class JobAgentWorkerDispatchTests
             "lease-export",
             CancellationToken.None);
 
-        _planExecutor.Verify(executor => executor.ExecuteExportPhaseAsync(
+        _planExecutor.Verify(executor => executor.ExportAsync(
             It.IsAny<JobTaskList>(),
             It.IsAny<IReadOnlyDictionary<string, IModule>>(),
             It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
@@ -250,7 +250,7 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
             It.IsAny<ExportContext>(),
             It.IsAny<CancellationToken>()), Times.Once);
-        _planExecutor.Verify(executor => executor.ExecuteTasksAsync(
+        _planExecutor.Verify(executor => executor.DispatchTasksAsync(
             It.IsAny<JobTaskList>(),
             It.IsAny<IReadOnlyDictionary<string, ICapture>>(),
             It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
@@ -286,7 +286,7 @@ public sealed class JobAgentWorkerDispatchTests
 
         IReadOnlyDictionary<string, OrganisationEndpoint>? capturedEndpoints = null;
         _planExecutor
-            .Setup(executor => executor.ExecuteExportPhaseAsync(
+            .Setup(executor => executor.ExportAsync(
                 It.IsAny<JobTaskList>(),
                 It.IsAny<IReadOnlyDictionary<string, IModule>>(),
                 It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
@@ -328,7 +328,7 @@ public sealed class JobAgentWorkerDispatchTests
             "lease-deps",
             CancellationToken.None);
 
-        _planExecutor.Verify(executor => executor.ExecuteTasksAsync(
+        _planExecutor.Verify(executor => executor.DispatchTasksAsync(
             It.IsAny<JobTaskList>(),
             It.IsAny<IReadOnlyDictionary<string, ICapture>>(),
             It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
@@ -337,7 +337,7 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<ImportContext?>(),
             It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
             It.IsAny<CancellationToken>()), Times.Once);
-        _planExecutor.Verify(executor => executor.ExecuteExportPhaseAsync(
+        _planExecutor.Verify(executor => executor.ExportAsync(
             It.IsAny<JobTaskList>(),
             It.IsAny<IReadOnlyDictionary<string, IModule>>(),
             It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
@@ -368,7 +368,7 @@ public sealed class JobAgentWorkerDispatchTests
             .ReturnsAsync(TaskExecutionResult.Completed());
         _planExecutor
             .InSequence(sequence)
-            .Setup(executor => executor.ExecuteImportPhaseAsync(
+            .Setup(executor => executor.ImportAsync(
                 It.IsAny<JobTaskList>(),
                 It.IsAny<IReadOnlyDictionary<string, IModule>>(),
                 It.IsAny<ImportContext>(),
@@ -386,7 +386,7 @@ public sealed class JobAgentWorkerDispatchTests
             CancellationToken.None);
 
         module.Verify(m => m.PrepareAsync(It.IsAny<PrepareContext>(), It.IsAny<CancellationToken>()), Times.Once);
-        _planExecutor.Verify(executor => executor.ExecuteImportPhaseAsync(
+        _planExecutor.Verify(executor => executor.ImportAsync(
             It.IsAny<JobTaskList>(),
             It.IsAny<IReadOnlyDictionary<string, IModule>>(),
             It.IsAny<ImportContext>(),
@@ -583,7 +583,7 @@ public sealed class JobAgentWorkerDispatchTests
             .ReturnsAsync(_plan);
 
         _planExecutor
-            .Setup(executor => executor.ExecuteExportPhaseAsync(
+            .Setup(executor => executor.ExportAsync(
                 It.IsAny<JobTaskList>(),
                 It.IsAny<IReadOnlyDictionary<string, IModule>>(),
                 It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
@@ -627,7 +627,7 @@ public sealed class JobAgentWorkerDispatchTests
             "lease-unknown",
             CancellationToken.None);
 
-        _planExecutor.Verify(executor => executor.ExecuteExportPhaseAsync(
+        _planExecutor.Verify(executor => executor.ExportAsync(
             It.IsAny<JobTaskList>(),
             It.IsAny<IReadOnlyDictionary<string, IModule>>(),
             It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
@@ -635,7 +635,7 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
             It.IsAny<ExportContext>(),
             It.IsAny<CancellationToken>()), Times.Never);
-        _planExecutor.Verify(executor => executor.ExecuteTasksAsync(
+        _planExecutor.Verify(executor => executor.DispatchTasksAsync(
             It.IsAny<JobTaskList>(),
             It.IsAny<IReadOnlyDictionary<string, ICapture>>(),
             It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
@@ -655,7 +655,7 @@ public sealed class JobAgentWorkerDispatchTests
     public async Task OnJobAsync_WhenMigrationExecutionThrows_ClearsCurrentPackageConfigAccessor()
     {
         _planExecutor
-            .Setup(executor => executor.ExecuteExportPhaseAsync(
+            .Setup(executor => executor.ExportAsync(
                 It.IsAny<JobTaskList>(),
                 It.IsAny<IReadOnlyDictionary<string, IModule>>(),
                 It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),
@@ -719,7 +719,7 @@ public sealed class JobAgentWorkerDispatchTests
         await JobAgentWorkerTestHelper.InvokeJobAsync(
             worker, job, CreateControlPlaneClient(), "lease-config-absent-no-modules", CancellationToken.None);
 
-        _planExecutor.Verify(executor => executor.ExecuteExportPhaseAsync(
+        _planExecutor.Verify(executor => executor.ExportAsync(
             It.IsAny<JobTaskList>(),
             It.IsAny<IReadOnlyDictionary<string, IModule>>(),
             It.IsAny<IReadOnlyDictionary<string, IAnalyser>>(),

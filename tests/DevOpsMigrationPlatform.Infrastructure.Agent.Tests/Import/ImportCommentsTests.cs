@@ -6,8 +6,10 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -99,11 +101,14 @@ public class ImportCommentsTests
         ctx.MockIdMapStore.Setup(s => s.DisposeAsync()).Returns(new ValueTask());
         ctx.MockResolutionStrategy.Setup(s => s.SeedAsync(It.IsAny<IIdMapStore>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
-        ctx.Extensions = new WorkItemsModuleExtensions { Comments = new CommentsExtensionOptionsConfig { Enabled = false } };
+        ctx.Extensions = new WorkItemsModuleExtensions();
         SetupCheckpointing(ctx);
 
+        var disabledComments = new CommentsWorkItemExtension(
+            Microsoft.Extensions.Options.Options.Create(new CommentsExtensionOptions { Enabled = false }));
+
         // Act
-        var orchestrator = ctx.BuildOrchestrator();
+        var orchestrator = ctx.BuildOrchestrator(commentsExtension: disabledComments);
         await orchestrator.ImportAsync(ctx.Extensions, ResumeMode.Auto, CancellationToken.None);
 
         // Assert — Comments API never called; cursor advanced past each folder
@@ -142,8 +147,7 @@ public class ImportCommentsTests
 
         ctx.Extensions = new WorkItemsModuleExtensions(); // Comments enabled by default
         ctx.MockTarget.Setup(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>())).ReturnsAsync(new ImportedWorkItemResult { TargetWorkItemId = 20, IsNewlyCreated = true });
-        ctx.MockTarget.Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        ctx.MockTarget.Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        ctx.MockTarget.Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         ctx.MockTarget.Setup(t => t.CreateCommentAsync(20, It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         ctx.MockTarget.Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
         SetupCheckpointing(ctx);
@@ -187,8 +191,7 @@ public class ImportCommentsTests
 
         ctx.Extensions = new WorkItemsModuleExtensions(); // Comments enabled
         ctx.MockTarget.Setup(t => t.CreateWorkItemAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>())).ReturnsAsync(new ImportedWorkItemResult { TargetWorkItemId = 30, IsNewlyCreated = true });
-        ctx.MockTarget.Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        ctx.MockTarget.Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        ctx.MockTarget.Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         ctx.MockTarget.Setup(t => t.WorkItemExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
         SetupCheckpointing(ctx);
 

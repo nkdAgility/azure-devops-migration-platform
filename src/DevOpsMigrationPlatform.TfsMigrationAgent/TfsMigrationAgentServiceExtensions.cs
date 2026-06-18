@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
@@ -20,13 +21,14 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Identity;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
+using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using Microsoft.Extensions.Logging;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.JobLifecycle.TfsExecution;
@@ -59,7 +61,8 @@ public static class TfsMigrationAgentServiceExtensions
         // for localhost communication.
         services.AddCoreAgentServices(configuration, controlPlaneBaseUrl);
 
-        // Package config store — reads migration-config.json from the package at job pickup.
+        // Package storage and config store — filesystem store must be registered before config loader.
+        services.AddPackageStorageServices();
         services.AddPackageMigrationConfigLoader();
 
         // Per-job TFS Object Model service factory — creates TFS connections, revision sources,
@@ -78,6 +81,12 @@ public static class TfsMigrationAgentServiceExtensions
         // Registered via the keyed composite dispatch seam so identity lookups route by connector type.
         services.AddIdentityAdapter<TfsIdentityAdapter>("TeamFoundationServer");
         services.AddSingleton<ITeamSource, TfsActiveJobTeamSource>();
+        // TFS has no board API - register explicit None capability and null adapter so
+        // BoardConfigTeamExtension can be constructed via DI; the capability check fires first.
+        services.AddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.IConnectorCapabilityProvider,
+            global::DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Teams.TfsConnectorCapabilityProvider>();
+        services.AddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.Teams.ITeamBoardAdapter,
+            global::DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Teams.TfsNullBoardAdapter>();
         services.AddSingleton<INodeCreator, TfsActiveJobNodeCreator>();
         services.AddSingleton<TfsActiveJobWorkItemTypeReadinessTargetFactory>();
         services.TryAddSingleton<IWorkItemTypeReadinessTargetFactory>(sp => sp.GetRequiredService<TfsActiveJobWorkItemTypeReadinessTargetFactory>());

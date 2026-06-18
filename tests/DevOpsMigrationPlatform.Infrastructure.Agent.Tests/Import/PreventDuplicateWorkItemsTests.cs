@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
@@ -73,10 +74,7 @@ public class PreventDuplicateWorkItemsTests
             .Setup(s => s.UpdateLastRevisionIndexAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         ctx.MockTarget
-            .Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        ctx.MockTarget
-            .Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         ctx.MockIdMapStore
             .Setup(s => s.GetAttachmentIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -84,8 +82,8 @@ public class PreventDuplicateWorkItemsTests
 
         ctx.SetupCommonMocks();
 
-        await ctx.BuildProcessor().ProcessAsync(
-            folderPath, new WorkItemsModuleExtensions(), null,
+        await ctx.BuildProcessor().ImportRevisionAsync(
+            folderPath, null,
             ctx.MockResolutionStrategy.Object, CancellationToken.None);
     }
 

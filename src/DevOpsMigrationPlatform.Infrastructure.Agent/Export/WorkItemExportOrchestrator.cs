@@ -20,8 +20,10 @@ using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 #if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Agent;
 #endif
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
@@ -59,7 +61,6 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
     private readonly ICheckpointingService _checkpointingService;
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
     private readonly IProgressSink? _progressSink;
-    private readonly IWorkItemCommentSourceFactory? _inlineCommentSourceFactory;
     private readonly MigrationEndpointOptions? _endpoint;
     private readonly string? _wiqlQuery;
     private readonly IWorkItemFetchService? _fetchService;
@@ -73,6 +74,7 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
     private readonly string? _packageUri;
 #if !NET481
     private readonly IReferencedPathTracker? _referencedPathTracker;
+    private readonly IReadOnlyList<IModuleExtension>? _exportExtensions;
 #endif
 
     public WorkItemExportOrchestrator(
@@ -83,7 +85,6 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
         IAttachmentBinarySource? attachmentBinarySource = null,
         IProgressSink? progressSink = null,
         MigrationEndpointOptions? endpoint = null,
-        IWorkItemCommentSourceFactory? inlineCommentSourceFactory = null,
         IWorkItemFetchService? fetchService = null,
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
         IPlatformMetrics? metrics = null,
@@ -96,6 +97,7 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
         string? packageUri = null
 #if !NET481
         , IReferencedPathTracker? referencedPathTracker = null
+        , IReadOnlyList<IModuleExtension>? exportExtensions = null
 #endif
         )
     {
@@ -105,7 +107,6 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
         _checkpointingService = checkpointingService;
         _attachmentBinarySource = attachmentBinarySource;
         _progressSink = progressSink;
-        _inlineCommentSourceFactory = inlineCommentSourceFactory;
         _endpoint = endpoint;
         _wiqlQuery = wiqlQuery;
         _fetchService = fetchService;
@@ -119,6 +120,7 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
         _packageUri = packageUri;
 #if !NET481
         _referencedPathTracker = referencedPathTracker;
+        _exportExtensions = exportExtensions;
 #endif
     }
 
@@ -538,58 +540,6 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
                             revision.ExternalLinks.Count + revision.RelatedLinks.Count + revision.Hyperlinks.Count,
                             json.Length);
 
-                // For comment edit/delete revisions, fetch the matching comment versions by timestamp
-                // and write them as comment.json beside revision.json in the same revision folder.
-                // FR-5: Comment API failures are non-fatal — log via progress and continue.
-                if (_inlineCommentSourceFactory != null &&
-                    _endpoint != null &&
-                    !string.IsNullOrEmpty(_project) &&
-                    IsCommentEditOrDeleteRevision(revision))
-                {
-                    try
-                    {
-                        var commentSource = _inlineCommentSourceFactory.Create(_endpoint!, _project!);
-                        var matchingComments = new List<WorkItemComment>();
-
-                        await foreach (var comment in commentSource.GetCommentsAsync(
-                            revision.WorkItemId, includeDeleted: true, cancellationToken))
-                        {
-                            var deltaSeconds = Math.Abs((comment.ModifiedDate - revision.ChangedDate).TotalSeconds);
-                            if (deltaSeconds <= 1.0)
-                                matchingComments.Add(comment);
-                        }
-
-                        if (matchingComments.Count > 0)
-                        {
-                            var commentJson = JsonSerializer.Serialize(matchingComments, JsonOptions);
-                            await WritePackageTextAsync(
-                                $"{folderPath}comment.json",
-                                commentJson,
-                                cancellationToken)
-                                .ConfigureAwait(false);
-                        }
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        throw; // Always propagate cancellation.
-                    }
-                    catch (Exception ex)
-                    {
-                        // Comment API failures are non-fatal per FR-5: log and continue export.
-                        _progressSink?.Emit(new ProgressEvent
-                        {
-                            Module = "WorkItems",
-                            Stage = "Export",
-                            Message = $"[WorkItems] Warning: inline comment fetch failed for work item {revision.WorkItemId} revision {revision.RevisionIndex}: {ex.Message}"
-                        });
-
-                        if (_logger != null)
-                            _logger.LogWarning(ex,
-                                    "[WorkItems] Inline comment fetch failed for WI {WorkItemId} rev {RevisionIndex}.",
-                                    revision.WorkItemId, revision.RevisionIndex);
-                    }
-                }
-
                 // Capture revision duration before the WI-boundary check so it covers the
                 // full cost of writing revision.json + comments (but not attachments).
                 lastRevisionDurationMs = revisionStopwatch.Elapsed.TotalMilliseconds;
@@ -711,8 +661,15 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
 
                 // Write attachment binaries beside revision.json when a binary source is available.
                 // Delta detection: skip re-downloading when the same URL appears on adjacent revisions.
+                // When export extensions are registered (the facet-based path), skip the inline
+                // attachment download — the enabled attachment extension handles it instead.
                 var currentAttachmentUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                if (_attachmentBinarySource != null)
+#if !NET481
+                var useInlineAttachments = _exportExtensions == null || _exportExtensions.Count == 0;
+#else
+                var useInlineAttachments = true;
+#endif
+                if (useInlineAttachments && _attachmentBinarySource != null)
                 {
                     foreach (var attachment in revision.Attachments)
                     {
@@ -901,6 +858,52 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
                 }
 
                 previousAttachmentUrls = currentAttachmentUrls;
+
+#if !NET481
+                // Invoke any registered export-side facet extensions (e.g. AttachmentsWorkItemExtension,
+                // CommentsWorkItemExtension) that have SupportsExport = true and IsEnabled = true.
+                if (_exportExtensions is { Count: > 0 })
+                {
+                    var revisionExportContext = new WorkItemRevisionExportContext
+                    {
+                        Organisation = _organisation,
+                        ProjectName = _project,
+                        EntityId = revision.WorkItemId.ToString(),
+                        Package = _package,
+                        WorkItemId = revision.WorkItemId,
+                        RevisionIndex = revision.RevisionIndex,
+                        Revision = revision,
+                        FolderPath = folderPath,
+                        SourceEndpoint = _endpoint
+                    };
+
+                    foreach (var ext in _exportExtensions)
+                    {
+                        if (!ext.IsEnabled || !ext.SupportsExport)
+                            continue;
+                        try
+                        {
+                            await ext.ExportAsync(revisionExportContext, cancellationToken).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            _progressSink?.Emit(new ProgressEvent
+                            {
+                                Module = "WorkItems",
+                                Stage = "Export",
+                                Message = $"[WorkItems] Extension '{ext.Name}' export failed for WI {revision.WorkItemId} rev {revision.RevisionIndex}: {ex.Message}"
+                            });
+                            _logger?.LogWarning(ex,
+                                "[WorkItems] Extension '{ExtensionName}' export failed for WI {WorkItemId} rev {RevisionIndex}.",
+                                ext.Name, revision.WorkItemId, revision.RevisionIndex);
+                        }
+                    }
+                }
+#endif
 
                 // Accumulate historical counts from the cursor so the persisted value always
                 // reflects the cumulative total across all runs, not just this run's exports.

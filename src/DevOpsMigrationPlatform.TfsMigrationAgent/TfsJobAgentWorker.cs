@@ -220,7 +220,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
                 ProgressSink = ProgressSink
             };
 
-            var importOk = await planExecutor.ExecuteImportPhaseAsync(
+            var importOk = await planExecutor.ImportAsync(
                 executionPlan, moduleMap, importContext, ct).ConfigureAwait(false);
 
             failed = !importOk;

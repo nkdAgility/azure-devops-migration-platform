@@ -5,6 +5,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Export;
 
 /// <summary>
@@ -27,7 +28,8 @@ public interface IWorkItemResolutionProcessorFactory
 
     /// <summary>
     /// Creates a new <see cref="IWorkItemResolutionProcessor"/> with NodeTranslation context
-    /// for area/iteration path translation.
+    /// and optional per-job replay-lever override for embedded images.
+    /// Links and attachments are unconditional core behaviour and are always processed.
     /// </summary>
     IWorkItemResolutionProcessor Create(
         IWorkItemTarget target,
@@ -36,5 +38,6 @@ public interface IWorkItemResolutionProcessorFactory
         IIdentityTranslationTool? identityTranslationTool,
         string organisation,
         string project,
-        DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping? nodeStructureContext);
+        DevOpsMigrationPlatform.Abstractions.Agent.Tools.ProjectMapping? nodeStructureContext,
+        bool embeddedImagesEnabledByLever = true);
 }

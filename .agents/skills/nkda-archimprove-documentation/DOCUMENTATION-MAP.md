@@ -59,7 +59,7 @@ Excluded unless explicitly requested:
 │       ├── connector-model.md
 │       ├── job-lifecycle.md
 │       ├── pipeline-phases.md
-│       ├── module-model.md
+│       ├── execution-model.md  (see architecture/)
 │       ├── package-format-summary.md
 │       ├── workitems-format-summary.md
 │       ├── checkpointing-summary.md
@@ -197,7 +197,7 @@ Recommended file purposes:
 - `connector-model.md`: connector concept.
 - `job-lifecycle.md`: job submission through completion.
 - `pipeline-phases.md`: Inventory, Export, Prepare, Import, Validate, Migrate.
-- `module-model.md`: module concept and responsibilities.
+- `execution-model.md` (`architecture/`): full Module→Orchestrator→Extension→Adapter→Tool hierarchy, naming conventions, seams.
 - `package-format-summary.md`: compressed package layout.
 - `workitems-format-summary.md`: compressed work item layout.
 - `checkpointing-summary.md`: cursor-based checkpointing.

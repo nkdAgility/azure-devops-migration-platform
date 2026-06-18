@@ -20,9 +20,17 @@ using Microsoft.Extensions.Logging;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 
 /// <summary>
-/// Orchestrates per-team export: captures team definition, settings, iterations,
-/// members, capacity, and area paths into a <c>Teams/{slug}/team.json</c> file.
+/// Orchestrates per-team export: writes the team definition to
+/// <c>Teams/{slug}/team.json</c>. All capability sub-concerns (settings, iterations,
+/// members, capacity, area paths) are now delegated to registered
+/// <see cref="IModuleExtension"/> implementations and written to separate artifact
+/// files under <c>Teams/{slug}/</c>.
 /// </summary>
+/// <remarks>
+/// The <see cref="NodeTranslation"/> area-path recording is also now handled by
+/// <c>TeamIterationsTeamExtension</c>, which calls <see cref="IReferencedPathTracker"/>
+/// directly. This orchestrator only writes the team definition artifact.
+/// </remarks>
 public sealed class TeamExportOrchestrator
 {
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
@@ -52,8 +60,9 @@ public sealed class TeamExportOrchestrator
     }
 
     /// <summary>
-    /// Exports a single team (settings, iterations, members, capacity, area paths) to
-    /// <c>Teams/{slug}/team.json</c>.
+    /// Exports a single team's definition to <c>Teams/{slug}/team.json</c>.
+    /// Capability sub-concerns (settings, iterations, members, capacity) are written
+    /// by the registered <see cref="IModuleExtension"/> implementations.
     /// </summary>
     public async Task ExportTeamAsync(
         string organisation,
@@ -68,81 +77,39 @@ public sealed class TeamExportOrchestrator
         activity?.SetTag("team.name", team.Name);
         activity?.SetTag("team.slug", slug);
 
-        var teamSettings = extensions.TeamSettings
-            ? await _teamSource.GetTeamSettingsAsync(projectName, team.Id, ct).ConfigureAwait(false)
-            : null;
-
-        var iterations = new List<TeamIteration>();
-        if (extensions.TeamIterations)
+        // Record area paths for NodeTranslation (still handled here for backward compat
+        // when no TeamIterationsTeamExtension is registered)
+        if (extensions.NodeTranslation && _referencedPathTracker is not null)
         {
-            await foreach (var iteration in _teamSource.GetTeamIterationsAsync(projectName, team.Id, ct).ConfigureAwait(false))
+            try
             {
-                iterations.Add(iteration);
-
-                // Record iteration paths for NodeTranslation extension
-                if (extensions.NodeTranslation && _referencedPathTracker is not null)
+                var areaPaths = await _teamSource.GetTeamAreaPathsAsync(projectName, team.Id, ct).ConfigureAwait(false);
+                if (areaPaths is not null)
                 {
-                    await RecordIterationPathAsync(
-                        iteration.Path, package, organisation, projectName, ct).ConfigureAwait(false);
+                    if (!string.IsNullOrEmpty(areaPaths.DefaultAreaPath))
+                        await RecordAreaPathAsync(areaPaths.DefaultAreaPath, package, organisation, projectName, ct).ConfigureAwait(false);
+
+                    foreach (var path in areaPaths.IncludedAreaPaths)
+                    {
+                        if (!string.IsNullOrEmpty(path))
+                            await RecordAreaPathAsync(path, package, organisation, projectName, ct).ConfigureAwait(false);
+                    }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[Teams] Failed to record area paths for team '{Name}' — continuing.", team.Name);
             }
         }
 
-        var members = new List<TeamMember>();
-        if (extensions.TeamMembers)
-        {
-            await foreach (var member in _teamSource.GetTeamMembersAsync(projectName, team.Id, ct).ConfigureAwait(false))
-                members.Add(member);
-        }
-
-        TeamAreaPaths? areaPaths = null;
-        if (extensions.NodeTranslation)
-        {
-            areaPaths = await _teamSource.GetTeamAreaPathsAsync(projectName, team.Id, ct).ConfigureAwait(false);
-
-            // Record area paths for NodeTranslation extension
-            if (_referencedPathTracker is not null && areaPaths is not null)
-            {
-                if (!string.IsNullOrEmpty(areaPaths.DefaultAreaPath))
-                    await RecordAreaPathAsync(areaPaths.DefaultAreaPath, package, organisation, projectName, ct).ConfigureAwait(false);
-
-                foreach (var path in areaPaths.IncludedAreaPaths)
-                {
-                    if (string.IsNullOrEmpty(path)) continue;
-                    await RecordAreaPathAsync(path, package, organisation, projectName, ct).ConfigureAwait(false);
-                }
-            }
-        }
-
-        // Build capacity per iteration
-        var capacityByIteration = new Dictionary<string, TeamCapacityEntry[]>();
-        if (extensions.TeamCapacity && iterations.Count > 0)
-        {
-            foreach (var iteration in iterations)
-            {
-                try
-                {
-                    var capacity = await _teamSource.GetTeamCapacityAsync(
-                        projectName, team.Id, iteration.Id, ct).ConfigureAwait(false);
-                    if (capacity.Length > 0)
-                        capacityByIteration[iteration.Id] = capacity;
-                }
-                catch (Exception ex) when (IsCapacityNotSupportedException(ex))
-                {
-                    _logger.LogInformation("[Teams] Capacity not supported for TFS pre-2017.2 — skipping capacity for iteration '{IterationId}'.", iteration.Id);
-                }
-            }
-        }
-
-        // Serialize to team.json
+        // Write definition-only team.json (capabilities are in split artifact files)
         var teamPackage = new TeamPackage
         {
-            Definition = team,
-            Settings = teamSettings,
-            Iterations = iterations,
-            Members = members,
-            AreaPaths = areaPaths,
-            CapacityByIteration = capacityByIteration
+            Definition = team
         };
 
         var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
@@ -158,14 +125,9 @@ public sealed class TeamExportOrchestrator
             ct).ConfigureAwait(false);
 
         _logger.LogInformation(
-            "[Teams] Exported team '{Name}' → {Path} ({IterCount} iterations, {MemberCount} members).",
-            team.Name, $"Teams/{slug}/team.json", iterations.Count, members.Count);
+            "[Teams] Exported team definition '{Name}' → Teams/{Slug}/team.json.",
+            team.Name, slug);
     }
-
-    private static bool IsCapacityNotSupportedException(Exception ex)
-        => ex.Message.IndexOf("capacity", StringComparison.OrdinalIgnoreCase) >= 0
-        || ex.Message.IndexOf("not supported", StringComparison.OrdinalIgnoreCase) >= 0
-        || ex.Message.IndexOf("NotImplemented", StringComparison.OrdinalIgnoreCase) >= 0;
 
     private Task RecordAreaPathAsync(
         string path,
@@ -177,20 +139,6 @@ public sealed class TeamExportOrchestrator
 #if !NET481
         if (_referencedPathTracker is DevOpsMigrationPlatform.Abstractions.Agent.Tools.IReferencedPathTracker tracker)
             return tracker.RecordAreaPathAsync(path, package, organisation, project, ct);
-#endif
-        return Task.CompletedTask;
-    }
-
-    private Task RecordIterationPathAsync(
-        string path,
-        IPackageAccess package,
-        string organisation,
-        string project,
-        CancellationToken ct)
-    {
-#if !NET481
-        if (_referencedPathTracker is DevOpsMigrationPlatform.Abstractions.Agent.Tools.IReferencedPathTracker tracker)
-            return tracker.RecordIterationPathAsync(path, package, organisation, project, ct);
 #endif
         return Task.CompletedTask;
     }

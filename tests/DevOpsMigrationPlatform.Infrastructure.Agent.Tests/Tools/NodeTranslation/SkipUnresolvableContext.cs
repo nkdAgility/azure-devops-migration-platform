@@ -7,6 +7,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -49,12 +50,12 @@ public class SkipUnresolvableContext
         IdMapStoreMock.Setup(s => s.RecordSkippedRevisionAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         TargetMock.Setup(t => t.WorkItemExistsAsync(99, It.IsAny<CancellationToken>())).ReturnsAsync(true);
-        TargetMock.Setup(t => t.UpdateFieldsAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(), It.IsAny<CancellationToken>()))
+        TargetMock.Setup(t => t.ApplyRevisionAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<WorkItemField>>(),
+                It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(), It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(),
+                It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(), It.IsAny<IReadOnlyList<AttachmentUploadResult>>(),
+                It.IsAny<CancellationToken>()))
             .Callback(() => UpdateFieldsWasCalled = true)
             .Returns(Task.CompletedTask);
-        TargetMock.Setup(t => t.AddLinksAsync(It.IsAny<int>(), It.IsAny<IReadOnlyList<RelatedWorkItemLink>>(),
-            It.IsAny<IReadOnlyList<ExternalWorkItemLink>>(), It.IsAny<IReadOnlyList<HyperlinkWorkItemLink>>(),
-            It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         CheckpointingMock.Setup(s => s.WriteCursorAsync(It.IsAny<string>(), It.IsAny<CursorEntry>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         ResolutionStrategyMock.Setup(s => s.ResolveSingleAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
@@ -104,18 +105,13 @@ public class SkipUnresolvableContext
             TargetMock.Object, IdMapStoreMock.Object, CheckpointingMock.Object,
             IdentityMappingMock.Object, NullLogger<WorkItemResolutionProcessor>.Instance,
             Organisation, Project,
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
             nodeStructureTool: tool, nodeStructureContext: context, nodeStructureOptions: opts,
             package: PackageMock.Object);
 
-        var ext = new WorkItemsModuleExtensions
-        {
-            LinksEnabled = false, AttachmentsEnabled = false,
-            Comments = new() { Enabled = false }
-        };
-
         try
         {
-            await processor.ProcessAsync(FolderPath, ext, null, ResolutionStrategyMock.Object, CancellationToken.None);
+            await processor.ImportRevisionAsync(FolderPath, null, ResolutionStrategyMock.Object, CancellationToken.None);
         }
         catch (InvalidOperationException ex)
         {

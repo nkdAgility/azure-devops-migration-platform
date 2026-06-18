@@ -7,10 +7,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
@@ -41,20 +44,20 @@ public class FilterScopeImportContext
         MockPackage = PackageTestFactory.CreateLooseMock();
     }
 
-    public WorkItemsImportRuntime BuildOrchestrator()
+    public WorkItemRevisionLoopDriver BuildOrchestrator()
     {
-        var processorLogger = NullLogger<WorkItemResolutionProcessor>.Instance;
         var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,
             MockCheckpointing.Object,
             (IIdentityTranslationTool?)null,
-            processorLogger,
+            NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
             package: MockPackage.Object);
 
-        return new WorkItemsImportRuntime(
+        return new WorkItemRevisionLoopDriver(new WorkItemRevisionJobScope(
             MockPackage.Object,
             "https://dev.azure.com/contoso",
             "Shop",
@@ -64,8 +67,8 @@ public class FilterScopeImportContext
             MockIdMapStore.Object,
             processor,
             MockTarget.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance,
-            filterOptions: FilterOptions.Count > 0 ? FilterOptions : null);
+            JobId: null,
+            FilterOptions: FilterOptions.Count > 0 ? (IReadOnlyList<WorkItemFieldFilterOptions>)FilterOptions : null));
     }
 
     public static async IAsyncEnumerable<string> ToAsyncEnumerable(

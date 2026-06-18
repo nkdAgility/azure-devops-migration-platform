@@ -38,7 +38,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteExportPhaseAsync_AllModulesEnabled_RunsConcurrently()
+    public async Task ExportAsync_AllModulesEnabled_RunsConcurrently()
     {
         // Arrange
         var startTimes = new List<DateTimeOffset>();
@@ -86,7 +86,7 @@ public sealed class JobPlanExecutorTests
         };
 
         // Act
-        var result = await executor.ExecuteExportPhaseAsync(
+        var result = await executor.ExportAsync(
             plan,
             modules,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
@@ -107,7 +107,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteExportPhaseAsync_WithCaptureAndAnalysePrerequisites_RunsThemBeforeExport()
+    public async Task ExportAsync_WithCaptureAndAnalysePrerequisites_RunsThemBeforeExport()
     {
         // Arrange
         var executionOrder = new List<string>();
@@ -193,7 +193,7 @@ public sealed class JobPlanExecutorTests
         };
 
         // Act
-        var result = await executor.ExecuteExportPhaseAsync(
+        var result = await executor.ExportAsync(
             plan,
             modules,
             analysers,
@@ -209,7 +209,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteExportPhaseAsync_WhenInventoryMarkerExists_DoesNotSkipPrerequisitesInExecutor()
+    public async Task ExportAsync_WhenInventoryMarkerExists_DoesNotSkipPrerequisitesInExecutor()
     {
         var executionOrder = new List<string>();
         var lockObj = new object();
@@ -319,7 +319,7 @@ public sealed class JobPlanExecutorTests
             ["https://dev.azure.com/testorg"] = new() { ResolvedUrl = "https://dev.azure.com/testorg", Type = "Simulated" }
         };
 
-        var result = await executor.ExecuteExportPhaseAsync(
+        var result = await executor.ExportAsync(
             plan,
             modules,
             analysers,
@@ -341,7 +341,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteTasksAsync_WhenCaptureHandlerReportsSkipped_PersistsReportedStatusWithoutSynthesizingCompletion()
+    public async Task DispatchTasksAsync_WhenCaptureHandlerReportsSkipped_PersistsReportedStatusWithoutSynthesizingCompletion()
     {
         var captureHandler = new Mock<ICapture>(MockBehavior.Strict);
         captureHandler.SetupGet(c => c.Name).Returns("workitems");
@@ -365,7 +365,7 @@ public sealed class JobPlanExecutorTests
         var package = PackageTestFactory.CreateLooseMock().Object;
         var executor = CreateExecutor(package: package);
 
-        var result = await executor.ExecuteTasksAsync(
+        var result = await executor.DispatchTasksAsync(
             plan,
             handlers,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
@@ -389,7 +389,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteExportPhaseAsync_WhenLiveTaskCompletes_EmitsKnownTotalAndCompletedCount()
+    public async Task ExportAsync_WhenLiveTaskCompletes_EmitsKnownTotalAndCompletedCount()
     {
         var progressEvents = new List<ProgressEvent>();
 
@@ -448,7 +448,7 @@ public sealed class JobPlanExecutorTests
             ProgressSink = progressSink.Object
         };
 
-        var result = await executor.ExecuteExportPhaseAsync(
+        var result = await executor.ExportAsync(
             plan,
             modules,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
@@ -475,7 +475,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteImportPhaseAsync_WorkItemsDependsOnIdentities_WaitsForIdentities()
+    public async Task ImportAsync_WorkItemsDependsOnIdentities_WaitsForIdentities()
     {
         // Arrange
         var executionOrder = new List<string>();
@@ -524,7 +524,7 @@ public sealed class JobPlanExecutorTests
         var importContext = new ImportContext();
 
         // Act
-        var result = await executor.ExecuteImportPhaseAsync(plan, modules, importContext, CancellationToken.None);
+        var result = await executor.ImportAsync(plan, modules, importContext, CancellationToken.None);
 
         // Assert
         Assert.IsTrue(result, "Import phase should succeed");
@@ -536,7 +536,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteImportPhaseAsync_IdentitiesFails_WorkItemsSkipped()
+    public async Task ImportAsync_IdentitiesFails_WorkItemsSkipped()
     {
         // Arrange
         var identitiesModule = new Mock<IModule>(MockBehavior.Loose);
@@ -566,7 +566,7 @@ public sealed class JobPlanExecutorTests
         var importContext = new ImportContext();
 
         // Act
-        var result = await executor.ExecuteImportPhaseAsync(plan, modules, importContext, CancellationToken.None);
+        var result = await executor.ImportAsync(plan, modules, importContext, CancellationToken.None);
 
         // Assert
         Assert.IsFalse(result, "Import phase should fail");
@@ -586,7 +586,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteExportPhaseAsync_PassesTaskIdIntoScopedExportContext()
+    public async Task ExportAsync_PassesTaskIdIntoScopedExportContext()
     {
         ExportContext? observedContext = null;
 
@@ -619,7 +619,7 @@ public sealed class JobPlanExecutorTests
             ProgressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object
         };
 
-        var result = await executor.ExecuteExportPhaseAsync(
+        var result = await executor.ExportAsync(
             plan,
             modules,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
@@ -636,7 +636,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteImportPhaseAsync_DisabledDependency_DependentSkipped()
+    public async Task ImportAsync_DisabledDependency_DependentSkipped()
     {
         // Arrange
         var nodesModule = new Mock<IModule>(MockBehavior.Loose);
@@ -660,7 +660,7 @@ public sealed class JobPlanExecutorTests
         var importContext = new ImportContext();
 
         // Act
-        var result = await executor.ExecuteImportPhaseAsync(plan, modules, importContext, CancellationToken.None);
+        var result = await executor.ImportAsync(plan, modules, importContext, CancellationToken.None);
 
         // Assert
         // Since Identities is already Skipped at plan time, Nodes will be skipped during tier extraction
@@ -676,7 +676,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteImportPhaseAsync_FailedTaskDoesNotCancelSiblings()
+    public async Task ImportAsync_FailedTaskDoesNotCancelSiblings()
     {
         // Arrange
         var identitiesModule = new Mock<IModule>(MockBehavior.Loose);
@@ -713,7 +713,7 @@ public sealed class JobPlanExecutorTests
         var importContext = new ImportContext();
 
         // Act
-        var result = await executor.ExecuteImportPhaseAsync(plan, modules, importContext, CancellationToken.None);
+        var result = await executor.ImportAsync(plan, modules, importContext, CancellationToken.None);
 
         // Assert
         Assert.IsFalse(result, "Import phase should fail (Nodes failed)");
@@ -790,7 +790,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteExportPhaseAsync_AllTasksAlreadyCompleted_NoModuleCalled()
+    public async Task ExportAsync_AllTasksAlreadyCompleted_NoModuleCalled()
     {
         // Arrange
         var exportCalled = new List<string>();
@@ -816,7 +816,7 @@ public sealed class JobPlanExecutorTests
         var exportContext = new ExportContext();
 
         // Act
-        var result = await executor.ExecuteExportPhaseAsync(
+        var result = await executor.ExportAsync(
             plan,
             modules,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
@@ -835,7 +835,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteImportPhaseAsync_AllTasksAlreadyCompleted_NoModuleCalled()
+    public async Task ImportAsync_AllTasksAlreadyCompleted_NoModuleCalled()
     {
         // Arrange
         var modules = new Dictionary<string, IModule>(StringComparer.OrdinalIgnoreCase);
@@ -859,7 +859,7 @@ public sealed class JobPlanExecutorTests
         var importContext = new ImportContext();
 
         // Act
-        var result = await executor.ExecuteImportPhaseAsync(plan, modules, importContext, CancellationToken.None);
+        var result = await executor.ImportAsync(plan, modules, importContext, CancellationToken.None);
 
         // Assert
         Assert.IsTrue(result, "Import phase should return true when all tasks are already completed");
@@ -868,7 +868,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteImportPhaseAsync_PartialResume_CompletedDependencyAllowsDependentTaskToRun()
+    public async Task ImportAsync_PartialResume_CompletedDependencyAllowsDependentTaskToRun()
     {
         var identitiesModule = new Mock<IModule>(MockBehavior.Strict);
         identitiesModule.SetupGet(m => m.Name).Returns("Identities");
@@ -893,7 +893,7 @@ public sealed class JobPlanExecutorTests
         });
 
         var package = PackageTestFactory.CreateLooseMock().Object;
-        var result = await CreateExecutor(package: package).ExecuteImportPhaseAsync(
+        var result = await CreateExecutor(package: package).ImportAsync(
             plan,
             modules,
             new ImportContext { Package = package, ProgressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object, Job = new Job { JobId = "test-job" } },
@@ -906,7 +906,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteTasksAsync_FailedDependencyOnResume_ReturnsFalseAndSkipsDependentTask()
+    public async Task DispatchTasksAsync_FailedDependencyOnResume_ReturnsFalseAndSkipsDependentTask()
     {
         var invoked = false;
         var captureHandler = new Mock<ICapture>(MockBehavior.Strict);
@@ -930,7 +930,7 @@ public sealed class JobPlanExecutorTests
         });
 
         var package = PackageTestFactory.CreateLooseMock().Object;
-        var result = await CreateExecutor(package: package).ExecuteTasksAsync(
+        var result = await CreateExecutor(package: package).DispatchTasksAsync(
             plan,
             handlers,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
@@ -952,7 +952,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteTasksAsync_SkippedDependency_SkipsDependentTaskWithoutInvokingHandler()
+    public async Task DispatchTasksAsync_SkippedDependency_SkipsDependentTaskWithoutInvokingHandler()
     {
         var invoked = false;
         var captureHandler = new Mock<ICapture>(MockBehavior.Strict);
@@ -976,7 +976,7 @@ public sealed class JobPlanExecutorTests
         });
 
         var package = PackageTestFactory.CreateLooseMock().Object;
-        var result = await CreateExecutor(package: package).ExecuteTasksAsync(
+        var result = await CreateExecutor(package: package).DispatchTasksAsync(
             plan,
             handlers,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
@@ -998,7 +998,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteImportPhaseAsync_FailedDependencyOnResume_ReturnsFalseAndSkipsDependentTask()
+    public async Task ImportAsync_FailedDependencyOnResume_ReturnsFalseAndSkipsDependentTask()
     {
         var invoked = false;
         var workItemsModule = new Mock<IModule>(MockBehavior.Strict);
@@ -1018,7 +1018,7 @@ public sealed class JobPlanExecutorTests
         });
 
         var package = PackageTestFactory.CreateLooseMock().Object;
-        var result = await CreateExecutor(package: package).ExecuteImportPhaseAsync(
+        var result = await CreateExecutor(package: package).ImportAsync(
             plan,
             modules,
             new ImportContext(), CancellationToken.None);
@@ -1040,7 +1040,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteExportPhaseAsync_PartialResume_OnlyPendingTaskExecuted()
+    public async Task ExportAsync_PartialResume_OnlyPendingTaskExecuted()
     {
         // Arrange
         var exportCalled = new List<string>();
@@ -1078,7 +1078,7 @@ public sealed class JobPlanExecutorTests
         var exportContext = new ExportContext();
 
         // Act
-        var result = await executor.ExecuteExportPhaseAsync(
+        var result = await executor.ExportAsync(
             plan,
             modules,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
@@ -1101,7 +1101,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteTasksAsync_CaptureTask_WorkitemsId_RoutesToWorkitemsHandler()
+    public async Task DispatchTasksAsync_CaptureTask_WorkitemsId_RoutesToWorkitemsHandler()
     {
         var invoked = false;
         var captureHandler = new Mock<ICapture>(MockBehavior.Strict);
@@ -1123,12 +1123,12 @@ public sealed class JobPlanExecutorTests
         var executor = CreateExecutor();
         var ctx = CreateMinimalInventoryContext();
 
-        var result = await executor.ExecuteTasksAsync(
+        var result = await executor.DispatchTasksAsync(
             plan, handlers,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
             ctx, null, null, null, CancellationToken.None);
 
-        Assert.IsTrue(result, "ExecuteTasksAsync should succeed when handler is found");
+        Assert.IsTrue(result, "DispatchTasksAsync should succeed when handler is found");
         Assert.IsTrue(invoked, "Handler named 'workitems' must be invoked for task 'capture.workitems.org.project'");
     }
 
@@ -1139,7 +1139,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteTasksAsync_CaptureTask_DependenciesId_RoutesToDependenciesHandler()
+    public async Task DispatchTasksAsync_CaptureTask_DependenciesId_RoutesToDependenciesHandler()
     {
         var invoked = false;
         var captureHandler = new Mock<ICapture>(MockBehavior.Strict);
@@ -1161,19 +1161,19 @@ public sealed class JobPlanExecutorTests
         var executor = CreateExecutor();
         var ctx = CreateMinimalInventoryContext();
 
-        var result = await executor.ExecuteTasksAsync(
+        var result = await executor.DispatchTasksAsync(
             plan, handlers,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
             ctx, null, null, null, CancellationToken.None);
 
-        Assert.IsTrue(result, "ExecuteTasksAsync should succeed when handler is found");
+        Assert.IsTrue(result, "DispatchTasksAsync should succeed when handler is found");
         Assert.IsTrue(invoked, "Handler named 'dependencies' must be invoked for task 'capture.dependencies.org.project'");
     }
 
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteTasksAsync_CaptureTask_ExposesResolvedSourceEndpointThroughAccessor_AndRestoresPreviousSource()
+    public async Task DispatchTasksAsync_CaptureTask_ExposesResolvedSourceEndpointThroughAccessor_AndRestoresPreviousSource()
     {
         var endpointAccessor = new CurrentJobEndpointAccessor();
         endpointAccessor.SetSource(new TestSourceEndpointInfo(
@@ -1237,7 +1237,7 @@ public sealed class JobPlanExecutorTests
         var executor = CreateExecutor(endpointAccessor);
         var ctx = CreateMinimalInventoryContext();
 
-        var result = await executor.ExecuteTasksAsync(
+        var result = await executor.DispatchTasksAsync(
             plan,
             handlers,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
@@ -1246,7 +1246,7 @@ public sealed class JobPlanExecutorTests
             null,
             endpointsByUrl, CancellationToken.None);
 
-        Assert.IsTrue(result, "ExecuteTasksAsync should succeed when the capture handler is present.");
+        Assert.IsTrue(result, "DispatchTasksAsync should succeed when the capture handler is present.");
         Assert.AreEqual("https://original.example", activeSourceEndpoint.Url);
         Assert.AreEqual("OriginalProject", activeSourceEndpoint.Project);
         Assert.AreEqual("OriginalConnector", activeSourceEndpoint.ConnectorType);
@@ -1255,7 +1255,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteExportPhaseAsync_ExportTask_ExposesTaskProjectThroughAccessor_WhenFallbackSourceHasNoUrl()
+    public async Task ExportAsync_ExportTask_ExposesTaskProjectThroughAccessor_WhenFallbackSourceHasNoUrl()
     {
         var endpointAccessor = new CurrentJobEndpointAccessor();
         endpointAccessor.SetSource(new TestSourceEndpointInfo(
@@ -1307,7 +1307,7 @@ public sealed class JobPlanExecutorTests
             ProgressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object
         };
 
-        var result = await executor.ExecuteExportPhaseAsync(
+        var result = await executor.ExportAsync(
             plan,
             modules,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
@@ -1324,7 +1324,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteTasksAsync_ImportTask_ExposesTaskProjectThroughTargetAccessor_WhenFallbackTargetHasNoUrl()
+    public async Task DispatchTasksAsync_ImportTask_ExposesTaskProjectThroughTargetAccessor_WhenFallbackTargetHasNoUrl()
     {
         var endpointAccessor = new CurrentJobEndpointAccessor();
         endpointAccessor.SetTarget(new TestTargetEndpointInfo(
@@ -1376,7 +1376,7 @@ public sealed class JobPlanExecutorTests
             ProgressSink = new Mock<IProgressSink>(MockBehavior.Loose).Object
         };
 
-        var result = await executor.ExecuteImportPhaseAsync(
+        var result = await executor.ImportAsync(
             plan,
             modules,
             importContext, CancellationToken.None);
@@ -1392,7 +1392,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteTasksAsync_CaptureTask_NoMatchingHandler_LogsErrorAndFailsTask()
+    public async Task DispatchTasksAsync_CaptureTask_NoMatchingHandler_LogsErrorAndFailsTask()
     {
         var mockLogger = new Mock<ILogger<JobPlanExecutor>>(MockBehavior.Loose);
         var executor = CreateExecutorWithLogger(mockLogger.Object);
@@ -1402,13 +1402,13 @@ public sealed class JobPlanExecutorTests
             CreateTask("capture.dependencies.testorg.testproject", "Dependencies Capture", "Capture")
         });
 
-        var result = await executor.ExecuteTasksAsync(
+        var result = await executor.DispatchTasksAsync(
             plan,
             new Dictionary<string, ICapture>(StringComparer.OrdinalIgnoreCase),
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
             null, null, null, null, CancellationToken.None);
 
-        Assert.IsFalse(result, "ExecuteTasksAsync should fail when a handler is missing");
+        Assert.IsFalse(result, "DispatchTasksAsync should fail when a handler is missing");
 
         mockLogger.Verify(
             x => x.Log(
@@ -1424,7 +1424,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteTasksAsync_CaptureTask_UnknownOrganisationUrl_FailsWithoutInvokingHandler()
+    public async Task DispatchTasksAsync_CaptureTask_UnknownOrganisationUrl_FailsWithoutInvokingHandler()
     {
         var invoked = false;
         var captureHandler = new Mock<ICapture>(MockBehavior.Strict);
@@ -1455,7 +1455,7 @@ public sealed class JobPlanExecutorTests
         var executor = CreateExecutor();
         var ctx = CreateMinimalInventoryContext();
 
-        var result = await executor.ExecuteTasksAsync(
+        var result = await executor.DispatchTasksAsync(
             plan,
             handlers,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
@@ -1464,14 +1464,14 @@ public sealed class JobPlanExecutorTests
             null,
             new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase), CancellationToken.None);
 
-        Assert.IsFalse(result, "ExecuteTasksAsync should fail when the capture task organisation URL cannot be resolved.");
+        Assert.IsFalse(result, "DispatchTasksAsync should fail when the capture task organisation URL cannot be resolved.");
         Assert.IsFalse(invoked, "Capture handler must not be invoked when the task organisation URL cannot be resolved.");
     }
 
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteTasksAsync_WithPackageBoundary_PersistsPlanViaPackageMeta()
+    public async Task DispatchTasksAsync_WithPackageBoundary_PersistsPlanViaPackageMeta()
     {
         var captureHandler = new Mock<ICapture>(MockBehavior.Strict);
         captureHandler.SetupGet(c => c.Name).Returns("dependencies");
@@ -1515,7 +1515,7 @@ public sealed class JobPlanExecutorTests
             }
         };
 
-        var result = await executor.ExecuteTasksAsync(
+        var result = await executor.DispatchTasksAsync(
             plan,
             handlers,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),
@@ -1539,7 +1539,7 @@ public sealed class JobPlanExecutorTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task ExecuteExportPhaseAsync_ForceFresh_DeletesPlanAndRebuildsWithAllTasksPending_AllModulesCalled()
+    public async Task ExportAsync_ForceFresh_DeletesPlanAndRebuildsWithAllTasksPending_AllModulesCalled()
     {
         // Arrange — simulate that after ForceFresh the plan file has been deleted
         // and a fresh plan is built where every task is Pending.
@@ -1581,7 +1581,7 @@ public sealed class JobPlanExecutorTests
         };
 
         // Act
-        var result = await executor.ExecuteExportPhaseAsync(
+        var result = await executor.ExportAsync(
             freshPlan,
             modules,
             new Dictionary<string, IAnalyser>(StringComparer.OrdinalIgnoreCase),

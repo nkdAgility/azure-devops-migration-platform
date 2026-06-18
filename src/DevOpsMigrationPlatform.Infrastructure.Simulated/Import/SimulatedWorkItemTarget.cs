@@ -7,6 +7,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Import;
 
@@ -127,6 +128,45 @@ public sealed class SimulatedWorkItemTarget : IWorkItemTarget
     {
         if (targetWorkItemId <= 0)
             throw new ArgumentOutOfRangeException(nameof(targetWorkItemId));
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task ApplyRevisionAsync(
+        int targetWorkItemId,
+        IReadOnlyList<WorkItemField> fields,
+        IReadOnlyList<RelatedWorkItemLink> relatedLinks,
+        IReadOnlyList<ExternalWorkItemLink> externalLinks,
+        IReadOnlyList<HyperlinkWorkItemLink> hyperlinks,
+        IReadOnlyList<AttachmentUploadResult> attachmentResults,
+        CancellationToken ct)
+    {
+        if (targetWorkItemId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(targetWorkItemId));
+        lock (_lock)
+        {
+            if (!_workItems.TryGetValue(targetWorkItemId, out var fieldState))
+                throw new InvalidOperationException($"Simulated target work item {targetWorkItemId} does not exist.");
+
+            foreach (var field in fields)
+            {
+                if (string.IsNullOrWhiteSpace(field.ReferenceName))
+                    continue;
+                fieldState[field.ReferenceName] = field.Value;
+            }
+
+            if (!_attachmentsByWorkItem.TryGetValue(targetWorkItemId, out var attachments))
+            {
+                attachments = new List<SimulatedAttachment>();
+                _attachmentsByWorkItem[targetWorkItemId] = attachments;
+            }
+
+            foreach (var att in attachmentResults)
+            {
+                if (!string.IsNullOrEmpty(att.AttachmentUrl))
+                    attachments.Add(new SimulatedAttachment(att.FileName, Array.Empty<byte>()));
+            }
+        }
         return Task.CompletedTask;
     }
 

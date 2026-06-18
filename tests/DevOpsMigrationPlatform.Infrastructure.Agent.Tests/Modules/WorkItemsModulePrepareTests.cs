@@ -288,21 +288,9 @@ public sealed class WorkItemsModulePrepareTests
         targetEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
         targetEndpoint.SetupGet(s => s.OrganisationSlug).Returns("test-target-org");
 
-        return new WorkItemsModule(
-            Mock.Of<IWorkItemRevisionSourceFactory>(),
-            NullLogger<WorkItemsModule>.Instance,
-            Options.Create(new WorkItemsModuleOptions()),
-            sourceEndpoint.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance,
-            Mock.Of<IWorkItemTargetFactory>(),
-            Mock.Of<IWorkItemResolutionStrategyFactory>(),
-            Mock.Of<ICheckpointingServiceFactory>(),
-            Mock.Of<IIdMapStoreFactory>(),
-            Mock.Of<IWorkItemResolutionProcessorFactory>(),
-            targetEndpoint.Object,
-            identityMappingService: Mock.Of<IIdentityMappingService>(),
-            nodeTranslationTool: Mock.Of<INodeTranslationTool>(),
-            fieldTransformTool: Mock.Of<IFieldTransformTool>(),
+        return WorkItemsModuleTestFactory.Create(
+            sourceEndpointInfo: sourceEndpoint.Object,
+            targetEndpointInfo: targetEndpoint.Object,
             importFailurePatterns: importFailurePatterns);
     }
 

@@ -17,6 +17,7 @@ using System.Text.Json;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -86,24 +87,10 @@ internal static class InventoryModuleFactory
                 It.IsAny<CancellationToken>()))
             .Returns(StubWorkItemSummaries());
 
-        return new WorkItemsModule(
-            Mock.Of<IWorkItemRevisionSourceFactory>(),
-            NullLogger<WorkItemsModule>.Instance,
-            Options.Create(new WorkItemsModuleOptions()),
-            sourceEndpoint.Object,
-            NullLogger<WorkItemsImportRuntime>.Instance,
-            Mock.Of<IWorkItemTargetFactory>(),
-            Mock.Of<IWorkItemResolutionStrategyFactory>(),
-            Mock.Of<ICheckpointingServiceFactory>(),
-            Mock.Of<IIdMapStoreFactory>(),
-            Mock.Of<IWorkItemResolutionProcessorFactory>(),
-            targetEndpoint.Object,
-            identityMappingService: Mock.Of<IIdentityMappingService>(),
-            nodeTranslationTool: Mock.Of<INodeTranslationTool>(),
-            fieldTransformTool: Mock.Of<IFieldTransformTool>(),
-            fetchService: null,
+        return WorkItemsModuleTestFactory.Create(
+            sourceEndpointInfo: sourceEndpoint.Object,
+            targetEndpointInfo: targetEndpoint.Object,
             inventoryOrchestrator: orchestrator.Object,
-            PlatformMetrics: null,
             discoveryService: discovery.Object);
     }
 

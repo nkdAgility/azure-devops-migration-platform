@@ -130,6 +130,84 @@ See `/scenarios/` for ready-to-run simulated configuration files:
 | `export-simulated.json` | Simulated source export (25,000 work items, no external connectivity) |
 | `migrate-simulated.json` | Full simulated migration — source and target both simulated (25,000 work items) |
 
+---
+
+## Teams Module — Board Configuration Capability
+
+The `TeamsModule` exports and imports per-team board configuration via the
+`BoardConfigTeamExtension`. This extension is registered as an `IModuleExtension`
+and runs as part of the standard per-team extension loop.
+
+### What is exported
+
+For each team, `board-config.json` is written to `Teams/{slug}/board-config.json`.
+It contains:
+
+| Field | Description |
+|---|---|
+| `boards[].boardName` | Board name (one per backlog level) |
+| `boards[].columns` | Kanban columns with WIP limits, column types, state mappings, and split status |
+| `boards[].swimLanes` | Swim lane names and IDs |
+| `cardRules` | Card colour-coding rules (aggregated across all boards for the team) |
+| `backlogs` | Backlog level display names and WIT category references |
+| `taskboardColumns` | Sprint taskboard column names, types, and state mappings |
+
+Each data type can be independently enabled or disabled via `BoardConfigExtensionOptions`.
+
+### Connector coverage
+
+| Connector | BoardConfig | Backlogs | TaskboardColumns |
+|---|---|---|---|
+| `AzureDevOpsServices` | ✔ | ✔ | ✔ |
+| `TeamFoundationServer` | ✗ (Skipped) | ✗ (Skipped) | ✗ (Skipped) |
+| `Simulated` | ✔ | ✔ | ✔ |
+
+When the connector declares no `BoardConfig` capability, the extension emits a
+`BoardConfigSkipped` progress event and returns without writing any artefact — no
+error is raised.
+
+### Import modes
+
+Controlled by `BoardConfig.importMode`:
+
+| Mode | Behaviour |
+|---|---|
+| `Replace` (default) | Overwrites target board config with package values |
+| `Merge` | Merges package values with existing target (source-only entries added; target-only entries preserved) |
+| `Skip` | Leaves target unchanged if it already has board config |
+
+### Invalid state mapping filter (FR-013)
+
+Before writing columns to the target, state mappings referencing states absent from
+the current target board are silently omitted with a per-column `LogWarning`. This
+prevents `400 Bad Request` errors when the target process template differs from the source.
+
+### Configuration section
+
+`MigrationPlatform:Modules:Teams:Extensions:BoardConfig`
+
+```json
+{
+  "MigrationPlatform": {
+    "Modules": {
+      "Teams": {
+        "Extensions": {
+          "BoardConfig": {
+            "Enabled": true,
+            "Columns": true,
+            "SwimLanes": true,
+            "CardRules": true,
+            "Backlogs": true,
+            "TaskboardColumns": true,
+            "ImportMode": "Replace"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
 ### Known Limitations
 
 - **No mixed-mode discovery.** All organisations in a single `MigrationOptions` configuration must be the same source type. A discovery run cannot mix TFS (Team Foundation Server) and Azure DevOps Services entries. Each CLI host registers a single `IWorkItemDiscoveryService` and `IProjectDiscoveryService` implementation; the orchestrator uses whatever is injected. On-premises Azure DevOps Server instances that support the REST API should use source type `AzureDevOpsServices`.

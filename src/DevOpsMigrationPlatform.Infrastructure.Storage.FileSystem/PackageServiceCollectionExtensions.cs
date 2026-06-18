@@ -38,4 +38,26 @@ public static class PackageServiceCollectionExtensions
         services.TryAddSingleton<IPackagePreparer, ZipPackagePreparer>();
         return services;
     }
+
+    /// <summary>
+    /// Registers <see cref="IPackageMigrationConfigLoader"/>. Also registers boundary and storage services
+    /// if not already registered. Prefer <see cref="AddPackageManagementServices"/> when the full stack is needed.
+    /// </summary>
+    public static IServiceCollection AddPackageMigrationConfigLoader(this IServiceCollection services)
+    {
+        services.AddPackageBoundaryServices();
+        services.AddSingleton<IPackageMigrationConfigLoader, PackageMigrationConfigLoader>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers <see cref="IPackageStoreFactory"/>, <see cref="IPackagePreparer"/>,
+    /// and <see cref="IPackageMigrationConfigLoader"/> as a cohesive group.
+    /// </summary>
+    public static IServiceCollection AddPackageManagementServices(this IServiceCollection services)
+    {
+        services.AddPackageBoundaryServices();
+        services.AddSingleton<IPackageMigrationConfigLoader, PackageMigrationConfigLoader>();
+        return services;
+    }
 }

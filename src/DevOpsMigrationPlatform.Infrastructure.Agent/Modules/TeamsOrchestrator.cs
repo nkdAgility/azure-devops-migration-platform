@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -13,6 +14,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
@@ -60,19 +62,30 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
 #endif
     private readonly TeamSlugGenerator? _slugGenerator;
     private readonly IPackageAccess? _package;
+    private readonly IReadOnlyList<IModuleExtension> _exportExtensions;
+    private readonly IReadOnlyList<IModuleExtension> _importExtensions;
 
     public TeamsOrchestrator(
         ILogger<TeamsOrchestrator> logger,
         IPlatformMetrics? PlatformMetrics = null,
         TeamExportOrchestrator? exportOrchestrator = null,
         TeamSlugGenerator? slugGenerator = null,
-        IPackageAccess? package = null)
+        IPackageAccess? package = null,
+        IEnumerable<IModuleExtension>? extensions = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _PlatformMetrics = PlatformMetrics;
         _exportOrchestrator = exportOrchestrator;
         _slugGenerator = slugGenerator;
         _package = package;
+
+        var allExtensions = (extensions ?? Enumerable.Empty<IModuleExtension>())
+            .Where(e => string.Equals(e.Module, ModuleName, StringComparison.Ordinal) && e.IsEnabled)
+            .OrderBy(e => e.Order)
+            .ToList();
+
+        _exportExtensions = allExtensions.Where(e => e.SupportsExport).ToList().AsReadOnly();
+        _importExtensions = allExtensions.Where(e => e.SupportsImport).ToList().AsReadOnly();
     }
 
 #if !NET481
@@ -82,8 +95,9 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         TeamExportOrchestrator? exportOrchestrator = null,
         TeamImportOrchestrator? importOrchestrator = null,
         TeamSlugGenerator? slugGenerator = null,
-        IPackageAccess? package = null)
-        : this(logger, PlatformMetrics, exportOrchestrator, slugGenerator, package)
+        IPackageAccess? package = null,
+        IEnumerable<IModuleExtension>? extensions = null)
+        : this(logger, PlatformMetrics, exportOrchestrator, slugGenerator, package, extensions)
     {
         _importOrchestrator = importOrchestrator;
     }
@@ -170,6 +184,41 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             {
                 await _exportOrchestrator.ExportTeamAsync(
                     sourceEndpointInfo.OrganisationSlug, projectName, team, slug, _package!, options.Extensions, ct).ConfigureAwait(false);
+
+                // Dispatch enabled export extensions in order
+                if (_exportExtensions.Count > 0)
+                {
+                    var extensionContext = new TeamExtensionContext
+                    {
+                        Organisation = sourceEndpointInfo.OrganisationSlug,
+                        ProjectName = projectName,
+                        EntityId = team.Id,
+                        TargetEntityId = null,
+                        Package = _package!,
+                        Team = team,
+                        Slug = slug,
+                        SourceProjectName = projectName,
+                        ProgressSink = sink
+                    };
+
+                    foreach (var ext in _exportExtensions)
+                    {
+                        try
+                        {
+                            await ext.ExportAsync(extensionContext, ct).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
+                        catch (Exception extEx)
+                        {
+                            _logger.LogWarning(extEx,
+                                "[Teams] Extension '{ExtName}' export failed for team '{TeamName}' — continuing.",
+                                ext.Name, team.Name);
+                        }
+                    }
+                }
 
                 count++;
                 _PlatformMetrics?.RecordTeamExportCount(exportTags);
@@ -317,8 +366,54 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             var importSw = Stopwatch.StartNew();
             try
             {
-                await _importOrchestrator.ImportTeamAsync(
+                var targetTeamId = await _importOrchestrator.ImportTeamAsync(
                     projectName, sourceProjectName, teamPackage, options.Extensions, ct).ConfigureAwait(false);
+
+                // Package upgrader (T101): if split artifact files are absent but team.json
+                // contains legacy embedded capability data, write the split files so that
+                // extensions can read them. This ensures old-format packages import correctly.
+                if (_importExtensions.Count > 0 && teamPackage.Definition is not null)
+                {
+                    var slug = GetTeamSlug(teamPath);
+                    await UpgradeLegacyTeamPackageAsync(
+                        context.Package, teamPackage, sourceOrganisation, sourceProjectName, slug, ct).ConfigureAwait(false);
+                }
+
+                // Dispatch enabled import extensions in order
+                if (_importExtensions.Count > 0 && teamPackage.Definition is not null)
+                {
+                    var slug = GetTeamSlug(teamPath);
+                    var extensionContext = new TeamExtensionContext
+                    {
+                        Organisation = sourceOrganisation,
+                        ProjectName = projectName,
+                        EntityId = teamPackage.Definition.Id,
+                        TargetEntityId = targetTeamId,
+                        Package = context.Package,
+                        Team = teamPackage.Definition,
+                        Slug = slug,
+                        SourceProjectName = sourceProjectName,
+                        ProgressSink = importSink
+                    };
+
+                    foreach (var ext in _importExtensions)
+                    {
+                        try
+                        {
+                            await ext.ImportAsync(extensionContext, ct).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
+                        catch (Exception extEx)
+                        {
+                            _logger.LogWarning(extEx,
+                                "[Teams] Extension '{ExtName}' import failed for team '{TeamName}' — continuing.",
+                                ext.Name, teamPackage.Definition.Name);
+                        }
+                    }
+                }
 
                 count++;
                 _PlatformMetrics?.RecordTeamImportCount(importTags);
@@ -505,4 +600,117 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             ? normalized.Substring(0, normalized.Length - suffix.Length)
             : normalized;
     }
+
+    /// <summary>
+    /// Package upgrader (T101 — Constitution VII): if split artifact files are absent but
+    /// <paramref name="teamPackage"/> contains legacy embedded capability data (old format
+    /// where all data lived in <c>team.json</c>), writes split artifact files so that
+    /// <see cref="IModuleExtension"/> implementations can read them.
+    /// </summary>
+    private static async Task UpgradeLegacyTeamPackageAsync(
+        IPackageAccess package,
+        TeamPackage teamPackage,
+        string organisation,
+        string project,
+        string slug,
+        CancellationToken ct)
+    {
+        // Upgrade iterations: if team.json has iteration data but iterations.json is absent, write it
+        if (teamPackage.Iterations is { Count: > 0 })
+        {
+            var iterCtx = new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: organisation,
+                Project: project,
+                Module: "Teams",
+                Address: new TeamArtifactAddress(slug, "iterations.json"));
+
+            if (!await package.ContentExistsAsync(iterCtx, ct).ConfigureAwait(false))
+            {
+                var json = JsonSerializer.Serialize(teamPackage.Iterations, LegacyJsonOptions);
+                using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
+                await package.PersistContentAsync(iterCtx, new PackagePayload(stream, "application/json"), ct).ConfigureAwait(false);
+            }
+        }
+
+        // Upgrade members: if team.json has member data but members.json is absent, write it
+        if (teamPackage.Members is { Count: > 0 })
+        {
+            var memberCtx = new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: organisation,
+                Project: project,
+                Module: "Teams",
+                Address: new TeamArtifactAddress(slug, "members.json"));
+
+            if (!await package.ContentExistsAsync(memberCtx, ct).ConfigureAwait(false))
+            {
+                var json = JsonSerializer.Serialize(teamPackage.Members, LegacyJsonOptions);
+                using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
+                await package.PersistContentAsync(memberCtx, new PackagePayload(stream, "application/json"), ct).ConfigureAwait(false);
+            }
+        }
+
+        // Upgrade capacity: if team.json has capacity data but capacity.json is absent, write it
+        // Also requires iterations.json to exist (the capacity extension reads it to get iteration IDs)
+        if (teamPackage.CapacityByIteration is { Count: > 0 })
+        {
+            var capacityCtx = new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: organisation,
+                Project: project,
+                Module: "Teams",
+                Address: new TeamArtifactAddress(slug, "capacity.json"));
+
+            if (!await package.ContentExistsAsync(capacityCtx, ct).ConfigureAwait(false))
+            {
+                var json = JsonSerializer.Serialize(teamPackage.CapacityByIteration, LegacyJsonOptions);
+                using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
+                await package.PersistContentAsync(capacityCtx, new PackagePayload(stream, "application/json"), ct).ConfigureAwait(false);
+            }
+        }
+
+        // Upgrade settings: if team.json has settings data but settings.json is absent, write it
+        if (teamPackage.Settings is not null)
+        {
+            var settingsCtx = new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: organisation,
+                Project: project,
+                Module: "Teams",
+                Address: new TeamArtifactAddress(slug, "settings.json"));
+
+            if (!await package.ContentExistsAsync(settingsCtx, ct).ConfigureAwait(false))
+            {
+                var json = JsonSerializer.Serialize(teamPackage.Settings, LegacyJsonOptions);
+                using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
+                await package.PersistContentAsync(settingsCtx, new PackagePayload(stream, "application/json"), ct).ConfigureAwait(false);
+            }
+        }
+
+        // Upgrade area paths: if team.json has area path data but area-paths.json is absent, write it
+        if (teamPackage.AreaPaths is not null)
+        {
+            var areaPathsCtx = new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: organisation,
+                Project: project,
+                Module: "Teams",
+                Address: new TeamArtifactAddress(slug, "area-paths.json"));
+
+            if (!await package.ContentExistsAsync(areaPathsCtx, ct).ConfigureAwait(false))
+            {
+                var json = JsonSerializer.Serialize(teamPackage.AreaPaths, LegacyJsonOptions);
+                using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
+                await package.PersistContentAsync(areaPathsCtx, new PackagePayload(stream, "application/json"), ct).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private static readonly JsonSerializerOptions LegacyJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        WriteIndented = false
+    };
 }

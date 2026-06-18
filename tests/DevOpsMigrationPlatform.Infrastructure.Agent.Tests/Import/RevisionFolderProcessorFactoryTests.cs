@@ -4,9 +4,11 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -25,7 +27,8 @@ public class RevisionFolderProcessorFactoryTests
         var package = new Mock<IPackageAccess>(MockBehavior.Loose);
         var sut = new RevisionFolderProcessorFactory(
             NullLoggerFactory.Instance,
-            package.Object);
+            package.Object,
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) });
 
         var processor = sut.Create(
             target: Mock.Of<IWorkItemTarget>(),
@@ -53,6 +56,7 @@ public class RevisionFolderProcessorFactoryTests
         var sut = new RevisionFolderProcessorFactory(
             NullLoggerFactory.Instance,
             package.Object,
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
             metrics: null,
             fieldTransformTool: null,
             nodeStructureTool: Mock.Of<INodeTranslationTool>(),

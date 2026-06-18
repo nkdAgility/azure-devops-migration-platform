@@ -5,8 +5,10 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
+using DevOpsMigrationPlatform.Infrastructure.Simulated.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
@@ -101,8 +103,16 @@ public static class SimulatedServiceCollectionExtensions
 
         // Team target — in-memory simulation of team creation, keyed for composite dispatch.
         services.AddTeamTarget<SimulatedTeamTarget>("Simulated");
+        // Board configuration capability — Simulated connector supports all granular flags.
+        services.AddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.IConnectorCapabilityProvider>(
+            _ => new global::DevOpsMigrationPlatform.Infrastructure.Agent.ConnectorCapability.StaticConnectorCapabilityProvider(
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.BoardConfig |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TaskboardColumns |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.Backlogs));
         services.AddProjectLifecycleProvider<SimulatedProjectLifecycleProvider>("Simulated");
         services.AddProjectProcessProvider<SimulatedProjectProcessProvider>("Simulated");
+        // Board adapter — provides deterministic boards for testing.
+        services.AddSingleton<ITeamBoardAdapter, SimulatedBoardAdapter>();
 
         return services;
     }

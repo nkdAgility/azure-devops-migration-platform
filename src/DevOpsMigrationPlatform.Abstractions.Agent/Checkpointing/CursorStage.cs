@@ -9,5 +9,6 @@ public static class CursorStage
     public const string AppliedFields = "AppliedFields";
     public const string AppliedLinks = "AppliedLinks";
     public const string UploadedAttachments = "UploadedAttachments";
+    public const string AppliedComments = "AppliedComments";
     public const string Completed = "Completed";
 }

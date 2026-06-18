@@ -3,10 +3,13 @@
 
 using System.Linq;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent;
+using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
+using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Analysis;
@@ -81,8 +84,22 @@ public static class ModuleServiceCollectionExtensions
             });
 
         services.RegisterWorkItemServices(configuration);
+
+        // Work-item capability extensions (IModuleExtension ports). Each owns its own IOptions<T>.
+        // Note: Links and Attachments are now unconditional core behaviour — no extension registration needed.
+#if NET7_0_OR_GREATER
+        services.AddSchemaEntry<CommentsExtensionOptions>("Work item Comments extension (inline comment replay) configuration");
+#endif
+        services.AddOptions<CommentsExtensionOptions>()
+            .Configure<IOptions<WorkItemsModuleOptions>>((o, wi) => o.Enabled = wi.Value.Extensions.Comments.Enabled);
+        services.AddSingleton<CommentsWorkItemExtension>(sp =>
+            new CommentsWorkItemExtension(
+                sp.GetRequiredService<IOptions<CommentsExtensionOptions>>(),
+                sp.GetService<IWorkItemCommentSourceFactory>(),
+                sp.GetService<Microsoft.Extensions.Logging.ILogger<CommentsWorkItemExtension>>()));
+        services.AddSingleton<IModuleExtension>(sp => sp.GetRequiredService<CommentsWorkItemExtension>());
+
         services.TryAddSingleton<IWorkItemExportOrchestratorFactory, WorkItemExportOrchestratorFactory>();
-        services.TryAddSingleton<IWorkItemsOrchestratorFactory, WorkItemsOrchestratorFactory>();
         services.AddScoped<IWorkItemsImportCapabilityValidator, WorkItemsImportCapabilityValidator>();
         services.AddSingleton<IWorkItemsNodeReadinessOrchestrator>(sp =>
             new WorkItemsNodeReadinessOrchestrator(
@@ -90,24 +107,6 @@ public static class ModuleServiceCollectionExtensions
                 sp.GetService<INodesOrchestrator>(),
                 sp.GetService<IPlatformMetrics>(),
                 sp.GetRequiredService<ILogger<WorkItemsModule>>()));
-        services.AddScoped<WorkItemsImportRuntime>(sp =>
-            new WorkItemsImportRuntime(
-                sp.GetRequiredService<IWorkItemTargetFactory>(),
-                sp.GetRequiredService<IWorkItemResolutionStrategyFactory>(),
-                sp.GetRequiredService<ICheckpointingServiceFactory>(),
-                sp.GetRequiredService<IIdMapStoreFactory>(),
-                sp.GetRequiredService<IWorkItemResolutionProcessorFactory>(),
-                sp.GetService<IIdentityTranslationTool>(),
-                sp.GetRequiredService<IWorkItemsImportCapabilityValidator>(),
-                sp.GetRequiredService<IWorkItemsNodeReadinessOrchestrator>(),
-                sp.GetService<IPlatformMetrics>(),
-                sp.GetRequiredService<ILogger<WorkItemsImportRuntime>>(),
-                sp.GetRequiredService<ILogger<WorkItemsModule>>(),
-                sp.GetRequiredService<ISourceEndpointInfo>(),
-                sp.GetRequiredService<ITargetEndpointInfo>(),
-                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<WorkItemsModuleOptions>>(),
-                sp.GetService<Microsoft.Extensions.Options.IOptions<WorkItemOptions>>(),
-                sp.GetService<Microsoft.Extensions.Options.IOptions<NodesModuleOptions>>()));
         services.AddScoped<ImportPreparer>(sp =>
         {
             var patterns = sp.GetServices<IImportFailurePattern>()?.ToArray();
@@ -132,7 +131,6 @@ public static class ModuleServiceCollectionExtensions
             new WorkItemsOrchestrator(
                 sp.GetRequiredService<IWorkItemRevisionSourceFactory>(),
                 sp.GetService<IAttachmentBinarySource>(),
-                sp.GetService<IWorkItemCommentSourceFactory>(),
                 sp.GetService<IWorkItemFetchService>(),
                 sp.GetRequiredService<IWorkItemExportOrchestratorFactory>(),
                 sp.GetRequiredService<ICheckpointingServiceFactory>(),
@@ -144,7 +142,19 @@ public static class ModuleServiceCollectionExtensions
                 sp.GetRequiredService<IOptions<WorkItemsModuleOptions>>(),
                 sp.GetRequiredService<ISourceEndpointInfo>(),
                 sp.GetRequiredService<ImportPreparer>(),
-                sp.GetRequiredService<WorkItemsImportRuntime>()));
+                sp.GetRequiredService<IWorkItemTargetFactory>(),
+                sp.GetRequiredService<IWorkItemResolutionStrategyFactory>(),
+                sp.GetRequiredService<IIdMapStoreFactory>(),
+                sp.GetRequiredService<IWorkItemResolutionProcessorFactory>(),
+                sp.GetService<IIdentityTranslationTool>(),
+                sp.GetRequiredService<IWorkItemsImportCapabilityValidator>(),
+                sp.GetRequiredService<IWorkItemsNodeReadinessOrchestrator>(),
+                sp.GetRequiredService<ITargetEndpointInfo>(),
+                sp.GetServices<IModuleExtension>(),
+                sp.GetService<IOptions<WorkItemOptions>>(),
+                sp.GetService<IOptions<NodesModuleOptions>>(),
+                sp.GetService<IInventoryOrchestrator>(),
+                sp.GetService<IRepoDiscoveryService>()));
         services.AddScoped<IWorkItemsOrchestrator>(sp => sp.GetRequiredService<WorkItemsOrchestrator>());
         services.AddTransient<IModule, WorkItemsModule>();
         return services;
