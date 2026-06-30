@@ -54,6 +54,7 @@ The control plane does **not** run the Job Engine, call source or target APIs, o
 | `GET` | `/jobs/{jobId}/diagnostics` | Return buffered diagnostic log records as a JSON array (snapshot). Accepts `?level=` filter (`Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`). Requires same auth as `GET /jobs/{jobId}`. |
 | `GET` | `/jobs/{jobId}/diagnostics?follow=true` | **SSE stream**: push diagnostic log records in real time. Accepts `?level=` filter. Heartbeat comment every 15 s. Requires same auth as `GET /jobs/{jobId}`. |
 | `GET` | `/jobs/{jobId}/telemetry` | Return the latest `MetricSnapshot` for the job. `204 No Content` when no snapshot has been pushed yet by the Migration Agent. `MetricSnapshot` is a versioned DTO whose fields correspond to registered OTel instruments — see `WellKnownMetricNames` for the canonical reference. Requires same auth as `GET /jobs/{jobId}`. |
+| `GET` | `/jobs/{jobId}/stream` | **Unified SSE stream.** Multiplexes progress events and diagnostic records into one connection. Replays all stored events with `seq > from` on connect (append-only log, full history), then switches to live subscriber channels. Heartbeat comment every 15 s. Closes with `event: job-ended` or `event: job-failed`. Use `?from={seq}` to resume from a known sequence number. |
 | `GET` | `/jobs/{jobId}/logs/download` | Download the package log files for a completed job. Current packages use run-scoped `.migration/runs/<runId>/logs/progress.ndjson` and `.migration/runs/<runId>/logs/diagnostics.ndjson`, with legacy fallback for older flat `.migration/Logs/progress.jsonl` and `.migration/Logs/agent.jsonl` packages. Requires same auth as `GET /jobs/{jobId}`. |
 
 ### Migration Agent Protocol
@@ -62,9 +63,10 @@ The control plane does **not** run the Job Engine, call source or target APIs, o
 |---|---|---|
 | `GET` | `/agents/lease` | Migration Agent polls for available work. Returns a leased job if one is available. |
 | `POST` | `/agents/lease/{leaseId}/heartbeat` | Migration Agent signals it is alive. Lease expiry is extended on each heartbeat. |
-| `POST` | `/agents/lease/{leaseId}/progress` | Migration Agent reports a `ProgressEvent`. Stored in the job's in-memory ring buffer, broadcast to active SSE subscribers, and when `taskId + taskStatus` are present, merged into the stored `JobTask` row using `knownTotal` and `completedCount` as partial task-state patches. |
-| `POST` | `/agents/lease/{leaseId}/complete` | Migration Agent signals successful job completion. |
-| `POST` | `/agents/lease/{leaseId}/fail` | Migration Agent signals non-recoverable failure with error detail. |
+| `POST` | `/workers/{workerId}/events` | **Primary telemetry channel.** Migration Agent POSTs a `WorkerEventBatch` containing up to 50 typed events (Progress, Diagnostic, Metrics, Snapshot, Tasks, Heartbeat, Terminal). Replaces the separate `/progress`, `/diagnostics`, `/complete`, and `/fail` endpoints as the active path. Returns `WorkerEventAck { LastAcceptedSeq }`. |
+| `POST` | `/agents/lease/{leaseId}/progress` | _(Legacy shim)_ Still accepted for backward compatibility with older agent binaries. Calls the same `JobProgressStore.Append()` internally. |
+| `POST` | `/agents/lease/{leaseId}/complete` | _(Legacy shim)_ Still accepted. Use `Terminal` kind in `/workers/{workerId}/events` for new agents. |
+| `POST` | `/agents/lease/{leaseId}/fail` | _(Legacy shim)_ Still accepted. Use `Terminal` kind in `/workers/{workerId}/events` for new agents. |
 | `POST` | `/agents/lease/{leaseId}/release` | Migration Agent releases lease without completing (e.g. on pause). |
 
 ---
@@ -100,7 +102,7 @@ stateDiagram-v2
 
 1. Migration Agent calls `GET /agents/lease` (long-poll or short-poll).
 2. Control plane returns a lease containing the job definition and a `leaseId`.
-3. Migration Agent sends `POST /agents/lease/{leaseId}/heartbeat` on a configurable interval (default: every 30 seconds).
+3. Migration Agent sends `POST /agents/lease/{leaseId}/heartbeat` on a configurable interval (default: every 15 seconds).
 4. If the control plane does not receive a heartbeat within `leaseExpiry` (default: 2× heartbeat interval), the job is returned to `Queued` and another Migration Agent may pick it up.
 5. The cursor in the package ensures the new Migration Agent resumes from where the previous one stopped.
 
@@ -111,16 +113,18 @@ sequenceDiagram
 
     A->>CP: GET /agents/lease
     CP-->>A: 200 {leaseId, job}
-    loop Every 30s
-        A->>CP: POST /agents/lease/{leaseId}/heartbeat
-        CP-->>A: 200 OK (lease extended)
-    end
-    A->>CP: POST /agents/lease/{leaseId}/progress
-    CP-->>A: 200 OK
-    alt Job completed
-        A->>CP: POST /agents/lease/{leaseId}/complete
-    else Job failed
-        A->>CP: POST /agents/lease/{leaseId}/fail
+    par Heartbeat loop
+        loop Every 15s
+            A->>CP: POST /agents/lease/{leaseId}/heartbeat
+            CP-->>A: 204 No Content
+        end
+    and Job execution
+        loop Batch flush (≤50 events or 500 ms)
+            A->>CP: POST /workers/{workerId}/events (WorkerEventBatch)
+            CP-->>A: 200 WorkerEventAck {lastAcceptedSeq}
+        end
+        A->>CP: POST /workers/{workerId}/events (Terminal kind — flushed immediately)
+        CP-->>A: 200 WorkerEventAck
     end
 ```
 
@@ -143,20 +147,20 @@ Migration Agents push a `ProgressEvent` after each stage. Task lifecycle events 
 }
 ```
 
-The control plane stores each event in a bounded per-job **ring buffer** (`BoundedChannelFullMode.DropOldest`, default capacity: 1000 events). The ring buffer:
+The control plane stores each event in an **append-only log** (`List<ProgressEvent>` protected by `ReaderWriterLockSlim`, per job). The log:
 
-- Powers `GET /jobs/{jobId}/progress` (snapshot of current buffer contents)
-- Powers `GET /jobs/{jobId}/progress?follow=true` (SSE broadcast from the buffer to all active subscribers)
-- Patches the in-memory `JobTaskList` when events carry `taskId + taskStatus`, merging `knownTotal` and `completedCount` into the matching task row
-- Is in-memory only — it is cleared when the control plane restarts, but the package's `.migration/runs/<runId>/logs/progress.ndjson` is the durable record
+- Powers `GET /jobs/{jobId}/progress` (snapshot of all stored events)
+- Powers `GET /jobs/{jobId}/stream` (full replay from `fromSeq`, then live via subscriber channels)
+- Patches the in-memory `JobTaskList` when events carry `taskId + taskStatus`
+- Is in-memory only — cleared when the control plane restarts; the package's `.migration/runs/<runId>/logs/progress.ndjson` is the durable record
 
-The ring buffer always reflects the most recent activity. For very long jobs, oldest events are evicted to stay within capacity. The cursor in the package remains the authoritative resume state.
+The log is append-only: events are never evicted. A configurable `MaxEventsPerJob` cap (default 50,000) emits a warning log if reached but does not silently discard — the cursor in the package remains the authoritative resume state. Late-joining CLI clients can replay the full history from `fromSeq=0`.
 
 ---
 
 ## Diagnostics Level Filtering
 
-The control plane maintains a deployment-level minimum diagnostic level (`Diagnostics:MinimumLevel`, default: `Information`). When a Migration Agent streams diagnostic log records via `POST /agents/lease/{leaseId}/diagnostics`, the control plane drops any record whose level is below this floor before buffering, broadcasting via SSE, or exporting to App Insights.
+The control plane maintains a deployment-level minimum diagnostic level (`Diagnostics:MinimumLevel`, default: `Information`). When a Migration Agent sends diagnostic log records via `POST /workers/{workerId}/events` (kind `Diagnostic`), the control plane drops any record whose level is below this floor before buffering or broadcasting via SSE.
 
 This floor is independent of the agent's per-job `--level` setting. An agent may emit `Debug`-level records, but the control plane will only buffer and stream records at or above its own configured minimum. This prevents verbose agent output from overwhelming the control plane's ring buffer and SSE subscribers in production deployments.
 

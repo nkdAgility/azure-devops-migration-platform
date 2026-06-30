@@ -232,13 +232,11 @@ The package format is identical in all cases. See [docs/package-format-reference
 
 The Migration Agent emits structured `ProgressEvent` records through `IProgressSink`. Three sinks run simultaneously:
 
-- `ConsoleProgressSink` — writes NDJSON to the CLI terminal (local run output)
+- `AnsiProgressSink` — writes ANSI-formatted progress to the terminal (local run output)
 - `PackageProgressSink` — appends to `.migration/runs/<runId>/logs/progress.ndjson` in the package (always written; durable)
-- `ControlPlaneProgressSink` — POSTs each event to the control plane ring buffer for live TUI streaming
+- `UnifiedWorkerEventWriter` — batches all telemetry (progress events, diagnostic records, task lists, metrics, snapshots) into a single acknowledged channel and POSTs `WorkerEventBatch` to `POST /workers/{workerId}/events` on the control plane. Replaces the former separate `ControlPlaneProgressSink`, `ControlPlaneTelemetryClient`, and `ControlPlaneLoggerProvider` HTTP paths. Retries batches on 429 (2 s) and other failures (exponential backoff, up to 5 attempts).
 
-The TUI subscribes to `GET /jobs/{jobId}/progress?follow=true` (Server-Sent Events) for live progress, and polls `GET /jobs/{jobId}/telemetry` for metric counters. Both are independent. The package log is always written regardless of whether the TUI or CLI is connected.
-
-A separate **diagnostics channel** carries structured diagnostic log records (ILogger output). The agent writes diagnostic records to `.migration/runs/<runId>/logs/diagnostics.ndjson` in the package and, when connected to a control plane, streams them via `POST /agents/lease/{leaseId}/diagnostics`. The control plane buffers and exposes these on `GET /jobs/{jobId}/diagnostics?follow=true` (SSE). The diagnostics channel is independent of the progress channel — progress tracks migration cursor state, diagnostics track operational log messages.
+The CLI subscribes to `GET /jobs/{jobId}/stream` (unified SSE) for both live progress and diagnostics in a single connection. The stream replays the full append-only event log from `fromSeq` on connect, then switches to live events — eliminating the race conditions of the previous 4-task fan-out. The package log is always written regardless of whether the CLI is connected.
 
 The job engine has no knowledge of where progress is rendered.
 
