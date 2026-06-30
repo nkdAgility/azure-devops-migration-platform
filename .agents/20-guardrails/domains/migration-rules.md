@@ -80,7 +80,7 @@ MUST NOT: access another module's folder, persist state outside root `.migration
 
 ### TeamFoundationServer
 - Export by `TfsMigrationAgent` (net481 polling agent, same lease protocol as MigrationAgent).
-- Dispatches via `IModule` (`TfsJobAgentWorker`). Feature parity on `net481` is an implementation concern, not a guard-clause justification.
+- Dispatches via `IModule` (`TfsJobAgentWorker`). Full feature parity is required on `net481`. Guard clauses that skip functionality are not permitted.
 - .NET 10 host MUST NOT link against .NET Framework or TfsMigrationAgent project.
 - Credentials via job contract only. Uses `IArtefactStore` (`FileSystemArtefactStore`) and `IStateStore`.
 - `source.type: TeamFoundationServer` with non-`file:///` package URI → reject at Tier 0.

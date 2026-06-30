@@ -30,7 +30,7 @@ Rules for test-first execution quality, verification depth, and completion disci
 ## Connector Completeness
 
 - Capability changes touching connectors require full connector coverage where APIs support it.
-- Unsupported capability paths must degrade explicitly with warning telemetry, never with unimplemented stubs.
+- All capability paths must be fully implemented. Unimplemented stubs are not permitted.
 
 ## Completion Check
 
