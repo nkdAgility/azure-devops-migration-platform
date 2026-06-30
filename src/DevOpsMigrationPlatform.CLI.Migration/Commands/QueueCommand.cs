@@ -175,13 +175,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             return;
 
         Environment.SetEnvironmentVariable("Telemetry__DetailedDiagnostics", "true");
-
-        var diagnosticsPath = Environment.GetEnvironmentVariable("Telemetry__DiagnosticsPath");
-        if (string.IsNullOrWhiteSpace(diagnosticsPath))
-        {
-            diagnosticsPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), ".otel-diagnostics"));
-            Environment.SetEnvironmentVariable("Telemetry__DiagnosticsPath", diagnosticsPath);
-        }
     }
 
     private string? ResolveDiagnosticsPath()
@@ -2007,6 +2000,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         TaskCompletionSource<long> bootstrapTrigger,
         CancellationToken ct)
     {
+        string? lastFailureReason = null;
         try
         {
             await foreach (var evt in client.FollowLogsAsync(jobId, ct, null).ConfigureAwait(false))
@@ -2015,6 +2009,10 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 if (evt.Module == "Job" && evt.Stage == "Job.Ready")
                     bootstrapTrigger.TrySetResult(evt.EventSequence);
 
+                // Capture the last Job.Failed message so it can be surfaced as the failure reason.
+                if (evt.Stage == "Job.Failed" && !string.IsNullOrWhiteSpace(evt.Message))
+                    lastFailureReason = evt.Message;
+
                 await updates.WriteAsync(new StageAdvanced(evt), ct).ConfigureAwait(false);
             }
 
@@ -2022,7 +2020,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
         {
-            await updates.WriteAsync(new JobTerminated(true, ex.Message), ct).ConfigureAwait(false);
+            await updates.WriteAsync(new JobTerminated(true, lastFailureReason ?? ex.Message), ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { }
     }
