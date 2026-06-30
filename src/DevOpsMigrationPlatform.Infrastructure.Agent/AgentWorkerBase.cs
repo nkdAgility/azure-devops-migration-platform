@@ -178,7 +178,17 @@ public abstract class AgentWorkerBase : BackgroundService
             }
 
             _packageState.CurrentPackageUri = packageUri;
-            await OnJobAsync(lease.Job, controlPlane, lease.LeaseId, ct).ConfigureAwait(false);
+            using var heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            var heartbeatTask = SendHeartbeatsAsync(controlPlane, lease.LeaseId, heartbeatCts.Token);
+            try
+            {
+                await OnJobAsync(lease.Job, controlPlane, lease.LeaseId, ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                heartbeatCts.Cancel();
+                await heartbeatTask.ConfigureAwait(false);
+            }
         }
         finally
         {
@@ -192,6 +202,37 @@ public abstract class AgentWorkerBase : BackgroundService
             {
                 _packageState.Clear();
             }
+        }
+    }
+
+    private async Task SendHeartbeatsAsync(HttpClient controlPlane, string leaseId, CancellationToken ct)
+    {
+        try
+        {
+#if NET481
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(15), ct).ConfigureAwait(false);
+#else
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
+            while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
+            {
+#endif
+                try
+                {
+                    await controlPlane
+                        .PostAsync($"/agents/lease/{Uri.EscapeDataString(leaseId)}/heartbeat", content: null, ct)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex, "Heartbeat POST failed for lease {LeaseId}.", leaseId);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Job finished — normal exit.
         }
     }
 

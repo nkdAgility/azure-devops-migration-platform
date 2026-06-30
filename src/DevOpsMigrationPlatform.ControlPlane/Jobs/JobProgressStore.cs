@@ -1,37 +1,93 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Channels;
 using DevOpsMigrationPlatform.Abstractions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.ControlPlane.Jobs;
 
 public sealed class JobProgressStore
 {
-    private sealed class JobProgressEntry
+    private sealed class JobProgressEntry : IDisposable
     {
-        public ConcurrentQueue<ProgressEvent> Queue { get; } = new();
+        private readonly ReaderWriterLockSlim _lock = new();
+        private readonly List<ProgressEvent> _log = new();
         public List<ChannelWriter<ProgressEvent>> Subscribers { get; } = new();
         public bool Failed { get; set; }
         public bool Completed { get; set; }
+        public long MaxSeq { get; private set; }
+
+        public void Append(ProgressEvent evt)
+        {
+            _lock.EnterWriteLock();
+            try
+            {
+                _log.Add(evt);
+                if (evt.EventSequence > MaxSeq)
+                    MaxSeq = evt.EventSequence;
+            }
+            finally { _lock.ExitWriteLock(); }
+        }
+
+        public ProgressEvent[] Snapshot(long fromSeq = 0)
+        {
+            _lock.EnterReadLock();
+            try
+            {
+                if (fromSeq <= 0)
+                    return _log.ToArray();
+
+                var result = new List<ProgressEvent>();
+                foreach (var e in _log)
+                    if (e.EventSequence > fromSeq)
+                        result.Add(e);
+                return result.ToArray();
+            }
+            finally { _lock.ExitReadLock(); }
+        }
+
+        public int Count
+        {
+            get
+            {
+                _lock.EnterReadLock();
+                try { return _log.Count; }
+                finally { _lock.ExitReadLock(); }
+            }
+        }
+
+        public void Dispose() => _lock.Dispose();
     }
 
     private readonly ConcurrentDictionary<Guid, JobProgressEntry> _entries = new();
-    private readonly int _capacity;
+    private readonly int _maxEventsPerJob;
+    private readonly ILogger<JobProgressStore>? _logger;
 
-    public JobProgressStore(IOptions<JobProgressOptions> options)
+    public JobProgressStore(IOptions<JobProgressOptions> options, ILogger<JobProgressStore>? logger = null)
     {
-        _capacity = options.Value.Capacity;
+        _maxEventsPerJob = options.Value.MaxEventsPerJob > 0 ? options.Value.MaxEventsPerJob : 50_000;
+        _logger = logger;
     }
 
     public void Append(Guid jobId, ProgressEvent evt)
     {
         var entry = _entries.GetOrAdd(jobId, _ => new JobProgressEntry());
-        entry.Queue.Enqueue(evt);
-        while (entry.Queue.Count > _capacity)
-            entry.Queue.TryDequeue(out _);
+
+        if (entry.Count >= _maxEventsPerJob)
+        {
+            _logger?.LogWarning(
+                "Job {JobId} has reached {Max} progress events. Further events are discarded.",
+                jobId, _maxEventsPerJob);
+            return;
+        }
+
+        entry.Append(evt);
 
         lock (entry.Subscribers)
         {
@@ -40,17 +96,24 @@ public sealed class JobProgressStore
         }
     }
 
-    public IReadOnlyList<ProgressEvent> GetSnapshot(Guid jobId)
+    /// <summary>
+    /// Returns all events with <see cref="ProgressEvent.EventSequence"/> greater than
+    /// <paramref name="fromSeq"/>. Pass 0 (default) for the full history.
+    /// </summary>
+    public IReadOnlyList<ProgressEvent> GetSnapshot(Guid jobId, long fromSeq = 0)
     {
         if (!_entries.TryGetValue(jobId, out var entry))
             return Array.Empty<ProgressEvent>();
-        return entry.Queue.ToArray();
+        return entry.Snapshot(fromSeq);
     }
 
     public (ChannelReader<ProgressEvent> Reader, ChannelWriter<ProgressEvent> Writer) Subscribe(Guid jobId)
     {
         var entry = _entries.GetOrAdd(jobId, _ => new JobProgressEntry());
-        var channel = Channel.CreateBounded<ProgressEvent>(new BoundedChannelOptions(_capacity)
+        // Subscriber capacity is 5× the safety cap default; DropOldest keeps the most
+        // recent events — including the terminal event — under slow-client backpressure.
+        // Phase D's append-only log makes reconnect-replay reliable, so this path is rare.
+        var channel = Channel.CreateBounded<ProgressEvent>(new BoundedChannelOptions(5_000)
         {
             FullMode = BoundedChannelFullMode.DropOldest
         });
@@ -58,8 +121,6 @@ public sealed class JobProgressStore
         {
             if (entry.Completed)
             {
-                // Job already finished before this subscriber connected — pre-complete
-                // the channel so ReadAllAsync returns immediately and SSE sends job-ended.
                 channel.Writer.TryComplete();
             }
             else
@@ -83,10 +144,6 @@ public sealed class JobProgressStore
 
     public void CompleteJob(Guid jobId, bool failed = false)
     {
-        // GetOrAdd ensures the entry exists even when CompleteJob races ahead of any
-        // Append call (e.g. ControlPlaneProgressSink drain loop hasn't fired yet).
-        // Completed/Failed are set inside the lock so Subscribe cannot observe a
-        // partially-initialised entry between GetOrAdd and the flag assignment.
         var entry = _entries.GetOrAdd(jobId, _ => new JobProgressEntry());
         lock (entry.Subscribers)
         {
@@ -102,23 +159,15 @@ public sealed class JobProgressStore
         _entries.TryGetValue(jobId, out var e) && e.Failed;
 
     /// <summary>
-    /// Returns the highest <see cref="ProgressEvent.EventSequence"/> seen for the job,
-    /// or 0 if no events have been recorded. Used by the bootstrap endpoint.
+    /// Returns the highest <see cref="ProgressEvent.EventSequence"/> seen for the job, or 0.
+    /// O(1) — tracked as a field on the entry.
     /// </summary>
-    public long GetMaxEventSequence(Guid jobId)
+    public long GetMaxEventSequence(Guid jobId) =>
+        _entries.TryGetValue(jobId, out var entry) ? entry.MaxSeq : 0;
+
+    public void Remove(Guid jobId)
     {
-        if (!_entries.TryGetValue(jobId, out var entry))
-            return 0;
-
-        long max = 0;
-        foreach (var evt in entry.Queue)
-        {
-            if (evt.EventSequence > max)
-                max = evt.EventSequence;
-        }
-        return max;
+        if (_entries.TryRemove(jobId, out var entry))
+            entry.Dispose();
     }
-
-    public void Remove(Guid jobId) =>
-        _entries.TryRemove(jobId, out _);
 }

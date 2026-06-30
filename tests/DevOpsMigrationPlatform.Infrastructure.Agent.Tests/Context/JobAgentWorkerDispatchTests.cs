@@ -68,7 +68,7 @@ public sealed class JobAgentWorkerDispatchTests
     private Mock<ICurrentPackageConfigAccessor> _currentPackageConfigAccessor = null!;
     private Mock<ICurrentAgentJobContextAccessor> _currentJobContextAccessor = null!;
     private Mock<ICurrentJobEndpointAccessor> _currentJobEndpointAccessor = null!;
-    private Mock<IControlPlaneTelemetryClient> _telemetryClient = null!;
+    private UnifiedWorkerEventWriter _eventWriter = null!;
     private Mock<IJobMetricsStore> _metricsStore = null!;
     private Mock<IJobSnapshotStore> _snapshotStore = null!;
     private Mock<IActiveJobState> _activeJobState = null!;
@@ -100,13 +100,19 @@ public sealed class JobAgentWorkerDispatchTests
         _currentPackageConfigAccessor = new Mock<ICurrentPackageConfigAccessor>();
         _currentJobContextAccessor = new Mock<ICurrentAgentJobContextAccessor>();
         _currentJobEndpointAccessor = new Mock<ICurrentJobEndpointAccessor>();
-        _telemetryClient = new Mock<IControlPlaneTelemetryClient>();
         _metricsStore = new Mock<IJobMetricsStore>();
         _snapshotStore = new Mock<IJobSnapshotStore>();
         _activeJobState = new Mock<IActiveJobState>();
         _httpHandler = new MockHttpMessageHandler();
         _leaseState = new ActiveLeaseState();
         _packageState = new ActivePackageState();
+        var httpFactoryForWriter = new Mock<IHttpClientFactory>();
+        httpFactoryForWriter.Setup(f => f.CreateClient(It.IsAny<string>()))
+            .Returns(new HttpClient { BaseAddress = new Uri("http://localhost:5100") });
+        _eventWriter = new UnifiedWorkerEventWriter(
+            httpFactoryForWriter.Object,
+            _leaseState,
+            NullLogger<UnifiedWorkerEventWriter>.Instance);
         _logger = NullLogger<JobAgentWorker>.Instance;
 
         _packageConfiguration = new ConfigurationBuilder()
@@ -206,10 +212,6 @@ public sealed class JobAgentWorkerDispatchTests
                 It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
-
-        _telemetryClient
-            .Setup(client => client.PushTaskListAsync(It.IsAny<string>(), It.IsAny<JobTaskList>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
 
         _flushables =
         [
@@ -412,11 +414,6 @@ public sealed class JobAgentWorkerDispatchTests
             CreateControlPlaneClient(),
             "lease-deps",
             CancellationToken.None);
-
-        _telemetryClient.Verify(client => client.PushTaskListAsync(
-            "lease-deps",
-            It.IsAny<JobTaskList>(),
-            It.IsAny<CancellationToken>()), Times.Once);
 
         Assert.IsTrue(
             progressEvents.Any(evt => evt.Module == "Job" && evt.Stage == "Job.Ready"),
@@ -834,7 +831,7 @@ public sealed class JobAgentWorkerDispatchTests
             flushables: _flushables,
             currentJobContextAccessor: _currentJobContextAccessor.Object,
             currentJobEndpointAccessor: _currentJobEndpointAccessor.Object,
-            telemetryClient: _telemetryClient.Object,
+            eventWriter: _eventWriter,
             logger: _logger);
     }
 

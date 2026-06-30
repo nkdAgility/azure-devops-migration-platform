@@ -817,39 +817,56 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var diagnosticsBuffer = new System.Collections.Concurrent.ConcurrentQueue<string>();
 
-        var diagnosticsTask = Task.Run(async () =>
-        {
-            try
-            {
-                await foreach (var record in client.StreamDiagnosticsAsync(parsedJobId, settings.Level, followCts.Token))
-                {
-                    var levelColor = record.Level switch
-                    {
-                        "Error" or "Critical" => "red",
-                        "Warning" => "yellow",
-                        "Debug" or "Trace" => "grey",
-                        _ => "blue"
-                    };
-                    diagnosticsBuffer.Enqueue(
-                        $"[{levelColor}]{Markup.Escape(record.Level)}[/] [[{Markup.Escape(record.Category)}]] {Markup.Escape(record.Message)}");
-                }
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            catch (Exception)
-            {
-            }
-        }, followCts.Token);
-
+        // Convert the unified SSE stream into the existing JobProgressUpdate channel
+        // so the display logic (Apply, BuildProgressDisplay) is unchanged.
         var updates = Channel.CreateUnbounded<JobProgressUpdate>();
         var state = JobProgressState.Initial(0);
 
-        var bootstrapTrigger = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var bootstrapTask = Task.Run(() => FetchBootstrapOnReady(client, parsedJobId, updates.Writer, bootstrapTrigger, followCts.Token));
+        var streamTask = Task.Run(async () =>
+        {
+            try
+            {
+                await foreach (var streamEvent in client.StreamJobAsync(parsedJobId, followCts.Token))
+                {
+                    switch (streamEvent.Kind)
+                    {
+                        case Abstractions.ControlPlaneApi.JobStreamEventKind.Progress:
+                            if (streamEvent.Progress is { } evt)
+                                updates.Writer.TryWrite(new StageAdvanced(evt));
+                            break;
 
-        var telemetryTask = Task.Run(() => FetchLatestMetrics(client, parsedJobId, updates.Writer, followCts.Token));
-        var progressTask = Task.Run(() => FollowJobProgress(client, parsedJobId, updates.Writer, bootstrapTrigger, followCts.Token));
+                        case Abstractions.ControlPlaneApi.JobStreamEventKind.Diagnostic:
+                            if (streamEvent.Diagnostic is { } record)
+                            {
+                                var levelColor = record.Level switch
+                                {
+                                    "Error" or "Critical" => "red",
+                                    "Warning" => "yellow",
+                                    "Debug" or "Trace" => "grey",
+                                    _ => "blue"
+                                };
+                                diagnosticsBuffer.Enqueue(
+                                    $"[{levelColor}]{Markup.Escape(record.Level)}[/] [[{Markup.Escape(record.Category)}]] {Markup.Escape(record.Message)}");
+                            }
+                            break;
+
+                        case Abstractions.ControlPlaneApi.JobStreamEventKind.Terminal:
+                            updates.Writer.TryWrite(new JobTerminated(streamEvent.Failed ?? false, streamEvent.FailureReason));
+                            updates.Writer.TryComplete();
+                            return;
+                    }
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                GetRequiredService<ILogger<QueueCommand>>().LogError(ex, "Unified stream error for job {JobId}", parsedJobId);
+            }
+            finally
+            {
+                updates.Writer.TryComplete();
+            }
+        }, followCts.Token);
 
         if (Console.IsOutputRedirected)
         {
@@ -879,11 +896,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     }
                     if (update is JobTerminated jt)
                     {
-                        // On fast jobs the SSE stream ends before the bootstrap HTTP call
-                        // completes — drain pending updates so the final summary is accurate.
-                        try { await bootstrapTask.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
-                        catch (OperationCanceledException) { }
-                        catch (Exception) { /* best-effort */ }
+                        // Drain any remaining updates written before the channel completed.
                         while (updates.Reader.TryRead(out var pending))
                             state = Apply(state, pending);
 
@@ -932,12 +945,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                                 ctx.UpdateTarget(BuildProgressDisplay(state));
                             if (update is JobTerminated jt)
                             {
-                                // On fast jobs the SSE stream ends before the bootstrap HTTP
-                                // call completes. Await bootstrap then drain pending updates
-                                // so the final render shows completed tasks, not the spinner.
-                                try { await bootstrapTask.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
-                                catch (OperationCanceledException) { }
-                                catch (Exception) { /* best-effort */ }
+                                // Drain any remaining updates before rendering the final state.
                                 while (updates.Reader.TryRead(out var pending))
                                     state = Apply(state, pending);
 
@@ -991,10 +999,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
 
         await followCts.CancelAsync();
-        try { await diagnosticsTask; } catch (OperationCanceledException) { }
-        try { await telemetryTask; } catch (OperationCanceledException) { }
-        try { await progressTask; } catch (OperationCanceledException) { }
-        try { await bootstrapTask; } catch (OperationCanceledException) { }
+        try { await streamTask; } catch (OperationCanceledException) { }
 
         while (diagnosticsBuffer.TryDequeue(out var line))
             console.MarkupLine(line);

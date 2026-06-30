@@ -11,4 +11,11 @@ public sealed class JobProgressOptions
 
     [Range(1, 100_000)]
     public int Capacity { get; init; } = 1000;
+
+    /// <summary>
+    /// Maximum events retained per job before further events are discarded with a warning.
+    /// The append-only log never silently wraps; this is a hard safety cap.
+    /// </summary>
+    [Range(1, 1_000_000)]
+    public int MaxEventsPerJob { get; init; } = 50_000;
 }

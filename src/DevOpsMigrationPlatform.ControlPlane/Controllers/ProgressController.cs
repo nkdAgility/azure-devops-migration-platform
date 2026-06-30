@@ -125,6 +125,20 @@ public sealed class ProgressController : ControllerBase
     }
 
     /// <summary>
+    /// Agent sends a periodic liveness signal while a job is running.
+    /// <c>POST /agents/lease/{leaseId}/heartbeat</c>
+    /// </summary>
+    [HttpPost("/agents/lease/{leaseId}/heartbeat")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(404)]
+    public IActionResult Heartbeat(string leaseId)
+    {
+        if (!_resolver.RecordHeartbeat(leaseId))
+            return NotFound($"Lease '{leaseId}' is not recognised.");
+        return NoContent();
+    }
+
+    /// <summary>
     /// Returns a snapshot of stored ProgressEvents, or streams them via SSE when
     /// <c>follow=true</c>.
     /// <c>GET /jobs/{jobId}/progress</c>

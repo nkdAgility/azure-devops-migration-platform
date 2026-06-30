@@ -15,16 +15,17 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 
 /// <summary>
 /// Implements <see cref="IProgressSink"/> and <see cref="BackgroundService"/>.
-/// Buffers incoming <see cref="ProgressEvent"/> records in a bounded channel and
+/// Buffers incoming <see cref="ProgressEvent"/> records in an unbounded channel and
 /// drains them by POSTing each event to the Control Plane progress endpoint.
-/// Transient HTTP failures are logged at debug level and never propagated.
+/// Transient HTTP failures are logged at warning level and never propagated.
 /// </summary>
 public sealed class ControlPlaneProgressSink : BackgroundService, IProgressSink
 {
-    private const int ChannelCapacity = 100;
-
-    private readonly Channel<ProgressEvent> _channel = Channel.CreateBounded<ProgressEvent>(
-        new BoundedChannelOptions(ChannelCapacity) { FullMode = BoundedChannelFullMode.DropOldest });
+    // Unbounded: progress events are low-volume (one per work-item milestone) and must
+    // never be silently dropped. Memory growth is bounded by job size; the drain loop
+    // keeps pace with the control plane. Previously cap=100 DropOldest caused silent
+    // event loss under any backpressure (CP restart, slow network, GC pause).
+    private readonly Channel<ProgressEvent> _channel = Channel.CreateUnbounded<ProgressEvent>();
 
     internal const string HttpClientName = nameof(ControlPlaneProgressSink);
 

@@ -24,6 +24,7 @@ using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Configuration;
@@ -50,7 +51,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly ICurrentPackageConfigAccessor _currentPackageConfigAccessor;
     private readonly ICurrentAgentJobContextAccessor _currentJobContextAccessor;
     private readonly ICurrentJobEndpointAccessor _currentJobEndpointAccessor;
-    private readonly IControlPlaneTelemetryClient _telemetryClient;
+    private readonly UnifiedWorkerEventWriter _eventWriter;
     private readonly ILogger<JobAgentWorker> _logger;
 
     public JobAgentWorker(
@@ -71,7 +72,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IEnumerable<IFlushable> flushables,
         ICurrentAgentJobContextAccessor currentJobContextAccessor,
         ICurrentJobEndpointAccessor currentJobEndpointAccessor,
-        IControlPlaneTelemetryClient telemetryClient,
+        UnifiedWorkerEventWriter eventWriter,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null,
         PolymorphicOrganisationEntryConverter? organisationConverter = null)
@@ -88,7 +89,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         _currentPackageConfigAccessor = currentPackageConfigAccessor;
         _currentJobContextAccessor = currentJobContextAccessor;
         _currentJobEndpointAccessor = currentJobEndpointAccessor;
-        _telemetryClient = telemetryClient;
+        _eventWriter = eventWriter;
         _logger = logger;
         _logger.LogWarning(
             "JobAgentWorker started. Waiting for lease from Control Plane at {ControlPlaneUrl}.",
@@ -568,8 +569,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 .BuildAndSaveAsync(planConfig, job.Kind, _package, ct)
                 .ConfigureAwait(false);
 
-            // Push plan to the control plane for display.
-            await _telemetryClient.PushTaskListAsync(leaseId, executionPlan, ct).ConfigureAwait(false);
+            // Push plan to the control plane for display via the unified event channel.
+            _eventWriter.EnqueueTasks(executionPlan);
 
             ProgressSink.Emit(new ProgressEvent
             {
@@ -966,7 +967,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             discoveryPlan = await planBuilder
                 .BuildAndSaveAsync(planConfig, job.Kind, _package, ct)
                 .ConfigureAwait(false);
-            await _telemetryClient.PushTaskListAsync(leaseId, discoveryPlan, ct).ConfigureAwait(false);
+            _eventWriter.EnqueueTasks(discoveryPlan);
 
             ProgressSink.Emit(new ProgressEvent
             {
