@@ -270,7 +270,7 @@ public sealed class TeamsModule : IModule
 #else
     public Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct)
     {
-        _logger.LogWarning("[Teams] Import is not supported on net481. Team export and validation remain available.");
+        _logger.LogWarning("[Teams] Import is not supported on net481.");
         return Task.FromResult(TaskExecutionResult.Skipped("Teams import is not supported on net481."));
     }
 #endif
