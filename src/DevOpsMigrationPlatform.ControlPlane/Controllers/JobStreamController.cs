@@ -118,11 +118,22 @@ public sealed class JobStreamController : ControllerBase
                         await HttpContext.Response.WriteAsync(
                             $"id: {evt.EventSequence}\nevent: progress\ndata: {json}\n\n", ct);
                         await HttpContext.Response.Body.FlushAsync(ct);
+                        if (evt.EventSequence > seq) seq = evt.EventSequence;
                         progressTask = progressReader.ReadAsync(ct).AsTask();
                     }
                     else
                     {
                         // Progress channel completed — job is done.
+                        // Replay any events that arrived after our initial snapshot but were
+                        // written to the store before CompleteJob() closed the channel.
+                        foreach (var evt in _progressStore.GetSnapshot(jobId, seq))
+                        {
+                            var json = JsonSerializer.Serialize(evt, _jsonOptions);
+                            await HttpContext.Response.WriteAsync(
+                                $"id: {evt.EventSequence}\nevent: progress\ndata: {json}\n\n", ct);
+                            if (evt.EventSequence > seq) seq = evt.EventSequence;
+                        }
+                        await HttpContext.Response.Body.FlushAsync(ct);
                         // Drain any remaining diagnostics.
                         await DrainDiagnosticsAsync(diagnosticReader, ct);
                         await WriteTerminalAsync(jobId, ct);

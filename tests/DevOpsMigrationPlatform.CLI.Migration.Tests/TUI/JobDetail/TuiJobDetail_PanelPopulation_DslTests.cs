@@ -30,31 +30,28 @@ public sealed class TuiJobDetail_PanelPopulation_DslTests
         using var context = new TuiJobDetailContext();
         context.WithRunningJob(jobId);
 
-        // Seed telemetry so the metrics panel has data after the first poll.
-        context.Client.TelemetryResponse = new JobMetrics
-        {
-            Migration = new MigrationCounters
-            {
-                WorkItems = new WorkItemCounters { Attempted = 7 }
-            }
-        };
-
-        // Seed one ProgressEvent so the log view receives it.
+        // Seed a progress event with metrics so the log view receives it.
         var evt = new ProgressEvent
         {
             Module = "WorkItems",
             Stage = "Export",
             Message = "Exporting work item 1",
-            Timestamp = DateTimeOffset.UtcNow
+            Timestamp = DateTimeOffset.UtcNow,
+            Metrics = new JobMetrics
+            {
+                Migration = new MigrationCounters
+                {
+                    WorkItems = new WorkItemCounters { Attempted = 7 }
+                }
+            }
         };
         context.SseServer.Push(evt);
 
         // Act — select the job; give the background stream loop a moment to process.
         context.SelectJob(jobId);
 
-        // Manually update the metrics panel (simulates the poller firing immediately).
-        var metrics = await context.Client.GetTelemetryAsync(jobId, context.Token);
-        context.MetricsPanel.Update(metrics);
+        // Manually update the metrics panel from the event metrics.
+        context.MetricsPanel.Update(evt.Metrics);
 
         // Allow the background stream loop to process the pushed event.
         await TuiJobDetailAssertions.WaitUntilAsync(

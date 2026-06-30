@@ -271,18 +271,25 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         try
         {
-            await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
+            await foreach (var streamEvent in client.StreamJobAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
             {
-                lastEvt = evt;
-                console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] {Markup.Escape(evt.Message ?? string.Empty)}");
+                if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Progress && streamEvent.Progress is { } evt)
+                {
+                    lastEvt = evt;
+                    console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] {Markup.Escape(evt.Message ?? string.Empty)}");
+                }
+                else if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Terminal)
+                {
+                    if (streamEvent.Failed == true)
+                    {
+                        jobFailed = true;
+                        ShowError(console, streamEvent.FailureReason ?? "Job failed on the agent.");
+                        if (errorsJsonPath is not null)
+                            ShowError(console, $"Import failed. Check errors.json in the package root for details: {errorsJsonPath}");
+                    }
+                    break;
+                }
             }
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
-        {
-            jobFailed = true;
-            ShowError(console, ex.Message);
-            if (errorsJsonPath is not null)
-                ShowError(console, $"Import failed. Check errors.json in the package root for details: {errorsJsonPath}");
         }
         catch (OperationCanceledException)
         {
@@ -475,16 +482,23 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         try
         {
-            await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
+            await foreach (var streamEvent in client.StreamJobAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
             {
-                lastEvt = evt;
-                console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] {Markup.Escape(evt.Message ?? string.Empty)}");
+                if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Progress && streamEvent.Progress is { } evt)
+                {
+                    lastEvt = evt;
+                    console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] {Markup.Escape(evt.Message ?? string.Empty)}");
+                }
+                else if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Terminal)
+                {
+                    if (streamEvent.Failed == true)
+                    {
+                        jobFailed = true;
+                        ShowError(console, streamEvent.FailureReason ?? "Job failed on the agent.");
+                    }
+                    break;
+                }
             }
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
-        {
-            jobFailed = true;
-            ShowError(console, ex.Message);
         }
         catch (OperationCanceledException)
         {
@@ -690,16 +704,23 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         try
         {
-            await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
+            await foreach (var streamEvent in client.StreamJobAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
             {
-                lastEvt = evt;
-                console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] {Markup.Escape(evt.Message ?? string.Empty)}");
+                if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Progress && streamEvent.Progress is { } evt)
+                {
+                    lastEvt = evt;
+                    console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] {Markup.Escape(evt.Message ?? string.Empty)}");
+                }
+                else if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Terminal)
+                {
+                    if (streamEvent.Failed == true)
+                    {
+                        jobFailed = true;
+                        ShowError(console, streamEvent.FailureReason ?? "Job failed on the agent.");
+                    }
+                    break;
+                }
             }
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
-        {
-            jobFailed = true;
-            ShowError(console, ex.Message);
         }
         catch (OperationCanceledException)
         {
@@ -861,6 +882,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             catch (Exception ex)
             {
                 GetRequiredService<ILogger<QueueCommand>>().LogError(ex, "Unified stream error for job {JobId}", parsedJobId);
+                updates.Writer.TryWrite(new JobTerminated(true, ex.Message));
             }
             finally
             {
@@ -1087,10 +1109,51 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var updates = Channel.CreateUnbounded<JobProgressUpdate>();
         var discoveryState = DiscoveryProgressState.Initial();
+        var logger = GetRequiredService<ILogger<QueueCommand>>();
 
-        var bootstrapTrigger = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var bootstrapTask = Task.Run(() => FetchBootstrapOnReady(client, jobId, updates.Writer, bootstrapTrigger, followCts.Token));
-        var progressTask = Task.Run(() => FollowJobProgress(client, jobId, updates.Writer, bootstrapTrigger, followCts.Token));
+        // Single unified stream task replaces the old FetchBootstrapOnReady + FollowJobProgress fan-out.
+        var streamTask = Task.Run(async () =>
+        {
+            try
+            {
+                await foreach (var streamEvent in client.StreamJobAsync(jobId, followCts.Token))
+                {
+                    if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Progress && streamEvent.Progress is { } evt)
+                    {
+                        // Job.Ready: fetch bootstrap once to get task list and snapshot.
+                        if (evt.Module == "Job" && evt.Stage == "Job.Ready")
+                        {
+                            _ = Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    var bootstrap = await client.GetBootstrapAsync(jobId, followCts.Token).ConfigureAwait(false);
+                                    if (bootstrap?.Metrics is not null)
+                                        await updates.Writer.WriteAsync(new TelemetryPolled(bootstrap.Metrics), followCts.Token).ConfigureAwait(false);
+                                    if (bootstrap?.Tasks is not null)
+                                        await updates.Writer.WriteAsync(new TaskListReceived(bootstrap.Tasks, bootstrap.LastEventSequence), followCts.Token).ConfigureAwait(false);
+                                    if (bootstrap?.Snapshot is { Organisations.Count: > 0 })
+                                        await updates.Writer.WriteAsync(new SnapshotLoaded(bootstrap.Snapshot), followCts.Token).ConfigureAwait(false);
+                                }
+                                catch (OperationCanceledException) { }
+                                catch (Exception ex) { logger.LogWarning(ex, "Bootstrap fetch failed for job {JobId}", jobId); }
+                            }, followCts.Token);
+                        }
+                        await updates.Writer.WriteAsync(new StageAdvanced(evt), followCts.Token).ConfigureAwait(false);
+                    }
+                    else if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Terminal)
+                    {
+                        updates.Writer.TryWrite(new JobTerminated(streamEvent.Failed ?? false, streamEvent.FailureReason));
+                        updates.Writer.TryComplete();
+                        return;
+                    }
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { logger.LogError(ex, "Unified stream error for discovery job {JobId}", jobId); }
+            finally { updates.Writer.TryComplete(); }
+        }, followCts.Token);
+
         // Ticker: emits a TimerTick every 120 ms so the live spinner animates even when the
         // agent is silent (e.g. during long WIQL queries between heartbeats).
         var tickerTask = Task.Run(async () =>
@@ -1101,7 +1164,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 {
                     await Task.Delay(120, followCts.Token).ConfigureAwait(false);
                     if (!updates.Writer.TryWrite(new TimerTick()))
-                        break; // channel was completed by FollowJobProgress
+                        break;
                 }
             }
             catch (OperationCanceledException) { }
@@ -1152,12 +1215,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
                     if (update is JobTerminated jt)
                     {
-                        // On fast jobs the SSE stream ends before the bootstrap HTTP call
-                        // completes, so TaskListReceived arrives after this break. Drain it
-                        // here so the final summary (if any) is accurate.
-                        try { await bootstrapTask.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
-                        catch (OperationCanceledException) { }
-                        catch (Exception) { /* best-effort */ }
                         while (updates.Reader.TryRead(out var pending))
                             discoveryState = ApplyDiscovery(discoveryState, pending);
 
@@ -1199,24 +1256,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         {
                             discoveryState = ApplyDiscovery(discoveryState, update);
 
-                            // While Tasks is null the display shows static "Initialising" text.
-                            // Every ctx.UpdateTarget call re-emits that line to terminals that
-                            // can't fully honour ANSI cursor-up, producing one appended
-                            // "Initialising" line per incoming SSE event (one per task).
-                            // The initial render from console.Live(...) already shows the text,
-                            // so skip all UpdateTarget calls until the task list has arrived.
                             if (discoveryState.Tasks is not null || discoveryState.Projects.Count > 0)
                                 ctx.UpdateTarget(BuildDiscoveryDisplay(discoveryState));
 
                             if (update is JobTerminated jt)
                             {
-                                // On fast jobs the SSE stream ends before the bootstrap HTTP
-                                // call completes, leaving the display stuck at "Initialising".
-                                // Await the bootstrap task then drain any pending updates so
-                                // the final render shows tasks rather than the spinner text.
-                                try { await bootstrapTask.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
-                                catch (OperationCanceledException) { }
-                                catch (Exception) { /* best-effort */ }
                                 while (updates.Reader.TryRead(out var pending))
                                     discoveryState = ApplyDiscovery(discoveryState, pending);
                                 ctx.UpdateTarget(BuildDiscoveryDisplay(discoveryState));
@@ -1264,8 +1308,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
 
         await followCts.CancelAsync();
-        try { await progressTask; } catch (OperationCanceledException) { }
-        try { await bootstrapTask; } catch (OperationCanceledException) { }
+        try { await streamTask; } catch (OperationCanceledException) { }
 
         if (jobFailed) return 1;
 
@@ -1899,135 +1942,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 : $"[grey]{Markup.Escape(phase)}[/]");
 
         return string.Join(" [grey]>[/] ", segments);
-    }
-
-    /// <summary>
-    /// Awaits a <c>Job.Ready</c> signal from the SSE stream (via <paramref name="bootstrapTrigger"/>),
-    /// then performs a single <c>GET /jobs/{jobId}/bootstrap</c> call to retrieve the task list and
-    /// writes a <see cref="TaskListReceived"/> update. Falls back to polling at 2-second intervals
-    /// if the agent does not support lifecycle events (older agent, or plan-build failure).
-    /// </summary>
-    private static async Task FetchBootstrapOnReady(
-        IControlPlaneClient client, Guid jobId,
-        ChannelWriter<JobProgressUpdate> updates,
-        TaskCompletionSource<long> bootstrapTrigger,
-        CancellationToken ct)
-    {
-        try
-        {
-            // Wait for Job.Ready signal (or fall back after 60 s for older agents).
-            await Task.WhenAny(bootstrapTrigger.Task, Task.Delay(TimeSpan.FromSeconds(60), ct))
-                .ConfigureAwait(false);
-
-            ct.ThrowIfCancellationRequested();
-
-            // One-shot bootstrap GET — the task list should be present by now.
-            // If not (e.g. plan-build failure), retry at 2 s intervals up to 10 s.
-            var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
-            while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
-            {
-                try
-                {
-                    var bootstrap = await client.GetBootstrapAsync(jobId, ct).ConfigureAwait(false);
-                    if (bootstrap?.Tasks is not null)
-                    {
-                        if (bootstrap.Metrics is not null)
-                        {
-                            await updates.WriteAsync(
-                                new TelemetryPolled(bootstrap.Metrics), ct)
-                                .ConfigureAwait(false);
-                        }
-
-                        await updates.WriteAsync(
-                            new TaskListReceived(bootstrap.Tasks, bootstrap.LastEventSequence), ct)
-                            .ConfigureAwait(false);
-
-                        // Pre-populate the discovery table from the snapshot so that
-                        // previously-completed projects appear immediately for late-joining
-                        // clients whose SSE ring buffer no longer holds the catchup events.
-                        if (bootstrap.Snapshot is { Organisations.Count: > 0 })
-                        {
-                            await updates.WriteAsync(
-                                new SnapshotLoaded(bootstrap.Snapshot), ct)
-                                .ConfigureAwait(false);
-                        }
-
-                        return;
-                    }
-                }
-                catch (OperationCanceledException) { return; }
-                catch (Exception) { /* best-effort — retry */ }
-
-                await Task.Delay(2_000, ct).ConfigureAwait(false);
-            }
-
-            // Final fallback: signal with empty list so the display exits "Initialising" state.
-            var empty = new JobTaskList { Tasks = Array.Empty<JobTask>(), PushedAt = DateTimeOffset.UtcNow };
-            await updates.WriteAsync(new TaskListReceived(empty, 0), ct).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) { }
-    }
-
-    /// <summary>
-    /// Polls <c>GET /jobs/{jobId}/telemetry</c> every 5 s and pushes
-    /// <see cref="TelemetryPolled"/> updates into <paramref name="updates"/>.
-    /// </summary>
-    private static async Task FetchLatestMetrics(
-        IControlPlaneClient client, Guid jobId,
-        ChannelWriter<JobProgressUpdate> updates, CancellationToken ct)
-    {
-        try
-        {
-            while (!ct.IsCancellationRequested)
-            {
-                try
-                {
-                    var m = await client.GetTelemetryAsync(jobId, ct).ConfigureAwait(false);
-                    if (m is not null)
-                        await updates.WriteAsync(new TelemetryPolled(m), ct).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) { return; }
-                catch (Exception) { /* best-effort — do not propagate */ }
-                await Task.Delay(5_000, ct).ConfigureAwait(false);
-            }
-        }
-        catch (OperationCanceledException) { }
-    }
-
-    /// <summary>
-    /// Subscribes to the SSE progress stream via <c>GET /jobs/{jobId}/progress?follow=true</c>
-    /// and pushes <see cref="StageAdvanced"/> updates (and a terminal <see cref="JobTerminated"/>)
-    /// into <paramref name="updates"/>.
-    /// </summary>
-    private static async Task FollowJobProgress(
-        IControlPlaneClient client, Guid jobId,
-        ChannelWriter<JobProgressUpdate> updates,
-        TaskCompletionSource<long> bootstrapTrigger,
-        CancellationToken ct)
-    {
-        string? lastFailureReason = null;
-        try
-        {
-            await foreach (var evt in client.FollowLogsAsync(jobId, ct, null).ConfigureAwait(false))
-            {
-                // Job.Ready signals the task list is available — trigger the one-shot bootstrap GET.
-                if (evt.Module == "Job" && evt.Stage == "Job.Ready")
-                    bootstrapTrigger.TrySetResult(evt.EventSequence);
-
-                // Capture the last Job.Failed message so it can be surfaced as the failure reason.
-                if (evt.Stage == "Job.Failed" && !string.IsNullOrWhiteSpace(evt.Message))
-                    lastFailureReason = evt.Message;
-
-                await updates.WriteAsync(new StageAdvanced(evt), ct).ConfigureAwait(false);
-            }
-
-            await updates.WriteAsync(new JobTerminated(false, null), ct).ConfigureAwait(false);
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
-        {
-            await updates.WriteAsync(new JobTerminated(true, lastFailureReason ?? ex.Message), ct).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) { }
     }
 
     // ── Progress renderable (pure render function) ───────────────────────────────────────

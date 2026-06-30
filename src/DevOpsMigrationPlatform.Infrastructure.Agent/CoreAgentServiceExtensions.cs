@@ -14,6 +14,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Net.Http;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent;
 
@@ -110,7 +111,14 @@ public static class CoreAgentServiceExtensions
         services.AddSingleton<AgentControlPlaneClientAdapter>();
         services.AddSingleton<IControlPlaneAgentClient>(sp =>
             sp.GetRequiredService<AgentControlPlaneClientAdapter>());
-        services.AddControlPlaneProgressSink(controlPlaneBaseUrl);
+        // Register UnifiedWorkerEventWriter as a background service (Phase C batch channel).
+        // IProgressSink is registered by AddCompositeProgressSink — not here — so the composite
+        // correctly fans out to AnsiProgressSink, PackageProgressSink, and UnifiedWorkerEventWriter.
+        services.AddHttpClient(UnifiedWorkerEventWriter.HttpClientName,
+            client => client.BaseAddress = controlPlaneBaseUrl);
+        services.AddSingleton<UnifiedWorkerEventWriter>();
+        services.AddHostedService(sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
+        services.AddSingleton<IFlushable>(sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
         return services;
     }
 

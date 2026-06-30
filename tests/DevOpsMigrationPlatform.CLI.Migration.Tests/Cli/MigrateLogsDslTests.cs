@@ -10,6 +10,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,20 +37,22 @@ public class MigrateLogsDslTests
         new() { Module = "workitems", Stage = "Stage2" }
     ];
 
-    private static async IAsyncEnumerable<ProgressEvent> YieldEventsAsync(
+    private static async IAsyncEnumerable<JobStreamEvent> YieldStreamEventsAsync(
         IEnumerable<ProgressEvent> events,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
+        long seq = 0;
         foreach (var evt in events)
         {
             ct.ThrowIfCancellationRequested();
-            yield return evt;
+            yield return new JobStreamEvent(++seq, JobStreamEventKind.Progress, evt, null, null, null);
             await Task.Yield();
         }
+        yield return new JobStreamEvent(++seq, JobStreamEventKind.Terminal, null, null, false, null);
     }
 
 #pragma warning disable CS0162
-    private static async IAsyncEnumerable<ProgressEvent> ThrowAsync(
+    private static async IAsyncEnumerable<JobStreamEvent> ThrowStreamAsync(
         [EnumeratorCancellation] CancellationToken _ = default)
     {
         await Task.Yield();
@@ -59,7 +62,7 @@ public class MigrateLogsDslTests
 #pragma warning restore CS0162
 
     private static async Task<(int exitCode, string stdout)> RunAsync(
-        Guid jobId, bool follow, Mock<ILogsClient> client, CancellationToken ct = default)
+        Guid jobId, bool follow, Mock<ILogsClient> logsClient, Mock<IControlPlaneClient>? streamClient = null, CancellationToken ct = default)
     {
         var stdout = new StringWriter();
         var testConsole = AnsiConsole.Create(new AnsiConsoleSettings
@@ -72,7 +75,9 @@ public class MigrateLogsDslTests
         var host = Host.CreateDefaultBuilder()
             .ConfigureServices(services =>
             {
-                services.AddSingleton<ILogsClient>(client.Object);
+                services.AddSingleton<ILogsClient>(logsClient.Object);
+                if (streamClient is not null)
+                    services.AddSingleton<IControlPlaneClient>(streamClient.Object);
                 services.AddSingleton<IAnsiConsole>(testConsole);
             })
             .Build();
@@ -118,11 +123,13 @@ public class MigrateLogsDslTests
     [TestMethod]
     public async Task LogsCommand_FollowMode_StreamsLiveEventsAndExits0()
     {
-        var client = new Mock<ILogsClient>(MockBehavior.Strict);
-        client.Setup(c => c.FollowLogsAsync(s_followJobId, It.IsAny<CancellationToken>(), It.IsAny<long?>()))
-              .Returns<Guid, CancellationToken, long?>((_, ct, _) => YieldEventsAsync(s_twoEvents, ct));
+        var logsClient = new Mock<ILogsClient>(MockBehavior.Strict);
+        var streamClient = new Mock<IControlPlaneClient>(MockBehavior.Strict);
+        streamClient
+            .Setup(c => c.StreamJobAsync(s_followJobId, It.IsAny<CancellationToken>(), It.IsAny<long>()))
+            .Returns<Guid, CancellationToken, long>((_, ct, _) => YieldStreamEventsAsync(s_twoEvents, ct));
 
-        var (exitCode, stdout) = await RunAsync(s_followJobId, follow: true, client);
+        var (exitCode, stdout) = await RunAsync(s_followJobId, follow: true, logsClient, streamClient);
 
         Assert.AreEqual(0, exitCode);
         Assert.IsFalse(string.IsNullOrWhiteSpace(stdout), "Expected JSON lines in stdout.");
@@ -152,11 +159,13 @@ public class MigrateLogsDslTests
     [TestMethod]
     public async Task LogsCommand_FollowMode_HttpError_Exits1()
     {
-        var client = new Mock<ILogsClient>(MockBehavior.Strict);
-        client.Setup(c => c.FollowLogsAsync(s_followErrId, It.IsAny<CancellationToken>(), It.IsAny<long?>()))
-              .Returns<Guid, CancellationToken, long?>((_, _, _) => ThrowAsync());
+        var logsClient = new Mock<ILogsClient>(MockBehavior.Strict);
+        var streamClient = new Mock<IControlPlaneClient>(MockBehavior.Strict);
+        streamClient
+            .Setup(c => c.StreamJobAsync(s_followErrId, It.IsAny<CancellationToken>(), It.IsAny<long>()))
+            .Returns<Guid, CancellationToken, long>((_, _, _) => ThrowStreamAsync());
 
-        var (exitCode, stdout) = await RunAsync(s_followErrId, follow: true, client);
+        var (exitCode, stdout) = await RunAsync(s_followErrId, follow: true, logsClient, streamClient);
 
         Assert.AreEqual(1, exitCode);
         Assert.IsFalse(string.IsNullOrWhiteSpace(stdout), "An error message must be printed to stdout on HTTP error.");

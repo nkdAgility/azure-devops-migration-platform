@@ -110,9 +110,8 @@ public sealed class JobProgressStore
     public (ChannelReader<ProgressEvent> Reader, ChannelWriter<ProgressEvent> Writer) Subscribe(Guid jobId)
     {
         var entry = _entries.GetOrAdd(jobId, _ => new JobProgressEntry());
-        // Subscriber capacity is 5× the safety cap default; DropOldest keeps the most
-        // recent events — including the terminal event — under slow-client backpressure.
-        // Phase D's append-only log makes reconnect-replay reliable, so this path is rare.
+        // DropOldest keeps the terminal event reachable under slow-client backpressure.
+        // Phase D's append-only log provides full replay on reconnect.
         var channel = Channel.CreateBounded<ProgressEvent>(new BoundedChannelOptions(5_000)
         {
             FullMode = BoundedChannelFullMode.DropOldest

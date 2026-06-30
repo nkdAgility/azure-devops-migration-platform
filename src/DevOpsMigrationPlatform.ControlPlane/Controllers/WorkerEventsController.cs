@@ -106,6 +106,9 @@ public sealed class WorkerEventsController : ControllerBase
                 var progress = Deserialize<ProgressEvent>(evt.PayloadJson, evt.Seq);
                 if (progress is not null)
                 {
+                    // Assign the monotonic sequence from the WorkerEvent so the SSE
+                    // controller can track replay boundaries and clients can skip-replay.
+                    progress = progress with { EventSequence = evt.Seq };
                     _progressStore.Append(jobId, progress);
                     if (progress.Metrics is not null)
                         _metricsStore.Store(jobId, progress.Metrics);

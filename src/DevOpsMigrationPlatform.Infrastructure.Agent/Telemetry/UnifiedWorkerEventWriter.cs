@@ -30,7 +30,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 /// up to 5 attempts, then the batch is discarded with an error log.
 /// </para>
 /// </summary>
-public sealed class UnifiedWorkerEventWriter : BackgroundService, IProgressSink
+public sealed class UnifiedWorkerEventWriter : BackgroundService, IProgressSink, IFlushable
 {
     internal const string HttpClientName = nameof(UnifiedWorkerEventWriter);
 
@@ -54,6 +54,12 @@ public sealed class UnifiedWorkerEventWriter : BackgroundService, IProgressSink
 
     private long _seq;
 
+    // The background loop holds this for its entire read+flush cycle (including the
+    // ReadAsync wait). FlushAsync() acquires it before draining the channel, which
+    // guarantees it never races with a mid-flight batch the background loop has
+    // already dequeued from the channel but not yet POST'd.
+    private readonly SemaphoreSlim _cycleLock = new(1, 1);
+
     public UnifiedWorkerEventWriter(
         IHttpClientFactory httpFactory,
         ActiveLeaseState leaseState,
@@ -68,6 +74,29 @@ public sealed class UnifiedWorkerEventWriter : BackgroundService, IProgressSink
 
     public void Emit(ProgressEvent evt)
         => Enqueue(WorkerEventKind.Progress, evt);
+
+    // ── IFlushable ───────────────────────────────────────────────────────────
+
+    public async Task FlushAsync()
+    {
+        // Acquire the cycle lock so we wait for any in-progress background read+flush
+        // to complete before draining.  The background loop holds this lock for its
+        // entire cycle (ReadAsync + FlushWithRetryAsync), so by the time we acquire
+        // it the channel is guaranteed to contain only events that haven't been sent.
+        await _cycleLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var batch = new List<WorkerEvent>();
+            while (_channel.Reader.TryRead(out var evt))
+                batch.Add(evt);
+            if (batch.Count > 0)
+                await FlushWithRetryAsync(batch, CancellationToken.None).ConfigureAwait(false);
+        }
+        finally
+        {
+            _cycleLock.Release();
+        }
+    }
 
     // ── Internal enqueue API (used by ControlPlaneLoggerProvider and JobAgentWorker) ────
 
@@ -84,46 +113,54 @@ public sealed class UnifiedWorkerEventWriter : BackgroundService, IProgressSink
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var batch = new List<WorkerEvent>(BatchSize);
-
         try
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                batch.Clear();
-
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                cts.CancelAfter(FlushInterval);
-
+                // Hold the cycle lock for the entire read+flush so FlushAsync() is
+                // forced to wait for whichever phase we're currently in.
+                await _cycleLock.WaitAsync(stoppingToken).ConfigureAwait(false);
                 try
                 {
-                    while (batch.Count < BatchSize)
+                    var batch = new List<WorkerEvent>(BatchSize);
+
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                    cts.CancelAfter(FlushInterval);
+
+                    try
                     {
-                        var evt = await _channel.Reader.ReadAsync(cts.Token).ConfigureAwait(false);
-                        batch.Add(evt);
+                        while (batch.Count < BatchSize)
+                        {
+                            var evt = await _channel.Reader.ReadAsync(cts.Token).ConfigureAwait(false);
+                            batch.Add(evt);
 
-                        // Flush immediately on Terminal to avoid leaving it in the buffer.
-                        if (evt.Kind == WorkerEventKind.Terminal)
-                            break;
+                            // Flush immediately on Terminal to avoid leaving it in the buffer.
+                            if (evt.Kind == WorkerEventKind.Terminal)
+                                break;
+                        }
                     }
-                }
-                catch (OperationCanceledException)
-                {
-                    // Flush interval elapsed or shutdown — flush what we have.
-                }
+                    catch (OperationCanceledException)
+                    {
+                        // Flush interval elapsed or shutdown — flush what we have.
+                    }
 
-                if (batch.Count > 0)
-                    await FlushWithRetryAsync(batch, stoppingToken).ConfigureAwait(false);
+                    if (batch.Count > 0)
+                        await FlushWithRetryAsync(batch, stoppingToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    _cycleLock.Release();
+                }
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
 
         // Drain remaining on shutdown.
-        batch.Clear();
+        var shutdown = new List<WorkerEvent>(BatchSize);
         while (_channel.Reader.TryRead(out var remaining))
-            batch.Add(remaining);
-        if (batch.Count > 0)
-            await FlushWithRetryAsync(batch, CancellationToken.None).ConfigureAwait(false);
+            shutdown.Add(remaining);
+        if (shutdown.Count > 0)
+            await FlushWithRetryAsync(shutdown, CancellationToken.None).ConfigureAwait(false);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

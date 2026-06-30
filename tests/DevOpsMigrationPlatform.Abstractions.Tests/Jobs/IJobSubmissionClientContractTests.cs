@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
-using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DevOpsMigrationPlatform.Abstractions.Tests.Jobs;
@@ -14,12 +16,12 @@ public class IJobSubmissionClientContractTests
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public void RunAsync_HasExpectedSignature()
+    public void SubmitAsync_HasExpectedSignature()
     {
-        var method = typeof(IJobSubmissionClient).GetMethod(nameof(IJobSubmissionClient.RunAsync));
+        var method = typeof(IJobSubmissionClient).GetMethod(nameof(IJobSubmissionClient.SubmitAsync));
 
         Assert.IsNotNull(method);
-        Assert.AreEqual(typeof(IAsyncEnumerable<ProgressEvent>), method.ReturnType);
+        Assert.AreEqual(typeof(Task<Guid>), method.ReturnType);
 
         var parameters = method.GetParameters();
         Assert.AreEqual(2, parameters.Length);

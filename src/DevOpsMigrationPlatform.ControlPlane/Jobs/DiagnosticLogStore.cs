@@ -126,6 +126,8 @@ public sealed class DiagnosticLogStore
     public (ChannelReader<DiagnosticLogRecord> Reader, ChannelWriter<DiagnosticLogRecord> Writer) Subscribe(Guid jobId)
     {
         var entry = _entries.GetOrAdd(jobId, _ => new JobEntry());
+        // DropOldest keeps the terminal event reachable under slow-client backpressure.
+        // Phase D's append-only log provides full replay on reconnect.
         var channel = Channel.CreateBounded<DiagnosticLogRecord>(
             new BoundedChannelOptions(5_000) { FullMode = BoundedChannelFullMode.DropOldest });
         lock (entry.Subscribers)
