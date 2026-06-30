@@ -6,9 +6,12 @@
 
   <!-- Security pins: override vulnerable transitive packages (NuGet audit / NU1903).
        MessagePack < 2.5.301 (pulled transitively via StreamJsonRpc) has GHSA-hv8m-jj95-wg3x;
-       2.5.301 is the patched 2.5.x release (same minor line — binary-compatible). -->
+       2.5.301 is the patched 2.5.x release (same minor line — binary-compatible).
+       SQLitePCLRaw.bundle_e_sqlite3 <= 2.1.11 has GHSA-2m69-gcr7-jv3q (pulled transitively via
+       Microsoft.Data.Sqlite); 3.0.3 is the patched release on the 3.x line. -->
   <ItemGroup Label="SecurityPins">
     <PackageVersion Include="MessagePack" Version="2.5.301" />
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
   </ItemGroup>
 
   <ItemGroup Label="Aspire">
