@@ -26,7 +26,7 @@ These rules are mandatory for all connector implementations.
 11. TFS connectors run in the `TfsMigrationAgent` (net481, Windows only).
 12. Authentication is Windows Integrated. No PAT-based auth in TFS connectors.
 13. TFS connectors must implement the same capability surface as their ADO equivalents, within the limits of the TFS Object Model API.
-14. Do not encode source-only assumptions or current `net481` feature gaps as a reason for runtime guard clauses. Feature capability on `net481` may be implemented over time.
+14. Do not encode source-only assumptions as a reason for runtime guard clauses. All features are supported on `net481`. Guard clauses are permitted only to prevent runtime crashes at execution boundaries.
 
 ## Interface Placement
 

@@ -6,47 +6,38 @@ This file is an enforcement guardrail, not background guidance. If touched scope
 
 - `net481`-specific code or projects
 - target-specific files or partials (`*.net481.*`, `*.net10.*`)
-- runtime guards or unsupported-runtime checks
+- runtime guards or crash-prevention checks
 - `#if` / preprocessor branches
 - dependency registration differences between runtimes
-- explicit capability degradation or unsupported-feature reporting
 
 ## Intent
 
 - Keep orchestration stable, substitutable, and runtime-agnostic.
-- Make `net481` support explicit, testable, and intentional.
-- Prevent architecture drift caused by broad runtime guards or DI-based hiding of missing capability.
+- All features are fully supported on `net481`. There are no unsupported features.
+- Prevent architecture drift caused by broad runtime guards or DI-based hiding of functionality.
 
 ## Mandatory Rules
 
-1. Guards are permitted only to prevent runtime crashes or unsupported runtime execution boundaries. Guards must not be used for dependency injection choices, architectural hiding, or excluding code because `net481` is assumed to remain unimplemented.
-2. `net481` support must be explicit, testable, and intentional. Reduced capability is acceptable only when represented as a known implementation choice.
+1. Guards are permitted only to prevent runtime crashes at execution boundaries. Guards must not be used for dependency injection choices, architectural hiding, or skipping functionality on `net481`.
+2. `net481` must implement every feature. Skipping, degrading, or returning "not supported" for any operation is not permitted.
 3. Orchestration logic must not contain target-framework-specific behavior. It depends only on shared abstractions and stable contracts.
 4. Runtime-specific behavior belongs behind interfaces, target-specific implementations, partial implementations, or separate assemblies according to architectural significance.
-5. `#if` / preprocessor guards are a last resort and allowed only for small, local compile-time differences.
-6. A `net481` implementation may be slower or less capable, but it must either:
-   - implement the shared contract correctly, or
-   - return a clear, documented, tested unsupported-capability result.
-7. Unsupported `net481` features must be modeled explicitly in capability/domain contracts. DI registration must not be used to hide capability gaps.
-8. Dependency differences must be isolated at project or assembly boundaries. Runtime-specific dependencies must not leak into shared orchestration code.
-9. Shared contracts must have tests on both target frameworks. Target-specific behavior requires target-specific tests.
-10. The compatibility strategy must preserve stable orchestration, clear substitutability, and predictable degradation.
-11. Refactor-first is mandatory in touched compatibility hotspots. If a touched file contains non-compliant compatibility structure, the first task in that file is remediation toward this strategy before feature edits.
-12. Cross-runtime logic must remain single-source by default. Duplicating a full class across target-specific files is non-compliant unless a materially different dependency graph requires an explicit assembly/class split.
-13. Runtime deltas must be isolated to the smallest practical seam (method-level adapter, partial implementation, or narrow interface). Prefer tiny compatibility components over duplicating multi-responsibility classes.
-14. A target-specific file must not aggregate multiple capabilities (for example cursor + mapping + schema + lifecycle) when those capabilities can be separated into small runtime-agnostic contracts and runtime-specific adapters.
+5. `#if` / preprocessor guards are a last resort and allowed only for small, local compile-time differences that do not affect feature availability.
+6. Dependency differences must be isolated at project or assembly boundaries. Runtime-specific dependencies must not leak into shared orchestration code.
+7. Shared contracts must have tests on both target frameworks.
+8. Cross-runtime logic must remain single-source by default. Duplicating a full class across target-specific files is non-compliant unless a materially different dependency graph requires an explicit assembly/class split.
+9. Runtime deltas must be isolated to the smallest practical seam (method-level adapter, partial implementation, or narrow interface). Prefer tiny compatibility components over duplicating multi-responsibility classes.
+10. A target-specific file must not aggregate multiple capabilities when those capabilities can be separated into small runtime-agnostic contracts and runtime-specific adapters.
 
 ## Required Review Questions
 
 Every change in scope of this guardrail must answer these questions explicitly:
 
 1. Where does the runtime difference belong: shared contract, target-specific implementation, partial file, or separate assembly?
-2. Is any guard clause present only for crash-prevention or unsupported-runtime protection?
-3. If `net481` has reduced capability, where is that capability modeled explicitly?
-4. What test proves shared contract behavior on both runtimes?
-5. What test proves intentional degradation or unsupported capability reporting on `net481`?
-6. What shared logic remains single-source, and why can any target-specific duplication not be reduced further?
-7. Which minimal seam contains each runtime delta, and why is that seam the smallest safe boundary?
+2. Is any guard clause present only for crash-prevention at a genuine runtime execution boundary?
+3. What test proves shared contract behavior on both runtimes?
+4. What shared logic remains single-source, and why can any target-specific duplication not be reduced further?
+5. Which minimal seam contains each runtime delta, and why is that seam the smallest safe boundary?
 
 Missing answers are non-compliance.
 
@@ -57,23 +48,19 @@ Missing answers are non-compliance.
 3. For small local differences, prefer target-specific files or partials over large interleaved `#if` blocks.
 4. Use separate assemblies when dependency graphs differ materially (for example TFS Object Model, COM interop, or runtime-hosting requirements).
 5. Use conditional package references only at project boundaries (`net481` packages in `net481` projects or `ItemGroup`s; `net10` packages in `net10` projects or `ItemGroup`s).
-6. Use DI to select between valid implementations, never to hide missing functionality.
-7. Use explicit capability contracts when parity is not possible (for example: `Supported`, `Unsupported`, `PartiallySupported`, `RequiresExternalProcess`, `RequiresModernRuntime`).
-8. Use preprocessor guards only for small compile-time differences; do not use them to hide features, change orchestration flow, or replace architectural boundaries.
-9. Test shared contracts under both frameworks.
-10. Test intentional degradation to prove reduced `net481` behavior is explicit, stable, and correctly reported.
+6. Use DI to select between valid implementations, never to hide or skip functionality.
+7. Use preprocessor guards only for small compile-time branches that preserve readability and do not hide architecture decisions.
+8. Test shared contracts under both frameworks.
 
 ## Reject Conditions
 
 Reject any change that:
 
-- adds runtime guards for nullable services, optional enablement flags, or generic defensive fail-fast checks
-- uses DI registration differences to hide a missing `net481` implementation
+- adds runtime guards that skip, degrade, or return "not supported" for any feature on `net481`
+- uses DI registration differences to hide or omit a `net481` implementation
 - leaves orchestration logic branching on target framework or runtime type
 - introduces large interleaved `#if` blocks where target-specific files, partials, or assemblies should own the divergence
-- treats current `net481` implementation gaps as permission to omit capability modeling or tests
-- reports degraded `net481` behavior only in comments, TODOs, or human knowledge instead of a contract result
-- claims compatibility while lacking explicit shared-contract and degradation test evidence
+- claims `net481` does not support a feature without a genuine compile-time or runtime crash boundary
 - duplicates large class bodies across target-specific files where differences are only language/API compatibility details
 - introduces target-specific files that mix multiple concerns instead of isolating runtime deltas behind narrow seams
 
@@ -83,12 +70,10 @@ Every in-scope change must provide evidence for all applicable items below:
 
 1. Shared contract location and target-specific ownership decision.
 2. Pass/fail statement that orchestration remains runtime-agnostic.
-3. Proof that any guard clause is crash-prevention-only or unsupported-runtime-only.
-4. Proof that reduced `net481` behavior is modeled in a contract result, not hidden in wiring.
-5. Shared-contract test coverage across both runtimes.
-6. Target-specific compatibility or degradation tests for `net481` where behavior diverges.
-7. Single-source logic statement identifying what remains shared and what is target-specific.
-8. Runtime-delta seam map proving differences are isolated to minimal adapters/components.
+3. Proof that any guard clause is crash-prevention-only at a genuine runtime execution boundary.
+4. Shared-contract test coverage across both runtimes.
+5. Single-source logic statement identifying what remains shared and what is target-specific.
+6. Runtime-delta seam map proving differences are isolated to minimal adapters/components.
 
 If evidence is missing, fail closed and treat the change as non-compliant.
 
@@ -103,11 +88,11 @@ If evidence is missing, fail closed and treat the change as non-compliant.
 
 ## Required Outcome
 
-- `net481` support is visible, explicit, and testable.
+- `net481` fully supports every feature. No feature is skipped, degraded, or marked unsupported.
 - `net10` paths can adopt modern performance and capability improvements without corrupting shared contracts.
-- `net481` compiles and runs with compatible behavior or explicit unsupported-capability results.
+- `net481` compiles and runs with full feature parity.
 - Runtime-specific dependencies never leak into shared orchestration code.
-- Missing `net481` functionality is never hidden behind guards, DI, or assumptions.
+- No functionality is hidden behind guards, DI, or assumptions on any runtime.
 
 ## Related
 

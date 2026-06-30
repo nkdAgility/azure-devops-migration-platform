@@ -240,8 +240,7 @@ public sealed class NodesModule : IModule
     public async Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct)
     {
 #if NET481
-        // TFS is a source-only connector — import is not supported.
-        _logger.LogDebug("[Nodes] Import not supported on net481 (TFS agent) — skipping.");
+        _logger.LogDebug("[Nodes] Import not supported on net481 — skipping.");
         await Task.CompletedTask.ConfigureAwait(false);
         return TaskExecutionResult.Skipped("Nodes import is not supported on net481.");
 #else

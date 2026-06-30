@@ -1,3 +1,9 @@
 <Project>
   <Import Project="$(MSBuildThisFileDirectory).build\ValidateSpdxHeaders.targets" />
+
+  <!-- SourceGear.sqlite3 (transitive via SQLitePCLRaw.bundle_e_sqlite3 3.x, pinned for GHSA-2m69-gcr7-jv3q)
+       rejects Any CPU builds. net481 targets cannot specify a RID, so suppress the check solution-wide.
+       The CheckForAnyCPU target only exists in the net471 buildTransitive folder so this only affects net481 builds. -->
+  <Target Name="CheckForAnyCPU" />
+
 </Project>

@@ -73,7 +73,7 @@ Code must be deterministic, testable, maintainable, and aligned with architectur
 ## Error Handling
 
 - Do not swallow exceptions.
-- Guard clauses are permitted only for runtime crash-prevention or unsupported runtime execution boundaries between `net481` and modern .NET targets; all other usage is prohibited.
+- Guard clauses are permitted only for runtime crash-prevention at genuine execution boundaries between `net481` and modern .NET targets; all other usage is prohibited. Guard clauses must never skip or degrade functionality.
 - Validation of configuration and contracts must be performed by canonical validation surfaces (schema validation, `IValidateOptions<T>`, or phase/module `ValidateAsync`) rather than ad-hoc defensive guard checks in module/orchestrator code.
 - When non-compatibility guards are encountered during refactor or feature work, they must be removed in the touched scope.
 - Framework-specific behavior must not alter orchestration flow; it must remain behind stable abstractions and target-specific implementations.
