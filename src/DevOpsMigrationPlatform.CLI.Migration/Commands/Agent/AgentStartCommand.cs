@@ -77,7 +77,7 @@ public sealed class AgentStartCommand : AsyncCommand<AgentStartCommand.Settings>
         var diagnosticsPath = Environment.GetEnvironmentVariable("Telemetry__DiagnosticsPath");
         if (string.IsNullOrWhiteSpace(diagnosticsPath))
         {
-            diagnosticsPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), ".otel-diagnostics"));
+            diagnosticsPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".otel-diagnostics"));
             Environment.SetEnvironmentVariable("Telemetry__DiagnosticsPath", diagnosticsPath);
         }
         psi.Environment["Telemetry__DiagnosticsPath"] = diagnosticsPath;

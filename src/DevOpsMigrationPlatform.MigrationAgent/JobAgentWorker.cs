@@ -118,7 +118,26 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         await InitializeJobPackageAsync(job, ct).ConfigureAwait(false);
 
         // Write config payload from the Job into the package before any config reads.
-        await WriteConfigPayloadAsync(_package, job, ct).ConfigureAwait(false);
+        // An InvalidOperationException here means the source/target identity changed vs the
+        // existing package (resume-source mismatch). Signal the job as failed immediately so
+        // the CLI surfaces the error instead of retrying indefinitely.
+        try
+        {
+            await WriteConfigPayloadAsync(_package, job, ct).ConfigureAwait(false);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "Cannot process job {JobId}: {Message}", job.JobId, ex.Message);
+            ProgressSink.Emit(new ProgressEvent
+            {
+                Module = "Job",
+                Stage = "Job.Failed",
+                Message = ex.Message,
+                Timestamp = DateTimeOffset.UtcNow
+            });
+            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+            return;
+        }
 
         // Load migration-config.json so singleton services (ActiveJobSourceEndpointInfo,
         // IOptions<T> bound from PackageConfig, etc.) resolve per-job values.
