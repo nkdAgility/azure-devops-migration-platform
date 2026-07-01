@@ -90,8 +90,7 @@ public sealed class JobStreamController : ControllerBase
             await HttpContext.Response.Body.FlushAsync(ct);
 
             // If the job is already complete, write the terminal event and exit.
-            if (_progressStore.WasFailed(jobId) || !_progressStore.WasFailed(jobId) &&
-                IsCompleted(jobId))
+            if (_progressStore.WasFailed(jobId) || _progressStore.IsCompleted(jobId))
             {
                 await WriteTerminalAsync(jobId, ct);
                 return;
@@ -152,7 +151,12 @@ public sealed class JobStreamController : ControllerBase
                     }
                     else
                     {
-                        diagnosticTask = Task.FromCanceled<DiagnosticLogRecord>(ct);
+                        // Diagnostic channel completed while progress is still live.
+                        // Park it on a never-completing task — Task.FromCanceled with an
+                        // un-cancelled token throws, and a completed task would make
+                        // Task.WhenAny spin. Progress-channel completion ends the loop.
+                        diagnosticTask = new TaskCompletionSource<DiagnosticLogRecord>(
+                            TaskCreationOptions.RunContinuationsAsynchronously).Task;
                     }
                 }
                 else // heartbeat
@@ -173,9 +177,6 @@ public sealed class JobStreamController : ControllerBase
             _diagnosticStore.Unsubscribe(jobId, diagnosticWriter);
         }
     }
-
-    private bool IsCompleted(Guid jobId) =>
-        _diagnosticStore.IsCompleted(jobId);
 
     private async Task WriteTerminalAsync(Guid jobId, CancellationToken ct)
     {

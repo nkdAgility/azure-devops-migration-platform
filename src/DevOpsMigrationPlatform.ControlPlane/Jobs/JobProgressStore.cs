@@ -157,6 +157,9 @@ public sealed class JobProgressStore
     public bool WasFailed(Guid jobId) =>
         _entries.TryGetValue(jobId, out var e) && e.Failed;
 
+    public bool IsCompleted(Guid jobId) =>
+        _entries.TryGetValue(jobId, out var e) && e.Completed;
+
     /// <summary>
     /// Returns the highest <see cref="ProgressEvent.EventSequence"/> seen for the job, or 0.
     /// O(1) — tracked as a field on the entry.
