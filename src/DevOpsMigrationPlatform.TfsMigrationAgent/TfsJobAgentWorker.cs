@@ -53,6 +53,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     private readonly ITfsJobServiceFactory _tfsServiceFactory;
     private readonly ActiveTfsJobServices _activeTfsJobServices;
     private readonly ICurrentJobEndpointAccessor _endpointAccessor;
+    private readonly UnifiedWorkerEventWriter _eventWriter;
     private readonly ILogger<TfsJobAgentWorker> _logger;
     private readonly IPackageAccess _package;
 
@@ -88,6 +89,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         _tfsServiceFactory = tfsServiceFactory;
         _activeTfsJobServices = activeTfsJobServices;
         _endpointAccessor = endpointAccessor;
+        _eventWriter = eventWriter;
         _logger = logger;
         _package = package ?? throw new ArgumentNullException(nameof(package));
     }
@@ -198,20 +200,8 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
                 .BuildAndSaveAsync(packageConfig, job.Kind, PackageAccess, ct)
                 .ConfigureAwait(false);
 
-            // Push plan to the control plane for display (best-effort).
-            var telemetry = jobScope.ServiceProvider.GetService<IControlPlaneTelemetryClient>();
-            if (telemetry != null)
-            {
-                try
-                {
-                    await telemetry.PushTaskListAsync(leaseId, executionPlan, ct).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex,
-                        "Failed to push task list for import job {JobId} — continuing.", job.JobId);
-                }
-            }
+            // Push plan to the control plane for display.
+            _eventWriter.EnqueueTasks(executionPlan);
 
             var moduleMap = jobModules.ToDictionary(
                 m => m.Name, m => (IModule)m, StringComparer.OrdinalIgnoreCase);
