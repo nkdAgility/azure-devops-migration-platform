@@ -16,7 +16,9 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 /// <summary>
 /// Background service that enqueues the latest <see cref="JobMetrics"/> and
 /// <see cref="JobSnapshot"/> into <see cref="UnifiedWorkerEventWriter"/> on a
-/// configurable interval while a lease is held.
+/// configurable interval. Lease-awareness is handled downstream by the writer
+/// (see <see cref="UnifiedWorkerEventWriter.FlushWithRetryAsync"/>), which drops
+/// silently when there is no active lease; this timer enqueues unconditionally.
 /// </summary>
 public sealed class ControlPlaneTelemetryTimer : BackgroundService
 {
