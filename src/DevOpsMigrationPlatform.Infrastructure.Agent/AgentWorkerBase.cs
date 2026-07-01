@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 #if !NET481
@@ -33,6 +34,7 @@ public abstract class AgentWorkerBase : BackgroundService
     private readonly ActivePackageState _packageState;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger _logger;
+    private readonly UnifiedWorkerEventWriter _eventWriter;
     private int _consecutiveNoLeaseResponses;
 
     private readonly JsonSerializerOptions _jsonOptions;
@@ -48,7 +50,8 @@ public abstract class AgentWorkerBase : BackgroundService
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
         IHttpClientFactory httpClientFactory,
-        ILogger logger
+        ILogger logger,
+        UnifiedWorkerEventWriter eventWriter
 #if !NET481
         , PolymorphicEndpointOptionsConverter? endpointConverter = null
         , PolymorphicOrganisationEntryConverter? organisationConverter = null
@@ -59,6 +62,7 @@ public abstract class AgentWorkerBase : BackgroundService
         _packageState = packageState ?? throw new ArgumentNullException(nameof(packageState));
         _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _eventWriter = eventWriter ?? throw new ArgumentNullException(nameof(eventWriter));
 
         _jsonOptions = new JsonSerializerOptions
         {
@@ -237,39 +241,15 @@ public abstract class AgentWorkerBase : BackgroundService
     }
 
     /// <summary>
-    /// Signals the control plane that a job has reached a terminal state (complete or fail).
-    /// Retries with exponential backoff up to 5 attempts.
+    /// Signals the control plane that a job has reached a terminal state (complete or fail),
+    /// routed through <see cref="UnifiedWorkerEventWriter"/> — the unified agent-to-control-plane
+    /// flush path — rather than a dedicated HTTP call.
     /// </summary>
     protected async Task SignalTerminalAsync(
         HttpClient controlPlane, string leaseId, string terminal, CancellationToken ct)
     {
-        const int maxAttempts = 5;
-        var delay = TimeSpan.FromSeconds(2);
-
-        for (int attempt = 1; attempt <= maxAttempts; attempt++)
-        {
-            try
-            {
-                var response = await controlPlane
-                    .PostAsync($"/agents/lease/{leaseId}/{terminal}", content: null, ct)
-                    .ConfigureAwait(false);
-                response.EnsureSuccessStatusCode();
-                return;
-            }
-            catch (Exception ex) when (attempt < maxAttempts && !ct.IsCancellationRequested)
-            {
-                _logger.LogWarning(
-                    ex,
-                    "Terminal signal attempt {Attempt}/{Max} failed for lease {LeaseId}; retrying in {Delay} s.",
-                    attempt, maxAttempts, leaseId, delay.TotalSeconds);
-                await Task.Delay(delay, ct).ConfigureAwait(false);
-                delay = TimeSpan.FromSeconds(delay.TotalSeconds * 2);
-            }
-        }
-
-        _logger.LogError(
-            "Failed to signal terminal state for lease {LeaseId} after {Max} attempts.",
-            leaseId, maxAttempts);
+        _eventWriter.EnqueueTerminal(failed: terminal == "fail");
+        await _eventWriter.FlushAsync().ConfigureAwait(false);
     }
 
     private sealed record AgentLeaseResponse(string LeaseId, Job Job);

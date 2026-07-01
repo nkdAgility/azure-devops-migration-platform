@@ -171,7 +171,11 @@ public class TfsJobAgentWorkerTests
             new DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.JobLifecycle.TfsExecution.ActiveTfsJobServices(),
             new DevOpsMigrationPlatform.Infrastructure.Agent.Context.CurrentJobEndpointAccessor(),
             _logger,
-            package ?? _package.Object);
+            package ?? _package.Object,
+            new UnifiedWorkerEventWriter(
+                _httpClientFactory.Object,
+                _leaseState,
+                NullLogger<UnifiedWorkerEventWriter>.Instance));
     }
 
     private HttpClient CreateControlPlaneClient() =>

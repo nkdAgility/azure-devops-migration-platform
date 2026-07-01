@@ -28,6 +28,7 @@ using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.JobLifecycle.TfsExecution;
@@ -77,10 +78,11 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         ActiveTfsJobServices activeTfsJobServices,
         ICurrentJobEndpointAccessor endpointAccessor,
         ILogger<TfsJobAgentWorker> logger,
-        IPackageAccess? package)
+        IPackageAccess? package,
+        UnifiedWorkerEventWriter eventWriter)
         : base(progressSink, checkpointingFactory,
              phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageMigrationConfigLoader,
-                package!, moduleScopeFactory, httpClientFactory, logger, activeJobState)
+                package!, moduleScopeFactory, httpClientFactory, logger, eventWriter, activeJobState)
     {
         _flushables = flushables;
         _tfsServiceFactory = tfsServiceFactory;

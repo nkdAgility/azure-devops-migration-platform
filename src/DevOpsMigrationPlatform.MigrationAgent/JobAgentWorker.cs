@@ -78,7 +78,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         PolymorphicOrganisationEntryConverter? organisationConverter = null)
         : base(progressSink, checkpointingFactory,
              phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageMigrationConfigLoader,
-                 package, moduleScopeFactory, httpClientFactory, logger, activeJobState, endpointConverter, organisationConverter)
+                 package, moduleScopeFactory, httpClientFactory, logger, eventWriter, activeJobState, endpointConverter, organisationConverter)
     {
         _metricsStore = metricsStore;
         _snapshotStore = snapshotStore;

@@ -7,6 +7,7 @@ using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Context;
@@ -32,10 +33,16 @@ public sealed class AgentWorkerBaseLeaseCoordinationTests
         {
             BaseAddress = new Uri("http://localhost:5100")
         };
+        var httpClientFactory = new TestHttpClientFactory(client);
+        var eventWriter = new UnifiedWorkerEventWriter(
+            httpClientFactory,
+            leaseState,
+            NullLogger<UnifiedWorkerEventWriter>.Instance);
         var worker = new ThrowingAgentWorker(
             leaseState,
             packageState,
-            new TestHttpClientFactory(client));
+            httpClientFactory,
+            eventWriter);
 
         using var runCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
@@ -60,12 +67,14 @@ public sealed class AgentWorkerBaseLeaseCoordinationTests
     private sealed class ThrowingAgentWorker(
         ActiveLeaseState leaseState,
         ActivePackageState packageState,
-        IHttpClientFactory httpClientFactory)
+        IHttpClientFactory httpClientFactory,
+        UnifiedWorkerEventWriter eventWriter)
         : AgentWorkerBase(
             leaseState,
             packageState,
             httpClientFactory,
-            NullLogger<ThrowingAgentWorker>.Instance)
+            NullLogger<ThrowingAgentWorker>.Instance,
+            eventWriter)
     {
         private readonly ActivePackageState _packageState = packageState;
         private readonly TaskCompletionSource<string> _dispatchObserved = new(TaskCreationOptions.RunContinuationsAsynchronously);

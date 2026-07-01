@@ -20,6 +20,7 @@ using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 #if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 #endif
@@ -89,12 +90,13 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
         ILogger logger,
+        UnifiedWorkerEventWriter eventWriter,
         IActiveJobState? activeJobState = null
 #if !NET481
         , PolymorphicEndpointOptionsConverter? endpointConverter = null
         , PolymorphicOrganisationEntryConverter? organisationConverter = null
 #endif
-        ) : base(leaseState, packageState, httpClientFactory, logger
+        ) : base(leaseState, packageState, httpClientFactory, logger, eventWriter
 #if !NET481
                  , endpointConverter
                  , organisationConverter
