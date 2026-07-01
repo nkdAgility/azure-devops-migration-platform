@@ -18,33 +18,32 @@ public class JobProgressStoreDslTests
     private static readonly Guid s_jobId = new("11111111-1111-1111-1111-111111111111");
     private static readonly Guid s_lateJobId = new("22222222-2222-2222-2222-222222222222");
 
-    private static JobProgressStore CreateStore(int capacity = TestCapacity)
+    private static JobProgressStore CreateStore(int maxEventsPerJob = TestCapacity)
     {
         var opts = new Mock<IOptions<JobProgressOptions>>(MockBehavior.Strict);
-        opts.Setup(o => o.Value).Returns(new JobProgressOptions { Capacity = capacity });
+        opts.Setup(o => o.Value).Returns(new JobProgressOptions { MaxEventsPerJob = maxEventsPerJob });
         return new JobProgressStore(opts.Object);
     }
 
     private static ProgressEvent MakeEvent(string stage) => new() { Module = "Test", Stage = stage };
 
-    // ── Scenario: Ring buffer at capacity evicts oldest event ─────────────────
+    // ── Scenario: Append-only log at safety cap discards further events ────────
 
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
-    public void RingBuffer_AtCapacity_EvictsOldestAndStoresNew()
+    public void AppendOnlyLog_AtSafetyCap_RetainsExistingAndDiscardsNew()
     {
         var store = CreateStore();
         for (var i = 0; i < TestCapacity; i++)
             store.Append(s_jobId, MakeEvent($"Stage{i}"));
 
-        var newEvent = MakeEvent("NewStage");
-        store.Append(s_jobId, newEvent);
+        store.Append(s_jobId, MakeEvent("NewStage"));
 
         var snapshot = store.GetSnapshot(s_jobId);
-        Assert.AreEqual(TestCapacity, snapshot.Count, "Ring buffer should still hold exactly capacity events.");
-        Assert.IsFalse(snapshot.Any(e => e.Stage == "Stage0"), "Oldest event (Stage0) should have been evicted.");
-        Assert.IsTrue(snapshot.Any(e => e.Stage == "NewStage"), "Newest event should be present.");
+        Assert.AreEqual(TestCapacity, snapshot.Count, "Log should hold exactly the cap; overflow is discarded, never evicted.");
+        Assert.IsTrue(snapshot.Any(e => e.Stage == "Stage0"), "Earliest event must be retained — the log is append-only.");
+        Assert.IsFalse(snapshot.Any(e => e.Stage == "NewStage"), "Event past the safety cap should have been discarded.");
     }
 
     // ── Scenario: CompleteJob before any Append marks channel completed ────────

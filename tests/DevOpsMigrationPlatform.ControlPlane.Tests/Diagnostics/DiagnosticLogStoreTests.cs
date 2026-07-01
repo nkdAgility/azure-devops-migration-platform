@@ -16,7 +16,7 @@ public sealed class DiagnosticLogStoreTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public void Add_WhenRingBufferExceedsCapacity_EvictsOldestRetainedRecord()
+    public void Add_WhenSafetyCapReached_RetainsExistingAndDiscardsFurtherRecords()
     {
         var store = CreateStore(capacity: 2, minimumLevel: "Information");
 
@@ -31,7 +31,7 @@ public sealed class DiagnosticLogStoreTests
 
         Assert.AreEqual(2, snapshot.Count);
         CollectionAssert.AreEqual(
-            new[] { "second", "third" },
+            new[] { "first", "second" },
             snapshot.Select(record => record.Message).ToArray());
     }
 
@@ -233,7 +233,7 @@ public sealed class DiagnosticLogStoreTests
     private static DiagnosticLogStore CreateStore(int capacity, string minimumLevel) =>
         new(Options.Create(new DiagnosticLogStoreOptions
         {
-            Capacity = capacity,
+            MaxRecordsPerJob = capacity,
             MinimumLevel = minimumLevel,
         }));
 

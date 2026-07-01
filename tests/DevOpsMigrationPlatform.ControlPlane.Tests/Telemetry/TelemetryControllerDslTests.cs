@@ -30,7 +30,7 @@ public sealed class TelemetryControllerDslTests
             metricsStore,
             new JobSnapshotStore(),
             new JobProgressStore(Microsoft.Extensions.Options.Options.Create(
-                new JobProgressOptions { Capacity = 10 })),
+                new JobProgressOptions())),
             new InMemoryJobTaskStore());
     }
 

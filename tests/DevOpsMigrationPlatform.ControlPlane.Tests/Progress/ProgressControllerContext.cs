@@ -14,8 +14,6 @@ namespace DevOpsMigrationPlatform.ControlPlane.Tests.Progress;
 
 internal sealed class ProgressControllerContext
 {
-    public const int TestCapacity = 5;
-
     public JobProgressStore Store { get; }
     public Mock<ILeaseJobResolver> LeaseResolver { get; } = new(MockBehavior.Strict);
     public ProgressController Controller { get; }
@@ -23,7 +21,7 @@ internal sealed class ProgressControllerContext
     public ProgressControllerContext()
     {
         var options = new Mock<IOptions<JobProgressOptions>>(MockBehavior.Strict);
-        options.Setup(o => o.Value).Returns(new JobProgressOptions { Capacity = TestCapacity });
+        options.Setup(o => o.Value).Returns(new JobProgressOptions());
         Store = new JobProgressStore(options.Object);
 
         Controller = new ProgressController(Store, LeaseResolver.Object);

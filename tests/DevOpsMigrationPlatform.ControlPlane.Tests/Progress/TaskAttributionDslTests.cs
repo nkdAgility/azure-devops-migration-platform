@@ -40,7 +40,7 @@ public sealed class TaskAttributionDslTests
         resolver.Setup(r => r.ResolveJobId(LeaseId)).Returns(s_jobId);
 
         var progressOptions = new Mock<IOptions<JobProgressOptions>>(MockBehavior.Strict);
-        progressOptions.Setup(o => o.Value).Returns(new JobProgressOptions { Capacity = 5 });
+        progressOptions.Setup(o => o.Value).Returns(new JobProgressOptions());
         var progressStore = new JobProgressStore(progressOptions.Object);
 
         var diagOptions = new Mock<IOptions<DiagnosticLogStoreOptions>>(MockBehavior.Strict);

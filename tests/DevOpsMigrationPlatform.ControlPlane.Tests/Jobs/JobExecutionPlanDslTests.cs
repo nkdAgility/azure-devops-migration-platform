@@ -23,7 +23,7 @@ public sealed class JobExecutionPlanDslTests
         var telemetryStore = new JobMetricsStore();
         var snapshotStore = new JobSnapshotStore();
         var progressOptions = new Mock<Microsoft.Extensions.Options.IOptions<JobProgressOptions>>(MockBehavior.Strict);
-        progressOptions.Setup(o => o.Value).Returns(new JobProgressOptions { Capacity = 5 });
+        progressOptions.Setup(o => o.Value).Returns(new JobProgressOptions());
         var progressStore = new JobProgressStore(progressOptions.Object);
         return new TelemetryController(telemetryStore, snapshotStore, progressStore, taskStore);
     }
