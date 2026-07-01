@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -108,7 +109,7 @@ public sealed class JobAgentWorkerDispatchTests
         _packageState = new ActivePackageState();
         var httpFactoryForWriter = new Mock<IHttpClientFactory>();
         httpFactoryForWriter.Setup(f => f.CreateClient(It.IsAny<string>()))
-            .Returns(new HttpClient { BaseAddress = new Uri("http://localhost:5100") });
+            .Returns(new HttpClient(_httpHandler) { BaseAddress = new Uri("http://localhost:5100") });
         _eventWriter = new UnifiedWorkerEventWriter(
             httpFactoryForWriter.Object,
             _leaseState,
@@ -617,6 +618,7 @@ public sealed class JobAgentWorkerDispatchTests
         var worker = CreateWorker();
         var job = CreateJob((JobKind)999);
 
+        _leaseState.CurrentLeaseId = "lease-unknown";
         await JobAgentWorkerTestHelper.InvokeJobAsync(
             worker,
             job,
@@ -643,7 +645,9 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<CancellationToken>()), Times.Never);
         Assert.IsTrue(_httpHandler.RequestLog.Exists(request =>
             request.Method == HttpMethod.Post &&
-            request.RequestUri!.PathAndQuery.Contains("/fail", StringComparison.OrdinalIgnoreCase)));
+            request.RequestUri!.PathAndQuery.Contains("/events", StringComparison.OrdinalIgnoreCase) &&
+            _httpHandler.RequestBodies.TryGetValue(request, out var body) &&
+            ContainsTerminalEvent(body, failed: true)));
     }
 
     [TestCategory("CodeTest")]
@@ -665,6 +669,7 @@ public sealed class JobAgentWorkerDispatchTests
         var worker = CreateWorker();
         var job = CreateJob(JobKind.Export);
 
+        _leaseState.CurrentLeaseId = "lease-failure";
         await JobAgentWorkerTestHelper.InvokeJobAsync(
             worker,
             job,
@@ -675,7 +680,9 @@ public sealed class JobAgentWorkerDispatchTests
         _currentPackageConfigAccessor.Verify(accessor => accessor.Clear(), Times.AtLeastOnce);
         Assert.IsTrue(_httpHandler.RequestLog.Exists(request =>
             request.Method == HttpMethod.Post &&
-            request.RequestUri!.PathAndQuery.Contains("/fail", StringComparison.OrdinalIgnoreCase)));
+            request.RequestUri!.PathAndQuery.Contains("/events", StringComparison.OrdinalIgnoreCase) &&
+            _httpHandler.RequestBodies.TryGetValue(request, out var body) &&
+            ContainsTerminalEvent(body, failed: true)));
     }
 
     // ── Scenarios: Agent fails fast when migration-config.json is absent ────────
@@ -692,12 +699,15 @@ public sealed class JobAgentWorkerDispatchTests
         var worker = CreateWorker();
         var job = CreateJob(JobKind.Export);
 
+        _leaseState.CurrentLeaseId = "lease-config-absent";
         await JobAgentWorkerTestHelper.InvokeJobAsync(
             worker, job, CreateControlPlaneClient(), "lease-config-absent", CancellationToken.None);
 
         Assert.IsTrue(_httpHandler.RequestLog.Exists(request =>
             request.Method == HttpMethod.Post &&
-            request.RequestUri!.PathAndQuery.Contains("/fail", StringComparison.OrdinalIgnoreCase)),
+            request.RequestUri!.PathAndQuery.Contains("/events", StringComparison.OrdinalIgnoreCase) &&
+            _httpHandler.RequestBodies.TryGetValue(request, out var body) &&
+            ContainsTerminalEvent(body, failed: true)),
             "Expected job to be signaled as 'fail' when migration-config.json is absent.");
     }
 
@@ -905,10 +915,51 @@ public sealed class JobAgentWorkerDispatchTests
     {
         public List<HttpRequestMessage> RequestLog { get; } = new();
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        // The caller (HttpClient) disposes request Content once SendAsync returns, so callers
+        // that inspect RequestLog after the fact (e.g. asserting on request bodies) must read
+        // the content here, while it is still live, and stash it for later retrieval.
+        public Dictionary<HttpRequestMessage, string> RequestBodies { get; } = new();
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             RequestLog.Add(request);
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
+            if (request.Content is not null)
+                RequestBodies[request] = await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
+    }
+
+    /// <summary>
+    /// Inspects a captured request body (a serialized WorkerEventBatch) for a Terminal event
+    /// whose embedded PayloadJson reports the given failed flag. Parses via JsonDocument rather
+    /// than string-Contains because PayloadJson is a JSON string nested inside the outer batch JSON.
+    /// </summary>
+    private static bool ContainsTerminalEvent(string body, bool failed)
+    {
+        using var doc = JsonDocument.Parse(body);
+
+        if (!doc.RootElement.TryGetProperty("events", out var events))
+            return false;
+
+        foreach (var evt in events.EnumerateArray())
+        {
+            if (!evt.TryGetProperty("kind", out var kindProp))
+                continue;
+            if (!string.Equals(kindProp.GetString(), "Terminal", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (!evt.TryGetProperty("payloadJson", out var payloadJsonProp))
+                continue;
+
+            var payloadJson = payloadJsonProp.GetString();
+            if (payloadJson is null)
+                continue;
+
+            using var payloadDoc = JsonDocument.Parse(payloadJson);
+            if (payloadDoc.RootElement.TryGetProperty("failed", out var failedProp) &&
+                failedProp.GetBoolean() == failed)
+                return true;
+        }
+
+        return false;
     }
 }
