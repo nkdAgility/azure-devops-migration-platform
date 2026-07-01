@@ -177,7 +177,7 @@ public abstract class AgentWorkerBase : BackgroundService
                 _logger.LogError(
                     "Job {JobId} is missing MigrationPlatform.Package location in ConfigPayload.",
                     lease.Job.JobId);
-                await SignalTerminalAsync(controlPlane, lease.LeaseId, "fail", ct).ConfigureAwait(false);
+                await SignalTerminalAsync("fail", ct).ConfigureAwait(false);
                 return;
             }
 
@@ -243,10 +243,11 @@ public abstract class AgentWorkerBase : BackgroundService
     /// <summary>
     /// Signals the control plane that a job has reached a terminal state (complete or fail),
     /// routed through <see cref="UnifiedWorkerEventWriter"/> — the unified agent-to-control-plane
-    /// flush path — rather than a dedicated HTTP call.
+    /// flush path — rather than a dedicated HTTP call. Retry/backoff for terminal signalling
+    /// lives in <see cref="UnifiedWorkerEventWriter.FlushWithRetryAsync"/> (5-attempt exponential
+    /// backoff, same shape as before).
     /// </summary>
-    protected async Task SignalTerminalAsync(
-        HttpClient controlPlane, string leaseId, string terminal, CancellationToken ct)
+    protected async Task SignalTerminalAsync(string terminal, CancellationToken ct)
     {
         _eventWriter.EnqueueTerminal(failed: terminal == "fail");
         await _eventWriter.FlushAsync().ConfigureAwait(false);

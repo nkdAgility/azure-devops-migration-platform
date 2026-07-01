@@ -136,7 +136,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 Message = ex.Message,
                 Timestamp = DateTimeOffset.UtcNow
             });
-            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+            await SignalTerminalAsync("fail", ct).ConfigureAwait(false);
             return;
         }
 
@@ -162,7 +162,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 _logger.LogError(ex,
                     "Config file not found in {PackageUri} for job {JobId}. Re-submit the job via CLI.",
                     PackageState.CurrentPackageUri ?? "(unknown)", job.JobId);
-                await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+                await SignalTerminalAsync("fail", ct).ConfigureAwait(false);
                 _currentPackageConfigAccessor.Clear();
                 _currentJobContextAccessor.Clear();
                 _currentJobEndpointAccessor.Clear();
@@ -200,7 +200,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     _logger.LogError(
                         "Unknown job kind {JobKind} for lease — failing job {JobId}.",
                         job.Kind, job.JobId);
-                    await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+                    await SignalTerminalAsync("fail", ct).ConfigureAwait(false);
                     break;
             }
         }
@@ -584,7 +584,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         {
             // Fatal — plan build failure means we can't proceed.
             _logger.LogError(ex, "Failed to build or load execution plan for job {JobId}.", job.JobId);
-            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+            await SignalTerminalAsync("fail", ct).ConfigureAwait(false);
             return;
         }
 
@@ -851,7 +851,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         // so without this pre-signal flush, async-batched sinks may never write their data.
         foreach (var flushable in _flushables)
             await flushable.FlushAsync().ConfigureAwait(false);
-        await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
+        await SignalTerminalAsync(terminal, ct).ConfigureAwait(false);
     }
 
     // ── Discovery execution ───────────────────────────────────────────────────
@@ -1038,7 +1038,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         // Flush buffered sinks before signalling — the CLI kills this process on receipt.
         foreach (var flushable in _flushables)
             await flushable.FlushAsync().ConfigureAwait(false);
-        await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
+        await SignalTerminalAsync(terminal, ct).ConfigureAwait(false);
     }
 
     /// <summary>

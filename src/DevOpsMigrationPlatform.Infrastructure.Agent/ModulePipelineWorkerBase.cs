@@ -220,7 +220,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
             Logger.LogError(ex,
                 "Config file not found: {PackageUri}. Re-submit the job via CLI.",
                 PackageState.CurrentPackageUri ?? "(unknown)");
-            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+            await SignalTerminalAsync("fail", ct).ConfigureAwait(false);
             CurrentPackageConfig.Clear();
             return;
         }
@@ -278,7 +278,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
             _activeJobState?.Clear();
         }
 
-        await SignalTerminalAsync(controlPlane, leaseId, failed ? "fail" : "complete", ct)
+        await SignalTerminalAsync(failed ? "fail" : "complete", ct)
             .ConfigureAwait(false);
     }
 

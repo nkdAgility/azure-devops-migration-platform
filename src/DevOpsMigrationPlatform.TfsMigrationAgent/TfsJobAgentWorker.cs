@@ -77,9 +77,9 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         ITfsJobServiceFactory tfsServiceFactory,
         ActiveTfsJobServices activeTfsJobServices,
         ICurrentJobEndpointAccessor endpointAccessor,
+        UnifiedWorkerEventWriter eventWriter,
         ILogger<TfsJobAgentWorker> logger,
-        IPackageAccess? package,
-        UnifiedWorkerEventWriter eventWriter)
+        IPackageAccess? package)
         : base(progressSink, checkpointingFactory,
              phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageMigrationConfigLoader,
                 package!, moduleScopeFactory, httpClientFactory, logger, eventWriter, activeJobState)
@@ -126,7 +126,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
                 _logger.LogError(
                     "TFS agent does not support job kind {JobKind} — rejecting job {JobId}.",
                     job.Kind, job.JobId);
-                await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+                await SignalTerminalAsync("fail", ct).ConfigureAwait(false);
                 break;
         }
     }
@@ -153,7 +153,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         {
             _logger.LogError(ex,
                 "Config file not found for import job {JobId} — failing.", job.JobId);
-            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+            await SignalTerminalAsync("fail", ct).ConfigureAwait(false);
             ActiveJobIdentity?.Clear();
             return;
         }
@@ -242,7 +242,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
             ActiveJobIdentity?.Clear();
         }
 
-        await SignalTerminalAsync(controlPlane, leaseId, failed ? "fail" : "complete", ct)
+        await SignalTerminalAsync(failed ? "fail" : "complete", ct)
             .ConfigureAwait(false);
     }
 
@@ -470,7 +470,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
             _logger.LogError(ex,
                 "Config file not found in {PackageUri}. Re-submit the job via CLI.",
                 PackageState.CurrentPackageUri ?? "(unknown)");
-            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+            await SignalTerminalAsync("fail", ct).ConfigureAwait(false);
             return;
         }
 
@@ -479,7 +479,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         if (endpointOptions == null || string.IsNullOrEmpty(endpointOptions.Url))
         {
             _logger.LogError("Discovery job {JobId} has no TFS Source endpoint in migration-config.json — failing.", job.JobId);
-            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+            await SignalTerminalAsync("fail", ct).ConfigureAwait(false);
             return;
         }
 
@@ -536,7 +536,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         // Flush buffered sinks before signalling — the CLI kills this process on receipt.
         foreach (var flushable in _flushables)
             await flushable.FlushAsync().ConfigureAwait(false);
-        await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
+        await SignalTerminalAsync(terminal, ct).ConfigureAwait(false);
     }
 
     // ── Classification tree capture ───────────────────────────────────────────
