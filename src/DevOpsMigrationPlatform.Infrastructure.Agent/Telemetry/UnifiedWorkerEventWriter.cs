@@ -109,6 +109,12 @@ public sealed class UnifiedWorkerEventWriter : BackgroundService, IProgressSink,
     public void EnqueueTasks(JobTaskList tasks)
         => Enqueue(WorkerEventKind.Tasks, tasks);
 
+    public void EnqueueMetrics(JobMetrics metrics)
+        => Enqueue(WorkerEventKind.Metrics, metrics);
+
+    public void EnqueueSnapshot(JobSnapshot snapshot)
+        => Enqueue(WorkerEventKind.Snapshot, snapshot);
+
     // ── Drain loop ───────────────────────────────────────────────────────────
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
