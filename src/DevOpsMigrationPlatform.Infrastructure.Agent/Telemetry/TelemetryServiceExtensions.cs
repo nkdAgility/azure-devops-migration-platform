@@ -53,40 +53,8 @@ public static class TelemetryServiceExtensions
     }
 
     /// <summary>
-    /// Registers the named <see cref="IControlPlaneTelemetryClient"/> / <see cref="ControlPlaneTelemetryClient"/>
-    /// <see cref="System.Net.Http.HttpClient"/> with <paramref name="baseAddress"/> as the base URL.
-    /// Call this from the Migration Agent's <c>Program.cs</c>.
-    /// </summary>
-    public static IServiceCollection AddControlPlaneTelemetryClient(
-        this IServiceCollection services,
-        Uri baseAddress)
-    {
-        services.AddHttpClient<IControlPlaneTelemetryClient, ControlPlaneTelemetryClient>(
-            client => client.BaseAddress = baseAddress);
-        return services;
-    }
-
-    /// <summary>
-    /// Registers <see cref="ControlPlaneProgressSink"/> as a singleton and as a hosted service.
-    /// The <see cref="CompositeProgressSink"/> registration is handled separately in the consuming host.
-    /// </summary>
-    public static IServiceCollection AddControlPlaneProgressSink(
-        this IServiceCollection services,
-        Uri controlPlaneBaseUrl)
-    {
-        services.AddHttpClient(ControlPlaneProgressSink.HttpClientName,
-            client => client.BaseAddress = controlPlaneBaseUrl);
-
-        services.AddSingleton<ControlPlaneProgressSink>();
-        services.AddHostedService(sp => sp.GetRequiredService<ControlPlaneProgressSink>());
-
-        return services;
-    }
-
-    /// <summary>
     /// Registers <see cref="UnifiedWorkerEventWriter"/> as a singleton, hosted service, and
-    /// <see cref="IProgressSink"/> implementation.  Replaces the separate
-    /// <see cref="ControlPlaneProgressSink"/> registration for agents that opt into Phase C.
+    /// <see cref="IProgressSink"/> implementation.
     /// </summary>
     public static IServiceCollection AddUnifiedWorkerEventWriter(
         this IServiceCollection services,
