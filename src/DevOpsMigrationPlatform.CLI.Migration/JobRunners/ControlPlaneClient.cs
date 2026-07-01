@@ -137,14 +137,87 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
 
     /// <summary>
     /// Opens the unified SSE stream at <c>GET /jobs/{jobId}/stream?from={fromSeq}</c>
-    /// and yields <see cref="JobStreamEvent"/> records until the stream closes.
-    /// Handles <c>event: progress</c>, <c>event: diagnostic</c>, and <c>event: job-ended</c>
-    /// / <c>event: job-failed</c> (terminal).
+    /// and yields <see cref="JobStreamEvent"/> records until a terminal event arrives.
+    /// Transport drops (connection reset, premature response end, clean close without
+    /// a terminal event) trigger an automatic reconnect that resumes replay from the
+    /// last observed progress sequence — the append-only log makes this loss-free.
+    /// After <see cref="MaxStreamReconnects"/> consecutive failures a synthetic failed
+    /// terminal is yielded so callers surface an actionable error instead of a raw
+    /// transport exception.
     /// </summary>
     public async IAsyncEnumerable<JobStreamEvent> StreamJobAsync(
         Guid jobId,
         [EnumeratorCancellation] CancellationToken ct,
         long fromSeq = 0)
+    {
+        var lastSeq = fromSeq;
+        var consecutiveFailures = 0;
+
+        while (true)
+        {
+            var enumerator = StreamJobOnceAsync(jobId, ct, lastSeq).GetAsyncEnumerator(ct);
+            var reconnect = false;
+            try
+            {
+                while (true)
+                {
+                    JobStreamEvent evt;
+                    try
+                    {
+                        if (!await enumerator.MoveNextAsync().ConfigureAwait(false))
+                        {
+                            // Clean close without a terminal event — the job is still
+                            // running; resume from the last replayable sequence.
+                            reconnect = true;
+                            break;
+                        }
+                        evt = enumerator.Current;
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _logger.LogWarning(ex,
+                            "Unified stream for job {JobId} dropped; reconnecting from seq {Seq} (attempt {Attempt}/{Max}).",
+                            jobId, lastSeq, consecutiveFailures + 1, MaxStreamReconnects);
+                        reconnect = true;
+                        break;
+                    }
+
+                    consecutiveFailures = 0;
+                    if (evt.Seq > lastSeq) lastSeq = evt.Seq;
+                    yield return evt;
+                    if (evt.Kind == JobStreamEventKind.Terminal)
+                        yield break;
+                }
+            }
+            finally
+            {
+                await enumerator.DisposeAsync().ConfigureAwait(false);
+            }
+
+            if (!reconnect || ct.IsCancellationRequested)
+                yield break;
+
+            consecutiveFailures++;
+            if (consecutiveFailures > MaxStreamReconnects)
+            {
+                _logger.LogError(
+                    "Unified stream for job {JobId} lost after {Max} reconnect attempts.",
+                    jobId, MaxStreamReconnects);
+                yield return new JobStreamEvent(lastSeq, JobStreamEventKind.Terminal,
+                    null, null, true, $"Lost connection to the control plane stream after {MaxStreamReconnects} reconnect attempts.");
+                yield break;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250 * consecutiveFailures), ct).ConfigureAwait(false);
+        }
+    }
+
+    private const int MaxStreamReconnects = 5;
+
+    private async IAsyncEnumerable<JobStreamEvent> StreamJobOnceAsync(
+        Guid jobId,
+        [EnumeratorCancellation] CancellationToken ct,
+        long fromSeq)
     {
         _logger.LogInformation(
             "ControlPlaneClient opening unified SSE stream GET /jobs/{JobId}/stream?from={FromSeq}",

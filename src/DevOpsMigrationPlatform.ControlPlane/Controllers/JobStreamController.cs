@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.ControlPlane.Jobs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.ControlPlane.Controllers;
 
@@ -35,13 +36,16 @@ public sealed class JobStreamController : ControllerBase
 
     private readonly JobProgressStore _progressStore;
     private readonly DiagnosticLogStore _diagnosticStore;
+    private readonly ILogger<JobStreamController> _logger;
 
     public JobStreamController(
         JobProgressStore progressStore,
-        DiagnosticLogStore diagnosticStore)
+        DiagnosticLogStore diagnosticStore,
+        ILogger<JobStreamController> logger)
     {
         _progressStore = progressStore;
         _diagnosticStore = diagnosticStore;
+        _logger = logger;
     }
 
     [HttpGet("/jobs/{jobId}/stream")]
@@ -170,6 +174,14 @@ public sealed class JobStreamController : ControllerBase
         catch (OperationCanceledException)
         {
             // Client disconnected — normal SSE teardown.
+        }
+        catch (Exception ex)
+        {
+            // Any escaped exception here aborts the response mid-stream and the client
+            // sees "response ended prematurely" with no server-side trace. Log it so
+            // stream aborts are diagnosable.
+            _logger.LogError(ex, "Unified SSE stream for job {JobId} aborted.", jobId);
+            throw;
         }
         finally
         {
