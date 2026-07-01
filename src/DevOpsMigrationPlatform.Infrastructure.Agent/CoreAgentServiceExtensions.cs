@@ -30,8 +30,9 @@ public static class CoreAgentServiceExtensions
     /// Registers:
     /// <list type="bullet">
     ///   <item><see cref="ActiveLeaseState"/> and <see cref="ActivePackageState"/> ambient singletons.</item>
-    ///   <item>Agent telemetry — <c>IPlatformMetrics</c>, <c>IPlatformMetrics</c>, job metrics stores.</item>
+    ///   <item>Agent telemetry — <c>IPlatformMetrics</c>, job metrics stores.</item>
     ///   <item>Named <c>"ControlPlane"</c> <see cref="System.Net.Http.HttpClient"/> (optionally configured via <paramref name="configureControlPlane"/>).</item>
+    ///   <item><see cref="UnifiedWorkerEventWriter"/> — the single agent-to-control-plane event channel (singleton, hosted service, <c>IFlushable</c>).</item>
     ///   <item><see cref="PackageProgressSink"/> and <see cref="CompositeProgressSink"/> as <c>IProgressSink</c>.</item>
     ///   <item><see cref="IPhaseTrackingServiceFactory"/>, <see cref="IPackageStoreFactory"/>, <see cref="ICheckpointingServiceFactory"/>.</item>
     ///   <item>Diagnostic log pipeline (<see cref="DiagnosticsServiceExtensions.AddDiagnosticsServices(IServiceCollection, Uri)"/>).</item>

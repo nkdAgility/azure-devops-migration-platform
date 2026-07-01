@@ -19,10 +19,10 @@ using Microsoft.Extensions.Logging;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 
 /// <summary>
-/// Single unified flush path from agent to control plane.
-/// Replaces the separate <see cref="ControlPlaneProgressSink"/> and
-/// <see cref="ControlPlaneTelemetryClient"/> channels with one unbounded channel
-/// and one background flush task.
+/// Single unified flush path from agent to control plane: one unbounded channel,
+/// one background flush task, batching all worker event kinds (progress, diagnostics,
+/// metrics, snapshots, task lists, terminal signals) into
+/// <c>POST /workers/{workerId}/events</c>.
 /// <para>
 /// Batch policy: up to 50 events or 500 ms (whichever comes first) per POST.
 /// Terminal events bypass the timer and are flushed immediately.
