@@ -56,6 +56,9 @@ O-2 and O-3 stores (`JobProgressStore`, `DiagnosticLogStore`) replaced their rin
 **CLI → ControlPlane stream (Phase E):**
 The CLI's former 4-task fan-out (2 SSE connections + 2 polling loops) has been replaced by a single `GET /jobs/{jobId}/stream` SSE connection (`JobStreamController`). The stream multiplexes O-2 progress and O-3 diagnostics — subscribing before replaying history to avoid races, then driving live subscriber channels with a `Task.WhenAny` loop and a 15-second heartbeat. Closes with `event: job-ended` or `event: job-failed`.
 
+**Legacy endpoint removal (2026-07-01):**
+The seven per-lease telemetry endpoints (`POST /agents/lease/{leaseId}/progress`, `/complete`, `/fail`, `/metrics`, `/snapshot`, `/tasks`, `/diagnostics`) and the agent-side classes named above (`ControlPlaneProgressSink`, `ControlPlaneTelemetryClient`/`IControlPlaneTelemetryClient`, and the `ControlPlaneLoggerProvider` HTTP fallback) have been deleted outright — there are no compatibility shims. `POST /workers/{workerId}/events` (`WorkerEventsController`) is the sole agent-to-CP telemetry ingestion point, and `GET /jobs/{jobId}/stream?from={seq}` is the unified CP-to-CLI stream.
+
 The logical three channels (O-1 OTel, O-2 Progress, O-3 Diagnostics) are unchanged. Only the wire transport from agent to CP and from CP to CLI has changed.
 
 ## Related

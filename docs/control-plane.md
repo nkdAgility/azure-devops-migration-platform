@@ -63,10 +63,7 @@ The control plane does **not** run the Job Engine, call source or target APIs, o
 |---|---|---|
 | `GET` | `/agents/lease` | Migration Agent polls for available work. Returns a leased job if one is available. |
 | `POST` | `/agents/lease/{leaseId}/heartbeat` | Migration Agent signals it is alive. Lease expiry is extended on each heartbeat. |
-| `POST` | `/workers/{workerId}/events` | **Primary telemetry channel.** Migration Agent POSTs a `WorkerEventBatch` containing up to 50 typed events (Progress, Diagnostic, Metrics, Snapshot, Tasks, Heartbeat, Terminal). Replaces the separate `/progress`, `/diagnostics`, `/complete`, and `/fail` endpoints as the active path. Returns `WorkerEventAck { LastAcceptedSeq }`. |
-| `POST` | `/agents/lease/{leaseId}/progress` | _(Legacy shim)_ Still accepted for backward compatibility with older agent binaries. Calls the same `JobProgressStore.Append()` internally. |
-| `POST` | `/agents/lease/{leaseId}/complete` | _(Legacy shim)_ Still accepted. Use `Terminal` kind in `/workers/{workerId}/events` for new agents. |
-| `POST` | `/agents/lease/{leaseId}/fail` | _(Legacy shim)_ Still accepted. Use `Terminal` kind in `/workers/{workerId}/events` for new agents. |
+| `POST` | `/workers/{workerId}/events` | **Sole telemetry ingestion point** (`WorkerEventsController`). Migration Agent POSTs a `WorkerEventBatch` containing up to 50 typed events (Progress, Diagnostic, Metrics, Snapshot, Tasks, Heartbeat, Terminal). The controller validates that the route `workerId` matches the batch and resolves the job via the lease. Returns `WorkerEventAck { LastAcceptedSeq }`. The former per-lease telemetry endpoints (`/progress`, `/complete`, `/fail`, `/metrics`, `/snapshot`, `/tasks`, `/diagnostics`) have been removed. |
 | `POST` | `/agents/lease/{leaseId}/release` | Migration Agent releases lease without completing (e.g. on pause). |
 
 ---
@@ -154,7 +151,7 @@ The control plane stores each event in an **append-only log** (`List<ProgressEve
 - Patches the in-memory `JobTaskList` when events carry `taskId + taskStatus`
 - Is in-memory only — cleared when the control plane restarts; the package's `.migration/runs/<runId>/logs/progress.ndjson` is the durable record
 
-The log is append-only: events are never evicted. A configurable `MaxEventsPerJob` cap (default 50,000) emits a warning log if reached but does not silently discard — the cursor in the package remains the authoritative resume state. Late-joining CLI clients can replay the full history from `fromSeq=0`.
+The log is append-only: stored events are never evicted. A configurable `MaxEventsPerJob` safety cap (default 50,000) applies — once reached, further events are discarded with a warning log, never silently — and the cursor in the package remains the authoritative resume state. Late-joining CLI clients can replay the full history from `fromSeq=0`.
 
 ---
 
@@ -162,7 +159,7 @@ The log is append-only: events are never evicted. A configurable `MaxEventsPerJo
 
 The control plane maintains a deployment-level minimum diagnostic level (`Diagnostics:MinimumLevel`, default: `Information`). When a Migration Agent sends diagnostic log records via `POST /workers/{workerId}/events` (kind `Diagnostic`), the control plane drops any record whose level is below this floor before buffering or broadcasting via SSE.
 
-This floor is independent of the agent's per-job `--level` setting. An agent may emit `Debug`-level records, but the control plane will only buffer and stream records at or above its own configured minimum. This prevents verbose agent output from overwhelming the control plane's ring buffer and SSE subscribers in production deployments.
+This floor is independent of the agent's per-job `--level` setting. An agent may emit `Debug`-level records, but the control plane will only buffer and stream records at or above its own configured minimum. This prevents verbose agent output from overwhelming the control plane's append-only diagnostic log and SSE subscribers in production deployments.
 
 The `?level=` query parameter on `GET /jobs/{jobId}/diagnostics` and `GET /jobs/{jobId}/diagnostics?follow=true` provides additional client-side filtering on top of the control plane floor.
 

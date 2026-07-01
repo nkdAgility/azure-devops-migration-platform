@@ -37,8 +37,8 @@ Every module/tool must pass all four checks:
 
 **Pipeline wiring:** Verify both paths are intact:
 
-- Metrics path: Module → `IMigrationMetrics` → OTel → `SnapshotMetricExporter` → `JobMetrics` → `POST /telemetry` → CLI polls `GET /jobs/{id}/telemetry` → `BuildProgressRenderable`
-- Progress path: Module → `IProgressSink.Emit` → `ControlPlaneProgressSink` → `POST /progress` → SSE → CLI subscribes `GET /jobs/{id}/progress?follow=true`
+- Metrics path: Module → `IMigrationMetrics` → OTel → `SnapshotMetricExporter` → `JobMetrics` → `UnifiedWorkerEventWriter` (Metrics kind) → `POST /workers/{workerId}/events` → CLI polls `GET /jobs/{id}/telemetry` → `BuildProgressRenderable`
+- Progress path: Module → `IProgressSink.Emit` → `UnifiedWorkerEventWriter` (Progress kind) → `POST /workers/{workerId}/events` → CLI subscribes unified SSE `GET /jobs/{id}/stream?from={seq}`
 
 **FAIL conditions:** Any link missing; counter read from `ProgressEvent.Metrics` in CLI/TUI (null for .NET 10 = silent zeros); direct `IProgressSink` wiring in CLI/TUI.
 

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The **Migration Agent** (`DevOpsMigrationPlatform.MigrationAgent`) is a stateless worker that executes migration jobs assigned by `ControlPlaneHost`. The Migration Agent runs the Job Engine — the same execution logic used across all deployment topologies — receiving a job definition under a time-bounded lease and reporting progress back via the lease API.
+The **Migration Agent** (`DevOpsMigrationPlatform.MigrationAgent`) is a stateless worker that executes migration jobs assigned by `ControlPlaneHost`. The Migration Agent runs the Job Engine — the same execution logic used across all deployment topologies — receiving a job definition under a time-bounded lease and reporting all telemetry back via the unified worker-event channel (`POST /workers/{workerId}/events`).
 
 Migration Agent lifecycle is managed by `ControlPlaneHost` via `IAgentLauncher`. The same agent binary and container image are used across all topologies. Migration Agents are stateless by design — any agent instance can pick up any job and resume from the last cursor position.
 
@@ -22,10 +22,10 @@ The package contract, modules, and cursors are unchanged across all deployment t
 | Run orchestrator | Execute `ExportAsync`, `ImportAsync`, or both in sequence, exactly as in local mode. |
 | Write cursors | Write project-scoped cursor files into `/{org}/{project}/.migration/` through `IPackageAccess` after each stage, as always. |
 | Heartbeat | Signal liveness to the control plane at regular intervals. |
-| Report progress | Emit `ProgressEvent` via `IProgressSink` after each stage. Three sinks run simultaneously: `ConsoleProgressSink` (terminal), `PackageProgressSink` (`.migration/runs/<runId>/logs/progress.ndjson`), and `ControlPlaneProgressSink` (POST to control plane ring buffer for live TUI streaming). |
-| Record metrics | Record OTel metrics via `IMigrationMetrics` during job execution (execution counters, payload histograms, duration). Metric aggregates are pushed to the control plane via `ControlPlaneTelemetryTimer`. |
+| Report progress | Emit `ProgressEvent` via `IProgressSink` after each stage. Three sinks run simultaneously: `ConsoleProgressSink` (terminal), `PackageProgressSink` (`.migration/runs/<runId>/logs/progress.ndjson`), and `UnifiedWorkerEventWriter` (batched `POST /workers/{workerId}/events` to the control plane's append-only log for live TUI streaming). |
+| Record metrics | Record OTel metrics via `IMigrationMetrics` during job execution (execution counters, payload histograms, duration). Metric aggregates are sampled by `ControlPlaneTelemetryTimer` and enqueued as Metrics/Snapshot worker events through `UnifiedWorkerEventWriter`. |
 | Write package logs | Write structured logs to `.migration/runs/<runId>/logs/` in the package via `IPackageAccess`. |
-| Signal completion or failure | Call the control plane's complete or fail endpoint when the job finishes. |
+| Signal completion or failure | Enqueue a `Terminal` worker event (complete or fail) via `AgentWorkerBase.SignalTerminalAsync` → `UnifiedWorkerEventWriter`; Terminal events are flushed immediately. |
 
 The Agent does **not** accept job submissions, manage other Agents, or store job state. All job coordination is `ControlPlaneHost`'s responsibility.
 
@@ -45,7 +45,7 @@ Poll /agents/lease
        ├─ Extract credentials from job definition
        ├─ Connect to artefact store (packageUri)
          ├─ Read .migration/migration-config.json from package → bind MigrationOptions via IPackageMigrationConfigLoader
-    │    └─ If absent → POST /agents/lease/{id}/fail  (PackageConfigNotFoundException)
+    │    └─ If absent → Terminal(fail) worker event  (PackageConfigNotFoundException)
     │    └─ Publish per-job configuration, job-context, and endpoint accessors
     │    └─ Build per-job IConfiguration and IOptions<T> scope for tool modules
     ├─ Write run audit copies → `.migration/runs/<runId>/job.json`, `plan.json`, `config.json`
@@ -54,7 +54,7 @@ Poll /agents/lease
        ├─ Register IProgressSink composite:
        │    ├─ ConsoleProgressSink     (NDJSON to terminal)
     │    ├─ PackageProgressSink     (.migration/runs/<runId>/logs/progress.ndjson in package)
-       │    └─ ControlPlaneProgressSink (POST /agents/lease/{id}/progress)
+       │    └─ UnifiedWorkerEventWriter (batched POST /workers/{workerId}/events)
        └─ Run Job Engine
             ├─ ExportAsync (if mode = Export or Migrate)
             │    └─ After each cursor write → Emit(ProgressEvent) via all sinks
@@ -63,8 +63,8 @@ Poll /agents/lease
             │    └─ After each module → check for blocking issues; abort if found
             └─ ImportAsync (if mode = Import or Migrate)
                  └─ After each cursor write → Emit(ProgressEvent) via all sinks
-  ├─ Success → POST /agents/lease/{id}/complete
-  └─ Failure → POST /agents/lease/{id}/fail  (cursor preserved for resume)
+  ├─ Success → Terminal(complete) worker event (flushed immediately)
+  └─ Failure → Terminal(fail) worker event  (cursor preserved for resume)
 ```
 
 ```mermaid
@@ -74,7 +74,7 @@ flowchart TD
     Store --> Config["Read migration-config.json\nBuild IOptions scope"]
     Config --> Cursor["Load cursor → resume position"]
     Cursor --> HB["Start heartbeat loop"]
-    HB --> Sinks["Register IProgressSink composite:\n- ConsoleProgressSink\n- PackageProgressSink\n- ControlPlaneProgressSink"]
+    HB --> Sinks["Register IProgressSink composite:\n- ConsoleProgressSink\n- PackageProgressSink\n- UnifiedWorkerEventWriter"]
     Sinks --> Engine["Run Job Engine"]
     Engine --> Export["ExportAsync\n(Export / Migrate)"]
     Engine --> Prepare["PrepareAsync\n(Prepare / Migrate)"]
@@ -82,8 +82,8 @@ flowchart TD
     Export --> Done{Success?}
     Prepare --> Done
     Import --> Done
-    Done -->|Yes| Complete["POST /agents/lease/{id}/complete"]
-    Done -->|No| Fail["POST /agents/lease/{id}/fail\n(cursor preserved)"]
+    Done -->|Yes| Complete["Terminal(complete) worker event\nPOST /workers/{workerId}/events"]
+    Done -->|No| Fail["Terminal(fail) worker event\n(cursor preserved)"]
 ```
 
 ---
@@ -128,7 +128,7 @@ flowchart LR
 
 ## Heartbeat and Lease Expiry
 
-- Agents send a heartbeat to `POST /agents/lease/{leaseId}/heartbeat` every N seconds (configurable; default 30 s).
+- Agents send a heartbeat to `POST /agents/lease/{leaseId}/heartbeat` every N seconds (configurable; default 15 s).
 - The `ControlPlaneHost` lease TTL is set to 2× the expected heartbeat interval.
 - If `ControlPlaneHost` does not receive a heartbeat within the TTL, it returns the job to `Queued`.
 - The next Agent to acquire the lease resumes from the last cursor position in the package.
@@ -163,7 +163,7 @@ See [docs/architecture.md — Data Residency](architecture.md#data-residency--ag
 Migration Agents write structured logs to both:
 
 - `.migration/runs/<runId>/logs/` in the package (durable, included in zip).
-- The control plane (pushed in real time via the lease API for TUI tailing).
+- The control plane (pushed in real time as Diagnostic worker events via `UnifiedWorkerEventWriter` for TUI tailing).
 
 The run folder also stores `job.json`, `plan.json`, and `config.json` as audit copies of what executed. Those files are for traceability only; they are not authoritative state for later runs. Both outputs use the same structured format (OpenTelemetry-compatible). No `Console.WriteLine` in module code.
 
@@ -186,7 +186,7 @@ The two agents use the same lease protocol, the same abstractions, and the same 
 | Runtime | net10.0 | net481 |
 | Capabilities | `ado`, `simulated` | `tfs` |
 | Package store | `FileSystemArtefactStore` or `AzureBlobArtefactStore` | `FileSystemArtefactStore` only |
-| Progress reporting | `ControlPlaneProgressSink` | `ControlPlaneProgressSink` (plain net481 `HttpClient`) |
+| Progress reporting | `UnifiedWorkerEventWriter` | `UnifiedWorkerEventWriter` (plain net481 `HttpClient`) |
 | Checkpoint | `IStateStore` | `IStateStore` |
 | Module dispatch (export/import) | `IEnumerable<IModule>` | `IEnumerable<IModule>` |
 | Capture dispatch | `captureHandlersByName` (via `BuildCaptureHandlers`) | `captureHandlersByName` (modules only; no `DependencyCapture`) |

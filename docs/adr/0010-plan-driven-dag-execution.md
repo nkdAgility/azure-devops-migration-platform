@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted — amended by iron-comms unification (2026-07-01): task-list push transport changed, see Amendment below
 
 ## Context
 
@@ -28,7 +28,7 @@ The Agent builds an execution plan from `IModule.DependsOn` declarations, persis
 **Plan persistence:**
 
 - The plan is persisted to `.migration/Checkpoints/plan.json` via `IStateStore` immediately after build, before the first module executes.
-- The plan is pushed to the Control Plane via `IControlPlaneTelemetryClient.PushTaskListAsync` so clients can display the full task list before any work begins.
+- The plan is pushed to the Control Plane so clients can display the full task list before any work begins. _(Originally via `IControlPlaneTelemetryClient.PushTaskListAsync`; see Amendment.)_
 - On resume, if `plan.json` exists in the package, the plan is reloaded rather than rebuilt. Tasks with `status: Running` (crashed mid-way) are reset to `Pending`. Tasks with `status: Completed` are not re-executed. `ForceFresh` deletes `plan.json` and rebuilds.
 
 **Relationship to ADR-0003:** Cursor-based checkpointing operates at the item level within a single module. Plan-level checkpointing operates at the task level across modules. Both coexist: the plan skips completed-module re-execution; the cursor skips already-processed items within a resumed module.
@@ -49,6 +49,10 @@ The Agent builds an execution plan from `IModule.DependsOn` declarations, persis
 - Operators see the full task list with statuses in the TUI/CLI before any module executes (fed by `GET /jobs/{id}/bootstrap`).
 - A crash followed by a restart re-uses the persisted plan — previously completed tasks are skipped, not re-run.
 - Circular dependency declarations are a job-start failure, not a runtime failure partway through.
+
+## Amendment — Iron-Comms Unification (2026-07-01)
+
+`IControlPlaneTelemetryClient` / `PushTaskListAsync` and the `POST /agents/lease/{leaseId}/tasks` endpoint have been removed. Task-list push now flows through `UnifiedWorkerEventWriter.EnqueueTasks` as a `Tasks`-kind event in the batched `POST /workers/{workerId}/events` channel (both the net10 `JobAgentWorker` and net481 `TfsJobAgentWorker`). The decision itself — plan-driven DAG execution with the plan pushed before any work begins — is unchanged.
 
 ## Related
 
