@@ -9,9 +9,9 @@ namespace DevOpsMigrationPlatform.ControlPlane.Jobs;
 
 /// <summary>
 /// In-memory store for the most recently pushed <see cref="JobTaskList"/> per job.
-/// Updated by <c>TelemetryController.POST /agents/lease/{leaseId}/tasks</c>.
+/// Updated by <c>WorkerEventsController.POST /workers/{workerId}/events</c>.
 /// Individual task states are updated as <see cref="ProgressEvent"/> events arrive
-/// via <c>ProgressController.POST /agents/lease/{leaseId}/progress</c>.
+/// via the unified worker events channel.
 /// Read by <c>TelemetryController.GET /jobs/{jobId}/tasks</c>
 /// and included in the bootstrap response.
 /// </summary>

@@ -5,15 +5,17 @@ using System;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.ControlPlane.Jobs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.ControlPlane.Controllers;
 
+/// <summary>
+/// Serves job progress reads (<c>GET /jobs/{jobId}/progress</c>, snapshot or SSE)
+/// and the agent lease heartbeat. Progress data arrives via the unified
+/// <c>POST /workers/{workerId}/events</c> channel.
+/// </summary>
 [ApiController]
 public sealed class ProgressController : ControllerBase
 {
@@ -23,105 +25,14 @@ public sealed class ProgressController : ControllerBase
     };
 
     private readonly JobProgressStore _store;
-    private readonly IJobStore _jobStore;
     private readonly ILeaseJobResolver _resolver;
-    private readonly ILogger<ProgressController> _logger;
-    private readonly JobMetricsStore _metricsStore;
-    private readonly InMemoryJobTaskStore _taskStore;
-
-    private readonly DiagnosticLogStore _diagnosticStore;
 
     public ProgressController(
         JobProgressStore store,
-        DiagnosticLogStore diagnosticStore,
-        JobMetricsStore metricsStore,
-        InMemoryJobTaskStore taskStore,
-        IJobStore jobStore,
-        ILeaseJobResolver resolver,
-        ILogger<ProgressController> logger)
+        ILeaseJobResolver resolver)
     {
         _store = store;
-        _diagnosticStore = diagnosticStore;
-        _metricsStore = metricsStore;
-        _taskStore = taskStore;
-        _jobStore = jobStore;
         _resolver = resolver;
-        _logger = logger;
-    }
-
-    /// <summary>
-    /// Agent pushes a ProgressEvent for an active lease.
-    /// <c>POST /agents/lease/{leaseId}/progress</c>
-    /// </summary>
-    [HttpPost("/agents/lease/{leaseId}/progress")]
-    [ProducesResponseType(204)]
-    [ProducesResponseType(404)]
-    public IActionResult PostProgress(string leaseId, [FromBody] ProgressEvent evt)
-    {
-        var jobId = _resolver.ResolveJobId(leaseId);
-        if (jobId is null)
-            return NotFound($"Lease '{leaseId}' is not recognised.");
-
-        _store.Append(jobId.Value, evt);
-
-        // Forward Channel 1 metrics to the metrics store so the bootstrap endpoint
-        // and telemetry polling return data immediately — without waiting for the
-        // Channel 2 SnapshotMetricExporter → ControlPlaneTelemetryTimer push cycle.
-        if (evt.Metrics is not null)
-            _metricsStore.Store(jobId.Value, evt.Metrics);
-
-        // Derive task-level status transitions from ProgressEvent.TaskId / TaskStatus.
-        if (evt.TaskId is not null && evt.TaskStatus is not null)
-        {
-            _taskStore.UpdateTask(
-                jobId.Value,
-                evt.TaskId,
-                evt.TaskStatus.Value,
-                evt.CompletedCount,
-                evt.KnownTotal,
-                evt.Timestamp);
-        }
-
-        // First ProgressEvent transitions job from Leased → Running
-        _jobStore.SetState(jobId.Value, "Running");
-        return NoContent();
-    }
-
-    /// <summary>
-    /// Agent signals that a job has reached a terminal state (Completed or Failed).
-    /// Completes all active SSE subscriber channels so <c>migrate logs --follow</c>
-    /// exits cleanly.
-    /// <c>POST /agents/lease/{leaseId}/complete</c>
-    /// <c>POST /agents/lease/{leaseId}/fail</c>
-    /// </summary>
-    [HttpPost("/agents/lease/{leaseId}/complete")]
-    [ProducesResponseType(204)]
-    [ProducesResponseType(404)]
-    public IActionResult CompleteJob(string leaseId)
-    {
-        var jobId = _resolver.ResolveJobId(leaseId);
-        if (jobId is null)
-            return NotFound($"Lease '{leaseId}' is not recognised.");
-
-        _store.CompleteJob(jobId.Value, failed: false);
-        _diagnosticStore.CompleteJob(jobId.Value, failed: false);
-        _jobStore.SetState(jobId.Value, "Completed");
-        return NoContent();
-    }
-
-    [HttpPost("/agents/lease/{leaseId}/fail")]
-    [ProducesResponseType(204)]
-    [ProducesResponseType(404)]
-    public IActionResult FailJob(string leaseId)
-    {
-        var jobId = _resolver.ResolveJobId(leaseId);
-        if (jobId is null)
-            return NotFound($"Lease '{leaseId}' is not recognised.");
-
-        _store.CompleteJob(jobId.Value, failed: true);
-        _diagnosticStore.CompleteJob(jobId.Value, failed: true);
-        _jobStore.SetState(jobId.Value, "Failed");
-        return NoContent();
     }
 
     /// <summary>

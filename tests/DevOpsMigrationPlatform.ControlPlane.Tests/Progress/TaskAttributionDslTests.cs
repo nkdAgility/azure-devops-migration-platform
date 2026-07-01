@@ -3,17 +3,21 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
-using DevOpsMigrationPlatform.Abstractions.Streaming;
+using DevOpsMigrationPlatform.ControlPlane.Controllers;
 using DevOpsMigrationPlatform.ControlPlane.Jobs;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
 namespace DevOpsMigrationPlatform.ControlPlane.Tests.Progress;
 
 /// <summary>
-/// DSL tests for task attribution via ProgressEvent.TaskId / TaskStatus fields.
+/// DSL tests for task attribution via ProgressEvent.TaskId / TaskStatus fields,
+/// delivered over the unified worker events channel.
 /// Covers feature: features/platform/task-attribution.feature
 /// </summary>
 [TestClass]
@@ -21,11 +25,39 @@ public sealed class TaskAttributionDslTests
 {
     private static readonly Guid s_jobId = new("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private const string LeaseId = "lease-task-attribution";
+    private const string WorkerId = "worker-task-attribution";
 
-    private static (ProgressControllerContext ctx, Guid jobId) BuildContext()
+    private static readonly JsonSerializerOptions s_payloadOptions = new()
     {
-        var ctx = new ProgressControllerContext();
-        ctx.LeaseResolver.Setup(r => r.ResolveJobId(LeaseId)).Returns(s_jobId);
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
+    private sealed record Context(WorkerEventsController Controller, InMemoryJobTaskStore TaskStore);
+
+    private static (Context ctx, Guid jobId) BuildContext()
+    {
+        var resolver = new Mock<ILeaseJobResolver>(MockBehavior.Strict);
+        resolver.Setup(r => r.ResolveJobId(LeaseId)).Returns(s_jobId);
+
+        var progressOptions = new Mock<IOptions<JobProgressOptions>>(MockBehavior.Strict);
+        progressOptions.Setup(o => o.Value).Returns(new JobProgressOptions { Capacity = 5 });
+        var progressStore = new JobProgressStore(progressOptions.Object);
+
+        var diagOptions = new Mock<IOptions<DiagnosticLogStoreOptions>>(MockBehavior.Strict);
+        diagOptions.Setup(o => o.Value).Returns(new DiagnosticLogStoreOptions());
+        var diagnosticStore = new DiagnosticLogStore(diagOptions.Object);
+
+        var taskStore = new InMemoryJobTaskStore();
+
+        var controller = new WorkerEventsController(
+            resolver.Object,
+            progressStore,
+            diagnosticStore,
+            new JobMetricsStore(),
+            new JobSnapshotStore(),
+            taskStore,
+            new JobStore(),
+            NullLogger<WorkerEventsController>.Instance);
 
         // Push execution plan containing "export.identities" and "export.workitems"
         var tasks = new List<JobTask>
@@ -33,9 +65,22 @@ public sealed class TaskAttributionDslTests
             new() { Id = "export.identities", Name = "export.identities", Order = 0, Status = JobTaskStatus.Pending },
             new() { Id = "export.workitems",  Name = "export.workitems",  Order = 1, Status = JobTaskStatus.Pending }
         };
-        ctx.TaskStore.Store(s_jobId, new JobTaskList { Tasks = tasks.AsReadOnly() });
+        taskStore.Store(s_jobId, new JobTaskList { Tasks = tasks.AsReadOnly() });
 
-        return (ctx, s_jobId);
+        return (new Context(controller, taskStore), s_jobId);
+    }
+
+    private static long s_seq;
+
+    private static void PostProgress(Context ctx, ProgressEvent evt)
+    {
+        var workerEvent = new WorkerEvent(
+            ++s_seq,
+            evt.Timestamp,
+            WorkerEventKind.Progress,
+            JsonSerializer.Serialize(evt, s_payloadOptions));
+
+        ctx.Controller.PostEvents(WorkerId, new WorkerEventBatch(WorkerId, LeaseId, new[] { workerEvent }));
     }
 
     // ── Scenario: TaskStatus_WhenRunningEventReceived_TransitionsTaskToRunning ──
@@ -47,7 +92,7 @@ public sealed class TaskAttributionDslTests
     {
         var (ctx, jobId) = BuildContext();
 
-        ctx.Controller.PostProgress(LeaseId, new ProgressEvent
+        PostProgress(ctx, new ProgressEvent
         {
             Module = "Test",
             Stage = "Start",
@@ -74,7 +119,7 @@ public sealed class TaskAttributionDslTests
         var completeTime = DateTimeOffset.UtcNow;
 
         // Pre-apply Running event
-        ctx.Controller.PostProgress(LeaseId, new ProgressEvent
+        PostProgress(ctx, new ProgressEvent
         {
             Module = "Test",
             Stage = "Start",
@@ -84,7 +129,7 @@ public sealed class TaskAttributionDslTests
         });
 
         // Post Completed event
-        ctx.Controller.PostProgress(LeaseId, new ProgressEvent
+        PostProgress(ctx, new ProgressEvent
         {
             Module = "Test",
             Stage = "Complete",
@@ -112,7 +157,7 @@ public sealed class TaskAttributionDslTests
         var startTime = DateTimeOffset.UtcNow.AddSeconds(-5);
 
         // Pre-apply Running event
-        ctx.Controller.PostProgress(LeaseId, new ProgressEvent
+        PostProgress(ctx, new ProgressEvent
         {
             Module = "Test",
             Stage = "Start",
@@ -122,7 +167,7 @@ public sealed class TaskAttributionDslTests
         });
 
         // Post Failed event
-        ctx.Controller.PostProgress(LeaseId, new ProgressEvent
+        PostProgress(ctx, new ProgressEvent
         {
             Module = "Test",
             Stage = "Fail",
@@ -147,7 +192,7 @@ public sealed class TaskAttributionDslTests
         var (ctx, jobId) = BuildContext();
 
         // Post event with no TaskId
-        ctx.Controller.PostProgress(LeaseId, new ProgressEvent
+        PostProgress(ctx, new ProgressEvent
         {
             Module = "Test",
             Stage = "SomeStage",

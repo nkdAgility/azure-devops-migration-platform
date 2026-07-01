@@ -6,7 +6,6 @@ using DevOpsMigrationPlatform.ControlPlane.Controllers;
 using DevOpsMigrationPlatform.ControlPlane.Jobs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 using System.Security.Claims;
@@ -18,8 +17,6 @@ internal sealed class ProgressControllerContext
     public const int TestCapacity = 5;
 
     public JobProgressStore Store { get; }
-    public JobMetricsStore MetricsStore { get; }
-    public InMemoryJobTaskStore TaskStore { get; }
     public Mock<ILeaseJobResolver> LeaseResolver { get; } = new(MockBehavior.Strict);
     public ProgressController Controller { get; }
 
@@ -29,22 +26,7 @@ internal sealed class ProgressControllerContext
         options.Setup(o => o.Value).Returns(new JobProgressOptions { Capacity = TestCapacity });
         Store = new JobProgressStore(options.Object);
 
-        var diagOptions = new Mock<IOptions<DiagnosticLogStoreOptions>>(MockBehavior.Strict);
-        diagOptions.Setup(o => o.Value).Returns(new DiagnosticLogStoreOptions());
-        var diagnosticStore = new DiagnosticLogStore(diagOptions.Object);
-
-        var jobStore = new JobStore();
-        MetricsStore = new JobMetricsStore();
-        TaskStore = new InMemoryJobTaskStore();
-        var taskStore = TaskStore;
-        Controller = new ProgressController(
-            Store,
-            diagnosticStore,
-            MetricsStore,
-            taskStore,
-            jobStore,
-            LeaseResolver.Object,
-            NullLogger<ProgressController>.Instance);
+        Controller = new ProgressController(Store, LeaseResolver.Object);
     }
 
     public void SetAuthenticatedUser()

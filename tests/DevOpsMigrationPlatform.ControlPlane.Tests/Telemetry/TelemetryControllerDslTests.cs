@@ -22,20 +22,16 @@ public sealed class TelemetryControllerDslTests
 {
     private static readonly Guid s_knownJobId = new("aaaaaaaa-aaaa-aaaa-aaaa-000000000001");
 
-    private static TelemetryController BuildController(
-        JobMetricsStore? metricsStore = null,
-        Mock<ILeaseJobResolver>? leaseResolver = null)
+    private static TelemetryController BuildController(JobMetricsStore? metricsStore = null)
     {
         metricsStore ??= new JobMetricsStore();
-        leaseResolver ??= new Mock<ILeaseJobResolver>(MockBehavior.Strict);
 
         return new TelemetryController(
             metricsStore,
             new JobSnapshotStore(),
             new JobProgressStore(Microsoft.Extensions.Options.Options.Create(
                 new JobProgressOptions { Capacity = 10 })),
-            new InMemoryJobTaskStore(),
-            leaseResolver.Object);
+            new InMemoryJobTaskStore());
     }
 
     // ── Scenario: Telemetry endpoint returns 204 when no snapshot has been received ──
@@ -75,11 +71,7 @@ public sealed class TelemetryControllerDslTests
         };
         store.Store(s_knownJobId, metrics);
 
-        var leaseId = $"lease-{s_knownJobId}";
-        var leaseResolver = new Mock<ILeaseJobResolver>(MockBehavior.Strict);
-        leaseResolver.Setup(r => r.ResolveJobId(leaseId)).Returns(s_knownJobId);
-
-        var controller = BuildController(store, leaseResolver);
+        var controller = BuildController(store);
 
         // Act – CLI polls GET /jobs/{jobId}/telemetry
         var result = controller.GetTelemetry(s_knownJobId.ToString());

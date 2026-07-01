@@ -9,7 +9,7 @@ namespace DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 
 /// <summary>
 /// The ordered list of tasks that the agent will execute for a given job.
-/// Pushed by the agent at job start via <c>POST /agents/lease/{leaseId}/tasks</c>
+/// Pushed by the agent at job start via <c>POST /workers/{workerId}/events</c>
 /// and returned as part of <see cref="JobBootstrap"/> for late-joining clients.
 /// </summary>
 public sealed record JobTaskList

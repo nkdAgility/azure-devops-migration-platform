@@ -17,19 +17,15 @@ namespace DevOpsMigrationPlatform.ControlPlane.Tests.Jobs;
 public sealed class JobExecutionPlanDslTests
 {
     private static readonly Guid s_jobId = new("44444444-4444-4444-4444-444444444444");
-    private const string LeaseId = "lease-44444444";
 
-    private static TelemetryController BuildController(
-        InMemoryJobTaskStore taskStore,
-        Mock<ILeaseJobResolver>? resolver = null)
+    private static TelemetryController BuildController(InMemoryJobTaskStore taskStore)
     {
-        resolver ??= new Mock<ILeaseJobResolver>(MockBehavior.Strict);
         var telemetryStore = new JobMetricsStore();
         var snapshotStore = new JobSnapshotStore();
         var progressOptions = new Mock<Microsoft.Extensions.Options.IOptions<JobProgressOptions>>(MockBehavior.Strict);
         progressOptions.Setup(o => o.Value).Returns(new JobProgressOptions { Capacity = 5 });
         var progressStore = new JobProgressStore(progressOptions.Object);
-        return new TelemetryController(telemetryStore, snapshotStore, progressStore, taskStore, resolver.Object);
+        return new TelemetryController(telemetryStore, snapshotStore, progressStore, taskStore);
     }
 
     private static JobTaskList MakeTaskList(int count)
@@ -48,14 +44,11 @@ public sealed class JobExecutionPlanDslTests
     public void Bootstrap_WhenAgentPushedPlan_ReturnsPlanWithOrderedTasks()
     {
         var taskStore = new InMemoryJobTaskStore();
-        var resolver = new Mock<ILeaseJobResolver>(MockBehavior.Strict);
-        resolver.Setup(r => r.ResolveJobId(LeaseId)).Returns(s_jobId);
-
-        var controller = BuildController(taskStore, resolver);
+        var controller = BuildController(taskStore);
 
         // Agent pushes an execution plan with 4 tasks
         var taskList = MakeTaskList(4);
-        controller.PushTasks(LeaseId, taskList);
+        taskStore.Store(s_jobId, taskList);
 
         // Client calls GET /jobs/{jobId}/bootstrap
         var result = controller.GetBootstrap(s_jobId.ToString()) as OkObjectResult;
@@ -98,11 +91,8 @@ public sealed class JobExecutionPlanDslTests
     public void GetTasks_WhenTaskListExists_ReturnsCurrentTaskList()
     {
         var taskStore = new InMemoryJobTaskStore();
-        var resolver = new Mock<ILeaseJobResolver>(MockBehavior.Strict);
-        resolver.Setup(r => r.ResolveJobId(LeaseId)).Returns(s_jobId);
-
-        var controller = BuildController(taskStore, resolver);
-        controller.PushTasks(LeaseId, MakeTaskList(3));
+        var controller = BuildController(taskStore);
+        taskStore.Store(s_jobId, MakeTaskList(3));
 
         // Client calls GET /jobs/{jobId}/tasks
         var result = controller.GetTasks(s_jobId.ToString()) as OkObjectResult;
