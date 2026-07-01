@@ -842,6 +842,21 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         // so the display logic (Apply, BuildProgressDisplay) is unchanged.
         var updates = Channel.CreateUnbounded<JobProgressUpdate>();
         var state = JobProgressState.Initial(0);
+        var queueLogger = GetRequiredService<ILogger<QueueCommand>>();
+
+        // Tasks/metrics are not carried on the unified stream — they live behind
+        // /jobs/{id}/bootstrap. Fetched on Job.Ready, at terminal (fast jobs can end
+        // before Job.Ready is observed), and by the 5 s metrics poll loop below.
+        var taskListSent = 0;
+        async Task FetchBootstrapAsync(CancellationToken ct)
+        {
+            var bootstrap = await client.GetBootstrapAsync(parsedJobId, ct).ConfigureAwait(false);
+            if (bootstrap?.Metrics is not null)
+                updates.Writer.TryWrite(new TelemetryPolled(bootstrap.Metrics));
+            if (bootstrap?.Tasks is { Tasks.Count: > 0 }
+                && Interlocked.CompareExchange(ref taskListSent, 1, 0) == 0)
+                updates.Writer.TryWrite(new TaskListReceived(bootstrap.Tasks, bootstrap.LastEventSequence));
+        }
 
         var streamTask = Task.Run(async () =>
         {
@@ -853,7 +868,18 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     {
                         case Abstractions.ControlPlaneApi.JobStreamEventKind.Progress:
                             if (streamEvent.Progress is { } evt)
+                            {
+                                if (evt.Module == "Job" && evt.Stage == "Job.Ready")
+                                {
+                                    _ = Task.Run(async () =>
+                                    {
+                                        try { await FetchBootstrapAsync(followCts.Token).ConfigureAwait(false); }
+                                        catch (OperationCanceledException) { }
+                                        catch (Exception ex) { queueLogger.LogWarning(ex, "Bootstrap fetch failed for job {JobId}", parsedJobId); }
+                                    }, followCts.Token);
+                                }
                                 updates.Writer.TryWrite(new StageAdvanced(evt));
+                            }
                             break;
 
                         case Abstractions.ControlPlaneApi.JobStreamEventKind.Diagnostic:
@@ -872,6 +898,15 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                             break;
 
                         case Abstractions.ControlPlaneApi.JobStreamEventKind.Terminal:
+                            // Final best-effort bootstrap so fast jobs still render the
+                            // task list and closing metrics before the channel completes.
+                            try
+                            {
+                                using var finalCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                                await FetchBootstrapAsync(finalCts.Token).ConfigureAwait(false);
+                            }
+                            catch (Exception) { /* best-effort */ }
+
                             updates.Writer.TryWrite(new JobTerminated(streamEvent.Failed ?? false, streamEvent.FailureReason));
                             updates.Writer.TryComplete();
                             return;
@@ -881,13 +916,29 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
-                GetRequiredService<ILogger<QueueCommand>>().LogError(ex, "Unified stream error for job {JobId}", parsedJobId);
+                queueLogger.LogError(ex, "Unified stream error for job {JobId}", parsedJobId);
                 updates.Writer.TryWrite(new JobTerminated(true, ex.Message));
             }
             finally
             {
                 updates.Writer.TryComplete();
             }
+        }, followCts.Token);
+
+        // Metrics poll loop: bootstrap every 5 s so counts/rates advance during the run.
+        var telemetryTask = Task.Run(async () =>
+        {
+            try
+            {
+                while (!followCts.Token.IsCancellationRequested)
+                {
+                    try { await FetchBootstrapAsync(followCts.Token).ConfigureAwait(false); }
+                    catch (OperationCanceledException) { return; }
+                    catch (Exception) { /* best-effort — do not propagate */ }
+                    await Task.Delay(5_000, followCts.Token).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException) { }
         }, followCts.Token);
 
         if (Console.IsOutputRedirected)
@@ -1022,6 +1073,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         await followCts.CancelAsync();
         try { await streamTask; } catch (OperationCanceledException) { }
+        try { await telemetryTask; } catch (OperationCanceledException) { }
 
         while (diagnosticsBuffer.TryDequeue(out var line))
             console.MarkupLine(line);

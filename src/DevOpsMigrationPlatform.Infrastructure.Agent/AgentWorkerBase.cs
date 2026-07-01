@@ -224,9 +224,15 @@ public abstract class AgentWorkerBase : BackgroundService
 #endif
                 try
                 {
-                    await controlPlane
+                    var response = await controlPlane
                         .PostAsync($"/agents/lease/{Uri.EscapeDataString(leaseId)}/heartbeat", content: null, ct)
                         .ConfigureAwait(false);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        _logger.LogWarning(
+                            "Heartbeat for lease {LeaseId} returned {StatusCode} — lease may be unknown or expired.",
+                            leaseId, (int)response.StatusCode);
+                    }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {

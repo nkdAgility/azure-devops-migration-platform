@@ -14,8 +14,8 @@ namespace DevOpsMigrationPlatform.ControlPlane.Controllers;
 /// <summary>
 /// Receives batched worker events from agents via
 /// <c>POST /workers/{workerId}/events</c> and dispatches to the appropriate stores.
-/// Replaces the individual per-signal endpoints as the primary agent→CP channel.
-/// The old per-signal endpoints remain as shims for backwards compatibility.
+/// This is the sole agent→CP data channel; the only other agent-originated calls
+/// are lease acquisition and the lease heartbeat.
 /// </summary>
 [ApiController]
 public sealed class WorkerEventsController : ControllerBase
@@ -62,9 +62,18 @@ public sealed class WorkerEventsController : ControllerBase
     /// </summary>
     [HttpPost("/workers/{workerId}/events")]
     [ProducesResponseType(typeof(WorkerEventAck), 200)]
+    [ProducesResponseType(400)]
     [ProducesResponseType(404)]
     public IActionResult PostEvents(string workerId, [FromBody] WorkerEventBatch batch)
     {
+        if (!string.Equals(workerId, batch.WorkerId, StringComparison.Ordinal))
+        {
+            _logger.LogWarning(
+                "Worker event batch WorkerId mismatch: route '{RouteWorkerId}' vs body '{BodyWorkerId}'.",
+                workerId, batch.WorkerId);
+            return BadRequest("Route workerId does not match batch WorkerId.");
+        }
+
         var jobId = _resolver.ResolveJobId(batch.LeaseId);
         if (jobId is null)
         {
