@@ -4,7 +4,7 @@
 
 Accepted
 
-Executes architecture-audit items **TC-H2**, **TC-M1**, **TC-M2**, and **TC-L3** as one themed Class C change under explicit operator consent. **TC-H1 (`AttachmentReplayTool`) is explicitly DEFERRED** pending the operator's Tool-taxonomy ruling; nothing in this ADR pre-empts that decision.
+Executes architecture-audit items **TC-H2**, **TC-M1**, **TC-M2**, and **TC-L3** as one themed Class C change under explicit operator consent. **TC-H1 (`AttachmentReplayTool`) was explicitly DEFERRED** pending the operator's Tool-taxonomy ruling; it is now resolved — see the Amendment (2026-07-03) below.
 
 ## Context
 
@@ -40,3 +40,22 @@ The Tool contract requires Tools to be pure, stateless, deterministic, and phase
 - **One merged parse/rewrite algorithm for export and import** — rejected: the paths have deliberately different detection semantics (import's whitespace-terminated Markdown URL and whole-text ordinal replace vs. export's greedy-to-paren Markdown URL and DOM-based HTML rewrite); merging would be a behaviour change outside the consented scope.
 - **Scoped `FieldTransformTool` with a documented contract exemption** — rejected: the config-accessor indirection achieves per-job options under a singleton with no contract carve-out.
 - **Remediating TC-H1 in the same change** — rejected: explicitly reserved by the operator.
+
+## Amendment — TC-H1 resolution (2026-07-03)
+
+The operator has ruled on the Tool taxonomy: **"Tool" is reserved for pure, stateless
+transformation engines; units performing package I/O or replay orchestration are
+services.** This settles the question deferred in this ADR.
+
+Applying the ruling, **TC-H1 is resolved by rename**: `AttachmentReplayTool` →
+`AttachmentReplayService` (same location, `WorkItems/Attachments`, mirroring
+`EmbeddedImageReplayService`). The type performs target uploads
+(`IWorkItemTarget.UploadAttachmentAsync`) and persists attachment mappings
+(`IIdMapStore`), so under the settled taxonomy it is a service, not a Tool. No
+behaviour change; no new canonical seam was added — the type remains an internal
+collaborator constructed by `WorkItemResolutionProcessor`.
+
+Convention pinned by
+`tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Architecture/ToolTaxonomyArchitectureTests.cs`:
+no type named `*Tool` may live under `Infrastructure.Agent/WorkItems`, and the old
+`AttachmentReplayTool` name must not reappear.

@@ -488,7 +488,7 @@ All 26 applied auto-fixes were verified together with a full solution build and 
   Fixed in: uncommitted working tree, branch `update-for-comms` (verified by full build + test run, 2026-07-02)
   Files modified: src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/Teams/TfsNullBoardAdapter.cs
 
-[TC-H1] ⏳ [PENDING OPERATOR] AttachmentReplayTool is a Tool in name only: performs network I/O, persists state, and is
+[TC-H1] ✅ [FIXED] AttachmentReplayTool is a Tool in name only: performs network I/O, persists state, and is
         constructed ad-hoc per consumer
   File: src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/Attachments/AttachmentReplayTool.cs:20, 83-88
         (consumer: WorkItems/Revisions/WorkItemResolutionProcessor.cs:287)
@@ -499,6 +499,15 @@ All 26 applied auto-fixes were verified together with a full solution build and 
         Abstractions.Agent/Tools/, and is new'd inside WorkItemResolutionProcessor rather than DI-registered. Either
         rename it (e.g. AttachmentReplayService/Handler), or refactor it into a genuine canonical seam with an
         Abstractions.Agent interface and DI registration.
+  Status: ✅ Fixed — operator ruled RENAME (Tool taxonomy settled: Tools are pure engines; replay/I-O units are services).
+        Renamed AttachmentReplayTool -> AttachmentReplayService (same location, mirroring EmbeddedImageReplayService);
+        ADR-0026 amended; convention pinned by Architecture/ToolTaxonomyArchitectureTests.
+  Fixed in: uncommitted working tree, branch `update-for-comms` (verified by full build + test run, 2026-07-03)
+  Files modified: src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/Attachments/AttachmentReplayService.cs (renamed),
+        src/DevOpsMigrationPlatform.Infrastructure.Agent/WorkItems/Revisions/WorkItemResolutionProcessor.cs,
+        tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Import/AttachmentReplayServiceTests.cs (renamed),
+        tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Architecture/ToolTaxonomyArchitectureTests.cs (new),
+        docs/adr/0026-tool-contract-purification.md
 
 [TC-H2] ⏳ [PENDING OPERATOR] EmbeddedImageRewriteTool performs network uploads and package reads while carrying the
         canonical Tool name

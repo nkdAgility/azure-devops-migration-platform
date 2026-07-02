@@ -292,11 +292,11 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
 
             // Pre-step: upload all attachment binaries (separate POST calls — returns URLs)
             var availableBinaryPaths = await EnumerateAttachmentBinariesAsync(folderPath, ct).ConfigureAwait(false);
-            var replayTool = new AttachmentReplayTool(
+            var replayService = new AttachmentReplayService(
                 _target,
                 _idMapStore,
-                _logger as ILogger<AttachmentReplayTool> ?? NullLogger<AttachmentReplayTool>.Instance);
-            var attachmentResults = await replayTool.UploadBinariesAsync(
+                _logger as ILogger<AttachmentReplayService> ?? NullLogger<AttachmentReplayService>.Instance);
+            var attachmentResults = await replayService.UploadBinariesAsync(
                 revision, folderPath, resolvedTargetId, ReadPackageBinaryAsync, availableBinaryPaths, ct)
                 .ConfigureAwait(false);
 
