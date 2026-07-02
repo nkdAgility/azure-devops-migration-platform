@@ -1,7 +1,10 @@
 # Coding Standards — Code Examples
 
-This file contains illustrative examples for the rules defined in `coding-standards.md`.
-Agents read `coding-standards.md`; humans use this file to understand intent.
+**Audience:** Contributors.
+
+This file contains illustrative examples for the rules defined in
+[`.agents/20-guardrails/core/coding-standards.md`](../.agents/20-guardrails/core/coding-standards.md).
+Agents read the guardrail; humans use this file to understand intent.
 
 ---
 

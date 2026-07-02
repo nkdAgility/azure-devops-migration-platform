@@ -19,11 +19,11 @@ Each ADR records an important architectural decision: what was decided, why, wha
 | [0003](0003-cursor-based-checkpointing.md) | Cursor-based checkpointing | Accepted — amended by ADR-0010 |
 | [0004](0004-control-plane-does-not-execute-migrations.md) | Control Plane does not execute migrations | Accepted |
 | [0005](0005-agent-only-package-write-access.md) | Agent-only package write access | Accepted — amended by ADR-0008 |
-| [0006](0006-three-channel-observability.md) | Three-channel observability | Accepted |
+| [0006](0006-three-channel-observability.md) | Three-channel observability | Accepted — amended by iron-comms (Phases A–E, 2026-06-30); transport superseded by ADR-0020 |
 | [0007](0007-compiler-enforced-project-boundaries.md) | Compiler-enforced project boundary topology | Accepted |
 | [0008](0008-configuration-travels-in-package.md) | Configuration travels in the package | Accepted |
 | [0009](0009-single-job-kind-discriminator.md) | Single Job class with Kind discriminator | Accepted |
-| [0010](0010-plan-driven-dag-execution.md) | Plan-driven DAG execution | Accepted |
+| [0010](0010-plan-driven-dag-execution.md) | Plan-driven DAG execution | Accepted — amended by iron-comms (2026-07-01) |
 | [0011](0011-unified-platform-metric-namespace.md) | Unified `platform.*` metric namespace | Accepted |
 | [0012](0012-imodule-five-phase-contract.md) | IModule five-phase contract | Accepted |
 | [0013](0013-simulated-connector-as-ci-infrastructure.md) | Simulated connector as first-class CI infrastructure | Accepted |
@@ -33,3 +33,5 @@ Each ADR records an important architectural decision: what was decided, why, wha
 | [0017](0017-capability-seam-ethos-and-tdd-architecture-governance.md) | Capability seam ethos and TDD architecture governance | Accepted |
 | [0018](0018-compatibility-only-guard-clauses.md) | Compatibility-only guard clauses | Accepted |
 | [0019](0019-workitems-extension-seam-and-staged-cursor-pipeline.md) | WorkItems extension seam and staged cursor pipeline | Accepted |
+| [0020](0020-unified-worker-event-channel.md) | Unified worker-event channel | Accepted — amends ADR-0006 and ADR-0010 |
+| [0021](0021-four-tier-validation-model.md) | Four-tier validation model | Accepted |

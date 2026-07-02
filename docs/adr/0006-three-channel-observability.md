@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — amended by Phase A-E iron-comms implementation (2026-06-30)
+Accepted — amended by Phase A-E iron-comms implementation (2026-06-30). The wire-transport decision is promoted to [ADR-0020](0020-unified-worker-event-channel.md); the Amendment section below is retained as history.
 
 ## Context
 

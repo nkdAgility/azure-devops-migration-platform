@@ -1,5 +1,7 @@
 # Orchestration
 
+Audience: Operators who want to understand what runs when, and contributors working on the Job Engine. Operators who only need to run migrations should start with [`operator-guide.md`](operator-guide.md); the sections below go into execution-plan internals.
+
 ## Job Engine
 
 The **Job Engine** is the shared execution core used by Migration Agents in all hosting topologies. It receives a `Job`, resolves the execution plan, and runs modules in dependency order. It has no knowledge of the TUI, the console, or any progress renderer.

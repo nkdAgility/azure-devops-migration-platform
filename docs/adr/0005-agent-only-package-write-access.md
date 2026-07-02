@@ -4,7 +4,7 @@
 
 Accepted
 
-**Amendment (feature 025.1-fold-to-job):** Configuration now travels as `Job.ConfigPayload`, and the agent writes `migration-config.json` after lease acquisition. The earlier CLI pre-submission write design was superseded.
+**Amendment ([ADR-0008](0008-configuration-travels-in-package.md), feature 025.1-fold-to-job):** Configuration now travels as `Job.ConfigPayload`, and the agent writes `migration-config.json` after lease acquisition. The earlier CLI pre-submission write design was superseded.
 
 ## Context
 

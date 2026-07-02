@@ -45,6 +45,9 @@ Agent-specific mandatory constraints live in [`.agents/20-guardrails`](../.agent
 | [`contributor-guide.md`](contributor-guide.md) | Primary contributor entry point |
 | [`development-setup.md`](development-setup.md) | Development environment setup |
 | [`testing-guide.md`](testing-guide.md) | Testing model and conventions |
+| [`test-first-workflow.md`](test-first-workflow.md) | Tests-first session model — phases, handoffs, logging |
+| [`failing-tests-workflow.md`](failing-tests-workflow.md) | Mandatory procedure for diagnosing and fixing failing tests |
+| [`coding-standards-examples.md`](coding-standards-examples.md) | Worked accept/reject examples for the coding standards |
 | [`live-system-testing-guide.md`](live-system-testing-guide.md) | Live Azure DevOps and TFS test setup, CI gating, and troubleshooting |
 | [`module-development-guide.md`](module-development-guide.md) | Adding and modifying modules |
 | [`connector-development-guide.md`](connector-development-guide.md) | Adding and modifying connectors |
@@ -57,6 +60,7 @@ Agent-specific mandatory constraints live in [`.agents/20-guardrails`](../.agent
 | Document | Purpose |
 | --- | --- |
 | [`architecture.md`](architecture.md) | Full architectural explanation |
+| [`execution-model.md`](execution-model.md) | Module → Orchestrator → Extension → Adapter → Tool execution hierarchy |
 | [`package-boundary-reference.md`](package-boundary-reference.md) | Contributor reference for `IPackageAccess` and package routing ownership |
 | [`package-format-reference.md`](package-format-reference.md) | Precise package format reference |
 | [`validation.md`](validation.md) | Validation model (four-tier) |
@@ -64,5 +68,7 @@ Agent-specific mandatory constraints live in [`.agents/20-guardrails`](../.agent
 | [`work-item-iteration-guide.md`](work-item-iteration-guide.md) | Work item iteration patterns |
 | [`concurrent-write-detection.md`](concurrent-write-detection.md) | Concurrent write detection and lease protocol |
 | [`adr/`](adr/README.md) | Architecture Decision Records |
+
+Note: [`superpowers/`](superpowers/README.md) holds dated working plans and design documents produced by planning skills. They are point-in-time artefacts, not maintained documentation.
 
 

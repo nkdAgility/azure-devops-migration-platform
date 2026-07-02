@@ -82,6 +82,15 @@ Compiling + not crashing ≠ working. Every module must produce correct side eff
 - `Assert.IsTrue(count >= 0)` — always true, asserts nothing
 - Test body with no `Assert` at all
 
+## 4b. Runtime Evidence Gate ⛔ FAIL-CLOSED
+
+When a change requires connector/API side effects (create/update/delete against ADO/TFS/Simulated endpoints), passing hooks, unit tests, or architecture checks are NOT sufficient. Completion requires both evidence classes:
+
+1. **Call-site evidence**: exact `path:line` references for real connector API calls performing the required side effects.
+2. **Runtime-proof evidence**: exact `path:line` tests proving external state transitions (e.g., exists → create → exists; exists → delete → missing).
+
+Verdict is `PASS` only when both are present. If either is missing, stop and report `BLOCKED - guardrail unmet`. Do not declare the implementation complete.
+
 ## 5. Code Quality
 
 - No `NotSupportedException("... not yet implemented")` in reachable code.
@@ -130,6 +139,7 @@ Re-read every relevant doc. Check each change line by line. Fix any non-complian
 [ ] Scenario executed — progress bars visible
 [ ] Functional correctness — artefacts exist AND non-empty (export)
 [ ] Functional correctness — target received data (import)
+[ ] Runtime evidence gate — call-site AND runtime-proof evidence recorded (path:line)
 [ ] Simulated yields ≥ 2 items; no forbidden assertions
 [ ] ADO connector calls SDK
 [ ] Connectors all implemented

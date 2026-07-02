@@ -26,8 +26,8 @@ _logger.LogDebug("Processing work item {WorkItemId}", workItemId);  // integer, 
 
 ## Related
 
-- [../../20-guardrails/data-sovereignty-rules.md](../../20-guardrails/domains/data-sovereignty-rules.md)
-- [../../20-guardrails/observability-requirements.md](../../20-guardrails/domains/observability-requirements.md)
+- [data-sovereignty-rules.md](../../20-guardrails/domains/data-sovereignty-rules.md)
+- [observability-requirements.md](../../20-guardrails/domains/observability-requirements.md)
 
 
 

@@ -71,7 +71,7 @@ Default config resolution precedence:
 - `manage`, `config`, and `controlplane` are branch commands.
 - CLI commands submit/query via control plane; no command may execute migration logic directly.
 - Counters are sourced from control-plane telemetry endpoints (not in-process sinks).
-- CLI/TUI behavior constraints are enforced by [../../20-guardrails/cli-tui-rules.md](../../20-guardrails/domains/cli-tui-rules.md).
+- CLI/TUI behavior constraints are enforced by [cli-tui-rules.md](../../20-guardrails/domains/cli-tui-rules.md).
 
 
 

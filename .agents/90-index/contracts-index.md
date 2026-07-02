@@ -1,9 +1,11 @@
 # Contracts Index
 
+- `.agents/10-contracts/routing-catalog.yaml`
 - `.agents/10-contracts/surface-catalog.yaml`
 - `.agents/10-contracts/seam-catalog.yaml`
 - `.agents/10-contracts/change-classes.yaml`
 - `.agents/10-contracts/consent-policy.yaml`
+- `.agents/10-contracts/specs/execution-contract.md`
 - `.agents/10-contracts/specs/field-transform-contract.md`
 - `.agents/10-contracts/specs/package-boundary-contract.md`
 - `.agents/10-contracts/specs/package-persistence-contract.md`

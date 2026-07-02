@@ -22,6 +22,8 @@ The resulting project subtree is `storage\my-export\contoso\MyProject\`.
 
 For Azure DevOps Services, the org folder name is the last path segment of the organisation URL, for example `contoso` from `https://dev.azure.com/contoso`. For TFS collection URLs such as `http://tfs:8080/tfs/DefaultCollection`, the folder name is `DefaultCollection`.
 
+This resolution is performed by `PathUtilities.ExtractOrgFolderName()` and applied when project-relative artefact paths are resolved. `WorkItems` and other module folders never appear directly under the working directory — they always live under `<org>/<project>/`.
+
 ## 2. Scope Semantics
 
 The package has four state scopes:
@@ -131,6 +133,16 @@ Each run folder is an audit snapshot for one execution. It contains:
 
 Run folders use UTC timestamp format `<yyyyMMdd-HHmmss>` so they sort chronologically.
 
+The `logs/` folder contains structured observability records written by the Migration Agent during that job execution:
+
+| File | Format | Description |
+| --- | --- | --- |
+| `progress.ndjson` | NDJSON | One `ProgressEvent` record per line. Tracks module cursor state, stage transitions, and item counts. Written through `IPackageAccess.AppendLogAsync` by `PackageProgressSink`. |
+| `diagnostics.ndjson` | NDJSON | Structured diagnostic log records (ILogger output). Each line is a JSON object with `timestamp`, `level`, `category`, `message`, and optional `exception` fields. Written through `IPackageAccess.AppendLogAsync` by `PackageLoggerProvider`. |
+| `diagnostics-NNN.ndjson` | NDJSON | Rotated segments when the primary segment exceeds the configured max size. |
+
+Both primary files are append-only and survive resume. They are the durable audit record of that job execution — the Control Plane's in-memory ring buffer is ephemeral.
+
 ## 4. WorkItems Layout
 
 The WorkItems layout is canonical and must preserve lexicographic chronological ordering:
@@ -153,8 +165,18 @@ Key characteristics:
 - chronological ordering is guaranteed across revision and comment sub-folders
 - no global index is required
 - streaming import can enumerate in lexicographic order without resorting in memory
-- attachments and embedded images stay beside the data that references them
+- attachments and embedded images stay beside the data that references them (revision-field images beside `revision.json`; comment images beside `comment.json`)
+- each comment version (original + edits) is stored in a separate comment sub-folder; a `comment.json` inside a revision folder is written when a comment edit/delete is detected (disable with `inlineComments.enabled: false`)
 - each folder is a natural resume position
+
+### Naming conventions
+
+| Segment | Format | Example |
+| --- | --- | --- |
+| Date folder | `yyyy-MM-dd` | `2026-02-25` |
+| Revision folder | `<ticks>-<workItemId>-<revisionIndex>` | `638760123456789012-12345-17` |
+
+Folder names sort lexicographically in chronological order. This invariant enables streaming import without a global index and must be preserved.
 
 ## 5. Manifest
 
@@ -189,6 +211,28 @@ Key characteristics:
 ```
 
 The manifest is not required for streaming import, but it is required for validation, compatibility checks, upgrade safety, and portable tooling.
+
+### Manifest fields
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `packageVersion` | Yes | Package layout version |
+| `toolVersion` | Yes | Version of the tool that produced the package |
+| `runId` | Yes | Unique identifier for the export run |
+| `configHash` | Yes | Hash of the config used to produce the package |
+| `source.type` | Yes | `AzureDevOpsServices` or `TeamFoundationServer` |
+| `source.orgOrCollection` | Yes | Organisation URL or TFS collection URL |
+| `source.project` | Yes | Project name |
+| `source.apiVersion` | Yes | REST API version used during export |
+| `includedTypes` | Yes | Data type modules included in this package |
+| `schemaVersions` | Yes | Per-module schema versions |
+
+### Versioning rules
+
+- `packageVersion` is incremented on breaking changes to the package layout.
+- `schemaVersions` tracks per-module schema independently.
+- An upgrader must be provided for each breaking schema change.
+- Config versioning is handled separately; see [configuration-reference.md](configuration-reference.md).
 
 ## 6. Legacy Fallback
 

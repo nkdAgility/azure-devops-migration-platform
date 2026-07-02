@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — amended by iron-comms unification (2026-07-01): task-list push transport changed, see Amendment below
+Accepted — amended by iron-comms unification (2026-07-01): task-list push transport changed, see Amendment below and [ADR-0020](0020-unified-worker-event-channel.md)
 
 ## Context
 

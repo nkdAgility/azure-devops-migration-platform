@@ -37,35 +37,65 @@ The agent-oriented enforcement lives in [test-first-workflow.md](../.agents/20-g
 
 ## Test Hierarchy
 
-The repository uses a four-level hierarchy. Prefer the lowest level that can prove the behaviour.
+Tests are grouped into two parent families that reflect the runtime requirement:
 
-| Level | Typical marker | What it proves | Speed | External dependencies |
+- **`[TestCategory("CodeTest")]`** — runs entirely in-process. No system must be active. Covers priorities 1–3.
+- **`[TestCategory("SystemTest")]`** — requires the full system to be active. Covers priorities 4–6.
+
+Every test carries **both** the specific category tag and its parent family tag.
+
+| Priority | Parent | Specific marker | Intent & makeup | Speed budget |
 | --- | --- | --- | --- | --- |
-| Unit | `[TestClass]` / `[TestMethod]` | Isolated logic, branching, transforms, validation | Fastest | None |
-| Feature | `.feature` + `[Binding]` | Behaviour scenarios with in-memory seams | Fast | None |
-| Smoke system | `[TestCategory("SystemTest_Smoke")]` | Startup wiring and process boundary health before broader system coverage | Fast-medium | None |
-| Simulated system | `[TestCategory("SystemTest_Simulated")]` | End-to-end behaviour with deterministic Simulated connectors | Medium | None |
-| Live system | `[TestCategory("SystemTest")]` or `[TestCategory("SystemTest_Live")]` | Real Azure DevOps or TFS behaviour | Slowest | Real credentials and environment |
+| 1 | `CodeTest` | `[TestCategory("UnitTests")]` | Single class in isolation. All deps mocked. No I/O, no real infrastructure. | < 50 ms |
+| 2 | `CodeTest` | `[TestCategory("DomainTests")]` | Business behaviour via the internal DSL. Real domain objects, no connectors or infrastructure. | < 500 ms |
+| 3 | `CodeTest` | `[TestCategory("IntegrationTests")]` | Real infrastructure components (e.g. retry policies, HTTP clients, serialisers) wired together in-process. No external network or connector. | < 30 s |
+| 4 | `SystemTest` | `[TestCategory("SystemTest_Smoke")]` | Critical-path subset of system tests run on every PR. Operator-designated only. | < 120 s |
+| 5 | `SystemTest` | `[TestCategory("SystemTest_Simulated")]` | End-to-end with the `Simulated` connector. No network. | < 60 s |
+| 6 | `SystemTest` | `[TestCategory("SystemTest_Live")]` | Requires live ADO/TFS. Environment-gated. | < 300 s |
+
+Speed budget is not a classifier: a test's category is determined solely by its intent and makeup. A test that exceeds its category's speed budget must be fixed (e.g. inject a time abstraction, replace real delays with fakes), not moved to a slower category.
+
+### Distinguishing the CodeTest categories
+
+| Criterion | UnitTests | DomainTests | IntegrationTests |
+| --- | --- | --- | --- |
+| Scope | Single class/method in isolation | Business behaviour across collaborating domain objects | Real infrastructure components wired together in-process |
+| Dependencies | All mocked/stubbed | Real domain objects via DSL builders/runners/assertions | Real library/framework components (e.g. Polly, HttpClient) — no external network |
+| DSL usage | No `DevOpsMigrationPlatform.Testing` usage | Uses the internal DSL library (builders, runners, assertions) | No DSL |
+| Arrange style | Direct `new Foo()` + mock setup | Builder pattern (`A.WorkItem().WithField(...)`) | Direct construction of real infrastructure components |
+| Assert style | Assert on return value / state of one object | Assert on observable business outcome | Assert on real component behaviour (retry count, response, serialised output) |
+| I/O | None | None | None (in-process only; no filesystem, no network) |
+| External connectivity | None | None | None |
 
 ### Selection Rule
 
-Choose the first layer that can falsify the behaviour without real infrastructure:
+Push tests downward — choose the first layer that can falsify the behaviour without real infrastructure:
 
-- Unit when the logic does not need connector or process boundaries.
-- Feature when behaviour matters but real I/O still does not.
-- Smoke system when you need a fast startup/lifecycle guard on host-to-agent wiring without running a migration workload.
+- Unit when the logic does not need collaborators, connectors, or process boundaries.
+- Domain when business behaviour across real domain objects matters but real I/O does not — use the internal DSL.
+- Integration when real infrastructure components (retry, serialisation, HTTP pipeline) must be proven in-process.
 - Simulated system when you need end-to-end wiring, package output, or process boundaries.
 - Live system only when lower layers cannot prove the connector or environment-specific behaviour.
 
-If a proposed live test can be rewritten as a unit, feature, or simulated test, do that instead.
+If a proposed live test can be rewritten at a lower layer, do that instead. Smoke system tests are a curated subset designated by a human operator — never self-assign `SystemTest_Smoke`.
+
+### Category tagging is mandatory
+
+Whenever a test file is touched, every `[TestMethod]` and `[TestClass]` in it must carry both the parent family tag and the specific category tag, using only the canonical names above. The enforced gate ("Touch = Tag") is defined in [testing-rules.md](../.agents/20-guardrails/workflow/testing-rules.md).
 
 ## Running Tests
 
 ```bash
-# All tests
-dotnet test
+# All in-process tests (no running system required)
+dotnet test --filter "TestCategory=CodeTest"
 
-# Fast local pass that excludes live system tests
+# Unit tests only
+dotnet test --filter "TestCategory=UnitTests"
+
+# Domain (internal DSL) tests only
+dotnet test --filter "TestCategory=DomainTests"
+
+# Everything except system tests
 dotnet test --filter "TestCategory!=SystemTest"
 
 # Smoke system tests only
@@ -75,10 +105,16 @@ dotnet test --filter "TestCategory=SystemTest_Smoke"
 dotnet test --filter "TestCategory=SystemTest_Simulated"
 
 # Live system tests only
-dotnet test --filter "TestCategory=SystemTest"
+dotnet test --filter "TestCategory=SystemTest_Live"
 ```
 
-Some suites may also use `SystemTest_Live` as an additional category marker. Treat those as live tests as well.
+The repository build script provides equivalent gates used by the completion workflow:
+
+```powershell
+pwsh ./build.ps1 Test                    # unit gate
+pwsh ./build.ps1 SystemTest_Simulated    # simulated gate
+pwsh ./build.ps1 SystemTest_Live         # live gate
+```
 
 ## Test Conventions
 
@@ -100,13 +136,31 @@ WorkItemExportModule_WhenSourceHasRevisions_WritesRevisionFilesToPackage
 SimulatedWorkItemSource_WhenSeeded_ReturnsAtLeastTwoItems
 ```
 
-### Reqnroll Feature Tests
+### Internal DSL Tests and the Reqnroll Migration
 
-Feature files live in `features/`. Step definitions follow Reqnroll.MSTest conventions.
+Code-first behavioural tests use the typed internal DSL and are the target style for all behaviour coverage:
+
+```text
+tests/DevOpsMigrationPlatform.Testing/<Domain>/...             ← reusable typed DSL
+tests/<Project>.Tests/<Area>/<Behaviour>Tests.cs               ← code-first MSTest behavioural tests
+features/<operation>/...                                       ← legacy Reqnroll feature files pending migration only
+tests/<Project>.Tests/<Area>/<Feature>Steps.cs                 ← legacy Reqnroll step definitions pending migration only
+```
+
+Legacy Reqnroll is migration debt, not an editable style. If you need to change the behaviour of a legacy `.feature` file or its step definitions, migrate the whole feature family to the internal DSL first by running:
+
+```text
+nkda-testdsl-autonomous {feature}
+```
+
+The skill runs the full loop (assess → DSL design → extraction → conversion → refactor → verification) and produces code-first `DomainTests` under `tests/<Project>.Tests/<Area>/<Behaviour>Tests.cs`. After migration the legacy `.feature` and `*Steps.cs` files for that family are removed. The enforced gate ("Touch = Convert"), including its narrow carve-outs for retirement, typo fixes, and orphaned feature files, is defined in [testing-rules.md](../.agents/20-guardrails/workflow/testing-rules.md).
+
+For families not yet migrated:
 
 - Feature files must comply with [acceptance-test-format.md](../.agents/20-guardrails/workflow/acceptance-test-format.md).
-- Step definitions must be in a class annotated `[Binding]`.
-- Use feature tests for behaviour scenarios with in-memory fakes or mocks, not for live environment coverage.
+- Step definitions live in a class annotated `[Binding]`, named `<FeatureName>Steps`, with PascalCase step methods whose attribute strings exactly match the `.feature` step text.
+- Steps communicate via a constructor-injected shared context object — never by calling each other directly. Use `(.*)` for string captures and `(\d+)` for integers.
+- Do not add new `[Binding]` step definitions in migrated areas, and do not add new feature behaviour as `.feature` files without explicit approval.
 
 ## Simulated System Tests
 
@@ -175,6 +229,8 @@ What every test must prove:
 ## Further Reading
 
 - [contributor-guide.md](contributor-guide.md) — contributor entry point
+- [test-first-workflow.md](test-first-workflow.md) — full tests-first session model
+- [failing-tests-workflow.md](failing-tests-workflow.md) — mandatory procedure when tests fail
 - [live-system-testing-guide.md](live-system-testing-guide.md) — live environment setup and CI patterns
 - [module-development-guide.md](module-development-guide.md) — module test expectations
 - [.agents/20-guardrails/workflow/testing-rules.md](../.agents/20-guardrails/workflow/testing-rules.md) — enforced testing constraints

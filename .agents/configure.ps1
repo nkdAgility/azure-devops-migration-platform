@@ -154,6 +154,7 @@ Write-Host ""
 Write-Host "Hardlinks:" -ForegroundColor White
 Ensure-HardLink 'AGENTS.md' '.agents\agents.md'
 Ensure-HardLink 'CLAUDE.md' '.agents\agents.md'
+Ensure-HardLink '.github\copilot-instructions.md' '.agents\agents.md'
 
 # -- .claude symlinks --------------------------------------------------------
 Write-Host ""

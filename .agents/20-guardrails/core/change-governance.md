@@ -23,6 +23,11 @@ Class C changes must satisfy:
 
 Missing consent evidence is a hard fail.
 
+## Commit Governance
+
+- Agents must not run `git commit` or `git push` unless the operator explicitly asks.
+- Completing a task is not consent to commit it.
+
 ## Reject Conditions
 
 Reject any change that:

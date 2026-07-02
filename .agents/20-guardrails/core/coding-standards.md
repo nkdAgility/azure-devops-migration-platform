@@ -11,7 +11,7 @@ Detailed operational, delivery, and non-functional constraints are split into:
 - [security-rules.md](../domains/security-rules.md)
 - [connector-rules.md](../domains/connector-rules.md)
 
-Code examples: [coding-standards-examples.md](./coding-standards-examples.md).
+Code examples: [docs/coding-standards-examples.md](../../../docs/coding-standards-examples.md).
 
 ## Core Rule
 
