@@ -565,6 +565,8 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     private abstract class FakeModuleBase : IModule
     {
         public string Name => GetType().Name;
+
+        public IModuleContract Contract => new ModuleContract(Name, [], [], []);
         public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
         public bool SupportsExport => false;
         public bool SupportsInventory => false;
@@ -581,6 +583,8 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
     private abstract class FakeAnalyserBase : IAnalyser
     {
         public string Name => GetType().Name;
+
+        public IModuleContract Contract => new ModuleContract(Name, [], [], []);
         public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
         public Task<TaskExecutionResult> AnalyseAsync(AnalyseContext context, CancellationToken ct) => throw new NotSupportedException();
     }

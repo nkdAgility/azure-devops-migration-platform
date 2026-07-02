@@ -147,6 +147,8 @@ public sealed class JobAgentWorkerInventoryTests
     private sealed class FakeWorkItemsInventoryModule(IPlatformMetrics PlatformMetrics) : IModule
     {
         public string Name => "WorkItems";
+
+        public IModuleContract Contract => new ModuleContract(Name, [], [], []);
         public IReadOnlyList<ModuleDependency> DependsOn => [];
         public bool SupportsInventory => true;
         public bool SupportsExport => false;
@@ -178,6 +180,8 @@ public sealed class JobAgentWorkerInventoryTests
         public int Calls { get; private set; }
 
         public string Name => "WorkItems";
+
+        public IModuleContract Contract => new ModuleContract(Name, [], [], []);
         public IReadOnlyList<ModuleDependency> DependsOn => [];
         public bool SupportsInventory => true;
         public bool SupportsExport => false;

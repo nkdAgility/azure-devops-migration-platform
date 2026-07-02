@@ -62,6 +62,9 @@ public sealed class TeamsModule : IModule
     private readonly ITeamsOrchestrator _orchestrator;
 
     public string Name => "Teams";
+
+    /// <inheritdoc cref="IModule.Contract"/>
+    public IModuleContract Contract => new ModuleContract("Teams", [], [], []);
     public IReadOnlyList<ModuleDependency> DependsOn => new[]
     {
         new ModuleDependency(typeof(IdentitiesModule), DependencyPhase.Import),

@@ -337,6 +337,8 @@ public sealed class PrepareFeaturesDslTests
 
     private sealed class SourceOnlyModule(ILogger logger) : ModuleBase(logger)
     {
+        public override IModuleContract Contract => new ModuleContract(Name, [], [], []);
+
         public override string Name => "TfsWorkItemsModule";
     }
 

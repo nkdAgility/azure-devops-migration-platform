@@ -39,6 +39,8 @@ public sealed class PlanDrivenExecutionContext
 public sealed class TestModule : IModule
 {
     public string Name { get; init; } = string.Empty;
+
+    public IModuleContract Contract => new ModuleContract(Name, [], [], []);
     public IReadOnlyList<ModuleDependency> DependsOn { get; init; } = Array.Empty<ModuleDependency>();
     public bool SupportsExport { get; init; } = true;
     public bool SupportsInventory { get; init; } = false;
@@ -78,6 +80,8 @@ public sealed class TestModule : IModule
 public sealed class TestIdentitiesModule : IModule
 {
     public string Name => "Identities";
+
+    public IModuleContract Contract => new ModuleContract(Name, [], [], []);
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
     public bool SupportsExport => true;
     public bool SupportsInventory => false;
@@ -94,6 +98,8 @@ public sealed class TestIdentitiesModule : IModule
 public sealed class TestNodesModule : IModule
 {
     public string Name => "Nodes";
+
+    public IModuleContract Contract => new ModuleContract(Name, [], [], []);
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
     public bool SupportsExport => true;
     public bool SupportsInventory => false;
@@ -110,6 +116,8 @@ public sealed class TestNodesModule : IModule
 public sealed class TestWorkItemsModule : IModule
 {
     public string Name => "WorkItems";
+
+    public IModuleContract Contract => new ModuleContract(Name, [], [], []);
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
     public bool SupportsExport => true;
     public bool SupportsInventory => false;

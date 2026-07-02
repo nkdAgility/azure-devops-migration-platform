@@ -21,6 +21,9 @@ public abstract class ModuleBase(ILogger logger) : IModule
 
     public abstract string Name { get; }
 
+    /// <inheritdoc cref="IModule.Contract"/>
+    public abstract IModuleContract Contract { get; }
+
     public virtual IReadOnlyList<ModuleDependency> DependsOn => [];
     public virtual bool SupportsInventory => false;
     public virtual bool SupportsExport => false;

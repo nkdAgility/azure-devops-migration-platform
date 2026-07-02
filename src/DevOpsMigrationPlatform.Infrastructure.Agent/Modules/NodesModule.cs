@@ -55,6 +55,9 @@ public sealed class NodesModule : IModule
     private readonly INodesOrchestrator _orchestrator;
 
     public string Name => "Nodes";
+
+    /// <inheritdoc cref="IModule.Contract"/>
+    public IModuleContract Contract => new ModuleContract("Nodes", [], [], []);
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
     public bool SupportsExport => true;
     public bool SupportsInventory => true;

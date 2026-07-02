@@ -861,6 +861,8 @@ public sealed class JobAgentWorkerDispatchTests
     private sealed class FakeModule(string name, bool supportsPrepare) : IModule
     {
         public string Name => name;
+
+        public IModuleContract Contract => new ModuleContract(Name, [], [], []);
         public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
         public bool SupportsInventory => false;
         public bool SupportsExport => true;
@@ -878,6 +880,8 @@ public sealed class JobAgentWorkerDispatchTests
     private sealed class FakeAnalyser(string name) : IAnalyser
     {
         public string Name => name;
+
+        public IModuleContract Contract => new ModuleContract(Name, [], [], []);
         public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
         public Task<TaskExecutionResult> AnalyseAsync(AnalyseContext context, CancellationToken cancellationToken) => Task.FromResult(TaskExecutionResult.Completed());
     }

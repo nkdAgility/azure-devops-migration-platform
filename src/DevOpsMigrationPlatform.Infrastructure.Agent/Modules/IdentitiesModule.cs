@@ -50,6 +50,9 @@ public sealed class IdentitiesModule : IModule
     private readonly IIdentitiesOrchestrator _orchestrator;
 
     public string Name => "Identities";
+
+    /// <inheritdoc cref="IModule.Contract"/>
+    public IModuleContract Contract => new ModuleContract("Identities", [], [], []);
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
     public bool SupportsExport => true;
     public bool SupportsInventory => true;

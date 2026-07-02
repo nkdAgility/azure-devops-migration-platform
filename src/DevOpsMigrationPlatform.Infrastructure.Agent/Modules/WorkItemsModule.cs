@@ -28,6 +28,29 @@ public sealed class WorkItemsModule : IModule
 
     public string Name => "WorkItems";
 
+    private static readonly IModuleContract WorkItemsContract = new ModuleContract(
+        moduleName: "WorkItems",
+        selection:
+        [
+            new SelectionDefinition("Query", Required: true),
+            new SelectionDefinition("Filters", Required: false)
+        ],
+        data:
+        [
+            new DataDefinition("Revisions", Required: false),
+            new DataDefinition("Comments", Required: false),
+            new DataDefinition("EmbeddedImages", Required: false),
+            new DataDefinition("Links", Required: true),        // intrinsic — cannot be disabled
+            new DataDefinition("Attachments", Required: true)   // intrinsic — cannot be disabled
+        ],
+        processing:
+        [
+            new ProcessingDefinition("WorkItemResolutionStrategy", Required: false)
+        ]);
+
+    /// <inheritdoc cref="IModule.Contract"/>
+    public IModuleContract Contract => WorkItemsContract;
+
     public IReadOnlyList<ModuleDependency> DependsOn => new[]
     {
         new ModuleDependency(typeof(IdentitiesModule), DependencyPhase.Import),
