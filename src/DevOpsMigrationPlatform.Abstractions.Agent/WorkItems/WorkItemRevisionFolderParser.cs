@@ -3,14 +3,16 @@
 
 using System;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
+namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 /// <summary>
 /// Parses a work item revision folder name into its constituent parts.
 /// Format: <c>{ticks}-{workItemId}-{revisionIndex}</c>
 /// Comment folders (<c>{ticks}-{workItemId}-c{commentId}</c>) return <see langword="null"/>.
+/// This is the canonical package folder-naming contract shared by the WorkItems and
+/// Nodes slices (ADR-0023 / VS-M3).
 /// </summary>
-internal static class WorkItemRevisionFolderParser
+public static class WorkItemRevisionFolderParser
 {
     /// <summary>
     /// Tries to parse a revision folder name.
@@ -35,4 +37,4 @@ internal static class WorkItemRevisionFolderParser
 }
 
 /// <summary>Result of parsing a work item revision folder name.</summary>
-internal sealed record WorkItemRevisionFolderParseResult(long Ticks, int WorkItemId, int RevisionIndex);
+public sealed record WorkItemRevisionFolderParseResult(long Ticks, int WorkItemId, int RevisionIndex);

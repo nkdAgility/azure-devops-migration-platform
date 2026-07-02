@@ -5,6 +5,7 @@ using System;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.TfsExecution;
 using DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
@@ -60,7 +61,7 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
     /// Creates a scoped set of TFS services for a single job.
     /// The caller MUST dispose the returned <see cref="TfsJobServices"/> after the job completes.
     /// </summary>
-    public TfsJobServices CreateForEndpoint(MigrationEndpointOptions endpoint)
+    public ITfsJobServices CreateForEndpoint(MigrationEndpointOptions endpoint)
     {
         if (endpoint is not TeamFoundationServerEndpointOptions tfsEndpoint)
             throw new ArgumentException(
@@ -219,7 +220,7 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
 /// <summary>
 /// Container for per-job TFS services. Disposes the TFS collection when the job ends.
 /// </summary>
-public sealed class TfsJobServices : IDisposable
+public sealed class TfsJobServices : ITfsJobServices
 {
     public WorkItemStore WorkItemStore { get; }
     public IWorkItemRevisionSource RevisionSource { get; }
@@ -230,6 +231,7 @@ public sealed class TfsJobServices : IDisposable
     public IProjectDiscoveryService ProjectDiscoveryService { get; }
     public IWorkItemFetchService FetchService { get; }
     public TeamFoundationServerEndpointOptions Endpoint { get; }
+    MigrationEndpointOptions ITfsJobServices.Endpoint => Endpoint;
     public IIdentitySource IdentitySource { get; }
     public ITeamSource TeamSource { get; }
     public IProjectLifecycleService ProjectLifecycleService { get; }

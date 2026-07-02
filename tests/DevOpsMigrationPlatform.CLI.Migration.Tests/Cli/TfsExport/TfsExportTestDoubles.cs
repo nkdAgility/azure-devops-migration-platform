@@ -16,6 +16,7 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.Cli.TfsExport;
 // To activate: add the project reference and uncomment the implementation below.
 
 /*
+using DevOpsMigrationPlatform.Abstractions.Agent.TfsExecution;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.JobLifecycle.TfsExecution;
 using DevOpsMigrationPlatform.Abstractions.Options;
 
@@ -25,7 +26,7 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 /// </summary>
 internal sealed class ThrowingTfsJobServiceFactory : ITfsJobServiceFactory
 {
-    public TfsJobServices CreateForEndpoint(MigrationEndpointOptions endpoint)
+    public ITfsJobServices CreateForEndpoint(MigrationEndpointOptions endpoint)
         => throw new InvalidOperationException(
                "TFS export service is not available for this endpoint.");
 }

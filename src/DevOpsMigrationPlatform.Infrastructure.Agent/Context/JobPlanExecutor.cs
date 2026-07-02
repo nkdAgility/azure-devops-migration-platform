@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
@@ -54,16 +55,20 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     private readonly SemaphoreSlim _sourceEndpointLock = new(1, 1);
     private readonly SemaphoreSlim _targetEndpointLock = new(1, 1);
 
+    private readonly IProjectInventoryReader _projectInventory;
+
     public JobPlanExecutor(
         IProgressSink? progressSink,
         ILogger<JobPlanExecutor> logger,
         ICurrentJobEndpointAccessor? currentJobEndpointAccessor = null,
-        IPackageAccess? package = null)
+        IPackageAccess? package = null,
+        IProjectInventoryReader? projectInventory = null)
     {
         _progressSink = progressSink;
         _logger = logger;
         _currentJobEndpointAccessor = currentJobEndpointAccessor;
         _package = package;
+        _projectInventory = projectInventory ?? new Discovery.ProjectInventoryFileStore();
     }
 
     public async Task<bool> DispatchTasksAsync(
@@ -448,7 +453,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
         return knownTotal.HasValue ? (knownTotal, knownTotal) : (null, null);
     }
 
-    private static async Task<(long? KnownTotal, long? CompletedCount)> TryResolveTaskProgressSnapshotAsync(
+    private async Task<(long? KnownTotal, long? CompletedCount)> TryResolveTaskProgressSnapshotAsync(
         JobTask task,
         IPackageAccess? package,
         CancellationToken ct)
@@ -461,7 +466,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
             var orgUrl = task.OrganisationUrl!;
             var projectName = task.ProjectName!;
             var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
-            projectInventory = await ProjectInventoryFile.ReadAsync(resolvedPackage, orgSlug, projectName, ct).ConfigureAwait(false);
+            projectInventory = await _projectInventory.ReadAsync(resolvedPackage, orgSlug, projectName, ct).ConfigureAwait(false);
         }
 
         var inventoryReport = await TryReadInventoryReportAsync(resolvedPackage, ct).ConfigureAwait(false);

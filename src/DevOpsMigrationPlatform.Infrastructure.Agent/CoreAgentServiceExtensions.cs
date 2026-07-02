@@ -118,6 +118,10 @@ public static class CoreAgentServiceExtensions
         services.AddSingleton<UnifiedWorkerEventWriter>();
         services.AddHostedService(sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
         services.AddSingleton<IFlushable>(sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
+        // Canonical worker-event port (ADR-0023 / CA-C1): workers depend on the
+        // IWorkerEventWriter contract, resolved to the same singleton channel.
+        services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.Telemetry.IWorkerEventWriter>(
+            sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
         return services;
     }
 
@@ -125,6 +129,15 @@ public static class CoreAgentServiceExtensions
     {
         services.AddSingleton<IPhaseTrackingServiceFactory, PhaseTrackingServiceFactory>();
         services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();
+        // Canonical package-content ports (ADR-0023 / VS-H1, VS-H2): single implementations
+        // shared by every consuming slice.
+        services.AddSingleton<Discovery.ProjectInventoryFileStore>();
+        services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.Discovery.IProjectInventoryReader>(
+            sp => sp.GetRequiredService<Discovery.ProjectInventoryFileStore>());
+        services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.Discovery.IProjectInventoryWriter>(
+            sp => sp.GetRequiredService<Discovery.ProjectInventoryFileStore>());
+        services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemRevisionReader,
+            WorkItems.Revisions.WorkItemsPrepareRevisionReader>();
         return services;
     }
 }

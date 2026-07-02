@@ -14,6 +14,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
@@ -90,7 +91,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
         ILogger logger,
-        UnifiedWorkerEventWriter eventWriter,
+        IWorkerEventWriter eventWriter,
         IActiveJobState? activeJobState = null
 #if !NET481
         , PolymorphicEndpointOptionsConverter? endpointConverter = null

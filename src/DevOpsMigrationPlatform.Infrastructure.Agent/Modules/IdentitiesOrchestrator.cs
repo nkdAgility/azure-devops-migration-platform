@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
@@ -69,13 +70,17 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
     private readonly ConcurrentDictionary<string, string> _resolutionCache =
         new(StringComparer.OrdinalIgnoreCase);
 
+    private readonly IProjectInventoryWriter _projectInventory;
+
     public IdentitiesOrchestrator(
         ILogger<IdentitiesOrchestrator> logger,
         IPlatformMetrics? PlatformMetrics = null,
         IPackageAccess? package = null,
         IIdentityAdapter? identityAdapter = null,
-        IEnumerable<IIdentityMatchingStrategy>? matchingStrategies = null)
+        IEnumerable<IIdentityMatchingStrategy>? matchingStrategies = null,
+        IProjectInventoryWriter? projectInventory = null)
     {
+        _projectInventory = projectInventory ?? new Discovery.ProjectInventoryFileStore();
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _PlatformMetrics = PlatformMetrics;
         _package = package;
@@ -128,7 +133,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
                 await foreach (var _ in identitySource.EnumerateIdentitiesAsync(project, ct).ConfigureAwait(false))
                     count++;
 
-                await ProjectInventoryFile.MergeAsync(
+                await _projectInventory.MergeAsync(
                     context.Package, orgSlug, project,
                     orgUrl: orgUrl,
                     identities: count, ct: ct).ConfigureAwait(false);

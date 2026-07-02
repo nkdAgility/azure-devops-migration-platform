@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -30,7 +31,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 /// up to 5 attempts, then the batch is discarded with an error log.
 /// </para>
 /// </summary>
-public sealed class UnifiedWorkerEventWriter : BackgroundService, IProgressSink, IFlushable
+public sealed class UnifiedWorkerEventWriter : BackgroundService, IProgressSink, IFlushable, IWorkerEventWriter
 {
     internal const string HttpClientName = nameof(UnifiedWorkerEventWriter);
 
@@ -103,7 +104,7 @@ public sealed class UnifiedWorkerEventWriter : BackgroundService, IProgressSink,
     internal void EnqueueDiagnostic(DiagnosticLogRecord[] records)
         => Enqueue(WorkerEventKind.Diagnostic, records);
 
-    internal void EnqueueTerminal(bool failed)
+    public void EnqueueTerminal(bool failed)
         => EnqueueImmediate(WorkerEventKind.Terminal, new TerminalPayload(failed));
 
     public void EnqueueTasks(JobTaskList tasks)

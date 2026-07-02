@@ -12,7 +12,6 @@ using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using Microsoft.Extensions.Logging;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Nodes;
 

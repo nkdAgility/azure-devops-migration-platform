@@ -39,7 +39,7 @@ public static class TfsObjectModelModuleServiceExtensions
 
         // Per-job TFS Object Model service factory — creates TFS connections, revision sources,
         // attachment sources, tree readers, and discovery services per job based on the endpoint.
-        services.AddSingleton<ITfsJobServiceFactory, TfsJobServiceFactory>();
+        services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.TfsExecution.ITfsJobServiceFactory, TfsJobServiceFactory>();
 
         // Ambient state carrying the current job's TFS services (set by the TFS job worker before running modules).
         services.AddSingleton<ActiveTfsJobServices>();

@@ -36,3 +36,4 @@ Each ADR records an important architectural decision: what was decided, why, wha
 | [0020](0020-unified-worker-event-channel.md) | Unified worker-event channel | Accepted — amends ADR-0006 and ADR-0010 |
 | [0021](0021-four-tier-validation-model.md) | Four-tier validation model | Accepted |
 | [0022](0022-host-composition-roots-own-storage-selection.md) | Host composition roots own storage selection; modules depend only on storage contracts | Accepted — executes MM-C1, MM-H1, CA-C2 |
+| [0023](0023-promote-hidden-seams-to-abstractions-ports.md) | Promote hidden cross-slice seams to canonical Abstractions ports | Accepted — executes CA-C1, CA-H1/HX-M1, VS-H1, VS-H2, VS-H3, VS-M3 |

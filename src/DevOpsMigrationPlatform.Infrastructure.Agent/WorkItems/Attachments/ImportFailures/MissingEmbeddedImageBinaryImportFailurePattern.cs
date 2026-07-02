@@ -15,6 +15,13 @@ internal sealed class MissingEmbeddedImageBinaryImportFailurePattern : IImportFa
 {
     public const string Code = "WORKITEMS_PREPARE_MISSING_EMBEDDED_IMAGE_BINARY";
 
+    private readonly IWorkItemRevisionReader _revisionReader;
+
+    public MissingEmbeddedImageBinaryImportFailurePattern(IWorkItemRevisionReader? revisionReader = null)
+    {
+        _revisionReader = revisionReader ?? new WorkItemsPrepareRevisionReader();
+    }
+
     public string PatternCode => Code;
 
     public async Task<IReadOnlyList<ImportFailureFinding>> EvaluateAsync(
@@ -31,7 +38,7 @@ internal sealed class MissingEmbeddedImageBinaryImportFailurePattern : IImportFa
         var organisation = context.Organisation;
         var project = context.Project;
 
-        await foreach (var parsedRevision in WorkItemsPrepareRevisionReader.EnumerateAsync(
+        await foreach (var parsedRevision in _revisionReader.EnumerateAsync(
                            package,
                            organisation,
                            project,

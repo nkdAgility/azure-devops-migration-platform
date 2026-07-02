@@ -6,38 +6,19 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 
 /// <summary>
-/// Strongly-typed representation of the per-project inventory file written to
-/// <c>{orgSlug}/{project}/inventory.json</c>. All module inventory counts are
-/// merged into this single file; no per-module inventory files are written.
+/// Single implementation of the <see cref="IProjectInventoryReader"/> and
+/// <see cref="IProjectInventoryWriter"/> canonical ports (ADR-0023 / VS-H2).
+/// Reads, merges, and writes the per-project <c>inventory.json</c> file behind the
+/// package boundary; modules update only their own count field without clobbering
+/// data written by another module.
 /// </summary>
-internal sealed record ProjectInventoryData
-{
-    public DateTimeOffset GeneratedAt { get; init; }
-    public string OrgUrl { get; init; } = string.Empty;
-    public string Project { get; init; } = string.Empty;
-    public long WorkItems { get; init; }
-    public long Revisions { get; init; }
-    public int Repos { get; init; }
-    public int Identities { get; init; }
-    public int Nodes { get; init; }
-    public int Teams { get; init; }
-    public bool IsComplete { get; init; }
-    public string? Error { get; init; }
-    /// <summary>Work item count by System.AreaPath. Null when not collected.</summary>
-    public Dictionary<string, int>? AreaPathCounts { get; init; }
-}
-
-/// <summary>
-/// Read/merge/write helpers for per-project inventory files.
-/// Modules call <see cref="MergeAsync"/> to update only their own count field
-/// without clobbering data written by another module.
-/// </summary>
-internal static class ProjectInventoryFile
+internal sealed class ProjectInventoryFileStore : IProjectInventoryReader, IProjectInventoryWriter
 {
     private static readonly JsonSerializerOptions s_opts =
         new() { PropertyNameCaseInsensitive = true };
@@ -45,11 +26,8 @@ internal static class ProjectInventoryFile
     private static readonly JsonSerializerOptions s_writeOpts =
         new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-    /// <summary>
-    /// Reads the existing per-project inventory file (or returns an empty record),
-    /// applies the supplied delta fields, and writes the result back.
-    /// </summary>
-    public static async Task MergeAsync(
+    /// <inheritdoc />
+    public async Task MergeAsync(
         IPackageAccess package,
         string orgSlug,
         string projectName,
@@ -92,7 +70,8 @@ internal static class ProjectInventoryFile
             ct).ConfigureAwait(false);
     }
 
-    public static async Task<ProjectInventoryData> ReadAsync(
+    /// <inheritdoc />
+    public async Task<ProjectInventoryData> ReadAsync(
         IPackageAccess package,
         string orgSlug,
         string projectName,

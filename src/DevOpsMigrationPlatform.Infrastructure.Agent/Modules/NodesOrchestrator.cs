@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
@@ -67,19 +68,24 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
     private readonly INodeCreator _nodeCreator;
 #endif
 
+    private readonly IProjectInventoryWriter _projectInventory;
+
     public NodesOrchestrator(
         ILogger<NodesOrchestrator> logger
 #if !NET481
         , INodeTranslationTool nodeTranslationTool,
         INodeCreator nodeCreator,
         IPlatformMetrics? PlatformMetrics = null,
-        IPackageAccess? package = null
+        IPackageAccess? package = null,
+        IProjectInventoryWriter? projectInventory = null
 #else
         , IPlatformMetrics? PlatformMetrics = null,
-        IPackageAccess? package = null
+        IPackageAccess? package = null,
+        IProjectInventoryWriter? projectInventory = null
 #endif
     )
     {
+        _projectInventory = projectInventory ?? new Discovery.ProjectInventoryFileStore();
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _package = package;
         _PlatformMetrics = PlatformMetrics;
@@ -132,7 +138,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
             {
                 count = await reader.CountNodesAsync(project, ct).ConfigureAwait(false);
 
-                await ProjectInventoryFile.MergeAsync(
+                await _projectInventory.MergeAsync(
                     context.Package, orgSlug, project,
                     orgUrl: orgUrl,
                     nodes: count, ct: ct).ConfigureAwait(false);

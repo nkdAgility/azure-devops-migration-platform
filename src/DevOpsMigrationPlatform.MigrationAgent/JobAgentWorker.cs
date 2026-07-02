@@ -16,6 +16,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Options;
@@ -50,7 +51,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly ICurrentPackageConfigAccessor _currentPackageConfigAccessor;
     private readonly ICurrentAgentJobContextAccessor _currentJobContextAccessor;
     private readonly ICurrentJobEndpointAccessor _currentJobEndpointAccessor;
-    private readonly UnifiedWorkerEventWriter _eventWriter;
+    private readonly IWorkerEventWriter _eventWriter;
     private readonly ILogger<JobAgentWorker> _logger;
     private IJobConfigResolver? _configResolver;
 
@@ -79,7 +80,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IEnumerable<IFlushable> flushables,
         ICurrentAgentJobContextAccessor currentJobContextAccessor,
         ICurrentJobEndpointAccessor currentJobEndpointAccessor,
-        UnifiedWorkerEventWriter eventWriter,
+        IWorkerEventWriter eventWriter,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null,
         PolymorphicOrganisationEntryConverter? organisationConverter = null)

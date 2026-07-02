@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using Microsoft.Extensions.Hosting;
@@ -34,7 +35,7 @@ public abstract class AgentWorkerBase : BackgroundService
     private readonly ActivePackageState _packageState;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger _logger;
-    private readonly UnifiedWorkerEventWriter _eventWriter;
+    private readonly IWorkerEventWriter _eventWriter;
     private int _consecutiveNoLeaseResponses;
 
     private readonly JsonSerializerOptions _jsonOptions;
@@ -51,7 +52,7 @@ public abstract class AgentWorkerBase : BackgroundService
         ActivePackageState packageState,
         IHttpClientFactory httpClientFactory,
         ILogger logger,
-        UnifiedWorkerEventWriter eventWriter
+        IWorkerEventWriter eventWriter
 #if !NET481
         , PolymorphicEndpointOptionsConverter? endpointConverter = null
         , PolymorphicOrganisationEntryConverter? organisationConverter = null

@@ -52,17 +52,20 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     private readonly IPlatformMetrics? _metrics;
     private readonly ProcessingCadencePolicy _cadencePolicy;
     private readonly ICheckpointingServiceFactory _checkpointingFactory;
+    private readonly IProjectInventoryWriter _projectInventory;
 
     public InventoryOrchestrator(
         ILogger<InventoryOrchestrator> logger,
         ICheckpointingServiceFactory checkpointingFactory,
         IPlatformMetrics? metrics = null,
-        ProcessingCadencePolicy? cadencePolicy = null)
+        ProcessingCadencePolicy? cadencePolicy = null,
+        IProjectInventoryWriter? projectInventory = null)
     {
         _logger = logger;
         _checkpointingFactory = checkpointingFactory ?? throw new ArgumentNullException(nameof(checkpointingFactory));
         _metrics = metrics;
         _cadencePolicy = cadencePolicy ?? new ProcessingCadencePolicy();
+        _projectInventory = projectInventory ?? new ProjectInventoryFileStore();
     }
 
     /// <summary>
@@ -291,7 +294,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
 
             // Write per-project inventory file: {orgSlug}/{project}/inventory.json
             var evtOrgSlug = PackagePathResolver.DeriveInventoryOrgSlug(evt.Url);
-            await ProjectInventoryFile.MergeAsync(
+            await _projectInventory.MergeAsync(
                 package, evtOrgSlug, evt.ProjectName,
                 orgUrl: evt.Url,
                 workItems: evt.WorkItemsCount,

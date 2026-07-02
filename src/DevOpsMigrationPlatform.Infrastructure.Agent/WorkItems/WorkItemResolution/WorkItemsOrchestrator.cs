@@ -53,6 +53,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
 
     // Export/capture/prepare deps
     private readonly IWorkItemRevisionSourceFactory _sourceFactory;
+    private readonly IProjectInventoryWriter _projectInventory;
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IWorkItemExportOrchestratorFactory _exportOrchestratorFactory;
@@ -109,8 +110,10 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         IOptions<WorkItemOptions>? workItemOptions = null,
         IOptions<NodesModuleOptions>? nodesModuleOptions = null,
         IInventoryOrchestrator? inventoryOrchestrator = null,
-        IRepoDiscoveryService? repoDiscoveryService = null)
+        IRepoDiscoveryService? repoDiscoveryService = null,
+        IProjectInventoryWriter? projectInventory = null)
     {
+        _projectInventory = projectInventory ?? new Infrastructure.Agent.Discovery.ProjectInventoryFileStore();
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _attachmentBinarySource = attachmentBinarySource;
         _fetchService = fetchService;
@@ -279,7 +282,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
                     }
                 }
 
-                await ProjectInventoryFile.MergeAsync(
+                await _projectInventory.MergeAsync(
                     context.Package, orgSlug, project,
                     orgUrl: orgUrl,
                     workItems: projectWorkItems,

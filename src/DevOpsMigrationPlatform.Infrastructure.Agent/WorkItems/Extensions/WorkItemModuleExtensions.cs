@@ -15,6 +15,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemType;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -41,6 +42,8 @@ public static class WorkItemModuleExtensions
         }
         workItemImportOptionsBuilder.ValidateOnStart();
 
+        // Canonical revision-reader port shared by the import-failure patterns (ADR-0023 / VS-H1).
+        services.TryAddSingleton<IWorkItemRevisionReader, Revisions.WorkItemsPrepareRevisionReader>();
         services.AddTransient<IImportFailurePattern, MissingRevisionArtefactImportFailurePattern>();
         services.AddTransient<IImportFailurePattern, InvalidRevisionPayloadImportFailurePattern>();
         services.AddTransient<IImportFailurePattern, MissingAttachmentBinaryImportFailurePattern>();

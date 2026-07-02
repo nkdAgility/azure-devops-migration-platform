@@ -4,8 +4,13 @@
 using System;
 using System.Collections.Generic;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
+namespace DevOpsMigrationPlatform.Abstractions.ProjectLifecycle;
 
+/// <summary>
+/// Canonical well-known process template identifiers shared by every connector
+/// (ADR-0023 / VS-H3). Connectors resolve process names against this contract
+/// instead of duplicating the mapping or reaching into another module.
+/// </summary>
 public static class KnownProcessIds
 {
     public const string Agile = "adcc42ab-9882-485e-a3ed-7678f01f66bc";

@@ -19,6 +19,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Agent.TfsExecution;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
@@ -52,12 +53,12 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     private readonly ITfsJobServiceFactory _tfsServiceFactory;
     private readonly ActiveTfsJobServices _activeTfsJobServices;
     private readonly ICurrentJobEndpointAccessor _endpointAccessor;
-    private readonly UnifiedWorkerEventWriter _eventWriter;
+    private readonly IWorkerEventWriter _eventWriter;
     private readonly ILogger<TfsJobAgentWorker> _logger;
     private readonly IPackageAccess _package;
 
     // Per-job TFS connection — set in OnBeforeModulesAsync, cleared in OnAfterModulesAsync.
-    private TfsJobServices? _currentTfsServices;
+    private ITfsJobServices? _currentTfsServices;
 
     // Package URI for the current job — set in OnBeforeModulesAsync, used in OnAfterModulesAsync.
     private string? _currentPackageUri;
@@ -77,7 +78,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         ITfsJobServiceFactory tfsServiceFactory,
         ActiveTfsJobServices activeTfsJobServices,
         ICurrentJobEndpointAccessor endpointAccessor,
-        UnifiedWorkerEventWriter eventWriter,
+        IWorkerEventWriter eventWriter,
         ILogger<TfsJobAgentWorker> logger,
         IPackageAccess? package)
         : base(progressSink, checkpointingFactory,
@@ -473,7 +474,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         }
 
         bool failed = false;
-        TfsJobServices? tfsServices = null;
+        ITfsJobServices? tfsServices = null;
         try
         {
             using var dataScope = DataClassificationScope.Begin(DataClassification.Customer);

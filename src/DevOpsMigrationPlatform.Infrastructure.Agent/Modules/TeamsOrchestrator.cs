@@ -17,6 +17,7 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 #if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
@@ -67,14 +68,18 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
     private readonly IReadOnlyList<IModuleExtension> _exportExtensions;
     private readonly IReadOnlyList<IModuleExtension> _importExtensions;
 
+    private readonly IProjectInventoryWriter _projectInventory;
+
     public TeamsOrchestrator(
         ILogger<TeamsOrchestrator> logger,
         IPlatformMetrics? PlatformMetrics = null,
         TeamExportOrchestrator? exportOrchestrator = null,
         TeamSlugGenerator? slugGenerator = null,
         IPackageAccess? package = null,
-        IEnumerable<IModuleExtension>? extensions = null)
+        IEnumerable<IModuleExtension>? extensions = null,
+        IProjectInventoryWriter? projectInventory = null)
     {
+        _projectInventory = projectInventory ?? new Discovery.ProjectInventoryFileStore();
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _PlatformMetrics = PlatformMetrics;
         _exportOrchestrator = exportOrchestrator;
@@ -98,8 +103,9 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         TeamImportOrchestrator? importOrchestrator = null,
         TeamSlugGenerator? slugGenerator = null,
         IPackageAccess? package = null,
-        IEnumerable<IModuleExtension>? extensions = null)
-        : this(logger, PlatformMetrics, exportOrchestrator, slugGenerator, package, extensions)
+        IEnumerable<IModuleExtension>? extensions = null,
+        IProjectInventoryWriter? projectInventory = null)
+        : this(logger, PlatformMetrics, exportOrchestrator, slugGenerator, package, extensions, projectInventory)
     {
         _importOrchestrator = importOrchestrator;
     }
@@ -142,7 +148,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
                 await foreach (var _ in teamSource.EnumerateTeamsAsync(project, ct).ConfigureAwait(false))
                     count++;
 
-                await ProjectInventoryFile.MergeAsync(
+                await _projectInventory.MergeAsync(
                     context.Package, orgSlug, project,
                     orgUrl: orgUrl,
                     teams: count, ct: ct).ConfigureAwait(false);
