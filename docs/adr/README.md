@@ -35,3 +35,4 @@ Each ADR records an important architectural decision: what was decided, why, wha
 | [0019](0019-workitems-extension-seam-and-staged-cursor-pipeline.md) | WorkItems extension seam and staged cursor pipeline | Accepted |
 | [0020](0020-unified-worker-event-channel.md) | Unified worker-event channel | Accepted — amends ADR-0006 and ADR-0010 |
 | [0021](0021-four-tier-validation-model.md) | Four-tier validation model | Accepted |
+| [0022](0022-host-composition-roots-own-storage-selection.md) | Host composition roots own storage selection; modules depend only on storage contracts | Accepted — executes MM-C1, MM-H1, CA-C2 |

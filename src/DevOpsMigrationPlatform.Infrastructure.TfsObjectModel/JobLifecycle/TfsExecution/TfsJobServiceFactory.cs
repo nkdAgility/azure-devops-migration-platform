@@ -36,7 +36,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.JobLifecycle.Tfs
 /// export or discovery job — connection, stores, revision source, attachment source, tree reader.
 /// Disposable: disposes the <see cref="TfsTeamProjectCollection"/> when the job ends.
 ///
-/// Structural twin of the registrations in <see cref="MigrationPlatformHost.CreateDefaultBuilder"/>
+/// Structural twin of the registrations in the TfsMigrationAgent host's
+/// <c>MigrationPlatformHost.CreateDefaultBuilder</c> (subprocess composition root, ADR-0022)
 /// but designed for the agent model where the TFS endpoint comes from the job, not from CLI args.
 /// </summary>
 public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable

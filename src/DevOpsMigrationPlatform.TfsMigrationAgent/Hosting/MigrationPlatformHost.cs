@@ -16,6 +16,11 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Storage;
+using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
+using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
+using DevOpsMigrationPlatform.Abstractions.Agent.Export;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Attachments;
@@ -37,11 +42,15 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.OpenTelemetry;
 
-namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.JobLifecycle.TfsExecution;
+namespace DevOpsMigrationPlatform.TfsMigrationAgent.Hosting;
 
 /// <summary>
 /// Builds the DI host for the TFS export subprocess.
 /// Registers all TFS-specific services plus the shared infrastructure layer.
+/// Lives in the TfsMigrationAgent host project (not in Infrastructure.TfsObjectModel)
+/// because host composition — logging sinks, OpenTelemetry exporters, and concrete
+/// storage-implementation selection — belongs to composition roots, never modules
+/// (ADR-0022: MM-H1, MM-C1).
 /// </summary>
 public static class MigrationPlatformHost
 {
