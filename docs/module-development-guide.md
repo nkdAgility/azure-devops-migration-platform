@@ -123,7 +123,7 @@ Orchestrator interfaces are declared in `DevOpsMigrationPlatform.Abstractions.Ag
 | Interface | Location | Purpose |
 |---|---|---|
 | `INodesOrchestrator` | `Abstractions.Agent/Modules/` | Classification-tree export, import, and validation |
-| `IIdentitiesOrchestrator` | `Abstractions.Agent/Modules/` | Identity descriptor export, import (lookup/resolution), and validation |
+| `IIdentitiesOrchestrator` | `Abstractions.Agent/Modules/` | Identity inventory (capture), descriptor export, import (lookup/resolution), and validation |
 | `ITeamsOrchestrator` | `Abstractions.Agent/Modules/` | Team export and validation on both runtimes; team import on net10.0 |
 | `IDependencyOrchestrator` | `Abstractions.Agent/Modules/` | Dependency analysis orchestration (`DependencyAnalyser`) |
 | `IInventoryOrchestrator` | `Abstractions.Agent/Discovery/` | Inventory collection orchestration (retained, now injected into `WorkItemsModule.CaptureAsync`) |
