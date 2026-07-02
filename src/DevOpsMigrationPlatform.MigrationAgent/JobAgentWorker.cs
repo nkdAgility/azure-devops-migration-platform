@@ -555,7 +555,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     await _package.ResetMetaAsync(new PackageMetaContext(PackageMetaKind.InventoryCompletionMarker), ct).ConfigureAwait(false);
                     _logger.LogDebug("Deleted inventory completion marker {Path}.", ".migration/inventory.complete.json");
                 }
-                catch (System.IO.FileNotFoundException)
+                catch (DevOpsMigrationPlatform.Abstractions.Storage.PackageMetaNotFoundException)
                 {
                     // Marker didn't exist — not an error.
                 }
@@ -566,7 +566,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     await _package.ResetMetaAsync(new PackageMetaContext(PackageMetaKind.ExecutionPlan), ct).ConfigureAwait(false);
                     _logger.LogDebug("Deleted plan file {Path}.", ".migration/plan.json");
                 }
-                catch (System.IO.FileNotFoundException)
+                catch (DevOpsMigrationPlatform.Abstractions.Storage.PackageMetaNotFoundException)
                 {
                     // Plan file didn't exist — not an error.
                 }
@@ -871,11 +871,11 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             }
 
             try { await _package.ResetMetaAsync(new PackageMetaContext(PackageMetaKind.InventoryCompletionMarker), ct).ConfigureAwait(false); }
-            catch (System.IO.FileNotFoundException) { /* not an error */ }
+            catch (DevOpsMigrationPlatform.Abstractions.Storage.PackageMetaNotFoundException) { /* not an error */ }
 
             // Delete persisted plan so a fresh one is built.
             try { await _package.ResetMetaAsync(new PackageMetaContext(PackageMetaKind.ExecutionPlan), ct).ConfigureAwait(false); }
-            catch (System.IO.FileNotFoundException) { /* not an error */ }
+            catch (DevOpsMigrationPlatform.Abstractions.Storage.PackageMetaNotFoundException) { /* not an error */ }
         }
 
         // Read migration-config.json from the package and extract discovery settings.

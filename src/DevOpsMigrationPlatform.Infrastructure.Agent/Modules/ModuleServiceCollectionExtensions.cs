@@ -95,6 +95,11 @@ public static class ModuleServiceCollectionExtensions
         services.AddSingleton<CommentsWorkItemExtension>(sp =>
             new CommentsWorkItemExtension(
                 sp.GetRequiredService<IOptions<CommentsExtensionOptions>>(),
+                // Connector capability declaration (ADR-0024/EC-H1). Fail-closed: hosts that
+                // register no connector capability provider get an explicit None declaration.
+                sp.GetService<IConnectorCapabilityProvider>()
+                    ?? new Infrastructure.Agent.ConnectorCapability.StaticConnectorCapabilityProvider(
+                        global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.None),
                 sp.GetService<IWorkItemCommentSourceFactory>(),
                 sp.GetService<Microsoft.Extensions.Logging.ILogger<CommentsWorkItemExtension>>()));
         services.AddSingleton<IModuleExtension>(sp => sp.GetRequiredService<CommentsWorkItemExtension>());

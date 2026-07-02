@@ -75,9 +75,10 @@ public class TeamExportCapacityTests
         // TeamCapacityTeamExtension — not to team.json.
         var Extensions = new DevOpsMigrationPlatform.Infrastructure.Agent.Teams.Extensions.TeamCapacityTeamExtension(
             Microsoft.Extensions.Options.Options.Create(new DevOpsMigrationPlatform.Abstractions.Agent.Teams.TeamCapacityExtensionOptions()),
+            TestUtilities.TestConnectorCapabilities.All,
             teamSource: CreateCapacityTeamSource(
                 new[] { new TeamCapacityEntry("desc-alice", "Alice", new[] { new ActivityEntry("Development", 6.0) }, 0) }).teamSource,
-            teamTarget: null,
+            teamTarget: new Mock<ITeamTarget>(MockBehavior.Loose).Object,
             logger: NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.Teams.Extensions.TeamCapacityTeamExtension>.Instance);
 
         var writtenPaths = new List<string>();

@@ -28,7 +28,8 @@ public class RevisionFolderProcessorFactoryTests
         var sut = new RevisionFolderProcessorFactory(
             NullLoggerFactory.Instance,
             package.Object,
-            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) });
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All) });
 
         var processor = sut.Create(
             target: Mock.Of<IWorkItemTarget>(),
@@ -56,7 +57,8 @@ public class RevisionFolderProcessorFactoryTests
         var sut = new RevisionFolderProcessorFactory(
             NullLoggerFactory.Instance,
             package.Object,
-            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All) },
             metrics: null,
             fieldTransformTool: null,
             nodeStructureTool: Mock.Of<INodeTranslationTool>(),

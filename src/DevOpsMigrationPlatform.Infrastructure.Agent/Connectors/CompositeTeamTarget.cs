@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
@@ -47,33 +46,33 @@ public sealed class CompositeTeamTarget : ITeamTarget
 
     /// <inheritdoc/>
     public Task<string> CreateOrUpdateTeamAsync(
-        MigrationEndpointOptions endpoint, string projectName, TeamDefinition team, CancellationToken ct)
-        => Resolve().CreateOrUpdateTeamAsync(endpoint, projectName, team, ct);
+        string projectName, TeamDefinition team, CancellationToken ct)
+        => Resolve().CreateOrUpdateTeamAsync(projectName, team, ct);
 
     /// <inheritdoc/>
     public Task SetTeamSettingsAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, TeamSettings settings, CancellationToken ct)
-        => Resolve().SetTeamSettingsAsync(endpoint, projectName, teamId, settings, ct);
+        string projectName, string teamId, TeamSettings settings, CancellationToken ct)
+        => Resolve().SetTeamSettingsAsync(projectName, teamId, settings, ct);
 
     /// <inheritdoc/>
     public Task AssignIterationAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, TeamIteration iteration, CancellationToken ct)
-        => Resolve().AssignIterationAsync(endpoint, projectName, teamId, iteration, ct);
+        string projectName, string teamId, TeamIteration iteration, CancellationToken ct)
+        => Resolve().AssignIterationAsync(projectName, teamId, iteration, ct);
 
     /// <inheritdoc/>
     public Task AddMemberAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, TeamMember member, CancellationToken ct)
-        => Resolve().AddMemberAsync(endpoint, projectName, teamId, member, ct);
+        string projectName, string teamId, TeamMember member, CancellationToken ct)
+        => Resolve().AddMemberAsync(projectName, teamId, member, ct);
 
     /// <inheritdoc/>
     public Task SetCapacityAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, string iterationId, TeamCapacityEntry[] capacity, CancellationToken ct)
-        => Resolve().SetCapacityAsync(endpoint, projectName, teamId, iterationId, capacity, ct);
+        string projectName, string teamId, string iterationId, TeamCapacityEntry[] capacity, CancellationToken ct)
+        => Resolve().SetCapacityAsync(projectName, teamId, iterationId, capacity, ct);
 
     /// <inheritdoc/>
     public Task SetAreaPathsAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, TeamAreaPaths areaPaths, CancellationToken ct)
-        => Resolve().SetAreaPathsAsync(endpoint, projectName, teamId, areaPaths, ct);
+        string projectName, string teamId, TeamAreaPaths areaPaths, CancellationToken ct)
+        => Resolve().SetAreaPathsAsync(projectName, teamId, areaPaths, ct);
 }
 
 /// <summary>Registration descriptor for a keyed <see cref="ITeamTarget"/>.</summary>

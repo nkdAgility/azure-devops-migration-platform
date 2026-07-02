@@ -134,22 +134,27 @@ public class TeamsModuleTests
         TeamExportOrchestrator? exportOrchestrator = null,
         TeamImportOrchestrator? importOrchestrator = null)
     {
+        // EC-M3: team settings are core Teams pipeline behaviour (no extension seam).
+        // EC-H1: extensions take non-nullable seams and gate on connector capability.
+        teamSource ??= new Mock<ITeamSource>(MockBehavior.Loose).Object;
+        teamTarget ??= new Mock<ITeamTarget>(MockBehavior.Loose).Object;
         var extensions = new IModuleExtension[]
         {
-            new TeamSettingsTeamExtension(
-                Options.Create(new TeamSettingsExtensionOptions { Enabled = true }),
-                teamSource, teamTarget),
             new TeamIterationsTeamExtension(
                 Options.Create(new TeamIterationsExtensionOptions { Enabled = true }),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
                 teamSource, teamTarget, nodeTranslationTool, referencedPathTracker),
             new TeamMembersTeamExtension(
                 Options.Create(new TeamMembersExtensionOptions { Enabled = true }),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
                 teamSource, teamTarget, identityTranslationTool),
             new TeamCapacityTeamExtension(
                 Options.Create(new TeamCapacityExtensionOptions { Enabled = true }),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
                 teamSource, teamTarget),
             new TeamAreaPathsTeamExtension(
                 Options.Create(new TeamAreaPathsExtensionOptions { Enabled = true }),
+                DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
                 teamTarget, nodeTranslationTool),
         };
         return CreateTeamsOrchestrator(package, exportOrchestrator, importOrchestrator, extensions);
@@ -230,9 +235,12 @@ public class TeamsModuleTests
         // Act
         await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
 
-        // Assert — two teams from SimulatedTeamSource → two team.json files
-        Assert.AreEqual(2, writtenPaths.Count, $"Expected 2 team files. Written: {string.Join(", ", writtenPaths)}");
-        Assert.IsTrue(writtenPaths.Exists(p => p.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase)));
+        // Assert — two teams from SimulatedTeamSource → two team.json files, and the core
+        // pipeline also writes settings.json per team (EC-M3 / ADR-0024).
+        Assert.AreEqual(2, writtenPaths.Count(p => p.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase)),
+            $"Expected 2 team files. Written: {string.Join(", ", writtenPaths)}");
+        Assert.AreEqual(2, writtenPaths.Count(p => p.EndsWith("/settings.json", StringComparison.OrdinalIgnoreCase)),
+            $"Expected 2 settings files (core pipeline). Written: {string.Join(", ", writtenPaths)}");
     }
 
     [TestCategory("CodeTest")]
@@ -264,9 +272,10 @@ public class TeamsModuleTests
         // Act
         await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
 
-        // Assert — only "Alpha Team" matches → 1 file
-        Assert.AreEqual(1, writtenPaths.Count, $"Expected 1 filtered team. Written: {string.Join(", ", writtenPaths)}");
-        Assert.IsTrue(writtenPaths[0].Contains("alpha-team", StringComparison.OrdinalIgnoreCase));
+        // Assert — only "Alpha Team" matches → 1 team.json (plus its core-pipeline settings.json)
+        Assert.AreEqual(1, writtenPaths.Count(p => p.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase)),
+            $"Expected 1 filtered team. Written: {string.Join(", ", writtenPaths)}");
+        Assert.IsTrue(writtenPaths.TrueForAll(p => p.Contains("alpha-team", StringComparison.OrdinalIgnoreCase)));
     }
 
     [TestCategory("CodeTest")]
@@ -332,7 +341,7 @@ public class TeamsModuleTests
         await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
 
         // Assert — both teams written despite artefacts already existing
-        Assert.AreEqual(2, writtenPaths.Count,
+        Assert.AreEqual(2, writtenPaths.Count(p => p.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase)),
             $"Expected 2 team writes with AlwaysExport=true. Written: {string.Join(", ", writtenPaths)}");
     }
 
@@ -363,7 +372,9 @@ public class TeamsModuleTests
 
         await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
 
-        var alphaEntry = writtenContent.FirstOrDefault(kv => kv.Key.Contains("alpha-team", StringComparison.OrdinalIgnoreCase));
+        var alphaEntry = writtenContent.FirstOrDefault(kv =>
+            kv.Key.Contains("alpha-team", StringComparison.OrdinalIgnoreCase) &&
+            kv.Key.EndsWith("team.json", StringComparison.OrdinalIgnoreCase));
         Assert.IsNotNull(alphaEntry.Value, "Expected alpha-team/team.json to be written.");
 
         using var doc = JsonDocument.Parse(alphaEntry.Value);
@@ -923,10 +934,10 @@ public class TeamsModuleTests
         // Arrange — target throws "not supported" from SetCapacityAsync
         var teamTarget = new Mock<ITeamTarget>(MockBehavior.Loose);
         teamTarget
-            .Setup(t => t.CreateOrUpdateTeamAsync(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>(), It.IsAny<TeamDefinition>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.CreateOrUpdateTeamAsync( It.IsAny<string>(), It.IsAny<TeamDefinition>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("target-alpha-team");
         teamTarget
-            .Setup(t => t.SetCapacityAsync(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TeamCapacityEntry[]>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.SetCapacityAsync( It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TeamCapacityEntry[]>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Capacity setting is not supported on this target."));
 
         var importOrch = new TeamImportOrchestrator(teamTarget.Object, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo());
@@ -959,8 +970,7 @@ public class TeamsModuleTests
         await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
 
         // Assert — SetCapacityAsync was attempted but no exception propagated
-        teamTarget.Verify(t => t.SetCapacityAsync(
-            It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>(), It.IsAny<string>(),
+        teamTarget.Verify(t => t.SetCapacityAsync( It.IsAny<string>(), It.IsAny<string>(),
             "sprint-1", It.IsAny<TeamCapacityEntry[]>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -1600,6 +1610,7 @@ public class TeamsModuleTests
         // Build the area paths extension with the logger mock so we can verify warnings
         var areaPathsExtension = new TeamAreaPathsTeamExtension(
             Options.Create(new TeamAreaPathsExtensionOptions { Enabled = true }),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
             target,
             translationToolMock.Object,
             loggerMock.Object);

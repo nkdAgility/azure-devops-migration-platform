@@ -186,7 +186,8 @@ public sealed class WorkItemsOrchestratorInventoryTests
             Mock.Of<IWorkItemsImportCapabilityValidator>(),
             Mock.Of<IWorkItemsNodeReadinessOrchestrator>(),
             targetEndpoint.Object,
-            new IModuleExtension[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
+            new IModuleExtension[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All) },
             inventoryOrchestrator: inventoryOrchestrator,
             repoDiscoveryService: null);
     }

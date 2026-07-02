@@ -156,7 +156,8 @@ internal static class WorkItemsModuleTestFactory
             targetEndpointInfo,
             commentsExtension != null
                 ? new IModuleExtension[] { commentsExtension }
-                : new IModuleExtension[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
+                : new IModuleExtension[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All) },
             workItemImportOptions,
             nodesModuleOptions,
             inventoryOrchestrator,

@@ -23,7 +23,7 @@ public class SimulatedTeamTargetTests
         var team = new TeamDefinition("src-id", "Alpha Team", "Desc", false);
 
         // Act
-        var returnedId = await target.CreateOrUpdateTeamAsync(new SimulatedEndpointOptions(), "Project", team, CancellationToken.None);
+        var returnedId = await target.CreateOrUpdateTeamAsync("Project", team, CancellationToken.None);
 
         // Assert
         Assert.IsFalse(string.IsNullOrEmpty(returnedId), "Returned ID should not be empty");
@@ -44,8 +44,8 @@ public class SimulatedTeamTargetTests
         var settings2 = new TeamSettings("Sprint 2", true, new[] { "Tuesday", "Thursday" });
 
         // Act
-        await target.SetTeamSettingsAsync(options, "Project", "team-1", settings1, CancellationToken.None);
-        await target.SetTeamSettingsAsync(options, "Project", "team-2", settings2, CancellationToken.None);
+        await target.SetTeamSettingsAsync("Project", "team-1", settings1, CancellationToken.None);
+        await target.SetTeamSettingsAsync("Project", "team-2", settings2, CancellationToken.None);
 
         // Assert — each team retains its own settings without overwriting the other
         Assert.AreEqual("Sprint 1", target.TeamSettings["team-1"].BacklogNavigationLevel,
@@ -66,8 +66,8 @@ public class SimulatedTeamTargetTests
         var it2 = new TeamIteration("iter-2", "ProjectA\\Sprint 2", "Sprint 2", null, null, false, false);
 
         // Act
-        await target.AssignIterationAsync(new SimulatedEndpointOptions(), "Project", "team-1", it1, CancellationToken.None);
-        await target.AssignIterationAsync(new SimulatedEndpointOptions(), "Project", "team-1", it2, CancellationToken.None);
+        await target.AssignIterationAsync("Project", "team-1", it1, CancellationToken.None);
+        await target.AssignIterationAsync("Project", "team-1", it2, CancellationToken.None);
 
         // Assert
         Assert.AreEqual(2, target.Iterations["team-1"].Count);
@@ -84,8 +84,8 @@ public class SimulatedTeamTargetTests
         var m2 = new TeamMember("descriptor-2", "User Two", "user2@test.com", true);
 
         // Act
-        await target.AddMemberAsync(new SimulatedEndpointOptions(), "Project", "team-1", m1, CancellationToken.None);
-        await target.AddMemberAsync(new SimulatedEndpointOptions(), "Project", "team-1", m2, CancellationToken.None);
+        await target.AddMemberAsync("Project", "team-1", m1, CancellationToken.None);
+        await target.AddMemberAsync("Project", "team-1", m2, CancellationToken.None);
 
         // Assert
         Assert.AreEqual(2, target.Members["team-1"].Count);
@@ -106,7 +106,7 @@ public class SimulatedTeamTargetTests
         };
 
         // Act
-        await target.SetCapacityAsync(new SimulatedEndpointOptions(), "Project", "team-1", "sprint-1", entries, CancellationToken.None);
+        await target.SetCapacityAsync("Project", "team-1", "sprint-1", entries, CancellationToken.None);
 
         // Assert
         var key = "team-1/sprint-1";
@@ -127,8 +127,8 @@ public class SimulatedTeamTargetTests
         var paths2 = new TeamAreaPaths("ProjectB", new[] { "ProjectB" });
 
         // Act
-        await target.SetAreaPathsAsync(options, "ProjectA", "team-1", paths1, CancellationToken.None);
-        await target.SetAreaPathsAsync(options, "ProjectB", "team-2", paths2, CancellationToken.None);
+        await target.SetAreaPathsAsync("ProjectA", "team-1", paths1, CancellationToken.None);
+        await target.SetAreaPathsAsync("ProjectB", "team-2", paths2, CancellationToken.None);
 
         // Assert — each team retains its own area paths without overwriting the other
         Assert.AreEqual("ProjectA", target.AreaPaths["team-1"].DefaultAreaPath,
@@ -151,9 +151,9 @@ public class SimulatedTeamTargetTests
         var target = new SimulatedTeamTarget();
 
         // Act
-        var id1 = await target.CreateOrUpdateTeamAsync(new SimulatedEndpointOptions(), "P", new TeamDefinition("s1", "Team Alpha", "d", true), CancellationToken.None);
-        var id2 = await target.CreateOrUpdateTeamAsync(new SimulatedEndpointOptions(), "P", new TeamDefinition("s2", "Team Beta", "d", false), CancellationToken.None);
-        var id3 = await target.CreateOrUpdateTeamAsync(new SimulatedEndpointOptions(), "P", new TeamDefinition("s3", "Team Gamma", "d", false), CancellationToken.None);
+        var id1 = await target.CreateOrUpdateTeamAsync("P", new TeamDefinition("s1", "Team Alpha", "d", true), CancellationToken.None);
+        var id2 = await target.CreateOrUpdateTeamAsync("P", new TeamDefinition("s2", "Team Beta", "d", false), CancellationToken.None);
+        var id3 = await target.CreateOrUpdateTeamAsync("P", new TeamDefinition("s3", "Team Gamma", "d", false), CancellationToken.None);
 
         // Assert
         Assert.AreEqual(3, target.Teams.Count, "All three teams should be stored");

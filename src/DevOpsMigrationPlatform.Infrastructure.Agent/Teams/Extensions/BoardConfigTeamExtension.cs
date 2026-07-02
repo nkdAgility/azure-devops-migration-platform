@@ -16,6 +16,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using Cap = DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
@@ -43,6 +44,7 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
     private readonly BoardConfigExtensionOptions _options;
     private readonly ITeamBoardAdapter _adapter;
     private readonly IConnectorCapabilityProvider _capProvider;
+    private readonly IBoardConfigMergeTool _mergeTool;
     private readonly IPlatformMetrics? _metrics;
     private readonly ILogger<BoardConfigTeamExtension>? _logger;
 
@@ -68,12 +70,14 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
         IOptions<BoardConfigExtensionOptions> options,
         ITeamBoardAdapter adapter,
         IConnectorCapabilityProvider capProvider,
+        IBoardConfigMergeTool mergeTool,
         IPlatformMetrics? metrics = null,
         ILogger<BoardConfigTeamExtension>? logger = null)
     {
         _options = (options ?? throw new ArgumentNullException(nameof(options))).Value;
         _adapter = adapter ?? throw new ArgumentNullException(nameof(adapter));
         _capProvider = capProvider ?? throw new ArgumentNullException(nameof(capProvider));
+        _mergeTool = mergeTool ?? throw new ArgumentNullException(nameof(mergeTool));
         _metrics = metrics;
         _logger = logger;
     }
@@ -316,13 +320,22 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
                     snapshot.BoardColumns.TryGetValue(board.BoardName, out var targetColumns);
                     targetColumns ??= [];
 
-                    var validStates = BuildValidStatesMap(targetColumns);
+                    var validStates = _mergeTool.BuildValidStatesMap(targetColumns);
 
                     var columns = _options.ImportMode == BoardConfigImportMode.Merge
-                        ? MergeByName(board.Columns, targetColumns, c => c.Name)
+                        ? _mergeTool.MergeByName(board.Columns, targetColumns, c => c.Name)
                         : board.Columns;
 
-                    columns = FilterInvalidStateMappings(columns, validStates, board.BoardName);
+                    // Engine validates (EC-M4); extension keeps the warning policy.
+                    var validation = _mergeTool.FilterInvalidStateMappings(columns, validStates);
+                    foreach (var omittedMapping in validation.OmittedMappings)
+                    {
+                        _logger?.LogWarning(
+                            "[BoardConfig] Board '{Board}' column '{Column}': omitting state mapping for " +
+                            "WIT '{Wit}' → state '{State}' — state absent in target process.",
+                            board.BoardName, omittedMapping.ColumnName, omittedMapping.WorkItemType, omittedMapping.State);
+                    }
+                    columns = validation.Columns;
 
                     await _adapter.UpdateBoardColumnsAsync(
                         ctx.ProjectName, targetId, board.BoardName, columns, ct).ConfigureAwait(false);
@@ -334,7 +347,7 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
                     targetLanes ??= [];
 
                     var lanes = _options.ImportMode == BoardConfigImportMode.Merge
-                        ? MergeByName(board.SwimLanes, targetLanes, l => l.Name)
+                        ? _mergeTool.MergeByName(board.SwimLanes, targetLanes, l => l.Name)
                         : board.SwimLanes;
                     await _adapter.UpdateSwimLanesAsync(
                         ctx.ProjectName, targetId, board.BoardName, lanes, ct).ConfigureAwait(false);
@@ -360,7 +373,7 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
             if (_options.ImportMode != BoardConfigImportMode.Skip || !taskboardAlreadyExists)
             {
                 var taskCols = _options.ImportMode == BoardConfigImportMode.Merge
-                    ? MergeByName(teamBoardConfig.TaskboardColumns, snapshot.TaskboardColumns, c => c.Name)
+                    ? _mergeTool.MergeByName(teamBoardConfig.TaskboardColumns, snapshot.TaskboardColumns, c => c.Name)
                     : teamBoardConfig.TaskboardColumns;
                 await _adapter.UpdateTaskboardColumnsAsync(
                     ctx.ProjectName, targetId, taskCols, ct).ConfigureAwait(false);
@@ -383,55 +396,6 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
         _metrics?.RecordBoardConfigImportDuration(importSw.Elapsed.TotalMilliseconds, completedTags);
     }
 
-    // Build a map of WIT type → set of valid state names from the current target columns.
-    private static Dictionary<string, HashSet<string>> BuildValidStatesMap(
-        IReadOnlyList<BoardColumn>? targetColumns)
-    {
-        var map = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
-        if (targetColumns is null) return map;
-        foreach (var col in targetColumns)
-        {
-            foreach (var m in col.StateMappings ?? [])
-            {
-                if (!map.TryGetValue(m.WorkItemType, out var states))
-                    map[m.WorkItemType] = states = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                states.Add(m.State);
-            }
-        }
-        return map;
-    }
-
-    // Omit state mappings referencing absent target states (FR-013); emit per-column warning.
-    private IReadOnlyList<BoardColumn> FilterInvalidStateMappings(
-        IReadOnlyList<BoardColumn> columns,
-        Dictionary<string, HashSet<string>> validStates,
-        string boardName)
-    {
-        if (validStates.Count == 0) return columns;
-
-        var result = new List<BoardColumn>(columns.Count);
-        foreach (var col in columns)
-        {
-            var filtered = new List<BoardColumnStateMapping>();
-            foreach (var m in col.StateMappings)
-            {
-                if (validStates.TryGetValue(m.WorkItemType, out var states) && states.Contains(m.State))
-                {
-                    filtered.Add(m);
-                }
-                else if (validStates.ContainsKey(m.WorkItemType))
-                {
-                    _logger?.LogWarning(
-                        "[BoardConfig] Board '{Board}' column '{Column}': omitting state mapping for " +
-                        "WIT '{Wit}' → state '{State}' — state absent in target process.",
-                        boardName, col.Name, m.WorkItemType, m.State);
-                }
-            }
-            result.Add(col with { StateMappings = filtered });
-        }
-        return result;
-    }
-
     // Aggregates all capability-gate checks for the export path into one place.
     private sealed record BoardConfigExportPlan(
         bool ExportColumns,
@@ -448,24 +412,4 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
             ExportTaskboardColumns: options.TaskboardColumns && caps.Has(Cap.TaskboardColumns));
     }
 
-    // Package items override target items with the same key; target-only items are appended.
-    private static IReadOnlyList<T> MergeByName<T>(
-        IReadOnlyList<T>? packageItems,
-        IReadOnlyList<T>? targetItems,
-        Func<T, string> keySelector)
-    {
-        if (packageItems is null or { Count: 0 } && targetItems is null or { Count: 0 })
-            return [];
-        if (targetItems is null or { Count: 0 }) return packageItems ?? [];
-        if (packageItems is null or { Count: 0 }) return targetItems;
-
-        var result = new List<T>(packageItems);
-        var packageKeys = new HashSet<string>(packageItems.Select(keySelector), StringComparer.OrdinalIgnoreCase);
-        foreach (var t in targetItems)
-        {
-            if (!packageKeys.Contains(keySelector(t)))
-                result.Add(t);
-        }
-        return result;
-    }
 }

@@ -63,6 +63,8 @@ public static class TeamsServiceCollectionExtensions
         // BoardConfig extension — own IOptions<BoardConfigExtensionOptions> bound from config.
         services.AddOptions<BoardConfigExtensionOptions>()
             .BindConfiguration(BoardConfigExtensionOptions.SectionName);
+        // Canonical board-config merge/validation engine (ADR-0024, EC-M4).
+        services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.Tools.IBoardConfigMergeTool, BoardConfigMergeTool>();
         services.AddSingleton<BoardConfigTeamExtension>();
         services.AddSingleton<IModuleExtension>(sp => sp.GetRequiredService<BoardConfigTeamExtension>());
 

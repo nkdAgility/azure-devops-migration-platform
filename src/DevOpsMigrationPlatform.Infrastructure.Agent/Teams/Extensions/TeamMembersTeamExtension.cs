@@ -10,6 +10,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent;
+using Cap = DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
@@ -38,21 +39,24 @@ public sealed class TeamMembersTeamExtension : IModuleExtension
     };
 
     private readonly TeamMembersExtensionOptions _options;
-    private readonly ITeamSource? _teamSource;
-    private readonly ITeamTarget? _teamTarget;
+    private readonly IConnectorCapabilityProvider _capProvider;
+    private readonly ITeamSource _teamSource;
+    private readonly ITeamTarget _teamTarget;
     private readonly IIdentityTranslationTool? _identityTranslationTool;
     private readonly ILogger<TeamMembersTeamExtension>? _logger;
 
     public TeamMembersTeamExtension(
         IOptions<TeamMembersExtensionOptions> options,
-        ITeamSource? teamSource = null,
-        ITeamTarget? teamTarget = null,
+        IConnectorCapabilityProvider capProvider,
+        ITeamSource teamSource,
+        ITeamTarget teamTarget,
         IIdentityTranslationTool? identityTranslationTool = null,
         ILogger<TeamMembersTeamExtension>? logger = null)
     {
         _options = (options ?? throw new ArgumentNullException(nameof(options))).Value;
-        _teamSource = teamSource;
-        _teamTarget = teamTarget;
+        _capProvider = capProvider ?? throw new ArgumentNullException(nameof(capProvider));
+        _teamSource = teamSource ?? throw new ArgumentNullException(nameof(teamSource));
+        _teamTarget = teamTarget ?? throw new ArgumentNullException(nameof(teamTarget));
         _identityTranslationTool = identityTranslationTool;
         _logger = logger;
     }
@@ -60,8 +64,8 @@ public sealed class TeamMembersTeamExtension : IModuleExtension
     public string Module => "Teams";
     public string Name => "TeamMembers";
     public int Order => 30;
-    public bool SupportsExport => _teamSource is not null;
-    public bool SupportsImport => _teamTarget is not null;
+    public bool SupportsExport => _capProvider.Has(Cap.TeamMembers);
+    public bool SupportsImport => _capProvider.Has(Cap.TeamMembers);
     public bool IsEnabled => _options.Enabled;
 
     public async Task ExportAsync(IExtensionContext context, CancellationToken ct)
@@ -69,11 +73,6 @@ public sealed class TeamMembersTeamExtension : IModuleExtension
         if (context is not TeamExtensionContext ctx)
             throw new ArgumentException($"Expected {nameof(TeamExtensionContext)}.", nameof(context));
 
-        if (_teamSource is null)
-        {
-            _logger?.LogDebug("[TeamMembers] No ITeamSource registered — skipping members export for team '{TeamName}'.", ctx.Team.Name);
-            return;
-        }
 
         var members = new List<TeamMember>();
         try
@@ -112,11 +111,6 @@ public sealed class TeamMembersTeamExtension : IModuleExtension
         if (context is not TeamExtensionContext ctx)
             throw new ArgumentException($"Expected {nameof(TeamExtensionContext)}.", nameof(context));
 
-        if (_teamTarget is null)
-        {
-            _logger?.LogDebug("[TeamMembers] No ITeamTarget registered — skipping members import for team '{TeamName}'.", ctx.Team.Name);
-            return;
-        }
 
         if (string.IsNullOrEmpty(ctx.TargetEntityId))
         {
@@ -186,7 +180,7 @@ public sealed class TeamMembersTeamExtension : IModuleExtension
                 }
 
                 var resolvedMember = member with { Descriptor = resolvedDescriptor };
-                await _teamTarget.AddMemberAsync(null!, ctx.ProjectName, ctx.TargetEntityId!, resolvedMember, ct).ConfigureAwait(false);
+                await _teamTarget.AddMemberAsync(ctx.ProjectName, ctx.TargetEntityId!, resolvedMember, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {

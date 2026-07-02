@@ -9,6 +9,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent;
+using Cap = DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
@@ -29,6 +30,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 public sealed class CommentsWorkItemExtension : IModuleExtension
 {
     private readonly CommentsExtensionOptions _options;
+    private readonly IConnectorCapabilityProvider _capProvider;
     private readonly IWorkItemCommentSourceFactory? _commentSourceFactory;
     private readonly ILogger<CommentsWorkItemExtension>? _logger;
 
@@ -46,10 +48,12 @@ public sealed class CommentsWorkItemExtension : IModuleExtension
 
     public CommentsWorkItemExtension(
         IOptions<CommentsExtensionOptions> options,
+        IConnectorCapabilityProvider capProvider,
         IWorkItemCommentSourceFactory? commentSourceFactory = null,
         ILogger<CommentsWorkItemExtension>? logger = null)
     {
         _options = (options ?? throw new ArgumentNullException(nameof(options))).Value;
+        _capProvider = capProvider ?? throw new ArgumentNullException(nameof(capProvider));
         _commentSourceFactory = commentSourceFactory;
         _logger = logger;
     }
@@ -57,7 +61,7 @@ public sealed class CommentsWorkItemExtension : IModuleExtension
     public string Module => "WorkItems";
     public string Name => "Comments";
     public int Order => 500;
-    public bool SupportsExport => _commentSourceFactory is not null && _options.Enabled;
+    public bool SupportsExport => _capProvider.Has(Cap.WorkItemComments) && _options.Enabled;
     public bool SupportsImport => true;
     public bool IsEnabled => _options.Enabled;
 
@@ -67,7 +71,8 @@ public sealed class CommentsWorkItemExtension : IModuleExtension
             throw new ArgumentException($"Expected {nameof(WorkItemRevisionExportContext)}.", nameof(context));
 
         if (_commentSourceFactory == null)
-            return;
+            throw new InvalidOperationException(
+                "Connector declares ConnectorCapability.WorkItemComments but no IWorkItemCommentSourceFactory is registered (EC-H1).");
 
         if (ctx.SourceEndpoint == null)
         {

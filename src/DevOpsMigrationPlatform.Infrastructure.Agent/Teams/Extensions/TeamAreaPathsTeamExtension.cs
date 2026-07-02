@@ -10,6 +10,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent;
+using Cap = DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
@@ -32,18 +33,21 @@ public sealed class TeamAreaPathsTeamExtension : IModuleExtension
     };
 
     private readonly TeamAreaPathsExtensionOptions _options;
-    private readonly ITeamTarget? _teamTarget;
+    private readonly IConnectorCapabilityProvider _capProvider;
+    private readonly ITeamTarget _teamTarget;
     private readonly INodeTranslationTool? _nodeTranslationTool;
     private readonly ILogger<TeamAreaPathsTeamExtension>? _logger;
 
     public TeamAreaPathsTeamExtension(
         IOptions<TeamAreaPathsExtensionOptions> options,
-        ITeamTarget? teamTarget = null,
+        IConnectorCapabilityProvider capProvider,
+        ITeamTarget teamTarget,
         INodeTranslationTool? nodeTranslationTool = null,
         ILogger<TeamAreaPathsTeamExtension>? logger = null)
     {
         _options = (options ?? throw new ArgumentNullException(nameof(options))).Value;
-        _teamTarget = teamTarget;
+        _capProvider = capProvider ?? throw new ArgumentNullException(nameof(capProvider));
+        _teamTarget = teamTarget ?? throw new ArgumentNullException(nameof(teamTarget));
         _nodeTranslationTool = nodeTranslationTool;
         _logger = logger;
     }
@@ -52,7 +56,7 @@ public sealed class TeamAreaPathsTeamExtension : IModuleExtension
     public string Name => "TeamAreaPaths";
     public int Order => 50;
     public bool SupportsExport => false;   // Area path recording is handled by TeamExportOrchestrator
-    public bool SupportsImport => _teamTarget is not null;
+    public bool SupportsImport => _capProvider.Has(Cap.TeamAreaPaths);
     public bool IsEnabled => _options.Enabled;
 
     public Task ExportAsync(IExtensionContext context, CancellationToken ct)
@@ -63,11 +67,6 @@ public sealed class TeamAreaPathsTeamExtension : IModuleExtension
         if (context is not TeamExtensionContext ctx)
             throw new ArgumentException($"Expected {nameof(TeamExtensionContext)}.", nameof(context));
 
-        if (_teamTarget is null)
-        {
-            _logger?.LogDebug("[TeamAreaPaths] No ITeamTarget registered — skipping area paths import for team '{TeamName}'.", ctx.Team.Name);
-            return;
-        }
 
         if (string.IsNullOrEmpty(ctx.TargetEntityId))
         {
@@ -140,7 +139,7 @@ public sealed class TeamAreaPathsTeamExtension : IModuleExtension
 
         try
         {
-            await _teamTarget.SetAreaPathsAsync(null!, ctx.ProjectName, ctx.TargetEntityId!, translatedAreaPaths, ct).ConfigureAwait(false);
+            await _teamTarget.SetAreaPathsAsync(ctx.ProjectName, ctx.TargetEntityId!, translatedAreaPaths, ct).ConfigureAwait(false);
             _logger?.LogInformation("[TeamAreaPaths] Imported area paths for team '{TeamName}'.", ctx.Team.Name);
         }
         catch (OperationCanceledException)

@@ -38,7 +38,8 @@ public sealed class WorkItemsOrchestratorExportTests
         var spy = new ExportFactorySpy();
 
         var disabledComments = new CommentsWorkItemExtension(
-            Options.Create(new CommentsExtensionOptions { Enabled = false }));
+            Options.Create(new CommentsExtensionOptions { Enabled = false }),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All);
 
         var orchestrator = WorkItemsModuleTestFactory.CreateOrchestrator(
             exportOrchestratorFactory: spy,

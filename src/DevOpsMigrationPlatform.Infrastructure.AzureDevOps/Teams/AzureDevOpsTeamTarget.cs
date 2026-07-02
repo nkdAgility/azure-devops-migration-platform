@@ -6,9 +6,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Abstractions.Options;
 using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.Extensions.Logging;
 using WorkContext = Microsoft.TeamFoundation.Core.WebApi.Types.TeamContext;
@@ -22,21 +22,24 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Teams;
 internal sealed class AzureDevOpsTeamTarget : ITeamTarget
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
+    private readonly ITargetEndpointInfo _targetEndpointInfo;
     private readonly ILogger<AzureDevOpsTeamTarget> _logger;
 
     public AzureDevOpsTeamTarget(
         IAzureDevOpsClientFactory clientFactory,
+        ITargetEndpointInfo targetEndpointInfo,
         ILogger<AzureDevOpsTeamTarget> logger)
     {
         _clientFactory = clientFactory ?? throw new ArgumentNullException(nameof(clientFactory));
+        _targetEndpointInfo = targetEndpointInfo ?? throw new ArgumentNullException(nameof(targetEndpointInfo));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <inheritdoc/>
     public async Task<string> CreateOrUpdateTeamAsync(
-        MigrationEndpointOptions endpoint, string projectName, TeamDefinition team, CancellationToken ct)
+        string projectName, TeamDefinition team, CancellationToken ct)
     {
-        var org = endpoint.ToOrganisationEndpoint();
+        var org = _targetEndpointInfo.ToOrganisationEndpoint();
         var teamClient = await _clientFactory.CreateTeamClientAsync(org, ct).ConfigureAwait(false);
 
         // FR-016: If the source team is the default team, map it to the target project's default team
@@ -91,9 +94,9 @@ internal sealed class AzureDevOpsTeamTarget : ITeamTarget
 
     /// <inheritdoc/>
     public async Task SetTeamSettingsAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, TeamSettings settings, CancellationToken ct)
+        string projectName, string teamId, TeamSettings settings, CancellationToken ct)
     {
-        var org = endpoint.ToOrganisationEndpoint();
+        var org = _targetEndpointInfo.ToOrganisationEndpoint();
         var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
         var teamContext = new WorkContext(projectName, teamId);
 
@@ -115,9 +118,9 @@ internal sealed class AzureDevOpsTeamTarget : ITeamTarget
 
     /// <inheritdoc/>
     public async Task AssignIterationAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, TeamIteration iteration, CancellationToken ct)
+        string projectName, string teamId, TeamIteration iteration, CancellationToken ct)
     {
-        var org = endpoint.ToOrganisationEndpoint();
+        var org = _targetEndpointInfo.ToOrganisationEndpoint();
         var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
         var teamContext = new WorkContext(projectName, teamId);
 
@@ -134,7 +137,7 @@ internal sealed class AzureDevOpsTeamTarget : ITeamTarget
 
     /// <inheritdoc/>
     public Task AddMemberAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, TeamMember member, CancellationToken ct)
+        string projectName, string teamId, TeamMember member, CancellationToken ct)
     {
         // Adding team members via REST API requires the entitlements API (user entitlement management),
         // which is a separate endpoint and requires additional permissions. Log a warning and skip.
@@ -148,9 +151,9 @@ internal sealed class AzureDevOpsTeamTarget : ITeamTarget
 
     /// <inheritdoc/>
     public async Task SetCapacityAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, string iterationId, TeamCapacityEntry[] capacity, CancellationToken ct)
+        string projectName, string teamId, string iterationId, TeamCapacityEntry[] capacity, CancellationToken ct)
     {
-        var org = endpoint.ToOrganisationEndpoint();
+        var org = _targetEndpointInfo.ToOrganisationEndpoint();
         var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
         var teamContext = new WorkContext(projectName, teamId);
 
@@ -180,9 +183,9 @@ internal sealed class AzureDevOpsTeamTarget : ITeamTarget
 
     /// <inheritdoc/>
     public async Task SetAreaPathsAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, TeamAreaPaths areaPaths, CancellationToken ct)
+        string projectName, string teamId, TeamAreaPaths areaPaths, CancellationToken ct)
     {
-        var org = endpoint.ToOrganisationEndpoint();
+        var org = _targetEndpointInfo.ToOrganisationEndpoint();
         var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
         var teamContext = new WorkContext(projectName, teamId);
 

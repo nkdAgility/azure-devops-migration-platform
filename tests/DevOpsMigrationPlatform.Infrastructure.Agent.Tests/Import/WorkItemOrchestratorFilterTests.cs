@@ -402,7 +402,8 @@ public class WorkItemOrchestratorFilterTests
             NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
-            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All) },
             package: _mockPackage.Object);
 
         var driver = new WorkItemRevisionLoopDriver(new WorkItemRevisionJobScope(
@@ -439,7 +440,8 @@ public class WorkItemOrchestratorFilterTests
             NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
-            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All) },
             package: _mockPackage.Object);
 
         return new WorkItemRevisionLoopDriver(

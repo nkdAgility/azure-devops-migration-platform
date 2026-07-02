@@ -56,6 +56,10 @@ internal sealed class AzureDevOpsBoardAdapter : ITeamBoardAdapter
         var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
         var teamContext = new WorkContext(project, teamId);
 
+        // PAGINATION EXEMPTION (ADR-0024, EC-M2): Boards - List (api-version 7.1,
+        // GET {org}/{project}/{team}/_apis/work/boards) exposes no $top/$skip/continuation
+        // parameters — the endpoint is genuinely unpaged and returns the full BoardReference[].
+        // See .agents/30-context/domains/connector-model.md → "Pagination Exemptions".
         // Transient failures (429/timeout/503) are retried via the shared resilience pipeline;
         // non-transient failures propagate to the caller instead of being swallowed as an empty result.
         var boardRefs = await _retryPipeline.ExecuteAsync(
@@ -128,6 +132,10 @@ internal sealed class AzureDevOpsBoardAdapter : ITeamBoardAdapter
         var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
         var teamContext = new WorkContext(project, teamId);
 
+        // PAGINATION EXEMPTION (ADR-0024, EC-M2): Backlogs - List (api-version 7.1,
+        // GET {org}/{project}/{team}/_apis/work/backlogs) exposes no paging parameters and
+        // returns the full BacklogLevelConfiguration[] (bounded by process backlog levels).
+        // See .agents/30-context/domains/connector-model.md → "Pagination Exemptions".
         List<Adob.BacklogLevelConfiguration> backlogs;
         try
         {
@@ -161,6 +169,9 @@ internal sealed class AzureDevOpsBoardAdapter : ITeamBoardAdapter
         var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
         var teamContext = new WorkContext(project, teamId);
 
+        // PAGINATION EXEMPTION (ADR-0024, EC-M2): Taskboard Columns is a single
+        // TaskboardColumns resource, not a paged collection — no paging parameters exist.
+        // See .agents/30-context/domains/connector-model.md → "Pagination Exemptions".
         AdoTask.TaskboardColumns? taskboard;
         try
         {

@@ -105,7 +105,8 @@ public class SkipUnresolvableContext
             TargetMock.Object, IdMapStoreMock.Object, CheckpointingMock.Object,
             IdentityMappingMock.Object, NullLogger<WorkItemResolutionProcessor>.Instance,
             Organisation, Project,
-            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All) },
             nodeStructureTool: tool, nodeStructureContext: context, nodeStructureOptions: opts,
             package: PackageMock.Object);
 

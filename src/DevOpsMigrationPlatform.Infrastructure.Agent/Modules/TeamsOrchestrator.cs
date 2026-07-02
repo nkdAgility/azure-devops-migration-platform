@@ -471,7 +471,11 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             try
             {
                 var targetTeamId = await _importOrchestrator.ImportTeamAsync(
-                    projectName, sourceProjectName, teamPackage, options.Extensions, ct).ConfigureAwait(false);
+                    projectName, sourceProjectName, teamPackage, options.Extensions,
+                    organisation: sourceOrganisation,
+                    slug: GetTeamSlug(teamPath),
+                    package: context.Package,
+                    ct).ConfigureAwait(false);
 
                 // Package upgrader (T101): if split artifact files are absent but team.json
                 // contains legacy embedded capability data, write the split files so that
