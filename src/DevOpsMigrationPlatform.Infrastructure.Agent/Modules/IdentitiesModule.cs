@@ -52,7 +52,14 @@ public sealed class IdentitiesModule : IModule
     public string Name => "Identities";
 
     /// <inheritdoc cref="IModule.Contract"/>
-    public IModuleContract Contract => new ModuleContract("Identities", [], [], []);
+    private static readonly IModuleContract IdentitiesContract = new ModuleContract(
+        moduleName: "Identities",
+        selection: [],
+        data: [new DataDefinition("Identities", Required: true)],
+        processing: [new ProcessingDefinition("DefaultIdentity", Required: false)]);
+
+    /// <inheritdoc cref="IModule.Contract"/>
+    public IModuleContract Contract => IdentitiesContract;
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
     public bool SupportsExport => true;
     public bool SupportsInventory => true;

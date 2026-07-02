@@ -57,7 +57,14 @@ public sealed class NodesModule : IModule
     public string Name => "Nodes";
 
     /// <inheritdoc cref="IModule.Contract"/>
-    public IModuleContract Contract => new ModuleContract("Nodes", [], [], []);
+    private static readonly IModuleContract NodesContract = new ModuleContract(
+        moduleName: "Nodes",
+        selection: [],
+        data: [new DataDefinition("ClassificationNodes", Required: true)],
+        processing: [new ProcessingDefinition("ReplicateSourceTree", Required: false)]);
+
+    /// <inheritdoc cref="IModule.Contract"/>
+    public IModuleContract Contract => NodesContract;
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
     public bool SupportsExport => true;
     public bool SupportsInventory => true;

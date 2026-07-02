@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using System.Collections.Generic;
+using System.Linq;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Modules.InventoryModules;
@@ -44,6 +45,29 @@ public class ModuleContractTests
             Assert.IsNotNull(contract.Processing);
         }
     }
+
+    [TestMethod]
+    [TestCategory("L0")]
+    public void ModuleContracts_HaveExpectedAnatomy()
+    {
+        var byName = ModuleContractTestData.CreateAllModules()
+            .ToDictionary(m => m.Contract.ModuleName, m => m.Contract);
+
+        CollectionAssert.AreEquivalent(
+            new[] { "WorkItems", "Teams", "Nodes", "Identities" }, byName.Keys.ToArray());
+
+        var teams = byName["Teams"];
+        CollectionAssert.AreEquivalent(new[] { "Scope", "Filter" }, teams.Selection.Select(s => s.Name).ToArray());
+        CollectionAssert.AreEquivalent(
+            new[] { "TeamSettings", "TeamIterations", "TeamMembers", "TeamCapacity" },
+            teams.Data.Select(d => d.Name).ToArray());
+        CollectionAssert.AreEquivalent(
+            new[] { "AlwaysExport", "NodeTranslation", "IdentityLookup" },
+            teams.Processing.Select(p => p.Name).ToArray());
+
+        CollectionAssert.AreEquivalent(new[] { "ReplicateSourceTree" }, byName["Nodes"].Processing.Select(p => p.Name).ToArray());
+        CollectionAssert.AreEquivalent(new[] { "DefaultIdentity" }, byName["Identities"].Processing.Select(p => p.Name).ToArray());
+    }
 }
 
 internal static class ModuleContractTestData
@@ -55,5 +79,8 @@ internal static class ModuleContractTestData
     internal static IEnumerable<IModule> CreateAllModules()
     {
         yield return InventoryModuleFactory.CreateWorkItemsModule(new Mock<IPackageAccess>());
+        yield return InventoryModuleFactory.CreateTeamsModule();
+        yield return InventoryModuleFactory.CreateNodesModule();
+        yield return InventoryModuleFactory.CreateIdentitiesModule();
     }
 }

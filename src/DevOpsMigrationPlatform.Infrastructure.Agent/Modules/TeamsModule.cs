@@ -64,7 +64,29 @@ public sealed class TeamsModule : IModule
     public string Name => "Teams";
 
     /// <inheritdoc cref="IModule.Contract"/>
-    public IModuleContract Contract => new ModuleContract("Teams", [], [], []);
+    private static readonly IModuleContract TeamsContract = new ModuleContract(
+        moduleName: "Teams",
+        selection:
+        [
+            new SelectionDefinition("Scope", Required: true),
+            new SelectionDefinition("Filter", Required: false)
+        ],
+        data:
+        [
+            new DataDefinition("TeamSettings", Required: false),
+            new DataDefinition("TeamIterations", Required: false),
+            new DataDefinition("TeamMembers", Required: false),
+            new DataDefinition("TeamCapacity", Required: false)
+        ],
+        processing:
+        [
+            new ProcessingDefinition("AlwaysExport", Required: false),
+            new ProcessingDefinition("NodeTranslation", Required: false),
+            new ProcessingDefinition("IdentityLookup", Required: false)
+        ]);
+
+    /// <inheritdoc cref="IModule.Contract"/>
+    public IModuleContract Contract => TeamsContract;
     public IReadOnlyList<ModuleDependency> DependsOn => new[]
     {
         new ModuleDependency(typeof(IdentitiesModule), DependencyPhase.Import),
