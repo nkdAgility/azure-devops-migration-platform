@@ -546,7 +546,7 @@ public sealed class WorkItemsModuleImportTests
 
         var moduleOptions = new WorkItemsModuleOptions
         {
-            Extensions = new WorkItemsExtensionsOptions
+            Data = new WorkItemsDataOptions
             {
                 Revisions = new EnabledExtensionOptions { Enabled = true },
                 EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig { Enabled = true, DownloadTimeoutSeconds = 30 }

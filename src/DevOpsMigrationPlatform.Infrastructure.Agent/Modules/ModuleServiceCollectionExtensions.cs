@@ -95,7 +95,7 @@ public static class ModuleServiceCollectionExtensions
         services.AddSchemaEntry<CommentsExtensionOptions>("Work item Comments extension (inline comment replay) configuration");
 #endif
         services.AddOptions<CommentsExtensionOptions>()
-            .Configure<IOptions<WorkItemsModuleOptions>>((o, wi) => o.Enabled = wi.Value.Extensions.Comments.Enabled);
+            .Configure<IOptions<WorkItemsModuleOptions>>((o, wi) => o.Enabled = wi.Value.Data.Comments.Enabled);
         services.AddSingleton<CommentsWorkItemExtension>(sp =>
             new CommentsWorkItemExtension(
                 sp.GetRequiredService<IOptions<CommentsExtensionOptions>>(),

@@ -6,11 +6,10 @@ using System.Collections.Generic;
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
-/// Selection scope for the WorkItems module.
-/// Contains a single WIQL query and a list of field-level filters.
-/// Bound from <c>MigrationPlatform:Modules:WorkItems:Scope</c>.
+/// Selection aspect for the WorkItems module — what to migrate.
+/// Bound from <c>MigrationPlatform:Modules:WorkItems:Selection</c>.
 /// </summary>
-public sealed class WorkItemsScopeOptions
+public sealed class WorkItemsSelectionOptions
 {
     /// <summary>
     /// WIQL query selecting work items to operate on.

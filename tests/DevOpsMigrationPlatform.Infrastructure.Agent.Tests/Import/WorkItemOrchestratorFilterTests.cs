@@ -327,7 +327,7 @@ public class WorkItemOrchestratorFilterTests
 
         var orchestrator = BuildOrchestrator(moduleOptions: new WorkItemsModuleOptions
         {
-            Extensions = new WorkItemsExtensionsOptions
+            Data = new WorkItemsDataOptions
             {
                 EmbeddedImages = new EmbeddedImagesExtensionOptionsConfig { Enabled = false }
             }

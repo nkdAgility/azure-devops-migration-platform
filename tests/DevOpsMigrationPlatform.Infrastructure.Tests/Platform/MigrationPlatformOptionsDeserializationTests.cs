@@ -59,10 +59,10 @@ public class MigrationPlatformOptionsDeserializationTests
               "modules": {
                 "workitems": {
                   "enabled": true,
-                  "scope": {
+                  "selection": {
                     "query": "SELECT [System.Id] FROM WorkItems"
                   },
-                  "extensions": {
+                  "data": {
                     "revisions": { "enabled": true }
                   }
                 }
@@ -75,8 +75,8 @@ public class MigrationPlatformOptionsDeserializationTests
     Assert.IsNotNull(opts);
     var wi = opts.Modules.WorkItems;
     Assert.IsTrue(wi.Enabled);
-    Assert.AreEqual("SELECT [System.Id] FROM WorkItems", wi.Scope.Query);
-    Assert.IsTrue(wi.Extensions.Revisions.Enabled);
+    Assert.AreEqual("SELECT [System.Id] FROM WorkItems", wi.Selection.Query);
+    Assert.IsTrue(wi.Data.Revisions.Enabled);
   }
 
   [TestCategory("CodeTest")]
@@ -91,13 +91,16 @@ public class MigrationPlatformOptionsDeserializationTests
               "artefacts": { "workingDirectory": "D:\\exports" },
               "modules": {
                 "workitems": {
-                  "scope": {
+                  "selection": {
                     "query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project"
                   },
-                  "extensions": {
+                  "data": {
                     "revisions": { "enabled": true },
                     "comments": { "enabled": true, "includeDeleted": true },
                     "embeddedImages": { "enabled": true, "downloadTimeoutSeconds": 45 }
+                  },
+                  "processing": {
+                    "workItemResolutionStrategy": { "enabled": true, "strategy": "TargetField", "fieldName": "Custom.ReflectedWorkItemId" }
                   }
                 }
               }
@@ -108,13 +111,14 @@ public class MigrationPlatformOptionsDeserializationTests
     var wi = opts.Modules.WorkItems;
 
     Assert.AreEqual("SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project",
-        wi.Scope.Query);
+        wi.Selection.Query);
 
-    Assert.IsTrue(wi.Extensions.Revisions.Enabled);
-    Assert.IsTrue(wi.Extensions.Comments.Enabled);
-    Assert.IsTrue(wi.Extensions.Comments.IncludeDeleted);
-    Assert.IsTrue(wi.Extensions.EmbeddedImages.Enabled);
-    Assert.AreEqual(45, wi.Extensions.EmbeddedImages.DownloadTimeoutSeconds);
+    Assert.IsTrue(wi.Data.Revisions.Enabled);
+    Assert.IsTrue(wi.Data.Comments.Enabled);
+    Assert.IsTrue(wi.Data.Comments.IncludeDeleted);
+    Assert.IsTrue(wi.Data.EmbeddedImages.Enabled);
+    Assert.AreEqual(45, wi.Data.EmbeddedImages.DownloadTimeoutSeconds);
+    Assert.AreEqual("TargetField", wi.Processing.WorkItemResolutionStrategy.Strategy);
   }
 
   [TestCategory("CodeTest")]

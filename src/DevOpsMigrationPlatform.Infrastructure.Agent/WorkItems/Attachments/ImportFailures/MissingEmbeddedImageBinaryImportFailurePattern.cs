@@ -28,7 +28,7 @@ internal sealed class MissingEmbeddedImageBinaryImportFailurePattern : IImportFa
         ImportFailurePatternContext context,
         CancellationToken cancellationToken)
     {
-        if (!context.WorkItemsOptions.Extensions.EmbeddedImages.Enabled)
+        if (!context.WorkItemsOptions.Data.EmbeddedImages.Enabled)
         {
             return [];
         }

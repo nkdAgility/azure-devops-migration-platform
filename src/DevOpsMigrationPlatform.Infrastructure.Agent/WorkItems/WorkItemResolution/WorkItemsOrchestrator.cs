@@ -524,9 +524,9 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
 
         _logger.LogInformation(
             "[WorkItems] Importing into {OrgUrl}/{Project} (revisions={Revisions}, links=always-on, attachments=always-on, comments={Comments})",
-            orgUrl, project, _options.Value.Extensions.Revisions.Enabled, _commentsExtension.IsEnabled);
+            orgUrl, project, _options.Value.Data.Revisions.Enabled, _commentsExtension.IsEnabled);
 
-        if (!_options.Value.Extensions.Revisions.Enabled)
+        if (!_options.Value.Data.Revisions.Enabled)
         {
             _logger.LogInformation("[WorkItems] Revisions disabled — import phase skipped.");
             return TaskExecutionResult.Skipped("Revisions disabled.");
@@ -712,7 +712,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
                     else
                         await WriteCompletedCursorAsync(scope, folderPath, ct).ConfigureAwait(false);
                 }
-                else if (_options.Value.Extensions.Revisions.Enabled)
+                else if (_options.Value.Data.Revisions.Enabled)
                 {
                     ParseRevisionFolder(folderName, out var wiId, out var revIdx);
 
@@ -1080,9 +1080,9 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
 
     private bool ComputeLeveredExtensionFlags()
     {
-        var moduleExt = _options.Value.Extensions;
+        var moduleData = _options.Value.Data;
         if (_workItemOptions is null)
-            return moduleExt.EmbeddedImages.Enabled;
+            return moduleData.EmbeddedImages.Enabled;
 
         var replayOptions = _workItemOptions.Value;
         var hasExplicitLeverConfig =
@@ -1093,9 +1093,9 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             replayOptions.FieldTransform;
 
         if (!hasExplicitLeverConfig)
-            return moduleExt.EmbeddedImages.Enabled;
+            return moduleData.EmbeddedImages.Enabled;
 
-        return moduleExt.EmbeddedImages.Enabled && (!replayOptions.RevisionReplay || replayOptions.EmbeddedImageReplay);
+        return moduleData.EmbeddedImages.Enabled && (!replayOptions.RevisionReplay || replayOptions.EmbeddedImageReplay);
     }
 
 
