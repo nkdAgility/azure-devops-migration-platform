@@ -32,7 +32,9 @@ public sealed class WorkItemsModule : IModule
     {
         new ModuleDependency(typeof(IdentitiesModule), DependencyPhase.Import),
         new ModuleDependency(typeof(NodesModule), DependencyPhase.Import),
-        new ModuleDependency(typeof(InventoryAnalyser), DependencyPhase.Import),
+        // MC-L2 (ADR-0027): analyser ordering is expressed through the dedicated
+        // Analyse-phase mechanism, not encoded as a module import dependency.
+        new ModuleDependency(typeof(InventoryAnalyser), DependencyPhase.Analyse),
     };
 
     public bool SupportsExport => true;

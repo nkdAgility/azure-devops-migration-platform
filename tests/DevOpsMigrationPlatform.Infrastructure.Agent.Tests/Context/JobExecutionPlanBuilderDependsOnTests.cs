@@ -101,7 +101,7 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         // Arrange shared prerequisites
         var workItemsModule = CreateModule("WorkItems", new[]
         {
-            new ModuleDependency(typeof(InventoryAnalyser), DependencyPhase.Import)
+            new ModuleDependency(typeof(InventoryAnalyser), DependencyPhase.Analyse)
         }, supportsInventory: true);
 
         var identitiesModule = CreateModule("Identities", Array.Empty<ModuleDependency>(), supportsInventory: true);
@@ -558,16 +558,42 @@ public sealed class JobExecutionPlanBuilderDependsOnTests
         return analyser.Object;
     }
 
-    // Fake module types for testing
-    private sealed class FakeIdentitiesModule { }
-    private sealed class FakeNodesModule { }
-    private sealed class FakeTeamsModule { }
-    private sealed class FakeWorkItemsModule { }
-    private sealed class FakeModuleA { }
-    private sealed class FakeModuleB { }
-    private sealed class FakeNonExistentModule { }
-    private sealed class FakeInventoryAnalyser { }
-    private sealed class FakeDependenciesAnalyser { }
+    // Fake module/analyser types for testing. ModuleDependency constrains targets to
+    // IModule (module phases) / IAnalyser (Analyse phase) — see ADR-0027 (MC-L2) —
+    // so the fakes implement the respective contracts. Names are always overridden
+    // via ModuleNameOverride, so the members are never invoked.
+    private abstract class FakeModuleBase : IModule
+    {
+        public string Name => GetType().Name;
+        public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
+        public bool SupportsExport => false;
+        public bool SupportsInventory => false;
+        public bool SupportsPrepare => false;
+        public bool SupportsImport => false;
+        public bool SupportsValidate => false;
+        public Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct) => throw new NotSupportedException();
+        public Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct) => throw new NotSupportedException();
+        public Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct) => throw new NotSupportedException();
+        public Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct) => throw new NotSupportedException();
+        public Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct) => throw new NotSupportedException();
+    }
+
+    private abstract class FakeAnalyserBase : IAnalyser
+    {
+        public string Name => GetType().Name;
+        public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
+        public Task<TaskExecutionResult> AnalyseAsync(AnalyseContext context, CancellationToken ct) => throw new NotSupportedException();
+    }
+
+    private sealed class FakeIdentitiesModule : FakeModuleBase { }
+    private sealed class FakeNodesModule : FakeModuleBase { }
+    private sealed class FakeTeamsModule : FakeModuleBase { }
+    private sealed class FakeWorkItemsModule : FakeModuleBase { }
+    private sealed class FakeModuleA : FakeModuleBase { }
+    private sealed class FakeModuleB : FakeModuleBase { }
+    private sealed class FakeNonExistentModule : FakeModuleBase { }
+    private sealed class FakeInventoryAnalyser : FakeAnalyserBase { }
+    private sealed class FakeDependenciesAnalyser : FakeAnalyserBase { }
 
     private sealed class CapturingLogger<T> : ILogger<T>
     {
