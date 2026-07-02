@@ -29,7 +29,7 @@ public interface ITargetEndpointInfo
     /// Used as a route segment in package content paths.
     /// </summary>
 #if !NET481
-    string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
+    string OrganisationSlug => OrganisationEndpointSlug.ExtractSlug(Url);
 #else
     string OrganisationSlug { get; }
 #endif

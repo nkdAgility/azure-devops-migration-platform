@@ -3,7 +3,7 @@
 
 using DevOpsMigrationPlatform.Abstractions;
 
-namespace DevOpsMigrationPlatform.ControlPlane.Models;
+namespace DevOpsMigrationPlatform.ControlPlane.Controllers;
 
 /// <summary>Response body returned when an agent successfully acquires a job lease.</summary>
 public sealed record AgentLeaseResponse(string LeaseId, Job Job);

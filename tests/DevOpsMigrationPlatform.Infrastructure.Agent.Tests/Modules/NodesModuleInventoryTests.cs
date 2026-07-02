@@ -103,7 +103,7 @@ public sealed class NodesModuleInventoryTests
                 NullLogger<NodesOrchestrator>.Instance,
                 Mock.Of<INodeTranslationTool>(),
                 Mock.Of<INodeCreator>(),
-                CreateNodeTranslationOptions()),
+                PlatformMetrics: metrics),
             metrics,
             capture: null,
             Mock.Of<ITargetEndpointInfo>(),
@@ -124,10 +124,4 @@ public sealed class NodesModuleInventoryTests
     private static bool HasTag(MetricsTagList tags, string key, string value)
         => tags.Any(t => t.Key == key && string.Equals(t.Value?.ToString(), value, System.StringComparison.Ordinal));
 
-    private static IOptionsMonitor<NodeTranslationOptions> CreateNodeTranslationOptions()
-    {
-        var options = new Mock<IOptionsMonitor<NodeTranslationOptions>>(MockBehavior.Loose);
-        options.SetupGet(o => o.CurrentValue).Returns(new NodeTranslationOptions());
-        return options.Object;
-    }
 }

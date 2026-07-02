@@ -330,7 +330,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         string ConnectorType,
         string? AccessToken) : ITargetEndpointInfo
     {
-        public string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
+        public string OrganisationSlug => OrganisationEndpointSlug.ExtractSlug(Url);
 
         public OrganisationEndpoint ToOrganisationEndpoint() => new OrganisationEndpoint
         {

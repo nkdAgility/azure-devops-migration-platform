@@ -69,7 +69,7 @@ internal sealed class InventoryOrchestrator : IInventoryOrchestrator
     /// Runs the inventory orchestration loop: consumes events, writes CSV/JSON,
     /// checkpoints, emits progress events and metrics.
     /// </summary>
-    public async Task RunAsync(
+    public async Task RunInventoryAsync(
         string moduleName,
         IAsyncEnumerable<InventoryProgressEvent> eventStream,
         InventoryContext context,

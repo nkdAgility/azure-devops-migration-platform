@@ -66,4 +66,18 @@ public sealed class MigrationPlatformOptions
 
     /// <summary>Organisations / collections to discover. Required when Mode is Inventory or Dependencies.</summary>
     public List<OrganisationEntry> Organisations { get; set; } = new();
+
+    /// <summary>
+    /// Returns only the organisations with <see cref="OrganisationEntry.Enabled"/> set to <c>true</c>.
+    /// Callers that act on organisations (discovery, inventory) should iterate this projection so the
+    /// enabled/disabled business rule is applied in one place rather than at each call site.
+    /// </summary>
+    public IEnumerable<OrganisationEntry> EnabledOrganisations()
+    {
+        foreach (var org in Organisations)
+        {
+            if (org.Enabled)
+                yield return org;
+        }
+    }
 }

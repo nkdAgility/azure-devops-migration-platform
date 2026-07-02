@@ -4,11 +4,11 @@
 using System;
 using DevOpsMigrationPlatform.Abstractions;
 
-namespace DevOpsMigrationPlatform.ControlPlane.Models;
+namespace DevOpsMigrationPlatform.ControlPlane.Jobs;
 
 /// <summary>
 /// Control-plane runtime wrapper around a <see cref="Job"/>.
-/// Pairs the immutable job definition with mutable runtime state tracked by <see cref="Services.JobStore"/>.
+/// Pairs the immutable job definition with mutable runtime state tracked by <see cref="JobStore"/>.
 /// </summary>
 public sealed record JobRecord(
     Job Job,

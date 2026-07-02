@@ -15,10 +15,21 @@ using DevOpsMigrationPlatform.Abstractions.Validation;
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 
 /// <summary>
-/// Orchestrates identity descriptor export, import (lookup/resolution), and validation.
+/// Orchestrates identity inventory (capture), descriptor export, import (lookup/resolution), and validation.
 /// </summary>
 public interface IIdentitiesOrchestrator
 {
+    /// <summary>
+    /// Inventory phase: enumerates identities from <paramref name="identitySource"/> (when
+    /// available) and merges the count into the project inventory file. Owns the enumeration
+    /// loop, progress events, and metrics — the module is a thin façade.
+    /// </summary>
+    Task<TaskExecutionResult> CaptureAsync(
+        IIdentitySource? identitySource,
+        InventoryContext context,
+        string fallbackOrgUrl,
+        CancellationToken ct);
+
     Task ExportAsync(
         IIdentitySource identitySource,
         ExportContext context,

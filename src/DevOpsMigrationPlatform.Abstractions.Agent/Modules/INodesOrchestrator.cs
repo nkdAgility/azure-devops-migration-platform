@@ -20,6 +20,28 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 /// </summary>
 public interface INodesOrchestrator
 {
+    /// <summary>
+    /// Inventory phase: counts classification nodes via <paramref name="reader"/> (when available)
+    /// and merges the count into the project inventory file. Owns the counting,
+    /// progress events, and metrics — the module is a thin façade.
+    /// </summary>
+    Task<TaskExecutionResult> CaptureAsync(
+        IClassificationTreeReader? reader,
+        InventoryContext context,
+        string fallbackOrgUrl,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Prepare phase: generates the Nodes <c>prepare-report.json</c>, records prepare metrics,
+    /// and persists the report into the package. Owns report generation and persistence —
+    /// the module is a thin façade.
+    /// </summary>
+    Task PrepareAsync(
+        PrepareContext context,
+        string organisation,
+        string project,
+        CancellationToken ct);
+
     Task ExportAsync(
         IClassificationTreeCapture capture,
         ExportContext context,

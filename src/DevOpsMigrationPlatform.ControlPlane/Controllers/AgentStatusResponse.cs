@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
-namespace DevOpsMigrationPlatform.ControlPlane.Models;
+namespace DevOpsMigrationPlatform.ControlPlane.Controllers;
 
 /// <summary>
 /// Response body for <c>GET /agents/{agentInstanceId}/status</c>.

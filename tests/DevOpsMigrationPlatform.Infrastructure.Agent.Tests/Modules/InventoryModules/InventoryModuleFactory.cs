@@ -53,7 +53,7 @@ internal static class InventoryModuleFactory
         // This simulates the real InventoryOrchestrator writing to the package.
         var orchestrator = new Mock<IInventoryOrchestrator>(MockBehavior.Strict);
         orchestrator
-            .Setup(o => o.RunAsync(
+            .Setup(o => o.RunInventoryAsync(
                 "WorkItems",
                 It.IsAny<IAsyncEnumerable<InventoryProgressEvent>>(),
                 It.IsAny<InventoryContext>(),
@@ -109,8 +109,7 @@ internal static class InventoryModuleFactory
             new NodesOrchestrator(
                 NullLogger<NodesOrchestrator>.Instance,
                 Mock.Of<INodeTranslationTool>(),
-                Mock.Of<INodeCreator>(),
-                CreateNodeTranslationOptions()),
+                Mock.Of<INodeCreator>()),
             PlatformMetrics: null,
             capture: null,
             targetEndpointInfo: Mock.Of<ITargetEndpointInfo>(),
@@ -148,7 +147,7 @@ internal static class InventoryModuleFactory
             Options.Create(new TeamsModuleOptions { Enabled = true }),
             sourceEndpoint.Object,
             targetEndpoint.Object,
-            Mock.Of<ITeamsOrchestrator>(),
+            new TeamsOrchestrator(NullLogger<TeamsOrchestrator>.Instance, importOrchestrator: null),
             PlatformMetrics: null,
             teamSource: teamSource.Object,
             teamTarget: Mock.Of<ITeamTarget>());
@@ -170,13 +169,6 @@ internal static class InventoryModuleFactory
         mock.SetupGet(s => s.Url).Returns(OrgUrl);
         mock.SetupGet(s => s.ConnectorType).Returns("Simulated");
         return mock;
-    }
-
-    private static IOptionsMonitor<NodeTranslationOptions> CreateNodeTranslationOptions()
-    {
-        var options = new Mock<IOptionsMonitor<NodeTranslationOptions>>(MockBehavior.Loose);
-        options.SetupGet(o => o.CurrentValue).Returns(new NodeTranslationOptions());
-        return options.Object;
     }
 
     private static async IAsyncEnumerable<ProjectDiscoverySummary> StubWorkItemSummaries()

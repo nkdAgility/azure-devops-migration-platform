@@ -57,14 +57,10 @@ public class NodesModuleTests
 
     private static NodesOrchestrator CreateRealOrchestrator(IPackageAccess? package = null)
     {
-        var opts = new NodeTranslationOptions { Enabled = true };
-        var optsMon = new Mock<IOptionsMonitor<NodeTranslationOptions>>();
-        optsMon.SetupGet(o => o.CurrentValue).Returns(opts);
         return new NodesOrchestrator(
             NullLogger<NodesOrchestrator>.Instance,
             Mock.Of<INodeTranslationTool>(),
             Mock.Of<INodeCreator>(),
-            optsMon.Object,
             package: package ?? PackageTestFactory.CreateLooseMock().Object);
     }
 

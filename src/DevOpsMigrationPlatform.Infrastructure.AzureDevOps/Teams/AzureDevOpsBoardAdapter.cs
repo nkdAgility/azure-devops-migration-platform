@@ -11,6 +11,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Platform.AzureDevOpsAccess;
 using Microsoft.Extensions.Logging;
+using Polly;
 using Adob = Microsoft.TeamFoundation.Work.WebApi;
 using AdoTask = Microsoft.TeamFoundation.Work.WebApi.Contracts.Taskboard;
 using WorkContext = Microsoft.TeamFoundation.Core.WebApi.Types.TeamContext;
@@ -27,6 +28,7 @@ internal sealed class AzureDevOpsBoardAdapter : ITeamBoardAdapter
     private readonly ISourceEndpointInfo _source;
     private readonly ITargetEndpointInfo _target;
     private readonly ILogger<AzureDevOpsBoardAdapter>? _logger;
+    private readonly IAsyncPolicy _retryPipeline;
 
     public AzureDevOpsBoardAdapter(
         IAzureDevOpsClientFactory clientFactory,
@@ -38,6 +40,7 @@ internal sealed class AzureDevOpsBoardAdapter : ITeamBoardAdapter
         _source = source ?? throw new ArgumentNullException(nameof(source));
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _logger = logger;
+        _retryPipeline = AzureDevOpsRetryPolicy.GetSdkRetryPolicy(logger);
     }
 
     // -------------------------------------------------------------------------
@@ -53,18 +56,11 @@ internal sealed class AzureDevOpsBoardAdapter : ITeamBoardAdapter
         var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
         var teamContext = new WorkContext(project, teamId);
 
-        List<Adob.BoardReference> boardRefs;
-        try
-        {
-            boardRefs = await workClient.GetBoardsAsync(teamContext, cancellationToken: ct)
-                .ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogWarning(ex,
-                "[BoardAdapter/ADO] Failed to enumerate boards for team '{TeamId}' — yielding none.", teamId);
-            yield break;
-        }
+        // Transient failures (429/timeout/503) are retried via the shared resilience pipeline;
+        // non-transient failures propagate to the caller instead of being swallowed as an empty result.
+        var boardRefs = await _retryPipeline.ExecuteAsync(
+                token => workClient.GetBoardsAsync(teamContext, cancellationToken: token), ct)
+            .ConfigureAwait(false);
 
         foreach (var boardRef in boardRefs)
         {
@@ -96,35 +92,31 @@ internal sealed class AzureDevOpsBoardAdapter : ITeamBoardAdapter
         var org = _source.ToOrganisationEndpoint();
         var workClient = await _clientFactory.CreateWorkClientAsync(org, ct).ConfigureAwait(false);
         var teamContext = new WorkContext(project, teamId);
-        try
-        {
-            var adoSettings = await workClient.GetBoardCardRuleSettingsAsync(
-                teamContext, boardName, cancellationToken: ct).ConfigureAwait(false);
 
-            if (adoSettings?.rules is null || adoSettings.rules.Count == 0)
-                return null;
+        // Transient failures (429/timeout/503) are retried via the shared resilience pipeline;
+        // non-transient failures propagate to the caller instead of being swallowed as null.
+        var adoSettings = await _retryPipeline.ExecuteAsync(
+                token => workClient.GetBoardCardRuleSettingsAsync(
+                    teamContext, boardName, cancellationToken: token), ct)
+            .ConfigureAwait(false);
 
-            var rules = new List<CardRule>();
-            if (adoSettings.rules.TryGetValue("fill", out var fillRules))
-            {
-                foreach (var r in fillRules ?? [])
-                {
-                    var color = r.settings?.TryGetValue("background-color", out var c) == true ? c : null;
-                    rules.Add(new CardRule(
-                        Name: r.name ?? string.Empty,
-                        Color: color,
-                        IsEnabled: string.Equals(r.isEnabled, "true", StringComparison.OrdinalIgnoreCase),
-                        Filter: r.filter ?? string.Empty));
-                }
-            }
-            return rules.Count == 0 ? null : new CardRuleSettings(rules);
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogWarning(ex,
-                "[BoardAdapter/ADO] Failed to get card rules for board '{Board}' — returning null.", boardName);
+        if (adoSettings?.rules is null || adoSettings.rules.Count == 0)
             return null;
+
+        var rules = new List<CardRule>();
+        if (adoSettings.rules.TryGetValue("fill", out var fillRules))
+        {
+            foreach (var r in fillRules ?? [])
+            {
+                var color = r.settings?.TryGetValue("background-color", out var c) == true ? c : null;
+                rules.Add(new CardRule(
+                    Name: r.name ?? string.Empty,
+                    Color: color,
+                    IsEnabled: string.Equals(r.isEnabled, "true", StringComparison.OrdinalIgnoreCase),
+                    Filter: r.filter ?? string.Empty));
+            }
         }
+        return rules.Count == 0 ? null : new CardRuleSettings(rules);
     }
 
     public async IAsyncEnumerable<BacklogMetadata> GetBacklogsAsync(

@@ -15,6 +15,7 @@ using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
+using DevOpsMigrationPlatform.CLI.Migration.Services;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.CLI.Views;
 using DevOpsMigrationPlatform.Infrastructure.Config;
@@ -311,7 +312,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         if (jobFailed) return 1;
 
-        if (localPackagePath is not null && TryGetBlockingPrepareFindings(localPackagePath, out var blockingFindings))
+        if (localPackagePath is not null && JobTaskSummaryService.TryGetBlockingPrepareFindings(localPackagePath, out var blockingFindings))
         {
             if (errorsJsonPath is not null)
             {
@@ -332,44 +333,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
 
         return 0;
-    }
-
-    private static bool TryGetBlockingPrepareFindings(string outputPath, out List<string> blockingFindings)
-    {
-        blockingFindings = [];
-
-        try
-        {
-            var prepareReportPath = Path.Combine(outputPath, "WorkItems", "prepare-report.json");
-            if (!File.Exists(prepareReportPath))
-                return false;
-
-            using var doc = JsonDocument.Parse(File.ReadAllText(prepareReportPath));
-            if (!doc.RootElement.TryGetProperty("ImportReadinessReport", out var readiness)
-                || readiness.ValueKind != JsonValueKind.Object
-                || !readiness.TryGetProperty("BlockingFindings", out var findings)
-                || findings.ValueKind != JsonValueKind.Array)
-            {
-                return false;
-            }
-
-            foreach (var finding in findings.EnumerateArray())
-            {
-                if (finding.TryGetProperty("Message", out var messageElement)
-                    && messageElement.ValueKind == JsonValueKind.String)
-                {
-                    var message = messageElement.GetString();
-                    if (!string.IsNullOrWhiteSpace(message))
-                        blockingFindings.Add(message!);
-                }
-            }
-
-            return blockingFindings.Count > 0;
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     private static async Task WriteErrorsJsonFromPrepareFindingsAsync(
@@ -1580,7 +1543,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         // task row IS its module progress bar. No separate checklist + divider.
         if (s.Tasks is { Tasks.Count: > 0 })
         {
-            var phases = GetOrderedTaskPhases(s.Tasks);
+            var phases = JobTaskSummaryService.GetOrderedTaskPhases(s.Tasks);
             if (phases.Count > 1)
                 return BuildMultiStageTaskDisplay(s, phases);
 
@@ -1616,7 +1579,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     /// </summary>
     private static IRenderable BuildMultiStageTaskDisplay(JobProgressState s, IReadOnlyList<string> phases)
     {
-        var currentPhase = DetermineCurrentTaskPhase(s, phases);
+        var currentPhase = JobTaskSummaryService.DetermineCurrentTaskPhase(s.Tasks!, s.Stage, phases);
         var rows = new System.Collections.Generic.List<IRenderable>
         {
             new Markup(BuildTaskStageStrip(phases, currentPhase)),
@@ -1641,13 +1604,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             : 0;
 
         var tasksToRender = s.Tasks!.Tasks
-            .Where(t => ShouldRenderTaskInPhase(s.Tasks!, t, phaseFilter))
+            .Where(t => JobTaskSummaryService.ShouldRenderTaskInPhase(s.Tasks!, t, phaseFilter))
             .OrderBy(t => t.Order)
             .ToList();
 
         foreach (var task in tasksToRender)
         {
-            var taskPhase = ResolveTaskPhase(s.Tasks!, task);
+            var taskPhase = JobTaskSummaryService.ResolveTaskPhase(s.Tasks!, task);
             if (showPhaseHeaders && !string.Equals(taskPhase, currentPhase, StringComparison.OrdinalIgnoreCase))
             {
                 currentPhase = taskPhase;
@@ -1760,7 +1723,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                                 : task.Status == JobTaskStatus.Running ? "blue" : "grey";
                     var exportedStr = s.Completed > 0 ? $"  [green]{s.Completed:N0} exported[/]" : string.Empty;
                     var skippedStr = s.Skipped > 0 ? $"  [grey]{s.Skipped:N0} skipped[/]" : string.Empty;
-                    var etaStr = ComputeRevisionEta(s.Revisions, estimatedTotalRevisions, s.AverageRevDurationMs);
+                    var etaStr = JobTaskSummaryService.ComputeRevisionEta(s.Revisions, estimatedTotalRevisions, s.AverageRevDurationMs);
                     countsSuffix = $"  [bold]{processed:N0}[/][grey]/{s.TotalWorkItems:N0}[/]{exportedStr}{skippedStr}"
                                  + $"  [grey]{wiPct * 100.0:F1}%[/]  [grey]ETA: {Markup.Escape(etaStr)}[/]";
                 }
@@ -1858,13 +1821,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     else
                         rows.Add(new Markup("     [grey]─[/]"));
 
-                    var completedDuration = TryGetTaskElapsed(task);
+                    var completedDuration = JobTaskSummaryService.TryGetTaskElapsed(task);
                     if (task.Status == JobTaskStatus.Completed && completedDuration.HasValue)
                         rows.Add(new Markup($"     [grey]duration:[/] [white]{Markup.Escape(FormatElapsed(completedDuration.Value))}[/]"));
                 }
                 else if (task.Status == JobTaskStatus.Completed)
                 {
-                    var completedDuration = TryGetTaskElapsed(task);
+                    var completedDuration = JobTaskSummaryService.TryGetTaskElapsed(task);
                     if (completedDuration.HasValue)
                         rows.Add(new Markup($"     [grey]duration:[/] [white]{Markup.Escape(FormatElapsed(completedDuration.Value))}[/]"));
                 }
@@ -1887,8 +1850,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             }
         }
 
-        var remainingTasks = s.Tasks.Tasks.Count(task => !IsTerminal(task.Status));
-        var overallEta = ComputeOverallTaskEta(s, estimatedTotalRevisions);
+        var remainingTasks = s.Tasks.Tasks.Count(task => !JobTaskSummaryService.IsTerminal(task.Status));
+        var overallEta = JobTaskSummaryService.ComputeOverallTaskEta(s.Tasks, s.Revisions, s.AverageRevDurationMs, estimatedTotalRevisions);
         rows.Add(new Markup("[grey]────────────────────────────────────────────────────────────────────────[/]"));
         rows.Add(new Markup(
             overallEta.HasValue
@@ -1896,94 +1859,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 : $"[bold]Remaining tasks:[/] {remainingTasks}  [bold]Overall ETA:[/] [grey]unknown[/]"));
 
         return rows.Count > 0 ? new Rows(rows) : new Markup("[grey]⠋ Running…[/]");
-    }
-
-    private static IReadOnlyList<string> GetOrderedTaskPhases(JobTaskList taskList)
-    {
-        if (taskList.Phases.Count > 0)
-        {
-            return taskList.Phases
-                .OrderBy(phase => phase.Order)
-                .Select(phase => phase.Name)
-                .ToList();
-        }
-
-        return taskList.Tasks
-            .Select(t => t.Phase)
-            .Where(phase => !string.IsNullOrWhiteSpace(phase))
-            .Select(phase => phase!)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-    private static string DetermineCurrentTaskPhase(JobProgressState s, IReadOnlyList<string> phases)
-    {
-        var runningPhase = s.Tasks!.Tasks
-            .Where(t => t.Status == JobTaskStatus.Running)
-            .Select(t => ResolveTaskPhase(s.Tasks!, t))
-            .Where(phase => !string.IsNullOrWhiteSpace(phase))
-            .FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(runningPhase))
-            return runningPhase;
-
-        var pendingPhase = s.Tasks.Tasks
-            .Where(t => t.Status == JobTaskStatus.Pending)
-            .Select(t => ResolveTaskPhase(s.Tasks!, t))
-            .Where(phase => !string.IsNullOrWhiteSpace(phase))
-            .FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(pendingPhase))
-            return pendingPhase;
-
-        if (!string.IsNullOrWhiteSpace(s.Stage))
-        {
-            var match = phases.FirstOrDefault(phase => s.Stage.Contains(phase, StringComparison.OrdinalIgnoreCase));
-            if (!string.IsNullOrWhiteSpace(match))
-                return match;
-        }
-
-        var terminalPhase = s.Tasks.Tasks
-            .Where(t => IsTerminal(t.Status))
-            .OrderBy(t => t.Order)
-            .Select(t => ResolveTaskPhase(s.Tasks!, t))
-            .Where(phase => !string.IsNullOrWhiteSpace(phase))
-            .LastOrDefault();
-        if (!string.IsNullOrWhiteSpace(terminalPhase))
-            return terminalPhase;
-
-        return phases[phases.Count - 1];
-    }
-
-    private static bool ShouldRenderTaskInPhase(JobTaskList taskList, JobTask task, string? phaseFilter)
-    {
-        if (string.IsNullOrWhiteSpace(phaseFilter))
-            return true;
-
-        if (taskList.Phases.Count > 0)
-        {
-            var phaseSummary = taskList.Phases
-                .FirstOrDefault(phase => string.Equals(phase.Name, phaseFilter, StringComparison.OrdinalIgnoreCase));
-            if (phaseSummary is not null)
-            {
-                return phaseSummary.TaskIds.Contains(task.Id, StringComparer.OrdinalIgnoreCase);
-            }
-        }
-
-        return string.Equals(ResolveTaskPhase(taskList, task), phaseFilter, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string ResolveTaskPhase(JobTaskList taskList, JobTask task)
-    {
-        if (taskList.Phases.Count > 0)
-        {
-            var phaseName = taskList.Phases
-                .OrderBy(phase => phase.Order)
-                .FirstOrDefault(phase => phase.TaskIds.Contains(task.Id, StringComparer.OrdinalIgnoreCase))
-                ?.Name;
-            if (!string.IsNullOrWhiteSpace(phaseName))
-                return phaseName!;
-        }
-
-        return task.Phase ?? task.TaskKind.ToString();
     }
 
     private static string BuildTaskStageStrip(IReadOnlyList<string> phases, string currentPhase)
@@ -2039,7 +1914,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var wiFilled = Math.Clamp((int)(wiPct * BarWidth), 0, BarWidth);
         var wiBar = new string('━', wiFilled) + new string('─', BarWidth - wiFilled);
         var stageStr = string.IsNullOrEmpty(stage) ? string.Empty : $"  [grey]{Markup.Escape(stage)}[/]";
-        var etaStr = ComputeRevisionEta(totalRevisions, estimatedTotalRevisions, avgRevDurationMs);
+        var etaStr = JobTaskSummaryService.ComputeRevisionEta(totalRevisions, estimatedTotalRevisions, avgRevDurationMs);
         var exportedStr = skipped > 0 ? $"  [green]{completed:N0} exported[/]" : string.Empty;
         var skippedStr = skipped > 0 ? $"  [grey]{skipped:N0} skipped[/]" : string.Empty;
         var wiRow = new Markup(
@@ -2236,102 +2111,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         return new Rows(dependenciesRow, nodesRow, teamsRow, identitiesRow, wiRow, revRow, timingRow, attachmentRow, checkpointRow);
     }
 
-    private static string ComputeRevisionEta(int revisionsWritten, int estimatedTotalRevisions, double avgRevDurationMs)
-    {
-        if (avgRevDurationMs <= 0 || estimatedTotalRevisions <= 0 || revisionsWritten <= 0)
-            return "--:--:--";
-        var remainingRevisions = Math.Max(0, estimatedTotalRevisions - revisionsWritten);
-        var remainingSecs = remainingRevisions * avgRevDurationMs / 1000.0;
-        var eta = TimeSpan.FromSeconds(remainingSecs);
-        return eta.TotalHours >= 1
-            ? $"{(int)eta.TotalHours}:{eta.Minutes:D2}:{eta.Seconds:D2}"
-            : $"--:{eta.Minutes:D2}:{eta.Seconds:D2}";
-    }
-
-    private static bool IsTerminal(JobTaskStatus status) =>
-        status is JobTaskStatus.Completed or JobTaskStatus.Failed or JobTaskStatus.Skipped;
-
-    private static TimeSpan? TryGetTaskElapsed(JobTask task)
-    {
-        if (!task.StartedAt.HasValue || !task.CompletedAt.HasValue)
-            return null;
-
-        var elapsed = task.CompletedAt.Value - task.StartedAt.Value;
-        return elapsed > TimeSpan.Zero ? elapsed : null;
-    }
-
-    private static TimeSpan? ComputeOverallTaskEta(JobProgressState state, int estimatedTotalRevisions)
-    {
-        if (state.Tasks is null)
-            return null;
-
-        var completedDurations = state.Tasks.Tasks
-            .Select(TryGetTaskElapsed)
-            .Where(duration => duration.HasValue)
-            .Select(duration => duration!.Value)
-            .ToArray();
-
-        var averageCompletedTaskDuration = completedDurations.Length > 0
-            ? TimeSpan.FromMilliseconds(completedDurations.Average(duration => duration.TotalMilliseconds))
-            : (TimeSpan?)null;
-
-        TimeSpan totalRemaining = TimeSpan.Zero;
-        var hasEstimate = false;
-
-        foreach (var task in state.Tasks.Tasks)
-        {
-            if (IsTerminal(task.Status))
-                continue;
-
-            if (task.Id.Contains("workitems", StringComparison.OrdinalIgnoreCase))
-            {
-                var workItemsEta = ComputeRemainingRevisionTime(state.Revisions, estimatedTotalRevisions, state.AverageRevDurationMs);
-                if (workItemsEta.HasValue)
-                {
-                    totalRemaining += workItemsEta.Value;
-                    hasEstimate = true;
-                    continue;
-                }
-            }
-
-            if (task.Status == JobTaskStatus.Running
-                && task.StartedAt.HasValue
-                && task.KnownTotal.HasValue
-                && task.KnownTotal.Value > 0
-                && task.CompletedCount.HasValue
-                && task.CompletedCount.Value > 0)
-            {
-                var elapsed = DateTimeOffset.UtcNow - task.StartedAt.Value;
-                var remainingCount = task.KnownTotal.Value - task.CompletedCount.Value;
-                if (remainingCount > 0)
-                {
-                    totalRemaining += TimeSpan.FromMilliseconds(elapsed.TotalMilliseconds / task.CompletedCount.Value * remainingCount);
-                    hasEstimate = true;
-                    continue;
-                }
-            }
-
-            if (averageCompletedTaskDuration.HasValue)
-            {
-                totalRemaining += averageCompletedTaskDuration.Value;
-                hasEstimate = true;
-            }
-        }
-
-        return hasEstimate ? totalRemaining : null;
-    }
-
-    private static TimeSpan? ComputeRemainingRevisionTime(int revisionsWritten, int estimatedTotalRevisions, double avgRevDurationMs)
-    {
-        if (avgRevDurationMs <= 0 || estimatedTotalRevisions <= 0 || revisionsWritten <= 0)
-            return null;
-
-        var remainingRevisions = Math.Max(0, estimatedTotalRevisions - revisionsWritten);
-        return remainingRevisions > 0
-            ? TimeSpan.FromMilliseconds(remainingRevisions * avgRevDurationMs)
-            : TimeSpan.Zero;
-    }
-
     private static string FormatEta(TimeSpan eta) =>
         eta.TotalHours >= 1
             ? $"{(int)eta.TotalHours}:{eta.Minutes:D2}:{eta.Seconds:D2}"
@@ -2357,11 +2136,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     // ── Discovery display helpers ─────────────────────────────────────────────────────────
 
     /// <summary>Extracts the module segment (parts[1]) from a task ID like <c>capture.workitems.orgslug.project</c>.</summary>
-    private static string GetDiscoveryTaskModule(string taskId)
-    {
-        var parts = taskId.Split('.');
-        return parts.Length >= 2 ? parts[1] : string.Empty;
-    }
+    private static string GetDiscoveryTaskModule(string taskId) =>
+        JobTaskSummaryService.GetDiscoveryTaskModule(taskId);
 
     /// <summary>Derives a short organisation label from a URL (last path segment or host).</summary>
     private static string DeriveDiscoveryOrgLabel(string orgUrl)

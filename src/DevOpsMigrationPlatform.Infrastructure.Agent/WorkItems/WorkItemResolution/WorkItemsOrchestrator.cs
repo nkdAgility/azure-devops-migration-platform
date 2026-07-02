@@ -234,7 +234,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
                     }
                 }
 
-                await _inventoryOrchestrator.RunAsync("WorkItems", BuildEventStream(), context, ct: ct).ConfigureAwait(false);
+                await _inventoryOrchestrator.RunInventoryAsync("WorkItems", BuildEventStream(), context, ct: ct).ConfigureAwait(false);
             }
             else
             {

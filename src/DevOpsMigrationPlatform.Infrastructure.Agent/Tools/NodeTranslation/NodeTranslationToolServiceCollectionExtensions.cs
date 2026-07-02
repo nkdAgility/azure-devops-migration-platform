@@ -48,13 +48,16 @@ public static class NodeTranslationToolServiceCollectionExtensions
                 state.Current?.GetSection(NodeTranslationOptions.SectionName).Bind(opts);
             });
 
-#if !NET481
-        services.AddSingleton<IValidateOptions<NodeTranslationOptions>, NodeTranslationOptionsValidator>();
+        // The tool itself is registered on all target frameworks — this is the single
+        // canonical registration site for INodeTranslationTool.
         services.AddSingleton<NodeTranslationTool>(sp => new NodeTranslationTool(
             sp.GetRequiredService<IOptions<NodeTranslationOptions>>(),
             sp.GetRequiredService<ILogger<NodeTranslationTool>>(),
             sp.GetService<IPlatformMetrics>()));
         services.AddSingleton<INodeTranslationTool>(sp => sp.GetRequiredService<NodeTranslationTool>());
+
+#if !NET481
+        services.AddSingleton<IValidateOptions<NodeTranslationOptions>, NodeTranslationOptionsValidator>();
         services.AddScoped<INodeTranslationValidator>(sp => new NodeTranslationValidator(
             sp.GetRequiredService<IOptions<NodeTranslationOptions>>(),
             sp.GetRequiredService<INodeTranslationTool>(),

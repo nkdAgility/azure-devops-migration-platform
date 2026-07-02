@@ -126,7 +126,7 @@ public sealed class TuiMetricsPanelDslTests
         using var cts = new CancellationTokenSource();
 
         // Act – run for just long enough to get 2 polls (immediate + after 1-second interval)
-        var task = poller.RunAsync(jobId, intervalSeconds: 1, cts.Token);
+        var task = poller.PollTelemetryAsync(jobId, intervalSeconds: 1, cts.Token);
         await Task.Delay(1500); // allow at least 2 polls
         cts.Cancel();
         try { await task; } catch (OperationCanceledException) { }

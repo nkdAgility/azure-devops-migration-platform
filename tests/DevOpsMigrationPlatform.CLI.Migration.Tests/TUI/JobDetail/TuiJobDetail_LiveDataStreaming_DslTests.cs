@@ -93,7 +93,7 @@ public sealed class TuiJobDetail_LiveDataStreaming_DslTests
         using var cts = new CancellationTokenSource();
 
         // Act — run for long enough to get at least 2 polls (immediate + 1-second interval).
-        var task = poller.RunAsync(jobId, intervalSeconds: 1, cts.Token);
+        var task = poller.PollTelemetryAsync(jobId, intervalSeconds: 1, cts.Token);
         await Task.Delay(1500).ConfigureAwait(false);
         cts.Cancel();
         try { await task; } catch (OperationCanceledException) { }

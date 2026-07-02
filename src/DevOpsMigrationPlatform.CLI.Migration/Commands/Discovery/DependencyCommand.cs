@@ -162,7 +162,9 @@ public sealed class DependencyCommand : CommandBase<DependencyCommandSettings>
         // Mode 2: explicit Organisations array (preferred for dependency commands)
         if (config.Organisations.Count > 0)
         {
-            foreach (var org in config.Organisations.Where(o => o.Enabled))
+            // Enabled filtering is applied by the config projection (EnabledOrganisations);
+            // the command iterates a pre-filtered collection.
+            foreach (var org in config.EnabledOrganisations())
             {
                 result.Add(new ScopedOrganisationEndpoint
                 {

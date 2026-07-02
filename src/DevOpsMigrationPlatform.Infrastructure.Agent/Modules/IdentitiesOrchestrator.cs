@@ -25,6 +25,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Validation;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 #if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 #endif
@@ -43,6 +44,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
     private const string ModuleName = "Identities";
 
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
+    private static readonly ActivitySource s_discoveryActivitySource = new(WellKnownActivitySourceNames.Discovery);
 
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
@@ -81,6 +83,92 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         _matchingStrategies = matchingStrategies is null
             ? Array.Empty<IIdentityMatchingStrategy>()
             : new List<IIdentityMatchingStrategy>(matchingStrategies);
+    }
+
+    /// <summary>
+    /// Inventory phase: enumerates identities and merges the count into the project
+    /// inventory file. Owns the enumeration loop, progress events, and metrics.
+    /// </summary>
+    public async Task<TaskExecutionResult> CaptureAsync(
+        IIdentitySource? identitySource,
+        InventoryContext context,
+        string fallbackOrgUrl,
+        CancellationToken ct)
+    {
+        using var activity = s_discoveryActivitySource.StartActivity("inventory.identities");
+        activity?.SetTag("job.id", context.Job.JobId);
+        activity?.SetTag("module", ModuleName);
+        activity?.SetTag("org", context.SourceEndpoint?.ResolvedUrl ?? string.Empty);
+        activity?.SetTag("project", context.Project);
+        _logger.LogInformation("Inventorying {Module}", ModuleName);
+
+        if (string.IsNullOrWhiteSpace(context.Project))
+        {
+            _logger.LogError("[Identities] CaptureAsync called with empty Project — executor contract violated. Skipping.");
+            return TaskExecutionResult.Skipped("CaptureAsync called with empty project.");
+        }
+
+        context.ProgressSink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Inventorying",
+            Message = $"Inventorying {ModuleName}",
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
+        var count = 0;
+        if (identitySource is not null)
+        {
+            var project = context.Project;
+            var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? fallbackOrgUrl;
+            var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
+
+            try
+            {
+                await foreach (var _ in identitySource.EnumerateIdentitiesAsync(project, ct).ConfigureAwait(false))
+                    count++;
+
+                await ProjectInventoryFile.MergeAsync(
+                    context.Package, orgSlug, project,
+                    orgUrl: orgUrl,
+                    identities: count, ct: ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+#if !NET481
+                using (_logger.BeginDataScope(DataClassification.Customer))
+#endif
+                _logger.LogWarning(ex, "Failed to enumerate identities for project {Project}; skipping.", project);
+            }
+        }
+
+        var tags = new MetricsTagList
+        {
+            { "job.id", context.Job.JobId },
+            { "module", ModuleName }
+        };
+        _PlatformMetrics?.RecordInventoryIdentities(count, tags);
+
+        _logger.LogInformation("Inventoried {Module}: {Count} items", ModuleName, count);
+        if (count == 0)
+            _logger.LogWarning("Zero items inventoried for {Module}", ModuleName);
+
+        context.ProgressSink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Inventoried",
+            Message = $"{ModuleName} inventory complete",
+            Timestamp = DateTimeOffset.UtcNow,
+            Metrics = new JobMetrics
+            {
+                Discovery = new DiscoveryCounters
+                {
+                    Inventory = new InventoryCounters { RevisionsTotal = count }
+                }
+            }
+        });
+
+        return TaskExecutionResult.Completed();
     }
 
     /// <summary>

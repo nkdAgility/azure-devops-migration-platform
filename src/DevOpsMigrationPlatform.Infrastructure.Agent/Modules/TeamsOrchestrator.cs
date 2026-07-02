@@ -31,6 +31,7 @@ using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using Microsoft.Extensions.Logging;
 
@@ -46,6 +47,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
     private const string ModuleName = "Teams";
 
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
+    private static readonly ActivitySource s_discoveryActivitySource = new(WellKnownActivitySourceNames.Discovery);
 
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
@@ -102,6 +104,102 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         _importOrchestrator = importOrchestrator;
     }
 #endif
+
+    /// <summary>
+    /// Inventory phase: enumerates teams and merges the count into the project
+    /// inventory file. Owns the enumeration loop, progress events, and metrics.
+    /// </summary>
+    public async Task<TaskExecutionResult> CaptureAsync(
+        ITeamSource? teamSource,
+        InventoryContext context,
+        string fallbackOrgUrl,
+        CancellationToken ct)
+    {
+        using var activity = s_discoveryActivitySource.StartActivity("inventory.teams");
+        activity?.SetTag("job.id", context.Job.JobId);
+        activity?.SetTag("module", ModuleName);
+        activity?.SetTag("org", context.SourceEndpoint?.ResolvedUrl ?? string.Empty);
+        activity?.SetTag("project", context.Project);
+
+        if (string.IsNullOrWhiteSpace(context.Project))
+        {
+            _logger.LogError("[Teams] CaptureAsync called with empty Project — executor contract violated. Skipping.");
+            return TaskExecutionResult.Skipped("CaptureAsync called with empty project.");
+        }
+
+        _logger.LogInformation("Inventorying {Module}", ModuleName);
+        context.ProgressSink?.Emit(new ProgressEvent { Module = ModuleName, Stage = "Inventorying", Message = $"Inventorying {ModuleName}", Timestamp = DateTimeOffset.UtcNow });
+
+        var count = 0;
+        if (teamSource is not null)
+        {
+            var project = context.Project;
+            var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? fallbackOrgUrl;
+            var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
+
+            try
+            {
+                await foreach (var _ in teamSource.EnumerateTeamsAsync(project, ct).ConfigureAwait(false))
+                    count++;
+
+                await ProjectInventoryFile.MergeAsync(
+                    context.Package, orgSlug, project,
+                    orgUrl: orgUrl,
+                    teams: count, ct: ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                using (_logger.BeginDataScope(DataClassification.Customer))
+                    _logger.LogWarning(ex, "Failed to enumerate teams for project {Project}; skipping.", project);
+            }
+        }
+
+        _PlatformMetrics?.RecordInventoryTeams(count, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", ModuleName } });
+        _logger.LogInformation("Inventoried {Module}: {Count} items", ModuleName, count);
+        if (count == 0)
+            _logger.LogWarning("Zero items inventoried for {Module}", ModuleName);
+
+        context.ProgressSink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Inventoried",
+            Message = $"{ModuleName} inventory complete",
+            Timestamp = DateTimeOffset.UtcNow,
+            Metrics = new JobMetrics
+            {
+                Discovery = new DiscoveryCounters
+                {
+                    Inventory = new InventoryCounters { RevisionsTotal = count }
+                }
+            }
+        });
+
+        return TaskExecutionResult.Completed();
+    }
+
+    /// <summary>
+    /// Prepare phase: generates the Teams prepare report, records prepare metrics, and
+    /// persists <c>prepare-report.json</c> into the package.
+    /// </summary>
+    public async Task PrepareAsync(
+        PrepareContext context,
+        string organisation,
+        string project,
+        CancellationToken ct)
+    {
+        var report = new PrepareReport { ModuleName = ModuleName, ResolvedCount = 0 };
+        _PlatformMetrics?.RecordPrepareTeamsResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", ModuleName } });
+        _PlatformMetrics?.RecordPrepareTeamsUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", ModuleName } });
+
+        using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(report)), writable: false))
+        {
+            await context.Package.PersistContentAsync(
+                new PackageContentContext(PackageContentKind.Artefact, Module: ModuleName, Organisation: organisation, Project: project, Address: new RelativePathAddress("prepare-report.json")),
+                new PackagePayload(stream, "application/json"),
+                ct).ConfigureAwait(false);
+        }
+        _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", ModuleName, report.ResolvedCount, report.UnresolvedCount, 0);
+    }
 
     /// <summary>
     /// Exports all teams from the source project: enumerates, filters, writes team.json files

@@ -10,7 +10,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
-using DevOpsMigrationPlatform.ControlPlane.Models;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.ControlPlane.Jobs;

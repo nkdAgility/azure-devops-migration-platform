@@ -93,7 +93,7 @@ public sealed class WorkItemsOrchestratorInventoryTests
         var inventoryOrchestrator = new Mock<IInventoryOrchestrator>(MockBehavior.Strict);
         var ran = false;
         inventoryOrchestrator
-            .Setup(o => o.RunAsync(
+            .Setup(o => o.RunInventoryAsync(
                 "WorkItems",
                 It.IsAny<IAsyncEnumerable<InventoryProgressEvent>>(),
                 It.IsAny<InventoryContext>(),

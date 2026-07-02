@@ -8,7 +8,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
-using DevOpsMigrationPlatform.ControlPlane.Models;
 using DevOpsMigrationPlatform.ControlPlane.Jobs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
