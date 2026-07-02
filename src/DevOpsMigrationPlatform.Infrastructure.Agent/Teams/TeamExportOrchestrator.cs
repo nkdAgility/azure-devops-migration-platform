@@ -70,7 +70,8 @@ public sealed class TeamExportOrchestrator
         TeamDefinition team,
         string slug,
         IPackageAccess package,
-        TeamsModuleExtensionsOptions extensions,
+        TeamsDataOptions data,
+        TeamsProcessingOptions processing,
         CancellationToken ct)
     {
         using var activity = s_activitySource.StartActivity("teams.export.team");
@@ -79,7 +80,7 @@ public sealed class TeamExportOrchestrator
 
         // Record area paths for NodeTranslation (still handled here for backward compat
         // when no TeamIterationsTeamExtension is registered)
-        if (extensions.NodeTranslation && _referencedPathTracker is not null)
+        if (processing.NodeTranslation && _referencedPathTracker is not null)
         {
             try
             {
@@ -109,7 +110,7 @@ public sealed class TeamExportOrchestrator
         // Core pipeline: export team settings (backlog levels, bug behaviour, working days)
         // to Teams/{slug}/settings.json. Folded from the former TeamSettingsTeamExtension
         // seam (EC-M3 / ADR-0024); artefact content is byte-for-byte identical.
-        if (extensions.TeamSettings)
+        if (data.TeamSettings)
         {
             await ExportTeamSettingsAsync(organisation, projectName, team, slug, package, ct).ConfigureAwait(false);
         }

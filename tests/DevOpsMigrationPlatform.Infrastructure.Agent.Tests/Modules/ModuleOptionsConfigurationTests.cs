@@ -67,8 +67,8 @@ public sealed class ModuleOptionsConfigurationTests
         var opts = sp.GetRequiredService<IOptions<TeamsModuleOptions>>().Value;
 
         // Assert — default values from property initialisers
-        Assert.AreEqual("all", opts.Scope);
-        Assert.AreEqual(string.Empty, opts.Filter);
+        Assert.AreEqual("all", opts.Selection.Scope);
+        Assert.AreEqual(string.Empty, opts.Selection.Filter);
     }
 
     [TestCategory("CodeTest")]
@@ -87,11 +87,11 @@ public sealed class ModuleOptionsConfigurationTests
         var opts = sp.GetRequiredService<IOptions<TeamsModuleOptions>>().Value;
 
         // Assert
-        Assert.IsTrue(opts.Extensions.TeamSettings);
-        Assert.IsTrue(opts.Extensions.NodeTranslation);
-        Assert.IsTrue(opts.Extensions.TeamIterations);
-        Assert.IsTrue(opts.Extensions.TeamMembers);
-        Assert.IsTrue(opts.Extensions.TeamCapacity);
+        Assert.IsTrue(opts.Data.TeamSettings);
+        Assert.IsTrue(opts.Processing.NodeTranslation);
+        Assert.IsTrue(opts.Data.TeamIterations);
+        Assert.IsTrue(opts.Data.TeamMembers);
+        Assert.IsTrue(opts.Data.TeamCapacity);
     }
 
     // TODO: [test-validity] Score 15/25 — Tests that Scope and Filter strings bind from config — partially
@@ -105,8 +105,8 @@ public sealed class ModuleOptionsConfigurationTests
         // Arrange
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["MigrationPlatform:Modules:Teams:Scope"] = "teams",
-            ["MigrationPlatform:Modules:Teams:Filter"] = "^Platform"
+            ["MigrationPlatform:Modules:Teams:Selection:Scope"] = "teams",
+            ["MigrationPlatform:Modules:Teams:Selection:Filter"] = "^Platform"
         });
         var services = new ServiceCollection();
         services.Configure<TeamsModuleOptions>(
@@ -117,8 +117,8 @@ public sealed class ModuleOptionsConfigurationTests
         var opts = sp.GetRequiredService<IOptions<TeamsModuleOptions>>().Value;
 
         // Assert
-        Assert.AreEqual("teams", opts.Scope);
-        Assert.AreEqual("^Platform", opts.Filter);
+        Assert.AreEqual("teams", opts.Selection.Scope);
+        Assert.AreEqual("^Platform", opts.Selection.Filter);
     }
 
     [TestCategory("CodeTest")]
@@ -129,8 +129,8 @@ public sealed class ModuleOptionsConfigurationTests
         // Arrange
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["MigrationPlatform:Modules:Teams:Extensions:TeamCapacity"] = "false",
-            ["MigrationPlatform:Modules:Teams:Extensions:NodeTranslation"] = "false"
+            ["MigrationPlatform:Modules:Teams:Data:TeamCapacity"] = "false",
+            ["MigrationPlatform:Modules:Teams:Processing:NodeTranslation"] = "false"
         });
         var services = new ServiceCollection();
         services.Configure<TeamsModuleOptions>(
@@ -141,9 +141,9 @@ public sealed class ModuleOptionsConfigurationTests
         var opts = sp.GetRequiredService<IOptions<TeamsModuleOptions>>().Value;
 
         // Assert
-        Assert.IsFalse(opts.Extensions.TeamCapacity);
-        Assert.IsFalse(opts.Extensions.NodeTranslation);
-        Assert.IsTrue(opts.Extensions.TeamIterations, "Other extensions should remain at their defaults.");
+        Assert.IsFalse(opts.Data.TeamCapacity);
+        Assert.IsFalse(opts.Processing.NodeTranslation);
+        Assert.IsTrue(opts.Data.TeamIterations, "Other extensions should remain at their defaults.");
     }
 
     // ─── NodesModuleOptions ──────────────────────────────────────────

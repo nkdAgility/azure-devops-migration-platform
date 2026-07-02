@@ -60,9 +60,9 @@ public sealed class TeamImportOrchestrator
         string projectName,
         string sourceProjectName,
         TeamPackage teamPackage,
-        TeamsModuleExtensionsOptions extensions,
+        TeamsDataOptions data,
         CancellationToken ct)
-        => ImportTeamAsync(projectName, sourceProjectName, teamPackage, extensions,
+        => ImportTeamAsync(projectName, sourceProjectName, teamPackage, data,
             organisation: null, slug: null, package: null, ct);
 
     /// <summary>
@@ -76,7 +76,7 @@ public sealed class TeamImportOrchestrator
         string projectName,
         string sourceProjectName,
         TeamPackage teamPackage,
-        TeamsModuleExtensionsOptions extensions,
+        TeamsDataOptions data,
         string? organisation,
         string? slug,
         DevOpsMigrationPlatform.Abstractions.Storage.IPackageAccess? package,
@@ -100,7 +100,7 @@ public sealed class TeamImportOrchestrator
             projectName, teamPackage.Definition, ct).ConfigureAwait(false);
 
         // Core pipeline: import team settings from Teams/{slug}/settings.json (EC-M3).
-        if (extensions.TeamSettings && package is not null && organisation is not null && slug is not null)
+        if (data.TeamSettings && package is not null && organisation is not null && slug is not null)
         {
             await ImportTeamSettingsAsync(
                 projectName, teamPackage.Definition.Name, organisation, sourceProjectName, slug,

@@ -98,7 +98,8 @@ public class TeamExtensionParityTests
             new TeamDefinition("team-1", "Alpha Team", string.Empty, true),
             "alpha-team",
             package.Object,
-            new DevOpsMigrationPlatform.Abstractions.Agent.Modules.TeamsModuleExtensionsOptions(),
+            new DevOpsMigrationPlatform.Abstractions.Agent.Modules.TeamsDataOptions(),
+            new DevOpsMigrationPlatform.Abstractions.Agent.Modules.TeamsProcessingOptions(),
             CancellationToken.None);
 
         var settingsPath = writtenPayloads.Keys.FirstOrDefault(p => p.EndsWith("settings.json"));

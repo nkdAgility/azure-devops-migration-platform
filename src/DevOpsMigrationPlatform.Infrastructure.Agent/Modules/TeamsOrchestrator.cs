@@ -592,10 +592,10 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         var checkpointing = checkpointingFactory?.Create(context.Package);
 
         Regex? filterRegex = null;
-        if (string.Equals(options.Scope, "teams", StringComparison.OrdinalIgnoreCase)
-            && !string.IsNullOrEmpty(options.Filter))
+        if (string.Equals(options.Selection.Scope, "teams", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrEmpty(options.Selection.Filter))
         {
-            filterRegex = new Regex(options.Filter, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+            filterRegex = new Regex(options.Selection.Filter, RegexOptions.IgnoreCase | RegexOptions.Compiled);
         }
 
         var count = 0;
@@ -605,14 +605,14 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             if (filterRegex is not null && !filterRegex.IsMatch(team.Name))
             {
                 _logger.LogDebug("[Teams] Skipping team '{Name}' — does not match filter '{Filter}'.",
-                    team.Name, options.Filter);
+                    team.Name, options.Selection.Filter);
                 continue;
             }
 
             var slug = _slugGenerator.GenerateSlug(team.Name);
             var artifactPath = $"Teams/{slug}/team.json";
 
-            if (!options.AlwaysExport
+            if (!options.Processing.AlwaysExport
                 && await TeamDefinitionExistsAsync(sourceEndpointInfo.OrganisationSlug, sourceEndpointInfo.Project, artifactPath, ct).ConfigureAwait(false))
             {
                 _logger.LogWarning("[Teams] Skipping already-exported team '{Name}' ({Path}) — use AlwaysExport: true to force re-export.",
@@ -631,7 +631,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             try
             {
                 await _exportOrchestrator.ExportTeamAsync(
-                    sourceEndpointInfo.OrganisationSlug, projectName, team, slug, _package!, options.Extensions, ct).ConfigureAwait(false);
+                    sourceEndpointInfo.OrganisationSlug, projectName, team, slug, _package!, options.Data, options.Processing, ct).ConfigureAwait(false);
 
                 // Dispatch enabled export extensions in order
                 if (_exportExtensions.Count > 0)
@@ -815,7 +815,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             try
             {
                 var targetTeamId = await _importOrchestrator.ImportTeamAsync(
-                    projectName, sourceProjectName, teamPackage, options.Extensions,
+                    projectName, sourceProjectName, teamPackage, options.Data,
                     organisation: sourceOrganisation,
                     slug: GetTeamSlug(teamPath),
                     package: context.Package,

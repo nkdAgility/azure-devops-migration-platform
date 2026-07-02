@@ -7,14 +7,21 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 
-/// <summary>Controls which extensions are enabled in the TeamsModule.</summary>
-public sealed class TeamsModuleExtensionsOptions
+/// <summary>Selection aspect for the TeamsModule — which teams to migrate.</summary>
+public sealed class TeamsSelectionOptions
+{
+    /// <summary>Scope type: <c>"all"</c> (default) or <c>"teams"</c> (apply <see cref="Filter"/>).</summary>
+    public string Scope { get; init; } = "all";
+
+    /// <summary>Optional case-insensitive regex filter applied to team names when Scope is <c>"teams"</c>.</summary>
+    public string Filter { get; init; } = string.Empty;
+}
+
+/// <summary>Data aspect for the TeamsModule — which team payloads to carry.</summary>
+public sealed class TeamsDataOptions
 {
     /// <summary>Export/import team settings (backlog level, bugs behaviour, working days).</summary>
     public bool TeamSettings { get; init; } = true;
-
-    /// <summary>Record team area/iteration paths into ReferencedPathTracker during export.</summary>
-    public bool NodeTranslation { get; init; } = true;
 
     /// <summary>Export/import team iteration assignments.</summary>
     public bool TeamIterations { get; init; } = true;
@@ -22,14 +29,24 @@ public sealed class TeamsModuleExtensionsOptions
     /// <summary>Export/import team members with admin flags.</summary>
     public bool TeamMembers { get; init; } = true;
 
-    /// <summary>Resolve team member identities via <c>IdentityTranslationTool</c>.</summary>
-    public bool IdentityLookup { get; init; } = true;
-
     /// <summary>Export/import per-member per-sprint capacity data.</summary>
     public bool TeamCapacity { get; init; } = true;
 }
 
-/// <summary>Options for the TeamsModule.</summary>
+/// <summary>Processing aspect for the TeamsModule — runtime behaviour policies.</summary>
+public sealed class TeamsProcessingOptions
+{
+    /// <summary>Force fresh export of every team even when its package artefact exists. Default: false (resumable).</summary>
+    public bool AlwaysExport { get; init; } = false;
+
+    /// <summary>Record team area/iteration paths into ReferencedPathTracker during export (NodeTranslation seam).</summary>
+    public bool NodeTranslation { get; init; } = true;
+
+    /// <summary>Resolve team member identities via <c>IdentityTranslationTool</c> (IdentityLookup seam).</summary>
+    public bool IdentityLookup { get; init; } = true;
+}
+
+/// <summary>Options for the TeamsModule (ConfigVersion 2.0 anatomy).</summary>
 #if NET7_0_OR_GREATER
 public sealed class TeamsModuleOptions : IConfigSection
 #else
@@ -42,27 +59,12 @@ public sealed class TeamsModuleOptions
     /// <summary>Whether the module is enabled.</summary>
     public bool Enabled { get; init; } = true;
 
-    /// <summary>
-    /// When <see langword="false"/> (default), a team whose <c>Teams/{slug}/team.json</c>
-    /// artefact already exists in the package is skipped on re-run — supporting
-    /// resumable exports without re-fetching from the source.
-    /// Set to <see langword="true"/> to force a fresh export of every team regardless
-    /// of whether its artefact is already present.
-    /// </summary>
-    public bool AlwaysExport { get; init; } = false;
+    /// <summary>Selection aspect: team scope and name filter.</summary>
+    public TeamsSelectionOptions Selection { get; init; } = new();
 
-    /// <summary>
-    /// Scope type: <c>"all"</c> (default) exports all teams;
-    /// <c>"teams"</c> exports only teams matching <see cref="Filter"/>.
-    /// </summary>
-    public string Scope { get; init; } = "all";
+    /// <summary>Data aspect: settings, iterations, members, capacity.</summary>
+    public TeamsDataOptions Data { get; init; } = new();
 
-    /// <summary>
-    /// Optional case-insensitive regex filter applied to team names when <see cref="Scope"/> is <c>"teams"</c>.
-    /// An empty string matches all teams.
-    /// </summary>
-    public string Filter { get; init; } = string.Empty;
-
-    /// <summary>Controls which extensions are active for this module.</summary>
-    public TeamsModuleExtensionsOptions Extensions { get; init; } = new();
+    /// <summary>Processing aspect: re-export, node translation, identity lookup.</summary>
+    public TeamsProcessingOptions Processing { get; init; } = new();
 }
