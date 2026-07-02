@@ -14,9 +14,9 @@ export const meta = {
     { title: 'Tools Compliance',      detail: 'Compliance: .agents/30-context/domains/module-model.md (Tools) + field-transform-contract.md' },
     { title: 'Triage',                detail: 'Classify every finding as Class A/B (auto-fix) or Class C (needs operator)' },
     { title: 'Report',                detail: 'Write analysis/archcheck/report.md and analysis/archcheck/triage.json' },
-    { title: 'Auto-Fix',              detail: 'Apply each Class A/B fix sequentially (execute mode only)' },
-    { title: 'Verify',                detail: 'dotnet build + dotnet test; revert and escalate any breaking fix (execute mode only)' },
-    { title: 'Commit',                detail: 'Commit all verified fixes in a single commit (execute mode only)' },
+    { title: 'Auto-Fix',              detail: 'Apply Class A/B fixes in batches of 5; each batch is build + unit-test verified (and reverted if red) before the next (execute mode only)' },
+    { title: 'Verify',                detail: 'Final full-suite gate: dotnet build + dotnet test; revert and escalate any breaking fix (execute mode only)' },
+    { title: 'Commit',                detail: 'Never commits — verified fixes are left uncommitted for operator review (execute mode only)' },
     { title: 'Final Report',          detail: 'Update report with fix outcomes and operator action checklist (execute mode only)' },
   ],
 }
@@ -24,7 +24,7 @@ export const meta = {
 // ---------------------------------------------------------------------------
 // Mode selection
 //   args = 'report'  — run checks, triage, write report + triage.json; stop
-//   args = 'execute' — read existing triage.json, apply fixes, verify, commit, update report
+//   args = 'execute' — read existing triage.json, apply fixes in verified batches, update report (never commits)
 //   args = anything else (or omitted) — run everything
 // ---------------------------------------------------------------------------
 const mode = typeof args === 'string' ? args.trim().toLowerCase() : 'both'
@@ -451,16 +451,38 @@ If the file does not exist, return empty arrays and set generatedAt to "missing"
 
   const fixResults = []
 
+  const BATCH_SIZE = 5
+
+  const BATCH_VERIFY_SCHEMA = {
+    type: 'object',
+    properties: {
+      buildStatus:  { type: 'string', enum: ['passed', 'failed'] },
+      testStatus:   { type: 'string', enum: ['passed', 'failed'] },
+      reverted:     { type: 'boolean' },
+      summary:      { type: 'string' },
+    },
+    required: ['buildStatus', 'testStatus', 'reverted', 'summary'],
+  }
+
   if (autoFixable.length === 0) {
     log('No auto-fixable items — nothing to apply.')
   } else {
-    log(`Applying ${autoFixable.length} auto-fixable items sequentially…`)
+    const batches = []
+    for (let i = 0; i < autoFixable.length; i += BATCH_SIZE)
+      batches.push(autoFixable.slice(i, i + BATCH_SIZE))
 
-    for (const item of autoFixable) {
-      log(`Fixing ${item.id}: ${item.title}`)
+    log(`Applying ${autoFixable.length} auto-fixable items in ${batches.length} batch(es) of up to ${BATCH_SIZE}; each batch is build+test verified before the next begins…`)
 
-      const fixResult = await agent(
-        `Apply this pre-triaged Class ${item.changeClass} architecture fix.
+    for (let b = 0; b < batches.length; b++) {
+      const batch = batches[b]
+      const batchResults = []
+      log(`── Batch ${b + 1}/${batches.length}: ${batch.map(i => i.id).join(', ')}`)
+
+      for (const item of batch) {
+        log(`Fixing ${item.id}: ${item.title}`)
+
+        const fixResult = await agent(
+          `Apply this pre-triaged Class ${item.changeClass} architecture fix.
 
 ID:          ${item.id}
 Title:       ${item.title}
@@ -477,28 +499,69 @@ Rules:
 4. Renames: update usages within the same project only unless the fix says otherwise.
 5. Class B: also update any doc/context file the fix identifies.
 6. If mid-fix you discover the change would alter a canonical surface contract, STOP and return status=skipped with a clear skipReason.
-7. Do NOT run dotnet build or tests.
-8. Do NOT commit.
+7. Test-first for behavioural changes: if this fix changes runtime behaviour (not just docs, comments, names, or dead code), update or add the covering test in the SAME fix so the test asserts the new behaviour — list those test files in filesModified.
+8. Do NOT run dotnet build or dotnet test yourself — the batch verifier does that after this batch.
+9. Do NOT commit or stage anything.
 
 Return: status (applied/skipped/failed), filesModified, summary.`,
-        { label: `fix:${item.id}`, phase: 'Auto-Fix', schema: FIX_SCHEMA }
+          { label: `fix:${item.id}`, phase: 'Auto-Fix', schema: FIX_SCHEMA }
+        )
+
+        const record = { ...item, fixResult }
+        fixResults.push(record)
+        batchResults.push(record)
+
+        const status = fixResult?.status ?? 'unknown'
+        if (status === 'applied') {
+          log(`✅ ${item.id} — applied (${(fixResult?.filesModified ?? []).join(', ') || 'no files listed'})`)
+        } else if (status === 'skipped') {
+          log(`⏭ ${item.id} — skipped: ${fixResult?.skipReason ?? 'no reason given'}`)
+          needsOperator.push({
+            ...item,
+            changeClass:      'C',
+            blockerReason:    `Escalated during auto-fix: ${fixResult?.skipReason ?? 'would alter canonical surface'}`,
+            requiredEvidence: ['Explicit operator consent', 'ADR add/update', 'Contract compatibility tests'],
+          })
+        } else {
+          log(`❌ ${item.id} — failed: ${fixResult?.summary ?? 'unknown error'}`)
+        }
+      }
+
+      const batchApplied = batchResults.filter(r => r.fixResult?.status === 'applied')
+      if (batchApplied.length === 0) {
+        log(`Batch ${b + 1}: nothing applied — skipping verification.`)
+        continue
+      }
+
+      const batchVerify = await agent(
+        `Verify the current batch of architecture fixes builds and passes tests. Fixes in this batch:
+${batchApplied.map(r => `  [${r.id}] ${r.title} — files: ${(r.fixResult?.filesModified ?? []).join(', ')}`).join('\n')}
+
+Steps:
+1. Run: dotnet build --no-restore (repo root). Capture errors.
+2. If build passes: dotnet test --no-build --filter "TestCategory=UnitTests"
+3. If build or tests fail:
+   a. Revert ONLY the files modified by this batch (git checkout -- <file> for each; git status to confirm — do NOT touch files modified by earlier batches or other pre-existing working-tree changes).
+   b. Re-run dotnet build --no-restore to confirm the revert restores green.
+   c. Return reverted=true with buildStatus/testStatus reflecting the ORIGINAL failure.
+4. If green: return reverted=false.
+Do NOT commit or stage anything.`,
+        { label: `verify:batch-${b + 1}`, phase: 'Auto-Fix', schema: BATCH_VERIFY_SCHEMA }
       )
 
-      fixResults.push({ ...item, fixResult })
-
-      const status = fixResult?.status ?? 'unknown'
-      if (status === 'applied') {
-        log(`✅ ${item.id} — applied (${(fixResult?.filesModified ?? []).join(', ') || 'no files listed'})`)
-      } else if (status === 'skipped') {
-        log(`⏭ ${item.id} — skipped: ${fixResult?.skipReason ?? 'no reason given'}`)
-        needsOperator.push({
-          ...item,
-          changeClass:      'C',
-          blockerReason:    `Escalated during auto-fix: ${fixResult?.skipReason ?? 'would alter canonical surface'}`,
-          requiredEvidence: ['Explicit operator consent', 'ADR add/update', 'Contract compatibility tests'],
-        })
+      if (batchVerify?.reverted) {
+        log(`❌ Batch ${b + 1} failed verification (build: ${batchVerify.buildStatus}, tests: ${batchVerify.testStatus}) — batch reverted and escalated.`)
+        for (const r of batchApplied) {
+          r.fixResult = { ...r.fixResult, status: 'failed' }
+          needsOperator.push({
+            ...r,
+            changeClass:      'C',
+            blockerReason:    `Batch reverted after build/test failure: ${batchVerify.summary}`,
+            requiredEvidence: ['Root cause investigation', 'Explicit operator consent', 'Test-first trace (RED→GREEN→REFACTOR)'],
+          })
+        }
       } else {
-        log(`❌ ${item.id} — failed: ${fixResult?.summary ?? 'unknown error'}`)
+        log(`✅ Batch ${b + 1} verified (build + unit tests green).`)
       }
     }
   }
@@ -538,16 +601,18 @@ Applied fix IDs: ${applied.map(r => r.id).join(', ')}
 Modified files:
 ${applied.flatMap(r => r.fixResult?.filesModified ?? []).join('\n')}
 
+Each batch of fixes was already build + unit-test verified when it was applied; this
+is the final full-suite gate across all batches combined.
+
 Steps:
-1. Run: dotnet build (repo root). Capture errors.
-2. If build passes: dotnet test --filter "TestCategory=UnitTest"
-3. If unit tests pass: dotnet test (full suite)
-4. If build or tests fail:
-   a. Identify which fix(es) caused the failure.
-   b. For each breaking fix: use git diff to understand the change, then restore the original file content.
+1. Run: dotnet build --no-restore (repo root). Capture errors.
+2. If build passes: dotnet test --no-build (full suite).
+3. If build or tests fail:
+   a. Identify which fix(es) caused the failure (git diff the modified files).
+   b. For each breaking fix: restore the original file content (git checkout -- <file>) — touch ONLY files listed above, never other working-tree changes.
    c. Record the reverted fix IDs in revertedFixes.
-   d. Re-run build to confirm the revert resolved the failure.
-5. Return final build/test status.`,
+   d. Re-run build (and the failing tests) to confirm the revert restored green.
+4. Return final build/test status. Do NOT commit or stage anything.`,
       { label: 'verify:post-fix', phase: 'Verify', schema: VERIFY_SCHEMA }
     )
 
@@ -585,33 +650,13 @@ Steps:
       requiredEvidence: ['Root cause investigation', 'Explicit operator consent', 'Test-first trace (RED→GREEN→REFACTOR)'],
     })))
   } else if (verificationPassed && finalApplied.length > 0) {
-    await agent(
-      `Commit all verified architecture fixes as a single git commit.
-
-Applied fix IDs: ${finalApplied.map(r => r.id).join(', ')}
-Fixes:
-${finalApplied.map(r => `  [${r.id}] ${r.title}`).join('\n')}
-
-Modified files (stage these):
-${finalApplied.flatMap(r => r.fixResult?.filesModified ?? []).join('\n')}
-
-Steps:
-1. Stage every modified file listed above with git add.
-2. Commit with this exact message format:
-   fix(arch): auto-apply ${finalApplied.length} architecture fixes
-
-   Applied by nkda-archcheck-workflow. Class A/B changes only.
-   No operator consent required per .agents/10-contracts/change-governance.md.
-
-   Fixes:
-${finalApplied.map(r => `   - [${r.id}] ${r.title}`).join('\n')}
-3. Do NOT push.
-4. Return the commit SHA.`,
-      { label: 'commit:auto-fixes', phase: 'Commit' }
-    )
-    log(`Committed ${finalApplied.length} auto-fixes.`)
+    // Operator policy: the workflow never commits. Verified fixes are left
+    // uncommitted in the working tree for operator review and commit.
+    log(`✅ ${finalApplied.length} verified auto-fixes left uncommitted in the working tree for operator review:`)
+    for (const r of finalApplied)
+      log(`   [${r.id}] ${r.title}`)
   } else {
-    log('No fixes to commit.')
+    log('No fixes applied.')
   }
 
   // ── Step 16 — Final report ────────────────────────────────────────────

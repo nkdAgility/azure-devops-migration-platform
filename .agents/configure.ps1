@@ -211,21 +211,39 @@ foreach ($stub in $stubs) {
     }
 }
 
-# -- .claude symlinks --------------------------------------------------------
-Write-Host ""
-Write-Host ".claude/ symlinks:" -ForegroundColor White
-Ensure-Symlink '.claude\skills'   '..\.agents\skills'
-Ensure-Symlink '.claude\agents'   '..\.agents\agents'
-Ensure-Symlink '.claude\commands' '..\.agents\commands'
-Ensure-Symlink '.claude\prompts'  '..\.agents\prompts'
-Ensure-Symlink '.claude\workflows'  '..\.agents\workflows'
+if (-not $HardLinksOnly) {
+    # -- .claude symlinks ----------------------------------------------------
+    Write-Host ""
+    Write-Host ".claude/ symlinks:" -ForegroundColor White
+    Ensure-Symlink '.claude\skills'   '..\.agents\skills'
+    Ensure-Symlink '.claude\agents'   '..\.agents\agents'
+    Ensure-Symlink '.claude\commands' '..\.agents\commands'
+    Ensure-Symlink '.claude\prompts'  '..\.agents\prompts'
+    Ensure-Symlink '.claude\workflows'  '..\.agents\workflows'
 
-# -- .github symlinks --------------------------------------------------------
-Write-Host ""
-Write-Host ".github/ symlinks:" -ForegroundColor White
-Ensure-Symlink '.github\agents'  '..\.agents\agents'
-Ensure-Symlink '.github\prompts' '..\.agents\prompts'
+    # -- .github symlinks ----------------------------------------------------
+    Write-Host ""
+    Write-Host ".github/ symlinks:" -ForegroundColor White
+    Ensure-Symlink '.github\agents'  '..\.agents\agents'
+    Ensure-Symlink '.github\prompts' '..\.agents\prompts'
+}
 
-Write-Host ""
-Write-Host "Done." -ForegroundColor Green
-Write-Host ""
+# -- Git hooks (self-maintaining links) ---------------------------------------
+# post-checkout / post-merge re-run this script with -HardLinksOnly so links
+# sever-and-repair transparently whenever git rewrites a linked file.
+$currentHooksPath = git -C $repoRoot config --local core.hooksPath 2>$null
+if ($currentHooksPath -ne '.githooks') {
+    if ($PSCmdlet.ShouldProcess('core.hooksPath', 'Set to .githooks')) {
+        git -C $repoRoot config core.hooksPath .githooks
+        Write-Status CREATED "git core.hooksPath -> .githooks (links auto-repair on checkout/merge)"
+    }
+}
+else {
+    Write-Status OK "git core.hooksPath already .githooks"
+}
+
+if (-not $Quiet) {
+    Write-Host ""
+    Write-Host "Done." -ForegroundColor Green
+    Write-Host ""
+}
