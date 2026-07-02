@@ -39,3 +39,4 @@ Each ADR records an important architectural decision: what was decided, why, wha
 | [0023](0023-promote-hidden-seams-to-abstractions-ports.md) | Promote hidden cross-slice seams to canonical Abstractions ports | Accepted — executes CA-C1, CA-H1/HX-M1, VS-H1, VS-H2, VS-H3, VS-M3 |
 | [0024](0024-connector-capability-and-team-extension-seam-contracts.md) | Connector capability flags, team/comment extension seam contracts, and ADO pagination exemptions | Accepted — executes EC-H1, EC-M2, EC-M3, EC-M4, EC-L1 |
 | [0025](0025-storage-neutral-package-meta-error-contract.md) | Storage-neutral error contract for package meta reset | Accepted — executes HX-H1 |
+| [0026](0026-tool-contract-purification.md) | Tool-contract purification: embedded-image, identity-translation, and field-transform tools | Accepted — executes TC-H2, TC-M1, TC-M2, TC-L3; TC-H1 deferred |

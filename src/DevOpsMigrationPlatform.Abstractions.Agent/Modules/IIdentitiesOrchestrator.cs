@@ -58,6 +58,16 @@ public interface IIdentitiesOrchestrator
     /// </summary>
     string? ResolvePrepared(string sourceIdentity);
 
+    /// <summary>
+    /// The current identity-resolution data for this run (ADR-0026, TC-M1): explicit
+    /// <c>mapping.json</c> overrides, Prepare-phase matches (persisted map merged with the
+    /// in-memory cache), and all source unique names. Populated by <see cref="PrepareAsync"/>
+    /// (cache only) and <see cref="ImportAsync"/> (full map from the package). Consumers pass
+    /// this to <see cref="Tools.IIdentityTranslationTool.Translate"/> as data. Returns
+    /// <see cref="Tools.IdentityTranslationMap.Empty"/> when nothing has been resolved yet.
+    /// </summary>
+    Tools.IdentityTranslationMap TranslationMap { get; }
+
     // Runtime-agnostic per FR-020: no interface-level #if guard. The net481 (TFS agent)
     // runtime models its reduced import capability explicitly at the call site
     // (IdentitiesModule returns Skipped) — not by hiding the method from the interface.

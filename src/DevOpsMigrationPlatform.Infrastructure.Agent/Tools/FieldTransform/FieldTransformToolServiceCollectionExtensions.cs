@@ -23,10 +23,11 @@ public static class FieldTransformToolServiceCollectionExtensions
     /// Adds <see cref="IFieldTransformFactory"/>, <see cref="IFieldTransformTool"/>,
     /// and <see cref="IFieldTransformValidator"/> to the service collection.
     /// <para>
-    /// Tools are registered as <b>Scoped</b> so that <see cref="IOptionsSnapshot{TOptions}"/>
-    /// is recomputed from the explicit current package configuration on every per-job
-    /// DI scope. This ensures options reflect the <c>migration-config.json</c> loaded for
-    /// the current job, not the empty <c>appsettings.json</c> present at host startup.
+    /// The tool is registered as a <b>Singleton</b> per the Tool contract (ADR-0026, TC-M2).
+    /// Options are recomputed from the explicit current package configuration via
+    /// <see cref="IOptionsFactory{TOptions}"/> whenever it changes, so options still reflect
+    /// the <c>migration-config.json</c> loaded for the current job, not the empty
+    /// <c>appsettings.json</c> present at host startup.
     /// </para>
     /// </summary>
     public static IServiceCollection AddFieldTransformToolServices(this IServiceCollection services)
@@ -49,12 +50,15 @@ public static class FieldTransformToolServiceCollectionExtensions
 
         services.AddSingleton<IValidateOptions<FieldTransformOptions>, FieldTransformOptionsValidator>();
 
-        services.AddScoped<IFieldTransformFactory>(sp =>
+        services.AddSingleton<IFieldTransformFactory>(sp =>
             new FieldTransformFactory(sp.GetService<ILoggerFactory>()));
-        // Scoped so IOptionsSnapshot<FieldTransformOptions> is resolved per-job scope,
-        // giving each job the options from its own migration-config.json.
-        services.AddScoped<IFieldTransformTool>(sp => new FieldTransformTool(
-            sp.GetRequiredService<IOptionsSnapshot<FieldTransformOptions>>(),
+        // Singleton per the Tool contract (ADR-0026, TC-M2). Per-job options are honoured
+        // via config-accessor indirection: the tool re-resolves FieldTransformOptions through
+        // IOptionsFactory (running binding + validation) whenever the current package
+        // configuration changes, so each job still sees its own migration-config.json.
+        services.AddSingleton<IFieldTransformTool>(sp => new FieldTransformTool(
+            sp.GetRequiredService<ICurrentPackageConfigAccessor>(),
+            sp.GetRequiredService<IOptionsFactory<FieldTransformOptions>>(),
             sp.GetRequiredService<IFieldTransformFactory>(),
             sp.GetRequiredService<ILoggerFactory>(),
             sp.GetService<IPlatformMetrics>()));

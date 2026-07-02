@@ -793,8 +793,8 @@ public class TeamsModuleTests
         var target = new SimulatedTeamTarget();
         var identityTranslationTool = Mock.Of<IIdentityTranslationTool>(m =>
             m.IsEnabled == true &&
-            m.Translate("src-alice") == "tgt-alice@target.com" &&
-            m.Translate("src-bob") == "tgt-bob@target.com");
+            m.Translate("src-alice", It.IsAny<IdentityTranslationMap>()) == "tgt-alice@target.com" &&
+            m.Translate("src-bob", It.IsAny<IdentityTranslationMap>()) == "tgt-bob@target.com");
 
         var importOrch = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo());
 
@@ -1228,7 +1228,7 @@ public class TeamsModuleTests
         var idTool = new Mock<IIdentityTranslationTool>(MockBehavior.Loose);
         idTool.Setup(t => t.IsEnabled).Returns(true);
         idTool.Setup(t => t.DefaultIdentity).Returns("default@target.com");
-        idTool.Setup(t => t.Translate("src-unknown")).Returns("default@target.com");
+        idTool.Setup(t => t.Translate("src-unknown", It.IsAny<IdentityTranslationMap>())).Returns("default@target.com");
 
         var importOrch = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, CreateTargetEndpointInfo());
 
@@ -1269,7 +1269,7 @@ public class TeamsModuleTests
         var idTool = new Mock<IIdentityTranslationTool>(MockBehavior.Loose);
         idTool.Setup(t => t.IsEnabled).Returns(true);
         idTool.Setup(t => t.DefaultIdentity).Returns("default@target.com");
-        idTool.Setup(t => t.Translate("src-bob")).Returns("bob@target.com");
+        idTool.Setup(t => t.Translate("src-bob", It.IsAny<IdentityTranslationMap>())).Returns("bob@target.com");
 
         var importOrch = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, CreateTargetEndpointInfo());
 

@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Linq;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
@@ -17,30 +18,98 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
 /// <summary>
 /// Entry-point for field transformation. Builds the <see cref="FieldTransformPipeline"/>
 /// from configuration and delegates execution to it.
+/// <para>
+/// Registered as a DI <b>singleton</b> per the Tool contract (ADR-0026, TC-M2). Per-job
+/// configuration is honoured via config-accessor indirection: options are re-resolved
+/// through <see cref="IOptionsFactory{TOptions}"/> whenever the
+/// <see cref="ICurrentPackageConfigAccessor"/> current configuration changes, so each
+/// job sees the options from its own <c>migration-config.json</c> while the tool itself
+/// holds no per-job state.
+/// </para>
 /// </summary>
 public sealed class FieldTransformTool : IFieldTransformTool
 {
-    private readonly FieldTransformOptions _options;
-    private readonly FieldTransformPipeline _pipeline;
     private readonly ILogger<FieldTransformTool> _logger;
+    private readonly ILoggerFactory _loggerFactory;
+    private readonly IFieldTransformFactory _factory;
     private readonly IPlatformMetrics? _metrics;
+
+    // Config-accessor indirection (DI/singleton path). Null when the fixed-options
+    // constructor is used (tests / direct composition).
+    private readonly ICurrentPackageConfigAccessor? _configAccessor;
+    private readonly IOptionsFactory<FieldTransformOptions>? _optionsFactory;
+
+    private readonly object _sync = new();
+    private (object? ConfigKey, FieldTransformOptions Options, FieldTransformPipeline Pipeline)? _cached;
 
     private static readonly ActivitySource s_activitySource =
         new(WellKnownActivitySourceNames.Migration);
 
+    /// <summary>
+    /// Singleton DI constructor (ADR-0026, TC-M2): options are resolved per call from the
+    /// current package configuration so one instance serves every job scope.
+    /// </summary>
+    public FieldTransformTool(
+        ICurrentPackageConfigAccessor configAccessor,
+        IOptionsFactory<FieldTransformOptions> optionsFactory,
+        IFieldTransformFactory factory,
+        ILoggerFactory loggerFactory,
+        IPlatformMetrics? metrics = null)
+    {
+        _configAccessor = configAccessor ?? throw new System.ArgumentNullException(nameof(configAccessor));
+        _optionsFactory = optionsFactory ?? throw new System.ArgumentNullException(nameof(optionsFactory));
+        _factory = factory ?? throw new System.ArgumentNullException(nameof(factory));
+        _loggerFactory = loggerFactory ?? throw new System.ArgumentNullException(nameof(loggerFactory));
+        _logger = loggerFactory.CreateLogger<FieldTransformTool>();
+        _metrics = metrics;
+    }
+
+    /// <summary>
+    /// Fixed-options constructor: builds the pipeline once from the supplied options.
+    /// </summary>
     public FieldTransformTool(
         IOptions<FieldTransformOptions> options,
         IFieldTransformFactory factory,
         ILoggerFactory loggerFactory,
         IPlatformMetrics? metrics = null)
     {
-        _options = options.Value;
+        _factory = factory ?? throw new System.ArgumentNullException(nameof(factory));
+        _loggerFactory = loggerFactory ?? throw new System.ArgumentNullException(nameof(loggerFactory));
         _logger = loggerFactory.CreateLogger<FieldTransformTool>();
         _metrics = metrics;
 
+        var opts = options.Value;
+        _cached = (null, opts, BuildPipeline(opts));
+    }
+
+    private (FieldTransformOptions Options, FieldTransformPipeline Pipeline) Resolve()
+    {
+        if (_optionsFactory is null)
+        {
+            var fixedCache = _cached!.Value;
+            return (fixedCache.Options, fixedCache.Pipeline);
+        }
+
+        var key = (object?)_configAccessor!.Current;
+        lock (_sync)
+        {
+            if (_cached is { } cached && ReferenceEquals(cached.ConfigKey, key))
+                return (cached.Options, cached.Pipeline);
+
+            // IOptionsFactory runs the Configure delegates (binding from the current
+            // package config) and all IValidateOptions validators on every Create.
+            var opts = _optionsFactory.Create(Microsoft.Extensions.Options.Options.DefaultName);
+            var pipeline = BuildPipeline(opts);
+            _cached = (key, opts, pipeline);
+            return (opts, pipeline);
+        }
+    }
+
+    private FieldTransformPipeline BuildPipeline(FieldTransformOptions options)
+    {
         // Warn if total transforms exceed recommended limit (FR-023)
         int totalTransforms = 0;
-        foreach (var group in _options.TransformGroups)
+        foreach (var group in options.TransformGroups)
             totalTransforms += group.Transforms.Count;
 
         if (totalTransforms > 100)
@@ -51,7 +120,7 @@ public sealed class FieldTransformTool : IFieldTransformTool
         var groups = new List<(FieldTransformGroupOptions, IReadOnlyList<(FieldTransformRuleOptions, IFieldTransform)>)>();
         int gi = 0;
 
-        foreach (var group in _options.TransformGroups)
+        foreach (var group in options.TransformGroups)
         {
             gi++;
             var groupName = group.Name ?? $"Group{gi}";
@@ -60,19 +129,21 @@ public sealed class FieldTransformTool : IFieldTransformTool
             for (int i = 0; i < group.Transforms.Count; i++)
             {
                 var rule = group.Transforms[i];
-                var transform = factory.Create(rule, groupName, i + 1);
+                var transform = _factory.Create(rule, groupName, i + 1);
                 transforms.Add((rule, transform));
             }
 
             groups.Add((group, transforms));
         }
 
-        _pipeline = new FieldTransformPipeline(groups, loggerFactory.CreateLogger<FieldTransformPipeline>());
+        return new FieldTransformPipeline(groups, _loggerFactory.CreateLogger<FieldTransformPipeline>());
     }
 
     /// <inheritdoc />
     public FieldTransformResult ApplyTransforms(IReadOnlyDictionary<string, object?> fields, FieldTransformContext context)
     {
+        var (_, pipeline) = Resolve();
+
         var tags = new MetricsTagList
         {
             { "operation", PhaseToOperationTag(context.Phase) },
@@ -98,7 +169,7 @@ public sealed class FieldTransformTool : IFieldTransformTool
         var sw = Stopwatch.StartNew();
         try
         {
-            var result = _pipeline.Execute(fields, context);
+            var result = pipeline.Execute(fields, context);
             sw.Stop();
 
             int modifiedCount = 0;
@@ -134,9 +205,10 @@ public sealed class FieldTransformTool : IFieldTransformTool
     /// <inheritdoc />
     public bool IsEnabledForPhase(FieldTransformPhase phase)
     {
-        if (!_options.Enabled) return false;
+        var (options, _) = Resolve();
+        if (!options.Enabled) return false;
 
-        foreach (var group in _options.TransformGroups)
+        foreach (var group in options.TransformGroups)
         {
             if (!group.Enabled) continue;
             foreach (var rule in group.Transforms)
@@ -161,5 +233,3 @@ public sealed class FieldTransformTool : IFieldTransformTool
         _ => "import"  // Both is a config sentinel; concrete execution defaults to import
     };
 }
-
-

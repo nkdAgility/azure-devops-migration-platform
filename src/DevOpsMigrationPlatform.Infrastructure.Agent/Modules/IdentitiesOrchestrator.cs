@@ -72,6 +72,14 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 
     private readonly IProjectInventoryWriter _projectInventory;
 
+    // Current identity-resolution data (ADR-0026, TC-M1). Owned here — the translation tool
+    // is a pure engine that receives this map as data. Set by PrepareAsync (cache snapshot)
+    // and ImportAsync (full map parsed from the package artefacts).
+    private volatile IdentityTranslationMap? _translationMap;
+
+    /// <inheritdoc/>
+    public IdentityTranslationMap TranslationMap => _translationMap ?? IdentityTranslationMap.Empty;
+
     public IdentitiesOrchestrator(
         ILogger<IdentitiesOrchestrator> logger,
         IPlatformMetrics? PlatformMetrics = null,
@@ -319,7 +327,13 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 
         if (identityTranslationTool is not null)
         {
-            await identityTranslationTool.InitializeAsync(ct).ConfigureAwait(false);
+            // ADR-0026 (TC-M1): the orchestrator owns package I/O and the resolved map;
+            // the tool is a pure parse/translate engine that receives the map as data.
+            var mappingJson = await ReadPackageContentAsync(organisation, project, "mapping.json", ct).ConfigureAwait(false);
+            var preparedJson = await ReadPackageContentAsync(organisation, project, "prepared-identities.json", ct).ConfigureAwait(false);
+
+            var parsed = identityTranslationTool.ParseTranslationInputs(descriptorsJson, mappingJson, preparedJson);
+            _translationMap = MergeLiveResolutionCache(parsed);
         }
 
         var resolvedCount = CountLines(descriptorsJson);
@@ -328,7 +342,16 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 
         if (identityTranslationTool is not null)
         {
-            await identityTranslationTool.WriteUnresolvedAsync(ct).ConfigureAwait(false);
+            var unresolved = identityTranslationTool.ComputeUnresolved(TranslationMap);
+            if (unresolved.Count > 0)
+            {
+                var content = JsonSerializer.Serialize(unresolved, s_jsonOptions);
+                await PersistPackageTextAsync(_package!, organisation, project, "unresolved.json", content, ct).ConfigureAwait(false);
+
+                _logger.LogWarning(
+                    "[IdentityTranslation] {Count} identit{Suffix} have no explicit mapping or prepared match — written to Identities/unresolved.json.",
+                    unresolved.Count, unresolved.Count == 1 ? "y" : "ies");
+            }
         }
 
         importSw.Stop();
@@ -353,6 +376,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         // Reset the prepare-phase cache so stale mappings from a prior run on this
         // long-lived (singleton) orchestrator cannot leak into a subsequent job.
         _resolutionCache.Clear();
+        _translationMap = null;
 
         using var activity = s_activitySource.StartActivity("identity.prepare");
         activity?.SetTag("module", ModuleName);
@@ -463,6 +487,11 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             context.Package, organisation, project, "prepared-identities.json",
             JsonSerializer.Serialize(preparedMap, s_jsonOptions), ct).ConfigureAwait(false);
 
+        // Expose the prepare-phase matches for the single-process Prepare→Import path
+        // (ADR-0026, TC-M1): consumers translate via the pure tool with this map as data.
+        _translationMap = new IdentityTranslationMap(
+            new Dictionary<string, string>(), preparedMap, Array.Empty<string>());
+
         activity?.SetTag("identities.resolved", resolved);
         activity?.SetTag("identities.unresolved", unresolved);
         activity?.SetTag("identities.ambiguous", ambiguous);
@@ -477,6 +506,25 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             Stage = "Identities.Prepare.Complete",
             Message = $"Identity prepare complete — {resolved} resolved, {unresolved} unresolved.",
         });
+    }
+
+    /// <summary>
+    /// Merges the in-memory Prepare-phase resolution cache into <paramref name="parsed"/>
+    /// (persisted entries win) so single-process Prepare→Import runs resolve identities even
+    /// when the persisted prepared map is missing or stale.
+    /// </summary>
+    private IdentityTranslationMap MergeLiveResolutionCache(IdentityTranslationMap parsed)
+    {
+        if (_resolutionCache.IsEmpty)
+            return parsed;
+
+        var prepared = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in _resolutionCache)
+            prepared[kv.Key] = kv.Value;
+        foreach (var kv in parsed.Prepared)
+            prepared[kv.Key] = kv.Value; // persisted map takes precedence
+
+        return new IdentityTranslationMap(parsed.Overrides, prepared, parsed.AllUniqueNames);
     }
 
     /// <inheritdoc/>

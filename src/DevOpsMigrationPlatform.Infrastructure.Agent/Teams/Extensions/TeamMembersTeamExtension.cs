@@ -43,6 +43,7 @@ public sealed class TeamMembersTeamExtension : IModuleExtension
     private readonly ITeamSource _teamSource;
     private readonly ITeamTarget _teamTarget;
     private readonly IIdentityTranslationTool? _identityTranslationTool;
+    private readonly IIdentitiesOrchestrator? _identitiesOrchestrator;
     private readonly ILogger<TeamMembersTeamExtension>? _logger;
 
     public TeamMembersTeamExtension(
@@ -51,6 +52,7 @@ public sealed class TeamMembersTeamExtension : IModuleExtension
         ITeamSource teamSource,
         ITeamTarget teamTarget,
         IIdentityTranslationTool? identityTranslationTool = null,
+        IIdentitiesOrchestrator? identitiesOrchestrator = null,
         ILogger<TeamMembersTeamExtension>? logger = null)
     {
         _options = (options ?? throw new ArgumentNullException(nameof(options))).Value;
@@ -58,6 +60,7 @@ public sealed class TeamMembersTeamExtension : IModuleExtension
         _teamSource = teamSource ?? throw new ArgumentNullException(nameof(teamSource));
         _teamTarget = teamTarget ?? throw new ArgumentNullException(nameof(teamTarget));
         _identityTranslationTool = identityTranslationTool;
+        _identitiesOrchestrator = identitiesOrchestrator;
         _logger = logger;
     }
 
@@ -161,7 +164,9 @@ public sealed class TeamMembersTeamExtension : IModuleExtension
             try
             {
                 var resolvedDescriptor = identityEnabled
-                    ? _identityTranslationTool!.Translate(member.Descriptor)
+                    ? _identityTranslationTool!.Translate(
+                        member.Descriptor,
+                        _identitiesOrchestrator?.TranslationMap ?? IdentityTranslationMap.Empty)
                     : member.Descriptor;
 
                 // GAP-006/FR-010: when identity translation falls back to the configured default

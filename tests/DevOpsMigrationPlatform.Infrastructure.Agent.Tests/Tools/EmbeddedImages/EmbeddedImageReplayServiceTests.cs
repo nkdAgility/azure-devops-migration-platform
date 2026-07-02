@@ -4,16 +4,25 @@
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.EmbeddedImages;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 
-namespace DevOpsMigrationPlatform.Infrastructure.Tests.Import;
+namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Tools.EmbeddedImages;
 
+/// <summary>
+/// TC-H2 / ADR-0026: replay orchestration (package reads + target uploads + field rewrite)
+/// split out of the former <c>EmbeddedImageRewriteTool</c>. Behaviour ported verbatim from
+/// EmbeddedImageRewriteToolTests.
+/// </summary>
 [TestClass]
-public class EmbeddedImageRewriteToolTests
+public class EmbeddedImageReplayServiceTests
 {
+    private static EmbeddedImageReplayService CreateSut(IWorkItemTarget target) =>
+        new(target, new EmbeddedImageReferenceTool(), NullLogger<EmbeddedImageReplayService>.Instance);
+
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
@@ -41,7 +50,7 @@ public class EmbeddedImageRewriteToolTests
             .Setup(t => t.UploadEmbeddedImageAsync("img1.png", It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("https://target.example/image.png");
 
-        var sut = new EmbeddedImageRewriteTool(target.Object, NullLogger<EmbeddedImageRewriteTool>.Instance);
+        var sut = CreateSut(target.Object);
         var rewritten = await sut.RewriteFieldValuesAsync(
             fields,
             images,
@@ -75,7 +84,7 @@ public class EmbeddedImageRewriteToolTests
             .Setup(t => t.UploadEmbeddedImageAsync("images/flow.png", It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("https://target.example/images/flow.png");
 
-        var sut = new EmbeddedImageRewriteTool(target.Object, NullLogger<EmbeddedImageRewriteTool>.Instance);
+        var sut = CreateSut(target.Object);
         var rewritten = await sut.RewriteFieldValuesAsync(
             fields,
             Array.Empty<EmbeddedImageMetadata>(),

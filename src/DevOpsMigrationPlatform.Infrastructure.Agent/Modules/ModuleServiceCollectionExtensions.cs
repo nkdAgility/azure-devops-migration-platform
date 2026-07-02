@@ -83,6 +83,10 @@ public static class ModuleServiceCollectionExtensions
                 state.Current?.GetSection(WorkItemsModuleOptions.SectionName).Bind(opts);
             });
 
+        // Canonical embedded-image reference parse/rewrite Tool (ADR-0026, TC-H2/TC-L3):
+        // pure singleton engine shared by the export and import paths.
+        services.TryAddSingleton<IEmbeddedImageReferenceTool, Tools.EmbeddedImages.EmbeddedImageReferenceTool>();
+
         services.RegisterWorkItemServices(configuration);
 
         // Work-item capability extensions (IModuleExtension ports). Each owns its own IOptions<T>.

@@ -89,7 +89,7 @@ public sealed class ServicesFeaturesDslTests
         var (processor, target, mapping) = CreateRevisionProcessor(
             "System.AssignedTo",
             "user@source.com",
-            toolSetup: tool => tool.Setup(t => t.Translate("user@source.com")).Returns("user@target.com"));
+            toolSetup: tool => tool.Setup(t => t.Translate("user@source.com", It.IsAny<IdentityTranslationMap>())).Returns("user@target.com"));
 
         await processor.ImportRevisionAsync(
             "WorkItems/2024-01-01/00000638000000000001-1-0",
@@ -108,7 +108,7 @@ public sealed class ServicesFeaturesDslTests
                 It.IsAny<IReadOnlyList<AttachmentUploadResult>>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
-        mapping.Verify(t => t.Translate("user@source.com"), Times.Once);
+        mapping.Verify(t => t.Translate("user@source.com", It.IsAny<IdentityTranslationMap>()), Times.Once);
     }
 
     [TestCategory("CodeTest")]
@@ -119,7 +119,7 @@ public sealed class ServicesFeaturesDslTests
         var (processor, target, mapping) = CreateRevisionProcessor(
             "System.CreatedBy",
             "someuser@domain.com",
-            toolSetup: tool => tool.Setup(t => t.Translate(It.IsAny<string>())).Returns<string>(s => s));
+            toolSetup: tool => tool.Setup(t => t.Translate(It.IsAny<string>(), It.IsAny<IdentityTranslationMap>())).Returns<string, IdentityTranslationMap>((s, _) => s));
 
         await processor.ImportRevisionAsync(
             "WorkItems/2024-01-01/00000638000000000001-1-0",
@@ -138,7 +138,7 @@ public sealed class ServicesFeaturesDslTests
                 It.IsAny<IReadOnlyList<AttachmentUploadResult>>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
-        mapping.Verify(t => t.Translate("someuser@domain.com"), Times.Once);
+        mapping.Verify(t => t.Translate("someuser@domain.com", It.IsAny<IdentityTranslationMap>()), Times.Once);
     }
 
     [TestCategory("CodeTest")]

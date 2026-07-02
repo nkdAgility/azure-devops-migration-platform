@@ -44,7 +44,7 @@ public class SkipUnresolvableContext
 
     public SkipUnresolvableContext()
     {
-        IdentityMappingMock.Setup(s => s.Translate(It.IsAny<string>())).Returns<string>(id => id);
+        IdentityMappingMock.Setup(s => s.Translate(It.IsAny<string>(), It.IsAny<IdentityTranslationMap>())).Returns<string, IdentityTranslationMap>((id, _) => id);
         IdMapStoreMock.Setup(s => s.GetTargetWorkItemIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(99);
         IdMapStoreMock.Setup(s => s.RecordSkippedRevisionAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))

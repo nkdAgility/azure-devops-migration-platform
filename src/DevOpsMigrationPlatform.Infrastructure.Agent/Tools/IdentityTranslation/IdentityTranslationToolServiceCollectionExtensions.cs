@@ -32,13 +32,11 @@ public static class IdentityTranslationToolServiceCollectionExtensions
             {
                 state.Current?.GetSection(IdentityTranslationOptions.SectionName).Bind(opts);
             });
-        // Singleton to satisfy singleton consumers in the planning pipeline.
+        // Singleton per the Tool contract: pure translation engine (ADR-0026, TC-M1).
+        // Package I/O and map ownership live with IIdentitiesOrchestrator.
         services.AddSingleton<IdentityTranslationTool>(sp => new IdentityTranslationTool(
             sp.GetRequiredService<IOptions<IdentityTranslationOptions>>(),
-            sp.GetRequiredService<ISourceEndpointInfo>(),
-            sp.GetService<ILogger<IdentityTranslationTool>>(),
-            sp.GetRequiredService<IPackageAccess>(),
-            sp.GetRequiredService<DevOpsMigrationPlatform.Abstractions.Agent.Modules.IIdentitiesOrchestrator>()));
+            sp.GetService<ILogger<IdentityTranslationTool>>()));
         services.AddSingleton<IIdentityTranslationTool>(sp => sp.GetRequiredService<IdentityTranslationTool>());
         return services;
     }

@@ -3,12 +3,12 @@
 
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Attachments;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -16,20 +16,23 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
 
 /// <summary>
 /// Uploads embedded images and rewrites field values from source image URLs to target URLs.
+/// Impure replay orchestration (package reads, target uploads) split out of the former
+/// <c>EmbeddedImageRewriteTool</c> (ADR-0026, TC-H2); the pure parse/rewrite engine lives
+/// behind the canonical <see cref="IEmbeddedImageReferenceTool"/> seam.
 /// </summary>
-public sealed class EmbeddedImageRewriteTool
+public sealed class EmbeddedImageReplayService
 {
-    private static readonly Regex MarkdownImageRegex = new(@"!\[[^\]]*\]\((?<url>[^)\s]+)[^)]*\)", RegexOptions.Compiled | RegexOptions.CultureInvariant);
-    private static readonly Regex HtmlImageRegex = new(@"<img\b[^>]*\bsrc\s*=\s*[""'](?<url>[^""']+)[""'][^>]*>", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
-
     private readonly IWorkItemTarget _target;
-    private readonly ILogger<EmbeddedImageRewriteTool> _logger;
+    private readonly IEmbeddedImageReferenceTool _referenceTool;
+    private readonly ILogger<EmbeddedImageReplayService> _logger;
 
-    public EmbeddedImageRewriteTool(
+    public EmbeddedImageReplayService(
         IWorkItemTarget target,
-        ILogger<EmbeddedImageRewriteTool> logger)
+        IEmbeddedImageReferenceTool referenceTool,
+        ILogger<EmbeddedImageReplayService> logger)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
+        _referenceTool = referenceTool ?? throw new ArgumentNullException(nameof(referenceTool));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -81,14 +84,10 @@ public sealed class EmbeddedImageRewriteTool
         {
             if (field.Value is string textValue)
             {
-                var rewrittenText = textValue;
-                foreach (var mapping in urlMap)
-                    rewrittenText = rewrittenText.Replace(mapping.Key, mapping.Value);
-
                 rewrittenFields.Add(new WorkItemField
                 {
                     ReferenceName = field.ReferenceName,
-                    Value = rewrittenText
+                    Value = _referenceTool.RewriteImageUrls(textValue, urlMap)
                 });
             }
             else
@@ -150,26 +149,15 @@ public sealed class EmbeddedImageRewriteTool
         };
     }
 
-    private static IEnumerable<string> ParseEmbeddedImageReferences(IReadOnlyList<WorkItemField> fields)
+    private IEnumerable<string> ParseEmbeddedImageReferences(IReadOnlyList<WorkItemField> fields)
     {
         foreach (var field in fields)
         {
             if (field.Value is not string textValue || string.IsNullOrWhiteSpace(textValue))
                 continue;
 
-            foreach (Match match in MarkdownImageRegex.Matches(textValue))
-            {
-                var url = match.Groups["url"].Value;
-                if (!string.IsNullOrWhiteSpace(url))
-                    yield return url;
-            }
-
-            foreach (Match match in HtmlImageRegex.Matches(textValue))
-            {
-                var url = match.Groups["url"].Value;
-                if (!string.IsNullOrWhiteSpace(url))
-                    yield return url;
-            }
+            foreach (var url in _referenceTool.ParseImageReferences(textValue))
+                yield return url;
         }
     }
 }

@@ -45,6 +45,9 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     private readonly IIdMapStore _idMapStore;
     private readonly ICheckpointingService _checkpointing;
     private readonly IIdentityTranslationTool? _identityTranslationTool;
+    // Resolved-map indirection (ADR-0026, TC-M1): the pure translation tool receives the
+    // current map as data; the map is owned by the Identities orchestrator.
+    private readonly Func<IdentityTranslationMap>? _identityTranslationMapProvider;
     private readonly ILogger _logger;
     private readonly string _organisation;
     private readonly string _project;
@@ -52,7 +55,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     private readonly string? _jobId;
     private readonly IFieldTransformTool? _fieldTransformTool;
     private readonly INodeTranslationTool? _nodeStructureTool;
-    private readonly EmbeddedImageRewriteTool _embeddedImageReplayService;
+    private readonly EmbeddedImageReplayService _embeddedImageReplayService;
     private readonly ProjectMapping? _nodeTranslationContext;
     private readonly NodeTranslationOptions? _nodeStructureOptions;
     private readonly IPackageAccess? _package;
@@ -83,9 +86,10 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         ProjectMapping? nodeStructureContext = null,
         NodeTranslationOptions? nodeStructureOptions = null,
         IPackageAccess? package = null,
-        EmbeddedImageRewriteTool? embeddedImageReplayService = null,
+        EmbeddedImageReplayService? embeddedImageReplayService = null,
         IReadOnlyList<WorkItemRevisionStage>? extensionStages = null,
-        EmbeddedImagesExtensionOptionsConfig? embeddedImagesOptions = null)
+        EmbeddedImagesExtensionOptionsConfig? embeddedImagesOptions = null,
+        Func<IdentityTranslationMap>? identityTranslationMapProvider = null)
     {
         _target = target ?? throw new ArgumentNullException(nameof(target));
         _idMapStore = idMapStore ?? throw new ArgumentNullException(nameof(idMapStore));
@@ -99,7 +103,10 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
         _fieldTransformTool = fieldTransformTool;
         _nodeStructureTool = nodeStructureTool;
         _embeddedImageReplayService = embeddedImageReplayService
-            ?? new EmbeddedImageRewriteTool(target, NullLogger<EmbeddedImageRewriteTool>.Instance);
+            ?? new EmbeddedImageReplayService(
+                target,
+                new Tools.EmbeddedImages.EmbeddedImageReferenceTool(),
+                NullLogger<EmbeddedImageReplayService>.Instance);
         _nodeTranslationContext = nodeStructureContext;
         _nodeStructureOptions = nodeStructureOptions;
         _package = package;
@@ -107,6 +114,7 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
             ?? throw new ArgumentException("No CommentsWorkItemExtension found in moduleExtensions. Register it in DI.", nameof(moduleExtensions));
         _injectedExtensionStages = extensionStages;
         _embeddedImagesEnabled = embeddedImagesOptions?.Enabled ?? true;
+        _identityTranslationMapProvider = identityTranslationMapProvider;
 
         if (_fieldTransformTool == null)
             _logger.LogWarning("[WorkItems] IFieldTransformTool is not registered — field transforms will be skipped for all revisions. Call AddFieldTransformToolServices() in your DI setup to enable field transforms.");
@@ -457,7 +465,9 @@ public class WorkItemResolutionProcessor : IWorkItemResolutionProcessor
     }
 
     private string ResolveIdentity(string identity)
-        => _identityTranslationTool?.IsEnabled == true ? _identityTranslationTool.Translate(identity) : identity;
+        => _identityTranslationTool?.IsEnabled == true
+            ? _identityTranslationTool.Translate(identity, _identityTranslationMapProvider?.Invoke() ?? IdentityTranslationMap.Empty)
+            : identity;
 
     private async Task<string?> ReadPackageTextAsync(string path, CancellationToken ct)
     {
