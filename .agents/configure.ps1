@@ -156,6 +156,42 @@ Ensure-HardLink 'AGENTS.md' '.agents\agents.md'
 Ensure-HardLink 'CLAUDE.md' '.agents\agents.md'
 Ensure-HardLink '.github\copilot-instructions.md' '.agents\agents.md'
 
+# -- Nested agent stubs (directory-local AGENTS.md files) --------------------
+# Each stub in .agents\40-stubs\ is hardlinked into the src/tests directories
+# it governs. Add or remove entries here when adding or removing a stub.
+Write-Host ""
+Write-Host "Nested AGENTS.md stubs:" -ForegroundColor White
+$stubs = @(
+    @{ Source = '.agents\40-stubs\controlplane.md';          Targets = @(
+        'src\DevOpsMigrationPlatform.ControlPlane\AGENTS.md',
+        'src\DevOpsMigrationPlatform.ControlPlaneHost\AGENTS.md') }
+    @{ Source = '.agents\40-stubs\cli.md';                   Targets = @(
+        'src\DevOpsMigrationPlatform.CLI.Migration\AGENTS.md') }
+    @{ Source = '.agents\40-stubs\infrastructure-agent.md';  Targets = @(
+        'src\DevOpsMigrationPlatform.Infrastructure.Agent\AGENTS.md') }
+    @{ Source = '.agents\40-stubs\migration-agent.md';       Targets = @(
+        'src\DevOpsMigrationPlatform.MigrationAgent\AGENTS.md') }
+    @{ Source = '.agents\40-stubs\net481.md';                Targets = @(
+        'src\DevOpsMigrationPlatform.TfsMigrationAgent\AGENTS.md',
+        'src\DevOpsMigrationPlatform.Infrastructure.TfsObjectModel\AGENTS.md') }
+    @{ Source = '.agents\40-stubs\simulated-connector.md';   Targets = @(
+        'src\DevOpsMigrationPlatform.Infrastructure.Simulated\AGENTS.md') }
+    @{ Source = '.agents\40-stubs\azuredevops-connector.md'; Targets = @(
+        'src\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\AGENTS.md') }
+    @{ Source = '.agents\40-stubs\abstractions.md';          Targets = @(
+        'src\DevOpsMigrationPlatform.Abstractions\AGENTS.md',
+        'src\DevOpsMigrationPlatform.Abstractions.Agent\AGENTS.md',
+        'src\DevOpsMigrationPlatform.Abstractions.ControlPlane\AGENTS.md',
+        'src\DevOpsMigrationPlatform.Abstractions.Storage\AGENTS.md') }
+    @{ Source = '.agents\40-stubs\tests.md';                 Targets = @(
+        'tests\AGENTS.md') }
+)
+foreach ($stub in $stubs) {
+    foreach ($target in $stub.Targets) {
+        Ensure-HardLink $target $stub.Source
+    }
+}
+
 # -- .claude symlinks --------------------------------------------------------
 Write-Host ""
 Write-Host ".claude/ symlinks:" -ForegroundColor White
