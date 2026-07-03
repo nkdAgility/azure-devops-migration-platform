@@ -69,11 +69,11 @@ public sealed class TeamMigrationOrchestrator
     /// only the half they exercise.
     /// </summary>
     public TeamMigrationOrchestrator(
-        ITeamSource? teamSource,
-        ITeamTarget? teamTarget,
         ILogger<TeamMigrationOrchestrator> logger,
-        ISourceEndpointInfo? sourceEndpointInfo,
-        ITargetEndpointInfo? targetEndpointInfo,
+        ITeamSource? teamSource = null,
+        ITeamTarget? teamTarget = null,
+        ISourceEndpointInfo? sourceEndpointInfo = null,
+        ITargetEndpointInfo? targetEndpointInfo = null,
         object? referencedPathTracker = null,
         INodeTranslationTool? nodeTranslationTool = null,
         IIdentityTranslationTool? identityTranslationTool = null)

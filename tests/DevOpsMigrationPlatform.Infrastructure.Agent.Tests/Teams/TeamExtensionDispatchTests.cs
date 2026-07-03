@@ -126,11 +126,9 @@ public class TeamExtensionDispatchTests
 
     private static TeamMigrationOrchestrator BuildTeamExportOrchestrator(Mock<ITeamSource> teamSource)
         => new(
-            teamSource.Object,
-            teamTarget: null,
             NullLogger<TeamMigrationOrchestrator>.Instance,
-            BuildSourceEndpoint().Object,
-            targetEndpointInfo: null);
+            teamSource: teamSource.Object,
+            sourceEndpointInfo: BuildSourceEndpoint().Object);
 
     private static TeamsOrchestrator BuildOrchestrator(
         IEnumerable<IModuleExtension> extensions,
@@ -199,11 +197,9 @@ public class TeamExtensionDispatchTests
 
     private static TeamMigrationOrchestrator BuildTeamImportOrchestrator()
         => new(
-            teamSource: null,
-            BuildTeamTarget().Object,
             NullLogger<TeamMigrationOrchestrator>.Instance,
-            sourceEndpointInfo: null,
-            BuildTargetEndpoint().Object);
+            teamTarget: BuildTeamTarget().Object,
+            targetEndpointInfo: BuildTargetEndpoint().Object);
 
     private static TeamsOrchestrator BuildOrchestratorForImport(
         IEnumerable<IModuleExtension> extensions,

@@ -89,11 +89,9 @@ public class TeamExtensionParityTests
 
         var endpointInfo = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Context.ISourceEndpointInfo>(MockBehavior.Loose);
         var orchestrator = new DevOpsMigrationPlatform.Infrastructure.Agent.Teams.TeamMigrationOrchestrator(
-            teamSource.Object,
-            teamTarget: null,
             NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.Teams.TeamMigrationOrchestrator>.Instance,
-            endpointInfo.Object,
-            targetEndpointInfo: null);
+            teamSource: teamSource.Object,
+            sourceEndpointInfo: endpointInfo.Object);
 
         await orchestrator.ExportTeamAsync(
             "org", "Proj",
