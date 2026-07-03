@@ -11,7 +11,7 @@ A single JSON configuration file drives the entire run.
 ```json
 {
   "MigrationPlatform": {
-    "ConfigVersion": "1.0",
+    "ConfigVersion": "2.0",
     "Mode": "Export | Prepare | Import | Migrate",
     "Package": {
       "WorkingDirectory": "D:\\exports\\run-001",
@@ -90,35 +90,46 @@ A single JSON configuration file drives the entire run.
     "Modules": {
       "Identities": {
         "Enabled": true,
-        "DefaultIdentity": "migration-service@contoso.com"
+        "Processing": {
+          "DefaultIdentity": "migration-service@contoso.com"
+        }
       },
       "Nodes": {
         "Enabled": true,
-        "ReplicateSourceTree": true
+        "Processing": {
+          "ReplicateSourceTree": true
+        }
       },
       "Teams": {
         "Enabled": true,
-        "AlwaysExport": false,
-        "Extensions": {
+        "Selection": {
+          "Scope": "all",
+          "Filter": ""
+        },
+        "Data": {
           "TeamSettings": true,
-          "NodeTranslation": true,
           "TeamIterations": true,
           "TeamMembers": true,
-          "IdentityLookup": true,
           "TeamCapacity": true
+        },
+        "Processing": {
+          "AlwaysExport": false,
+          "NodeTranslation": true,
+          "IdentityLookup": true
         }
       },
       "WorkItems": {
         "Enabled": true,
-        "Scope": {
+        "Selection": {
           "Query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.ChangedDate] ASC"
         },
-        "Extensions": {
+        "Data": {
           "Revisions": { "Enabled": true },
-          "Links": { "Enabled": true },
-          "Attachments": { "Enabled": true },
           "Comments": { "Enabled": true },
           "EmbeddedImages": { "Enabled": true }
+        },
+        "Processing": {
+          "WorkItemResolutionStrategy": { "Enabled": false }
         }
       }
     },
@@ -164,7 +175,7 @@ All fields below are children of the `MigrationPlatform` root key. Keys are Pasc
 
 | Field | Required | Description |
 |---|---|---|
-| `ConfigVersion` | Yes | Config schema version; used by the upgrader. Current value: `"1.0"`. |
+| `ConfigVersion` | Yes | Config schema version. Must be `"2.0"` — v1 files are rejected at load with rewrite instructions (see [Module configuration anatomy](#module-configuration-anatomy)). |
 | `Mode` | Yes | `Inventory`, `Dependencies`, `Export`, `Prepare`, `Import`, or `Migrate` |
 | `Package.WorkingDirectory` | Yes | Absolute or `%ENV%`-expanded path to the package root directory |
 | `Package.CreatePackage` | No | If `true`, zip/unzip the package around the run; default `false` |
@@ -219,24 +230,82 @@ Setting `enabled: false` only suppresses the discovery iteration for that organi
 
 In this configuration, discovery runs only against `org1/MyProject`. Any cross-org links pointing at `org2` or `org3` are still resolved to their human-readable project names (rather than remaining as raw GUIDs), and are marked `Reachable` in the output CSV because credentials are present. If no access token is provided for a disabled organisation, project GUIDs in that org cannot be resolved and the raw GUID is used as the project name in the output.
 
-### Module Scopes and Extensions Pattern
+### Module configuration anatomy
 
-Each module declares `scopes` (mandatory selection criteria) and a list of named `extensions`.
-`Scopes` determine **what** the module operates on. For WorkItems the only current scope type is `wiql`,
-whose `query` parameter supplies the WIQL statement.
-`Extensions` determine **what additional data** is collected alongside each item.
-Each extension is a named sub-module that can be independently enabled or disabled.
-Extension-specific parameters live inside that extension's `parameters` block.
+Since ConfigVersion `2.0`, every module's options use exactly three top-level aspects
+(see `.agents/10-contracts/specs/module-anatomy-contract.md` and ADR 0028):
 
-WorkItems extensions:
+- **`Selection`** — *what to migrate*: in-scope entity selection (e.g. the WorkItems WIQL query and filters, the Teams scope/filter).
+- **`Data`** — *what to carry*: canonical package payload kinds for selected entities (e.g. Revisions, Comments, TeamIterations). Required payloads (work item Links and Attachments) are intrinsic core behaviour and are not configurable.
+- **`Processing`** — *how to execute*: runtime behaviour policies for export/import phases (e.g. `WorkItemResolutionStrategy`, `AlwaysExport`, `ReplicateSourceTree`, `DefaultIdentity`).
 
-| Extension Type | Description |
+The legacy `Scope` and `Extensions` keys were removed in ConfigVersion 2.0. There is no
+compatibility shim: a v1 file fails at load with rewrite instructions, and stray legacy keys
+under a `"2.0"` file are rejected by name.
+
+#### Upgrading a v1 file
+
+To upgrade `Modules.WorkItems`:
+
+1. Rename `Scope` to `Selection` (`Query` and `Filters` are unchanged).
+2. Move `Extensions.Revisions`, `Extensions.Comments`, and `Extensions.EmbeddedImages` under `Data`.
+3. Move `Extensions.WorkItemResolutionStrategy` under `Processing`.
+4. Delete the now-empty `Extensions` object.
+5. Set `MigrationPlatform.ConfigVersion` to `2.0`.
+
+For the other modules: Teams `Scope`/`Filter` move under `Selection`, `AlwaysExport`/`Extensions.NodeTranslation`/`Extensions.IdentityLookup` under `Processing`, and the remaining Teams `Extensions.*` payload switches under `Data`; Nodes `ReplicateSourceTree` and Identities `DefaultIdentity` move under `Processing`. Legacy `Extensions.Links`/`Extensions.Attachments` entries are deleted (intrinsic, always carried).
+
+**v1 (before):**
+
+```json
+"WorkItems": {
+  "Enabled": true,
+  "Scope": {
+    "Query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.Id]",
+    "Filters": [
+      { "Mode": "Include", "Field": "System.WorkItemType", "Pattern": "^(Bug|User Story)$" }
+    ]
+  },
+  "Extensions": {
+    "Revisions": { "Enabled": true },
+    "Comments": { "Enabled": true, "IncludeDeleted": false },
+    "EmbeddedImages": { "Enabled": true, "DownloadTimeoutSeconds": 30 },
+    "WorkItemResolutionStrategy": { "Enabled": true, "Strategy": "TargetField", "FieldName": "Custom.ReflectedWorkItemId" }
+  }
+}
+```
+
+**v2 (after) — same intent, new anatomy:**
+
+```json
+"WorkItems": {
+  "Enabled": true,
+  "Selection": {
+    "Query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.Id]",
+    "Filters": [
+      { "Mode": "Include", "Field": "System.WorkItemType", "Pattern": "^(Bug|User Story)$" }
+    ]
+  },
+  "Data": {
+    "Revisions": { "Enabled": true },
+    "Comments": { "Enabled": true, "IncludeDeleted": false },
+    "EmbeddedImages": { "Enabled": true, "DownloadTimeoutSeconds": 30 }
+  },
+  "Processing": {
+    "WorkItemResolutionStrategy": { "Enabled": true, "Strategy": "TargetField", "FieldName": "Custom.ReflectedWorkItemId" }
+  }
+}
+```
+
+WorkItems `Data` payload kinds:
+
+| Data entry | Description |
 |---|---|
 | `Revisions` | Export full revision history |
-| `Links` | Export related links, external links, and hyperlinks |
-| `Attachments` | Download and store attachment binaries beside each `revision.json` |
 | `Comments` | Fetch comment versions from the ADO Comments API and write as `comment.json` |
 | `EmbeddedImages` | Download and rewrite inline images from HTML/Markdown fields |
+| Links (intrinsic) | Related links, external links, and hyperlinks — always carried, not configurable |
+| Attachments (intrinsic) | Attachment binaries beside each `revision.json` — always carried, not configurable |
 
 ### Policies
 
@@ -253,30 +322,35 @@ The `Modules.Teams` object controls `TeamsModule` behaviour:
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `Modules.Teams.Enabled` | bool | `true` | Enable/disable the module |
-| `Modules.Teams.AlwaysExport` | bool | `false` | When `false` (default), a team whose `Teams/{slug}/team.json` artefact already exists in the package is skipped on re-run (resumable). When `true`, every team is always re-fetched from the source. |
-| `Modules.Teams.Extensions.TeamSettings` | bool | `true` | Export/import backlog level, bugs behaviour, and working days |
-| `Modules.Teams.Extensions.NodeTranslation` | bool | `true` | Record team area/iteration paths into the node reference tracker during export |
-| `Modules.Teams.Extensions.TeamIterations` | bool | `true` | Export/import sprint iteration assignments |
-| `Modules.Teams.Extensions.TeamMembers` | bool | `true` | Export/import team members with admin flags |
-| `Modules.Teams.Extensions.IdentityLookup` | bool | `true` | Resolve team member identities via `IdentityTranslationTool` |
-| `Modules.Teams.Extensions.TeamCapacity` | bool | `true` | Export/import per-member per-sprint capacity data |
+| `Modules.Teams.Selection.Scope` | string | `"all"` | `"all"` (every team) or `"teams"` (apply `Selection.Filter`) |
+| `Modules.Teams.Selection.Filter` | string | `""` | Case-insensitive regex applied to team names when `Selection.Scope` is `"teams"` |
+| `Modules.Teams.Data.TeamSettings` | bool | `true` | Export/import backlog level, bugs behaviour, and working days |
+| `Modules.Teams.Data.TeamIterations` | bool | `true` | Export/import sprint iteration assignments |
+| `Modules.Teams.Data.TeamMembers` | bool | `true` | Export/import team members with admin flags |
+| `Modules.Teams.Data.TeamCapacity` | bool | `true` | Export/import per-member per-sprint capacity data |
+| `Modules.Teams.Processing.AlwaysExport` | bool | `false` | When `false` (default), a team whose `Teams/{slug}/team.json` artefact already exists in the package is skipped on re-run (resumable). When `true`, every team is always re-fetched from the source. |
+| `Modules.Teams.Processing.NodeTranslation` | bool | `true` | Record team area/iteration paths into the node reference tracker during export |
+| `Modules.Teams.Processing.IdentityLookup` | bool | `true` | Resolve team member identities via `IdentityTranslationTool` |
 
-### WorkItems Module — Scopes and Extensions
+### WorkItems Module — Selection, Data, and Processing
 
-The `Modules.WorkItems` object accepts `Scope` (query + filters) and `Extensions` (named sub-modules):
+The `Modules.WorkItems` object accepts `Selection` (query + filters), `Data` (payload kinds), and `Processing` (runtime policies):
 
-| Field / Extension | Type | Default | Description |
+| Field | Type | Default | Description |
 |---|---|---|---|
 | `Modules.WorkItems.Enabled` | bool | `true` | Enable/disable the module |
-| `Modules.WorkItems.Scope.Query` | string | platform default | WIQL query selecting work items. `@project` is substituted with the configured project name. |
-| `Modules.WorkItems.Scope.Filters[].Mode` | string | — | Filter direction: `Include` (only items matching the pattern are processed) or `Exclude` (items matching the pattern are skipped). Required when a filter is declared. |
-| `Modules.WorkItems.Scope.Filters[].Field` | string | — | Reference name of the ADO field to evaluate (e.g. `System.AreaPath`). Must be non-empty. |
-| `Modules.WorkItems.Scope.Filters[].Pattern` | string | — | Case-insensitive regex pattern applied to the field value (using `System.Text.RegularExpressions`, 2 s timeout). Must be a valid regex. |
-| `Modules.WorkItems.Extensions.Revisions.Enabled` | bool | `true` | When `true`, export all revision history. When `false`, export latest state only. |
-| `Modules.WorkItems.Extensions.Links.Enabled` | bool | `true` | When `true`, export related links, external links, and hyperlinks. |
-| `Modules.WorkItems.Extensions.Attachments.Enabled` | bool | `true` | When `true`, download and store attachment binaries beside each `revision.json`. |
-| `Modules.WorkItems.Extensions.Comments.Enabled` | bool | `true` | When `true`, fetch comment versions from the ADO Comments API and write `comment.json` beside matching revisions. |
-| `Modules.WorkItems.Extensions.EmbeddedImages.Enabled` | bool | `true` | When `true`, download inline images from HTML/Markdown fields and rewrite URLs. |
+| `Modules.WorkItems.Selection.Query` | string | platform default | WIQL query selecting work items. `@project` is substituted with the configured project name. |
+| `Modules.WorkItems.Selection.Filters[].Mode` | string | — | Filter direction: `Include` (only items matching the pattern are processed) or `Exclude` (items matching the pattern are skipped). Required when a filter is declared. |
+| `Modules.WorkItems.Selection.Filters[].Field` | string | — | Reference name of the ADO field to evaluate (e.g. `System.AreaPath`). Must be non-empty. |
+| `Modules.WorkItems.Selection.Filters[].Pattern` | string | — | Case-insensitive regex pattern applied to the field value (using `System.Text.RegularExpressions`, 2 s timeout). Must be a valid regex. |
+| `Modules.WorkItems.Data.Revisions.Enabled` | bool | `true` | When `true`, export all revision history. When `false`, export latest state only. |
+| `Modules.WorkItems.Data.Comments.Enabled` | bool | `true` | When `true`, fetch comment versions from the ADO Comments API and write `comment.json` beside matching revisions. |
+| `Modules.WorkItems.Data.Comments.IncludeDeleted` | bool | `false` | When `true`, deleted comments are included in the export. |
+| `Modules.WorkItems.Data.EmbeddedImages.Enabled` | bool | `true` | When `true`, download inline images from HTML/Markdown fields and rewrite URLs. |
+| `Modules.WorkItems.Data.EmbeddedImages.DownloadTimeoutSeconds` | int | `30` | Per-image download timeout. |
+| `Modules.WorkItems.Processing.WorkItemResolutionStrategy` | object | disabled | Import-phase strategy for recording the source→target work item mapping (`Enabled`, `Strategy`, `FieldName`, `UrlPattern`). |
+
+> Links and Attachments are intrinsic core behaviour — always exported/imported, no configuration keys.
 
 > **Filter scope semantics**: Multiple `Filters` entries are evaluated with AND logic. An `Include` filter retains only items whose field value matches the pattern; an `Exclude` filter discards items whose field value matches. Items where the filtered field is absent pass `Exclude` (absent = does not match) and fail `Include`. Prefer short, indexed reference-data fields (e.g. `System.AreaPath`, `System.WorkItemType`) to minimise pre-fetch time.
 
@@ -316,11 +390,10 @@ Source data can change between runs. When resume is active, the same work item I
 
 ### Config Versioning and Upgrader
 
-- `configVersion` must be incremented on any breaking change to the config schema.
-- An upgrader must exist for each version transition (e.g., `1.0 → 2.0`).
-- The tool must detect an outdated config version and either auto-upgrade (with warning) or fail fast with instructions.
+- `ConfigVersion` must be incremented on any breaking change to the config schema.
+- Outdated config versions fail fast at load with step-by-step rewrite instructions — there is no auto-upgrade or compatibility shim (operator ruling, ADR 0028).
 - Configs from future versions must fail fast with a clear error message.
-- **Current version**: `"2.0"` (since feature 025-agent-config-package). Config travels as `configPayload` inside the `Job` dispatch token; the agent writes it to `migration-config.json` at job startup.
+- **Current version**: `"2.0"` (module anatomy clean break, ADR 0028). Config travels as `configPayload` inside the `Job` dispatch token; the agent writes it to `migration-config.json` at job startup.
 
 ### `migration-config.json` already exists — resume semantics
 
@@ -880,4 +953,4 @@ The `IdentityTranslation` tool (`Tools.IdentityTranslation`) controls automatic 
 }
 ```
 
-> **Relationship to `Modules.Identities.DefaultIdentity`**: The `IdentitiesModule` has its own `DefaultIdentity` field for identities that cannot be resolved via the identity translation pipeline. The `IdentityTranslation.DefaultIdentity` is the fallback at the tool level for any module that calls the tool directly (e.g. `TeamsModule`). If both are set, module-level identity resolution consults the tool first.
+> **Relationship to `Modules.Identities.Processing.DefaultIdentity`**: The `IdentitiesModule` has its own `Processing.DefaultIdentity` field for identities that cannot be resolved via the identity translation pipeline. The `IdentityTranslation.DefaultIdentity` is the fallback at the tool level for any module that calls the tool directly (e.g. `TeamsModule`). If both are set, module-level identity resolution consults the tool first.

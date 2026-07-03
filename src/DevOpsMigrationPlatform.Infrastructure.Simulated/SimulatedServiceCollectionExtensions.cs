@@ -103,12 +103,18 @@ public static class SimulatedServiceCollectionExtensions
 
         // Team target — in-memory simulation of team creation, keyed for composite dispatch.
         services.AddTeamTarget<SimulatedTeamTarget>("Simulated");
-        // Board configuration capability — Simulated connector supports all granular flags.
+        // Connector capability declaration (ADR-0024/EC-H1) — Simulated connector supports board config, team, and comment capabilities.
         services.AddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.IConnectorCapabilityProvider>(
             _ => new global::DevOpsMigrationPlatform.Infrastructure.Agent.ConnectorCapability.StaticConnectorCapabilityProvider(
                 global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.BoardConfig |
                 global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TaskboardColumns |
-                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.Backlogs));
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.Backlogs |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TeamSettings |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TeamIterations |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TeamMembers |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TeamCapacity |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TeamAreaPaths |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.WorkItemComments));
         services.AddProjectLifecycleProvider<SimulatedProjectLifecycleProvider>("Simulated");
         services.AddProjectProcessProvider<SimulatedProjectProcessProvider>("Simulated");
         // Board adapter — provides deterministic boards for testing.

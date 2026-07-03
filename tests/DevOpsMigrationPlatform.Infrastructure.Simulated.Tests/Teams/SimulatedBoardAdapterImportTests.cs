@@ -68,6 +68,7 @@ public sealed class SimulatedBoardAdapterImportTests
             Options.Create(options),
             adapter,
             capProvider ?? AllCapabilities(),
+            new DevOpsMigrationPlatform.Infrastructure.Agent.Teams.BoardConfigMergeTool(),
             metrics: null,
             logger: NullLogger<BoardConfigTeamExtension>.Instance);
 

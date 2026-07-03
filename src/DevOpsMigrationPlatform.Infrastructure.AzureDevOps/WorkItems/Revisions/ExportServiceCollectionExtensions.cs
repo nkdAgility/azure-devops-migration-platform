@@ -88,12 +88,18 @@ public static class ExportServiceCollectionExtensions
 
         // Team target — Azure DevOps Teams REST API keyed by connector type.
         services.AddTeamTarget<AzureDevOpsTeamTarget>("AzureDevOpsServices");
-        // Board configuration capability — ADO supports all granular flags.
+        // Connector capability declaration (ADR-0024/EC-H1) — ADO supports board config, team, and comment capabilities.
         services.AddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.IConnectorCapabilityProvider>(
             _ => new global::DevOpsMigrationPlatform.Infrastructure.Agent.ConnectorCapability.StaticConnectorCapabilityProvider(
                 global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.BoardConfig |
                 global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TaskboardColumns |
-                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.Backlogs));
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.Backlogs |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TeamSettings |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TeamIterations |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TeamMembers |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TeamCapacity |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TeamAreaPaths |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.WorkItemComments));
         // Board adapter — full implementation using WorkHttpClient; uses source endpoint for reads and target for writes.
         services.TryAddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.Teams.ITeamBoardAdapter,
             global::DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Teams.AzureDevOpsBoardAdapter>();

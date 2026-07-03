@@ -10,6 +10,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent;
+using Cap = DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
@@ -37,27 +38,30 @@ public sealed class TeamCapacityTeamExtension : IModuleExtension
     };
 
     private readonly TeamCapacityExtensionOptions _options;
-    private readonly ITeamSource? _teamSource;
-    private readonly ITeamTarget? _teamTarget;
+    private readonly IConnectorCapabilityProvider _capProvider;
+    private readonly ITeamSource _teamSource;
+    private readonly ITeamTarget _teamTarget;
     private readonly ILogger<TeamCapacityTeamExtension>? _logger;
 
     public TeamCapacityTeamExtension(
         IOptions<TeamCapacityExtensionOptions> options,
-        ITeamSource? teamSource = null,
-        ITeamTarget? teamTarget = null,
+        IConnectorCapabilityProvider capProvider,
+        ITeamSource teamSource,
+        ITeamTarget teamTarget,
         ILogger<TeamCapacityTeamExtension>? logger = null)
     {
         _options = (options ?? throw new ArgumentNullException(nameof(options))).Value;
-        _teamSource = teamSource;
-        _teamTarget = teamTarget;
+        _capProvider = capProvider ?? throw new ArgumentNullException(nameof(capProvider));
+        _teamSource = teamSource ?? throw new ArgumentNullException(nameof(teamSource));
+        _teamTarget = teamTarget ?? throw new ArgumentNullException(nameof(teamTarget));
         _logger = logger;
     }
 
     public string Module => "Teams";
     public string Name => "TeamCapacity";
     public int Order => 40;
-    public bool SupportsExport => _teamSource is not null;
-    public bool SupportsImport => _teamTarget is not null;
+    public bool SupportsExport => _capProvider.Has(Cap.TeamCapacity);
+    public bool SupportsImport => _capProvider.Has(Cap.TeamCapacity);
     public bool IsEnabled => _options.Enabled;
 
     public async Task ExportAsync(IExtensionContext context, CancellationToken ct)
@@ -65,11 +69,6 @@ public sealed class TeamCapacityTeamExtension : IModuleExtension
         if (context is not TeamExtensionContext ctx)
             throw new ArgumentException($"Expected {nameof(TeamExtensionContext)}.", nameof(context));
 
-        if (_teamSource is null)
-        {
-            _logger?.LogDebug("[TeamCapacity] No ITeamSource registered — skipping capacity export for team '{TeamName}'.", ctx.Team.Name);
-            return;
-        }
 
         // Capacity requires iteration IDs — read iterations.json from the package (already written by TeamIterationsTeamExtension)
         var iterationsPayload = await ctx.Package.RequestContentAsync(
@@ -154,11 +153,6 @@ public sealed class TeamCapacityTeamExtension : IModuleExtension
         if (context is not TeamExtensionContext ctx)
             throw new ArgumentException($"Expected {nameof(TeamExtensionContext)}.", nameof(context));
 
-        if (_teamTarget is null)
-        {
-            _logger?.LogDebug("[TeamCapacity] No ITeamTarget registered — skipping capacity import for team '{TeamName}'.", ctx.Team.Name);
-            return;
-        }
 
         if (string.IsNullOrEmpty(ctx.TargetEntityId))
         {
@@ -208,7 +202,7 @@ public sealed class TeamCapacityTeamExtension : IModuleExtension
             var capacity = kvp.Value;
             try
             {
-                await _teamTarget.SetCapacityAsync(null!, ctx.ProjectName, ctx.TargetEntityId!, iterationId, capacity, ct).ConfigureAwait(false);
+                await _teamTarget.SetCapacityAsync(ctx.ProjectName, ctx.TargetEntityId!, iterationId, capacity, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {

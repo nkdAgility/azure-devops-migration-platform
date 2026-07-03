@@ -10,7 +10,7 @@ namespace DevOpsMigrationPlatform.ControlPlane.Jobs;
 
 /// <summary>
 /// In-memory store for the most recent <see cref="JobMetrics"/> per job.
-/// Updated by <c>TelemetryController.POST /agents/lease/{leaseId}/metrics</c>.
+/// Updated by <c>WorkerEventsController.POST /workers/{workerId}/events</c>.
 /// Read by <c>TelemetryController.GET /jobs/{jobId}/telemetry</c>.
 /// </summary>
 public sealed class JobMetricsStore

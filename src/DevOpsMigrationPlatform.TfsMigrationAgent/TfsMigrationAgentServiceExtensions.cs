@@ -10,35 +10,22 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
-using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
-using DevOpsMigrationPlatform.Abstractions.Organisations;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Export;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
-using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Identity;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
-using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.FieldTransform;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
 using Microsoft.Extensions.Logging;
 using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.JobLifecycle.TfsExecution;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Identity;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Nodes;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.ProjectLifecycle;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.Revisions;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.WorkItemType;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.WorkItemResolution;
-using DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Teams;
 
 namespace DevOpsMigrationPlatform.TfsMigrationAgent;
 
@@ -65,56 +52,20 @@ public static class TfsMigrationAgentServiceExtensions
         services.AddPackageStorageServices();
         services.AddPackageMigrationConfigLoader();
 
-        // Per-job TFS Object Model service factory — creates TFS connections, revision sources,
-        // attachment sources, tree readers, and discovery services per job based on the endpoint.
+        // Project lifecycle name generator (Infrastructure.Agent implementation).
         services.AddSingleton<IProjectLifecycleNameGenerator, ProjectLifecycleNameGenerator>();
-        services.AddSingleton<ITfsJobServiceFactory, TfsJobServiceFactory>();
 
-        // Ambient state carrying the current job's TFS services (set by TfsJobAgentWorker before running modules).
-        services.AddSingleton<ActiveTfsJobServices>();
+        // TFS Object Model module — self-registers its per-job service factory, ambient job state,
+        // adapter implementations for module contracts, connector-keyed providers, and source endpoint info.
+        services.AddTfsObjectModelModule(configuration);
 
-        // TFS adapter implementations for module contracts.
-        services.AddSingleton<IClassificationTreeCapture, TfsClassificationTreeCapture>();
-        services.AddSingleton<IWorkItemRevisionSourceFactory, TfsActiveJobWorkItemRevisionSourceFactory>();
-        services.AddSingleton<IIdentitySource, TfsActiveJobIdentitySource>();
-        // TFS identity adapter (reduced capability: empty + Warning) for full connector coverage (FR-019).
-        // Registered via the keyed composite dispatch seam so identity lookups route by connector type.
-        services.AddIdentityAdapter<TfsIdentityAdapter>("TeamFoundationServer");
-        services.AddSingleton<ITeamSource, TfsActiveJobTeamSource>();
-        // TFS has no board API - register explicit None capability and null adapter so
-        // BoardConfigTeamExtension can be constructed via DI; the capability check fires first.
-        services.AddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.IConnectorCapabilityProvider,
-            global::DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Teams.TfsConnectorCapabilityProvider>();
-        services.AddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.Teams.ITeamBoardAdapter,
-            global::DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Teams.TfsNullBoardAdapter>();
-        services.AddSingleton<INodeCreator, TfsActiveJobNodeCreator>();
-        services.AddSingleton<TfsActiveJobWorkItemTypeReadinessTargetFactory>();
-        services.TryAddSingleton<IWorkItemTypeReadinessTargetFactory>(sp => sp.GetRequiredService<TfsActiveJobWorkItemTypeReadinessTargetFactory>());
-
-        // TFS work item import target — creates work items in the TFS/ADO target via TFS Object Model.
-        services.AddSingleton<TfsActiveJobWorkItemTargetFactory>();
-        services.AddImportTargetFactory<TfsActiveJobWorkItemTargetFactory>("TeamFoundationServer");
-
-        // TFS work item resolution strategy — idmap-based duplicate detection, no external lookup needed.
-        services.AddResolutionStrategyFactory<TfsResolutionStrategyFactory, TfsWorkItemTarget>();
-
-        // Import infrastructure: idmap store, revision processor, node creator for import.
+        // Import infrastructure: idmap store, revision processor.
         services.AddSingleton<IIdMapStoreFactory, IdMapStoreFactory>();
         services.AddScoped<IWorkItemResolutionProcessorFactory, RevisionFolderProcessorFactory>();
-        services.AddNodeCreator<TfsActiveJobNodeCreator>("TeamFoundationServer");
-        services.AddProjectLifecycleProvider<TfsProjectLifecycleProvider>("TeamFoundationServer");
-        services.AddProjectProcessProvider<TfsProjectProcessProvider>("TeamFoundationServer");
 
         // Field transform and node translation tools for import.
         services.AddFieldTransformToolServices();
         services.AddNodeTranslationToolServices();
-        // On net481, AddNodeTranslationToolServices() does not register INodeTranslationTool.
-        // Register NodeTranslationTool directly so NodeReadinessOrchestrator can be activated.
-        services.TryAddSingleton<NodeTranslationTool>(sp => new NodeTranslationTool(
-            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<DevOpsMigrationPlatform.Abstractions.Options.NodeTranslationOptions>>(),
-            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<NodeTranslationTool>>(),
-            null));
-        services.TryAddSingleton<INodeTranslationTool>(sp => sp.GetRequiredService<NodeTranslationTool>());
 
         // Export progress store — SQLite-backed fast-forward resume (now supported on net481).
         services.AddSingleton<IExportProgressStoreFactory, ExportProgressStoreFactory>();
@@ -131,9 +82,6 @@ public static class TfsMigrationAgentServiceExtensions
         // for a TFS job, the JobPlanExecutor captureHandlersByName missing-handler path
         // (log Error + skip, no throw) would handle it gracefully.
 
-        // TFS source endpoint info — reads from ActiveTfsJobServices (source-only, no target).
-        services.AddTfsSourceEndpointInfo();
-
         // Target endpoint info — reads from ICurrentJobEndpointAccessor (set by base class from config).
         services.TryAddSingleton<ITargetEndpointInfo, ActiveJobTargetEndpointInfo>();
 
@@ -141,48 +89,5 @@ public static class TfsMigrationAgentServiceExtensions
         services.AddSingleton<IHostedService, TfsJobAgentWorker>();
 
         return services;
-    }
-
-    /// <summary>
-    /// Registers <see cref="ISourceEndpointInfo"/> for the TFS connector (source-only).
-    /// Reads values from <see cref="ActiveTfsJobServices"/>, which is populated by
-    /// <see cref="TfsJobAgentWorker"/> when a job is picked up.
-    /// </summary>
-    private static IServiceCollection AddTfsSourceEndpointInfo(this IServiceCollection services)
-    {
-        services.TryAddSingleton<ISourceEndpointInfo>(sp =>
-        {
-            var activeServices = sp.GetRequiredService<ActiveTfsJobServices>();
-            return new DeferredTfsSourceEndpointInfo(activeServices);
-        });
-
-        return services;
-    }
-
-    /// <summary>
-    /// Deferred implementation of <see cref="ISourceEndpointInfo"/> for TFS.
-    /// Reads from <see cref="ActiveTfsJobServices"/> at property-access time,
-    /// not at DI resolution time, so that it works for Import jobs where no
-    /// TFS Object Model connection is established.
-    /// </summary>
-    private sealed class DeferredTfsSourceEndpointInfo : ISourceEndpointInfo
-    {
-        private readonly ActiveTfsJobServices _activeServices;
-
-        public DeferredTfsSourceEndpointInfo(ActiveTfsJobServices activeServices)
-            => _activeServices = activeServices;
-
-        public string Url
-            => _activeServices.Current?.Endpoint.GetResolvedUrl() ?? string.Empty;
-
-        public string Project
-            => _activeServices.Current?.Endpoint.GetProject() ?? string.Empty;
-
-        public string ConnectorType => "TeamFoundationServer";
-
-        public string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
-
-        public OrganisationEndpoint ToOrganisationEndpoint()
-            => new OrganisationEndpoint { ResolvedUrl = Url, Type = ConnectorType };
     }
 }

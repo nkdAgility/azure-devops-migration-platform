@@ -57,6 +57,10 @@ builder.Services.AddControllers()
         opts.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
         opts.JsonSerializerOptions.UnmappedMemberHandling =
             System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow;
+        // Agent POSTs use JsonStringEnumConverter on the send side; the CP must
+        // accept string-encoded enum values so WorkerEventKind deserialises correctly.
+        opts.JsonSerializerOptions.Converters.Add(
+            new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
 
 builder.Services.AddControlPlaneTelemetryServices(builder.Configuration);

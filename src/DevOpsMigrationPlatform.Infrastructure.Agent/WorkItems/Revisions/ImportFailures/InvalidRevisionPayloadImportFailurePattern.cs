@@ -12,6 +12,13 @@ internal sealed class InvalidRevisionPayloadImportFailurePattern : IImportFailur
 {
     public const string Code = "WORKITEMS_PREPARE_INVALID_REVISION_PAYLOAD";
 
+    private readonly IWorkItemRevisionReader _revisionReader;
+
+    public InvalidRevisionPayloadImportFailurePattern(IWorkItemRevisionReader? revisionReader = null)
+    {
+        _revisionReader = revisionReader ?? new WorkItemsPrepareRevisionReader();
+    }
+
     public string PatternCode => Code;
 
     public async Task<IReadOnlyList<ImportFailureFinding>> EvaluateAsync(
@@ -20,7 +27,7 @@ internal sealed class InvalidRevisionPayloadImportFailurePattern : IImportFailur
     {
         var findings = new List<ImportFailureFinding>();
 
-        await foreach (var parsedRevision in WorkItemsPrepareRevisionReader.EnumerateAsync(
+        await foreach (var parsedRevision in _revisionReader.EnumerateAsync(
                            context.PrepareContext.Package,
                            context.Organisation,
                            context.Project,

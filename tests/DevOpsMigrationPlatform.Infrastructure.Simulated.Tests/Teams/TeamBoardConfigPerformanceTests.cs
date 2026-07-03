@@ -86,6 +86,7 @@ public sealed class TeamBoardConfigPerformanceTests
                 Options.Create(options),
                 new SimulatedBoardAdapter(),
                 cap.Object,
+            new DevOpsMigrationPlatform.Infrastructure.Agent.Teams.BoardConfigMergeTool(),
                 metrics: null,
                 logger: NullLogger<BoardConfigTeamExtension>.Instance);
 

@@ -30,6 +30,8 @@ interface IModule : ICapture
     bool SupportsImport { get; }
     bool SupportsValidate { get; }
 
+    IModuleContract Contract { get; }
+
     Task CaptureAsync(InventoryContext context, CancellationToken ct);
     Task ExportAsync(ExportContext context, CancellationToken ct);
     Task PrepareAsync(PrepareContext context, CancellationToken ct);
@@ -63,6 +65,29 @@ flowchart LR
     Package -->|read| Validate
     Target -->|read| Validate
 ```
+
+### Module Anatomy — `IModule.Contract`
+
+Every module exposes platform-owned, non-user-editable anatomy metadata via
+`IModule.Contract` (`IModuleContract`, in `DevOpsMigrationPlatform.Abstractions.Agent.Modules`).
+The contract declares exactly three aspects, mirroring the module's configuration shape
+(ConfigVersion 2.0 — see `.agents/10-contracts/specs/module-anatomy-contract.md` and ADR 0028):
+
+| Aspect | Definition type | Responsibility |
+|---|---|---|
+| `Selection` | `ISelectionDefinition` | *What to migrate* — in-scope entity selection (e.g. WorkItems `Query`/`Filters`, Teams `Scope`/`Filter`) |
+| `Data` | `IDataDefinition` | *What to carry* — canonical package payload kinds for selected entities (e.g. `Revisions`, `TeamIterations`) |
+| `Processing` | `IProcessingDefinition` | *How to execute* — runtime behaviour policies for export/import phases (e.g. `WorkItemResolutionStrategy`, `AlwaysExport`) |
+
+Each entry has a `Name` (matching its key under the module's `Selection`/`Data`/`Processing`
+config object) and a `Required` flag: required entries cannot be disabled (e.g. WorkItems
+`Links` and `Attachments` are intrinsic Data entries), optional entries may be enabled/disabled.
+The legacy `Scope`/`Extensions` config keys were removed in ConfigVersion 2.0 and must not
+reappear in new module designs. Capability seams consumed by Processing entries
+(`FieldTransform`, `NodeTranslation`, `IdentityLookup`) remain singular and canonical.
+
+New modules construct an immutable `ModuleContract` (typically a `private static readonly` field)
+and return it from `Contract`.
 
 ### Contract Invariants
 
@@ -123,7 +148,7 @@ Orchestrator interfaces are declared in `DevOpsMigrationPlatform.Abstractions.Ag
 | Interface | Location | Purpose |
 |---|---|---|
 | `INodesOrchestrator` | `Abstractions.Agent/Modules/` | Classification-tree export, import, and validation |
-| `IIdentitiesOrchestrator` | `Abstractions.Agent/Modules/` | Identity descriptor export, import (lookup/resolution), and validation |
+| `IIdentitiesOrchestrator` | `Abstractions.Agent/Modules/` | Identity inventory (capture), descriptor export, import (lookup/resolution), and validation |
 | `ITeamsOrchestrator` | `Abstractions.Agent/Modules/` | Team export and validation on both runtimes; team import on net10.0 |
 | `IDependencyOrchestrator` | `Abstractions.Agent/Modules/` | Dependency analysis orchestration (`DependencyAnalyser`) |
 | `IInventoryOrchestrator` | `Abstractions.Agent/Discovery/` | Inventory collection orchestration (retained, now injected into `WorkItemsModule.CaptureAsync`) |
@@ -230,19 +255,19 @@ public interface ISourceEndpointInfo
 
 > **Field-projected fetching**: Inventory and dependency analysis modules use `IWorkItemFetchService` for streaming, field-projected work item retrieval. This abstraction handles WIQL windowing, batch API calls, and in-process filtering — modules should not call `GetWorkItemsAsync` directly.
 
-### WorkItemsModule — Scopes and Filter Rules
+### WorkItemsModule — Selection and Filter Rules
 
-`WorkItemsModule` supports two scope types in its `scopes` array:
+`WorkItemsModule` selects work items via its `Selection` aspect:
 
-| Scope type | Purpose |
+| Selection entry | Purpose |
 |---|---|
-| `wiql` | Selects work items via a WIQL query (`parameters.query`). Required. |
-| `filter` | Post-fetch field-value filter. Multiple filters are AND-combined. |
+| `Query` | Selects work items via a WIQL query. Required. |
+| `Filters` | Post-fetch field-value filters. Multiple filters are AND-combined. |
 
-**Filter scope semantics:**
-- `mode: "include"` — retain only items where `field` matches `pattern` (case-insensitive regex, 2s timeout).
-- `mode: "exclude"` — discard items where `field` matches `pattern`.
-- Items where the filtered field is absent: pass `exclude` (does not match), fail `include`.
+**Filter semantics:**
+- `Mode: "Include"` — retain only items where `Field` matches `Pattern` (case-insensitive regex, 2s timeout).
+- `Mode: "Exclude"` — discard items where `Field` matches `Pattern`.
+- Items where the filtered field is absent: pass `Exclude` (does not match), fail `Include`.
 - Prefer short indexed fields (`System.AreaPath`, `System.WorkItemType`) to minimise API pre-fetch time.
 
 ### WorkItemsModule — Import Stages

@@ -14,6 +14,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Net.Http;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent;
 
@@ -29,9 +30,10 @@ public static class CoreAgentServiceExtensions
     /// Registers:
     /// <list type="bullet">
     ///   <item><see cref="ActiveLeaseState"/> and <see cref="ActivePackageState"/> ambient singletons.</item>
-    ///   <item>Agent telemetry — <c>IPlatformMetrics</c>, <c>IPlatformMetrics</c>, job metrics stores.</item>
+    ///   <item>Agent telemetry — <c>IPlatformMetrics</c>, job metrics stores.</item>
     ///   <item>Named <c>"ControlPlane"</c> <see cref="System.Net.Http.HttpClient"/> (optionally configured via <paramref name="configureControlPlane"/>).</item>
-    ///   <item><see cref="ControlPlaneProgressSink"/>, <see cref="PackageProgressSink"/>, and <see cref="CompositeProgressSink"/> as <c>IProgressSink</c>.</item>
+    ///   <item><see cref="UnifiedWorkerEventWriter"/> — the single agent-to-control-plane event channel (singleton, hosted service, <c>IFlushable</c>).</item>
+    ///   <item><see cref="PackageProgressSink"/> and <see cref="CompositeProgressSink"/> as <c>IProgressSink</c>.</item>
     ///   <item><see cref="IPhaseTrackingServiceFactory"/>, <see cref="IPackageStoreFactory"/>, <see cref="ICheckpointingServiceFactory"/>.</item>
     ///   <item>Diagnostic log pipeline (<see cref="DiagnosticsServiceExtensions.AddDiagnosticsServices(IServiceCollection, Uri)"/>).</item>
     ///   <item><see cref="ControlPlaneTelemetryTimer"/> background service.</item>
@@ -100,8 +102,6 @@ public static class CoreAgentServiceExtensions
         Uri controlPlaneBaseUrl,
         Action<IHttpClientBuilder>? configureControlPlane)
     {
-        services.AddControlPlaneTelemetryClient(controlPlaneBaseUrl);
-
         var controlPlaneHttpBuilder = services.AddHttpClient(
             "ControlPlane",
             client => client.BaseAddress = controlPlaneBaseUrl);
@@ -110,7 +110,18 @@ public static class CoreAgentServiceExtensions
         services.AddSingleton<AgentControlPlaneClientAdapter>();
         services.AddSingleton<IControlPlaneAgentClient>(sp =>
             sp.GetRequiredService<AgentControlPlaneClientAdapter>());
-        services.AddControlPlaneProgressSink(controlPlaneBaseUrl);
+        // Register UnifiedWorkerEventWriter as a background service (Phase C batch channel).
+        // IProgressSink is registered by AddCompositeProgressSink — not here — so the composite
+        // correctly fans out to AnsiProgressSink, PackageProgressSink, and UnifiedWorkerEventWriter.
+        services.AddHttpClient(UnifiedWorkerEventWriter.HttpClientName,
+            client => client.BaseAddress = controlPlaneBaseUrl);
+        services.AddSingleton<UnifiedWorkerEventWriter>();
+        services.AddHostedService(sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
+        services.AddSingleton<IFlushable>(sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
+        // Canonical worker-event port (ADR-0023 / CA-C1): workers depend on the
+        // IWorkerEventWriter contract, resolved to the same singleton channel.
+        services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.Telemetry.IWorkerEventWriter>(
+            sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
         return services;
     }
 
@@ -118,6 +129,15 @@ public static class CoreAgentServiceExtensions
     {
         services.AddSingleton<IPhaseTrackingServiceFactory, PhaseTrackingServiceFactory>();
         services.AddSingleton<ICheckpointingServiceFactory, CheckpointingServiceFactory>();
+        // Canonical package-content ports (ADR-0023 / VS-H1, VS-H2): single implementations
+        // shared by every consuming slice.
+        services.AddSingleton<Discovery.ProjectInventoryFileStore>();
+        services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.Discovery.IProjectInventoryReader>(
+            sp => sp.GetRequiredService<Discovery.ProjectInventoryFileStore>());
+        services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.Discovery.IProjectInventoryWriter>(
+            sp => sp.GetRequiredService<Discovery.ProjectInventoryFileStore>());
+        services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.IWorkItemRevisionReader,
+            WorkItems.Revisions.WorkItemsPrepareRevisionReader>();
         return services;
     }
 }

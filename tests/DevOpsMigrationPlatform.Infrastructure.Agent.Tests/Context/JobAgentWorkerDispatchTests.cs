@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
@@ -68,7 +69,7 @@ public sealed class JobAgentWorkerDispatchTests
     private Mock<ICurrentPackageConfigAccessor> _currentPackageConfigAccessor = null!;
     private Mock<ICurrentAgentJobContextAccessor> _currentJobContextAccessor = null!;
     private Mock<ICurrentJobEndpointAccessor> _currentJobEndpointAccessor = null!;
-    private Mock<IControlPlaneTelemetryClient> _telemetryClient = null!;
+    private UnifiedWorkerEventWriter _eventWriter = null!;
     private Mock<IJobMetricsStore> _metricsStore = null!;
     private Mock<IJobSnapshotStore> _snapshotStore = null!;
     private Mock<IActiveJobState> _activeJobState = null!;
@@ -100,13 +101,19 @@ public sealed class JobAgentWorkerDispatchTests
         _currentPackageConfigAccessor = new Mock<ICurrentPackageConfigAccessor>();
         _currentJobContextAccessor = new Mock<ICurrentAgentJobContextAccessor>();
         _currentJobEndpointAccessor = new Mock<ICurrentJobEndpointAccessor>();
-        _telemetryClient = new Mock<IControlPlaneTelemetryClient>();
         _metricsStore = new Mock<IJobMetricsStore>();
         _snapshotStore = new Mock<IJobSnapshotStore>();
         _activeJobState = new Mock<IActiveJobState>();
         _httpHandler = new MockHttpMessageHandler();
         _leaseState = new ActiveLeaseState();
         _packageState = new ActivePackageState();
+        var httpFactoryForWriter = new Mock<IHttpClientFactory>();
+        httpFactoryForWriter.Setup(f => f.CreateClient(It.IsAny<string>()))
+            .Returns(new HttpClient(_httpHandler) { BaseAddress = new Uri("http://localhost:5100") });
+        _eventWriter = new UnifiedWorkerEventWriter(
+            httpFactoryForWriter.Object,
+            _leaseState,
+            NullLogger<UnifiedWorkerEventWriter>.Instance);
         _logger = NullLogger<JobAgentWorker>.Instance;
 
         _packageConfiguration = new ConfigurationBuilder()
@@ -206,10 +213,6 @@ public sealed class JobAgentWorkerDispatchTests
                 It.IsAny<IReadOnlyDictionary<string, OrganisationEndpoint>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
-
-        _telemetryClient
-            .Setup(client => client.PushTaskListAsync(It.IsAny<string>(), It.IsAny<JobTaskList>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
 
         _flushables =
         [
@@ -413,11 +416,6 @@ public sealed class JobAgentWorkerDispatchTests
             "lease-deps",
             CancellationToken.None);
 
-        _telemetryClient.Verify(client => client.PushTaskListAsync(
-            "lease-deps",
-            It.IsAny<JobTaskList>(),
-            It.IsAny<CancellationToken>()), Times.Once);
-
         Assert.IsTrue(
             progressEvents.Any(evt => evt.Module == "Job" && evt.Stage == "Job.Ready"),
             "Dependencies jobs must emit Job.Ready after the plan is pushed so the CLI can fetch bootstrap.");
@@ -620,6 +618,7 @@ public sealed class JobAgentWorkerDispatchTests
         var worker = CreateWorker();
         var job = CreateJob((JobKind)999);
 
+        _leaseState.CurrentLeaseId = "lease-unknown";
         await JobAgentWorkerTestHelper.InvokeJobAsync(
             worker,
             job,
@@ -646,7 +645,9 @@ public sealed class JobAgentWorkerDispatchTests
             It.IsAny<CancellationToken>()), Times.Never);
         Assert.IsTrue(_httpHandler.RequestLog.Exists(request =>
             request.Method == HttpMethod.Post &&
-            request.RequestUri!.PathAndQuery.Contains("/fail", StringComparison.OrdinalIgnoreCase)));
+            request.RequestUri!.PathAndQuery.Contains("/events", StringComparison.OrdinalIgnoreCase) &&
+            _httpHandler.RequestBodies.TryGetValue(request, out var body) &&
+            ContainsTerminalEvent(body, failed: true)));
     }
 
     [TestCategory("CodeTest")]
@@ -668,6 +669,7 @@ public sealed class JobAgentWorkerDispatchTests
         var worker = CreateWorker();
         var job = CreateJob(JobKind.Export);
 
+        _leaseState.CurrentLeaseId = "lease-failure";
         await JobAgentWorkerTestHelper.InvokeJobAsync(
             worker,
             job,
@@ -678,7 +680,9 @@ public sealed class JobAgentWorkerDispatchTests
         _currentPackageConfigAccessor.Verify(accessor => accessor.Clear(), Times.AtLeastOnce);
         Assert.IsTrue(_httpHandler.RequestLog.Exists(request =>
             request.Method == HttpMethod.Post &&
-            request.RequestUri!.PathAndQuery.Contains("/fail", StringComparison.OrdinalIgnoreCase)));
+            request.RequestUri!.PathAndQuery.Contains("/events", StringComparison.OrdinalIgnoreCase) &&
+            _httpHandler.RequestBodies.TryGetValue(request, out var body) &&
+            ContainsTerminalEvent(body, failed: true)));
     }
 
     // ── Scenarios: Agent fails fast when migration-config.json is absent ────────
@@ -695,12 +699,15 @@ public sealed class JobAgentWorkerDispatchTests
         var worker = CreateWorker();
         var job = CreateJob(JobKind.Export);
 
+        _leaseState.CurrentLeaseId = "lease-config-absent";
         await JobAgentWorkerTestHelper.InvokeJobAsync(
             worker, job, CreateControlPlaneClient(), "lease-config-absent", CancellationToken.None);
 
         Assert.IsTrue(_httpHandler.RequestLog.Exists(request =>
             request.Method == HttpMethod.Post &&
-            request.RequestUri!.PathAndQuery.Contains("/fail", StringComparison.OrdinalIgnoreCase)),
+            request.RequestUri!.PathAndQuery.Contains("/events", StringComparison.OrdinalIgnoreCase) &&
+            _httpHandler.RequestBodies.TryGetValue(request, out var body) &&
+            ContainsTerminalEvent(body, failed: true)),
             "Expected job to be signaled as 'fail' when migration-config.json is absent.");
     }
 
@@ -834,7 +841,7 @@ public sealed class JobAgentWorkerDispatchTests
             flushables: _flushables,
             currentJobContextAccessor: _currentJobContextAccessor.Object,
             currentJobEndpointAccessor: _currentJobEndpointAccessor.Object,
-            telemetryClient: _telemetryClient.Object,
+            eventWriter: _eventWriter,
             logger: _logger);
     }
 
@@ -854,6 +861,8 @@ public sealed class JobAgentWorkerDispatchTests
     private sealed class FakeModule(string name, bool supportsPrepare) : IModule
     {
         public string Name => name;
+
+        public IModuleContract Contract => new ModuleContract(Name, [], [], []);
         public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
         public bool SupportsInventory => false;
         public bool SupportsExport => true;
@@ -871,6 +880,8 @@ public sealed class JobAgentWorkerDispatchTests
     private sealed class FakeAnalyser(string name) : IAnalyser
     {
         public string Name => name;
+
+        public IModuleContract Contract => new ModuleContract(Name, [], [], []);
         public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
         public Task<TaskExecutionResult> AnalyseAsync(AnalyseContext context, CancellationToken cancellationToken) => Task.FromResult(TaskExecutionResult.Completed());
     }
@@ -908,10 +919,51 @@ public sealed class JobAgentWorkerDispatchTests
     {
         public List<HttpRequestMessage> RequestLog { get; } = new();
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        // The caller (HttpClient) disposes request Content once SendAsync returns, so callers
+        // that inspect RequestLog after the fact (e.g. asserting on request bodies) must read
+        // the content here, while it is still live, and stash it for later retrieval.
+        public Dictionary<HttpRequestMessage, string> RequestBodies { get; } = new();
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             RequestLog.Add(request);
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
+            if (request.Content is not null)
+                RequestBodies[request] = await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
+    }
+
+    /// <summary>
+    /// Inspects a captured request body (a serialized WorkerEventBatch) for a Terminal event
+    /// whose embedded PayloadJson reports the given failed flag. Parses via JsonDocument rather
+    /// than string-Contains because PayloadJson is a JSON string nested inside the outer batch JSON.
+    /// </summary>
+    private static bool ContainsTerminalEvent(string body, bool failed)
+    {
+        using var doc = JsonDocument.Parse(body);
+
+        if (!doc.RootElement.TryGetProperty("events", out var events))
+            return false;
+
+        foreach (var evt in events.EnumerateArray())
+        {
+            if (!evt.TryGetProperty("kind", out var kindProp))
+                continue;
+            if (!string.Equals(kindProp.GetString(), "Terminal", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (!evt.TryGetProperty("payloadJson", out var payloadJsonProp))
+                continue;
+
+            var payloadJson = payloadJsonProp.GetString();
+            if (payloadJson is null)
+                continue;
+
+            using var payloadDoc = JsonDocument.Parse(payloadJson);
+            if (payloadDoc.RootElement.TryGetProperty("failed", out var failedProp) &&
+                failedProp.GetBoolean() == failed)
+                return true;
+        }
+
+        return false;
     }
 }

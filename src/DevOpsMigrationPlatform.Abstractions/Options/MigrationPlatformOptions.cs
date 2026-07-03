@@ -14,7 +14,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 /// <code>
 /// {
 ///   "MigrationPlatform": {
-///     "ConfigVersion": "1.0",
+///     "ConfigVersion": "2.0",
 ///     "Policies": { "Retries": { "Max": 8 }, "Throttle": { "MaxConcurrency": 4 }, "Checkpoints": { "Interval": 300 } },
 ///     "Mode": "Export",
 ///     "Source": { "Type": "AzureDevOpsServices", "Url": "...", "Project": "..." },
@@ -22,15 +22,17 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 ///     "Modules": {
 ///       "WorkItems": {
 ///         "Enabled": true,
-///         "Scope": {
+///         "Selection": {
 ///           "Query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.Id]",
 ///           "Filters": []
 ///         },
-///         "Extensions": {
+///         "Data": {
 ///           "Revisions": { "Enabled": true },
-///           "Links": { "Enabled": true },
-///           "Attachments": { "Enabled": true },
-///           "Comments": { "Enabled": true }
+///           "Comments": { "Enabled": true },
+///           "EmbeddedImages": { "Enabled": true }
+///         },
+///         "Processing": {
+///           "WorkItemResolutionStrategy": { "Enabled": false }
 ///         }
 ///       }
 ///     }
@@ -40,7 +42,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Options;
 /// </summary>
 public sealed class MigrationPlatformOptions
 {
-    /// <summary>Schema version of this configuration file (e.g. "2.0").</summary>
+    /// <summary>Schema version of this configuration file. Must be "2.0".</summary>
     public string ConfigVersion { get; set; } = string.Empty;
 
     /// <summary>Inventory, Dependencies, Export, Prepare, Import, or Migrate.</summary>
@@ -66,4 +68,18 @@ public sealed class MigrationPlatformOptions
 
     /// <summary>Organisations / collections to discover. Required when Mode is Inventory or Dependencies.</summary>
     public List<OrganisationEntry> Organisations { get; set; } = new();
+
+    /// <summary>
+    /// Returns only the organisations with <see cref="OrganisationEntry.Enabled"/> set to <c>true</c>.
+    /// Callers that act on organisations (discovery, inventory) should iterate this projection so the
+    /// enabled/disabled business rule is applied in one place rather than at each call site.
+    /// </summary>
+    public IEnumerable<OrganisationEntry> EnabledOrganisations()
+    {
+        foreach (var org in Organisations)
+        {
+            if (org.Enabled)
+                yield return org;
+        }
+    }
 }

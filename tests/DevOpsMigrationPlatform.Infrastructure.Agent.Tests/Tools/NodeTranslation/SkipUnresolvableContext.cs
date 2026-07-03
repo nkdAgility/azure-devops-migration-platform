@@ -44,7 +44,7 @@ public class SkipUnresolvableContext
 
     public SkipUnresolvableContext()
     {
-        IdentityMappingMock.Setup(s => s.Translate(It.IsAny<string>())).Returns<string>(id => id);
+        IdentityMappingMock.Setup(s => s.Translate(It.IsAny<string>(), It.IsAny<IdentityTranslationMap>())).Returns<string, IdentityTranslationMap>((id, _) => id);
         IdMapStoreMock.Setup(s => s.GetTargetWorkItemIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(99);
         IdMapStoreMock.Setup(s => s.RecordSkippedRevisionAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -105,7 +105,8 @@ public class SkipUnresolvableContext
             TargetMock.Object, IdMapStoreMock.Object, CheckpointingMock.Object,
             IdentityMappingMock.Object, NullLogger<WorkItemResolutionProcessor>.Instance,
             Organisation, Project,
-            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All) },
             nodeStructureTool: tool, nodeStructureContext: context, nodeStructureOptions: opts,
             package: PackageMock.Object);
 

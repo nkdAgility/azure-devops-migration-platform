@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.Identity;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
@@ -25,6 +26,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Validation;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 #if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 #endif
@@ -43,6 +45,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
     private const string ModuleName = "Identities";
 
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
+    private static readonly ActivitySource s_discoveryActivitySource = new(WellKnownActivitySourceNames.Discovery);
 
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
@@ -67,13 +70,25 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
     private readonly ConcurrentDictionary<string, string> _resolutionCache =
         new(StringComparer.OrdinalIgnoreCase);
 
+    private readonly IProjectInventoryWriter _projectInventory;
+
+    // Current identity-resolution data (ADR-0026, TC-M1). Owned here — the translation tool
+    // is a pure engine that receives this map as data. Set by PrepareAsync (cache snapshot)
+    // and ImportAsync (full map parsed from the package artefacts).
+    private volatile IdentityTranslationMap? _translationMap;
+
+    /// <inheritdoc/>
+    public IdentityTranslationMap TranslationMap => _translationMap ?? IdentityTranslationMap.Empty;
+
     public IdentitiesOrchestrator(
         ILogger<IdentitiesOrchestrator> logger,
         IPlatformMetrics? PlatformMetrics = null,
         IPackageAccess? package = null,
         IIdentityAdapter? identityAdapter = null,
-        IEnumerable<IIdentityMatchingStrategy>? matchingStrategies = null)
+        IEnumerable<IIdentityMatchingStrategy>? matchingStrategies = null,
+        IProjectInventoryWriter? projectInventory = null)
     {
+        _projectInventory = projectInventory ?? new Discovery.ProjectInventoryFileStore();
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _PlatformMetrics = PlatformMetrics;
         _package = package;
@@ -81,6 +96,92 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         _matchingStrategies = matchingStrategies is null
             ? Array.Empty<IIdentityMatchingStrategy>()
             : new List<IIdentityMatchingStrategy>(matchingStrategies);
+    }
+
+    /// <summary>
+    /// Inventory phase: enumerates identities and merges the count into the project
+    /// inventory file. Owns the enumeration loop, progress events, and metrics.
+    /// </summary>
+    public async Task<TaskExecutionResult> CaptureAsync(
+        IIdentitySource? identitySource,
+        InventoryContext context,
+        string fallbackOrgUrl,
+        CancellationToken ct)
+    {
+        using var activity = s_discoveryActivitySource.StartActivity("inventory.identities");
+        activity?.SetTag("job.id", context.Job.JobId);
+        activity?.SetTag("module", ModuleName);
+        activity?.SetTag("org", context.SourceEndpoint?.ResolvedUrl ?? string.Empty);
+        activity?.SetTag("project", context.Project);
+        _logger.LogInformation("Inventorying {Module}", ModuleName);
+
+        if (string.IsNullOrWhiteSpace(context.Project))
+        {
+            _logger.LogError("[Identities] CaptureAsync called with empty Project — executor contract violated. Skipping.");
+            return TaskExecutionResult.Skipped("CaptureAsync called with empty project.");
+        }
+
+        context.ProgressSink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Inventorying",
+            Message = $"Inventorying {ModuleName}",
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
+        var count = 0;
+        if (identitySource is not null)
+        {
+            var project = context.Project;
+            var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? fallbackOrgUrl;
+            var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
+
+            try
+            {
+                await foreach (var _ in identitySource.EnumerateIdentitiesAsync(project, ct).ConfigureAwait(false))
+                    count++;
+
+                await _projectInventory.MergeAsync(
+                    context.Package, orgSlug, project,
+                    orgUrl: orgUrl,
+                    identities: count, ct: ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+#if !NET481
+                using (_logger.BeginDataScope(DataClassification.Customer))
+#endif
+                _logger.LogWarning(ex, "Failed to enumerate identities for project {Project}; skipping.", project);
+            }
+        }
+
+        var tags = new MetricsTagList
+        {
+            { "job.id", context.Job.JobId },
+            { "module", ModuleName }
+        };
+        _PlatformMetrics?.RecordInventoryIdentities(count, tags);
+
+        _logger.LogInformation("Inventoried {Module}: {Count} items", ModuleName, count);
+        if (count == 0)
+            _logger.LogWarning("Zero items inventoried for {Module}", ModuleName);
+
+        context.ProgressSink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Inventoried",
+            Message = $"{ModuleName} inventory complete",
+            Timestamp = DateTimeOffset.UtcNow,
+            Metrics = new JobMetrics
+            {
+                Discovery = new DiscoveryCounters
+                {
+                    Inventory = new InventoryCounters { RevisionsTotal = count }
+                }
+            }
+        });
+
+        return TaskExecutionResult.Completed();
     }
 
     /// <summary>
@@ -226,7 +327,13 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 
         if (identityTranslationTool is not null)
         {
-            await identityTranslationTool.InitializeAsync(ct).ConfigureAwait(false);
+            // ADR-0026 (TC-M1): the orchestrator owns package I/O and the resolved map;
+            // the tool is a pure parse/translate engine that receives the map as data.
+            var mappingJson = await ReadPackageContentAsync(organisation, project, "mapping.json", ct).ConfigureAwait(false);
+            var preparedJson = await ReadPackageContentAsync(organisation, project, "prepared-identities.json", ct).ConfigureAwait(false);
+
+            var parsed = identityTranslationTool.ParseTranslationInputs(descriptorsJson, mappingJson, preparedJson);
+            _translationMap = MergeLiveResolutionCache(parsed);
         }
 
         var resolvedCount = CountLines(descriptorsJson);
@@ -235,7 +342,16 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
 
         if (identityTranslationTool is not null)
         {
-            await identityTranslationTool.WriteUnresolvedAsync(ct).ConfigureAwait(false);
+            var unresolved = identityTranslationTool.ComputeUnresolved(TranslationMap);
+            if (unresolved.Count > 0)
+            {
+                var content = JsonSerializer.Serialize(unresolved, s_jsonOptions);
+                await PersistPackageTextAsync(_package!, organisation, project, "unresolved.json", content, ct).ConfigureAwait(false);
+
+                _logger.LogWarning(
+                    "[IdentityTranslation] {Count} identit{Suffix} have no explicit mapping or prepared match — written to Identities/unresolved.json.",
+                    unresolved.Count, unresolved.Count == 1 ? "y" : "ies");
+            }
         }
 
         importSw.Stop();
@@ -260,6 +376,7 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
         // Reset the prepare-phase cache so stale mappings from a prior run on this
         // long-lived (singleton) orchestrator cannot leak into a subsequent job.
         _resolutionCache.Clear();
+        _translationMap = null;
 
         using var activity = s_activitySource.StartActivity("identity.prepare");
         activity?.SetTag("module", ModuleName);
@@ -370,6 +487,11 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             context.Package, organisation, project, "prepared-identities.json",
             JsonSerializer.Serialize(preparedMap, s_jsonOptions), ct).ConfigureAwait(false);
 
+        // Expose the prepare-phase matches for the single-process Prepare→Import path
+        // (ADR-0026, TC-M1): consumers translate via the pure tool with this map as data.
+        _translationMap = new IdentityTranslationMap(
+            new Dictionary<string, string>(), preparedMap, Array.Empty<string>());
+
         activity?.SetTag("identities.resolved", resolved);
         activity?.SetTag("identities.unresolved", unresolved);
         activity?.SetTag("identities.ambiguous", ambiguous);
@@ -384,6 +506,25 @@ internal sealed class IdentitiesOrchestrator : IIdentitiesOrchestrator
             Stage = "Identities.Prepare.Complete",
             Message = $"Identity prepare complete — {resolved} resolved, {unresolved} unresolved.",
         });
+    }
+
+    /// <summary>
+    /// Merges the in-memory Prepare-phase resolution cache into <paramref name="parsed"/>
+    /// (persisted entries win) so single-process Prepare→Import runs resolve identities even
+    /// when the persisted prepared map is missing or stale.
+    /// </summary>
+    private IdentityTranslationMap MergeLiveResolutionCache(IdentityTranslationMap parsed)
+    {
+        if (_resolutionCache.IsEmpty)
+            return parsed;
+
+        var prepared = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in _resolutionCache)
+            prepared[kv.Key] = kv.Value;
+        foreach (var kv in parsed.Prepared)
+            prepared[kv.Key] = kv.Value; // persisted map takes precedence
+
+        return new IdentityTranslationMap(parsed.Overrides, prepared, parsed.AllUniqueNames);
     }
 
     /// <inheritdoc/>

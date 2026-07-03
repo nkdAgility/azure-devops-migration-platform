@@ -1,5 +1,7 @@
 # Architecture Overview
 
+Audience: Contributors and architects.
+
 > This document defines architectural intent and is the primary human reference.
 > In any conflict between this document and `/.agents/20-guardrails/*.md` guardrails, **the guardrails win**.
 > See [.agents/20-guardrails/core/architecture-boundaries.md](../.agents/20-guardrails/core/architecture-boundaries.md) for the enforced rules.
@@ -66,7 +68,7 @@ The platform separates **job coordination** (control plane) from **job execution
 | **ControlPlane** | Service library (`DevOpsMigrationPlatform.ControlPlane`). Contains the HTTP API controllers, job state machine, lease protocol, and progress tracking. Currently all stores are in-memory; durable EF Core / PostgreSQL persistence is planned for a later phase. Has no entry point — it is referenced and hosted by `ControlPlaneHost`. |
 | **ControlPlaneHost** | Deployable ASP.NET Core host (`DevOpsMigrationPlatform.ControlPlaneHost`). References the `ControlPlane` service library and adds: process entry point and `AgentLifecycleService` (currently monitors TFS agent on Windows). In Standalone mode the CLI (`LocalStackHost`) manages agent process lifecycle directly; in Cloud mode `ContainerAgentLauncher` deploys and scales agent containers to a configurable ACA environment. Always reachable over HTTP. |
 | **Migration Agent** | (`DevOpsMigrationPlatform.MigrationAgent`) Stateless worker that executes migration jobs. Polls `ControlPlaneHost` for assigned jobs under a time-bounded lease, runs modules via the Job Engine, writes to the package, reports progress back. In Standalone mode its lifecycle is managed by `LocalStackHost` in the CLI; in Cloud mode by `ContainerAgentLauncher` in `ControlPlaneHost`. A single binary and container image supports all modes (`Inventory`, `Export`, `Prepare`, `Import`, `Validate`, `Migrate`). |
-| **TFS Migration Agent** | (`DevOpsMigrationPlatform.TfsMigrationAgent`) A .NET 4.8.1 polling agent — structural peer of the `MigrationAgent` — that handles jobs with `source.type: TeamFoundationServer`. Polls `GET /agents/lease?capabilities=tfs`, acquires TFS jobs, runs `IModule` dispatch (`TfsJobAgentWorker` accepts `IEnumerable<IModule>`), connects to TFS via the TFS Object Model, accesses the package through `IPackageAccess` (backed by `FileSystemArtefactStore` on net481), maintains checkpoints and phase metadata through that same boundary, and reports progress via `ControlPlaneProgressSink`. Supported mode coverage follows implemented connector/runtime capability in each release. Windows-only — TFS OM cannot run in containers. `AgentLifecycleService` spawns it on Windows and skips it elsewhere. See [docs/agent-hosting.md — TFS Migration Agent](agent-hosting.md#tfs-migration-agent). |
+| **TFS Migration Agent** | (`DevOpsMigrationPlatform.TfsMigrationAgent`) A .NET 4.8.1 polling agent — structural peer of the `MigrationAgent` — that handles jobs with `source.type: TeamFoundationServer`. Polls `GET /agents/lease?capabilities=tfs`, acquires TFS jobs, runs `IModule` dispatch (`TfsJobAgentWorker` accepts `IEnumerable<IModule>`), connects to TFS via the TFS Object Model, accesses the package through `IPackageAccess` (backed by `FileSystemArtefactStore` on net481), maintains checkpoints and phase metadata through that same boundary, and reports all telemetry via `UnifiedWorkerEventWriter` (batched `POST /workers/{workerId}/events`). Supported mode coverage follows implemented connector/runtime capability in each release. Windows-only — TFS OM cannot run in containers. `AgentLifecycleService` spawns it on Windows and skips it elsewhere. See [docs/agent-hosting.md — TFS Migration Agent](agent-hosting.md#tfs-migration-agent). |
 
 ### Tools
 
@@ -232,13 +234,11 @@ The package format is identical in all cases. See [docs/package-format-reference
 
 The Migration Agent emits structured `ProgressEvent` records through `IProgressSink`. Three sinks run simultaneously:
 
-- `ConsoleProgressSink` — writes NDJSON to the CLI terminal (local run output)
+- `AnsiProgressSink` — writes ANSI-formatted progress to the terminal (local run output)
 - `PackageProgressSink` — appends to `.migration/runs/<runId>/logs/progress.ndjson` in the package (always written; durable)
-- `ControlPlaneProgressSink` — POSTs each event to the control plane ring buffer for live TUI streaming
+- `UnifiedWorkerEventWriter` — batches all telemetry (progress events, diagnostic records, task lists, metrics, snapshots) into a single acknowledged channel and POSTs `WorkerEventBatch` to `POST /workers/{workerId}/events` on the control plane. Replaces the former separate `ControlPlaneProgressSink`, `ControlPlaneTelemetryClient`, and `ControlPlaneLoggerProvider` HTTP paths. Retries batches on 429 (2 s) and other failures (exponential backoff, up to 5 attempts).
 
-The TUI subscribes to `GET /jobs/{jobId}/progress?follow=true` (Server-Sent Events) for live progress, and polls `GET /jobs/{jobId}/telemetry` for metric counters. Both are independent. The package log is always written regardless of whether the TUI or CLI is connected.
-
-A separate **diagnostics channel** carries structured diagnostic log records (ILogger output). The agent writes diagnostic records to `.migration/runs/<runId>/logs/diagnostics.ndjson` in the package and, when connected to a control plane, streams them via `POST /agents/lease/{leaseId}/diagnostics`. The control plane buffers and exposes these on `GET /jobs/{jobId}/diagnostics?follow=true` (SSE). The diagnostics channel is independent of the progress channel — progress tracks migration cursor state, diagnostics track operational log messages.
+The CLI subscribes to `GET /jobs/{jobId}/stream` (unified SSE) for both live progress and diagnostics in a single connection. The stream replays the full append-only event log from `fromSeq` on connect, then switches to live events — eliminating the race conditions of the previous 4-task fan-out. The package log is always written regardless of whether the CLI is connected.
 
 The job engine has no knowledge of where progress is rendered.
 
@@ -252,7 +252,7 @@ The platform uses a three-tier model for diagnostic log levels. Each tier indepe
 | **Control Plane** | Minimum level the control plane accepts for buffering, SSE streaming, and storage. Records below this floor are dropped on receipt. | Deployment configuration (`Diagnostics:MinimumLevel`, default: `Information`). |
 | **App Insights / OTLP** | Exported telemetry level. | Standard OpenTelemetry / Azure Monitor configuration. |
 
-The agent's `--level` and the control plane's floor are independent. Setting `--level Debug` on the agent does not force the control plane to buffer debug records — the control plane applies its own floor before writing to the ring buffer or forwarding to subscribers.
+The agent's `--level` and the control plane's floor are independent. Setting `--level Debug` on the agent does not force the control plane to buffer debug records — the control plane applies its own floor before writing to the append-only log or forwarding to subscribers.
 
 ### Data Sovereignty
 
@@ -262,7 +262,7 @@ Customer-identifiable data (field values, project names, org URLs, attachment pa
 2. **`DataClassificationScope`** (`Abstractions/Telemetry/DataClassificationScope.cs`): `AsyncLocal`-backed ambient scope. Set via `DataClassificationScope.Begin(classification)` or the `ILogger.BeginDataScope(classification)` extension method.
 3. **`DataClassificationLogging.AddDataClassificationFilter()`** (`Infrastructure/Telemetry/DataClassificationLogProcessor.cs`): Provider-level filter registered on `OpenTelemetryLoggerProvider` in each host's logging pipeline. Reads `DataClassificationScope.Current` and prevents `Customer`-classified records from reaching Azure Monitor.
 
-The filter applies **only** to the OTel log export pipeline. `PackageLoggerProvider` (writes to run-scoped `diagnostics.ndjson`) and `ControlPlaneLoggerProvider` (streams to control plane) receive all log records regardless of classification. This ensures full diagnostic data is always available in the migration package and control plane while preventing customer data from reaching external telemetry services.
+The filter applies **only** to the OTel log export pipeline. `PackageLoggerProvider` (writes to run-scoped `diagnostics.ndjson`) and `ControlPlaneLoggerProvider` (enqueues Diagnostic worker events through `UnifiedWorkerEventWriter`) receive all log records regardless of classification. This ensures full diagnostic data is always available in the migration package and control plane while preventing customer data from reaching external telemetry services.
 
 Unclassified logs default to `System` — they are safe for Azure Monitor. This safe-by-default design allows gradual rollout: existing log statements work without change, and new customer-data log statements are wrapped in classification scopes as they are identified.
 
@@ -357,8 +357,8 @@ Key properties:
 
 15. `AzureBlobArtefactStore` (standard Azure Blob Storage HTTPS URLs) with Azurite local emulator support
 16. Aspire AppHost for CI/CD integration testing
-17. `ControlPlaneProgressSink` (Agent → Control Plane progress event streaming) ✅
-18. `JobProgressStore` ring buffer + `GET /jobs/{jobId}/progress` + `GET /jobs/{jobId}/progress?follow=true` SSE endpoint ✅
+17. `UnifiedWorkerEventWriter` (Agent → Control Plane batched worker-event channel, `POST /workers/{workerId}/events`) ✅
+18. `JobProgressStore` append-only log + `GET /jobs/{jobId}/progress` + `GET /jobs/{jobId}/stream` unified SSE endpoint ✅
 19. `manage progress` CLI command (snapshot to stdout, NDJSON format) ✅ — diagnostics channel (`/diagnostics`, `/diagnostics?follow=true`, `manage diagnostics`) added in spec 007
 20. CLI-level OpenTelemetry (`ActivitySource` in `Program.cs`, Azure Monitor exporter). All migration metrics use the `migration.*` dot-separated convention defined in `WellKnownMetricNames` under the consolidated `DevOpsMigrationPlatform.Migration` meter.
 21. `azd` deployment templates for Azure Container Apps
@@ -381,7 +381,7 @@ Key properties:
 | `DevOpsMigrationPlatform.Abstractions.Agent` | `net481;net10.0` | Agent contracts: module interfaces (`IModule`, `IDiscoveryModule`), storage (`IArtefactStore`, `IStateStore`, `IPackageLockService`), checkpointing (`ICheckpointingService`, `IPhaseTrackingService`), export orchestration (`IWorkItemRevisionSource`, `IWorkItemRevisionSourceFactory`, `IWorkItemFetchService`), import orchestration (`IWorkItemImportTarget`, `IWorkItemImportTargetFactory`), attachments (`IAttachmentBinarySource`), identity (`IIdentityMappingService`), discovery (`ICatalogService`, `IInventoryService`, `IDependencyDiscoveryService`), telemetry metrics interfaces |
 | `DevOpsMigrationPlatform.Infrastructure` | `net481;net10.0` | Shared infrastructure used by multiple components: `EndpointOptionsTypeRegistry`, polymorphic JSON converters (`PolymorphicEndpointOptionsConverter`), `ConfigurationService`, `InMemoryJobMetricsStore`, `InMemoryJobSnapshotStore`, telemetry data-classification filter |
 | `DevOpsMigrationPlatform.Infrastructure.ControlPlane` | `net10.0` | Control plane infrastructure: `JobLifecycleMetrics` (OTel implementation of `IJobLifecycleMetrics`), `SnapshotMetricExporter`, telemetry DI registration |
-| `DevOpsMigrationPlatform.Infrastructure.Agent` | `net481;net10.0` | Agent infrastructure: `FileSystemArtefactStore`, `AzureBlobArtefactStore`, `CheckpointingService`, `PhaseTrackingService`, module implementations (`WorkItemsModule`, `InventoryDiscoveryModule`, `DependencyDiscoveryModule`), export/import orchestrators, identity mapping, progress sinks (`AnsiProgressSink`, `PackageProgressSink`, `ControlPlaneProgressSink`), connector factory registration, telemetry |
+| `DevOpsMigrationPlatform.Infrastructure.Agent` | `net481;net10.0` | Agent infrastructure: `FileSystemArtefactStore`, `AzureBlobArtefactStore`, `CheckpointingService`, `PhaseTrackingService`, module implementations (`WorkItemsModule`, `InventoryDiscoveryModule`, `DependencyDiscoveryModule`), export/import orchestrators, identity mapping, progress sinks (`AnsiProgressSink`, `PackageProgressSink`) plus `UnifiedWorkerEventWriter` for control-plane telemetry, connector factory registration, telemetry |
 | `DevOpsMigrationPlatform.Infrastructure.AzureDevOps` | `net10.0` | ADO connector: `AzureDevOpsEndpointOptions`, `AzureDevOpsWorkItemRevisionSource` (first concrete `IWorkItemRevisionSource`), `AzureDevOpsAttachmentBinarySource` (streaming `IStreamingAttachmentBinarySource`), `AzureDevOpsWorkItemImportTarget`, ADO SDK services |
 | `DevOpsMigrationPlatform.Infrastructure.TfsObjectModel` | `net481` | TFS connector: `TeamFoundationServerEndpointOptions`, TFS Object Model services |
 | `DevOpsMigrationPlatform.Infrastructure.Simulated` | `net10.0` | Simulated connector: Config-driven synthetic connector for offline testing. Implements all source and target interfaces with deterministic generated data. No credentials required. |

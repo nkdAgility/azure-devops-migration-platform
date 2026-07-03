@@ -35,7 +35,7 @@ public sealed class TelemetryPoller
     /// <summary>
     /// Polls on <paramref name="intervalSeconds"/> cadence until the token is cancelled.
     /// </summary>
-    public async Task RunAsync(
+    public async Task PollTelemetryAsync(
         Guid jobId,
         int intervalSeconds,
         CancellationToken stoppingToken)

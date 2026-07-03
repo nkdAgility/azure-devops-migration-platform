@@ -1,5 +1,7 @@
 # Source Types
 
+Audience: Operators. The **Requirements** subsections under each source type describe implementation constraints (agent routing, runtime boundaries) that contributors need; operators can treat them as background.
+
 ## 9. Source Types
 
 The system supports two source types, controlled by `source.type` in the configuration.

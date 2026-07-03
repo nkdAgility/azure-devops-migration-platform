@@ -150,6 +150,37 @@ public sealed class SchemaGeneratorHostTests
         }
     }
 
+    // ── ConfigVersion 2.0 anatomy (ADR 0028, MC-H2) ───────────────────────────
+
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public async Task RunAsync_GeneratedSchema_UsesSelectionDataProcessingAnatomy()
+    {
+        var outputPath = Path.Combine(Path.GetTempPath(), $"schema-test-{Guid.NewGuid()}.json");
+        try
+        {
+            var sp = BuildServiceProvider();
+            var host = new SchemaGeneratorHost(sp, sp.GetRequiredService<ILogger<SchemaGeneratorHost>>());
+
+            var result = await host.RunAsync(outputPath, CancellationToken.None);
+            Assert.AreEqual(0, result, "RunAsync should return 0 on success");
+
+            var schemaJson = File.ReadAllText(outputPath);
+            StringAssert.Contains(schemaJson, "\"Selection\"");
+            StringAssert.Contains(schemaJson, "\"Data\"");
+            StringAssert.Contains(schemaJson, "\"Processing\"");
+            Assert.IsFalse(schemaJson.Contains("WorkItemsScopeOptions"),
+                "Legacy WorkItemsScopeOptions must not appear in the generated schema");
+            Assert.IsFalse(schemaJson.Contains("WorkItemsExtensionsOptions"),
+                "Legacy WorkItemsExtensionsOptions must not appear in the generated schema");
+        }
+        finally
+        {
+            if (File.Exists(outputPath)) File.Delete(outputPath);
+        }
+    }
+
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]

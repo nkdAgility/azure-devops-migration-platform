@@ -97,12 +97,6 @@ public class NodeEnsurerTests
 
 
 
-        var optionsMonitor = new Mock<IOptionsMonitor<NodeTranslationOptions>>();
-
-        optionsMonitor.SetupGet(o => o.CurrentValue).Returns(opts);
-
-
-
         var packageMock = PackageTestFactory.CreateLooseMock();
 
         packageMock.Setup(p => p.RequestContentAsync(
@@ -123,7 +117,7 @@ public class NodeEnsurerTests
 
         packageMock.Setup(p => p.RequestContentAsync(
 
-                It.Is<PackageContentContext>(c => IsPath(c, "Nodes/replication-progress.json", "replication-progress.json", NodeReplicationProgress.StateKey)),
+                It.Is<PackageContentContext>(c => IsPath(c, "Nodes/replication-progress.json", "replication-progress.json")),
 
                 It.IsAny<CancellationToken>()))
 
@@ -138,8 +132,6 @@ public class NodeEnsurerTests
             tool,
 
             creatorMock.Object,
-
-            optionsMonitor.Object,
 
             package: packageMock.Object);
 

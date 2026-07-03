@@ -1,6 +1,6 @@
 # Package Manager
 
-Frozen agent-facing mirror of the package boundary contract. Binding constraints live in [../../20-guardrails/package-rules.md](../../20-guardrails/domains/package-rules.md), [../../20-guardrails/architecture-boundaries.md](../../20-guardrails/core/architecture-boundaries.md), and [../../20-guardrails/data-sovereignty-rules.md](../../20-guardrails/domains/data-sovereignty-rules.md). Architectural decision: [docs/adr/0016-unified-package-access.md](../../../docs/adr/0016-unified-package-access.md).
+Frozen agent-facing mirror of the package boundary contract. Binding constraints live in [package-rules.md](../../20-guardrails/domains/package-rules.md), [architecture-boundaries.md](../../20-guardrails/core/architecture-boundaries.md), and [data-sovereignty-rules.md](../../20-guardrails/domains/data-sovereignty-rules.md). Architectural decision: [docs/adr/0016-unified-package-access.md](../../../docs/adr/0016-unified-package-access.md).
 
 ## Core Concept
 
@@ -147,7 +147,7 @@ This file is not a tutorial and not an operator doc. It is the concrete contract
 
 ## Read Next
 
-- [../../20-guardrails/package-rules.md](../../20-guardrails/domains/package-rules.md)
+- [package-rules.md](../../20-guardrails/domains/package-rules.md)
 - [docs/package-boundary-reference.md](../../../docs/package-boundary-reference.md)
 - [docs/package-format-reference.md](../../../docs/package-format-reference.md)
 - [migration-package-concept.md](migration-package-concept.md)

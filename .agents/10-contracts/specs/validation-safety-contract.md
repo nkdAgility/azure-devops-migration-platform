@@ -30,7 +30,7 @@ sequenceDiagram
   PV-->>JW: ValidationResult
   alt Validation failed
     JW->>PS: Emit failure ProgressEvent
-    JW->>CP: POST /agents/lease/{leaseId}/fail
+    JW->>CP: POST /workers/{workerId}/events (Terminal: fail — flushed immediately)
   else Validation passed
     JW-->>JW: Continue phase execution
   end

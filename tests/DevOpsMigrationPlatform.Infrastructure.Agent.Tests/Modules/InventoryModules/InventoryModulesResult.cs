@@ -45,7 +45,7 @@ public sealed class InventoryModulesResult
 
     /// <summary>
     /// Asserts that all four standard inventory-capable modules produced their artefact.
-    /// All four modules write via <c>ProjectInventoryFile.MergeAsync</c> → <c>PersistIndexAsync</c>;
+    /// All four modules write via <c>IProjectInventoryWriter.MergeAsync</c> → <c>PersistIndexAsync</c>;
     /// we assert that call was made at least four times (once per module).
     /// </summary>
     public void AssertAllStandardModuleArtefactsExist()

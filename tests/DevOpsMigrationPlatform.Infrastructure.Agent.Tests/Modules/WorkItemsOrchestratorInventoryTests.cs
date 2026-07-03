@@ -93,7 +93,7 @@ public sealed class WorkItemsOrchestratorInventoryTests
         var inventoryOrchestrator = new Mock<IInventoryOrchestrator>(MockBehavior.Strict);
         var ran = false;
         inventoryOrchestrator
-            .Setup(o => o.RunAsync(
+            .Setup(o => o.RunInventoryAsync(
                 "WorkItems",
                 It.IsAny<IAsyncEnumerable<InventoryProgressEvent>>(),
                 It.IsAny<InventoryContext>(),
@@ -186,7 +186,8 @@ public sealed class WorkItemsOrchestratorInventoryTests
             Mock.Of<IWorkItemsImportCapabilityValidator>(),
             Mock.Of<IWorkItemsNodeReadinessOrchestrator>(),
             targetEndpoint.Object,
-            new IModuleExtension[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
+            new IModuleExtension[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All) },
             inventoryOrchestrator: inventoryOrchestrator,
             repoDiscoveryService: null);
     }

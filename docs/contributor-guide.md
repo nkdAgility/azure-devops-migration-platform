@@ -2,6 +2,16 @@
 
 This guide is the entry point for developers changing the Azure DevOps Migration Platform.
 
+## First-Time Setup
+
+After cloning, run once (requires Windows Developer Mode or Administrator for the symlinks):
+
+```powershell
+.\.agents\configure.ps1
+```
+
+This hardlinks the agent entry files (`AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`) and the nested per-directory `AGENTS.md` stubs to their canonical sources under `.agents/`, and registers the `.githooks` hooks that keep those links repaired after every checkout and pull. A fresh clone already has correct file *content* without this step — the script enables edit-sync and self-repair. Git cannot run scripts on clone by design, so this one manual step is required.
+
 ## Start Here
 
 Read in this order:
@@ -28,8 +38,8 @@ The canonical human testing guide is [testing-guide.md](testing-guide.md).
 Use it for:
 
 - the repository tests-first workflow
-- the Unit → Feature → Smoke → Simulated → Live hierarchy
-- MSTest and Reqnroll conventions
+- the `CodeTest` (Unit → Domain → Integration) and `SystemTest` (Smoke → Simulated → Live) hierarchy
+- MSTest, internal-DSL, and legacy Reqnroll conventions
 - simulated test expectations
 - diagnostics for failing test runs
 

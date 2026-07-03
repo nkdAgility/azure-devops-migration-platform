@@ -50,6 +50,9 @@ public sealed class NodeTranslationTool : INodeTranslationTool
     public bool IsEnabled => _options.Enabled;
 
     /// <inheritdoc/>
+    public bool AutoCreateNodes => _options.AutoCreateNodes;
+
+    /// <inheritdoc/>
     public PathTranslation TranslatePath(
         string fieldName,
         string sourcePathValue,

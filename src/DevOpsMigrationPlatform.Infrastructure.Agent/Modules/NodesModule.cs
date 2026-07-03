@@ -55,6 +55,16 @@ public sealed class NodesModule : IModule
     private readonly INodesOrchestrator _orchestrator;
 
     public string Name => "Nodes";
+
+    /// <inheritdoc cref="IModule.Contract"/>
+    private static readonly IModuleContract NodesContract = new ModuleContract(
+        moduleName: "Nodes",
+        selection: [],
+        data: [new DataDefinition("ClassificationNodes", Required: true)],
+        processing: [new ProcessingDefinition("ReplicateSourceTree", Required: false)]);
+
+    /// <inheritdoc cref="IModule.Contract"/>
+    public IModuleContract Contract => NodesContract;
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
     public bool SupportsExport => true;
     public bool SupportsInventory => true;
@@ -88,76 +98,8 @@ public sealed class NodesModule : IModule
         _checkpointingFactory = checkpointingFactory;
     }
 
-    public async Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
-    {
-        using var activity = DiscoveryActivity.StartActivity("inventory.nodes");
-        activity?.SetTag("job.id", context.Job.JobId);
-        activity?.SetTag("module", Name);
-        activity?.SetTag("org", context.SourceEndpoint?.ResolvedUrl ?? string.Empty);
-        activity?.SetTag("project", context.Project);
-
-        if (string.IsNullOrWhiteSpace(context.Project))
-        {
-            _logger.LogError("[Nodes] CaptureAsync called with empty Project — executor contract violated. Skipping.");
-            return TaskExecutionResult.Skipped("CaptureAsync called with empty project.");
-        }
-
-        _logger.LogInformation("Inventorying {Module}", Name);
-        context.ProgressSink?.Emit(new ProgressEvent
-        {
-            Module = Name,
-            Stage = "Inventorying",
-            Message = $"Inventorying {Name}",
-            Timestamp = DateTimeOffset.UtcNow
-        });
-
-        var stopwatch = Stopwatch.StartNew();
-        var count = 0;
-        if (_reader is not null)
-        {
-            var project = context.Project;
-            var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? _sourceEndpointInfo.Url;
-            var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
-
-            try
-            {
-                count = await _reader.CountNodesAsync(project, ct).ConfigureAwait(false);
-
-                await ProjectInventoryFile.MergeAsync(
-                    context.Package, orgSlug, project,
-                    orgUrl: orgUrl,
-                    nodes: count, ct: ct).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                using (_logger.BeginDataScope(DataClassification.Customer))
-                    _logger.LogWarning(ex, "Failed to count nodes for project {Project}; skipping.", project);
-            }
-        }
-        stopwatch.Stop();
-
-        _PlatformMetrics?.RecordInventoryNodes(count, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
-        _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", Name, count, stopwatch.ElapsedMilliseconds);
-        if (count == 0)
-            _logger.LogWarning("Zero items inventoried for {Module}", Name);
-
-        context.ProgressSink?.Emit(new ProgressEvent
-        {
-            Module = Name,
-            Stage = "Inventoried",
-            Message = $"{Name} inventory complete",
-            Timestamp = DateTimeOffset.UtcNow,
-            Metrics = new JobMetrics
-            {
-                Discovery = new DiscoveryCounters
-                {
-                    Inventory = new InventoryCounters { RevisionsTotal = count }
-                }
-            }
-        });
-
-        return TaskExecutionResult.Completed();
-    }
+    public Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
+        => _orchestrator.CaptureAsync(_reader, context, _sourceEndpointInfo.Url, ct);
 
     public async Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct)
     {
@@ -174,16 +116,18 @@ public sealed class NodesModule : IModule
             Timestamp = DateTimeOffset.UtcNow
         });
 
-        var report = new PrepareReport
-        {
-            ModuleName = Name,
-            ResolvedCount = 0
-        };
+        // Delegate report generation and persistence (prepare-report.json + metrics)
+        // to the orchestrator.
+        var (organisation, project) = ResolvePrepareScope(context);
+        await _orchestrator.PrepareAsync(context, organisation, project, ct).ConfigureAwait(false);
 
-        var stopwatch = Stopwatch.StartNew();
-        _PlatformMetrics?.RecordPrepareNodesResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
-        _PlatformMetrics?.RecordPrepareNodesUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
+        context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Prepared", Message = $"{Name} prepare complete", Timestamp = DateTimeOffset.UtcNow });
 
+        return TaskExecutionResult.Completed();
+    }
+
+    private (string Organisation, string Project) ResolvePrepareScope(PrepareContext context)
+    {
         var organisation = _sourceEndpointInfo.OrganisationSlug;
         if (string.IsNullOrWhiteSpace(organisation))
         {
@@ -205,13 +149,7 @@ public sealed class NodesModule : IModule
             project = "unknown";
         }
 
-        await PersistPackageTextAsync(context.Package, Name, organisation, project, "prepare-report.json", JsonSerializer.Serialize(report), ct).ConfigureAwait(false);
-        stopwatch.Stop();
-
-        _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", Name, report.ResolvedCount, report.UnresolvedCount, stopwatch.ElapsedMilliseconds);
-        context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Prepared", Message = $"{Name} prepare complete", Timestamp = DateTimeOffset.UtcNow });
-
-        return TaskExecutionResult.Completed();
+        return (organisation!, project!);
     }
 
     /// <inheritdoc/>
@@ -252,7 +190,7 @@ public sealed class NodesModule : IModule
 
         // FR-007 / GAP-003: when source-tree replication is off, skip without calling the
         // orchestrator at all (the orchestrator must not be invoked in this case).
-        if (!_options.ReplicateSourceTree)
+        if (!_options.Processing.ReplicateSourceTree)
         {
             _logger.LogDebug("[Nodes] ReplicateSourceTree is false — skipping classification-tree import.");
             return TaskExecutionResult.Skipped("Nodes import skipped: ReplicateSourceTree is false.");
@@ -260,7 +198,7 @@ public sealed class NodesModule : IModule
 
         await _orchestrator.ImportAsync(
             context, _sourceEndpointInfo, _targetEndpointInfo,
-            _checkpointingFactory, _options.ReplicateSourceTree, ct).ConfigureAwait(false);
+            _checkpointingFactory, _options.Processing.ReplicateSourceTree, ct).ConfigureAwait(false);
 
         return TaskExecutionResult.Completed();
 #endif
@@ -277,14 +215,5 @@ public sealed class NodesModule : IModule
             ct).ConfigureAwait(false);
 
         return TaskExecutionResult.Completed();
-    }
-
-    private static async Task PersistPackageTextAsync(IPackageAccess package, string module, string organisation, string project, string relativePath, string content, CancellationToken ct)
-    {
-        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
-        await package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Module: module, Organisation: organisation, Project: project, Address: new RelativePathAddress(relativePath)),
-            new PackagePayload(stream, "application/json"),
-            ct).ConfigureAwait(false);
     }
 }

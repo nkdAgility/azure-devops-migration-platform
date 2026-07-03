@@ -16,6 +16,7 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Options;
@@ -24,7 +25,7 @@ using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
-using DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,8 +51,16 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly ICurrentPackageConfigAccessor _currentPackageConfigAccessor;
     private readonly ICurrentAgentJobContextAccessor _currentJobContextAccessor;
     private readonly ICurrentJobEndpointAccessor _currentJobEndpointAccessor;
-    private readonly IControlPlaneTelemetryClient _telemetryClient;
+    private readonly IWorkerEventWriter _eventWriter;
     private readonly ILogger<JobAgentWorker> _logger;
+    private IJobConfigResolver? _configResolver;
+
+    /// <summary>
+    /// Lazily-created config-normalisation service. Lazy because it depends on
+    /// <see cref="AgentWorkerBase.AgentJsonOptions"/>, which is only available after
+    /// base construction.
+    /// </summary>
+    private IJobConfigResolver ConfigResolver => _configResolver ??= new JobConfigResolver(AgentJsonOptions);
 
     public JobAgentWorker(
         IPackagePreparer packagePreparer,
@@ -71,13 +80,13 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IEnumerable<IFlushable> flushables,
         ICurrentAgentJobContextAccessor currentJobContextAccessor,
         ICurrentJobEndpointAccessor currentJobEndpointAccessor,
-        IControlPlaneTelemetryClient telemetryClient,
+        IWorkerEventWriter eventWriter,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null,
         PolymorphicOrganisationEntryConverter? organisationConverter = null)
         : base(progressSink, checkpointingFactory,
              phaseTrackingFactory, leaseState, packageState, currentPackageConfigAccessor, packageMigrationConfigLoader,
-                 package, moduleScopeFactory, httpClientFactory, logger, activeJobState, endpointConverter, organisationConverter)
+                 package, moduleScopeFactory, httpClientFactory, logger, eventWriter, activeJobState, endpointConverter, organisationConverter)
     {
         _metricsStore = metricsStore;
         _snapshotStore = snapshotStore;
@@ -88,7 +97,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         _currentPackageConfigAccessor = currentPackageConfigAccessor;
         _currentJobContextAccessor = currentJobContextAccessor;
         _currentJobEndpointAccessor = currentJobEndpointAccessor;
-        _telemetryClient = telemetryClient;
+        _eventWriter = eventWriter;
         _logger = logger;
         _logger.LogWarning(
             "JobAgentWorker started. Waiting for lease from Control Plane at {ControlPlaneUrl}.",
@@ -135,7 +144,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 Message = ex.Message,
                 Timestamp = DateTimeOffset.UtcNow
             });
-            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+            await SignalTerminalAsync("fail", ct).ConfigureAwait(false);
             return;
         }
 
@@ -161,7 +170,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 _logger.LogError(ex,
                     "Config file not found in {PackageUri} for job {JobId}. Re-submit the job via CLI.",
                     PackageState.CurrentPackageUri ?? "(unknown)", job.JobId);
-                await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+                await SignalTerminalAsync("fail", ct).ConfigureAwait(false);
                 _currentPackageConfigAccessor.Clear();
                 _currentJobContextAccessor.Clear();
                 _currentJobEndpointAccessor.Clear();
@@ -199,7 +208,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     _logger.LogError(
                         "Unknown job kind {JobKind} for lease — failing job {JobId}.",
                         job.Kind, job.JobId);
-                    await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+                    await SignalTerminalAsync("fail", ct).ConfigureAwait(false);
                     break;
             }
         }
@@ -546,7 +555,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     await _package.ResetMetaAsync(new PackageMetaContext(PackageMetaKind.InventoryCompletionMarker), ct).ConfigureAwait(false);
                     _logger.LogDebug("Deleted inventory completion marker {Path}.", ".migration/inventory.complete.json");
                 }
-                catch (System.IO.FileNotFoundException)
+                catch (DevOpsMigrationPlatform.Abstractions.Storage.PackageMetaNotFoundException)
                 {
                     // Marker didn't exist — not an error.
                 }
@@ -557,7 +566,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                     await _package.ResetMetaAsync(new PackageMetaContext(PackageMetaKind.ExecutionPlan), ct).ConfigureAwait(false);
                     _logger.LogDebug("Deleted plan file {Path}.", ".migration/plan.json");
                 }
-                catch (System.IO.FileNotFoundException)
+                catch (DevOpsMigrationPlatform.Abstractions.Storage.PackageMetaNotFoundException)
                 {
                     // Plan file didn't exist — not an error.
                 }
@@ -568,8 +577,8 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 .BuildAndSaveAsync(planConfig, job.Kind, _package, ct)
                 .ConfigureAwait(false);
 
-            // Push plan to the control plane for display.
-            await _telemetryClient.PushTaskListAsync(leaseId, executionPlan, ct).ConfigureAwait(false);
+            // Push plan to the control plane for display via the unified event channel.
+            _eventWriter.EnqueueTasks(executionPlan);
 
             ProgressSink.Emit(new ProgressEvent
             {
@@ -583,7 +592,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         {
             // Fatal — plan build failure means we can't proceed.
             _logger.LogError(ex, "Failed to build or load execution plan for job {JobId}.", job.JobId);
-            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+            await SignalTerminalAsync("fail", ct).ConfigureAwait(false);
             return;
         }
 
@@ -651,30 +660,12 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             if (job.Kind == JobKind.Inventory)
             {
                 // Build org endpoint map so capture tasks can resolve per-org endpoints.
-                var endpointsByUrl = new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase);
+                IReadOnlyDictionary<string, OrganisationEndpoint> endpointsByUrl =
+                    new Dictionary<string, OrganisationEndpoint>(StringComparer.OrdinalIgnoreCase);
                 try
                 {
                     var rawJson = await ReadPackageTextAsync(_package, ".migration/migration-config.json", ct).ConfigureAwait(false);
-                    if (!string.IsNullOrWhiteSpace(rawJson))
-                    {
-                        var wrapper = JsonSerializer.Deserialize<DiscoveryConfigWrapper>(rawJson, AgentJsonOptions);
-                        if (wrapper?.MigrationPlatform?.Organisations is { Count: > 0 } orgs)
-                        {
-                            // Propagate Source.Generator into SimulatedOrganisationEntry when absent.
-                            var sourceGenerator = (wrapper.MigrationPlatform.Source as SimulatedEndpointOptions)?.Generator;
-                            foreach (var o in orgs.Where(o => o.Enabled))
-                            {
-                                if (o is SimulatedOrganisationEntry sim
-                                    && sourceGenerator?.Projects is { Count: > 0 }
-                                    && (sim.Generator?.Projects is null or { Count: 0 }))
-                                {
-                                    sim.Generator = sourceGenerator;
-                                }
-                                var ep = o.ToEndpointOptions().ToOrganisationEndpoint();
-                                endpointsByUrl[ep.ResolvedUrl] = ep;
-                            }
-                        }
-                    }
+                    endpointsByUrl = ConfigResolver.ResolveOrganisationEndpoints(rawJson);
                 }
                 catch (Exception ex)
                 {
@@ -770,12 +761,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
                 if (runPrepare)
                 {
                     var jobAnalysers = jobScope.ServiceProvider.GetServices<IAnalyser>().ToList();
-                    var probeContent = System.Text.Json.JsonSerializer.Serialize(new
-                    {
-                        jobId = job.JobId,
-                        timestamp = DateTimeOffset.UtcNow,
-                        status = "ok"
-                    });
+                    var probeContent = ConfigResolver.BuildPrepareProbePayload(job.JobId, DateTimeOffset.UtcNow);
                     await WritePackageTextAsync(_package, ".migration/prepare-probe.json", probeContent, ct).ConfigureAwait(false);
 
                     var prepareModules = jobModules.Where(m => m.SupportsPrepare).ToList();
@@ -850,7 +836,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         // so without this pre-signal flush, async-batched sinks may never write their data.
         foreach (var flushable in _flushables)
             await flushable.FlushAsync().ConfigureAwait(false);
-        await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
+        await SignalTerminalAsync(terminal, ct).ConfigureAwait(false);
     }
 
     // ── Discovery execution ───────────────────────────────────────────────────
@@ -885,11 +871,11 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             }
 
             try { await _package.ResetMetaAsync(new PackageMetaContext(PackageMetaKind.InventoryCompletionMarker), ct).ConfigureAwait(false); }
-            catch (System.IO.FileNotFoundException) { /* not an error */ }
+            catch (DevOpsMigrationPlatform.Abstractions.Storage.PackageMetaNotFoundException) { /* not an error */ }
 
             // Delete persisted plan so a fresh one is built.
             try { await _package.ResetMetaAsync(new PackageMetaContext(PackageMetaKind.ExecutionPlan), ct).ConfigureAwait(false); }
-            catch (System.IO.FileNotFoundException) { /* not an error */ }
+            catch (DevOpsMigrationPlatform.Abstractions.Storage.PackageMetaNotFoundException) { /* not an error */ }
         }
 
         // Read migration-config.json from the package and extract discovery settings.
@@ -898,41 +884,9 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         try
         {
             var rawJson = await ReadPackageTextAsync(_package, ".migration/migration-config.json", ct).ConfigureAwait(false);
-            if (!string.IsNullOrWhiteSpace(rawJson))
-            {
-                var wrapper = JsonSerializer.Deserialize<DiscoveryConfigWrapper>(rawJson, AgentJsonOptions);
-                if (wrapper?.MigrationPlatform?.Organisations is { Count: > 0 } orgs)
-                {
-                    // For Simulated orgs, the Generator lives in Source.Generator (not on each org entry).
-                    // Propagate it so the discovery service has project definitions to count from.
-                    var sourceGenerator = (wrapper.MigrationPlatform.Source as SimulatedEndpointOptions)?.Generator;
-
-                    organisations = orgs
-                        .Where(o => o.Enabled)
-                        .Select(o =>
-                        {
-                            if (o is SimulatedOrganisationEntry sim
-                                && sourceGenerator?.Projects is { Count: > 0 }
-                                && (sim.Generator?.Projects is null or { Count: 0 }))
-                            {
-                                sim.Generator = sourceGenerator;
-                            }
-                            return new ScopedOrganisationEndpoint
-                            {
-                                Endpoint = o.ToEndpointOptions(),
-                                Projects = new List<string>(o.Projects),
-                                Scopes = o.Scopes.Select(s => new JobModuleScope
-                                {
-                                    Type = s.Type,
-                                    Parameters = s.Parameters.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value)
-                                }).ToList()
-                            };
-                        })
-                        .ToList();
-                }
-                if (wrapper?.MigrationPlatform?.Policies is { } p)
-                    policies = new JobPolicies { MaxRetries = p.Retries.Max, MaxConcurrency = p.Throttle.MaxConcurrency, CheckpointIntervalSeconds = p.Checkpoints.Interval };
-            }
+            var resolution = ConfigResolver.ResolveDiscoverySettings(rawJson);
+            organisations = resolution.Organisations;
+            policies = resolution.Policies;
         }
         catch (Exception ex)
         {
@@ -966,7 +920,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
             discoveryPlan = await planBuilder
                 .BuildAndSaveAsync(planConfig, job.Kind, _package, ct)
                 .ConfigureAwait(false);
-            await _telemetryClient.PushTaskListAsync(leaseId, discoveryPlan, ct).ConfigureAwait(false);
+            _eventWriter.EnqueueTasks(discoveryPlan);
 
             ProgressSink.Emit(new ProgressEvent
             {
@@ -1037,7 +991,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         // Flush buffered sinks before signalling — the CLI kills this process on receipt.
         foreach (var flushable in _flushables)
             await flushable.FlushAsync().ConfigureAwait(false);
-        await SignalTerminalAsync(controlPlane, leaseId, terminal, ct).ConfigureAwait(false);
+        await SignalTerminalAsync(terminal, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -1111,11 +1065,6 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         }
 
         return handlers;
-    }
-
-    private sealed class DiscoveryConfigWrapper
-    {
-        public MigrationPlatformOptions? MigrationPlatform { get; set; }
     }
 
     private sealed class InlineMigrationEndpointOptions(OrganisationEndpoint endpoint) : MigrationEndpointOptions

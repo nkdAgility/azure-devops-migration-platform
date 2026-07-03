@@ -1,5 +1,7 @@
 # Concurrent Write Detection & Lease Protocol
 
+Audience: Advanced operators and contributors.
+
 ## Overview
 
 The Azure DevOps Migration Platform protects migration packages from concurrent writes through a **lease-based protocol**. A migration package is bound to a single agent via a time-limited lease; only the lease holder may write to the package. This prevents data corruption from concurrent writes.

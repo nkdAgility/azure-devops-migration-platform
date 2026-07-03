@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
+#pragma warning disable CS0168
 using DevOpsMigrationPlatform.CLI.Views;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -92,7 +93,7 @@ public sealed class TuiJobDetail_LiveDataStreaming_DslTests
         using var cts = new CancellationTokenSource();
 
         // Act — run for long enough to get at least 2 polls (immediate + 1-second interval).
-        var task = poller.RunAsync(jobId, intervalSeconds: 1, cts.Token);
+        var task = poller.PollTelemetryAsync(jobId, intervalSeconds: 1, cts.Token);
         await Task.Delay(1500).ConfigureAwait(false);
         cts.Cancel();
         try { await task; } catch (OperationCanceledException) { }
@@ -104,21 +105,8 @@ public sealed class TuiJobDetail_LiveDataStreaming_DslTests
         // tested separately via context.Client directly.
         TuiJobDetailAssertions.AssertMetricsPanelContains(panel, "Work Items Attempted", "7");
 
-        // Also verify URL path contains the jobId (handler receives full request).
-        // The poller calls GET /jobs/{jobId}/telemetry — assert it called at least twice.
-        // We can't easily intercept URLs from HttpMessageHandler without a recording handler,
-        // but call count is verified through panel state: panel.Update was called >= 2 times.
-        // For URL-path assertion, use FakeControlPlaneClient:
-        using var fakeContext = new TuiJobDetailContext();
-        fakeContext.Client.TelemetryResponse = metrics;
-        for (int i = 0; i < 2; i++)
-            await fakeContext.Client.GetTelemetryAsync(jobId, CancellationToken.None);
-
-        Assert.IsTrue(fakeContext.Client.TelemetryCallCount >= 2,
-            $"Expected at least 2 telemetry calls but got {fakeContext.Client.TelemetryCallCount}.");
-        foreach (var path in fakeContext.Client.TelemetryRequestPaths)
-            Assert.AreEqual($"/jobs/{jobId}/telemetry", path,
-                $"Expected URL path '/jobs/{jobId}/telemetry' but got '{path}'.");
+        // Metrics are now delivered via the unified SSE stream (GET /jobs/{jobId}/stream).
+        // The TelemetryPoller above verifies the legacy poller still works for HTTP-direct callers.
     }
 
     // ── Scenario 4: Log Panel reconnects automatically after SSE drop ─────────

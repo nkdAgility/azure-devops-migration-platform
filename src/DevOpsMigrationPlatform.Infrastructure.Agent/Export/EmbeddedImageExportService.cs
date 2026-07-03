@@ -3,19 +3,16 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Security.Cryptography;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems;
 using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Attachments;
-using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
@@ -24,24 +21,30 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 
 /// <summary>
 /// Processes HTML and Markdown text to discover, download, and rewrite embedded images.
+/// Reference parsing/rewriting is delegated to the canonical
+/// <see cref="IEmbeddedImageReferenceTool"/> seam shared with the import path (ADR-0026, TC-L3);
+/// this service owns download and package persistence only.
 /// </summary>
 public class EmbeddedImageExportService : IEmbeddedImageExportService
 {
     private readonly IEmbeddedImageDownloader _downloader;
     private readonly IPackageAccess _package;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;
+    private readonly IEmbeddedImageReferenceTool _referenceTool;
     private readonly ILogger<EmbeddedImageExportService> _logger;
 
     public EmbeddedImageExportService(
         IEmbeddedImageDownloader downloader,
         IPackageAccess package,
         ISourceEndpointInfo sourceEndpointInfo,
-        ILogger<EmbeddedImageExportService> logger)
+        ILogger<EmbeddedImageExportService> logger,
+        IEmbeddedImageReferenceTool? referenceTool = null)
     {
         _downloader = downloader ?? throw new ArgumentNullException(nameof(downloader));
         _package = package ?? throw new ArgumentNullException(nameof(package));
         _sourceEndpointInfo = sourceEndpointInfo ?? throw new ArgumentNullException(nameof(sourceEndpointInfo));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _referenceTool = referenceTool ?? new Tools.EmbeddedImages.EmbeddedImageReferenceTool();
     }
 
     public async Task<string> ExportImagesFromHtmlAsync(
@@ -52,45 +55,12 @@ public class EmbeddedImageExportService : IEmbeddedImageExportService
         if (string.IsNullOrEmpty(html))
             return html;
 
-        var doc = new HtmlDocument();
-        doc.LoadHtml(html);
-
-        var downloadedImages = new Dictionary<string, string>(); // URL -> local filename
-
-        var imgNodes = doc.DocumentNode.SelectNodes("//img[@src]");
-        if (imgNodes == null || imgNodes.Count == 0)
+        var sources = _referenceTool.ParseHtmlImageSources(html);
+        if (sources.Count == 0)
             return html;
 
-        foreach (var img in imgNodes)
-        {
-            var originalUrl = img.GetAttributeValue("src", string.Empty);
-            if (string.IsNullOrEmpty(originalUrl))
-                continue;
-
-            // Check if already downloaded in this batch
-            if (!downloadedImages.TryGetValue(originalUrl, out var localFilename))
-            {
-                var result = await _downloader.TryDownloadAsync(originalUrl, cancellationToken);
-                if (result == null)
-                {
-                    using (DataClassificationScope.Begin(DataClassification.Customer))
-                        _logger.LogWarning("Could not download image {url}, preserving original", originalUrl);
-                    continue;
-                }
-
-                localFilename = ComputeImageFilename(result.Bytes, result.Extension);
-                downloadedImages[originalUrl] = localFilename;
-
-                await PersistImageAsync(folderPath, localFilename, result.Bytes, cancellationToken).ConfigureAwait(false);
-                using (DataClassificationScope.Begin(DataClassification.Customer))
-                    _logger.LogInformation("Downloaded image {url} -> {filename}", originalUrl, localFilename);
-            }
-
-            // Rewrite image src
-            img.SetAttributeValue("src", localFilename);
-        }
-
-        return doc.DocumentNode.OuterHtml;
+        var urlMap = await DownloadAndPersistAsync(sources, folderPath, cancellationToken).ConfigureAwait(false);
+        return _referenceTool.RewriteHtmlImageSources(html, urlMap);
     }
 
     public async Task<string> ExportImagesFromMarkdownAsync(
@@ -101,44 +71,50 @@ public class EmbeddedImageExportService : IEmbeddedImageExportService
         if (string.IsNullOrEmpty(markdown))
             return markdown;
 
-        // Regex pattern: ![alt-text](url)
-        var pattern = @"!\[([^\]]*)\]\(([^)]+)\)";;
-        var downloadedImages = new Dictionary<string, string>();
-        var result = markdown;
+        var references = _referenceTool.ParseMarkdownImageReferences(markdown);
+        if (references.Count == 0)
+            return markdown;
 
-        var regex = new Regex(pattern);
-        var matches = regex.Matches(markdown).Cast<Match>().ToList();
+        var urlMap = await DownloadAndPersistAsync(references, folderPath, cancellationToken).ConfigureAwait(false);
+        return _referenceTool.RewriteMarkdownImageReferences(markdown, urlMap);
+    }
 
-        // Process matches in reverse to maintain string positions
-        for (int i = matches.Count - 1; i >= 0; i--)
+    /// <summary>
+    /// Downloads each distinct referenced image once, persists it to the package, and
+    /// returns the source-URL → local-filename map for rewriting. Failed downloads are
+    /// logged and left out of the map so the original URL is preserved.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, string>> DownloadAndPersistAsync(
+        IReadOnlyList<string> sourceUrls,
+        string folderPath,
+        CancellationToken cancellationToken)
+    {
+        var downloadedImages = new Dictionary<string, string>(); // URL -> local filename
+        var failed = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var originalUrl in sourceUrls)
         {
-            var match = matches[i];
-            var altText = match.Groups[1].Value;
-            var originalUrl = match.Groups[2].Value;
+            if (string.IsNullOrEmpty(originalUrl) || downloadedImages.ContainsKey(originalUrl) || failed.Contains(originalUrl))
+                continue;
 
-            if (!downloadedImages.TryGetValue(originalUrl, out var localFilename))
+            var result = await _downloader.TryDownloadAsync(originalUrl, cancellationToken).ConfigureAwait(false);
+            if (result == null)
             {
-                var downloadResult = await _downloader.TryDownloadAsync(originalUrl, cancellationToken);
-                if (downloadResult == null)
-                {
-                    using (DataClassificationScope.Begin(DataClassification.Customer))
-                        _logger.LogWarning("Could not download image {url}, preserving original", originalUrl);
-                    continue; // Keep original
-                }
-
-                localFilename = ComputeImageFilename(downloadResult.Bytes, downloadResult.Extension);
-                downloadedImages[originalUrl] = localFilename;
-
-                await PersistImageAsync(folderPath, localFilename, downloadResult.Bytes, cancellationToken).ConfigureAwait(false);
+                failed.Add(originalUrl);
                 using (DataClassificationScope.Begin(DataClassification.Customer))
-                    _logger.LogInformation("Downloaded image {url} -> {filename}", originalUrl, localFilename);
+                    _logger.LogWarning("Could not download image {url}, preserving original", originalUrl);
+                continue;
             }
 
-            var replacement = $"![{altText}]({localFilename})";
-            result = result.Substring(0, match.Index) + replacement + result.Substring(match.Index + match.Length);
+            var localFilename = ComputeImageFilename(result.Bytes, result.Extension);
+            downloadedImages[originalUrl] = localFilename;
+
+            await PersistImageAsync(folderPath, localFilename, result.Bytes, cancellationToken).ConfigureAwait(false);
+            using (DataClassificationScope.Begin(DataClassification.Customer))
+                _logger.LogInformation("Downloaded image {url} -> {filename}", originalUrl, localFilename);
         }
 
-        return result;
+        return downloadedImages;
     }
 
     private async Task PersistImageAsync(string folderPath, string fileName, byte[] bytes, CancellationToken cancellationToken)
@@ -148,7 +124,7 @@ public class EmbeddedImageExportService : IEmbeddedImageExportService
             ? fileName
             : $"{normalizedFolderPath}/{fileName}";
 
-        using var stream = new MemoryStream(bytes, writable: false);
+        using var stream = new System.IO.MemoryStream(bytes, writable: false);
         await _package.PersistContentStreamAsync(
             new PackageContentContext(
                 PackageContentKind.Artefact,

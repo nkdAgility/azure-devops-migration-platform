@@ -1,5 +1,7 @@
 # Orchestration
 
+Audience: Operators who want to understand what runs when, and contributors working on the Job Engine. Operators who only need to run migrations should start with [`operator-guide.md`](operator-guide.md); the sections below go into execution-plan internals.
+
 ## Job Engine
 
 The **Job Engine** is the shared execution core used by Migration Agents in all hosting topologies. It receives a `Job`, resolves the execution plan, and runs modules in dependency order. It has no knowledge of the TUI, the console, or any progress renderer.
@@ -203,7 +205,7 @@ The orchestrator runs in the same way regardless of execution context. The conte
 
 - The CLI uses embedded Aspire `DistributedApplication` APIs to start `ControlPlaneHost`, `MigrationAgent`(s), and PostgreSQL on the local machine. All components communicate over HTTP (`http://localhost:5100`).
 - The package boundary is backed by the local filesystem store (`FileSystemArtefactStore` beneath `IPackageAccess`).
-- Progress is consumed by all three sinks simultaneously: `ConsoleProgressSink`, `PackageProgressSink`, and `ControlPlaneProgressSink` (enables live TUI streaming via the control plane).
+- Progress is consumed by all three sinks simultaneously: `ConsoleProgressSink`, `PackageProgressSink`, and `UnifiedWorkerEventWriter` (batched worker events to the control plane; enables live TUI streaming).
 - Any machine with network access to the host can attach a TUI via the control plane HTTP endpoint.
 
 See [docs/cli-guide.md](cli-guide.md) for local and server command details.
@@ -212,7 +214,7 @@ See [docs/cli-guide.md](cli-guide.md) for local and server command details.
 
 - A Migration Agent calls the Job Engine after receiving a leased `Job` from the remote control plane.
 - The package boundary is backed by the shared artefact store (`AzureBlobArtefactStore` or equivalent beneath `IPackageAccess`).
-- Progress is consumed by `ControlPlaneProgressSink`, which pushes events to the control plane.
+- Progress is consumed by `UnifiedWorkerEventWriter`, which batches events and pushes them to the control plane via `POST /workers/{workerId}/events`.
 - The control plane's progress view mirrors the cursor; the cursor in the package remains authoritative for resume.
 
 ### What Does Not Change Between Contexts

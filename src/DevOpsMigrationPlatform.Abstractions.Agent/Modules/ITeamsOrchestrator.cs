@@ -20,6 +20,28 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 /// </summary>
 public interface ITeamsOrchestrator
 {
+    /// <summary>
+    /// Inventory phase: enumerates teams from <paramref name="teamSource"/> (when available)
+    /// and merges the count into the project inventory file. Owns the enumeration loop,
+    /// progress events, and metrics — the module is a thin façade.
+    /// </summary>
+    Task<TaskExecutionResult> CaptureAsync(
+        ITeamSource? teamSource,
+        InventoryContext context,
+        string fallbackOrgUrl,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Prepare phase: generates the Teams <c>prepare-report.json</c>, records prepare metrics,
+    /// and persists the report into the package. Owns report generation and persistence —
+    /// the module is a thin façade.
+    /// </summary>
+    Task PrepareAsync(
+        PrepareContext context,
+        string organisation,
+        string project,
+        CancellationToken ct);
+
     Task ExportAsync(
         ITeamSource teamSource,
         ExportContext context,

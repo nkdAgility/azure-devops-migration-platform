@@ -20,7 +20,7 @@
 - `RevisionsEnabled` — removed from god-object (was never read; early-return guard and startup log read `_options.Value.Extensions.Revisions.Enabled`).
 - Dead `FromModule` factory and all 8 private helpers deleted from `WorkItemsModuleExtensions`.
 - Loop-level `commentsEnabled` gate — migrated from `ext.Comments.Enabled` to `_commentsExtension.IsEnabled`; `Comments` property removed from god-object; dead `Comments = ext.Comments` line removed from `ApplyReplayLevers`.
-- Taxonomy rename — `AttachmentReplayService` → `AttachmentReplayTool`, `EmbeddedImageReplayService` → `EmbeddedImageRewriteTool`. `Service` is not a permitted role noun.
+- Taxonomy rename — `AttachmentReplayService` → `AttachmentReplayTool`, `EmbeddedImageReplayService` → `EmbeddedImageRewriteTool`. `Service` is not a permitted role noun. *(Superseded: the operator's later Tool-taxonomy ruling — ADR-0026 and its 2026-07-03 amendment — reversed this: Tools are pure engines; replay units doing I/O are services. Both types are now `EmbeddedImageReplayService` and `AttachmentReplayService`.)*
 - HX-C1 DI wiring — `AttachmentsWorkItemExtension` and `CommentsWorkItemExtension` now resolved via `GetRequiredService` in the `WorkItemsOrchestrator` factory lambda; `??` fallback no longer fires in production.
 - DC-C1 dead parameter — `WorkItemsModuleExtensions ext` removed from `IWorkItemResolutionProcessor.ProcessAsync`; was declared but never read.
 - SA-H1 file rename — `RevisionFolderProcessor.cs` → `WorkItemResolutionProcessor.cs` to match class name.

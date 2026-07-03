@@ -11,7 +11,7 @@ All configuration lives under a single `MigrationPlatform` root key in a JSON fi
 ```json
 {
   "MigrationPlatform": {
-    "ConfigVersion": "1.0",
+    "ConfigVersion": "2.0",
     "Mode": "Export",
     "Package": { ... },
     "Source": { ... },

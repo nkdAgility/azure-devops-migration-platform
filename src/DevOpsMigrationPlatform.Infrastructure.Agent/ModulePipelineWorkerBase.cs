@@ -14,12 +14,14 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 #if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 #endif
@@ -89,12 +91,13 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
         ILogger logger,
+        IWorkerEventWriter eventWriter,
         IActiveJobState? activeJobState = null
 #if !NET481
         , PolymorphicEndpointOptionsConverter? endpointConverter = null
         , PolymorphicOrganisationEntryConverter? organisationConverter = null
 #endif
-        ) : base(leaseState, packageState, httpClientFactory, logger
+        ) : base(leaseState, packageState, httpClientFactory, logger, eventWriter
 #if !NET481
                  , endpointConverter
                  , organisationConverter
@@ -218,7 +221,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
             Logger.LogError(ex,
                 "Config file not found: {PackageUri}. Re-submit the job via CLI.",
                 PackageState.CurrentPackageUri ?? "(unknown)");
-            await SignalTerminalAsync(controlPlane, leaseId, "fail", ct).ConfigureAwait(false);
+            await SignalTerminalAsync("fail", ct).ConfigureAwait(false);
             CurrentPackageConfig.Clear();
             return;
         }
@@ -276,7 +279,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
             _activeJobState?.Clear();
         }
 
-        await SignalTerminalAsync(controlPlane, leaseId, failed ? "fail" : "complete", ct)
+        await SignalTerminalAsync(failed ? "fail" : "complete", ct)
             .ConfigureAwait(false);
     }
 

@@ -36,7 +36,7 @@ public static class DiagnosticsServiceExtensions
         builder.Logging.Services.AddSingleton<ILoggerProvider>(
             sp => sp.GetRequiredService<PackageLoggerProvider>());
 
-        // Control plane logger — POSTs batches to /agents/lease/{leaseId}/diagnostics.
+        // Control plane logger — routes diagnostic batches through UnifiedWorkerEventWriter.
         builder.Services.AddSingleton<ControlPlaneLoggerProvider>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<ControlPlaneLoggerProvider>());
         builder.Logging.Services.AddSingleton<ILoggerProvider>(
@@ -70,7 +70,7 @@ public static class DiagnosticsServiceExtensions
         services.AddSingleton<ILoggerProvider>(sp => sp.GetRequiredService<PackageLoggerProvider>());
         services.AddSingleton<IFlushable>(sp => sp.GetRequiredService<PackageLoggerProvider>());
 
-        // Control plane logger — POSTs batches to /agents/lease/{leaseId}/diagnostics.
+        // Control plane logger — routes diagnostic batches through UnifiedWorkerEventWriter.
         services.AddSingleton<ControlPlaneLoggerProvider>();
         services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<ControlPlaneLoggerProvider>());
         services.AddSingleton<ILoggerProvider>(sp => sp.GetRequiredService<ControlPlaneLoggerProvider>());

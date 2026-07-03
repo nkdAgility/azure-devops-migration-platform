@@ -7,8 +7,6 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.CLI.Migration.Configuration;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.CLI.Migration.Views;
-using DevOpsMigrationPlatform.Infrastructure.Config;
-using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
@@ -25,9 +23,7 @@ public sealed class ConfigureCommand : CommandBase<ConfigureCommandSettings>
     {
         await CreateHost(Environment.GetCommandLineArgs(), (services, config) =>
         {
-            services.AddSingleton<IConfigurationService, ConfigurationService>();
-            services.AddSingleton<IInteractiveConfigurationBuilder, InteractiveConfigurationBuilder>();
-            services.AddSingleton<ConfigureCommandRenderer>();
+            services.AddConfigurationWizard();
         });
 
         var console = GetRequiredService<IAnsiConsole>();

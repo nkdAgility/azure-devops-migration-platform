@@ -46,7 +46,7 @@ public sealed class WorkItemsNodeReadinessOrchestrator : IWorkItemsNodeReadiness
         if (_nodeReadinessOrchestrator is not null)
         {
             await _nodeReadinessOrchestrator
-                .ExecuteAsync(nodeReadinessContext, replicateSourceTree, ct)
+                .PrepareRequiredNodePathsAsync(nodeReadinessContext, replicateSourceTree, ct)
                 .ConfigureAwait(false);
             return;
         }

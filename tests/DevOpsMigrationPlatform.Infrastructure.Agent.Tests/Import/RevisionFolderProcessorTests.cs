@@ -52,8 +52,8 @@ public class WorkItemResolutionProcessorTests
             .Setup(s => s.IsEnabled)
             .Returns(true);
         _mockIdentityMapping
-            .Setup(s => s.Translate(It.IsAny<string>()))
-            .Returns<string>(id => id);
+            .Setup(s => s.Translate(It.IsAny<string>(), It.IsAny<IdentityTranslationMap>()))
+            .Returns<string, IdentityTranslationMap>((id, _) => id);
     }
 
     private WorkItemResolutionProcessor CreateSut(
@@ -67,7 +67,8 @@ public class WorkItemResolutionProcessorTests
             NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
-            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All) },
             package: _mockPackage.Object,
             extensionStages: extensionStages,
             embeddedImagesOptions: embeddedImagesOptions);
@@ -270,7 +271,7 @@ public class WorkItemResolutionProcessorTests
         SetupPackageText($"{Folder}/comment.json", null);
 
         _mockIdentityMapping
-            .Setup(s => s.Translate("source@example.com"))
+            .Setup(s => s.Translate("source@example.com", It.IsAny<IdentityTranslationMap>()))
             .Returns("target@example.com");
 
         SetupNoMapping();
@@ -293,7 +294,7 @@ public class WorkItemResolutionProcessorTests
         var sut = CreateSut();
         await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
-        _mockIdentityMapping.Verify(s => s.Translate("source@example.com"), Times.Once);
+        _mockIdentityMapping.Verify(s => s.Translate("source@example.com", It.IsAny<IdentityTranslationMap>()), Times.Once);
         Assert.IsNotNull(capturedFields);
         var assignedTo = capturedFields!.FirstOrDefault(f => f.ReferenceName == "System.AssignedTo");
         Assert.IsNotNull(assignedTo);
@@ -310,7 +311,7 @@ public class WorkItemResolutionProcessorTests
         SetupPackageText($"{Folder}/comment.json", null);
 
         _mockIdentityMapping
-            .Setup(s => s.Translate("source@example.com"))
+            .Setup(s => s.Translate("source@example.com", It.IsAny<IdentityTranslationMap>()))
             .Returns("target@example.com");
 
         SetupNoMapping();
@@ -333,7 +334,7 @@ public class WorkItemResolutionProcessorTests
         var sut = CreateSut();
         await sut.ImportRevisionAsync(Folder, null, _mockResolutionStrategy.Object, CancellationToken.None);
 
-        _mockIdentityMapping.Verify(s => s.Translate("source@example.com"), Times.Once);
+        _mockIdentityMapping.Verify(s => s.Translate("source@example.com", It.IsAny<IdentityTranslationMap>()), Times.Once);
         Assert.IsNotNull(capturedFields);
         Assert.AreEqual("target@example.com", capturedFields!.Single(f => f.ReferenceName == "System.AssignedTo").Value);
         Assert.AreEqual("target@example.com", capturedFields.Single(f => f.ReferenceName == "System.ChangedBy").Value);
@@ -387,7 +388,8 @@ public class WorkItemResolutionProcessorTests
             NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
-            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All) },
             nodeStructureTool: nodeTranslationTool.Object,
             nodeStructureContext: new ProjectMapping("Source", "Target"),
             nodeStructureOptions: new NodeTranslationOptions { SkipOnUnresolvableArea = true },

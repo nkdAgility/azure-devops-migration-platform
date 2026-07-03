@@ -76,8 +76,8 @@ Audience: Operators.
 | `.migration/runs/<runId>/logs/progress.ndjson` | Per-event progress log (in package) |
 | `.migration/runs/<runId>/logs/diagnostics.ndjson` | Structured diagnostics log (in package) |
 | `.migration/Logs/*.log` | Module diagnostic logs (in package) |
-| Control Plane API: `GET /jobs/{id}/diagnostics` | Structured log stream from the running agent |
-| Control Plane API: `GET /jobs/{id}/progress` | SSE progress event stream |
+| Control Plane API: `GET /jobs/{id}/stream?from={seq}` | Unified SSE stream — progress and diagnostics with full-history replay |
+| Control Plane API: `GET /jobs/{id}/telemetry` | Metrics counters (polling) |
 
 ## Further Help
 

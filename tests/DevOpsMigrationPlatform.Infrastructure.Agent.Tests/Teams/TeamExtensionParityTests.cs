@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using System.Collections.Generic;
+using System.Linq;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -58,10 +59,13 @@ public class TeamExtensionParityTests
         await Task.CompletedTask;
     }
 
+    // EC-M3 / ADR-0024: team-settings export is core Teams pipeline behaviour (the
+    // TeamSettingsTeamExtension seam was folded into TeamExportOrchestrator). The
+    // package artefact must remain byte-for-byte identical to the extension's output.
     [TestCategory("CodeTest")]
     [TestCategory("DomainTests")]
     [TestMethod]
-    public async Task TeamSettingsExtension_WhenSettingsReturned_WritesSettingsJson()
+    public async Task TeamsCorePipeline_WhenSettingsReturned_WritesSettingsJsonByteForByte()
     {
         var teamSource = new Mock<ITeamSource>(MockBehavior.Loose);
         teamSource.Setup(s => s.GetTeamSettingsAsync(
@@ -71,18 +75,50 @@ public class TeamExtensionParityTests
                 BugsBehavior: true,
                 WorkingDays: new[] { "monday" }));
 
-        var (package, writtenPaths) = CreateTrackingPackage();
-        var extension = new TeamSettingsTeamExtension(
-            Options.Create(new TeamSettingsExtensionOptions()),
-            teamSource: teamSource.Object,
-            teamTarget: null,
-            logger: NullLogger<TeamSettingsTeamExtension>.Instance);
+        var writtenPayloads = new Dictionary<string, string>();
+        var package = new Mock<IPackageAccess>(MockBehavior.Loose);
+        package.Setup(p => p.PersistContentAsync(
+                It.IsAny<PackageContentContext>(), It.IsAny<PackagePayload>(), It.IsAny<CancellationToken>()))
+            .Callback<PackageContentContext, PackagePayload, CancellationToken>((ctx, payload, _) =>
+            {
+                using var reader = new StreamReader(payload.Content, Encoding.UTF8, leaveOpen: true);
+                writtenPayloads[(ctx.Address?.RelativePath ?? string.Empty).Replace('\\', '/')] = reader.ReadToEnd();
+                if (payload.Content.CanSeek) payload.Content.Position = 0;
+            })
+            .Returns(ValueTask.CompletedTask);
 
-        await extension.ExportAsync(BuildContext(package), CancellationToken.None);
+        var endpointInfo = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Context.ISourceEndpointInfo>(MockBehavior.Loose);
+        var orchestrator = new DevOpsMigrationPlatform.Infrastructure.Agent.Teams.TeamExportOrchestrator(
+            teamSource.Object,
+            NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.Teams.TeamExportOrchestrator>.Instance,
+            endpointInfo.Object);
 
-        Assert.IsTrue(
-            writtenPaths.Exists(p => p.Replace('\\', '/').EndsWith("settings.json")),
-            "Expected settings.json to be written.");
+        await orchestrator.ExportTeamAsync(
+            "org", "Proj",
+            new TeamDefinition("team-1", "Alpha Team", string.Empty, true),
+            "alpha-team",
+            package.Object,
+            new DevOpsMigrationPlatform.Abstractions.Agent.Modules.TeamsDataOptions(),
+            new DevOpsMigrationPlatform.Abstractions.Agent.Modules.TeamsProcessingOptions(),
+            CancellationToken.None);
+
+        var settingsPath = writtenPayloads.Keys.FirstOrDefault(p => p.EndsWith("settings.json"));
+        Assert.IsNotNull(settingsPath, "Expected settings.json to be written by the core Teams pipeline (EC-M3).");
+        Assert.AreEqual(
+            "{\"backlogNavigationLevel\":\"Iteration\",\"bugsBehavior\":true,\"workingDays\":[\"monday\"]}",
+            writtenPayloads[settingsPath!],
+            "settings.json content must be byte-for-byte identical to the pre-fold extension output (EC-M3).");
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("DomainTests")]
+    [TestMethod]
+    public void TeamSettingsExtensionSeam_IsRemoved()
+    {
+        // EC-M3: the invalid extension seam is gone — team settings are core pipeline behaviour.
+        var type = System.Type.GetType(
+            "DevOpsMigrationPlatform.Infrastructure.Agent.Teams.Extensions.TeamSettingsTeamExtension, DevOpsMigrationPlatform.Infrastructure.Agent");
+        Assert.IsNull(type, "TeamSettingsTeamExtension must be folded into the core Teams pipeline (EC-M3).");
     }
 
     [TestCategory("CodeTest")]
@@ -105,8 +141,9 @@ public class TeamExtensionParityTests
         var (package, writtenPaths) = CreateTrackingPackage();
         var extension = new TeamIterationsTeamExtension(
             Options.Create(new TeamIterationsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
             teamSource: teamSource.Object,
-            teamTarget: null,
+            teamTarget: new Mock<ITeamTarget>(MockBehavior.Loose).Object,
             nodeTranslationTool: null,
             referencedPathTracker: null,
             logger: NullLogger<TeamIterationsTeamExtension>.Instance);
@@ -135,8 +172,9 @@ public class TeamExtensionParityTests
         var (package, writtenPaths) = CreateTrackingPackage();
         var extension = new TeamMembersTeamExtension(
             Options.Create(new TeamMembersExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
             teamSource: teamSource.Object,
-            teamTarget: null,
+            teamTarget: new Mock<ITeamTarget>(MockBehavior.Loose).Object,
             identityTranslationTool: null,
             logger: NullLogger<TeamMembersTeamExtension>.Instance);
 
@@ -193,8 +231,9 @@ public class TeamExtensionParityTests
 
         var extension = new TeamCapacityTeamExtension(
             Options.Create(new TeamCapacityExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
             teamSource: teamSource.Object,
-            teamTarget: null,
+            teamTarget: new Mock<ITeamTarget>(MockBehavior.Loose).Object,
             logger: NullLogger<TeamCapacityTeamExtension>.Instance);
 
         await extension.ExportAsync(BuildContext(package), CancellationToken.None);

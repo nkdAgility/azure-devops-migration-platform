@@ -70,7 +70,8 @@ public sealed class TeamExportOrchestrator
         TeamDefinition team,
         string slug,
         IPackageAccess package,
-        TeamsModuleExtensionsOptions extensions,
+        TeamsDataOptions data,
+        TeamsProcessingOptions processing,
         CancellationToken ct)
     {
         using var activity = s_activitySource.StartActivity("teams.export.team");
@@ -79,7 +80,7 @@ public sealed class TeamExportOrchestrator
 
         // Record area paths for NodeTranslation (still handled here for backward compat
         // when no TeamIterationsTeamExtension is registered)
-        if (extensions.NodeTranslation && _referencedPathTracker is not null)
+        if (processing.NodeTranslation && _referencedPathTracker is not null)
         {
             try
             {
@@ -106,6 +107,14 @@ public sealed class TeamExportOrchestrator
             }
         }
 
+        // Core pipeline: export team settings (backlog levels, bug behaviour, working days)
+        // to Teams/{slug}/settings.json. Folded from the former TeamSettingsTeamExtension
+        // seam (EC-M3 / ADR-0024); artefact content is byte-for-byte identical.
+        if (data.TeamSettings)
+        {
+            await ExportTeamSettingsAsync(organisation, projectName, team, slug, package, ct).ConfigureAwait(false);
+        }
+
         // Write definition-only team.json (capabilities are in split artifact files)
         var teamPackage = new TeamPackage
         {
@@ -127,6 +136,50 @@ public sealed class TeamExportOrchestrator
         _logger.LogInformation(
             "[Teams] Exported team definition '{Name}' → Teams/{Slug}/team.json.",
             team.Name, slug);
+    }
+
+    private async Task ExportTeamSettingsAsync(
+        string organisation,
+        string projectName,
+        TeamDefinition team,
+        string slug,
+        IPackageAccess package,
+        CancellationToken ct)
+    {
+        TeamSettings? settings;
+        try
+        {
+            settings = await _teamSource.GetTeamSettingsAsync(projectName, team.Id, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Teams] Failed to fetch settings for team '{TeamName}' — skipping.", team.Name);
+            return;
+        }
+
+        if (settings is null)
+        {
+            _logger.LogDebug("[Teams] No settings returned for team '{TeamName}' — skipping.", team.Name);
+            return;
+        }
+
+        var json = JsonSerializer.Serialize(settings, s_jsonOptions);
+        using var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(json), writable: false);
+        await package.PersistContentAsync(
+            new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: organisation,
+                Project: projectName,
+                Module: "Teams",
+                Address: new TeamArtifactAddress(slug, "settings.json")),
+            new PackagePayload(stream, "application/json"),
+            ct).ConfigureAwait(false);
+
+        _logger.LogInformation("[Teams] Exported settings for team '{TeamName}' → Teams/{Slug}/settings.json.", team.Name, slug);
     }
 
     private Task RecordAreaPathAsync(

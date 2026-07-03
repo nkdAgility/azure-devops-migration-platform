@@ -17,6 +17,9 @@ public sealed class ProjectLifecycleArchitectureBoundaryTests
     {
         var allowedPrefixes = new[]
         {
+            // Canonical cross-connector contracts (e.g. KnownProcessIds) live in
+            // Abstractions.ProjectLifecycle per ADR-0023 (VS-H3).
+            "DevOpsMigrationPlatform.Abstractions.ProjectLifecycle",
             "DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle",
             "DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle",
             "DevOpsMigrationPlatform.Infrastructure.Simulated.ProjectLifecycle",

@@ -31,7 +31,7 @@ public interface ISourceEndpointInfo
     /// "http://tfsserver:8080/tfs/DefaultCollection"), or the hostname when no path exists.
     /// </summary>
 #if !NET481
-    string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
+    string OrganisationSlug => OrganisationEndpointSlug.ExtractSlug(Url);
 #else
     string OrganisationSlug { get; }
 #endif
@@ -40,35 +40,4 @@ public interface ISourceEndpointInfo
     /// Returns the full <see cref="OrganisationEndpoint"/> for this endpoint, including authentication.
     /// </summary>
     OrganisationEndpoint ToOrganisationEndpoint();
-}
-
-/// <summary>
-/// Shared helper for extracting a filesystem-safe slug from an endpoint URL.
-/// </summary>
-public static class EndpointSlugHelper
-{
-    /// <summary>
-    /// Extracts the last non-empty path segment from <paramref name="url"/>,
-    /// or the hostname if the URL has no path segments.
-    /// </summary>
-    public static string ExtractSlug(string url)
-    {
-        if (string.IsNullOrWhiteSpace(url))
-            return "unknown";
-
-        if (Uri.TryCreate(url, UriKind.Absolute, out var uri))
-        {
-            var segments = uri.AbsolutePath.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
-            if (segments.Length > 0)
-                return segments[segments.Length - 1];
-            return uri.Host;
-        }
-
-        // Fallback: treat as opaque string, take last segment after '/'
-        var lastSlash = url.LastIndexOf('/');
-        if (lastSlash >= 0 && lastSlash < url.Length - 1)
-            return url.Substring(lastSlash + 1);
-
-        return url;
-    }
 }

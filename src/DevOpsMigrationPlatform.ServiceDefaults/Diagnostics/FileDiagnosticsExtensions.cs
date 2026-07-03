@@ -90,7 +90,7 @@ public static class FileDiagnosticsExtensions
     {
         var path = configuration["Telemetry:DiagnosticsPath"];
         if (string.IsNullOrWhiteSpace(path))
-            path = Path.Combine(AppContext.BaseDirectory, ".otel-diagnostics");
+            return null;
 
         path = Environment.ExpandEnvironmentVariables(path);
         var basePath = Path.IsPathRooted(path) ? path : Path.GetFullPath(path);

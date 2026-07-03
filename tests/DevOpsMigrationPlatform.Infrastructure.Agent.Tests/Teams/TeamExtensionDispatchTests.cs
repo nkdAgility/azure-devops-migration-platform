@@ -152,7 +152,7 @@ public class TeamExtensionDispatchTests
         };
 
     private static TeamsModuleOptions ExportOptions()
-        => new() { AlwaysExport = true };
+        => new() { Processing = new TeamsProcessingOptions { AlwaysExport = true } };
 
     // ---------------------------------------------------------------------------
     // Import helpers

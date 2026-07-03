@@ -337,6 +337,8 @@ public sealed class PrepareFeaturesDslTests
 
     private sealed class SourceOnlyModule(ILogger logger) : ModuleBase(logger)
     {
+        public override IModuleContract Contract => new ModuleContract(Name, [], [], []);
+
         public override string Name => "TfsWorkItemsModule";
     }
 
@@ -563,7 +565,11 @@ public sealed class PrepareFeaturesDslTests
             NullLogger<NodesModule>.Instance,
             Options.Create(new NodesModuleOptions()),
             CreateSourceEndpoint(connectorType),
-            Mock.Of<INodesOrchestrator>(),
+            // Real orchestrator: its PrepareAsync writes Nodes/prepare-report.json to context.Package.
+            new NodesOrchestrator(
+                NullLogger<NodesOrchestrator>.Instance,
+                Mock.Of<Abstractions.Agent.Tools.INodeTranslationTool>(),
+                Mock.Of<Abstractions.Agent.Tools.INodeCreator>()),
             PlatformMetrics: null,
             capture: null,
             targetEndpointInfo: CreateTargetEndpoint(connectorType),
@@ -578,7 +584,8 @@ public sealed class PrepareFeaturesDslTests
             Options.Create(new TeamsModuleOptions()),
             CreateSourceEndpoint(connectorType),
             CreateTargetEndpoint(connectorType),
-            Mock.Of<ITeamsOrchestrator>(),
+            // Real orchestrator: its PrepareAsync writes Teams/prepare-report.json to context.Package.
+            new TeamsOrchestrator(NullLogger<TeamsOrchestrator>.Instance, importOrchestrator: null),
             PlatformMetrics: null,
             teamSource: null,
             teamTarget: null,

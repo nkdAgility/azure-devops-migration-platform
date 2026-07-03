@@ -28,7 +28,7 @@ Minimum viable config:
 ```json
 {
   "MigrationPlatform": {
-    "ConfigVersion": "1.0",
+    "ConfigVersion": "2.0",
     "Mode": "Export",
     "Package": {
       "WorkingDirectory": "D:\\migration-output"

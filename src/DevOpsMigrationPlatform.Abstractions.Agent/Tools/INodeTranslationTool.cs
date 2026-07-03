@@ -24,4 +24,7 @@ public interface INodeTranslationTool
 
     /// <summary>Whether the tool is enabled (Enabled config flag).</summary>
     bool IsEnabled { get; }
+
+    /// <summary>Whether referenced target nodes should be auto-created (AutoCreateNodes config flag).</summary>
+    bool AutoCreateNodes { get; }
 }

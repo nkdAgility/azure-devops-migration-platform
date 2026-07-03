@@ -12,6 +12,13 @@ internal sealed class MissingRevisionArtefactImportFailurePattern : IImportFailu
 {
     public const string Code = "WORKITEMS_PREPARE_MISSING_REVISION_ARTEFACT";
 
+    private readonly IWorkItemRevisionReader _revisionReader;
+
+    public MissingRevisionArtefactImportFailurePattern(IWorkItemRevisionReader? revisionReader = null)
+    {
+        _revisionReader = revisionReader ?? new WorkItemsPrepareRevisionReader();
+    }
+
     public string PatternCode => Code;
 
     public async Task<IReadOnlyList<ImportFailureFinding>> EvaluateAsync(
@@ -19,7 +26,7 @@ internal sealed class MissingRevisionArtefactImportFailurePattern : IImportFailu
         CancellationToken cancellationToken)
     {
         var hasRevision = false;
-        await foreach (var _ in WorkItemsPrepareRevisionReader.EnumerateAsync(context.PrepareContext.Package, context.Organisation, context.Project, cancellationToken).ConfigureAwait(false))
+        await foreach (var _ in _revisionReader.EnumerateAsync(context.PrepareContext.Package, context.Organisation, context.Project, cancellationToken).ConfigureAwait(false))
         {
             hasRevision = true;
             break;

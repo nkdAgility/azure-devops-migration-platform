@@ -33,6 +33,6 @@ sequenceDiagram
     TB->>ST: Write plan.json
     TB-->>JW: Return fresh JobTaskList
   end
-  JW->>CP: POST /agents/lease/{leaseId}/tasks
+  JW->>CP: EnqueueTasks via UnifiedWorkerEventWriter → POST /workers/{workerId}/events (Tasks kind)
 ```
 

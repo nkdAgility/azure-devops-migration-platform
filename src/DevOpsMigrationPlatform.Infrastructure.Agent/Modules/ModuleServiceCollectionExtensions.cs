@@ -83,6 +83,10 @@ public static class ModuleServiceCollectionExtensions
                 state.Current?.GetSection(WorkItemsModuleOptions.SectionName).Bind(opts);
             });
 
+        // Canonical embedded-image reference parse/rewrite Tool (ADR-0026, TC-H2/TC-L3):
+        // pure singleton engine shared by the export and import paths.
+        services.TryAddSingleton<IEmbeddedImageReferenceTool, Tools.EmbeddedImages.EmbeddedImageReferenceTool>();
+
         services.RegisterWorkItemServices(configuration);
 
         // Work-item capability extensions (IModuleExtension ports). Each owns its own IOptions<T>.
@@ -91,10 +95,15 @@ public static class ModuleServiceCollectionExtensions
         services.AddSchemaEntry<CommentsExtensionOptions>("Work item Comments extension (inline comment replay) configuration");
 #endif
         services.AddOptions<CommentsExtensionOptions>()
-            .Configure<IOptions<WorkItemsModuleOptions>>((o, wi) => o.Enabled = wi.Value.Extensions.Comments.Enabled);
+            .Configure<IOptions<WorkItemsModuleOptions>>((o, wi) => o.Enabled = wi.Value.Data.Comments.Enabled);
         services.AddSingleton<CommentsWorkItemExtension>(sp =>
             new CommentsWorkItemExtension(
                 sp.GetRequiredService<IOptions<CommentsExtensionOptions>>(),
+                // Connector capability declaration (ADR-0024/EC-H1). Fail-closed: hosts that
+                // register no connector capability provider get an explicit None declaration.
+                sp.GetService<IConnectorCapabilityProvider>()
+                    ?? new Infrastructure.Agent.ConnectorCapability.StaticConnectorCapabilityProvider(
+                        global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.None),
                 sp.GetService<IWorkItemCommentSourceFactory>(),
                 sp.GetService<Microsoft.Extensions.Logging.ILogger<CommentsWorkItemExtension>>()));
         services.AddSingleton<IModuleExtension>(sp => sp.GetRequiredService<CommentsWorkItemExtension>());

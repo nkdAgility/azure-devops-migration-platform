@@ -15,6 +15,7 @@ using DevOpsMigrationPlatform.CLI.Commands;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
+using DevOpsMigrationPlatform.CLI.Migration.Services;
 using DevOpsMigrationPlatform.CLI.Migration.Settings;
 using DevOpsMigrationPlatform.CLI.Views;
 using DevOpsMigrationPlatform.Infrastructure.Config;
@@ -120,6 +121,31 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             var schemaValidator = GetRequiredService<IConfigSchemaValidator>();
             var logger = GetRequiredService<ILogger<QueueCommand>>();
             var console = GetRequiredService<IAnsiConsole>();
+
+            // ConfigVersion 2.0 hard-cutover gate (ADR 0028) runs BEFORE generic schema
+            // validation so a legacy v1 file fails with the actionable rewrite recipe
+            // rather than opaque unknown-key schema errors.
+            try
+            {
+                using var doc = JsonDocument.Parse(rawJson, new JsonDocumentOptions
+                {
+                    AllowTrailingCommas = true,
+                    CommentHandling = JsonCommentHandling.Skip
+                });
+                if (doc.RootElement.TryGetProperty("MigrationPlatform", out var platformElement))
+                    ConfigurationService.EnsureConfigVersion2(platformElement, configPath ?? "(config)");
+            }
+            catch (InvalidOperationException ex)
+            {
+                logger.LogError("Configuration version validation failed: {Message}", ex.Message);
+                console.MarkupLine("[red]Configuration validation failed:[/]");
+                console.WriteLine(ex.Message);
+                return 1;
+            }
+            catch (JsonException)
+            {
+                // Malformed JSON falls through to the schema validator, which reports it.
+            }
 
             try
             {
@@ -271,18 +297,25 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         try
         {
-            await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
+            await foreach (var streamEvent in client.StreamJobAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
             {
-                lastEvt = evt;
-                console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] {Markup.Escape(evt.Message ?? string.Empty)}");
+                if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Progress && streamEvent.Progress is { } evt)
+                {
+                    lastEvt = evt;
+                    console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] {Markup.Escape(evt.Message ?? string.Empty)}");
+                }
+                else if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Terminal)
+                {
+                    if (streamEvent.Failed == true)
+                    {
+                        jobFailed = true;
+                        ShowError(console, streamEvent.FailureReason ?? "Job failed on the agent.");
+                        if (errorsJsonPath is not null)
+                            ShowError(console, $"Import failed. Check errors.json in the package root for details: {errorsJsonPath}");
+                    }
+                    break;
+                }
             }
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
-        {
-            jobFailed = true;
-            ShowError(console, ex.Message);
-            if (errorsJsonPath is not null)
-                ShowError(console, $"Import failed. Check errors.json in the package root for details: {errorsJsonPath}");
         }
         catch (OperationCanceledException)
         {
@@ -304,7 +337,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         if (jobFailed) return 1;
 
-        if (localPackagePath is not null && TryGetBlockingPrepareFindings(localPackagePath, out var blockingFindings))
+        if (localPackagePath is not null && JobTaskSummaryService.TryGetBlockingPrepareFindings(localPackagePath, out var blockingFindings))
         {
             if (errorsJsonPath is not null)
             {
@@ -325,44 +358,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
 
         return 0;
-    }
-
-    private static bool TryGetBlockingPrepareFindings(string outputPath, out List<string> blockingFindings)
-    {
-        blockingFindings = [];
-
-        try
-        {
-            var prepareReportPath = Path.Combine(outputPath, "WorkItems", "prepare-report.json");
-            if (!File.Exists(prepareReportPath))
-                return false;
-
-            using var doc = JsonDocument.Parse(File.ReadAllText(prepareReportPath));
-            if (!doc.RootElement.TryGetProperty("ImportReadinessReport", out var readiness)
-                || readiness.ValueKind != JsonValueKind.Object
-                || !readiness.TryGetProperty("BlockingFindings", out var findings)
-                || findings.ValueKind != JsonValueKind.Array)
-            {
-                return false;
-            }
-
-            foreach (var finding in findings.EnumerateArray())
-            {
-                if (finding.TryGetProperty("Message", out var messageElement)
-                    && messageElement.ValueKind == JsonValueKind.String)
-                {
-                    var message = messageElement.GetString();
-                    if (!string.IsNullOrWhiteSpace(message))
-                        blockingFindings.Add(message!);
-                }
-            }
-
-            return blockingFindings.Count > 0;
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     private static async Task WriteErrorsJsonFromPrepareFindingsAsync(
@@ -475,16 +470,23 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         try
         {
-            await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
+            await foreach (var streamEvent in client.StreamJobAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
             {
-                lastEvt = evt;
-                console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] {Markup.Escape(evt.Message ?? string.Empty)}");
+                if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Progress && streamEvent.Progress is { } evt)
+                {
+                    lastEvt = evt;
+                    console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] {Markup.Escape(evt.Message ?? string.Empty)}");
+                }
+                else if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Terminal)
+                {
+                    if (streamEvent.Failed == true)
+                    {
+                        jobFailed = true;
+                        ShowError(console, streamEvent.FailureReason ?? "Job failed on the agent.");
+                    }
+                    break;
+                }
             }
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
-        {
-            jobFailed = true;
-            ShowError(console, ex.Message);
         }
         catch (OperationCanceledException)
         {
@@ -690,16 +692,23 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         try
         {
-            await foreach (var evt in client.FollowLogsAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
+            await foreach (var streamEvent in client.StreamJobAsync(parsedJobId, followCts.Token).ConfigureAwait(false))
             {
-                lastEvt = evt;
-                console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] {Markup.Escape(evt.Message ?? string.Empty)}");
+                if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Progress && streamEvent.Progress is { } evt)
+                {
+                    lastEvt = evt;
+                    console.MarkupLine($"[grey]{Markup.Escape(evt.Stage ?? string.Empty)}[/] {Markup.Escape(evt.Message ?? string.Empty)}");
+                }
+                else if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Terminal)
+                {
+                    if (streamEvent.Failed == true)
+                    {
+                        jobFailed = true;
+                        ShowError(console, streamEvent.FailureReason ?? "Job failed on the agent.");
+                    }
+                    break;
+                }
             }
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
-        {
-            jobFailed = true;
-            ShowError(console, ex.Message);
         }
         catch (OperationCanceledException)
         {
@@ -817,39 +826,108 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var diagnosticsBuffer = new System.Collections.Concurrent.ConcurrentQueue<string>();
 
-        var diagnosticsTask = Task.Run(async () =>
+        // Convert the unified SSE stream into the existing JobProgressUpdate channel
+        // so the display logic (Apply, BuildProgressDisplay) is unchanged.
+        var updates = Channel.CreateUnbounded<JobProgressUpdate>();
+        var state = JobProgressState.Initial(0);
+        var queueLogger = GetRequiredService<ILogger<QueueCommand>>();
+
+        // Tasks/metrics are not carried on the unified stream — they live behind
+        // /jobs/{id}/bootstrap. Fetched on Job.Ready, at terminal (fast jobs can end
+        // before Job.Ready is observed), and by the 5 s metrics poll loop below.
+        var taskListSent = 0;
+        async Task FetchBootstrapAsync(CancellationToken ct)
+        {
+            var bootstrap = await client.GetBootstrapAsync(parsedJobId, ct).ConfigureAwait(false);
+            if (bootstrap?.Metrics is not null)
+                updates.Writer.TryWrite(new TelemetryPolled(bootstrap.Metrics));
+            if (bootstrap?.Tasks is { Tasks.Count: > 0 }
+                && Interlocked.CompareExchange(ref taskListSent, 1, 0) == 0)
+                updates.Writer.TryWrite(new TaskListReceived(bootstrap.Tasks, bootstrap.LastEventSequence));
+        }
+
+        var streamTask = Task.Run(async () =>
         {
             try
             {
-                await foreach (var record in client.StreamDiagnosticsAsync(parsedJobId, settings.Level, followCts.Token))
+                await foreach (var streamEvent in client.StreamJobAsync(parsedJobId, followCts.Token))
                 {
-                    var levelColor = record.Level switch
+                    switch (streamEvent.Kind)
                     {
-                        "Error" or "Critical" => "red",
-                        "Warning" => "yellow",
-                        "Debug" or "Trace" => "grey",
-                        _ => "blue"
-                    };
-                    diagnosticsBuffer.Enqueue(
-                        $"[{levelColor}]{Markup.Escape(record.Level)}[/] [[{Markup.Escape(record.Category)}]] {Markup.Escape(record.Message)}");
+                        case Abstractions.ControlPlaneApi.JobStreamEventKind.Progress:
+                            if (streamEvent.Progress is { } evt)
+                            {
+                                if (evt.Module == "Job" && evt.Stage == "Job.Ready")
+                                {
+                                    _ = Task.Run(async () =>
+                                    {
+                                        try { await FetchBootstrapAsync(followCts.Token).ConfigureAwait(false); }
+                                        catch (OperationCanceledException) { }
+                                        catch (Exception ex) { queueLogger.LogWarning(ex, "Bootstrap fetch failed for job {JobId}", parsedJobId); }
+                                    }, followCts.Token);
+                                }
+                                updates.Writer.TryWrite(new StageAdvanced(evt));
+                            }
+                            break;
+
+                        case Abstractions.ControlPlaneApi.JobStreamEventKind.Diagnostic:
+                            if (streamEvent.Diagnostic is { } record)
+                            {
+                                var levelColor = record.Level switch
+                                {
+                                    "Error" or "Critical" => "red",
+                                    "Warning" => "yellow",
+                                    "Debug" or "Trace" => "grey",
+                                    _ => "blue"
+                                };
+                                diagnosticsBuffer.Enqueue(
+                                    $"[{levelColor}]{Markup.Escape(record.Level)}[/] [[{Markup.Escape(record.Category)}]] {Markup.Escape(record.Message)}");
+                            }
+                            break;
+
+                        case Abstractions.ControlPlaneApi.JobStreamEventKind.Terminal:
+                            // Final best-effort bootstrap so fast jobs still render the
+                            // task list and closing metrics before the channel completes.
+                            try
+                            {
+                                using var finalCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                                await FetchBootstrapAsync(finalCts.Token).ConfigureAwait(false);
+                            }
+                            catch (Exception) { /* best-effort */ }
+
+                            updates.Writer.TryWrite(new JobTerminated(streamEvent.Failed ?? false, streamEvent.FailureReason));
+                            updates.Writer.TryComplete();
+                            return;
+                    }
                 }
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
             {
+                queueLogger.LogError(ex, "Unified stream error for job {JobId}", parsedJobId);
+                updates.Writer.TryWrite(new JobTerminated(true, ex.Message));
             }
-            catch (Exception)
+            finally
             {
+                updates.Writer.TryComplete();
             }
         }, followCts.Token);
 
-        var updates = Channel.CreateUnbounded<JobProgressUpdate>();
-        var state = JobProgressState.Initial(0);
-
-        var bootstrapTrigger = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var bootstrapTask = Task.Run(() => FetchBootstrapOnReady(client, parsedJobId, updates.Writer, bootstrapTrigger, followCts.Token));
-
-        var telemetryTask = Task.Run(() => FetchLatestMetrics(client, parsedJobId, updates.Writer, followCts.Token));
-        var progressTask = Task.Run(() => FollowJobProgress(client, parsedJobId, updates.Writer, bootstrapTrigger, followCts.Token));
+        // Metrics poll loop: bootstrap every 5 s so counts/rates advance during the run.
+        var telemetryTask = Task.Run(async () =>
+        {
+            try
+            {
+                while (!followCts.Token.IsCancellationRequested)
+                {
+                    try { await FetchBootstrapAsync(followCts.Token).ConfigureAwait(false); }
+                    catch (OperationCanceledException) { return; }
+                    catch (Exception) { /* best-effort — do not propagate */ }
+                    await Task.Delay(5_000, followCts.Token).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException) { }
+        }, followCts.Token);
 
         if (Console.IsOutputRedirected)
         {
@@ -879,11 +957,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     }
                     if (update is JobTerminated jt)
                     {
-                        // On fast jobs the SSE stream ends before the bootstrap HTTP call
-                        // completes — drain pending updates so the final summary is accurate.
-                        try { await bootstrapTask.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
-                        catch (OperationCanceledException) { }
-                        catch (Exception) { /* best-effort */ }
+                        // Drain any remaining updates written before the channel completed.
                         while (updates.Reader.TryRead(out var pending))
                             state = Apply(state, pending);
 
@@ -932,12 +1006,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                                 ctx.UpdateTarget(BuildProgressDisplay(state));
                             if (update is JobTerminated jt)
                             {
-                                // On fast jobs the SSE stream ends before the bootstrap HTTP
-                                // call completes. Await bootstrap then drain pending updates
-                                // so the final render shows completed tasks, not the spinner.
-                                try { await bootstrapTask.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
-                                catch (OperationCanceledException) { }
-                                catch (Exception) { /* best-effort */ }
+                                // Drain any remaining updates before rendering the final state.
                                 while (updates.Reader.TryRead(out var pending))
                                     state = Apply(state, pending);
 
@@ -991,10 +1060,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
 
         await followCts.CancelAsync();
-        try { await diagnosticsTask; } catch (OperationCanceledException) { }
+        try { await streamTask; } catch (OperationCanceledException) { }
         try { await telemetryTask; } catch (OperationCanceledException) { }
-        try { await progressTask; } catch (OperationCanceledException) { }
-        try { await bootstrapTask; } catch (OperationCanceledException) { }
 
         while (diagnosticsBuffer.TryDequeue(out var line))
             console.MarkupLine(line);
@@ -1082,10 +1149,51 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
         var updates = Channel.CreateUnbounded<JobProgressUpdate>();
         var discoveryState = DiscoveryProgressState.Initial();
+        var logger = GetRequiredService<ILogger<QueueCommand>>();
 
-        var bootstrapTrigger = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var bootstrapTask = Task.Run(() => FetchBootstrapOnReady(client, jobId, updates.Writer, bootstrapTrigger, followCts.Token));
-        var progressTask = Task.Run(() => FollowJobProgress(client, jobId, updates.Writer, bootstrapTrigger, followCts.Token));
+        // Single unified stream task replaces the old FetchBootstrapOnReady + FollowJobProgress fan-out.
+        var streamTask = Task.Run(async () =>
+        {
+            try
+            {
+                await foreach (var streamEvent in client.StreamJobAsync(jobId, followCts.Token))
+                {
+                    if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Progress && streamEvent.Progress is { } evt)
+                    {
+                        // Job.Ready: fetch bootstrap once to get task list and snapshot.
+                        if (evt.Module == "Job" && evt.Stage == "Job.Ready")
+                        {
+                            _ = Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    var bootstrap = await client.GetBootstrapAsync(jobId, followCts.Token).ConfigureAwait(false);
+                                    if (bootstrap?.Metrics is not null)
+                                        await updates.Writer.WriteAsync(new TelemetryPolled(bootstrap.Metrics), followCts.Token).ConfigureAwait(false);
+                                    if (bootstrap?.Tasks is not null)
+                                        await updates.Writer.WriteAsync(new TaskListReceived(bootstrap.Tasks, bootstrap.LastEventSequence), followCts.Token).ConfigureAwait(false);
+                                    if (bootstrap?.Snapshot is { Organisations.Count: > 0 })
+                                        await updates.Writer.WriteAsync(new SnapshotLoaded(bootstrap.Snapshot), followCts.Token).ConfigureAwait(false);
+                                }
+                                catch (OperationCanceledException) { }
+                                catch (Exception ex) { logger.LogWarning(ex, "Bootstrap fetch failed for job {JobId}", jobId); }
+                            }, followCts.Token);
+                        }
+                        await updates.Writer.WriteAsync(new StageAdvanced(evt), followCts.Token).ConfigureAwait(false);
+                    }
+                    else if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Terminal)
+                    {
+                        updates.Writer.TryWrite(new JobTerminated(streamEvent.Failed ?? false, streamEvent.FailureReason));
+                        updates.Writer.TryComplete();
+                        return;
+                    }
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { logger.LogError(ex, "Unified stream error for discovery job {JobId}", jobId); }
+            finally { updates.Writer.TryComplete(); }
+        }, followCts.Token);
+
         // Ticker: emits a TimerTick every 120 ms so the live spinner animates even when the
         // agent is silent (e.g. during long WIQL queries between heartbeats).
         var tickerTask = Task.Run(async () =>
@@ -1096,7 +1204,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 {
                     await Task.Delay(120, followCts.Token).ConfigureAwait(false);
                     if (!updates.Writer.TryWrite(new TimerTick()))
-                        break; // channel was completed by FollowJobProgress
+                        break;
                 }
             }
             catch (OperationCanceledException) { }
@@ -1147,12 +1255,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
 
                     if (update is JobTerminated jt)
                     {
-                        // On fast jobs the SSE stream ends before the bootstrap HTTP call
-                        // completes, so TaskListReceived arrives after this break. Drain it
-                        // here so the final summary (if any) is accurate.
-                        try { await bootstrapTask.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
-                        catch (OperationCanceledException) { }
-                        catch (Exception) { /* best-effort */ }
                         while (updates.Reader.TryRead(out var pending))
                             discoveryState = ApplyDiscovery(discoveryState, pending);
 
@@ -1194,24 +1296,11 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                         {
                             discoveryState = ApplyDiscovery(discoveryState, update);
 
-                            // While Tasks is null the display shows static "Initialising" text.
-                            // Every ctx.UpdateTarget call re-emits that line to terminals that
-                            // can't fully honour ANSI cursor-up, producing one appended
-                            // "Initialising" line per incoming SSE event (one per task).
-                            // The initial render from console.Live(...) already shows the text,
-                            // so skip all UpdateTarget calls until the task list has arrived.
                             if (discoveryState.Tasks is not null || discoveryState.Projects.Count > 0)
                                 ctx.UpdateTarget(BuildDiscoveryDisplay(discoveryState));
 
                             if (update is JobTerminated jt)
                             {
-                                // On fast jobs the SSE stream ends before the bootstrap HTTP
-                                // call completes, leaving the display stuck at "Initialising".
-                                // Await the bootstrap task then drain any pending updates so
-                                // the final render shows tasks rather than the spinner text.
-                                try { await bootstrapTask.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
-                                catch (OperationCanceledException) { }
-                                catch (Exception) { /* best-effort */ }
                                 while (updates.Reader.TryRead(out var pending))
                                     discoveryState = ApplyDiscovery(discoveryState, pending);
                                 ctx.UpdateTarget(BuildDiscoveryDisplay(discoveryState));
@@ -1259,8 +1348,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         }
 
         await followCts.CancelAsync();
-        try { await progressTask; } catch (OperationCanceledException) { }
-        try { await bootstrapTask; } catch (OperationCanceledException) { }
+        try { await streamTask; } catch (OperationCanceledException) { }
 
         if (jobFailed) return 1;
 
@@ -1480,7 +1568,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         // task row IS its module progress bar. No separate checklist + divider.
         if (s.Tasks is { Tasks.Count: > 0 })
         {
-            var phases = GetOrderedTaskPhases(s.Tasks);
+            var phases = JobTaskSummaryService.GetOrderedTaskPhases(s.Tasks);
             if (phases.Count > 1)
                 return BuildMultiStageTaskDisplay(s, phases);
 
@@ -1516,7 +1604,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     /// </summary>
     private static IRenderable BuildMultiStageTaskDisplay(JobProgressState s, IReadOnlyList<string> phases)
     {
-        var currentPhase = DetermineCurrentTaskPhase(s, phases);
+        var currentPhase = JobTaskSummaryService.DetermineCurrentTaskPhase(s.Tasks!, s.Stage, phases);
         var rows = new System.Collections.Generic.List<IRenderable>
         {
             new Markup(BuildTaskStageStrip(phases, currentPhase)),
@@ -1541,13 +1629,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             : 0;
 
         var tasksToRender = s.Tasks!.Tasks
-            .Where(t => ShouldRenderTaskInPhase(s.Tasks!, t, phaseFilter))
+            .Where(t => JobTaskSummaryService.ShouldRenderTaskInPhase(s.Tasks!, t, phaseFilter))
             .OrderBy(t => t.Order)
             .ToList();
 
         foreach (var task in tasksToRender)
         {
-            var taskPhase = ResolveTaskPhase(s.Tasks!, task);
+            var taskPhase = JobTaskSummaryService.ResolveTaskPhase(s.Tasks!, task);
             if (showPhaseHeaders && !string.Equals(taskPhase, currentPhase, StringComparison.OrdinalIgnoreCase))
             {
                 currentPhase = taskPhase;
@@ -1660,7 +1748,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                                 : task.Status == JobTaskStatus.Running ? "blue" : "grey";
                     var exportedStr = s.Completed > 0 ? $"  [green]{s.Completed:N0} exported[/]" : string.Empty;
                     var skippedStr = s.Skipped > 0 ? $"  [grey]{s.Skipped:N0} skipped[/]" : string.Empty;
-                    var etaStr = ComputeRevisionEta(s.Revisions, estimatedTotalRevisions, s.AverageRevDurationMs);
+                    var etaStr = JobTaskSummaryService.ComputeRevisionEta(s.Revisions, estimatedTotalRevisions, s.AverageRevDurationMs);
                     countsSuffix = $"  [bold]{processed:N0}[/][grey]/{s.TotalWorkItems:N0}[/]{exportedStr}{skippedStr}"
                                  + $"  [grey]{wiPct * 100.0:F1}%[/]  [grey]ETA: {Markup.Escape(etaStr)}[/]";
                 }
@@ -1758,13 +1846,13 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                     else
                         rows.Add(new Markup("     [grey]─[/]"));
 
-                    var completedDuration = TryGetTaskElapsed(task);
+                    var completedDuration = JobTaskSummaryService.TryGetTaskElapsed(task);
                     if (task.Status == JobTaskStatus.Completed && completedDuration.HasValue)
                         rows.Add(new Markup($"     [grey]duration:[/] [white]{Markup.Escape(FormatElapsed(completedDuration.Value))}[/]"));
                 }
                 else if (task.Status == JobTaskStatus.Completed)
                 {
-                    var completedDuration = TryGetTaskElapsed(task);
+                    var completedDuration = JobTaskSummaryService.TryGetTaskElapsed(task);
                     if (completedDuration.HasValue)
                         rows.Add(new Markup($"     [grey]duration:[/] [white]{Markup.Escape(FormatElapsed(completedDuration.Value))}[/]"));
                 }
@@ -1787,8 +1875,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             }
         }
 
-        var remainingTasks = s.Tasks.Tasks.Count(task => !IsTerminal(task.Status));
-        var overallEta = ComputeOverallTaskEta(s, estimatedTotalRevisions);
+        var remainingTasks = s.Tasks.Tasks.Count(task => !JobTaskSummaryService.IsTerminal(task.Status));
+        var overallEta = JobTaskSummaryService.ComputeOverallTaskEta(s.Tasks, s.Revisions, s.AverageRevDurationMs, estimatedTotalRevisions);
         rows.Add(new Markup("[grey]────────────────────────────────────────────────────────────────────────[/]"));
         rows.Add(new Markup(
             overallEta.HasValue
@@ -1796,94 +1884,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 : $"[bold]Remaining tasks:[/] {remainingTasks}  [bold]Overall ETA:[/] [grey]unknown[/]"));
 
         return rows.Count > 0 ? new Rows(rows) : new Markup("[grey]⠋ Running…[/]");
-    }
-
-    private static IReadOnlyList<string> GetOrderedTaskPhases(JobTaskList taskList)
-    {
-        if (taskList.Phases.Count > 0)
-        {
-            return taskList.Phases
-                .OrderBy(phase => phase.Order)
-                .Select(phase => phase.Name)
-                .ToList();
-        }
-
-        return taskList.Tasks
-            .Select(t => t.Phase)
-            .Where(phase => !string.IsNullOrWhiteSpace(phase))
-            .Select(phase => phase!)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-    private static string DetermineCurrentTaskPhase(JobProgressState s, IReadOnlyList<string> phases)
-    {
-        var runningPhase = s.Tasks!.Tasks
-            .Where(t => t.Status == JobTaskStatus.Running)
-            .Select(t => ResolveTaskPhase(s.Tasks!, t))
-            .Where(phase => !string.IsNullOrWhiteSpace(phase))
-            .FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(runningPhase))
-            return runningPhase;
-
-        var pendingPhase = s.Tasks.Tasks
-            .Where(t => t.Status == JobTaskStatus.Pending)
-            .Select(t => ResolveTaskPhase(s.Tasks!, t))
-            .Where(phase => !string.IsNullOrWhiteSpace(phase))
-            .FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(pendingPhase))
-            return pendingPhase;
-
-        if (!string.IsNullOrWhiteSpace(s.Stage))
-        {
-            var match = phases.FirstOrDefault(phase => s.Stage.Contains(phase, StringComparison.OrdinalIgnoreCase));
-            if (!string.IsNullOrWhiteSpace(match))
-                return match;
-        }
-
-        var terminalPhase = s.Tasks.Tasks
-            .Where(t => IsTerminal(t.Status))
-            .OrderBy(t => t.Order)
-            .Select(t => ResolveTaskPhase(s.Tasks!, t))
-            .Where(phase => !string.IsNullOrWhiteSpace(phase))
-            .LastOrDefault();
-        if (!string.IsNullOrWhiteSpace(terminalPhase))
-            return terminalPhase;
-
-        return phases[phases.Count - 1];
-    }
-
-    private static bool ShouldRenderTaskInPhase(JobTaskList taskList, JobTask task, string? phaseFilter)
-    {
-        if (string.IsNullOrWhiteSpace(phaseFilter))
-            return true;
-
-        if (taskList.Phases.Count > 0)
-        {
-            var phaseSummary = taskList.Phases
-                .FirstOrDefault(phase => string.Equals(phase.Name, phaseFilter, StringComparison.OrdinalIgnoreCase));
-            if (phaseSummary is not null)
-            {
-                return phaseSummary.TaskIds.Contains(task.Id, StringComparer.OrdinalIgnoreCase);
-            }
-        }
-
-        return string.Equals(ResolveTaskPhase(taskList, task), phaseFilter, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string ResolveTaskPhase(JobTaskList taskList, JobTask task)
-    {
-        if (taskList.Phases.Count > 0)
-        {
-            var phaseName = taskList.Phases
-                .OrderBy(phase => phase.Order)
-                .FirstOrDefault(phase => phase.TaskIds.Contains(task.Id, StringComparer.OrdinalIgnoreCase))
-                ?.Name;
-            if (!string.IsNullOrWhiteSpace(phaseName))
-                return phaseName!;
-        }
-
-        return task.Phase ?? task.TaskKind.ToString();
     }
 
     private static string BuildTaskStageStrip(IReadOnlyList<string> phases, string currentPhase)
@@ -1894,135 +1894,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
                 : $"[grey]{Markup.Escape(phase)}[/]");
 
         return string.Join(" [grey]>[/] ", segments);
-    }
-
-    /// <summary>
-    /// Awaits a <c>Job.Ready</c> signal from the SSE stream (via <paramref name="bootstrapTrigger"/>),
-    /// then performs a single <c>GET /jobs/{jobId}/bootstrap</c> call to retrieve the task list and
-    /// writes a <see cref="TaskListReceived"/> update. Falls back to polling at 2-second intervals
-    /// if the agent does not support lifecycle events (older agent, or plan-build failure).
-    /// </summary>
-    private static async Task FetchBootstrapOnReady(
-        IControlPlaneClient client, Guid jobId,
-        ChannelWriter<JobProgressUpdate> updates,
-        TaskCompletionSource<long> bootstrapTrigger,
-        CancellationToken ct)
-    {
-        try
-        {
-            // Wait for Job.Ready signal (or fall back after 60 s for older agents).
-            await Task.WhenAny(bootstrapTrigger.Task, Task.Delay(TimeSpan.FromSeconds(60), ct))
-                .ConfigureAwait(false);
-
-            ct.ThrowIfCancellationRequested();
-
-            // One-shot bootstrap GET — the task list should be present by now.
-            // If not (e.g. plan-build failure), retry at 2 s intervals up to 10 s.
-            var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
-            while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
-            {
-                try
-                {
-                    var bootstrap = await client.GetBootstrapAsync(jobId, ct).ConfigureAwait(false);
-                    if (bootstrap?.Tasks is not null)
-                    {
-                        if (bootstrap.Metrics is not null)
-                        {
-                            await updates.WriteAsync(
-                                new TelemetryPolled(bootstrap.Metrics), ct)
-                                .ConfigureAwait(false);
-                        }
-
-                        await updates.WriteAsync(
-                            new TaskListReceived(bootstrap.Tasks, bootstrap.LastEventSequence), ct)
-                            .ConfigureAwait(false);
-
-                        // Pre-populate the discovery table from the snapshot so that
-                        // previously-completed projects appear immediately for late-joining
-                        // clients whose SSE ring buffer no longer holds the catchup events.
-                        if (bootstrap.Snapshot is { Organisations.Count: > 0 })
-                        {
-                            await updates.WriteAsync(
-                                new SnapshotLoaded(bootstrap.Snapshot), ct)
-                                .ConfigureAwait(false);
-                        }
-
-                        return;
-                    }
-                }
-                catch (OperationCanceledException) { return; }
-                catch (Exception) { /* best-effort — retry */ }
-
-                await Task.Delay(2_000, ct).ConfigureAwait(false);
-            }
-
-            // Final fallback: signal with empty list so the display exits "Initialising" state.
-            var empty = new JobTaskList { Tasks = Array.Empty<JobTask>(), PushedAt = DateTimeOffset.UtcNow };
-            await updates.WriteAsync(new TaskListReceived(empty, 0), ct).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) { }
-    }
-
-    /// <summary>
-    /// Polls <c>GET /jobs/{jobId}/telemetry</c> every 5 s and pushes
-    /// <see cref="TelemetryPolled"/> updates into <paramref name="updates"/>.
-    /// </summary>
-    private static async Task FetchLatestMetrics(
-        IControlPlaneClient client, Guid jobId,
-        ChannelWriter<JobProgressUpdate> updates, CancellationToken ct)
-    {
-        try
-        {
-            while (!ct.IsCancellationRequested)
-            {
-                try
-                {
-                    var m = await client.GetTelemetryAsync(jobId, ct).ConfigureAwait(false);
-                    if (m is not null)
-                        await updates.WriteAsync(new TelemetryPolled(m), ct).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) { return; }
-                catch (Exception) { /* best-effort — do not propagate */ }
-                await Task.Delay(5_000, ct).ConfigureAwait(false);
-            }
-        }
-        catch (OperationCanceledException) { }
-    }
-
-    /// <summary>
-    /// Subscribes to the SSE progress stream via <c>GET /jobs/{jobId}/progress?follow=true</c>
-    /// and pushes <see cref="StageAdvanced"/> updates (and a terminal <see cref="JobTerminated"/>)
-    /// into <paramref name="updates"/>.
-    /// </summary>
-    private static async Task FollowJobProgress(
-        IControlPlaneClient client, Guid jobId,
-        ChannelWriter<JobProgressUpdate> updates,
-        TaskCompletionSource<long> bootstrapTrigger,
-        CancellationToken ct)
-    {
-        string? lastFailureReason = null;
-        try
-        {
-            await foreach (var evt in client.FollowLogsAsync(jobId, ct, null).ConfigureAwait(false))
-            {
-                // Job.Ready signals the task list is available — trigger the one-shot bootstrap GET.
-                if (evt.Module == "Job" && evt.Stage == "Job.Ready")
-                    bootstrapTrigger.TrySetResult(evt.EventSequence);
-
-                // Capture the last Job.Failed message so it can be surfaced as the failure reason.
-                if (evt.Stage == "Job.Failed" && !string.IsNullOrWhiteSpace(evt.Message))
-                    lastFailureReason = evt.Message;
-
-                await updates.WriteAsync(new StageAdvanced(evt), ct).ConfigureAwait(false);
-            }
-
-            await updates.WriteAsync(new JobTerminated(false, null), ct).ConfigureAwait(false);
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
-        {
-            await updates.WriteAsync(new JobTerminated(true, lastFailureReason ?? ex.Message), ct).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) { }
     }
 
     // ── Progress renderable (pure render function) ───────────────────────────────────────
@@ -2068,7 +1939,7 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         var wiFilled = Math.Clamp((int)(wiPct * BarWidth), 0, BarWidth);
         var wiBar = new string('━', wiFilled) + new string('─', BarWidth - wiFilled);
         var stageStr = string.IsNullOrEmpty(stage) ? string.Empty : $"  [grey]{Markup.Escape(stage)}[/]";
-        var etaStr = ComputeRevisionEta(totalRevisions, estimatedTotalRevisions, avgRevDurationMs);
+        var etaStr = JobTaskSummaryService.ComputeRevisionEta(totalRevisions, estimatedTotalRevisions, avgRevDurationMs);
         var exportedStr = skipped > 0 ? $"  [green]{completed:N0} exported[/]" : string.Empty;
         var skippedStr = skipped > 0 ? $"  [grey]{skipped:N0} skipped[/]" : string.Empty;
         var wiRow = new Markup(
@@ -2265,102 +2136,6 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
         return new Rows(dependenciesRow, nodesRow, teamsRow, identitiesRow, wiRow, revRow, timingRow, attachmentRow, checkpointRow);
     }
 
-    private static string ComputeRevisionEta(int revisionsWritten, int estimatedTotalRevisions, double avgRevDurationMs)
-    {
-        if (avgRevDurationMs <= 0 || estimatedTotalRevisions <= 0 || revisionsWritten <= 0)
-            return "--:--:--";
-        var remainingRevisions = Math.Max(0, estimatedTotalRevisions - revisionsWritten);
-        var remainingSecs = remainingRevisions * avgRevDurationMs / 1000.0;
-        var eta = TimeSpan.FromSeconds(remainingSecs);
-        return eta.TotalHours >= 1
-            ? $"{(int)eta.TotalHours}:{eta.Minutes:D2}:{eta.Seconds:D2}"
-            : $"--:{eta.Minutes:D2}:{eta.Seconds:D2}";
-    }
-
-    private static bool IsTerminal(JobTaskStatus status) =>
-        status is JobTaskStatus.Completed or JobTaskStatus.Failed or JobTaskStatus.Skipped;
-
-    private static TimeSpan? TryGetTaskElapsed(JobTask task)
-    {
-        if (!task.StartedAt.HasValue || !task.CompletedAt.HasValue)
-            return null;
-
-        var elapsed = task.CompletedAt.Value - task.StartedAt.Value;
-        return elapsed > TimeSpan.Zero ? elapsed : null;
-    }
-
-    private static TimeSpan? ComputeOverallTaskEta(JobProgressState state, int estimatedTotalRevisions)
-    {
-        if (state.Tasks is null)
-            return null;
-
-        var completedDurations = state.Tasks.Tasks
-            .Select(TryGetTaskElapsed)
-            .Where(duration => duration.HasValue)
-            .Select(duration => duration!.Value)
-            .ToArray();
-
-        var averageCompletedTaskDuration = completedDurations.Length > 0
-            ? TimeSpan.FromMilliseconds(completedDurations.Average(duration => duration.TotalMilliseconds))
-            : (TimeSpan?)null;
-
-        TimeSpan totalRemaining = TimeSpan.Zero;
-        var hasEstimate = false;
-
-        foreach (var task in state.Tasks.Tasks)
-        {
-            if (IsTerminal(task.Status))
-                continue;
-
-            if (task.Id.Contains("workitems", StringComparison.OrdinalIgnoreCase))
-            {
-                var workItemsEta = ComputeRemainingRevisionTime(state.Revisions, estimatedTotalRevisions, state.AverageRevDurationMs);
-                if (workItemsEta.HasValue)
-                {
-                    totalRemaining += workItemsEta.Value;
-                    hasEstimate = true;
-                    continue;
-                }
-            }
-
-            if (task.Status == JobTaskStatus.Running
-                && task.StartedAt.HasValue
-                && task.KnownTotal.HasValue
-                && task.KnownTotal.Value > 0
-                && task.CompletedCount.HasValue
-                && task.CompletedCount.Value > 0)
-            {
-                var elapsed = DateTimeOffset.UtcNow - task.StartedAt.Value;
-                var remainingCount = task.KnownTotal.Value - task.CompletedCount.Value;
-                if (remainingCount > 0)
-                {
-                    totalRemaining += TimeSpan.FromMilliseconds(elapsed.TotalMilliseconds / task.CompletedCount.Value * remainingCount);
-                    hasEstimate = true;
-                    continue;
-                }
-            }
-
-            if (averageCompletedTaskDuration.HasValue)
-            {
-                totalRemaining += averageCompletedTaskDuration.Value;
-                hasEstimate = true;
-            }
-        }
-
-        return hasEstimate ? totalRemaining : null;
-    }
-
-    private static TimeSpan? ComputeRemainingRevisionTime(int revisionsWritten, int estimatedTotalRevisions, double avgRevDurationMs)
-    {
-        if (avgRevDurationMs <= 0 || estimatedTotalRevisions <= 0 || revisionsWritten <= 0)
-            return null;
-
-        var remainingRevisions = Math.Max(0, estimatedTotalRevisions - revisionsWritten);
-        return remainingRevisions > 0
-            ? TimeSpan.FromMilliseconds(remainingRevisions * avgRevDurationMs)
-            : TimeSpan.Zero;
-    }
-
     private static string FormatEta(TimeSpan eta) =>
         eta.TotalHours >= 1
             ? $"{(int)eta.TotalHours}:{eta.Minutes:D2}:{eta.Seconds:D2}"
@@ -2386,11 +2161,8 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
     // ── Discovery display helpers ─────────────────────────────────────────────────────────
 
     /// <summary>Extracts the module segment (parts[1]) from a task ID like <c>capture.workitems.orgslug.project</c>.</summary>
-    private static string GetDiscoveryTaskModule(string taskId)
-    {
-        var parts = taskId.Split('.');
-        return parts.Length >= 2 ? parts[1] : string.Empty;
-    }
+    private static string GetDiscoveryTaskModule(string taskId) =>
+        JobTaskSummaryService.GetDiscoveryTaskModule(taskId);
 
     /// <summary>Derives a short organisation label from a URL (last path segment or host).</summary>
     private static string DeriveDiscoveryOrgLabel(string orgUrl)

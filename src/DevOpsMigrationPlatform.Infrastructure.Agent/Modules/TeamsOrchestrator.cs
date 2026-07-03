@@ -17,10 +17,9 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
-#if !NET481
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
-#endif
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
@@ -31,6 +30,7 @@ using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Validation;
 using DevOpsMigrationPlatform.Infrastructure.Telemetry;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using Microsoft.Extensions.Logging;
 
@@ -46,6 +46,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
     private const string ModuleName = "Teams";
 
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
+    private static readonly ActivitySource s_discoveryActivitySource = new(WellKnownActivitySourceNames.Discovery);
 
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
@@ -65,14 +66,18 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
     private readonly IReadOnlyList<IModuleExtension> _exportExtensions;
     private readonly IReadOnlyList<IModuleExtension> _importExtensions;
 
+    private readonly IProjectInventoryWriter _projectInventory;
+
     public TeamsOrchestrator(
         ILogger<TeamsOrchestrator> logger,
         IPlatformMetrics? PlatformMetrics = null,
         TeamExportOrchestrator? exportOrchestrator = null,
         TeamSlugGenerator? slugGenerator = null,
         IPackageAccess? package = null,
-        IEnumerable<IModuleExtension>? extensions = null)
+        IEnumerable<IModuleExtension>? extensions = null,
+        IProjectInventoryWriter? projectInventory = null)
     {
+        _projectInventory = projectInventory ?? new Discovery.ProjectInventoryFileStore();
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _PlatformMetrics = PlatformMetrics;
         _exportOrchestrator = exportOrchestrator;
@@ -96,12 +101,455 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         TeamImportOrchestrator? importOrchestrator = null,
         TeamSlugGenerator? slugGenerator = null,
         IPackageAccess? package = null,
-        IEnumerable<IModuleExtension>? extensions = null)
-        : this(logger, PlatformMetrics, exportOrchestrator, slugGenerator, package, extensions)
+        IEnumerable<IModuleExtension>? extensions = null,
+        IProjectInventoryWriter? projectInventory = null)
+        : this(logger, PlatformMetrics, exportOrchestrator, slugGenerator, package, extensions, projectInventory)
     {
         _importOrchestrator = importOrchestrator;
     }
 #endif
+
+    /// <summary>
+    /// Inventory phase: enumerates teams and merges the count into the project
+    /// inventory file. Owns the enumeration loop, progress events, and metrics.
+    /// </summary>
+    public async Task<TaskExecutionResult> CaptureAsync(
+        ITeamSource? teamSource,
+        InventoryContext context,
+        string fallbackOrgUrl,
+        CancellationToken ct)
+    {
+        using var activity = s_discoveryActivitySource.StartActivity("inventory.teams");
+        activity?.SetTag("job.id", context.Job.JobId);
+        activity?.SetTag("module", ModuleName);
+        activity?.SetTag("org", context.SourceEndpoint?.ResolvedUrl ?? string.Empty);
+        activity?.SetTag("project", context.Project);
+
+        if (string.IsNullOrWhiteSpace(context.Project))
+        {
+            _logger.LogError("[Teams] CaptureAsync called with empty Project — executor contract violated. Skipping.");
+            return TaskExecutionResult.Skipped("CaptureAsync called with empty project.");
+        }
+
+        _logger.LogInformation("Inventorying {Module}", ModuleName);
+        context.ProgressSink?.Emit(new ProgressEvent { Module = ModuleName, Stage = "Inventorying", Message = $"Inventorying {ModuleName}", Timestamp = DateTimeOffset.UtcNow });
+
+        var count = 0;
+        if (teamSource is not null)
+        {
+            var project = context.Project;
+            var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? fallbackOrgUrl;
+            var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
+
+            try
+            {
+                await foreach (var _ in teamSource.EnumerateTeamsAsync(project, ct).ConfigureAwait(false))
+                    count++;
+
+                await _projectInventory.MergeAsync(
+                    context.Package, orgSlug, project,
+                    orgUrl: orgUrl,
+                    teams: count, ct: ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                using (_logger.BeginDataScope(DataClassification.Customer))
+                    _logger.LogWarning(ex, "Failed to enumerate teams for project {Project}; skipping.", project);
+            }
+        }
+
+        _PlatformMetrics?.RecordInventoryTeams(count, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", ModuleName } });
+        _logger.LogInformation("Inventoried {Module}: {Count} items", ModuleName, count);
+        if (count == 0)
+            _logger.LogWarning("Zero items inventoried for {Module}", ModuleName);
+
+        context.ProgressSink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Inventoried",
+            Message = $"{ModuleName} inventory complete",
+            Timestamp = DateTimeOffset.UtcNow,
+            Metrics = new JobMetrics
+            {
+                Discovery = new DiscoveryCounters
+                {
+                    Inventory = new InventoryCounters { RevisionsTotal = count }
+                }
+            }
+        });
+
+        return TaskExecutionResult.Completed();
+    }
+
+    /// <summary>
+    /// Prepare phase (ADR-0027, MC-L1): validates the exported team artefacts in the package —
+    /// <c>team.json</c> presence/parseability/required <c>definition</c>, split-artefact
+    /// parseability, duplicate team id/name detection, board-config column sanity, and the
+    /// cross-module reference check of member descriptors against the Identities export —
+    /// records prepare metrics, and persists <c>prepare-report.json</c> into the package.
+    /// The package format is connector-neutral, so the checks apply to all three connectors.
+    /// </summary>
+    public async Task PrepareAsync(
+        PrepareContext context,
+        string organisation,
+        string project,
+        CancellationToken ct)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var report = await BuildPrepareReportAsync(context.Package, organisation, project, ct).ConfigureAwait(false);
+        _PlatformMetrics?.RecordPrepareTeamsResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", ModuleName } });
+        _PlatformMetrics?.RecordPrepareTeamsUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", ModuleName } });
+
+        using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(report)), writable: false))
+        {
+            await context.Package.PersistContentAsync(
+                new PackageContentContext(PackageContentKind.Artefact, Module: ModuleName, Organisation: organisation, Project: project, Address: new RelativePathAddress("prepare-report.json")),
+                new PackagePayload(stream, "application/json"),
+                ct).ConfigureAwait(false);
+        }
+        stopwatch.Stop();
+        _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", ModuleName, report.ResolvedCount, report.UnresolvedCount, stopwatch.ElapsedMilliseconds);
+    }
+
+    /// <summary>
+    /// The split team artefact files whose JSON parseability is validated during Prepare
+    /// when present alongside <c>team.json</c>.
+    /// </summary>
+    private static readonly string[] s_splitArtefactFiles =
+    [
+        "settings.json", "iterations.json", "members.json", "capacity.json", "area-paths.json", "board-config.json"
+    ];
+
+    private async Task<PrepareReport> BuildPrepareReportAsync(
+        IPackageAccess package,
+        string organisation,
+        string project,
+        CancellationToken ct)
+    {
+        var unresolved = new List<UnresolvedItem>();
+        var artefactFindings = new List<ArtefactFinding>();
+        var resolvedCount = 0;
+
+        // Cross-module reference set: descriptors from the Identities export, when present.
+        var knownDescriptors = await ReadIdentityDescriptorsAsync(package, organisation, project, ct).ConfigureAwait(false);
+
+        // Group enumerated Teams artefact paths by team slug.
+        var artefactsBySlug = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        await foreach (var path in EnumeratePackageContentAsync(package, organisation, project, ct).ConfigureAwait(false))
+        {
+            // Paths may be package-root-relative (e.g. "{org}/{project}/Teams/{slug}/team.json")
+            // or module-relative — normalise to the segment after the Teams module folder.
+            var normalized = path.Replace('\\', '/').Trim('/');
+            var moduleMarker = "/" + ModuleName + "/";
+            var markerIndex = normalized.IndexOf(moduleMarker, StringComparison.OrdinalIgnoreCase);
+            if (markerIndex >= 0)
+                normalized = normalized.Substring(markerIndex + moduleMarker.Length);
+            else if (normalized.StartsWith(ModuleName + "/", StringComparison.OrdinalIgnoreCase))
+                normalized = normalized.Substring(ModuleName.Length + 1);
+
+            var slashIndex = normalized.IndexOf('/');
+            if (slashIndex <= 0)
+                continue;
+
+            var slug = normalized.Substring(0, slashIndex);
+            if (!artefactsBySlug.TryGetValue(slug, out var files))
+            {
+                files = new List<string>();
+                artefactsBySlug[slug] = files;
+            }
+            files.Add(normalized.Substring(slashIndex + 1));
+        }
+
+        var teamSlugs = artefactsBySlug
+            .Where(kvp => kvp.Value.Contains("team.json", StringComparer.OrdinalIgnoreCase))
+            .Select(kvp => kvp.Key)
+            .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (teamSlugs.Count == 0)
+        {
+            unresolved.Add(new UnresolvedItem(
+                "Teams/",
+                "No team artefacts (team.json) found in the package under 'Teams/'.",
+                PrepareIssueSeverity.Warning));
+        }
+
+        var seenTeamIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var seenTeamNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var slug in teamSlugs)
+        {
+            var teamPath = $"Teams/{slug}/team.json";
+            var teamJson = await ReadTeamArtefactTextAsync(package, organisation, project, slug, "team.json", ct).ConfigureAwait(false);
+            if (teamJson is null)
+            {
+                unresolved.Add(new UnresolvedItem(
+                    teamPath,
+                    $"Team artefact '{teamPath}' exists but could not be read.",
+                    PrepareIssueSeverity.Blocking));
+                artefactFindings.Add(new ArtefactFinding(
+                    ArtefactFindingType.ModuleArtefact, teamPath, ArtefactFindingStatus.Missing, teamPath));
+                continue;
+            }
+
+            JsonDocument? teamDoc = null;
+            try
+            {
+                teamDoc = JsonDocument.Parse(teamJson);
+            }
+            catch (JsonException ex)
+            {
+                unresolved.Add(new UnresolvedItem(
+                    teamPath,
+                    $"Team artefact '{teamPath}' contains malformed JSON: {ex.Message}",
+                    PrepareIssueSeverity.Blocking));
+                artefactFindings.Add(new ArtefactFinding(
+                    ArtefactFindingType.ModuleArtefact, teamPath, ArtefactFindingStatus.Invalid, teamPath));
+            }
+
+            var teamValid = false;
+            using (teamDoc)
+            {
+                if (teamDoc is not null)
+                {
+                    if (!teamDoc.RootElement.TryGetProperty("definition", out var definition)
+                        || definition.ValueKind != JsonValueKind.Object)
+                    {
+                        unresolved.Add(new UnresolvedItem(
+                            teamPath,
+                            $"Team artefact '{teamPath}' is missing the required 'definition' object.",
+                            PrepareIssueSeverity.Blocking));
+                        artefactFindings.Add(new ArtefactFinding(
+                            ArtefactFindingType.ModuleArtefact, teamPath, ArtefactFindingStatus.Invalid, teamPath));
+                    }
+                    else
+                    {
+                        teamValid = true;
+                        CheckDuplicate(definition, "id", slug, seenTeamIds, unresolved, teamPath, "id");
+                        CheckDuplicate(definition, "name", slug, seenTeamNames, unresolved, teamPath, "name");
+                    }
+                }
+            }
+
+            if (teamValid)
+                resolvedCount++;
+
+            // Split artefacts: validate parseability where present; board-config column
+            // sanity and member descriptor cross-check where applicable.
+            foreach (var fileName in s_splitArtefactFiles)
+            {
+                if (!artefactsBySlug[slug].Contains(fileName, StringComparer.OrdinalIgnoreCase))
+                    continue;
+
+                var artefactPath = $"Teams/{slug}/{fileName}";
+                var artefactJson = await ReadTeamArtefactTextAsync(package, organisation, project, slug, fileName, ct).ConfigureAwait(false);
+                if (artefactJson is null)
+                    continue;
+
+                JsonDocument doc;
+                try
+                {
+                    doc = JsonDocument.Parse(artefactJson);
+                }
+                catch (JsonException ex)
+                {
+                    unresolved.Add(new UnresolvedItem(
+                        artefactPath,
+                        $"Team artefact '{artefactPath}' contains malformed JSON: {ex.Message}",
+                        PrepareIssueSeverity.Blocking));
+                    artefactFindings.Add(new ArtefactFinding(
+                        ArtefactFindingType.ModuleArtefact, artefactPath, ArtefactFindingStatus.Invalid, artefactPath));
+                    continue;
+                }
+
+                using (doc)
+                {
+                    if (string.Equals(fileName, "members.json", StringComparison.OrdinalIgnoreCase))
+                        CheckMemberDescriptors(doc.RootElement, knownDescriptors, slug, artefactPath, unresolved);
+                    else if (string.Equals(fileName, "board-config.json", StringComparison.OrdinalIgnoreCase))
+                        CheckBoardColumns(doc.RootElement, artefactPath, unresolved);
+                }
+            }
+        }
+
+        return new PrepareReport
+        {
+            ModuleName = ModuleName,
+            ResolvedCount = resolvedCount,
+            UnresolvedItems = unresolved,
+            ArtefactFindings = artefactFindings
+        };
+    }
+
+    private static void CheckDuplicate(
+        JsonElement definition,
+        string propertyName,
+        string slug,
+        Dictionary<string, string> seen,
+        List<UnresolvedItem> unresolved,
+        string teamPath,
+        string label)
+    {
+        if (!definition.TryGetProperty(propertyName, out var property) || property.ValueKind != JsonValueKind.String)
+            return;
+
+        var value = property.GetString();
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        if (seen.TryGetValue(value!, out var existingSlug))
+        {
+            unresolved.Add(new UnresolvedItem(
+                teamPath,
+                $"Duplicate team {label} '{value}' — already declared by team '{existingSlug}'.",
+                PrepareIssueSeverity.Warning));
+        }
+        else
+        {
+            seen[value!] = slug;
+        }
+    }
+
+    private static void CheckMemberDescriptors(
+        JsonElement membersRoot,
+        HashSet<string>? knownDescriptors,
+        string slug,
+        string artefactPath,
+        List<UnresolvedItem> unresolved)
+    {
+        if (knownDescriptors is null || membersRoot.ValueKind != JsonValueKind.Array)
+            return;
+
+        foreach (var member in membersRoot.EnumerateArray())
+        {
+            if (member.ValueKind != JsonValueKind.Object
+                || !member.TryGetProperty("descriptor", out var descriptorProperty)
+                || descriptorProperty.ValueKind != JsonValueKind.String)
+            {
+                continue;
+            }
+
+            var descriptor = descriptorProperty.GetString();
+            if (string.IsNullOrWhiteSpace(descriptor) || knownDescriptors.Contains(descriptor!))
+                continue;
+
+            unresolved.Add(new UnresolvedItem(
+                $"{artefactPath}#{descriptor}",
+                $"Team '{slug}' member descriptor '{descriptor}' is not present in the Identities export (Identities/descriptors.jsonl).",
+                PrepareIssueSeverity.Warning));
+        }
+    }
+
+    private static void CheckBoardColumns(
+        JsonElement boardConfigRoot,
+        string artefactPath,
+        List<UnresolvedItem> unresolved)
+    {
+        if (boardConfigRoot.ValueKind != JsonValueKind.Object
+            || !boardConfigRoot.TryGetProperty("boards", out var boards)
+            || boards.ValueKind != JsonValueKind.Array)
+        {
+            return;
+        }
+
+        foreach (var board in boards.EnumerateArray())
+        {
+            if (board.ValueKind != JsonValueKind.Object)
+                continue;
+
+            var boardName = board.TryGetProperty("boardName", out var name) && name.ValueKind == JsonValueKind.String
+                ? name.GetString()
+                : "(unnamed)";
+
+            if (!board.TryGetProperty("columns", out var columns)
+                || columns.ValueKind != JsonValueKind.Array
+                || columns.GetArrayLength() == 0)
+            {
+                unresolved.Add(new UnresolvedItem(
+                    $"{artefactPath}#{boardName}",
+                    $"Board '{boardName}' in '{artefactPath}' declares no column states.",
+                    PrepareIssueSeverity.Warning));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reads <c>Identities/descriptors.jsonl</c> and returns the set of exported identity
+    /// descriptors, or <c>null</c> when the Identities export is absent (cross-check skipped).
+    /// </summary>
+    private static async Task<HashSet<string>?> ReadIdentityDescriptorsAsync(
+        IPackageAccess package,
+        string organisation,
+        string project,
+        CancellationToken ct)
+    {
+        var payload = await package.RequestContentAsync(
+            new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: organisation,
+                Project: project,
+                Module: "Identities",
+                Address: new RelativePathAddress("descriptors.jsonl")),
+            ct).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, true, 1024, false);
+        var text = await reader.ReadToEndAsync().ConfigureAwait(false);
+
+        var descriptors = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var line in text.Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.Length == 0)
+                continue;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(trimmed);
+                if (doc.RootElement.TryGetProperty("descriptor", out var descriptor)
+                    && descriptor.ValueKind == JsonValueKind.String
+                    && !string.IsNullOrWhiteSpace(descriptor.GetString()))
+                {
+                    descriptors.Add(descriptor.GetString()!);
+                }
+            }
+            catch (JsonException)
+            {
+                // Malformed descriptor lines are an Identities-module concern; the Teams
+                // cross-check simply skips them.
+            }
+        }
+
+        return descriptors;
+    }
+
+    private static async Task<string?> ReadTeamArtefactTextAsync(
+        IPackageAccess package,
+        string organisation,
+        string project,
+        string slug,
+        string fileName,
+        CancellationToken ct)
+    {
+        var payload = await package.RequestContentAsync(
+            new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: organisation,
+                Project: project,
+                Module: ModuleName,
+                Address: new TeamArtifactAddress(slug, fileName)),
+            ct).ConfigureAwait(false);
+        if (payload is null)
+            return null;
+
+        if (payload.Content.CanSeek)
+            payload.Content.Position = 0;
+        using var reader = new StreamReader(payload.Content, Encoding.UTF8, true, 1024, false);
+        return await reader.ReadToEndAsync().ConfigureAwait(false);
+    }
 
     /// <summary>
     /// Exports all teams from the source project: enumerates, filters, writes team.json files
@@ -144,10 +592,10 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         var checkpointing = checkpointingFactory?.Create(context.Package);
 
         Regex? filterRegex = null;
-        if (string.Equals(options.Scope, "teams", StringComparison.OrdinalIgnoreCase)
-            && !string.IsNullOrEmpty(options.Filter))
+        if (string.Equals(options.Selection.Scope, "teams", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrEmpty(options.Selection.Filter))
         {
-            filterRegex = new Regex(options.Filter, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+            filterRegex = new Regex(options.Selection.Filter, RegexOptions.IgnoreCase | RegexOptions.Compiled);
         }
 
         var count = 0;
@@ -157,14 +605,14 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             if (filterRegex is not null && !filterRegex.IsMatch(team.Name))
             {
                 _logger.LogDebug("[Teams] Skipping team '{Name}' — does not match filter '{Filter}'.",
-                    team.Name, options.Filter);
+                    team.Name, options.Selection.Filter);
                 continue;
             }
 
             var slug = _slugGenerator.GenerateSlug(team.Name);
             var artifactPath = $"Teams/{slug}/team.json";
 
-            if (!options.AlwaysExport
+            if (!options.Processing.AlwaysExport
                 && await TeamDefinitionExistsAsync(sourceEndpointInfo.OrganisationSlug, sourceEndpointInfo.Project, artifactPath, ct).ConfigureAwait(false))
             {
                 _logger.LogWarning("[Teams] Skipping already-exported team '{Name}' ({Path}) — use AlwaysExport: true to force re-export.",
@@ -183,7 +631,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             try
             {
                 await _exportOrchestrator.ExportTeamAsync(
-                    sourceEndpointInfo.OrganisationSlug, projectName, team, slug, _package!, options.Extensions, ct).ConfigureAwait(false);
+                    sourceEndpointInfo.OrganisationSlug, projectName, team, slug, _package!, options.Data, options.Processing, ct).ConfigureAwait(false);
 
                 // Dispatch enabled export extensions in order
                 if (_exportExtensions.Count > 0)
@@ -367,7 +815,11 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             try
             {
                 var targetTeamId = await _importOrchestrator.ImportTeamAsync(
-                    projectName, sourceProjectName, teamPackage, options.Extensions, ct).ConfigureAwait(false);
+                    projectName, sourceProjectName, teamPackage, options.Data,
+                    organisation: sourceOrganisation,
+                    slug: GetTeamSlug(teamPath),
+                    package: context.Package,
+                    ct).ConfigureAwait(false);
 
                 // Package upgrader (T101): if split artifact files are absent but team.json
                 // contains legacy embedded capability data, write the split files so that

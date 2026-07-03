@@ -56,6 +56,59 @@ public class ConfigurationService : IConfigurationService
         };
     }
 
+    /// <summary>
+    /// Enforces the ConfigVersion 2.0 hard cutover (ADR 0028) on a parsed
+    /// <c>MigrationPlatform</c> element: rejects missing/legacy ConfigVersion values with a
+    /// step-by-step rewrite recipe, and rejects stray v1 module keys (<c>Scope</c>/<c>Extensions</c>)
+    /// by name so nothing binds silently. Shared by <see cref="LoadConfigurationAsync"/> and the
+    /// CLI's pre-submission validation so the actionable message surfaces before generic schema errors.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The config is not a valid v2 shape.</exception>
+    public static void EnsureConfigVersion2(JsonElement platformElement, string sourcePath)
+    {
+        if (!platformElement.TryGetProperty("ConfigVersion", out var configVersionElement))
+            throw new InvalidOperationException(
+                $"Configuration error in '{sourcePath}': 'MigrationPlatform.ConfigVersion' is required.");
+
+        var configVersion = configVersionElement.GetString();
+        if (!string.Equals(configVersion, "2.0", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Configuration error in '{sourcePath}': this file uses configuration version '{configVersion}', which is no longer supported. This release requires ConfigVersion '2.0'.\n" +
+                "Module options are now expressed as three aspects: 'Selection' (what to migrate), 'Data' (what to carry), 'Processing' (how to execute).\n" +
+                "To upgrade 'Modules.WorkItems':\n" +
+                "  1. Rename 'Scope' to 'Selection' ('Query' and 'Filters' are unchanged).\n" +
+                "  2. Move 'Extensions.Revisions', 'Extensions.Comments', and 'Extensions.EmbeddedImages' under 'Data'.\n" +
+                "  3. Move 'Extensions.WorkItemResolutionStrategy' under 'Processing'.\n" +
+                "  4. Delete the now-empty 'Extensions' object.\n" +
+                "  5. Set 'MigrationPlatform.ConfigVersion' to '2.0'.\n" +
+                "See docs/configuration-reference.md ('Module configuration anatomy') for the full v2 layout.");
+        }
+
+        // ConfigVersion says 2.0 — reject stray v1 module keys so nothing binds silently.
+        // Teams v1 carried a top-level 'Scope' STRING; WorkItems v1 a 'Scope' OBJECT — both are legacy.
+        if (platformElement.TryGetProperty("Modules", out var modulesElement)
+            && modulesElement.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var module in modulesElement.EnumerateObject())
+            {
+                if (module.Value.ValueKind != JsonValueKind.Object) continue;
+                var legacyKeys = new List<string>();
+                if (module.Value.TryGetProperty("Scope", out var scopeEl)
+                    && scopeEl.ValueKind is JsonValueKind.Object or JsonValueKind.String)
+                    legacyKeys.Add("Scope");
+                if (module.Value.TryGetProperty("Extensions", out _))
+                    legacyKeys.Add("Extensions");
+                if (legacyKeys.Count > 0)
+                    throw new InvalidOperationException(
+                        $"Configuration error in '{sourcePath}': 'Modules.{module.Name}' contains legacy key(s) " +
+                        $"{string.Join(", ", legacyKeys.Select(k => $"'{k}'"))} which were removed in ConfigVersion 2.0. " +
+                        "Rename 'Scope' to 'Selection'; move 'Extensions.Revisions'/'Comments'/'EmbeddedImages' under 'Data' " +
+                        "and 'Extensions.WorkItemResolutionStrategy' under 'Processing'. See docs/configuration-reference.md.");
+            }
+        }
+    }
+
     public async Task<MigrationPlatformOptions> LoadConfigurationAsync(string? configPath = null, CancellationToken cancellationToken = default)
     {
         var actualConfigPath = configPath ?? DiscoverDefaultConfigurationFile();
@@ -92,9 +145,7 @@ public class ConfigurationService : IConfigurationService
                 throw new InvalidOperationException(
                     $"Configuration error in '{actualConfigPath}': required 'MigrationPlatform' section is missing.");
 
-            if (!platformElement.TryGetProperty("ConfigVersion", out _))
-                throw new InvalidOperationException(
-                    $"Configuration error in '{actualConfigPath}': 'MigrationPlatform.ConfigVersion' is required.");
+            EnsureConfigVersion2(platformElement, actualConfigPath);
 
             var platformJson = platformElement.GetRawText();
             var options = JsonSerializer.Deserialize<MigrationPlatformOptions>(platformJson, _jsonOptions);
@@ -198,15 +249,17 @@ public class ConfigurationService : IConfigurationService
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
 
-            // Serialize MigrationPlatformOptions and wrap in { "MigrationPlatform": { "ConfigVersion": "1.0", ... } }
+            // Serialize MigrationPlatformOptions and wrap in { "MigrationPlatform": { "ConfigVersion": "2.0", ... } }
             var optionsJson = JsonSerializer.Serialize(options, _jsonOptions);
             var optionsNode = System.Text.Json.Nodes.JsonNode.Parse(optionsJson)!.AsObject();
 
             var platformNode = new System.Text.Json.Nodes.JsonObject();
-            platformNode.Add("ConfigVersion", System.Text.Json.Nodes.JsonValue.Create("1.0"));
+            platformNode.Add("ConfigVersion", System.Text.Json.Nodes.JsonValue.Create("2.0"));
             foreach (var pair in optionsNode.ToList())
             {
                 optionsNode.Remove(pair.Key);
+                if (string.Equals(pair.Key, "ConfigVersion", StringComparison.OrdinalIgnoreCase))
+                    continue; // canonical "2.0" already written above
                 platformNode.Add(pair.Key, pair.Value);
             }
 

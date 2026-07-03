@@ -2,7 +2,6 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
-using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.ControlPlane.Jobs;
@@ -11,7 +10,9 @@ using Microsoft.AspNetCore.Mvc;
 namespace DevOpsMigrationPlatform.ControlPlane.Controllers;
 
 /// <summary>
-/// Handles telemetry snapshot endpoints for running jobs.
+/// Serves telemetry reads for running jobs: latest metrics, snapshot, task list,
+/// and the atomic bootstrap response. Telemetry data arrives via the unified
+/// <c>POST /workers/{workerId}/events</c> channel.
 /// </summary>
 [ApiController]
 public sealed class TelemetryController : ControllerBase
@@ -20,41 +21,17 @@ public sealed class TelemetryController : ControllerBase
     private readonly JobSnapshotStore _snapshotStore;
     private readonly JobProgressStore _progressStore;
     private readonly InMemoryJobTaskStore _taskStore;
-    private readonly ILeaseJobResolver _leaseResolver;
 
     public TelemetryController(
         JobMetricsStore telemetryStore,
         JobSnapshotStore snapshotStore,
         JobProgressStore progressStore,
-        InMemoryJobTaskStore taskStore,
-        ILeaseJobResolver leaseResolver)
+        InMemoryJobTaskStore taskStore)
     {
         _telemetryStore = telemetryStore;
         _snapshotStore = snapshotStore;
         _progressStore = progressStore;
         _taskStore = taskStore;
-        _leaseResolver = leaseResolver;
-    }
-
-    /// <summary>
-    /// Migration Agent pushes <see cref="JobMetrics"/> for an active lease.
-    /// <c>POST /agents/lease/{leaseId}/metrics</c>
-    /// </summary>
-    [HttpPost("/agents/lease/{leaseId}/metrics")]
-    [ProducesResponseType(204)]
-    [ProducesResponseType(400)]
-    [ProducesResponseType(404)]
-    public IActionResult PushTelemetry(string leaseId, [FromBody] JobMetrics metrics)
-    {
-        if (string.IsNullOrWhiteSpace(leaseId))
-            return BadRequest("leaseId must not be empty.");
-
-        var jobId = _leaseResolver.ResolveJobId(leaseId);
-        if (jobId is null)
-            return NotFound($"Lease '{leaseId}' is not recognised.");
-
-        _telemetryStore.Store(jobId.Value, metrics);
-        return NoContent();
     }
 
     /// <summary>
@@ -73,27 +50,6 @@ public sealed class TelemetryController : ControllerBase
 
         var metrics = _telemetryStore.GetLatest(id);
         return metrics is null ? NoContent() : Ok(metrics);
-    }
-
-    /// <summary>
-    /// Migration Agent pushes <see cref="JobSnapshot"/> for an active lease.
-    /// <c>POST /agents/lease/{leaseId}/snapshot</c>
-    /// </summary>
-    [HttpPost("/agents/lease/{leaseId}/snapshot")]
-    [ProducesResponseType(204)]
-    [ProducesResponseType(400)]
-    [ProducesResponseType(404)]
-    public IActionResult PushSnapshot(string leaseId, [FromBody] JobSnapshot snapshot)
-    {
-        if (string.IsNullOrWhiteSpace(leaseId))
-            return BadRequest("leaseId must not be empty.");
-
-        var jobId = _leaseResolver.ResolveJobId(leaseId);
-        if (jobId is null)
-            return NotFound($"Lease '{leaseId}' is not recognised.");
-
-        _snapshotStore.Store(jobId.Value, snapshot);
-        return NoContent();
     }
 
     /// <summary>
@@ -136,27 +92,6 @@ public sealed class TelemetryController : ControllerBase
         };
 
         return Ok(bootstrap);
-    }
-
-    /// <summary>
-    /// Migration Agent pushes its execution plan (task list) at job start.
-    /// <c>POST /agents/lease/{leaseId}/tasks</c>
-    /// </summary>
-    [HttpPost("/agents/lease/{leaseId}/tasks")]
-    [ProducesResponseType(204)]
-    [ProducesResponseType(400)]
-    [ProducesResponseType(404)]
-    public IActionResult PushTasks(string leaseId, [FromBody] JobTaskList taskList)
-    {
-        if (string.IsNullOrWhiteSpace(leaseId))
-            return BadRequest("leaseId must not be empty.");
-
-        var jobId = _leaseResolver.ResolveJobId(leaseId);
-        if (jobId is null)
-            return NotFound($"Lease '{leaseId}' is not recognised.");
-
-        _taskStore.Store(jobId.Value, taskList);
-        return NoContent();
     }
 
     /// <summary>

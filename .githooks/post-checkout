@@ -1,0 +1,11 @@
+#!/bin/sh
+# Repair agent-file hardlinks after checkout — git rewrites changed files,
+# which silently severs the hardlinks between .agents/ sources and their
+# AGENTS.md / CLAUDE.md / copilot-instructions.md clones.
+# Never fails the checkout. Registered via: .agents/configure.ps1
+if command -v pwsh >/dev/null 2>&1; then
+  pwsh -NoProfile -ExecutionPolicy Bypass -File .agents/configure.ps1 -HardLinksOnly -Quiet || true
+elif command -v powershell.exe >/dev/null 2>&1; then
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File .agents/configure.ps1 -HardLinksOnly -Quiet || true
+fi
+exit 0

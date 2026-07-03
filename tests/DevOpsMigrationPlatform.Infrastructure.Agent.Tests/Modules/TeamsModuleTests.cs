@@ -134,22 +134,27 @@ public class TeamsModuleTests
         TeamExportOrchestrator? exportOrchestrator = null,
         TeamImportOrchestrator? importOrchestrator = null)
     {
+        // EC-M3: team settings are core Teams pipeline behaviour (no extension seam).
+        // EC-H1: extensions take non-nullable seams and gate on connector capability.
+        teamSource ??= new Mock<ITeamSource>(MockBehavior.Loose).Object;
+        teamTarget ??= new Mock<ITeamTarget>(MockBehavior.Loose).Object;
         var extensions = new IModuleExtension[]
         {
-            new TeamSettingsTeamExtension(
-                Options.Create(new TeamSettingsExtensionOptions { Enabled = true }),
-                teamSource, teamTarget),
             new TeamIterationsTeamExtension(
                 Options.Create(new TeamIterationsExtensionOptions { Enabled = true }),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
                 teamSource, teamTarget, nodeTranslationTool, referencedPathTracker),
             new TeamMembersTeamExtension(
                 Options.Create(new TeamMembersExtensionOptions { Enabled = true }),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
                 teamSource, teamTarget, identityTranslationTool),
             new TeamCapacityTeamExtension(
                 Options.Create(new TeamCapacityExtensionOptions { Enabled = true }),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
                 teamSource, teamTarget),
             new TeamAreaPathsTeamExtension(
                 Options.Create(new TeamAreaPathsExtensionOptions { Enabled = true }),
+                DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
                 teamTarget, nodeTranslationTool),
         };
         return CreateTeamsOrchestrator(package, exportOrchestrator, importOrchestrator, extensions);
@@ -230,9 +235,12 @@ public class TeamsModuleTests
         // Act
         await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
 
-        // Assert — two teams from SimulatedTeamSource → two team.json files
-        Assert.AreEqual(2, writtenPaths.Count, $"Expected 2 team files. Written: {string.Join(", ", writtenPaths)}");
-        Assert.IsTrue(writtenPaths.Exists(p => p.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase)));
+        // Assert — two teams from SimulatedTeamSource → two team.json files, and the core
+        // pipeline also writes settings.json per team (EC-M3 / ADR-0024).
+        Assert.AreEqual(2, writtenPaths.Count(p => p.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase)),
+            $"Expected 2 team files. Written: {string.Join(", ", writtenPaths)}");
+        Assert.AreEqual(2, writtenPaths.Count(p => p.EndsWith("/settings.json", StringComparison.OrdinalIgnoreCase)),
+            $"Expected 2 settings files (core pipeline). Written: {string.Join(", ", writtenPaths)}");
     }
 
     [TestCategory("CodeTest")]
@@ -253,7 +261,7 @@ public class TeamsModuleTests
         var exportOrch = new TeamExportOrchestrator(source, NullLogger<TeamExportOrchestrator>.Instance, endpointInfo: CreateSourceEndpointInfo());
 
         // Filter to only teams matching "Alpha"
-        var opts = new TeamsModuleOptions { Enabled = true, Scope = "teams", Filter = "^Alpha" };
+        var opts = new TeamsModuleOptions { Enabled = true, Selection = new TeamsSelectionOptions { Scope = "teams", Filter = "^Alpha" } };
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
             Options.Create(opts),
@@ -264,9 +272,10 @@ public class TeamsModuleTests
         // Act
         await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
 
-        // Assert — only "Alpha Team" matches → 1 file
-        Assert.AreEqual(1, writtenPaths.Count, $"Expected 1 filtered team. Written: {string.Join(", ", writtenPaths)}");
-        Assert.IsTrue(writtenPaths[0].Contains("alpha-team", StringComparison.OrdinalIgnoreCase));
+        // Assert — only "Alpha Team" matches → 1 team.json (plus its core-pipeline settings.json)
+        Assert.AreEqual(1, writtenPaths.Count(p => p.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase)),
+            $"Expected 1 filtered team. Written: {string.Join(", ", writtenPaths)}");
+        Assert.IsTrue(writtenPaths.TrueForAll(p => p.Contains("alpha-team", StringComparison.OrdinalIgnoreCase)));
     }
 
     [TestCategory("CodeTest")]
@@ -286,7 +295,7 @@ public class TeamsModuleTests
 
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
-            Options.Create(new TeamsModuleOptions { Enabled = true, AlwaysExport = false }),
+            Options.Create(new TeamsModuleOptions { Enabled = true, Processing = new TeamsProcessingOptions { AlwaysExport = false } }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             orchestrator: CreateTeamsOrchestrator(package.Object, exportOrchestrator: exportOrch), teamSource: source);
@@ -323,7 +332,7 @@ public class TeamsModuleTests
 
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
-            Options.Create(new TeamsModuleOptions { Enabled = true, AlwaysExport = true }),
+            Options.Create(new TeamsModuleOptions { Enabled = true, Processing = new TeamsProcessingOptions { AlwaysExport = true } }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             orchestrator: CreateTeamsOrchestrator(package.Object, exportOrchestrator: exportOrch), teamSource: source);
@@ -332,7 +341,7 @@ public class TeamsModuleTests
         await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
 
         // Assert — both teams written despite artefacts already existing
-        Assert.AreEqual(2, writtenPaths.Count,
+        Assert.AreEqual(2, writtenPaths.Count(p => p.EndsWith("/team.json", StringComparison.OrdinalIgnoreCase)),
             $"Expected 2 team writes with AlwaysExport=true. Written: {string.Join(", ", writtenPaths)}");
     }
 
@@ -363,7 +372,9 @@ public class TeamsModuleTests
 
         await module.ExportAsync(CreateExportContext(package.Object), CancellationToken.None);
 
-        var alphaEntry = writtenContent.FirstOrDefault(kv => kv.Key.Contains("alpha-team", StringComparison.OrdinalIgnoreCase));
+        var alphaEntry = writtenContent.FirstOrDefault(kv =>
+            kv.Key.Contains("alpha-team", StringComparison.OrdinalIgnoreCase) &&
+            kv.Key.EndsWith("team.json", StringComparison.OrdinalIgnoreCase));
         Assert.IsNotNull(alphaEntry.Value, "Expected alpha-team/team.json to be written.");
 
         using var doc = JsonDocument.Parse(alphaEntry.Value);
@@ -394,7 +405,7 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions
             {
                 Enabled = true,
-                Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true, TeamMembers = true }
+                Data = new TeamsDataOptions { TeamIterations = true, TeamMembers = true }
             }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
@@ -755,7 +766,7 @@ public class TeamsModuleTests
 
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
-            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true } }),
+            Options.Create(new TeamsModuleOptions { Enabled = true, Data = new TeamsDataOptions { TeamIterations = true } }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             orchestrator: CreateTeamsOrchestratorWithExtensions(package.Object, teamTarget: target, importOrchestrator: importOrch),
@@ -782,8 +793,8 @@ public class TeamsModuleTests
         var target = new SimulatedTeamTarget();
         var identityTranslationTool = Mock.Of<IIdentityTranslationTool>(m =>
             m.IsEnabled == true &&
-            m.Translate("src-alice") == "tgt-alice@target.com" &&
-            m.Translate("src-bob") == "tgt-bob@target.com");
+            m.Translate("src-alice", It.IsAny<IdentityTranslationMap>()) == "tgt-alice@target.com" &&
+            m.Translate("src-bob", It.IsAny<IdentityTranslationMap>()) == "tgt-bob@target.com");
 
         var importOrch = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo());
 
@@ -806,7 +817,7 @@ public class TeamsModuleTests
 
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
-            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamMembers = true } }),
+            Options.Create(new TeamsModuleOptions { Enabled = true, Data = new TeamsDataOptions { TeamMembers = true } }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             orchestrator: CreateTeamsOrchestratorWithExtensions(package.Object, teamTarget: target,
@@ -857,7 +868,7 @@ public class TeamsModuleTests
 
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
-            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamCapacity = true } }),
+            Options.Create(new TeamsModuleOptions { Enabled = true, Data = new TeamsDataOptions { TeamCapacity = true } }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             orchestrator: CreateTeamsOrchestratorWithExtensions(package.Object, teamTarget: target, importOrchestrator: importOrch),
@@ -903,7 +914,7 @@ public class TeamsModuleTests
 
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
-            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamCapacity = false } }),
+            Options.Create(new TeamsModuleOptions { Enabled = true, Data = new TeamsDataOptions { TeamCapacity = false } }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: target);
@@ -923,10 +934,10 @@ public class TeamsModuleTests
         // Arrange — target throws "not supported" from SetCapacityAsync
         var teamTarget = new Mock<ITeamTarget>(MockBehavior.Loose);
         teamTarget
-            .Setup(t => t.CreateOrUpdateTeamAsync(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>(), It.IsAny<TeamDefinition>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.CreateOrUpdateTeamAsync( It.IsAny<string>(), It.IsAny<TeamDefinition>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("target-alpha-team");
         teamTarget
-            .Setup(t => t.SetCapacityAsync(It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TeamCapacityEntry[]>(), It.IsAny<CancellationToken>()))
+            .Setup(t => t.SetCapacityAsync( It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TeamCapacityEntry[]>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Capacity setting is not supported on this target."));
 
         var importOrch = new TeamImportOrchestrator(teamTarget.Object, NullLogger<TeamImportOrchestrator>.Instance, endpointInfo: CreateTargetEndpointInfo());
@@ -949,7 +960,7 @@ public class TeamsModuleTests
 
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
-            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamCapacity = true } }),
+            Options.Create(new TeamsModuleOptions { Enabled = true, Data = new TeamsDataOptions { TeamCapacity = true } }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             orchestrator: CreateTeamsOrchestratorWithExtensions(package.Object, teamTarget: teamTarget.Object, importOrchestrator: importOrch),
@@ -959,8 +970,7 @@ public class TeamsModuleTests
         await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
 
         // Assert — SetCapacityAsync was attempted but no exception propagated
-        teamTarget.Verify(t => t.SetCapacityAsync(
-            It.IsAny<MigrationEndpointOptions>(), It.IsAny<string>(), It.IsAny<string>(),
+        teamTarget.Verify(t => t.SetCapacityAsync( It.IsAny<string>(), It.IsAny<string>(),
             "sprint-1", It.IsAny<TeamCapacityEntry[]>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -991,7 +1001,7 @@ public class TeamsModuleTests
 
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
-            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamCapacity = true } }),
+            Options.Create(new TeamsModuleOptions { Enabled = true, Data = new TeamsDataOptions { TeamCapacity = true } }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             orchestrator: CreateTeamsOrchestrator(package.Object, importOrchestrator: importOrch), teamTarget: target);
@@ -1037,7 +1047,7 @@ public class TeamsModuleTests
         var opts = new TeamsModuleOptions
         {
             Enabled = true,
-            Extensions = new TeamsModuleExtensionsOptions { NodeTranslation = true, TeamIterations = true }
+            Data = new TeamsDataOptions { TeamIterations = true }, Processing = new TeamsProcessingOptions { NodeTranslation = true }
         };
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
@@ -1080,7 +1090,7 @@ public class TeamsModuleTests
         var opts = new TeamsModuleOptions
         {
             Enabled = true,
-            Extensions = new TeamsModuleExtensionsOptions { NodeTranslation = false, TeamIterations = true }
+            Data = new TeamsDataOptions { TeamIterations = true }, Processing = new TeamsProcessingOptions { NodeTranslation = false }
         };
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
@@ -1138,7 +1148,7 @@ public class TeamsModuleTests
 
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
-            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true } }),
+            Options.Create(new TeamsModuleOptions { Enabled = true, Data = new TeamsDataOptions { TeamIterations = true } }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             orchestrator: CreateTeamsOrchestratorWithExtensions(package.Object, teamTarget: target,
@@ -1192,7 +1202,7 @@ public class TeamsModuleTests
 
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
-            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true } }),
+            Options.Create(new TeamsModuleOptions { Enabled = true, Data = new TeamsDataOptions { TeamIterations = true } }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             orchestrator: CreateTeamsOrchestratorWithExtensions(package.Object, teamTarget: target,
@@ -1218,7 +1228,7 @@ public class TeamsModuleTests
         var idTool = new Mock<IIdentityTranslationTool>(MockBehavior.Loose);
         idTool.Setup(t => t.IsEnabled).Returns(true);
         idTool.Setup(t => t.DefaultIdentity).Returns("default@target.com");
-        idTool.Setup(t => t.Translate("src-unknown")).Returns("default@target.com");
+        idTool.Setup(t => t.Translate("src-unknown", It.IsAny<IdentityTranslationMap>())).Returns("default@target.com");
 
         var importOrch = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, CreateTargetEndpointInfo());
 
@@ -1237,7 +1247,7 @@ public class TeamsModuleTests
 
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
-            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamMembers = true, IdentityLookup = true } }),
+            Options.Create(new TeamsModuleOptions { Enabled = true, Data = new TeamsDataOptions { TeamMembers = true }, Processing = new TeamsProcessingOptions { IdentityLookup = true } }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             orchestrator: CreateTeamsOrchestratorWithExtensions(package.Object, teamTarget: target,
@@ -1259,7 +1269,7 @@ public class TeamsModuleTests
         var idTool = new Mock<IIdentityTranslationTool>(MockBehavior.Loose);
         idTool.Setup(t => t.IsEnabled).Returns(true);
         idTool.Setup(t => t.DefaultIdentity).Returns("default@target.com");
-        idTool.Setup(t => t.Translate("src-bob")).Returns("bob@target.com");
+        idTool.Setup(t => t.Translate("src-bob", It.IsAny<IdentityTranslationMap>())).Returns("bob@target.com");
 
         var importOrch = new TeamImportOrchestrator(target, NullLogger<TeamImportOrchestrator>.Instance, CreateTargetEndpointInfo());
 
@@ -1278,7 +1288,7 @@ public class TeamsModuleTests
 
         var module = new TeamsModule(
             NullLogger<TeamsModule>.Instance,
-            Options.Create(new TeamsModuleOptions { Enabled = true, Extensions = new TeamsModuleExtensionsOptions { TeamMembers = true, IdentityLookup = true } }),
+            Options.Create(new TeamsModuleOptions { Enabled = true, Data = new TeamsDataOptions { TeamMembers = true }, Processing = new TeamsProcessingOptions { IdentityLookup = true } }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
             orchestrator: CreateTeamsOrchestratorWithExtensions(package2.Object, teamTarget: target,
@@ -1315,7 +1325,7 @@ public class TeamsModuleTests
             CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
         };
 
-        await orch.ImportTeamAsync("TargetProject", "SourceProject", pkg, new TeamsModuleExtensionsOptions(), CancellationToken.None);
+        await orch.ImportTeamAsync("TargetProject", "SourceProject", pkg, new TeamsDataOptions(), CancellationToken.None);
 
         // B1: structured warning was emitted
         logger.Verify(
@@ -1390,11 +1400,8 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions
             {
                 Enabled = true,
-                Extensions = new TeamsModuleExtensionsOptions
-                {
-                    TeamIterations = true,
-                    NodeTranslation = true,
-                }
+                Data = new TeamsDataOptions { TeamIterations = true },
+                Processing = new TeamsProcessingOptions { NodeTranslation = true }
             }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
@@ -1455,7 +1462,7 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions
             {
                 Enabled = true,
-                Extensions = new TeamsModuleExtensionsOptions { TeamIterations = true }
+                Data = new TeamsDataOptions { TeamIterations = true }
             }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
@@ -1514,7 +1521,7 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions
             {
                 Enabled = true,
-                Extensions = new TeamsModuleExtensionsOptions { NodeTranslation = true }
+                Processing = new TeamsProcessingOptions { NodeTranslation = true }
             }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
@@ -1564,7 +1571,7 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions
             {
                 Enabled = true,
-                Extensions = new TeamsModuleExtensionsOptions { NodeTranslation = false }
+                Processing = new TeamsProcessingOptions { NodeTranslation = false }
             }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),
@@ -1600,6 +1607,7 @@ public class TeamsModuleTests
         // Build the area paths extension with the logger mock so we can verify warnings
         var areaPathsExtension = new TeamAreaPathsTeamExtension(
             Options.Create(new TeamAreaPathsExtensionOptions { Enabled = true }),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
             target,
             translationToolMock.Object,
             loggerMock.Object);
@@ -1621,7 +1629,7 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions
             {
                 Enabled = true,
-                Extensions = new TeamsModuleExtensionsOptions { NodeTranslation = true }
+                Processing = new TeamsProcessingOptions { NodeTranslation = true }
             }),
             sourceEndpointInfo: CreateSourceEndpointInfo(sourceProject: "ProjectA"),
             targetEndpointInfo: CreateTargetEndpointInfo(targetProject: "TargetProject"),
@@ -1680,7 +1688,7 @@ public class TeamsModuleTests
             Options.Create(new TeamsModuleOptions
             {
                 Enabled = true,
-                Extensions = new TeamsModuleExtensionsOptions { NodeTranslation = true }
+                Processing = new TeamsProcessingOptions { NodeTranslation = true }
             }),
             sourceEndpointInfo: CreateSourceEndpointInfo(),
             targetEndpointInfo: CreateTargetEndpointInfo(),

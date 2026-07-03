@@ -53,6 +53,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
 
     // Export/capture/prepare deps
     private readonly IWorkItemRevisionSourceFactory _sourceFactory;
+    private readonly IProjectInventoryWriter _projectInventory;
     private readonly IAttachmentBinarySource? _attachmentBinarySource;
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IWorkItemExportOrchestratorFactory _exportOrchestratorFactory;
@@ -109,8 +110,10 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         IOptions<WorkItemOptions>? workItemOptions = null,
         IOptions<NodesModuleOptions>? nodesModuleOptions = null,
         IInventoryOrchestrator? inventoryOrchestrator = null,
-        IRepoDiscoveryService? repoDiscoveryService = null)
+        IRepoDiscoveryService? repoDiscoveryService = null,
+        IProjectInventoryWriter? projectInventory = null)
     {
+        _projectInventory = projectInventory ?? new Infrastructure.Agent.Discovery.ProjectInventoryFileStore();
         _sourceFactory = sourceFactory ?? throw new ArgumentNullException(nameof(sourceFactory));
         _attachmentBinarySource = attachmentBinarySource;
         _fetchService = fetchService;
@@ -234,7 +237,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
                     }
                 }
 
-                await _inventoryOrchestrator.RunAsync("WorkItems", BuildEventStream(), context, ct: ct).ConfigureAwait(false);
+                await _inventoryOrchestrator.RunInventoryAsync("WorkItems", BuildEventStream(), context, ct: ct).ConfigureAwait(false);
             }
             else
             {
@@ -279,7 +282,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
                     }
                 }
 
-                await ProjectInventoryFile.MergeAsync(
+                await _projectInventory.MergeAsync(
                     context.Package, orgSlug, project,
                     orgUrl: orgUrl,
                     workItems: projectWorkItems,
@@ -521,9 +524,9 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
 
         _logger.LogInformation(
             "[WorkItems] Importing into {OrgUrl}/{Project} (revisions={Revisions}, links=always-on, attachments=always-on, comments={Comments})",
-            orgUrl, project, _options.Value.Extensions.Revisions.Enabled, _commentsExtension.IsEnabled);
+            orgUrl, project, _options.Value.Data.Revisions.Enabled, _commentsExtension.IsEnabled);
 
-        if (!_options.Value.Extensions.Revisions.Enabled)
+        if (!_options.Value.Data.Revisions.Enabled)
         {
             _logger.LogInformation("[WorkItems] Revisions disabled — import phase skipped.");
             return TaskExecutionResult.Skipped("Revisions disabled.");
@@ -554,7 +557,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             sourceProjectName = "unknown";
 
         var nodeReadinessContext = new ProjectMapping(sourceProjectName, project);
-        var replicateSourceTree = _nodesModuleOptions?.Value.ReplicateSourceTree ?? false;
+        var replicateSourceTree = _nodesModuleOptions?.Value.Processing.ReplicateSourceTree ?? false;
         await _nodeReadinessOrchestrator
             .EnsureReadyAsync(nodeReadinessContext, replicateSourceTree, context, sourceOrganisation, sourceProjectName, ct)
             .ConfigureAwait(false);
@@ -709,7 +712,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
                     else
                         await WriteCompletedCursorAsync(scope, folderPath, ct).ConfigureAwait(false);
                 }
-                else if (_options.Value.Extensions.Revisions.Enabled)
+                else if (_options.Value.Data.Revisions.Enabled)
                 {
                     ParseRevisionFolder(folderName, out var wiId, out var revIdx);
 
@@ -1077,9 +1080,9 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
 
     private bool ComputeLeveredExtensionFlags()
     {
-        var moduleExt = _options.Value.Extensions;
+        var moduleData = _options.Value.Data;
         if (_workItemOptions is null)
-            return moduleExt.EmbeddedImages.Enabled;
+            return moduleData.EmbeddedImages.Enabled;
 
         var replayOptions = _workItemOptions.Value;
         var hasExplicitLeverConfig =
@@ -1090,9 +1093,9 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             replayOptions.FieldTransform;
 
         if (!hasExplicitLeverConfig)
-            return moduleExt.EmbeddedImages.Enabled;
+            return moduleData.EmbeddedImages.Enabled;
 
-        return moduleExt.EmbeddedImages.Enabled && (!replayOptions.RevisionReplay || replayOptions.EmbeddedImageReplay);
+        return moduleData.EmbeddedImages.Enabled && (!replayOptions.RevisionReplay || replayOptions.EmbeddedImageReplay);
     }
 
 

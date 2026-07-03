@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Checkpointing;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Export;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
@@ -22,11 +23,13 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Validation;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.Validation;
-#if !NET481
 using System.Text.Json;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Discovery;
+using DevOpsMigrationPlatform.Infrastructure.Telemetry;
 using System.Text.Json.Serialization;
+#if !NET481
 using DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
-using Microsoft.Extensions.Options;
 #endif
 using Microsoft.Extensions.Logging;
 
@@ -46,46 +49,268 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
     private const string ModuleName = "Nodes";
 
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
+    private static readonly ActivitySource s_discoveryActivitySource = new(WellKnownActivitySourceNames.Discovery);
 
-#if !NET481
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         PropertyNameCaseInsensitive = true
     };
-#endif
 
     private readonly ILogger _logger;
     private readonly IPackageAccess? _package;
-#if !NET481
     private readonly IPlatformMetrics? _PlatformMetrics;
+#if !NET481
     private readonly INodeTranslationTool _nodeTranslationTool;
     private readonly INodeCreator _nodeCreator;
-    private readonly IOptionsMonitor<NodeTranslationOptions> _nodeTranslationOptions;
 #endif
+
+    private readonly IProjectInventoryWriter _projectInventory;
 
     public NodesOrchestrator(
         ILogger<NodesOrchestrator> logger
 #if !NET481
         , INodeTranslationTool nodeTranslationTool,
         INodeCreator nodeCreator,
-        IOptionsMonitor<NodeTranslationOptions> nodeTranslationOptions,
         IPlatformMetrics? PlatformMetrics = null,
-        IPackageAccess? package = null
+        IPackageAccess? package = null,
+        IProjectInventoryWriter? projectInventory = null
 #else
-        , IPackageAccess? package = null
+        , IPlatformMetrics? PlatformMetrics = null,
+        IPackageAccess? package = null,
+        IProjectInventoryWriter? projectInventory = null
 #endif
     )
     {
+        _projectInventory = projectInventory ?? new Discovery.ProjectInventoryFileStore();
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _package = package;
+        _PlatformMetrics = PlatformMetrics;
 #if !NET481
         _nodeTranslationTool = nodeTranslationTool ?? throw new ArgumentNullException(nameof(nodeTranslationTool));
         _nodeCreator = nodeCreator ?? throw new ArgumentNullException(nameof(nodeCreator));
-        _nodeTranslationOptions = nodeTranslationOptions ?? throw new ArgumentNullException(nameof(nodeTranslationOptions));
-        _PlatformMetrics = PlatformMetrics;
 #endif
+    }
+
+    /// <summary>
+    /// Inventory phase: counts classification nodes and merges the count into the project
+    /// inventory file. Owns the counting, progress events, and metrics.
+    /// </summary>
+    public async Task<TaskExecutionResult> CaptureAsync(
+        IClassificationTreeReader? reader,
+        InventoryContext context,
+        string fallbackOrgUrl,
+        CancellationToken ct)
+    {
+        using var activity = s_discoveryActivitySource.StartActivity("inventory.nodes");
+        activity?.SetTag("job.id", context.Job.JobId);
+        activity?.SetTag("module", ModuleName);
+        activity?.SetTag("org", context.SourceEndpoint?.ResolvedUrl ?? string.Empty);
+        activity?.SetTag("project", context.Project);
+
+        if (string.IsNullOrWhiteSpace(context.Project))
+        {
+            _logger.LogError("[Nodes] CaptureAsync called with empty Project — executor contract violated. Skipping.");
+            return TaskExecutionResult.Skipped("CaptureAsync called with empty project.");
+        }
+
+        _logger.LogInformation("Inventorying {Module}", ModuleName);
+        context.ProgressSink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Inventorying",
+            Message = $"Inventorying {ModuleName}",
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
+        var stopwatch = Stopwatch.StartNew();
+        var count = 0;
+        if (reader is not null)
+        {
+            var project = context.Project;
+            var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? fallbackOrgUrl;
+            var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
+
+            try
+            {
+                count = await reader.CountNodesAsync(project, ct).ConfigureAwait(false);
+
+                await _projectInventory.MergeAsync(
+                    context.Package, orgSlug, project,
+                    orgUrl: orgUrl,
+                    nodes: count, ct: ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                using (_logger.BeginDataScope(DataClassification.Customer))
+                    _logger.LogWarning(ex, "Failed to count nodes for project {Project}; skipping.", project);
+            }
+        }
+        stopwatch.Stop();
+
+        _PlatformMetrics?.RecordInventoryNodes(count, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", ModuleName } });
+        _logger.LogInformation("Inventoried {Module}: {Count} items in {DurationMs}ms", ModuleName, count, stopwatch.ElapsedMilliseconds);
+        if (count == 0)
+            _logger.LogWarning("Zero items inventoried for {Module}", ModuleName);
+
+        context.ProgressSink?.Emit(new ProgressEvent
+        {
+            Module = ModuleName,
+            Stage = "Inventoried",
+            Message = $"{ModuleName} inventory complete",
+            Timestamp = DateTimeOffset.UtcNow,
+            Metrics = new JobMetrics
+            {
+                Discovery = new DiscoveryCounters
+                {
+                    Inventory = new InventoryCounters { RevisionsTotal = count }
+                }
+            }
+        });
+
+        return TaskExecutionResult.Completed();
+    }
+
+    /// <summary>
+    /// Prepare phase (ADR-0027, MC-L1): validates the exported classification-tree artefact
+    /// (<c>Nodes/source-tree.json</c>) against the package, records prepare metrics, and
+    /// persists <c>prepare-report.json</c> into the package.
+    /// </summary>
+    public async Task PrepareAsync(
+        PrepareContext context,
+        string organisation,
+        string project,
+        CancellationToken ct)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var report = await BuildPrepareReportAsync(context.Package, organisation, project, ct).ConfigureAwait(false);
+        _PlatformMetrics?.RecordPrepareNodesResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", ModuleName } });
+        _PlatformMetrics?.RecordPrepareNodesUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", ModuleName } });
+
+        using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(report)), writable: false))
+        {
+            await context.Package.PersistContentAsync(
+                new PackageContentContext(PackageContentKind.Artefact, Module: ModuleName, Organisation: organisation, Project: project, Address: new RelativePathAddress("prepare-report.json")),
+                new PackagePayload(stream, "application/json"),
+                ct).ConfigureAwait(false);
+        }
+        stopwatch.Stop();
+        _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", ModuleName, report.ResolvedCount, report.UnresolvedCount, stopwatch.ElapsedMilliseconds);
+    }
+
+    /// <summary>
+    /// Real Prepare validation (ADR-0027, MC-L1): validates the exported classification-tree
+    /// artefact (<c>Nodes/source-tree.json</c>) — presence, parseability, well-formed node
+    /// paths, duplicate-path detection, and iteration date sanity. The package format is
+    /// connector-neutral, so the checks apply to Simulated, AzureDevOpsServices, and TFS exports alike.
+    /// </summary>
+    private static async Task<PrepareReport> BuildPrepareReportAsync(
+        IPackageAccess package,
+        string organisation,
+        string project,
+        CancellationToken ct)
+    {
+        var unresolved = new List<UnresolvedItem>();
+        var artefactFindings = new List<ArtefactFinding>();
+        var resolvedCount = 0;
+
+        var json = await ReadPackageContentAsync(package, organisation, project, SourceTreePath, ct).ConfigureAwait(false);
+        if (json is null)
+        {
+            unresolved.Add(new UnresolvedItem(
+                SourceTreePath,
+                $"Required artefact '{SourceTreePath}' is missing from the package.",
+                PrepareIssueSeverity.Blocking));
+            artefactFindings.Add(new ArtefactFinding(
+                ArtefactFindingType.ModuleArtefact, SourceTreePath, ArtefactFindingStatus.Missing, SourceTreePath));
+        }
+        else
+        {
+            ClassificationTreeSnapshot? snapshot = null;
+            try
+            {
+                snapshot = JsonSerializer.Deserialize<ClassificationTreeSnapshot>(json, s_jsonOptions);
+            }
+            catch (JsonException ex)
+            {
+                unresolved.Add(new UnresolvedItem(
+                    SourceTreePath,
+                    $"Artefact '{SourceTreePath}' contains malformed JSON: {ex.Message}",
+                    PrepareIssueSeverity.Blocking));
+                artefactFindings.Add(new ArtefactFinding(
+                    ArtefactFindingType.ModuleArtefact, SourceTreePath, ArtefactFindingStatus.Invalid, SourceTreePath));
+            }
+
+            if (snapshot is not null)
+            {
+                resolvedCount += ValidateNodePaths(snapshot.AreaNodes ?? [], "area", unresolved);
+
+                var iterationPaths = new List<string>();
+                foreach (var iteration in snapshot.IterationNodes ?? [])
+                {
+                    iterationPaths.Add(iteration?.Path ?? string.Empty);
+
+                    if (iteration is null)
+                        continue;
+
+                    if (iteration.StartDate is not null
+                        && iteration.FinishDate is not null
+                        && iteration.StartDate > iteration.FinishDate)
+                    {
+                        unresolved.Add(new UnresolvedItem(
+                            iteration.Path,
+                            $"Iteration '{iteration.Path}' has a start date ({iteration.StartDate:O}) after its finish date ({iteration.FinishDate:O}).",
+                            PrepareIssueSeverity.Warning));
+                    }
+                }
+
+                resolvedCount += ValidateNodePaths(iterationPaths, "iteration", unresolved);
+            }
+        }
+
+        return new PrepareReport
+        {
+            ModuleName = ModuleName,
+            ResolvedCount = resolvedCount,
+            UnresolvedItems = unresolved,
+            ArtefactFindings = artefactFindings
+        };
+    }
+
+    /// <summary>
+    /// Validates a set of node paths: empty/whitespace paths are blocking; duplicate paths
+    /// (case-insensitive) are warnings. Returns the number of well-formed paths.
+    /// </summary>
+    private static int ValidateNodePaths(IReadOnlyList<string> paths, string nodeKind, List<UnresolvedItem> unresolved)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var validCount = 0;
+
+        foreach (var path in paths)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                unresolved.Add(new UnresolvedItem(
+                    $"{SourceTreePath}#{nodeKind}",
+                    $"Artefact '{SourceTreePath}' contains an empty or whitespace {nodeKind} node path.",
+                    PrepareIssueSeverity.Blocking));
+                continue;
+            }
+
+            if (!seen.Add(path))
+            {
+                unresolved.Add(new UnresolvedItem(
+                    path,
+                    $"Duplicate {nodeKind} node path '{path}' in '{SourceTreePath}'.",
+                    PrepareIssueSeverity.Warning));
+                continue;
+            }
+
+            validCount++;
+        }
+
+        return validCount;
     }
 
     /// <summary>
@@ -239,8 +464,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
         IPlatformMetrics? metrics = null,
         string? jobId = null)
     {
-        var options = _nodeTranslationOptions.CurrentValue;
-        if (!options.AutoCreateNodes)
+        if (!_nodeTranslationTool.AutoCreateNodes)
         {
             _logger.LogDebug("[NodeTranslation] AutoCreateNodes disabled — skipping pre-collection.");
             return;

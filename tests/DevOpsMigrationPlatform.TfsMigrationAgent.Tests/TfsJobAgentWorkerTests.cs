@@ -20,6 +20,7 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
+using DevOpsMigrationPlatform.Abstractions.Agent.TfsExecution;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 using DevOpsMigrationPlatform.Abstractions.Jobs;
@@ -135,6 +136,12 @@ public class TfsJobAgentWorkerTests
             {
                 BaseAddress = new Uri("http://localhost:5100")
             });
+        _httpClientFactory
+            .Setup(f => f.CreateClient(UnifiedWorkerEventWriter.HttpClientName))
+            .Returns(new HttpClient(_httpHandler)
+            {
+                BaseAddress = new Uri("http://localhost:5100")
+            });
 
         // Package migration config loader — default returns a config with a TFS source.
         _packageMigrationConfigLoader = new Mock<IPackageMigrationConfigLoader>();
@@ -170,6 +177,10 @@ public class TfsJobAgentWorkerTests
             _tfsServiceFactory.Object,
             new DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.JobLifecycle.TfsExecution.ActiveTfsJobServices(),
             new DevOpsMigrationPlatform.Infrastructure.Agent.Context.CurrentJobEndpointAccessor(),
+            new UnifiedWorkerEventWriter(
+                _httpClientFactory.Object,
+                _leaseState,
+                NullLogger<UnifiedWorkerEventWriter>.Instance),
             _logger,
             package ?? _package.Object);
     }
@@ -198,13 +209,16 @@ public class TfsJobAgentWorkerTests
         var worker = CreateWorker();
 
         // Act
+        _leaseState.CurrentLeaseId = "test-lease";
         await TfsJobAgentWorkerTestHelper.InvokeMigrationJobAsync(
             worker, job, CreateControlPlaneClient(), "test-lease", CancellationToken.None);
 
-        // Assert: should have posted /agents/lease/{leaseId}/fail
+        // Assert: should have posted a Terminal(failed=true) event via the unified events endpoint
         Assert.IsTrue(_httpHandler.RequestLog.Exists(r =>
             r.Method == HttpMethod.Post &&
-            r.RequestUri!.PathAndQuery.Contains("/fail")));
+            r.RequestUri!.PathAndQuery.Contains("/events") &&
+            _httpHandler.RequestBodies.TryGetValue(r, out var body) &&
+            ContainsTerminalEvent(body, failed: true)));
 
         _tfsServiceFactory.Verify(
             f => f.CreateForEndpoint(It.IsAny<MigrationEndpointOptions>()), Times.Never);
@@ -268,13 +282,16 @@ public class TfsJobAgentWorkerTests
         var worker = CreateWorker();
 
         // Act
+        _leaseState.CurrentLeaseId = "test-lease";
         await TfsJobAgentWorkerTestHelper.InvokeMigrationJobAsync(
             worker, job, CreateControlPlaneClient(), "test-lease", CancellationToken.None);
 
         // Assert
         Assert.IsTrue(_httpHandler.RequestLog.Exists(r =>
             r.Method == HttpMethod.Post &&
-            r.RequestUri!.PathAndQuery.Contains("/fail")));
+            r.RequestUri!.PathAndQuery.Contains("/events") &&
+            _httpHandler.RequestBodies.TryGetValue(r, out var body) &&
+            ContainsTerminalEvent(body, failed: true)));
 
         _tfsServiceFactory.Verify(
             f => f.CreateForEndpoint(It.IsAny<MigrationEndpointOptions>()), Times.Never);
@@ -330,6 +347,7 @@ public class TfsJobAgentWorkerTests
         var worker = CreateWorker();
 
         // Act
+        _leaseState.CurrentLeaseId = "test-lease";
         await TfsJobAgentWorkerTestHelper.InvokeMigrationJobAsync(
             worker, job, CreateControlPlaneClient(), "test-lease", CancellationToken.None);
 
@@ -340,7 +358,9 @@ public class TfsJobAgentWorkerTests
         // Should signal complete (not fail)
         Assert.IsTrue(_httpHandler.RequestLog.Exists(r =>
             r.Method == HttpMethod.Post &&
-            r.RequestUri!.PathAndQuery.Contains("/complete")));
+            r.RequestUri!.PathAndQuery.Contains("/events") &&
+            _httpHandler.RequestBodies.TryGetValue(r, out var body) &&
+            ContainsTerminalEvent(body, failed: false)));
     }
 
     [TestCategory("CodeTest")]
@@ -557,13 +577,16 @@ public class TfsJobAgentWorkerTests
         var worker = CreateWorker();
 
         // Act
+        _leaseState.CurrentLeaseId = "test-lease";
         await TfsJobAgentWorkerTestHelper.InvokeMigrationJobAsync(
             worker, job, CreateControlPlaneClient(), "test-lease", CancellationToken.None);
 
         // Assert
         Assert.IsTrue(_httpHandler.RequestLog.Exists(r =>
             r.Method == HttpMethod.Post &&
-            r.RequestUri!.PathAndQuery.Contains("/fail")));
+            r.RequestUri!.PathAndQuery.Contains("/events") &&
+            _httpHandler.RequestBodies.TryGetValue(r, out var body) &&
+            ContainsTerminalEvent(body, failed: true)));
     }
 
     // ── Discovery Tests ──────────────────────────────────────────────────────
@@ -583,13 +606,16 @@ public class TfsJobAgentWorkerTests
         var worker = CreateWorker();
 
         // Act
+        _leaseState.CurrentLeaseId = "test-lease";
         await TfsJobAgentWorkerTestHelper.InvokeDiscoveryJobAsync(
             worker, job, CreateControlPlaneClient(), "test-lease", CancellationToken.None);
 
         // Assert
         Assert.IsTrue(_httpHandler.RequestLog.Exists(r =>
             r.Method == HttpMethod.Post &&
-            r.RequestUri!.PathAndQuery.Contains("/fail")));
+            r.RequestUri!.PathAndQuery.Contains("/events") &&
+            _httpHandler.RequestBodies.TryGetValue(r, out var body) &&
+            ContainsTerminalEvent(body, failed: true)));
     }
 
     [TestCategory("CodeTest")]
@@ -630,6 +656,7 @@ public class TfsJobAgentWorkerTests
         var worker = CreateWorker();
 
         // Act
+        _leaseState.CurrentLeaseId = "test-lease";
         await TfsJobAgentWorkerTestHelper.InvokeDiscoveryJobAsync(
             worker, job, CreateControlPlaneClient(), "test-lease", CancellationToken.None);
 
@@ -641,7 +668,9 @@ public class TfsJobAgentWorkerTests
         // Should signal complete
         Assert.IsTrue(_httpHandler.RequestLog.Exists(r =>
             r.Method == HttpMethod.Post &&
-            r.RequestUri!.PathAndQuery.Contains("/complete")));
+            r.RequestUri!.PathAndQuery.Contains("/events") &&
+            _httpHandler.RequestBodies.TryGetValue(r, out var body) &&
+            ContainsTerminalEvent(body, failed: false)));
     }
 
     [TestCategory("CodeTest")]
@@ -741,6 +770,40 @@ public class TfsJobAgentWorkerTests
             yield return s;
         }
     }
+
+    /// <summary>
+    /// Inspects a captured request body (a serialized WorkerEventBatch) for a Terminal event
+    /// whose embedded PayloadJson reports the given failed flag. Parses via JsonDocument rather
+    /// than string-Contains because PayloadJson is a JSON string nested inside the outer batch JSON.
+    /// </summary>
+    private static bool ContainsTerminalEvent(string body, bool failed)
+    {
+        using var doc = JsonDocument.Parse(body);
+
+        if (!doc.RootElement.TryGetProperty("events", out var events))
+            return false;
+
+        foreach (var evt in events.EnumerateArray())
+        {
+            if (!evt.TryGetProperty("kind", out var kindProp))
+                continue;
+            if (!string.Equals(kindProp.GetString(), "Terminal", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (!evt.TryGetProperty("payloadJson", out var payloadJsonProp))
+                continue;
+
+            var payloadJson = payloadJsonProp.GetString();
+            if (payloadJson is null)
+                continue;
+
+            using var payloadDoc = JsonDocument.Parse(payloadJson);
+            if (payloadDoc.RootElement.TryGetProperty("failed", out var failedProp) &&
+                failedProp.GetBoolean() == failed)
+                return true;
+        }
+
+        return false;
+    }
 }
 
 /// <summary>
@@ -791,16 +854,23 @@ internal sealed class MockHttpMessageHandler : HttpMessageHandler
     private HttpResponseMessage _defaultResponse = new(HttpStatusCode.OK);
     public List<HttpRequestMessage> RequestLog { get; } = new();
 
+    // The caller (HttpClient) disposes request Content once SendAsync returns, so callers
+    // that inspect RequestLog after the fact (e.g. asserting on request bodies) must read
+    // the content here, while it is still live, and stash it for later retrieval.
+    public Dictionary<HttpRequestMessage, string> RequestBodies { get; } = new();
+
     public void SetResponse(string pathPrefix, HttpResponseMessage response) =>
         _responses[pathPrefix] = response;
 
     public void SetDefaultResponse(HttpResponseMessage response) =>
         _defaultResponse = response;
 
-    protected override Task<HttpResponseMessage> SendAsync(
+    protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
         RequestLog.Add(request);
-        return Task.FromResult(_defaultResponse);
+        if (request.Content is not null)
+            RequestBodies[request] = await request.Content.ReadAsStringAsync().ConfigureAwait(false);
+        return _defaultResponse;
     }
 }

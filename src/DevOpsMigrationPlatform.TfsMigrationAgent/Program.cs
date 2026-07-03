@@ -69,7 +69,7 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                         ? serilogDiagPath
                         : Path.GetFullPath(serilogDiagPath);
                     var logFile = Path.Combine(resolvedPath, $"{WellKnownServiceNames.TfsMigrationAgent}-logs.log");
-                    Directory.CreateDirectory(Path.GetDirectoryName(logFile));
+                    // Serilog's File sink creates the target directory itself.
                     loggerConfig.WriteTo.File(logFile,
                         restrictedToMinimumLevel: LogEventLevel.Information,
                         outputTemplate: "[{Timestamp:O}] [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}");

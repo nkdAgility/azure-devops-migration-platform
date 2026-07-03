@@ -54,13 +54,32 @@ public sealed class TeamImportOrchestrator
     /// <param name="projectName">Target project name.</param>
     /// <param name="sourceProjectName">Source project name — used for path translation.</param>
     /// <param name="teamPackage">The team package to import.</param>
-    /// <param name="extensions">Extension toggles (retained for backward compatibility; not used for capability dispatch).</param>
+    /// <param name="extensions">Extension toggles (governs core capability imports such as team settings).</param>
     /// <param name="ct">Cancellation token.</param>
+    public Task<string> ImportTeamAsync(
+        string projectName,
+        string sourceProjectName,
+        TeamPackage teamPackage,
+        TeamsDataOptions data,
+        CancellationToken ct)
+        => ImportTeamAsync(projectName, sourceProjectName, teamPackage, data,
+            organisation: null, slug: null, package: null, ct);
+
+    /// <summary>
+    /// Creates or updates a single team and applies core capability imports. When
+    /// <paramref name="package"/>, <paramref name="organisation"/> and <paramref name="slug"/>
+    /// are supplied, team settings are imported from <c>Teams/{slug}/settings.json</c> as part
+    /// of the core Teams pipeline (folded from the former TeamSettingsTeamExtension seam —
+    /// EC-M3 / ADR-0024).
+    /// </summary>
     public async Task<string> ImportTeamAsync(
         string projectName,
         string sourceProjectName,
         TeamPackage teamPackage,
-        TeamsModuleExtensionsOptions extensions,
+        TeamsDataOptions data,
+        string? organisation,
+        string? slug,
+        DevOpsMigrationPlatform.Abstractions.Storage.IPackageAccess? package,
         CancellationToken ct)
     {
         using var activity = s_activitySource.StartActivity("teams.import.team");
@@ -76,10 +95,92 @@ public sealed class TeamImportOrchestrator
         }
 
         // Create or update team — returns the target team ID that extensions will use.
-        // TODO T051+: ITeamTarget still requires MigrationEndpointOptions parameter
+        // The connector resolves its own target endpoint (EC-L1 / ADR-0024).
         var targetTeamId = await _teamTarget.CreateOrUpdateTeamAsync(
-            null!, projectName, teamPackage.Definition, ct).ConfigureAwait(false);
+            projectName, teamPackage.Definition, ct).ConfigureAwait(false);
+
+        // Core pipeline: import team settings from Teams/{slug}/settings.json (EC-M3).
+        if (data.TeamSettings && package is not null && organisation is not null && slug is not null)
+        {
+            await ImportTeamSettingsAsync(
+                projectName, teamPackage.Definition.Name, organisation, sourceProjectName, slug,
+                targetTeamId, package, ct).ConfigureAwait(false);
+        }
 
         return targetTeamId;
+    }
+
+    private static readonly System.Text.Json.JsonSerializerOptions s_settingsReadOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    private async Task ImportTeamSettingsAsync(
+        string projectName,
+        string teamName,
+        string organisation,
+        string sourceProjectName,
+        string slug,
+        string targetTeamId,
+        DevOpsMigrationPlatform.Abstractions.Storage.IPackageAccess package,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(targetTeamId))
+        {
+            _logger.LogWarning("[Teams] Target team ID not set for team '{TeamName}' — skipping settings import.", teamName);
+            return;
+        }
+
+        var payload = await package.RequestContentAsync(
+            new DevOpsMigrationPlatform.Abstractions.Storage.PackageContentContext(
+                DevOpsMigrationPlatform.Abstractions.Storage.PackageContentKind.Artefact,
+                Organisation: organisation,
+                Project: projectName,
+                Module: "Teams",
+                Address: new TeamArtifactAddress(slug, "settings.json")),
+            ct).ConfigureAwait(false);
+
+        if (payload is null)
+        {
+            _logger.LogDebug("[Teams] No settings.json found for team '{TeamName}' — skipping.", teamName);
+            return;
+        }
+
+        string json;
+        using (var reader = new System.IO.StreamReader(payload.Content, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false))
+        {
+            json = await reader.ReadToEndAsync().ConfigureAwait(false);
+        }
+
+        TeamSettings? settings;
+        try
+        {
+            settings = System.Text.Json.JsonSerializer.Deserialize<TeamSettings>(json, s_settingsReadOptions);
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            _logger.LogWarning(ex, "[Teams] Malformed settings.json for team '{TeamName}' — skipping.", teamName);
+            return;
+        }
+
+        if (settings is null)
+        {
+            _logger.LogWarning("[Teams] Null settings in settings.json for team '{TeamName}' — skipping.", teamName);
+            return;
+        }
+
+        try
+        {
+            await _teamTarget.SetTeamSettingsAsync(projectName, targetTeamId, settings, ct).ConfigureAwait(false);
+            _logger.LogInformation("[Teams] Imported settings for team '{TeamName}'.", teamName);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Teams] Failed to import settings for team '{TeamName}' — skipping.", teamName);
+        }
     }
 }

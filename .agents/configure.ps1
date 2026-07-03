@@ -8,17 +8,28 @@
     and Codex (AGENTS.md) all point to the canonical .agents/ directory.
 
     Run this script once after cloning, or whenever links need to be repaired.
+    It registers .githooks as core.hooksPath, so post-checkout/post-merge hooks
+    keep the hardlinks repaired automatically afterwards.
 
     Requires symlink creation privileges. On Windows, enable Developer Mode or run as Administrator.
+    Hardlinks require no privileges: use -HardLinksOnly for unprivileged repair (used by git hooks).
 
 .EXAMPLE
     .\.agents\configure.ps1
 
 .EXAMPLE
     .\.agents\configure.ps1 -WhatIf
+
+.EXAMPLE
+    .\.agents\configure.ps1 -HardLinksOnly -Quiet
 #>
 [CmdletBinding(SupportsShouldProcess)]
-param()
+param(
+    # Repair hardlinks only; skip symlinks and the symlink-privilege check.
+    [switch]$HardLinksOnly,
+    # Report only changes and problems; suppress [OK] lines.
+    [switch]$Quiet
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -35,6 +46,7 @@ function Write-Status {
         [string]$Status,
         [string]$Message
     )
+    if ($Quiet -and $Status -eq 'OK') { return }
     $colors = @{ OK = 'Green'; CREATED = 'Cyan'; WARN = 'Yellow'; ERROR = 'Red' }
     Write-Host ("  [{0,-7}] {1}" -f $Status, $Message) -ForegroundColor $colors[$Status]
 }
@@ -71,7 +83,8 @@ function Ensure-HardLink {
             Write-Status WARN "$LinkPath is a hardlink but content differs — recreating"
         }
         else {
-            Write-Status WARN "$LinkPath exists as $($item.LinkType ?? 'file') — recreating as hardlink"
+            $kind = if ($item.LinkType) { $item.LinkType } else { 'file' }
+            Write-Status WARN "$LinkPath exists as $kind — recreating as hardlink"
         }
         if ($PSCmdlet.ShouldProcess($link, 'Remove')) { Remove-Item -LiteralPath $link -Force }
     }
@@ -131,45 +144,106 @@ function Ensure-Symlink {
 # Main
 # ---------------------------------------------------------------------------
 
-# Check symlink privileges (required for all symlink operations)
-$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-$devMode = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -ErrorAction SilentlyContinue).AllowDevelopmentWithoutDevLicense -eq 1
-$canSymlink = $isAdmin -or $devMode
+# Check symlink privileges (required only for symlink operations)
+if (-not $HardLinksOnly) {
+    $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    $devMode = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -ErrorAction SilentlyContinue).AllowDevelopmentWithoutDevLicense -eq 1
+    $canSymlink = $isAdmin -or $devMode
 
-if (-not $canSymlink -and -not $WhatIfPreference) {
-    Write-Host ""
-    Write-Host "  [ERROR  ] Cannot create symlinks — requires Administrator or Windows Developer Mode." -ForegroundColor Red
-    Write-Host "            Enable Developer Mode:  Settings -> Privacy & Security -> For developers" -ForegroundColor Yellow
-    Write-Host "            Or re-run as Administrator." -ForegroundColor Yellow
-    Write-Host ""
-    exit 1
+    if (-not $canSymlink -and -not $WhatIfPreference) {
+        Write-Host ""
+        Write-Host "  [ERROR  ] Cannot create symlinks — requires Administrator or Windows Developer Mode." -ForegroundColor Red
+        Write-Host "            Enable Developer Mode:  Settings -> Privacy & Security -> For developers" -ForegroundColor Yellow
+        Write-Host "            Or re-run as Administrator (or use -HardLinksOnly for link repair without symlinks)." -ForegroundColor Yellow
+        Write-Host ""
+        exit 1
+    }
 }
 
-Write-Host ""
-Write-Host "Configuring agent links" -ForegroundColor White
-Write-Host "Repo root : $repoRoot" -ForegroundColor DarkGray
-Write-Host ""
+if (-not $Quiet) {
+    Write-Host ""
+    Write-Host "Configuring agent links" -ForegroundColor White
+    Write-Host "Repo root : $repoRoot" -ForegroundColor DarkGray
+    Write-Host ""
+}
 
 # -- Hardlinks (root-level entry-point files) --------------------------------
-Write-Host "Hardlinks:" -ForegroundColor White
+if (-not $Quiet) { Write-Host "Hardlinks:" -ForegroundColor White }
 Ensure-HardLink 'AGENTS.md' '.agents\agents.md'
 Ensure-HardLink 'CLAUDE.md' '.agents\agents.md'
+Ensure-HardLink '.github\copilot-instructions.md' '.agents\agents.md'
 
-# -- .claude symlinks --------------------------------------------------------
-Write-Host ""
-Write-Host ".claude/ symlinks:" -ForegroundColor White
-Ensure-Symlink '.claude\skills'   '..\.agents\skills'
-Ensure-Symlink '.claude\agents'   '..\.agents\agents'
-Ensure-Symlink '.claude\commands' '..\.agents\commands'
-Ensure-Symlink '.claude\prompts'  '..\.agents\prompts'
-Ensure-Symlink '.claude\workflows'  '..\.agents\workflows'
+# -- Nested agent stubs (directory-local AGENTS.md files) --------------------
+# Each stub in .agents\40-stubs\ is hardlinked into the src/tests directories
+# it governs. Add or remove entries here when adding or removing a stub.
+if (-not $Quiet) {
+    Write-Host ""
+    Write-Host "Nested AGENTS.md stubs:" -ForegroundColor White
+}
+$stubs = @(
+    @{ Source = '.agents\40-stubs\controlplane.md';          Targets = @(
+        'src\DevOpsMigrationPlatform.ControlPlane\AGENTS.md',
+        'src\DevOpsMigrationPlatform.ControlPlaneHost\AGENTS.md') }
+    @{ Source = '.agents\40-stubs\cli.md';                   Targets = @(
+        'src\DevOpsMigrationPlatform.CLI.Migration\AGENTS.md') }
+    @{ Source = '.agents\40-stubs\infrastructure-agent.md';  Targets = @(
+        'src\DevOpsMigrationPlatform.Infrastructure.Agent\AGENTS.md') }
+    @{ Source = '.agents\40-stubs\migration-agent.md';       Targets = @(
+        'src\DevOpsMigrationPlatform.MigrationAgent\AGENTS.md') }
+    @{ Source = '.agents\40-stubs\net481.md';                Targets = @(
+        'src\DevOpsMigrationPlatform.TfsMigrationAgent\AGENTS.md',
+        'src\DevOpsMigrationPlatform.Infrastructure.TfsObjectModel\AGENTS.md') }
+    @{ Source = '.agents\40-stubs\simulated-connector.md';   Targets = @(
+        'src\DevOpsMigrationPlatform.Infrastructure.Simulated\AGENTS.md') }
+    @{ Source = '.agents\40-stubs\azuredevops-connector.md'; Targets = @(
+        'src\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\AGENTS.md') }
+    @{ Source = '.agents\40-stubs\abstractions.md';          Targets = @(
+        'src\DevOpsMigrationPlatform.Abstractions\AGENTS.md',
+        'src\DevOpsMigrationPlatform.Abstractions.Agent\AGENTS.md',
+        'src\DevOpsMigrationPlatform.Abstractions.ControlPlane\AGENTS.md',
+        'src\DevOpsMigrationPlatform.Abstractions.Storage\AGENTS.md') }
+    @{ Source = '.agents\40-stubs\tests.md';                 Targets = @(
+        'tests\AGENTS.md') }
+)
+foreach ($stub in $stubs) {
+    foreach ($target in $stub.Targets) {
+        Ensure-HardLink $target $stub.Source
+    }
+}
 
-# -- .github symlinks --------------------------------------------------------
-Write-Host ""
-Write-Host ".github/ symlinks:" -ForegroundColor White
-Ensure-Symlink '.github\agents'  '..\.agents\agents'
-Ensure-Symlink '.github\prompts' '..\.agents\prompts'
+if (-not $HardLinksOnly) {
+    # -- .claude symlinks ----------------------------------------------------
+    Write-Host ""
+    Write-Host ".claude/ symlinks:" -ForegroundColor White
+    Ensure-Symlink '.claude\skills'   '..\.agents\skills'
+    Ensure-Symlink '.claude\agents'   '..\.agents\agents'
+    Ensure-Symlink '.claude\commands' '..\.agents\commands'
+    Ensure-Symlink '.claude\prompts'  '..\.agents\prompts'
+    Ensure-Symlink '.claude\workflows'  '..\.agents\workflows'
 
-Write-Host ""
-Write-Host "Done." -ForegroundColor Green
-Write-Host ""
+    # -- .github symlinks ----------------------------------------------------
+    Write-Host ""
+    Write-Host ".github/ symlinks:" -ForegroundColor White
+    Ensure-Symlink '.github\agents'  '..\.agents\agents'
+    Ensure-Symlink '.github\prompts' '..\.agents\prompts'
+}
+
+# -- Git hooks (self-maintaining links) ---------------------------------------
+# post-checkout / post-merge re-run this script with -HardLinksOnly so links
+# sever-and-repair transparently whenever git rewrites a linked file.
+$currentHooksPath = git -C $repoRoot config --local core.hooksPath 2>$null
+if ($currentHooksPath -ne '.githooks') {
+    if ($PSCmdlet.ShouldProcess('core.hooksPath', 'Set to .githooks')) {
+        git -C $repoRoot config core.hooksPath .githooks
+        Write-Status CREATED "git core.hooksPath -> .githooks (links auto-repair on checkout/merge)"
+    }
+}
+else {
+    Write-Status OK "git core.hooksPath already .githooks"
+}
+
+if (-not $Quiet) {
+    Write-Host ""
+    Write-Host "Done." -ForegroundColor Green
+    Write-Host ""
+}

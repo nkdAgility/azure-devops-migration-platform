@@ -14,6 +14,7 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Settings;
 /// Control plane URL is resolved from the <c>MigrationPlatform:Environment:ControlPlane:BaseUrl</c>
 /// configuration section via <see cref="Options.EnvironmentOptions"/>. The <c>--port</c> flag
 /// overrides the port in standalone mode, allowing multiple concurrent local runs.
+/// The <c>--url</c> flag switches to Hosted mode and sets the remote control plane URL.
 /// </summary>
 public class ControlPlaneBaseCommandSettings : BaseCommandSettings
 {
@@ -26,4 +27,13 @@ public class ControlPlaneBaseCommandSettings : BaseCommandSettings
     [Description("Port for the local control plane. Overrides the default (5100) in standalone mode.")]
     [DefaultValue(5100)]
     public int Port { get; init; } = 5100;
+
+    /// <summary>
+    /// Remote control plane base URL. When supplied, switches the environment to Hosted mode
+    /// and connects to this URL instead of starting a local control plane.
+    /// Example: <c>https://migration.example.com</c>.
+    /// </summary>
+    [CommandOption("--url")]
+    [Description("Remote control plane base URL. Switches to Hosted mode. Example: https://migration.example.com")]
+    public string? Url { get; init; }
 }

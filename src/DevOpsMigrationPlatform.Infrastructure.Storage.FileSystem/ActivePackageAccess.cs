@@ -310,15 +310,28 @@ internal sealed class ActivePackageAccess : IPackageAccess
     {
         var store = RequireStateStore();
         var path = ResolveMetaPath(context);
-        await ObserveAsync(
-            "delete-meta",
-            path,
-            async () =>
-            {
-                await store.DeleteAsync(path, cancellationToken).ConfigureAwait(false);
-                return true;
-            },
-            context.Kind.ToString()).ConfigureAwait(false);
+        try
+        {
+            await ObserveAsync(
+                "delete-meta",
+                path,
+                async () =>
+                {
+                    await store.DeleteAsync(path, cancellationToken).ConfigureAwait(false);
+                    return true;
+                },
+                context.Kind.ToString()).ConfigureAwait(false);
+        }
+        catch (System.IO.FileNotFoundException ex)
+        {
+            // Translate the filesystem-specific type to the storage-neutral
+            // package-boundary contract (ADR-0025, HX-H1).
+            throw new PackageMetaNotFoundException(context.Kind, ex);
+        }
+        catch (System.IO.DirectoryNotFoundException ex)
+        {
+            throw new PackageMetaNotFoundException(context.Kind, ex);
+        }
     }
 
     public async ValueTask AppendContentAsync(

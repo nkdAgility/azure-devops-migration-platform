@@ -92,6 +92,7 @@ public class BoardConfigTeamExtensionTests
             Options.Create(options ?? new BoardConfigExtensionOptions()),
             adapter.Object,
             capProvider.Object,
+            new DevOpsMigrationPlatform.Infrastructure.Agent.Teams.BoardConfigMergeTool(),
             metrics: null,
             logger: NullLogger<BoardConfigTeamExtension>.Instance);
     }

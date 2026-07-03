@@ -52,7 +52,8 @@ public class ImportEmbeddedImagesContext
             NullLogger<WorkItemResolutionProcessor>.Instance,
             "https://dev.azure.com/contoso",
             "Shop",
-            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) },
+            moduleExtensions: new[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All) },
             package: MockPackage.Object,
             embeddedImagesOptions: EmbeddedImagesOptions);
     }
@@ -128,8 +129,8 @@ public class ImportEmbeddedImagesContext
             .Setup(s => s.IsEnabled)
             .Returns(true);
         MockIdentityMapping
-            .Setup(s => s.Translate(It.IsAny<string>()))
-            .Returns<string>(id => id);
+            .Setup(s => s.Translate(It.IsAny<string>(), It.IsAny<IdentityTranslationMap>()))
+            .Returns<string, IdentityTranslationMap>((id, _) => id);
 
         // Resolution strategy
         MockResolutionStrategy

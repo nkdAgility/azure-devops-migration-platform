@@ -53,32 +53,22 @@ public static class TelemetryServiceExtensions
     }
 
     /// <summary>
-    /// Registers the named <see cref="IControlPlaneTelemetryClient"/> / <see cref="ControlPlaneTelemetryClient"/>
-    /// <see cref="System.Net.Http.HttpClient"/> with <paramref name="baseAddress"/> as the base URL.
-    /// Call this from the Migration Agent's <c>Program.cs</c>.
+    /// Registers <see cref="UnifiedWorkerEventWriter"/> as a singleton, hosted service, and
+    /// <see cref="IProgressSink"/> implementation.
     /// </summary>
-    public static IServiceCollection AddControlPlaneTelemetryClient(
-        this IServiceCollection services,
-        Uri baseAddress)
-    {
-        services.AddHttpClient<IControlPlaneTelemetryClient, ControlPlaneTelemetryClient>(
-            client => client.BaseAddress = baseAddress);
-        return services;
-    }
-
-    /// <summary>
-    /// Registers <see cref="ControlPlaneProgressSink"/> as a singleton and as a hosted service.
-    /// The <see cref="CompositeProgressSink"/> registration is handled separately in the consuming host.
-    /// </summary>
-    public static IServiceCollection AddControlPlaneProgressSink(
+    public static IServiceCollection AddUnifiedWorkerEventWriter(
         this IServiceCollection services,
         Uri controlPlaneBaseUrl)
     {
-        services.AddHttpClient(ControlPlaneProgressSink.HttpClientName,
+        services.AddHttpClient(UnifiedWorkerEventWriter.HttpClientName,
             client => client.BaseAddress = controlPlaneBaseUrl);
 
-        services.AddSingleton<ControlPlaneProgressSink>();
-        services.AddHostedService(sp => sp.GetRequiredService<ControlPlaneProgressSink>());
+        services.AddSingleton<UnifiedWorkerEventWriter>();
+        services.AddHostedService(sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
+        services.AddSingleton<IProgressSink>(sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
+        // Canonical worker-event port (ADR-0023 / CA-C1).
+        services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.Telemetry.IWorkerEventWriter>(
+            sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
 
         return services;
     }
@@ -86,9 +76,9 @@ public static class TelemetryServiceExtensions
     /// <summary>
     /// Registers <see cref="AnsiProgressSink"/> and the <see cref="CompositeProgressSink"/>
     /// that fans every <see cref="ProgressEvent"/> out to <see cref="AnsiProgressSink"/>,
-    /// <see cref="PackageProgressSink"/>, and <see cref="ControlPlaneProgressSink"/>.
-    /// Requires <see cref="PackageProgressSink"/> and <see cref="ControlPlaneProgressSink"/>
-    /// to already be registered (e.g. via <see cref="AddControlPlaneProgressSink"/>).
+    /// <see cref="PackageProgressSink"/>, and <see cref="UnifiedWorkerEventWriter"/>.
+    /// Requires <see cref="PackageProgressSink"/> and <see cref="UnifiedWorkerEventWriter"/>
+    /// to already be registered (e.g. via <see cref="AddUnifiedWorkerEventWriter"/>).
     /// </summary>
     public static IServiceCollection AddCompositeProgressSink(
         this IServiceCollection services)
@@ -98,7 +88,7 @@ public static class TelemetryServiceExtensions
             sp.GetRequiredService<ILogger<CompositeProgressSink>>(),
             sp.GetRequiredService<AnsiProgressSink>(),
             sp.GetRequiredService<PackageProgressSink>(),
-            sp.GetRequiredService<ControlPlaneProgressSink>()));
+            sp.GetRequiredService<UnifiedWorkerEventWriter>()));
         return services;
     }
 }

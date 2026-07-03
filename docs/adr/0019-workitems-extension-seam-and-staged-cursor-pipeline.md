@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented. Corrected in-session after initial implementation revealed a misclassification of Links
+Accepted — implemented. Corrected in-session after initial implementation revealed a misclassification of Links
 and Attachments as extensions. See **Corrective Refinement** below.
 
 ## Context
