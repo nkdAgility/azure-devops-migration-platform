@@ -32,6 +32,15 @@ This glossary is mandatory and must be read before any other guardrail.
   Connector-specific implementation of external system mechanics and normalization.
   Reference: `.agents/30-context/domains/connector-model.md`
 
+- **Source**  
+  Read-side connector seam: the connector-specific origin of a data stream, behind a
+  contract (for example `IWorkItemRevisionSource`, `IClassificationTreeSource`). The
+  inbound counterpart to a `Target`.
+
+- **Registry**  
+  Keyed lookup of types or identifiers held in memory (a sub-form of Store that maps
+  keys to Types/ids rather than to durable data).
+
 - **Tool**  
   Reusable concern engine used as a shared behavior seam. Tools are pure and
   stateless: no package/target I/O of their own (ADR-0026).
@@ -119,6 +128,8 @@ This glossary is mandatory and must be read before any other guardrail.
 - **Factory vs Builder**: factory constructs a configured instance in one step; builder stages assembly of a composite result.
 - **Provider vs Accessor**: provider supplies values or capability flags; accessor reads the current ambient context.
 - **Store vs Sink**: store is a keyed read/write persistence surface; sink is a one-way receiving end of an event flow.
+- **Source vs Adapter**: source is the read-side origin seam of a data stream; adapter normalizes connector mechanics behind any contract.
+- **Registry vs Store**: registry maps keys to Types/ids in memory; store persists keyed data.
 - **Client vs Adapter**: client owns outbound transport to a remote surface; adapter normalizes connector-specific mechanics behind a contract.
 - **Validator vs Resolver**: validator evaluates rules and reports findings; resolver owns the selected decision outcome.
 
