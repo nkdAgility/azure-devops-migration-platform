@@ -2,6 +2,7 @@
 // Copyright (c) Naked Agility Limited
 
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -144,6 +145,43 @@ public sealed class ModuleOptionsConfigurationTests
         Assert.IsFalse(opts.Data.TeamCapacity);
         Assert.IsFalse(opts.Processing.NodeTranslation);
         Assert.IsTrue(opts.Data.TeamIterations, "Other extensions should remain at their defaults.");
+    }
+
+    // ─── BoardConfigExtensionOptions (ConfigVersion 2.0 anatomy) ─────────────
+
+    /// <summary>
+    /// ADR-0028 follow-up: BoardConfig lives under the v2 Processing aspect —
+    /// a v2 config with Modules.Teams.Processing.BoardConfig must bind into
+    /// IOptions&lt;BoardConfigExtensionOptions&gt; via AddTeamsModule.
+    /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public void BoardConfigExtensionOptions_BindsFromTeamsProcessingSection()
+    {
+        // Arrange — v2 anatomy: Modules:Teams:Processing:BoardConfig
+        var config = BuildConfig(new Dictionary<string, string?>
+        {
+            ["MigrationPlatform:Modules:Teams:Processing:BoardConfig:Enabled"] = "true",
+            ["MigrationPlatform:Modules:Teams:Processing:BoardConfig:SwimLanes"] = "false",
+            ["MigrationPlatform:Modules:Teams:Processing:BoardConfig:ImportMode"] = "Merge"
+        });
+        var services = new ServiceCollection();
+        services.AddSingleton(config);
+        services.AddTeamsModule(config);
+        var sp = services.BuildServiceProvider();
+
+        // Act
+        var opts = sp.GetRequiredService<IOptions<DevOpsMigrationPlatform.Abstractions.Agent.Teams.BoardConfigExtensionOptions>>().Value;
+
+        // Assert
+        Assert.IsTrue(opts.Enabled);
+        Assert.IsFalse(opts.SwimLanes);
+        Assert.AreEqual(DevOpsMigrationPlatform.Abstractions.Agent.Teams.BoardConfigImportMode.Merge, opts.ImportMode);
+        Assert.AreEqual(
+            "MigrationPlatform:Modules:Teams:Processing:BoardConfig",
+            DevOpsMigrationPlatform.Abstractions.Agent.Teams.BoardConfigExtensionOptions.SectionName,
+            "BoardConfig must not use the rejected v1 'Extensions' path.");
     }
 
     // ─── NodesModuleOptions ──────────────────────────────────────────

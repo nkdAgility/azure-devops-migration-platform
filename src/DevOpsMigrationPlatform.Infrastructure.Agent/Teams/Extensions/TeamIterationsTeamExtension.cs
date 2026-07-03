@@ -40,7 +40,7 @@ public sealed class TeamIterationsTeamExtension : IModuleExtension
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly TeamIterationsExtensionOptions _options;
+    private readonly Abstractions.Agent.Modules.TeamsDataOptions _data;
     private readonly IConnectorCapabilityProvider _capProvider;
     private readonly ITeamSource _teamSource;
     private readonly ITeamTarget _teamTarget;
@@ -49,7 +49,7 @@ public sealed class TeamIterationsTeamExtension : IModuleExtension
     private readonly ILogger<TeamIterationsTeamExtension>? _logger;
 
     public TeamIterationsTeamExtension(
-        IOptions<TeamIterationsExtensionOptions> options,
+        IOptions<Abstractions.Agent.Modules.TeamsModuleOptions> options,
         IConnectorCapabilityProvider capProvider,
         ITeamSource teamSource,
         ITeamTarget teamTarget,
@@ -57,7 +57,7 @@ public sealed class TeamIterationsTeamExtension : IModuleExtension
         IReferencedPathTracker? referencedPathTracker = null,
         ILogger<TeamIterationsTeamExtension>? logger = null)
     {
-        _options = (options ?? throw new ArgumentNullException(nameof(options))).Value;
+        _data = (options ?? throw new ArgumentNullException(nameof(options))).Value.Data;
         _capProvider = capProvider ?? throw new ArgumentNullException(nameof(capProvider));
         _teamSource = teamSource ?? throw new ArgumentNullException(nameof(teamSource));
         _teamTarget = teamTarget ?? throw new ArgumentNullException(nameof(teamTarget));
@@ -71,7 +71,7 @@ public sealed class TeamIterationsTeamExtension : IModuleExtension
     public int Order => 20;
     public bool SupportsExport => _capProvider.Has(Cap.TeamIterations);
     public bool SupportsImport => _capProvider.Has(Cap.TeamIterations);
-    public bool IsEnabled => _options.Enabled;
+    public bool IsEnabled => _data.TeamIterations;
 
     public async Task ExportAsync(IExtensionContext context, CancellationToken ct)
     {

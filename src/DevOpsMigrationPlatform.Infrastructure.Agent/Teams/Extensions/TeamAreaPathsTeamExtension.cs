@@ -15,7 +15,6 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Teams.Extensions;
 
@@ -32,20 +31,17 @@ public sealed class TeamAreaPathsTeamExtension : IModuleExtension
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly TeamAreaPathsExtensionOptions _options;
     private readonly IConnectorCapabilityProvider _capProvider;
     private readonly ITeamTarget _teamTarget;
     private readonly INodeTranslationTool? _nodeTranslationTool;
     private readonly ILogger<TeamAreaPathsTeamExtension>? _logger;
 
     public TeamAreaPathsTeamExtension(
-        IOptions<TeamAreaPathsExtensionOptions> options,
         IConnectorCapabilityProvider capProvider,
         ITeamTarget teamTarget,
         INodeTranslationTool? nodeTranslationTool = null,
         ILogger<TeamAreaPathsTeamExtension>? logger = null)
     {
-        _options = (options ?? throw new ArgumentNullException(nameof(options))).Value;
         _capProvider = capProvider ?? throw new ArgumentNullException(nameof(capProvider));
         _teamTarget = teamTarget ?? throw new ArgumentNullException(nameof(teamTarget));
         _nodeTranslationTool = nodeTranslationTool;
@@ -57,7 +53,9 @@ public sealed class TeamAreaPathsTeamExtension : IModuleExtension
     public int Order => 50;
     public bool SupportsExport => false;   // Area path recording is handled by TeamExportOrchestrator
     public bool SupportsImport => _capProvider.Has(Cap.TeamAreaPaths);
-    public bool IsEnabled => _options.Enabled;
+    // Always enabled — gating is the connector's TeamAreaPaths capability; path translation
+    // is governed by the NodeTranslation Processing seam (ConfigVersion 2.0 anatomy, ADR-0028).
+    public bool IsEnabled => true;
 
     public Task ExportAsync(IExtensionContext context, CancellationToken ct)
         => Task.CompletedTask; // No export — area paths are recorded via IReferencedPathTracker

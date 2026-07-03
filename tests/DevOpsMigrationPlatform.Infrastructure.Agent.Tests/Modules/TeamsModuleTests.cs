@@ -141,19 +141,18 @@ public class TeamsModuleTests
         var extensions = new IModuleExtension[]
         {
             new TeamIterationsTeamExtension(
-                Options.Create(new TeamIterationsExtensionOptions { Enabled = true }),
+                Options.Create(new DevOpsMigrationPlatform.Abstractions.Agent.Modules.TeamsModuleOptions()),
             DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
                 teamSource, teamTarget, nodeTranslationTool, referencedPathTracker),
             new TeamMembersTeamExtension(
-                Options.Create(new TeamMembersExtensionOptions { Enabled = true }),
+                Options.Create(new DevOpsMigrationPlatform.Abstractions.Agent.Modules.TeamsModuleOptions()),
             DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
                 teamSource, teamTarget, identityTranslationTool),
             new TeamCapacityTeamExtension(
-                Options.Create(new TeamCapacityExtensionOptions { Enabled = true }),
+                Options.Create(new DevOpsMigrationPlatform.Abstractions.Agent.Modules.TeamsModuleOptions()),
             DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
                 teamSource, teamTarget),
             new TeamAreaPathsTeamExtension(
-                Options.Create(new TeamAreaPathsExtensionOptions { Enabled = true }),
                 DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
                 teamTarget, nodeTranslationTool),
         };
@@ -1606,7 +1605,6 @@ public class TeamsModuleTests
 
         // Build the area paths extension with the logger mock so we can verify warnings
         var areaPathsExtension = new TeamAreaPathsTeamExtension(
-            Options.Create(new TeamAreaPathsExtensionOptions { Enabled = true }),
             DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
             target,
             translationToolMock.Object,

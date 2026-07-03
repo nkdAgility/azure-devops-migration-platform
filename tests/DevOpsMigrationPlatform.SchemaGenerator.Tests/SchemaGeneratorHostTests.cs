@@ -181,6 +181,52 @@ public sealed class SchemaGeneratorHostTests
         }
     }
 
+    /// <summary>
+    /// ADR-0028 amendment: BoardConfig is re-homed under the Teams Processing aspect.
+    /// The schema must expose Modules.Teams.Processing.BoardConfig and must not resurrect
+    /// any Modules.*.Extensions section (the v2 gate rejects that key by name).
+    /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public async Task RunAsync_GeneratedSchema_HomesBoardConfigUnderTeamsProcessing()
+    {
+        var outputPath = Path.Combine(Path.GetTempPath(), $"schema-test-{Guid.NewGuid()}.json");
+        try
+        {
+            var sp = BuildServiceProvider();
+            var host = new SchemaGeneratorHost(sp, sp.GetRequiredService<ILogger<SchemaGeneratorHost>>());
+
+            var result = await host.RunAsync(outputPath, CancellationToken.None);
+            Assert.AreEqual(0, result, "RunAsync should return 0 on success");
+
+            var schemaJson = File.ReadAllText(outputPath);
+            StringAssert.Contains(schemaJson, "BoardConfigExtensionOptions",
+                "BoardConfigExtensionOptions must remain schema-visible");
+
+            using var doc = System.Text.Json.JsonDocument.Parse(schemaJson);
+            var teamsProcessing = doc.RootElement
+                .GetProperty("definitions")
+                .GetProperty("TeamsModuleOptions")
+                .GetProperty("definitions")
+                .GetProperty("TeamsProcessingOptions")
+                .GetProperty("properties");
+            Assert.IsTrue(teamsProcessing.TryGetProperty("BoardConfig", out _),
+                "Modules.Teams.Processing must expose a BoardConfig property (ADR-0028 amendment)");
+
+            var teamsProperties = doc.RootElement
+                .GetProperty("definitions")
+                .GetProperty("TeamsModuleOptions")
+                .GetProperty("properties");
+            Assert.IsFalse(teamsProperties.TryGetProperty("Extensions", out _),
+                "Modules.Teams must not expose a legacy 'Extensions' section — the v2 gate rejects it");
+        }
+        finally
+        {
+            if (File.Exists(outputPath)) File.Delete(outputPath);
+        }
+    }
+
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]

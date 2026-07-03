@@ -17,8 +17,11 @@ public sealed class BoardConfigExtensionOptions : IConfigSection
 public sealed class BoardConfigExtensionOptions
 #endif
 {
-    /// <summary>Configuration section path for binding.</summary>
-    public static string SectionName => "MigrationPlatform:Modules:Teams:Extensions:BoardConfig";
+    /// <summary>
+    /// Configuration section path for binding (ConfigVersion 2.0 anatomy — board-config
+    /// merge/validation behaviour is a Processing concern, ADR-0028 amendment).
+    /// </summary>
+    public static string SectionName => "MigrationPlatform:Modules:Teams:Processing:BoardConfig";
 
     /// <summary>Optional extension — carries Enabled (a mandatory extension would not).</summary>
     public bool Enabled { get; init; } = true;

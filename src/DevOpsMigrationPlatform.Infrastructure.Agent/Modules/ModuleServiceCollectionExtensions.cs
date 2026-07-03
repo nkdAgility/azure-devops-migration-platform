@@ -91,9 +91,8 @@ public static class ModuleServiceCollectionExtensions
 
         // Work-item capability extensions (IModuleExtension ports). Each owns its own IOptions<T>.
         // Note: Links and Attachments are now unconditional core behaviour — no extension registration needed.
-#if NET7_0_OR_GREATER
-        services.AddSchemaEntry<CommentsExtensionOptions>("Work item Comments extension (inline comment replay) configuration");
-#endif
+        // CommentsExtensionOptions is derived from Modules:WorkItems:Data:Comments (v2 anatomy),
+        // not bound from a config section of its own, so it has no schema entry.
         services.AddOptions<CommentsExtensionOptions>()
             .Configure<IOptions<WorkItemsModuleOptions>>((o, wi) => o.Enabled = wi.Value.Data.Comments.Enabled);
         services.AddSingleton<CommentsWorkItemExtension>(sp =>

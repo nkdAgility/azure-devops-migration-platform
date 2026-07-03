@@ -38,7 +38,7 @@ public sealed class TeamMembersTeamExtension : IModuleExtension
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly TeamMembersExtensionOptions _options;
+    private readonly Abstractions.Agent.Modules.TeamsDataOptions _data;
     private readonly IConnectorCapabilityProvider _capProvider;
     private readonly ITeamSource _teamSource;
     private readonly ITeamTarget _teamTarget;
@@ -47,7 +47,7 @@ public sealed class TeamMembersTeamExtension : IModuleExtension
     private readonly ILogger<TeamMembersTeamExtension>? _logger;
 
     public TeamMembersTeamExtension(
-        IOptions<TeamMembersExtensionOptions> options,
+        IOptions<Abstractions.Agent.Modules.TeamsModuleOptions> options,
         IConnectorCapabilityProvider capProvider,
         ITeamSource teamSource,
         ITeamTarget teamTarget,
@@ -55,7 +55,7 @@ public sealed class TeamMembersTeamExtension : IModuleExtension
         IIdentitiesOrchestrator? identitiesOrchestrator = null,
         ILogger<TeamMembersTeamExtension>? logger = null)
     {
-        _options = (options ?? throw new ArgumentNullException(nameof(options))).Value;
+        _data = (options ?? throw new ArgumentNullException(nameof(options))).Value.Data;
         _capProvider = capProvider ?? throw new ArgumentNullException(nameof(capProvider));
         _teamSource = teamSource ?? throw new ArgumentNullException(nameof(teamSource));
         _teamTarget = teamTarget ?? throw new ArgumentNullException(nameof(teamTarget));
@@ -69,7 +69,7 @@ public sealed class TeamMembersTeamExtension : IModuleExtension
     public int Order => 30;
     public bool SupportsExport => _capProvider.Has(Cap.TeamMembers);
     public bool SupportsImport => _capProvider.Has(Cap.TeamMembers);
-    public bool IsEnabled => _options.Enabled;
+    public bool IsEnabled => _data.TeamMembers;
 
     public async Task ExportAsync(IExtensionContext context, CancellationToken ct)
     {

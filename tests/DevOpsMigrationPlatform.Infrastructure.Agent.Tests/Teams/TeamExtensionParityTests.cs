@@ -140,7 +140,7 @@ public class TeamExtensionParityTests
 
         var (package, writtenPaths) = CreateTrackingPackage();
         var extension = new TeamIterationsTeamExtension(
-            Options.Create(new TeamIterationsExtensionOptions()),
+            Options.Create(new DevOpsMigrationPlatform.Abstractions.Agent.Modules.TeamsModuleOptions()),
             DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
             teamSource: teamSource.Object,
             teamTarget: new Mock<ITeamTarget>(MockBehavior.Loose).Object,
@@ -171,7 +171,7 @@ public class TeamExtensionParityTests
 
         var (package, writtenPaths) = CreateTrackingPackage();
         var extension = new TeamMembersTeamExtension(
-            Options.Create(new TeamMembersExtensionOptions()),
+            Options.Create(new DevOpsMigrationPlatform.Abstractions.Agent.Modules.TeamsModuleOptions()),
             DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
             teamSource: teamSource.Object,
             teamTarget: new Mock<ITeamTarget>(MockBehavior.Loose).Object,
@@ -230,7 +230,7 @@ public class TeamExtensionParityTests
             .ReturnsAsync((PackagePayload?)null);
 
         var extension = new TeamCapacityTeamExtension(
-            Options.Create(new TeamCapacityExtensionOptions()),
+            Options.Create(new DevOpsMigrationPlatform.Abstractions.Agent.Modules.TeamsModuleOptions()),
             DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
             teamSource: teamSource.Object,
             teamTarget: new Mock<ITeamTarget>(MockBehavior.Loose).Object,
