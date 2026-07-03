@@ -94,7 +94,7 @@ public sealed class DiscoveryDependenciesBuilder : IAsyncDisposable
         var json = $$"""
             {
               "MigrationPlatform": {
-                "ConfigVersion": "1.0",
+                "ConfigVersion": "2.0",
                 "Mode": "Dependencies",
                 "Organisations": [
                   {

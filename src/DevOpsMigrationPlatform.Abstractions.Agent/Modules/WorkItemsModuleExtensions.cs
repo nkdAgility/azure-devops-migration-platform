@@ -61,7 +61,7 @@ public sealed class WorkItemsModuleExtensions
         var includeFilters = new List<WorkItemFieldFilterOptions>();
         var excludeFilters = new List<WorkItemFieldFilterOptions>();
 
-        foreach (var filter in options.Scope.Filters)
+        foreach (var filter in options.Selection.Filters)
         {
             if (string.IsNullOrEmpty(filter.Field))
                 throw new InvalidOperationException("A WorkItems filter entry has an empty Field name.");
@@ -84,10 +84,10 @@ public sealed class WorkItemsModuleExtensions
                 excludeFilters.Add(fieldFilter);
         }
 
-        var rs = options.Extensions.WorkItemResolutionStrategy;
+        var rs = options.Processing.WorkItemResolutionStrategy;
         return new WorkItemsModuleExtensions
         {
-            Query = options.Scope.Query,
+            Query = options.Selection.Query,
             ResolutionStrategy = new WorkItemResolutionStrategyOptions
             {
                 Strategy = rs.Strategy,

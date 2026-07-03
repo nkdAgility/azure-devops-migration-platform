@@ -28,7 +28,7 @@ public sealed class PackageRuntimeBoundaryEnforcementTests
         @"src\DevOpsMigrationPlatform.Infrastructure.Agent\Modules\NodesModule.cs",
         @"src\DevOpsMigrationPlatform.Infrastructure.Agent\Modules\TeamsModule.cs",
         @"src\DevOpsMigrationPlatform.Infrastructure.Agent\Context\JobExecutionPlanBuilder.cs",
-        @"src\DevOpsMigrationPlatform.Infrastructure.Agent\Context\JobPlanExecutor.cs",
+        @"src\DevOpsMigrationPlatform.Infrastructure.Agent\Context\JobPlanOrchestrator.cs",
         @"src\DevOpsMigrationPlatform.MigrationAgent\JobAgentWorker.cs",
         @"src\DevOpsMigrationPlatform.TfsMigrationAgent\TfsJobAgentWorker.cs",
         @"src\DevOpsMigrationPlatform.Infrastructure.Agent\Checkpointing\CheckpointingService.cs",

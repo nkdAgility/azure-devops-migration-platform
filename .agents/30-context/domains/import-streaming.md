@@ -43,7 +43,7 @@ Stage label values are canonical and shared with the cursor schema. See [.agents
 
 - Import **must** be streaming. Loading all revisions into memory before processing is forbidden.
 - Enumeration order **must** follow the lexicographic rule above. Do not sort in memory.
-- See [../../20-guardrails/architecture-boundaries.md](../../20-guardrails/core/architecture-boundaries.md) for the hard guardrails.
+- See [architecture-boundaries.md](../../20-guardrails/core/architecture-boundaries.md) for the hard guardrails.
 
 
 

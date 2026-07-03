@@ -1,5 +1,7 @@
 # UI Mode Contract
 
+Audience: Contributors working on CLI/TUI presentation surfaces.
+
 ## Purpose
 
 This document is the canonical contract for how CLI and TUI surfaces present job progress by mode.

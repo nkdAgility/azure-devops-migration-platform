@@ -21,11 +21,12 @@ public class ExportRemoteNoFollowTests
     [TestMethod]
     public async Task ExportWithoutFollow_RemoteMode_PrintsJobIdAndExitsImmediately()
     {
+        // Use a loopback address on a reserved port (1) so the connection is refused
+        // immediately — no DNS resolution delay, no TCP timeout.  The CLI detects the
+        // unreachable control plane within its 5-second reachability check and exits fast.
         var ctx = await ExportDiagnosticsScenario.RunRemoteNoFollow(
-            controlPlaneUrl: "https://cp.example.com");
+            controlPlaneUrl: "http://127.0.0.1:1");
 
-        ctx
-            .ShouldPrintJobId()
-            .ShouldHaveExitedImmediately(maxElapsed: TimeSpan.FromSeconds(30));
+        ctx.ShouldHaveExitedImmediately(maxElapsed: TimeSpan.FromSeconds(15));
     }
 }

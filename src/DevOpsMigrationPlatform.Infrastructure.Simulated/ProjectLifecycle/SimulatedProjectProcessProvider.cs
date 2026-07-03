@@ -5,6 +5,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle;
+using DevOpsMigrationPlatform.Abstractions.ProjectLifecycle;
 using DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.ProjectLifecycle;

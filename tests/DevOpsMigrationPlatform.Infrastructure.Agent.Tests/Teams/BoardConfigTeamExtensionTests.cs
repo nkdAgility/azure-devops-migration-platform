@@ -77,7 +77,14 @@ public class BoardConfigTeamExtensionTests
     private static BoardConfigTeamExtension BuildExtension(
         Mock<ITeamBoardAdapter> adapter,
         Mock<IConnectorCapabilityProvider> capProvider,
-        BoardConfigExtensionOptions? options = null)
+        BoardConfigProcessingOptions processing)
+        => BuildExtension(adapter, capProvider, data: null, processing: processing);
+
+    private static BoardConfigTeamExtension BuildExtension(
+        Mock<ITeamBoardAdapter> adapter,
+        Mock<IConnectorCapabilityProvider> capProvider,
+        BoardConfigDataOptions? data = null,
+        BoardConfigProcessingOptions? processing = null)
     {
         // Provide a safe default for GetBoardConfigSnapshotAsync so tests that don't
         // need specific target state don't have to set it up explicitly.
@@ -89,9 +96,11 @@ public class BoardConfigTeamExtensionTests
         }
 
         return new(
-            Options.Create(options ?? new BoardConfigExtensionOptions()),
+            Options.Create(data ?? new BoardConfigDataOptions()),
+            Options.Create(processing ?? new BoardConfigProcessingOptions()),
             adapter.Object,
             capProvider.Object,
+            new DevOpsMigrationPlatform.Infrastructure.Agent.Teams.BoardConfigMergeTool(),
             metrics: null,
             logger: NullLogger<BoardConfigTeamExtension>.Instance);
     }
@@ -207,7 +216,7 @@ public class BoardConfigTeamExtensionTests
         var cap = new Mock<IConnectorCapabilityProvider>(MockBehavior.Loose);
         cap.Setup(c => c.Has(Cap.BoardConfig)).Returns(true);
 
-        var options = new BoardConfigExtensionOptions { Columns = false };
+        var options = new BoardConfigDataOptions { Columns = false };
         var (package, written) = CreateTrackingPackage();
         await BuildExtension(adapter, cap, options).ExportAsync(BuildContext(package), CancellationToken.None);
 
@@ -348,7 +357,7 @@ public class BoardConfigTeamExtensionTests
         var cap = new Mock<IConnectorCapabilityProvider>(MockBehavior.Loose);
         cap.Setup(c => c.Has(It.IsAny<Cap>())).Returns(true);
 
-        var options = new BoardConfigExtensionOptions { SwimLanes = false };
+        var options = new BoardConfigDataOptions { SwimLanes = false };
         var (package, written) = CreateTrackingPackage();
         await BuildExtension(adapter, cap, options).ExportAsync(BuildContext(package), CancellationToken.None);
 
@@ -440,7 +449,7 @@ public class BoardConfigTeamExtensionTests
         var cap = new Mock<IConnectorCapabilityProvider>(MockBehavior.Loose);
         cap.Setup(c => c.Has(It.IsAny<Cap>())).Returns(true);
 
-        var options = new BoardConfigExtensionOptions { CardRules = false };
+        var options = new BoardConfigDataOptions { CardRules = false };
         var (package, written) = CreateTrackingPackage();
         await BuildExtension(adapter, cap, options).ExportAsync(BuildContext(package), CancellationToken.None);
 
@@ -540,7 +549,7 @@ public class BoardConfigTeamExtensionTests
         var cap = new Mock<IConnectorCapabilityProvider>(MockBehavior.Loose);
         cap.Setup(c => c.Has(It.IsAny<Cap>())).Returns(true);
 
-        var options = new BoardConfigExtensionOptions { Backlogs = false };
+        var options = new BoardConfigDataOptions { Backlogs = false };
         var (package, written) = CreateTrackingPackage();
         await BuildExtension(adapter, cap, options).ExportAsync(BuildContext(package), CancellationToken.None);
 
@@ -666,7 +675,7 @@ public class BoardConfigTeamExtensionTests
         var cap = new Mock<IConnectorCapabilityProvider>(MockBehavior.Loose);
         cap.Setup(c => c.Has(It.IsAny<Cap>())).Returns(true);
 
-        var options = new BoardConfigExtensionOptions { TaskboardColumns = false };
+        var options = new BoardConfigDataOptions { TaskboardColumns = false };
         var (package, written) = CreateTrackingPackage();
         await BuildExtension(adapter, cap, options).ExportAsync(BuildContext(package), CancellationToken.None);
 
@@ -901,7 +910,7 @@ public class BoardConfigTeamExtensionTests
         var adapter     = new Mock<ITeamBoardAdapter>(MockBehavior.Loose);
         var package     = PackageWith(boardConfig);
 
-        var options = new BoardConfigExtensionOptions { Columns = false };
+        var options = new BoardConfigDataOptions { Columns = false };
         await BuildExtension(adapter, AllCapabilities(), options)
             .ImportAsync(BuildImportContext(package), CancellationToken.None);
 
@@ -933,7 +942,7 @@ public class BoardConfigTeamExtensionTests
                });
 
         var package = PackageWith(boardConfig);
-        var options = new BoardConfigExtensionOptions { ImportMode = BoardConfigImportMode.Skip };
+        var options = new BoardConfigProcessingOptions { ImportMode = BoardConfigImportMode.Skip };
 
         await BuildExtension(adapter, AllCapabilities(), options)
             .ImportAsync(BuildImportContext(package), CancellationToken.None);
@@ -1076,7 +1085,7 @@ public class BoardConfigTeamExtensionTests
                    (_, _, _, cols, _) => merged = cols)
                .Returns(Task.CompletedTask);
 
-        var options = new BoardConfigExtensionOptions { ImportMode = BoardConfigImportMode.Merge };
+        var options = new BoardConfigProcessingOptions { ImportMode = BoardConfigImportMode.Merge };
         var package = PackageWith(boardConfig);
 
         await BuildExtension(adapter, AllCapabilities(), options)
@@ -1123,7 +1132,7 @@ public class BoardConfigTeamExtensionTests
                    (_, _, _, lanes, _) => merged = lanes)
                .Returns(Task.CompletedTask);
 
-        var options = new BoardConfigExtensionOptions { ImportMode = BoardConfigImportMode.Merge };
+        var options = new BoardConfigProcessingOptions { ImportMode = BoardConfigImportMode.Merge };
         var package = PackageWith(boardConfig);
 
         await BuildExtension(adapter, AllCapabilities(), options)
@@ -1182,7 +1191,7 @@ public class BoardConfigTeamExtensionTests
                    (_, _, cols, _) => merged = cols)
                .Returns(Task.CompletedTask);
 
-        var options = new BoardConfigExtensionOptions { ImportMode = BoardConfigImportMode.Merge };
+        var options = new BoardConfigProcessingOptions { ImportMode = BoardConfigImportMode.Merge };
         var package = PackageWith(boardConfig);
 
         await BuildExtension(adapter, AllCapabilities(), options)
@@ -1319,7 +1328,7 @@ public class BoardConfigTeamExtensionTests
                .ReturnsAsync(TargetBoardSnapshot.Empty);
 
         var package = PackageWith(boardConfig);
-        var options = new BoardConfigExtensionOptions { ImportMode = BoardConfigImportMode.Skip };
+        var options = new BoardConfigProcessingOptions { ImportMode = BoardConfigImportMode.Skip };
 
         await BuildExtension(adapter, AllCapabilities(), options)
             .ImportAsync(BuildImportContext(package), CancellationToken.None);

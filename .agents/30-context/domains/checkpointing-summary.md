@@ -8,9 +8,9 @@ Detailed architecture and examples:
 - [docs/validation.md](../../../docs/validation.md)
 
 Enforced constraints:
-- [../../20-guardrails/migration-rules.md](../../20-guardrails/domains/migration-rules.md)
-- [../../20-guardrails/module-rules.md](../../20-guardrails/domains/module-rules.md)
-- [../../20-guardrails/package-rules.md](../../20-guardrails/domains/package-rules.md)
+- [migration-rules.md](../../20-guardrails/domains/migration-rules.md)
+- [module-rules.md](../../20-guardrails/domains/module-rules.md)
+- [package-rules.md](../../20-guardrails/domains/package-rules.md)
 
 ## Core Model
 

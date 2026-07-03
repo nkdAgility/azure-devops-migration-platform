@@ -18,8 +18,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 /// <summary>
 /// Writes <see cref="ProgressEvent"/> records to the run-scoped package stream
 /// (<c>.migration/runs/&lt;runId&gt;/logs/progress.ndjson</c>) via <see cref="IPackageAccess"/>.
-/// Uses a bounded channel and background drain loop following the same pattern
-/// as <see cref="ControlPlaneProgressSink"/>. The active run context is resolved
+/// Uses a bounded channel and background drain loop. The active run context is resolved
 /// lazily from <see cref="ActivePackageState"/> because it is only available after a
 /// job lease is acquired.
 /// </summary>

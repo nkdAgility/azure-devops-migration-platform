@@ -39,6 +39,12 @@ public abstract class ControlPlaneCommandBase<TSettings> : CommandBase<TSettings
     private int _standalonePort = 5100;
 
     /// <summary>
+    /// The remote control plane URL from <c>--url</c>, if provided.
+    /// When set, overrides the environment to Hosted mode.
+    /// </summary>
+    private string? _controlPlaneUrl;
+
+    /// <summary>
     /// When <c>true</c> (the default), the command starts <see cref="LocalStackHost"/> in-process
     /// when the environment type is <see cref="EnvironmentType.Standalone"/>.
     /// Observer-only commands (e.g. <c>tui</c>) that connect to an already-running control plane
@@ -47,13 +53,14 @@ public abstract class ControlPlaneCommandBase<TSettings> : CommandBase<TSettings
     protected virtual bool StartsLocalStack => true;
 
     /// <summary>
-    /// Captures the <c>--port</c> setting before the command lifecycle begins,
+    /// Captures the <c>--port</c> and <c>--url</c> settings before the command lifecycle begins,
     /// then delegates to the standard <see cref="CommandBase{TSettings}"/> template method.
     /// </summary>
     protected override async Task<int> ExecuteAsync(
         CommandContext context, TSettings settings, CancellationToken cancellationToken = default)
     {
         _standalonePort = settings.Port;
+        _controlPlaneUrl = settings.Url;
         return await base.ExecuteAsync(context, settings, cancellationToken);
     }
 
@@ -75,10 +82,23 @@ public abstract class ControlPlaneCommandBase<TSettings> : CommandBase<TSettings
 
         var builder = MigrationPlatformHost.CreateDefaultBuilder(GetEffectiveArgs(args), configureServices);
 
+        // --url switches to Hosted mode and sets the remote control plane URL.
+        // This takes highest priority (added last) and overrides env vars.
+        if (_controlPlaneUrl != null)
+        {
+            builder.ConfigureAppConfiguration((_, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    [$"{EnvironmentOptions.SectionName}:Type"] = "Hosted",
+                    [$"{EnvironmentOptions.SectionName}:ControlPlane:BaseUrl"] = _controlPlaneUrl,
+                });
+            });
+        }
         // When --port overrides the default, inject an in-memory config source so that
         // EnvironmentOptions.ControlPlane.BaseUrl resolves to the requested port.
         // In-memory sources added last take highest priority.
-        if (_standalonePort != 5100)
+        else if (_standalonePort != 5100)
         {
             builder.ConfigureAppConfiguration((_, config) =>
             {

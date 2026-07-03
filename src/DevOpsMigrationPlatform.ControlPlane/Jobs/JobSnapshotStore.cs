@@ -9,7 +9,7 @@ namespace DevOpsMigrationPlatform.ControlPlane.Jobs;
 
 /// <summary>
 /// In-memory store for the most recent <see cref="JobSnapshot"/> per job.
-/// Updated by <c>TelemetryController.POST /agents/lease/{leaseId}/snapshot</c>.
+/// Updated by <c>WorkerEventsController.POST /workers/{workerId}/events</c>.
 /// Read by <c>TelemetryController.GET /jobs/{jobId}/snapshot</c> and the bootstrap endpoint.
 /// </summary>
 public sealed class JobSnapshotStore

@@ -96,7 +96,7 @@ public sealed class IdentitiesModuleInventoryTests
             NullLogger<IdentitiesModule>.Instance,
             Options.Create(new IdentitiesModuleOptions { Enabled = true }),
             sourceEndpoint.Object,
-            new IdentitiesOrchestrator(NullLogger<IdentitiesOrchestrator>.Instance),
+            new IdentitiesOrchestrator(NullLogger<IdentitiesOrchestrator>.Instance, metrics),
             metrics,
             new StubIdentitySource());
     }

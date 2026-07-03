@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Analysis;
+using DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
@@ -25,11 +26,16 @@ public sealed class InventoryAnalyser : IAnalyser
     private static readonly ActivitySource ActivitySource = new(WellKnownActivitySourceNames.Discovery);
     private readonly ILogger<InventoryAnalyser> _logger;
     private readonly IPlatformMetrics? _metrics;
+    private readonly IProjectInventoryReader _projectInventory;
 
-    public InventoryAnalyser(ILogger<InventoryAnalyser> logger, IPlatformMetrics? metrics = null)
+    public InventoryAnalyser(
+        ILogger<InventoryAnalyser> logger,
+        IPlatformMetrics? metrics = null,
+        IProjectInventoryReader? projectInventory = null)
     {
         _logger = logger;
         _metrics = metrics;
+        _projectInventory = projectInventory ?? new Discovery.ProjectInventoryFileStore();
     }
 
     public string Name => "Inventory";
@@ -75,7 +81,7 @@ public sealed class InventoryAnalyser : IAnalyser
 
                 foreach (var project in org.Projects)
                 {
-                    var perProject = await ProjectInventoryFile.ReadAsync(context.Package, orgSlug, project.Name, ct).ConfigureAwait(false);
+                    var perProject = await _projectInventory.ReadAsync(context.Package, orgSlug, project.Name, ct).ConfigureAwait(false);
 
                     updatedProjects.Add(project with
                     {

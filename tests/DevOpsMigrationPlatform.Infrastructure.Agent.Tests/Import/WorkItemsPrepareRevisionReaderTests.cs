@@ -25,7 +25,7 @@ public sealed class WorkItemsPrepareRevisionReaderTests
             CancellationToken.None);
 
         var results = new List<ParsedWorkItemRevision>();
-        await foreach (var item in WorkItemsPrepareRevisionReader.EnumerateAsync(
+        await foreach (var item in new WorkItemsPrepareRevisionReader().EnumerateAsync(
                            package,
                            "fabrikam",
                            "migration",

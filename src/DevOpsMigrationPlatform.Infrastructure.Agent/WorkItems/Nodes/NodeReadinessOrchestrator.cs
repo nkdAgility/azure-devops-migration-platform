@@ -58,7 +58,7 @@ public sealed class NodeReadinessOrchestrator
         _importCreatedNodeStateStore = importCreatedNodeStateStore;
     }
 
-    public async Task ExecuteAsync(
+    public async Task PrepareRequiredNodePathsAsync(
         ProjectMapping context,
         bool replicateSourceTree,
         CancellationToken ct)

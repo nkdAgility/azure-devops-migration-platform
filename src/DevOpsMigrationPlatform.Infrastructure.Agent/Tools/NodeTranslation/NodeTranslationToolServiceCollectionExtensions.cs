@@ -22,10 +22,10 @@ public static class NodeTranslationToolServiceCollectionExtensions
     /// Adds <see cref="INodeTranslationTool"/>, <see cref="INodeTranslationTool"/>, and <see cref="INodeTranslationValidator"/>
     /// to the service collection.
     /// <para>
-    /// <see cref="INodeCreator"/> and <see cref="IClassificationTreeReader"/> are
+    /// <see cref="INodeCreator"/> and <see cref="IClassificationTreeSource"/> are
     /// connector-specific and must be registered by the connector DI
     /// (e.g. <c>AddAzureDevOpsWorkItem</c>, <c>AddSimulatedWorkItem</c>,
-    /// <c>TfsClassificationTreeReader</c>).
+    /// <c>TfsClassificationTreeSource</c>).
     /// </para>
     /// <para>
     /// Tools are registered as <b>Singleton</b> to satisfy singleton planning-pipeline
@@ -48,22 +48,25 @@ public static class NodeTranslationToolServiceCollectionExtensions
                 state.Current?.GetSection(NodeTranslationOptions.SectionName).Bind(opts);
             });
 
-#if !NET481
-        services.AddSingleton<IValidateOptions<NodeTranslationOptions>, NodeTranslationOptionsValidator>();
+        // The tool itself is registered on all target frameworks — this is the single
+        // canonical registration site for INodeTranslationTool.
         services.AddSingleton<NodeTranslationTool>(sp => new NodeTranslationTool(
             sp.GetRequiredService<IOptions<NodeTranslationOptions>>(),
             sp.GetRequiredService<ILogger<NodeTranslationTool>>(),
             sp.GetService<IPlatformMetrics>()));
         services.AddSingleton<INodeTranslationTool>(sp => sp.GetRequiredService<NodeTranslationTool>());
+
+#if !NET481
+        services.AddSingleton<IValidateOptions<NodeTranslationOptions>, NodeTranslationOptionsValidator>();
         services.AddScoped<INodeTranslationValidator>(sp => new NodeTranslationValidator(
             sp.GetRequiredService<IOptions<NodeTranslationOptions>>(),
             sp.GetRequiredService<INodeTranslationTool>(),
             sp.GetRequiredService<ISourceEndpointInfo>().OrganisationSlug,
             sp.GetRequiredService<ISourceEndpointInfo>().Project));
-        // T012: ReferencedPathTracker is Scoped so the same path set is shared within one job
+        // T012: ReferencedPathLifecycle is Scoped so the same path set is shared within one job
         // (scope) and isolated across jobs.
-        services.AddScoped<ReferencedPathTracker>();
-        services.AddScoped<IReferencedPathTracker>(sp => sp.GetRequiredService<ReferencedPathTracker>());
+        services.AddScoped<ReferencedPathLifecycle>();
+        services.AddScoped<IReferencedPathLifecycle>(sp => sp.GetRequiredService<ReferencedPathLifecycle>());
         services.AddScoped<ClassificationTreeCapture>();
         services.AddScoped<IClassificationTreeCapture>(sp => sp.GetRequiredService<ClassificationTreeCapture>());
 #endif

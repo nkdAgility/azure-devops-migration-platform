@@ -27,4 +27,15 @@ public interface ILeaseJobResolver
     /// Removes the mapping when the lease is released or expires.
     /// </summary>
     void UnregisterLease(string leaseId);
+
+    /// <summary>
+    /// Records a liveness heartbeat for the given lease.
+    /// Returns false if the lease is not recognised.
+    /// </summary>
+    bool RecordHeartbeat(string leaseId);
+
+    /// <summary>
+    /// Returns the UTC timestamp of the last heartbeat for the lease, or null if never received.
+    /// </summary>
+    DateTimeOffset? GetLastHeartbeat(string leaseId);
 }

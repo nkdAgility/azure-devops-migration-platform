@@ -11,8 +11,13 @@ using DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Nodes;
 
-internal sealed class NodePathValidator(INodeCreator nodeCreator) : IImportFailurePattern
+internal sealed class NodePathValidator(
+    INodeCreator nodeCreator,
+    IWorkItemRevisionReader? revisionReader = null) : IImportFailurePattern
 {
+    private readonly IWorkItemRevisionReader _revisionReader =
+        revisionReader ?? new WorkItemsPrepareRevisionReader();
+
     public const string Code = "WORKITEMS_PREPARE_MISSING_NODE_PATH";
 
     public string PatternCode => Code;
@@ -24,7 +29,7 @@ internal sealed class NodePathValidator(INodeCreator nodeCreator) : IImportFailu
         var areaPaths = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
         var iterationPaths = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
 
-        await foreach (var parsedRevision in WorkItemsPrepareRevisionReader.EnumerateAsync(
+        await foreach (var parsedRevision in _revisionReader.EnumerateAsync(
                            context.PrepareContext.Package,
                            context.Organisation,
                            context.Project,

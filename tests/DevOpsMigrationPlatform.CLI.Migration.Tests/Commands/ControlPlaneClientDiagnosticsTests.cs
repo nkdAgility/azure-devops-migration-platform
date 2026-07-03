@@ -16,28 +16,17 @@ public sealed class ControlPlaneClientDiagnosticsTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task GetTelemetryAndBootstrapAsync_WriteRawJsonResponses_ToInboxFolder()
+    public async Task GetBootstrapAsync_WriteRawJsonResponse_ToInboxFolder()
     {
         var tempRoot = CreateTempDirectory();
         try
         {
-            var telemetryJson = """
-                {"migration":{"workItems":{"completed":42,"revisionsProcessed":314}},"scope":{"workItemsTotal":100}}
-                """;
             var bootstrapJson = """
                 {"snapshot":null,"metrics":{"migration":{"workItems":{"completed":42}}},"lastEventSequence":7,"tasks":{"tasks":[],"phases":[{"name":"Export","order":0,"taskIds":["export.workitems.org.project"]}],"pushedAt":"2026-05-08T13:27:04.2055597+00:00","forKind":0}}
                 """;
 
             using var httpClient = new HttpClient(new DelegatingHandlerStub(request =>
             {
-                if (request.RequestUri?.AbsolutePath.EndsWith("/telemetry", StringComparison.Ordinal) == true)
-                {
-                    return new HttpResponseMessage(HttpStatusCode.OK)
-                    {
-                        Content = new StringContent(telemetryJson, Encoding.UTF8, "application/json")
-                    };
-                }
-
                 if (request.RequestUri?.AbsolutePath.EndsWith("/bootstrap", StringComparison.Ordinal) == true)
                 {
                     return new HttpResponseMessage(HttpStatusCode.OK)
@@ -55,7 +44,6 @@ public sealed class ControlPlaneClientDiagnosticsTests
             var recorder = new ControlPlaneCommunicationRecorder(tempRoot);
             var client = new ControlPlaneClient(httpClient, NullLogger<ControlPlaneClient>.Instance, diagnosticsRecorder: recorder);
 
-            _ = await client.GetTelemetryAsync(Guid.NewGuid(), CancellationToken.None);
             var bootstrap = await client.GetBootstrapAsync(Guid.NewGuid(), CancellationToken.None);
 
             Assert.IsNotNull(bootstrap?.Tasks);
@@ -68,11 +56,9 @@ public sealed class ControlPlaneClientDiagnosticsTests
             var inboxPath = Path.Combine(tempRoot, "inbox");
             var files = Directory.GetFiles(inboxPath, "*.json").OrderBy(Path.GetFileName, StringComparer.Ordinal).ToArray();
 
-            Assert.AreEqual(2, files.Length);
-            StringAssert.EndsWith(files[0], "-telemetry.json");
-            StringAssert.EndsWith(files[1], "-bootstrap.json");
-            Assert.AreEqual(NormalizeJson(telemetryJson), NormalizeJson(await File.ReadAllTextAsync(files[0])));
-            Assert.AreEqual(NormalizeJson(bootstrapJson), NormalizeJson(await File.ReadAllTextAsync(files[1])));
+            Assert.AreEqual(1, files.Length);
+            StringAssert.EndsWith(files[0], "-bootstrap.json");
+            Assert.AreEqual(NormalizeJson(bootstrapJson), NormalizeJson(await File.ReadAllTextAsync(files[0])));
         }
         finally
         {
@@ -83,7 +69,7 @@ public sealed class ControlPlaneClientDiagnosticsTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task FollowLogsAsync_WritesEachProgressEvent_ToInboxFolderInArrivalOrder()
+    public async Task StreamJobAsync_WritesEachProgressEvent_ToInboxFolderInArrivalOrder()
     {
         var tempRoot = CreateTempDirectory();
         try
@@ -92,8 +78,10 @@ public sealed class ControlPlaneClientDiagnosticsTests
             var secondJson = "{" + "\"eventSequence\":2,\"module\":\"WorkItems\",\"stage\":\"Export\",\"message\":\"progress\"}";
             var ssePayload = string.Join('\n', new[]
             {
+                "event: progress",
                 $"data: {firstJson}",
                 string.Empty,
+                "event: progress",
                 $"data: {secondJson}",
                 string.Empty,
                 "event: job-ended",
@@ -111,14 +99,17 @@ public sealed class ControlPlaneClientDiagnosticsTests
             var recorder = new ControlPlaneCommunicationRecorder(tempRoot);
             var client = new ControlPlaneClient(httpClient, NullLogger<ControlPlaneClient>.Instance, diagnosticsRecorder: recorder);
 
-            var received = new List<ProgressEvent>();
-            await foreach (var evt in client.FollowLogsAsync(Guid.NewGuid(), CancellationToken.None))
+            var received = new List<JobStreamEvent>();
+            await foreach (var evt in client.StreamJobAsync(Guid.NewGuid(), CancellationToken.None))
                 received.Add(evt);
+
+            // Terminal event is included in received; filter for Progress only.
+            var progressEvents = received.Where(e => e.Kind == JobStreamEventKind.Progress).ToList();
 
             var inboxPath = Path.Combine(tempRoot, "inbox");
             var files = Directory.GetFiles(inboxPath, "*.json").OrderBy(Path.GetFileName, StringComparer.Ordinal).ToArray();
 
-            Assert.AreEqual(2, received.Count);
+            Assert.AreEqual(2, progressEvents.Count);
             Assert.AreEqual(2, files.Length);
             StringAssert.EndsWith(files[0], "-progress-job-job-ready.json");
             StringAssert.EndsWith(files[1], "-progress-workitems-export.json");
@@ -134,7 +125,7 @@ public sealed class ControlPlaneClientDiagnosticsTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task StreamDiagnosticsAsync_DoesNotWriteHttpNoise_ToInboxFolder()
+    public async Task StreamJobAsync_DoesNotWriteHttpNoiseDiagnostics_ToInboxFolder()
     {
         var tempRoot = CreateTempDirectory();
         try
@@ -147,8 +138,10 @@ public sealed class ControlPlaneClientDiagnosticsTests
                 """;
             var ssePayload = string.Join('\n', new[]
             {
+                "event: diagnostic",
                 $"data: {httpNoiseJson}",
                 string.Empty,
+                "event: diagnostic",
                 $"data: {platformJson}",
                 string.Empty,
                 "event: job-ended",
@@ -166,14 +159,16 @@ public sealed class ControlPlaneClientDiagnosticsTests
             var recorder = new ControlPlaneCommunicationRecorder(tempRoot);
             var client = new ControlPlaneClient(httpClient, NullLogger<ControlPlaneClient>.Instance, diagnosticsRecorder: recorder);
 
-            var received = new List<DiagnosticLogRecord>();
-            await foreach (var record in client.StreamDiagnosticsAsync(Guid.NewGuid(), null, CancellationToken.None))
-                received.Add(record);
+            var received = new List<JobStreamEvent>();
+            await foreach (var evt in client.StreamJobAsync(Guid.NewGuid(), CancellationToken.None))
+                received.Add(evt);
+
+            var diagnosticEvents = received.Where(e => e.Kind == JobStreamEventKind.Diagnostic).ToList();
 
             var inboxPath = Path.Combine(tempRoot, "inbox");
             var files = Directory.GetFiles(inboxPath, "*.json").OrderBy(Path.GetFileName, StringComparer.Ordinal).ToArray();
 
-            Assert.AreEqual(2, received.Count);
+            Assert.AreEqual(2, diagnosticEvents.Count);
             Assert.AreEqual(1, files.Length, "Only platform diagnostics should be persisted to inbox.");
             StringAssert.EndsWith(files[0], "-diagnostics.json");
             Assert.AreEqual(NormalizeJson(platformJson), NormalizeJson(await File.ReadAllTextAsync(files[0])));

@@ -158,7 +158,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         RunScopeAuthorityGuard.EnsureAuthoritativePath(".migration/plan.json", "execution-plan");
 
         // Resume: load persisted plan if present.
-        var loadedPlan = await JobPlanExecutor.LoadOrResetAsync(_package ?? packageAccess, ct).ConfigureAwait(false);
+        var loadedPlan = await JobPlanOrchestrator.LoadOrResetAsync(_package ?? packageAccess, ct).ConfigureAwait(false);
         if (loadedPlan is not null)
         {
             bool isComplete = loadedPlan.Tasks.Count > 0 &&
@@ -1257,7 +1257,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         public string Url { get; } = url;
         public string Project { get; } = project;
         public string ConnectorType { get; } = connectorType;
-        public string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
+        public string OrganisationSlug => OrganisationEndpointSlug.ExtractSlug(Url);
         public OrganisationEndpoint ToOrganisationEndpoint() => new() { ResolvedUrl = Url, Type = ConnectorType };
     }
 
@@ -1266,7 +1266,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         public string Url { get; } = url;
         public string Project { get; } = project;
         public string ConnectorType { get; } = connectorType;
-        public string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
+        public string OrganisationSlug => OrganisationEndpointSlug.ExtractSlug(Url);
         public OrganisationEndpoint ToOrganisationEndpoint() => new() { ResolvedUrl = Url, Type = ConnectorType };
     }
 

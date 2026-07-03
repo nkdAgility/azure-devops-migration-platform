@@ -70,10 +70,10 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
     private readonly string? _taskId;
     private readonly ILogger? _logger;
     private readonly IWorkItemDiscoveryService? _discoveryService;
-    private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
+    private readonly IWorkItemProgressStoreFactory? _exportProgressStoreFactory;
     private readonly string? _packageUri;
 #if !NET481
-    private readonly IReferencedPathTracker? _referencedPathTracker;
+    private readonly IReferencedPathLifecycle? _referencedPathTracker;
     private readonly IReadOnlyList<IModuleExtension>? _exportExtensions;
 #endif
 
@@ -93,10 +93,10 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
         ILogger? logger = null,
         string? wiqlQuery = null,
         IWorkItemDiscoveryService? discoveryService = null,
-        IExportProgressStoreFactory? exportProgressStoreFactory = null,
+        IWorkItemProgressStoreFactory? exportProgressStoreFactory = null,
         string? packageUri = null
 #if !NET481
-        , IReferencedPathTracker? referencedPathTracker = null
+        , IReferencedPathLifecycle? referencedPathTracker = null
         , IReadOnlyList<IModuleExtension>? exportExtensions = null
 #endif
         )
@@ -181,7 +181,7 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
             });
         }
 
-        IExportProgressStore? exportProgressStore = null;
+        IWorkItemProgressStore? exportProgressStore = null;
         if (_exportProgressStoreFactory != null)
         {
             var connection = await _package.OpenNativeDatabaseAsync(
@@ -864,7 +864,7 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
                 // CommentsWorkItemExtension) that have SupportsExport = true and IsEnabled = true.
                 if (_exportExtensions is { Count: > 0 })
                 {
-                    var revisionExportContext = new WorkItemRevisionExportContext
+                    var revisionExportContext = new WorkItemRevisionContext
                     {
                         Organisation = _organisation,
                         ProjectName = _project,

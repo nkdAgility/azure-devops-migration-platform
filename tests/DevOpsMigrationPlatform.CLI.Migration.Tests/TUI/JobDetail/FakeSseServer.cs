@@ -8,6 +8,8 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.TUI.JobDetail;
@@ -18,11 +20,12 @@ namespace DevOpsMigrationPlatform.CLI.Migration.Tests.TUI.JobDetail;
 /// </summary>
 public sealed class FakeSseServer
 {
-    private Channel<ProgressEvent> _events = Channel.CreateUnbounded<ProgressEvent>();
+    private Channel<JobStreamEvent> _events = Channel.CreateUnbounded<JobStreamEvent>();
     private int _subscriptionCount;
     private int _reconnectAttemptCount;
     private readonly List<CancellationToken> _issuedTokens = new();
     private bool _firstConnection = true;
+    private long _seq;
 
     /// <summary>Number of currently active SSE subscribers.</summary>
     public int ActiveSubscriptionCount => _subscriptionCount;
@@ -33,8 +36,20 @@ public sealed class FakeSseServer
     /// <summary>All <see cref="CancellationToken"/>s that have been issued to SSE consumers.</summary>
     public IReadOnlyList<CancellationToken> IssuedTokens => _issuedTokens;
 
-    /// <summary>Enqueue an event to be delivered to the current subscriber.</summary>
-    public void Push(ProgressEvent evt) => _events.Writer.TryWrite(evt);
+    /// <summary>Enqueue a progress event to be delivered to the current subscriber.</summary>
+    public void Push(ProgressEvent evt)
+        => _events.Writer.TryWrite(new JobStreamEvent(
+            Interlocked.Increment(ref _seq), JobStreamEventKind.Progress, evt, null, null, null));
+
+    /// <summary>Enqueue a diagnostic event to be delivered to the current subscriber.</summary>
+    public void Push(DiagnosticLogRecord rec)
+        => _events.Writer.TryWrite(new JobStreamEvent(
+            Interlocked.Increment(ref _seq), JobStreamEventKind.Diagnostic, null, rec, null, null));
+
+    /// <summary>Enqueue a terminal event signalling job completion.</summary>
+    public void PushTerminal(bool failed = false)
+        => _events.Writer.TryWrite(new JobStreamEvent(
+            Interlocked.Increment(ref _seq), JobStreamEventKind.Terminal, null, null, failed, null));
 
     /// <summary>
     /// Drop the current connection by completing the current channel writer with an error and
@@ -45,7 +60,7 @@ public sealed class FakeSseServer
     public void DropConnection()
     {
         var old = _events;
-        _events = Channel.CreateUnbounded<ProgressEvent>();
+        _events = Channel.CreateUnbounded<JobStreamEvent>();
         old.Writer.TryComplete(new IOException("Simulated SSE connection drop."));
     }
 
@@ -53,7 +68,7 @@ public sealed class FakeSseServer
     public void CompleteStream() => _events.Writer.TryComplete();
 
     /// <summary>Returns an async-enumerable stream of events for the given job, tracking subscriptions.</summary>
-    public async IAsyncEnumerable<ProgressEvent> GetEventsAsync(
+    public async IAsyncEnumerable<JobStreamEvent> GetEventsAsync(
         Guid jobId,
         [EnumeratorCancellation] CancellationToken ct)
     {

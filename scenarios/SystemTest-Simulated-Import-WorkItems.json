@@ -1,6 +1,6 @@
 {
   "MigrationPlatform": {
-    "ConfigVersion": "1.0",
+    "ConfigVersion": "2.0",
     "Policies": {
       "Retries": {
         "Max": 3
@@ -24,18 +24,14 @@
     "Modules": {
       "WorkItems": {
         "Enabled": true,
-        "Extensions": {
-          "WorkItemResolutionStrategy": {
-            "Strategy": ""
-          },
+        "Data": {
           "Revisions": {
             "Enabled": true
-          },
-          "Links": {
-            "Enabled": true
-          },
-          "Attachments": {
-            "Enabled": true
+          }
+        },
+        "Processing": {
+          "WorkItemResolutionStrategy": {
+            "Strategy": ""
           }
         }
       }

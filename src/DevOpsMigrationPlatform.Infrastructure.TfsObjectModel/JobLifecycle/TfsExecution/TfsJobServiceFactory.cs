@@ -5,6 +5,7 @@ using System;
 using System.Threading;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
+using DevOpsMigrationPlatform.Abstractions.Agent.TfsExecution;
 using DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
@@ -36,7 +37,8 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.JobLifecycle.Tfs
 /// export or discovery job — connection, stores, revision source, attachment source, tree reader.
 /// Disposable: disposes the <see cref="TfsTeamProjectCollection"/> when the job ends.
 ///
-/// Structural twin of the registrations in <see cref="MigrationPlatformHost.CreateDefaultBuilder"/>
+/// Structural twin of the registrations in the TfsMigrationAgent host's
+/// <c>MigrationPlatformHost.CreateDefaultBuilder</c> (subprocess composition root, ADR-0022)
 /// but designed for the agent model where the TFS endpoint comes from the job, not from CLI args.
 /// </summary>
 public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
@@ -59,7 +61,7 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
     /// Creates a scoped set of TFS services for a single job.
     /// The caller MUST dispose the returned <see cref="TfsJobServices"/> after the job completes.
     /// </summary>
-    public TfsJobServices CreateForEndpoint(MigrationEndpointOptions endpoint)
+    public ITfsJobServices CreateForEndpoint(MigrationEndpointOptions endpoint)
     {
         if (endpoint is not TeamFoundationServerEndpointOptions tfsEndpoint)
             throw new ArgumentException(
@@ -116,14 +118,14 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
         var workItemStore = new WorkItemStore(collection, WorkItemStoreFlags.BypassRules);
 
         // Shared attachment registry — links revision enumeration to binary download.
-        var attachmentRegistry = new TfsAttachmentRegistry();
+        var attachmentRegistry = new TfsAttachmentIdStore();
 
-        var exportMetrics = new WorkItemExportMetrics();
+        var exportMetrics = new WorkItemMetrics();
         var attachmentMetrics = new AttachmentDownloadMetrics();
 
-        var revisionMapper = new TfsWorkItemRevisionMapper(
+        var revisionMapper = new TfsWorkItemRevisionProcessor(
             exportMetrics,
-            _loggerFactory.CreateLogger<TfsWorkItemRevisionMapper>());
+            _loggerFactory.CreateLogger<TfsWorkItemRevisionProcessor>());
         var queryStrategy = new TfsWorkItemQueryWindowStrategy(
             workItemStore,
             _loggerFactory.CreateLogger<TfsWorkItemQueryWindowStrategy>());
@@ -157,9 +159,9 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
             ConnectorType = "TeamFoundationServer"
         };
 
-        var classificationTreeReader = new TfsClassificationTreeReader(
+        var classificationTreeReader = new TfsClassificationTreeSource(
             collection,
-            _loggerFactory.CreateLogger<TfsClassificationTreeReader>(),
+            _loggerFactory.CreateLogger<TfsClassificationTreeSource>(),
             endpointInfo);
         var commonStructureService = collection.GetService<ICommonStructureService4>();
         var projectUri = commonStructureService.GetProjectFromName(project).Uri;
@@ -218,22 +220,23 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
 /// <summary>
 /// Container for per-job TFS services. Disposes the TFS collection when the job ends.
 /// </summary>
-public sealed class TfsJobServices : IDisposable
+public sealed class TfsJobServices : ITfsJobServices
 {
     public WorkItemStore WorkItemStore { get; }
     public IWorkItemRevisionSource RevisionSource { get; }
     public IAttachmentBinarySource AttachmentSource { get; }
     public INodeCreator NodeCreator { get; }
-    public IClassificationTreeReader ClassificationTreeReader { get; }
+    public IClassificationTreeSource ClassificationTreeReader { get; }
     public IWorkItemDiscoveryService DiscoveryService { get; }
     public IProjectDiscoveryService ProjectDiscoveryService { get; }
     public IWorkItemFetchService FetchService { get; }
     public TeamFoundationServerEndpointOptions Endpoint { get; }
+    MigrationEndpointOptions ITfsJobServices.Endpoint => Endpoint;
     public IIdentitySource IdentitySource { get; }
     public ITeamSource TeamSource { get; }
     public IProjectLifecycleService ProjectLifecycleService { get; }
 
-    public IWorkItemExportMetrics ExportMetrics { get; }
+    public IWorkItemMetrics ExportMetrics { get; }
     public IAttachmentDownloadMetrics AttachmentMetrics { get; }
 
     private readonly TfsTeamProjectCollection _collection;
@@ -244,12 +247,12 @@ public sealed class TfsJobServices : IDisposable
         IWorkItemRevisionSource revisionSource,
         IAttachmentBinarySource attachmentSource,
         INodeCreator nodeCreator,
-        IClassificationTreeReader classificationTreeReader,
+        IClassificationTreeSource classificationTreeReader,
         IWorkItemDiscoveryService discoveryService,
         IProjectDiscoveryService projectDiscoveryService,
         IWorkItemFetchService fetchService,
         TeamFoundationServerEndpointOptions endpoint,
-        IWorkItemExportMetrics exportMetrics,
+        IWorkItemMetrics exportMetrics,
         IAttachmentDownloadMetrics attachmentMetrics,
         IIdentitySource identitySource,
         ITeamSource teamSource,
@@ -286,7 +289,7 @@ internal sealed class SourceEndpointInfo : ISourceEndpointInfo
     public string Url { get; init; } = string.Empty;
     public string Project { get; init; } = string.Empty;
     public string ConnectorType { get; init; } = string.Empty;
-    public string OrganisationSlug => EndpointSlugHelper.ExtractSlug(Url);
+    public string OrganisationSlug => OrganisationEndpointSlug.ExtractSlug(Url);
 
     // TFS uses its own SDK for auth — return a minimal endpoint for compatibility.
     public OrganisationEndpoint ToOrganisationEndpoint() =>

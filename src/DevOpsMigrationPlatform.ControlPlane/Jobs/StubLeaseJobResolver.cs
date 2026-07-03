@@ -14,14 +14,27 @@ namespace DevOpsMigrationPlatform.ControlPlane.Jobs;
 /// </summary>
 public sealed class StubLeaseJobResolver : ILeaseJobResolver
 {
-    private readonly ConcurrentDictionary<string, Guid> _map = new(StringComparer.Ordinal);
+    private sealed record LeaseEntry(Guid JobId, DateTimeOffset? LastHeartbeat = null);
+
+    private readonly ConcurrentDictionary<string, LeaseEntry> _map = new(StringComparer.Ordinal);
 
     public Guid? ResolveJobId(string leaseId) =>
-        _map.TryGetValue(leaseId, out var jobId) ? jobId : null;
+        _map.TryGetValue(leaseId, out var entry) ? entry.JobId : null;
 
     public void RegisterLease(string leaseId, Guid jobId) =>
-        _map[leaseId] = jobId;
+        _map[leaseId] = new LeaseEntry(jobId);
 
     public void UnregisterLease(string leaseId) =>
         _map.TryRemove(leaseId, out _);
+
+    public bool RecordHeartbeat(string leaseId)
+    {
+        if (!_map.TryGetValue(leaseId, out var entry))
+            return false;
+        _map[leaseId] = entry with { LastHeartbeat = DateTimeOffset.UtcNow };
+        return true;
+    }
+
+    public DateTimeOffset? GetLastHeartbeat(string leaseId) =>
+        _map.TryGetValue(leaseId, out var entry) ? entry.LastHeartbeat : null;
 }

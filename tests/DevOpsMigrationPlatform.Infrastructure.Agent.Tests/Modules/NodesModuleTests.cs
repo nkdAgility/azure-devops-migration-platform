@@ -57,14 +57,10 @@ public class NodesModuleTests
 
     private static NodesOrchestrator CreateRealOrchestrator(IPackageAccess? package = null)
     {
-        var opts = new NodeTranslationOptions { Enabled = true };
-        var optsMon = new Mock<IOptionsMonitor<NodeTranslationOptions>>();
-        optsMon.SetupGet(o => o.CurrentValue).Returns(opts);
         return new NodesOrchestrator(
             NullLogger<NodesOrchestrator>.Instance,
             Mock.Of<INodeTranslationTool>(),
             Mock.Of<INodeCreator>(),
-            optsMon.Object,
             package: package ?? PackageTestFactory.CreateLooseMock().Object);
     }
 
@@ -196,7 +192,7 @@ public class NodesModuleTests
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var opts = new NodesModuleOptions { Enabled = true, ReplicateSourceTree = true };
+        var opts = new NodesModuleOptions { Enabled = true, Processing = new NodesProcessingOptions { ReplicateSourceTree = true } };
         var package = PackageTestFactory.CreateLooseMock().Object;
         var module = CreateModule(opts, orchestrator: orchestratorMock.Object, package: package);
         var context = CreateImportContext(package);
@@ -226,7 +222,7 @@ public class NodesModuleTests
         var opts = new NodesModuleOptions
         {
             Enabled = true,
-            ReplicateSourceTree = false
+            Processing = new NodesProcessingOptions { ReplicateSourceTree = false }
         };
         var package = PackageTestFactory.CreateLooseMock().Object;
         var module = CreateModule(opts, orchestrator: orchestratorMock.Object, package: package);

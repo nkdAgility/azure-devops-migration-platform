@@ -19,15 +19,19 @@ internal sealed class FieldTransformCompatibilityImportFailurePattern : IImportF
     private static readonly Regex ExpressionFieldTokenRegex = new(@"\b\w+\.\w+\b", RegexOptions.Compiled);
 
     private readonly FieldTransformOptions _fieldTransformOptions;
+    private readonly IWorkItemRevisionReader _revisionReader;
 
     public FieldTransformCompatibilityImportFailurePattern()
         : this(Options.Create(new FieldTransformOptions()))
     {
     }
 
-    public FieldTransformCompatibilityImportFailurePattern(IOptions<FieldTransformOptions> fieldTransformOptions)
+    public FieldTransformCompatibilityImportFailurePattern(
+        IOptions<FieldTransformOptions> fieldTransformOptions,
+        IWorkItemRevisionReader? revisionReader = null)
     {
         _fieldTransformOptions = fieldTransformOptions.Value;
+        _revisionReader = revisionReader ?? new WorkItemsPrepareRevisionReader();
     }
 
     public string PatternCode => Code;
@@ -42,7 +46,7 @@ internal sealed class FieldTransformCompatibilityImportFailurePattern : IImportF
         }
 
         var exportedFieldValues = new Dictionary<string, List<string?>>(System.StringComparer.OrdinalIgnoreCase);
-        await foreach (var parsedRevision in WorkItemsPrepareRevisionReader.EnumerateAsync(
+        await foreach (var parsedRevision in _revisionReader.EnumerateAsync(
                            context.PrepareContext.Package,
                            context.Organisation,
                            context.Project,

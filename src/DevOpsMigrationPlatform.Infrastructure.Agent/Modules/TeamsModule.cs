@@ -33,8 +33,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// Thin <see cref="IModule"/> wrapper for team export/import.
 /// Delegates all orchestration to <see cref="TeamsOrchestrator"/>, which handles
 /// the enumeration loop, checkpointing, progress events, and metrics, and in turn
-/// delegates per-team operations to <see cref="TeamExportOrchestrator"/> and
-/// <see cref="TeamImportOrchestrator"/>.
+/// delegates per-team operations to <see cref="TeamMigrationOrchestrator"/>.
 /// </summary>
 /// <remarks>
 /// <strong>Connector coverage:</strong> Team import is supported for
@@ -62,6 +61,36 @@ public sealed class TeamsModule : IModule
     private readonly ITeamsOrchestrator _orchestrator;
 
     public string Name => "Teams";
+
+    /// <inheritdoc cref="IModule.Contract"/>
+    private static readonly IModuleContract TeamsContract = new ModuleContract(
+        moduleName: "Teams",
+        selection:
+        [
+            new SelectionDefinition("Scope", Required: true),
+            new SelectionDefinition("Filter", Required: false)
+        ],
+        data:
+        [
+            new DataDefinition("TeamSettings", Required: false),
+            new DataDefinition("TeamIterations", Required: false),
+            new DataDefinition("TeamMembers", Required: false),
+            new DataDefinition("TeamCapacity", Required: false),
+            // Board-config payload-carry toggles (BoardConfigDataOptions) — Data per the
+            // module-anatomy contract (ADR-0028 amendment 2026-07-03).
+            new DataDefinition("BoardConfig", Required: false)
+        ],
+        processing:
+        [
+            new ProcessingDefinition("AlwaysExport", Required: false),
+            new ProcessingDefinition("NodeTranslation", Required: false),
+            new ProcessingDefinition("IdentityLookup", Required: false),
+            // Board-config import behaviour (BoardConfigProcessingOptions.ImportMode).
+            new ProcessingDefinition("BoardConfig", Required: false)
+        ]);
+
+    /// <inheritdoc cref="IModule.Contract"/>
+    public IModuleContract Contract => TeamsContract;
     public IReadOnlyList<ModuleDependency> DependsOn => new[]
     {
         new ModuleDependency(typeof(IdentitiesModule), DependencyPhase.Import),
@@ -113,69 +142,8 @@ public sealed class TeamsModule : IModule
     }
 #endif
 
-    public async Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
-    {
-        using var activity = DiscoveryActivity.StartActivity("inventory.teams");
-        activity?.SetTag("job.id", context.Job.JobId);
-        activity?.SetTag("module", Name);
-        activity?.SetTag("org", context.SourceEndpoint?.ResolvedUrl ?? string.Empty);
-        activity?.SetTag("project", context.Project);
-
-        if (string.IsNullOrWhiteSpace(context.Project))
-        {
-            _logger.LogError("[Teams] CaptureAsync called with empty Project — executor contract violated. Skipping.");
-            return TaskExecutionResult.Skipped("CaptureAsync called with empty project.");
-        }
-
-        _logger.LogInformation("Inventorying {Module}", Name);
-        context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Inventorying", Message = $"Inventorying {Name}", Timestamp = DateTimeOffset.UtcNow });
-
-        var count = 0;
-        if (_teamSource is not null)
-        {
-            var project = context.Project;
-            var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? _sourceEndpointInfo.Url;
-            var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
-
-            try
-            {
-                await foreach (var _ in _teamSource.EnumerateTeamsAsync(project, ct).ConfigureAwait(false))
-                    count++;
-
-                await ProjectInventoryFile.MergeAsync(
-                    context.Package, orgSlug, project,
-                    orgUrl: orgUrl,
-                    teams: count, ct: ct).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                using (_logger.BeginDataScope(DataClassification.Customer))
-                    _logger.LogWarning(ex, "Failed to enumerate teams for project {Project}; skipping.", project);
-            }
-        }
-
-        _PlatformMetrics?.RecordInventoryTeams(count, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
-        _logger.LogInformation("Inventoried {Module}: {Count} items", Name, count);
-        if (count == 0)
-            _logger.LogWarning("Zero items inventoried for {Module}", Name);
-
-        context.ProgressSink?.Emit(new ProgressEvent
-        {
-            Module = Name,
-            Stage = "Inventoried",
-            Message = $"{Name} inventory complete",
-            Timestamp = DateTimeOffset.UtcNow,
-            Metrics = new JobMetrics
-            {
-                Discovery = new DiscoveryCounters
-                {
-                    Inventory = new InventoryCounters { RevisionsTotal = count }
-                }
-            }
-        });
-
-        return TaskExecutionResult.Completed();
-    }
+    public Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
+        => _orchestrator.CaptureAsync(_teamSource, context, _sourceEndpointInfo.Url, ct);
 
     public async Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct)
     {
@@ -185,10 +153,19 @@ public sealed class TeamsModule : IModule
         _logger.LogInformation("Preparing {Module}", Name);
 
         context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Preparing", Message = $"Preparing {Name}", Timestamp = DateTimeOffset.UtcNow });
-        var report = new PrepareReport { ModuleName = Name, ResolvedCount = 0 };
-        _PlatformMetrics?.RecordPrepareTeamsResolved(report.ResolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
-        _PlatformMetrics?.RecordPrepareTeamsUnresolved(report.UnresolvedCount, new MetricsTagList { { "job.id", context.Job.JobId }, { "module", Name } });
 
+        // Delegate report generation and persistence (prepare-report.json + metrics)
+        // to the orchestrator.
+        var (organisation, project) = ResolvePrepareScope(context);
+        await _orchestrator.PrepareAsync(context, organisation, project, ct).ConfigureAwait(false);
+
+        context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Prepared", Message = $"{Name} prepare complete", Timestamp = DateTimeOffset.UtcNow });
+
+        return TaskExecutionResult.Completed();
+    }
+
+    private (string Organisation, string Project) ResolvePrepareScope(PrepareContext context)
+    {
         var organisation = _sourceEndpointInfo.OrganisationSlug;
         if (string.IsNullOrWhiteSpace(organisation))
         {
@@ -210,17 +187,7 @@ public sealed class TeamsModule : IModule
             project = "unknown";
         }
 
-        using (var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(report)), writable: false))
-        {
-            await context.Package.PersistContentAsync(
-                new PackageContentContext(PackageContentKind.Artefact, Module: Name, Organisation: organisation, Project: project, Address: new RelativePathAddress("prepare-report.json")),
-                new PackagePayload(stream, "application/json"),
-                ct).ConfigureAwait(false);
-        }
-        _logger.LogInformation("Prepared {Module}: {Resolved} resolved, {Unresolved} unresolved in {DurationMs}ms", Name, report.ResolvedCount, report.UnresolvedCount, 0);
-        context.ProgressSink?.Emit(new ProgressEvent { Module = Name, Stage = "Prepared", Message = $"{Name} prepare complete", Timestamp = DateTimeOffset.UtcNow });
-
-        return TaskExecutionResult.Completed();
+        return (organisation!, project!);
     }
 
     /// <inheritdoc/>

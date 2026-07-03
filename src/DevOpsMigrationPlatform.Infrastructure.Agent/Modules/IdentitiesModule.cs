@@ -36,7 +36,6 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// </summary>
 public sealed class IdentitiesModule : IModule
 {
-    private static readonly ActivitySource DiscoveryActivity = new(WellKnownActivitySourceNames.Discovery);
     private static readonly ActivitySource MigrationActivity = new(WellKnownActivitySourceNames.Migration);
 
     private readonly IIdentitySource? _identitySource;
@@ -51,6 +50,16 @@ public sealed class IdentitiesModule : IModule
     private readonly IIdentitiesOrchestrator _orchestrator;
 
     public string Name => "Identities";
+
+    /// <inheritdoc cref="IModule.Contract"/>
+    private static readonly IModuleContract IdentitiesContract = new ModuleContract(
+        moduleName: "Identities",
+        selection: [],
+        data: [new DataDefinition("Identities", Required: true)],
+        processing: [new ProcessingDefinition("DefaultIdentity", Required: false)]);
+
+    /// <inheritdoc cref="IModule.Contract"/>
+    public IModuleContract Contract => IdentitiesContract;
     public IReadOnlyList<ModuleDependency> DependsOn => Array.Empty<ModuleDependency>();
     public bool SupportsExport => true;
     public bool SupportsInventory => true;
@@ -78,81 +87,8 @@ public sealed class IdentitiesModule : IModule
         _identityTranslationTool = identityTranslationTool;
     }
 
-    public async Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
-    {
-        using var activity = DiscoveryActivity.StartActivity("inventory.identities");
-        activity?.SetTag("job.id", context.Job.JobId);
-        activity?.SetTag("module", Name);
-        activity?.SetTag("org", context.SourceEndpoint?.ResolvedUrl ?? string.Empty);
-        activity?.SetTag("project", context.Project);
-        _logger.LogInformation("Inventorying {Module}", Name);
-
-        if (string.IsNullOrWhiteSpace(context.Project))
-        {
-            _logger.LogError("[Identities] CaptureAsync called with empty Project — executor contract violated. Skipping.");
-            return TaskExecutionResult.Skipped("CaptureAsync called with empty project.");
-        }
-
-        context.ProgressSink?.Emit(new ProgressEvent
-        {
-            Module = Name,
-            Stage = "Inventorying",
-            Message = $"Inventorying {Name}",
-            Timestamp = DateTimeOffset.UtcNow
-        });
-
-        var count = 0;
-        if (_identitySource is not null)
-        {
-            var project = context.Project;
-            var orgUrl = context.SourceEndpoint?.ResolvedUrl ?? _sourceEndpointInfo.Url;
-            var orgSlug = PackagePathResolver.DeriveInventoryOrgSlug(orgUrl);
-
-            try
-            {
-                await foreach (var _ in _identitySource.EnumerateIdentitiesAsync(project, ct).ConfigureAwait(false))
-                    count++;
-
-                await ProjectInventoryFile.MergeAsync(
-                    context.Package, orgSlug, project,
-                    orgUrl: orgUrl,
-                    identities: count, ct: ct).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                using (_logger.BeginDataScope(DataClassification.Customer))
-                    _logger.LogWarning(ex, "Failed to enumerate identities for project {Project}; skipping.", project);
-            }
-        }
-
-        var tags = new MetricsTagList
-        {
-            { "job.id", context.Job.JobId },
-            { "module", Name }
-        };
-        _PlatformMetrics?.RecordInventoryIdentities(count, tags);
-
-        _logger.LogInformation("Inventoried {Module}: {Count} items", Name, count);
-        if (count == 0)
-            _logger.LogWarning("Zero items inventoried for {Module}", Name);
-
-        context.ProgressSink?.Emit(new ProgressEvent
-        {
-            Module = Name,
-            Stage = "Inventoried",
-            Message = $"{Name} inventory complete",
-            Timestamp = DateTimeOffset.UtcNow,
-            Metrics = new JobMetrics
-            {
-                Discovery = new DiscoveryCounters
-                {
-                    Inventory = new InventoryCounters { RevisionsTotal = count }
-                }
-            }
-        });
-
-        return TaskExecutionResult.Completed();
-    }
+    public Task<TaskExecutionResult> CaptureAsync(InventoryContext context, CancellationToken ct)
+        => _orchestrator.CaptureAsync(_identitySource, context, _sourceEndpointInfo.Url, ct);
 
     public async Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct)
     {

@@ -1,114 +1,73 @@
-﻿# Copilot Instructions
+# agents.md
 
-**Follow [agents.md](../.agents/agents.md) for all guardrails, technology stack, and architectural constraints.**
+# Azure DevOps Migration Platform - Agent Entry Point
 
-For structured workflows, use SpecKit agents.
-For ad-hoc tasks, follow the mandatory guardrails validation in `agents.md`.
+## Mission
 
----
+Build a deterministic, resumable, versioned migration package platform:
 
-## NEVER Auto-Commit
+**Source -> Files -> Target**
 
-Do NOT run `git commit` or `git push` unless the user explicitly asks.
+Pipeline:
+**Inventory -> Export -> Prepare -> Import -> Validate**
 
----
-
-## FAIL-CLOSED Runtime Evidence Gate (MANDATORY)
-
-Do not declare implementation complete unless required runtime evidence is present.
-
-When a feature requires connector/API side effects (for example create/delete/update
-operations against ADO/TFS/Simulated endpoints), passing hooks, unit tests, or
-architecture checks are NOT sufficient by themselves.
-
-Required completion evidence:
-
-1. **Call-site evidence**: exact `path:line` references for real connector API calls
-   performing the required side effects.
-2. **Runtime-proof evidence**: exact `path:line` tests proving external state transitions
-   (for example exists -> create -> exists, and exists -> delete -> missing).
-3. **Verdict**: `PASS` only when both evidence classes are present; otherwise output
-   `BLOCKED - guardrail unmet`.
-
-If either evidence class is missing, STOP and report `BLOCKED - guardrail unmet`.
+The filesystem package is the source of truth.
 
 ---
 
-## CRITICAL: This Summary Is NOT Compliance
+## The Constitution — ⛔ BLOCKING, always in force
 
-The summary in this file is a quick reference only. It does NOT replace mandatory preflight reads.
+These invariants apply to every change, in every runtime, even if you read
+nothing else. Violating one makes the work unacceptable.
 
-### Mandatory Pre-Flight - ZERO exceptions
+1. **Source → Files → Target.** Source and target systems never communicate directly. Export writes the package; import reads it. (ADR-0001/0002)
+2. **Only agents write the package.** CLI, TUI, Control Plane, and hosts are read-only toward the package. (ADR-0005)
+3. **The Control Plane coordinates; it never executes migration logic** and never caches package data. (ADR-0004)
+4. **Stream, never materialize.** Unbounded datasets are processed one item at a time; loading all revisions into memory or global in-memory sorting is forbidden.
+5. **Everything resumes.** Progress is cursor-based; re-running any step is safe and skips completed work. (ADR-0003/0010)
+6. **One canonical seam per concern.** No parallel runtime entry points; concern engines live once behind the seam; adapters/extensions are thin policy. (ADR-0017)
+7. **Failing test first.** RED → GREEN → REFACTOR for every behaviour change; completion claims require fresh full-suite evidence in the response.
+8. **Touch = Tag, Touch = Convert.** Every touched test file carries canonical dual `[TestCategory]` tags; behavioural edits to legacy Reqnroll trigger DSL migration.
+9. **All agent telemetry flows through the unified worker-event channel** (`POST /workers/{workerId}/events`); deleted per-signal endpoints must not reappear. (ADR-0020)
+10. **Three connectors, fully implemented.** Simulated, AzureDevOpsServices, and TeamFoundationServer — no stubs or placeholders; net481 features are implemented, never guarded away. (ADR-0013/0018)
+11. **Never run `git commit` or `git push`** unless the operator explicitly asks.
+12. **When unsure, stop and ask.** No matching route, conflicting rules, or a Class C change without consent means stop — do not improvise.
 
-Before writing, editing, or suggesting code/config/docs changes:
-
-1. Read entry + contract files:
-   - `.agents/00-entry/manifest.yaml`
-   - `.agents/00-entry/task-profiles.yaml`
-   - `.agents/00-entry/reading-order.md`
-   - `.agents/10-contracts/surface-catalog.yaml`
-   - `.agents/10-contracts/seam-catalog.yaml`
-   - `.agents/10-contracts/change-classes.yaml`
-   - `.agents/10-contracts/consent-policy.yaml`
-
-2. Read ALL guardrails:
-   - `.agents/20-guardrails/core/architecture-boundaries.md`
-   - `.agents/20-guardrails/core/architecture-perspectives-ethos.md`
-   - `.agents/20-guardrails/core/capability-ethos-rules.md`
-   - `.agents/20-guardrails/core/coding-standards.md`
-   - `.agents/20-guardrails/core/coding-standards-examples.md`
-   - `.agents/20-guardrails/core/surface-usage.md`
-   - `.agents/20-guardrails/core/change-governance.md`
-   - `.agents/20-guardrails/domains/workitems-rules.md`
-   - `.agents/20-guardrails/domains/migration-rules.md`
-   - `.agents/20-guardrails/domains/module-rules.md`
-   - `.agents/20-guardrails/domains/package-rules.md`
-   - `.agents/20-guardrails/domains/control-plane-rules.md`
-   - `.agents/20-guardrails/domains/cli-tui-rules.md`
-   - `.agents/20-guardrails/domains/connector-rules.md`
-   - `.agents/20-guardrails/domains/observability-requirements.md`
-   - `.agents/20-guardrails/domains/security-rules.md`
-   - `.agents/20-guardrails/domains/data-sovereignty-rules.md`
-   - `.agents/20-guardrails/domains/configuration-rules.md`
-   - `.agents/20-guardrails/workflow/engineering-nonfunctional-rules.md`
-   - `.agents/20-guardrails/workflow/delivery-quality-rules.md`
-   - `.agents/20-guardrails/workflow/testing-rules.md`
-   - `.agents/20-guardrails/workflow/test-first-workflow.md`
-   - `.agents/20-guardrails/workflow/definition-of-done.md`
-   - `.agents/20-guardrails/workflow/documentation-rules.md`
-   - `.agents/20-guardrails/workflow/acceptance-test-format.md`
-
-3. Read relevant context:
-   - `.agents/30-context/primers/product-vision.md`
-   - `.agents/30-context/primers/domain-model.md`
-   - `.agents/30-context/primers/terminology.md`
-   - `.agents/30-context/domains/migration-package-concept.md`
-   - `.agents/30-context/domains/workitems-format-summary.md`
-   - `.agents/30-context/domains/import-streaming.md`
-   - `.agents/30-context/domains/checkpointing-summary.md`
-   - `.agents/30-context/domains/package-manager.md`
-   - `.agents/30-context/domains/capability-seam-contract.md`
-   - `.agents/30-context/domains/job-lifecycle.md`
-   - `.agents/30-context/domains/telemetry-model.md`
-   - `.agents/30-context/domains/ui-mode-summary.md`
-   - `.agents/30-context/domains/cli-commands.md`
-   - `.agents/30-context/domains/identity-and-mapping.md`
-   - `.agents/10-contracts/specs/import-failure-pattern-contract.md`
-
-4. State applicable guardrails and change class.
-5. Reject violating approaches.
-6. Apply consent policy for Class C changes.
-
-If preflight is incomplete, stop and do it first.
+Directory-local `AGENTS.md` files inside `src/` and `tests/` add the blocking
+rules for that folder. They are authoritative for code in their subtree.
 
 ---
 
-## Engineering Practice Quick Reference
+## Routing Is Contract-Driven
 
-All work must satisfy the constraints in:
-- `/.agents/20-guardrails/core/*`
-- `/.agents/20-guardrails/domains/*`
-- `/.agents/20-guardrails/workflow/*`
+Do not route by intuition.
 
-See [agents.md](../.agents/agents.md) for full protocol and reject conditions.
+1. Load `.agents/00-entry/manifest.yaml`.
+2. Load `.agents/10-contracts/routing-catalog.yaml`.
+3. Classify the task by activity trigger.
+4. Inspect matched `first_surfaces` before any cross-domain search.
+5. If no activity matches, stop and ask the operator.
 
+Route-first is fail-closed and enforced by:
+- `.agents/00-entry/reading-order.md`
+- `.agents/00-entry/task-profiles.yaml`
+- `.agents/20-guardrails/core/change-governance.md`
+
+---
+
+## Contract and Guardrail Authority
+
+- `/.agents/10-contracts/*` defines canonical contracts and routing.
+- `/.agents/20-guardrails/*` enforces behavior.
+- `/docs/*` explains architectural intent.
+
+If anything conflicts, guardrails win. The Constitution above is a summary of
+the highest-severity guardrails, not a replacement for them.
+
+---
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+at `specs/039-team-board-settings/plan.md`.
+<!-- SPECKIT END -->

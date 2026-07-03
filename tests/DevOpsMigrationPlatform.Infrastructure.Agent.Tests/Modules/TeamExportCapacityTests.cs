@@ -74,10 +74,11 @@ public class TeamExportCapacityTests
         // After Phase 1 refactor, capacity is written to Teams/{slug}/capacity.json by
         // TeamCapacityTeamExtension — not to team.json.
         var Extensions = new DevOpsMigrationPlatform.Infrastructure.Agent.Teams.Extensions.TeamCapacityTeamExtension(
-            Microsoft.Extensions.Options.Options.Create(new DevOpsMigrationPlatform.Abstractions.Agent.Teams.TeamCapacityExtensionOptions()),
+            Microsoft.Extensions.Options.Options.Create(new DevOpsMigrationPlatform.Abstractions.Agent.Modules.TeamsModuleOptions()),
+            TestUtilities.TestConnectorCapabilities.All,
             teamSource: CreateCapacityTeamSource(
                 new[] { new TeamCapacityEntry("desc-alice", "Alice", new[] { new ActivityEntry("Development", 6.0) }, 0) }).teamSource,
-            teamTarget: null,
+            teamTarget: new Mock<ITeamTarget>(MockBehavior.Loose).Object,
             logger: NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.Teams.Extensions.TeamCapacityTeamExtension>.Instance);
 
         var writtenPaths = new List<string>();

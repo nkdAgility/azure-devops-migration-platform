@@ -57,7 +57,7 @@ public class NodeReadinessOrchestratorTests
             "test-org",
             "test-project");
 
-        await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
+        await sut.PrepareRequiredNodePathsAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
 
         creator.VerifyAll();
         creator.Verify(
@@ -113,7 +113,7 @@ public class NodeReadinessOrchestratorTests
             "test-org",
             "test-project");
 
-        await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
+        await sut.PrepareRequiredNodePathsAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
 
         creator.Verify(c => c.EnsureExistsAsync(ClassificationNodeType.Area, @"Source\Area", It.IsAny<CancellationToken>()), Times.Never);
         creator.Verify(c => c.EnsureExistsAsync(ClassificationNodeType.Iteration, @"Source\Iteration", It.IsAny<CancellationToken>()), Times.Never);
@@ -167,7 +167,7 @@ public class NodeReadinessOrchestratorTests
             "test-org",
             "test-project");
 
-        await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: true, CancellationToken.None);
+        await sut.PrepareRequiredNodePathsAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: true, CancellationToken.None);
 
         creator.VerifyAll();
     }
@@ -254,7 +254,7 @@ public class NodeReadinessOrchestratorTests
             "test-org",
             "test-project");
 
-        await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: true, CancellationToken.None);
+        await sut.PrepareRequiredNodePathsAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: true, CancellationToken.None);
 
         creator.VerifyAll();
     }
@@ -276,7 +276,7 @@ public class NodeReadinessOrchestratorTests
             "test-org",
             "test-project");
 
-        await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: true, CancellationToken.None);
+        await sut.PrepareRequiredNodePathsAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: true, CancellationToken.None);
 
         translationTool.VerifyNoOtherCalls();
         creator.VerifyNoOtherCalls();
@@ -308,7 +308,7 @@ public class NodeReadinessOrchestratorTests
             "test-project",
             Options.Create(new NodeTranslationOptions { SkipOnUnresolvableArea = true }));
 
-        await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
+        await sut.PrepareRequiredNodePathsAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
 
         creator.Verify(
             c => c.EnsureExistsAsync(
@@ -361,7 +361,7 @@ public class NodeReadinessOrchestratorTests
             "test-project",
             importCreatedNodeStateStore: checkpointService);
 
-        await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
+        await sut.PrepareRequiredNodePathsAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
 
         creator.Verify(
             c => c.EnsureExistsAsync(ClassificationNodeType.Area, @"Target\Platform", It.IsAny<CancellationToken>()),
@@ -418,7 +418,7 @@ public class NodeReadinessOrchestratorTests
             "test-project",
             importCreatedNodeStateStore: checkpointService);
 
-        await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
+        await sut.PrepareRequiredNodePathsAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
 
         creator.Verify(
             c => c.EnsureExistsAsync(ClassificationNodeType.Area, @"Target\Platform", It.IsAny<CancellationToken>()),
@@ -471,7 +471,7 @@ public class NodeReadinessOrchestratorTests
             "test-project",
             importCreatedNodeStateStore: checkpointService);
 
-        await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
+        await sut.PrepareRequiredNodePathsAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
 
         creator.Verify(
             c => c.EnsureExistsAsync(ClassificationNodeType.Area, @"Target\Platform", It.IsAny<CancellationToken>()),
@@ -512,12 +512,12 @@ public class NodeReadinessOrchestratorTests
             "test-project",
             importCreatedNodeStateStore: checkpointService);
 
-        await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
+        await sut.PrepareRequiredNodePathsAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
 
         var keys = await checkpointService.GetRecordedCreatedNodeKeysAsync(CancellationToken.None);
         CollectionAssert.Contains(new System.Collections.Generic.List<string>(keys), @"Area:Target\NewArea");
 
-        await sut.ExecuteAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
+        await sut.PrepareRequiredNodePathsAsync(new ProjectMapping("Source", "Target"), replicateSourceTree: false, CancellationToken.None);
 
         creator.Verify(
             c => c.EnsureExistsAsync(ClassificationNodeType.Area, @"Target\NewArea", It.IsAny<CancellationToken>()),

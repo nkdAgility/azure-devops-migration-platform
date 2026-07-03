@@ -15,6 +15,13 @@ internal sealed class MissingAttachmentBinaryImportFailurePattern : IImportFailu
 {
     public const string Code = "WORKITEMS_PREPARE_MISSING_ATTACHMENT_BINARY";
 
+    private readonly IWorkItemRevisionReader _revisionReader;
+
+    public MissingAttachmentBinaryImportFailurePattern(IWorkItemRevisionReader? revisionReader = null)
+    {
+        _revisionReader = revisionReader ?? new WorkItemsPrepareRevisionReader();
+    }
+
     public string PatternCode => Code;
 
     public async Task<IReadOnlyList<ImportFailureFinding>> EvaluateAsync(
@@ -27,7 +34,7 @@ internal sealed class MissingAttachmentBinaryImportFailurePattern : IImportFailu
         var organisation = context.Organisation;
         var project = context.Project;
 
-        await foreach (var parsedRevision in WorkItemsPrepareRevisionReader.EnumerateAsync(
+        await foreach (var parsedRevision in _revisionReader.EnumerateAsync(
                            package,
                            organisation,
                            project,

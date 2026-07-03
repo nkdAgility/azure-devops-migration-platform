@@ -26,13 +26,10 @@
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Abstractions.Agent\DevOpsMigrationPlatform.Abstractions.Agent.csproj" />
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure\DevOpsMigrationPlatform.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.Agent\DevOpsMigrationPlatform.Infrastructure.Agent.csproj" />
+    <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.MigrationAgent\DevOpsMigrationPlatform.MigrationAgent.csproj" />
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem\DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem.csproj" />
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\DevOpsMigrationPlatform.Infrastructure.AzureDevOps.csproj" />
     <ProjectReference Include="..\..\src\DevOpsMigrationPlatform.Infrastructure.Simulated\DevOpsMigrationPlatform.Infrastructure.Simulated.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Remove="Context\JobAgentWorkerDispatchTests.cs" />
   </ItemGroup>
 
   <Target Name="PrepareReqnrollFeatureFiles" BeforeTargets="UpdateFeatureFilesInProject">

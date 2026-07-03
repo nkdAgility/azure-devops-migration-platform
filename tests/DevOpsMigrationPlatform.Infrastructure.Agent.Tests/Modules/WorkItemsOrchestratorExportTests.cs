@@ -38,7 +38,8 @@ public sealed class WorkItemsOrchestratorExportTests
         var spy = new ExportFactorySpy();
 
         var disabledComments = new CommentsWorkItemExtension(
-            Options.Create(new CommentsExtensionOptions { Enabled = false }));
+            Options.Create(new CommentsExtensionOptions { Enabled = false }),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All);
 
         var orchestrator = WorkItemsModuleTestFactory.CreateOrchestrator(
             exportOrchestratorFactory: spy,
@@ -99,9 +100,9 @@ public sealed class WorkItemsOrchestratorExportTests
             Microsoft.Extensions.Logging.ILogger? logger,
             string? wiqlQuery,
             IWorkItemDiscoveryService? discoveryService,
-            IExportProgressStoreFactory? exportProgressStoreFactory,
+            IWorkItemProgressStoreFactory? exportProgressStoreFactory,
             string? packageUri,
-            IReferencedPathTracker? referencedPathTracker = null,
+            IReferencedPathLifecycle? referencedPathTracker = null,
             IReadOnlyList<IModuleExtension>? exportExtensions = null,
             MigrationEndpointOptions? endpoint = null)
         {

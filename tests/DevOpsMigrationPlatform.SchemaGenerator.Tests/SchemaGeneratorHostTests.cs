@@ -150,6 +150,125 @@ public sealed class SchemaGeneratorHostTests
         }
     }
 
+    // ── ConfigVersion 2.0 anatomy (ADR 0028, MC-H2) ───────────────────────────
+
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public async Task RunAsync_GeneratedSchema_UsesSelectionDataProcessingAnatomy()
+    {
+        var outputPath = Path.Combine(Path.GetTempPath(), $"schema-test-{Guid.NewGuid()}.json");
+        try
+        {
+            var sp = BuildServiceProvider();
+            var host = new SchemaGeneratorHost(sp, sp.GetRequiredService<ILogger<SchemaGeneratorHost>>());
+
+            var result = await host.RunAsync(outputPath, CancellationToken.None);
+            Assert.AreEqual(0, result, "RunAsync should return 0 on success");
+
+            var schemaJson = File.ReadAllText(outputPath);
+            StringAssert.Contains(schemaJson, "\"Selection\"");
+            StringAssert.Contains(schemaJson, "\"Data\"");
+            StringAssert.Contains(schemaJson, "\"Processing\"");
+            Assert.IsFalse(schemaJson.Contains("WorkItemsScopeOptions"),
+                "Legacy WorkItemsScopeOptions must not appear in the generated schema");
+            Assert.IsFalse(schemaJson.Contains("WorkItemsExtensionsOptions"),
+                "Legacy WorkItemsExtensionsOptions must not appear in the generated schema");
+        }
+        finally
+        {
+            if (File.Exists(outputPath)) File.Delete(outputPath);
+        }
+    }
+
+    /// <summary>
+    /// ADR-0028 amendment (2026-07-03): BoardConfig options are split per the
+    /// module-anatomy contract — payload-carry toggles under Modules.Teams.Data.BoardConfig
+    /// (Data: canonical package payload), ImportMode under Modules.Teams.Processing.BoardConfig.
+    /// No Modules.*.Extensions section may resurface (the v2 gate rejects that key by name).
+    /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public async Task RunAsync_GeneratedSchema_SplitsBoardConfigAcrossTeamsDataAndProcessing()
+    {
+        var outputPath = Path.Combine(Path.GetTempPath(), $"schema-test-{Guid.NewGuid()}.json");
+        try
+        {
+            var sp = BuildServiceProvider();
+            var host = new SchemaGeneratorHost(sp, sp.GetRequiredService<ILogger<SchemaGeneratorHost>>());
+
+            var result = await host.RunAsync(outputPath, CancellationToken.None);
+            Assert.AreEqual(0, result, "RunAsync should return 0 on success");
+
+            var schemaJson = File.ReadAllText(outputPath);
+            StringAssert.Contains(schemaJson, "BoardConfigDataOptions",
+                "BoardConfigDataOptions must be schema-visible");
+            StringAssert.Contains(schemaJson, "BoardConfigProcessingOptions",
+                "BoardConfigProcessingOptions must be schema-visible");
+            Assert.IsFalse(schemaJson.Contains("BoardConfigExtensionOptions"),
+                "The superseded BoardConfigExtensionOptions must not appear in the generated schema");
+
+            using var doc = System.Text.Json.JsonDocument.Parse(schemaJson);
+            var teamsDefinitions = doc.RootElement
+                .GetProperty("definitions")
+                .GetProperty("TeamsModuleOptions")
+                .GetProperty("definitions");
+
+            // Data aspect — payload-carry toggles.
+            var dataBoardConfig = teamsDefinitions
+                .GetProperty("TeamsDataOptions")
+                .GetProperty("properties")
+                .GetProperty("BoardConfig");
+            var dataProps = ResolveProperties(doc.RootElement, dataBoardConfig);
+            foreach (var toggle in new[] { "Enabled", "Columns", "SwimLanes", "CardRules", "Backlogs", "TaskboardColumns" })
+            {
+                Assert.IsTrue(dataProps.TryGetProperty(toggle, out _),
+                    $"Modules.Teams.Data.BoardConfig must expose the '{toggle}' carry toggle (ADR-0028 amendment)");
+            }
+            Assert.IsFalse(dataProps.TryGetProperty("ImportMode", out _),
+                "ImportMode is a Processing concern and must not appear under Data.BoardConfig");
+
+            // Processing aspect — import behaviour only.
+            var processingBoardConfig = teamsDefinitions
+                .GetProperty("TeamsProcessingOptions")
+                .GetProperty("properties")
+                .GetProperty("BoardConfig");
+            var processingProps = ResolveProperties(doc.RootElement, processingBoardConfig);
+            Assert.IsTrue(processingProps.TryGetProperty("ImportMode", out _),
+                "Modules.Teams.Processing.BoardConfig must expose ImportMode (ADR-0028 amendment)");
+            Assert.IsFalse(processingProps.TryGetProperty("Columns", out _),
+                "Carry toggles are a Data concern and must not appear under Processing.BoardConfig");
+
+            var teamsProperties = doc.RootElement
+                .GetProperty("definitions")
+                .GetProperty("TeamsModuleOptions")
+                .GetProperty("properties");
+            Assert.IsFalse(teamsProperties.TryGetProperty("Extensions", out _),
+                "Modules.Teams must not expose a legacy 'Extensions' section — the v2 gate rejects it");
+        }
+        finally
+        {
+            if (File.Exists(outputPath)) File.Delete(outputPath);
+        }
+    }
+
+    /// <summary>Follows a local "$ref" (e.g. "#/definitions/BoardConfigDataOptions") to its "properties".</summary>
+    private static System.Text.Json.JsonElement ResolveProperties(
+        System.Text.Json.JsonElement root,
+        System.Text.Json.JsonElement schemaOrRef)
+    {
+        if (schemaOrRef.TryGetProperty("$ref", out var reference))
+        {
+            var current = root;
+            foreach (var segment in reference.GetString()!.TrimStart('#', '/').Split('/'))
+                current = current.GetProperty(segment);
+            return current.GetProperty("properties");
+        }
+
+        return schemaOrRef.GetProperty("properties");
+    }
+
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]

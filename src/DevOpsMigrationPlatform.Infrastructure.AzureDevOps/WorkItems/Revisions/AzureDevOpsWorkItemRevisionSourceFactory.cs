@@ -21,14 +21,14 @@ internal sealed class AzureDevOpsWorkItemRevisionSourceFactory : IWorkItemRevisi
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly IWorkItemQueryWindowStrategy _windowStrategy;
-    private readonly IAzureDevOpsWorkItemRevisionMapper _mapper;
+    private readonly IAzureDevOpsWorkItemRevisionProcessor _mapper;
     private readonly AzureDevOpsAttachmentRegistry _registry;
     private readonly ISourceEndpointInfo _endpointInfo;
 
     public AzureDevOpsWorkItemRevisionSourceFactory(
         IAzureDevOpsClientFactory clientFactory,
         IWorkItemQueryWindowStrategy windowStrategy,
-        IAzureDevOpsWorkItemRevisionMapper mapper,
+        IAzureDevOpsWorkItemRevisionProcessor mapper,
         AzureDevOpsAttachmentRegistry registry,
         ISourceEndpointInfo endpointInfo)
     {

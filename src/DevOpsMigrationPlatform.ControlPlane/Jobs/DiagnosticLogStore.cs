@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Channels;
 using DevOpsMigrationPlatform.Abstractions;
 using Microsoft.Extensions.Logging;
@@ -13,34 +14,71 @@ using Microsoft.Extensions.Options;
 namespace DevOpsMigrationPlatform.ControlPlane.Jobs;
 
 /// <summary>
-/// In-memory ring buffer for <see cref="DiagnosticLogRecord"/> per job.
-/// Mirrors <see cref="JobProgressStore"/> pattern: ring buffer + SSE subscribers.
+/// Append-only log of <see cref="DiagnosticLogRecord"/> per job, replacing the former
+/// ring buffer. Subscribers receive live records via SSE channels as before.
 /// Records below the deployment-level minimum log level are discarded on ingestion.
 /// </summary>
 public sealed class DiagnosticLogStore
 {
-    private sealed class JobEntry
+    private sealed class JobEntry : IDisposable
     {
-        public ConcurrentQueue<DiagnosticLogRecord> Queue { get; } = new();
+        private readonly ReaderWriterLockSlim _lock = new();
+        private readonly List<DiagnosticLogRecord> _log = new();
         public List<ChannelWriter<DiagnosticLogRecord>> Subscribers { get; } = new();
         public bool Completed { get; set; }
         public bool Failed { get; set; }
+
+        public void Append(DiagnosticLogRecord record)
+        {
+            _lock.EnterWriteLock();
+            try { _log.Add(record); }
+            finally { _lock.ExitWriteLock(); }
+        }
+
+        public DiagnosticLogRecord[] Snapshot(LogLevel? levelFilter = null)
+        {
+            _lock.EnterReadLock();
+            try
+            {
+                if (levelFilter is null)
+                    return _log.ToArray();
+                return _log
+                    .Where(r => Enum.TryParse<LogLevel>(r.Level, ignoreCase: true, out var rl) && rl >= levelFilter.Value)
+                    .ToArray();
+            }
+            finally { _lock.ExitReadLock(); }
+        }
+
+        public int Count
+        {
+            get
+            {
+                _lock.EnterReadLock();
+                try { return _log.Count; }
+                finally { _lock.ExitReadLock(); }
+            }
+        }
+
+        public void Dispose() => _lock.Dispose();
     }
 
     private readonly ConcurrentDictionary<Guid, JobEntry> _entries = new();
-    private readonly int _capacity;
+    private readonly int _maxRecordsPerJob;
     private readonly LogLevel _minimumLevel;
+    private readonly ILogger<DiagnosticLogStore>? _logger;
 
-    public DiagnosticLogStore(IOptions<DiagnosticLogStoreOptions> options)
+    public DiagnosticLogStore(IOptions<DiagnosticLogStoreOptions> options, ILogger<DiagnosticLogStore>? logger = null)
     {
-        _capacity = options.Value.Capacity;
-        _minimumLevel = Enum.TryParse<LogLevel>(options.Value.MinimumLevel, ignoreCase: true, out var level)
+        var opts = options.Value;
+        _maxRecordsPerJob = opts.MaxRecordsPerJob > 0 ? opts.MaxRecordsPerJob : 50_000;
+        _minimumLevel = Enum.TryParse<LogLevel>(opts.MinimumLevel, ignoreCase: true, out var level)
             ? level
             : LogLevel.Warning;
+        _logger = logger;
     }
 
     /// <summary>
-    /// Adds records to the ring buffer for the given job, filtering by deployment-level minimum.
+    /// Adds records to the log for the given job, filtering by deployment-level minimum.
     /// Notifies all SSE subscribers.
     /// </summary>
     public void Add(Guid jobId, IEnumerable<DiagnosticLogRecord> records)
@@ -51,13 +89,18 @@ public sealed class DiagnosticLogStore
         {
             if (!Enum.TryParse<LogLevel>(record.Level, ignoreCase: true, out var recordLevel))
                 continue;
-
             if (recordLevel < _minimumLevel)
                 continue;
 
-            entry.Queue.Enqueue(record);
-            while (entry.Queue.Count > _capacity)
-                entry.Queue.TryDequeue(out _);
+            if (entry.Count >= _maxRecordsPerJob)
+            {
+                _logger?.LogWarning(
+                    "Job {JobId} has reached {Max} diagnostic records. Further records are discarded.",
+                    jobId, _maxRecordsPerJob);
+                return;
+            }
+
+            entry.Append(record);
 
             lock (entry.Subscribers)
             {
@@ -68,19 +111,13 @@ public sealed class DiagnosticLogStore
     }
 
     /// <summary>
-    /// Returns a snapshot of buffered records, optionally filtered by level.
+    /// Returns a snapshot of all stored records, optionally filtered by level.
     /// </summary>
     public IReadOnlyList<DiagnosticLogRecord> GetSnapshot(Guid jobId, LogLevel? levelFilter = null)
     {
         if (!_entries.TryGetValue(jobId, out var entry))
             return Array.Empty<DiagnosticLogRecord>();
-
-        if (levelFilter is null)
-            return entry.Queue.ToArray();
-
-        return entry.Queue
-            .Where(r => Enum.TryParse<LogLevel>(r.Level, ignoreCase: true, out var rl) && rl >= levelFilter.Value)
-            .ToArray();
+        return entry.Snapshot(levelFilter);
     }
 
     /// <summary>
@@ -89,14 +126,14 @@ public sealed class DiagnosticLogStore
     public (ChannelReader<DiagnosticLogRecord> Reader, ChannelWriter<DiagnosticLogRecord> Writer) Subscribe(Guid jobId)
     {
         var entry = _entries.GetOrAdd(jobId, _ => new JobEntry());
+        // DropOldest keeps the terminal event reachable under slow-client backpressure.
+        // Phase D's append-only log provides full replay on reconnect.
         var channel = Channel.CreateBounded<DiagnosticLogRecord>(
-            new BoundedChannelOptions(_capacity) { FullMode = BoundedChannelFullMode.DropOldest });
+            new BoundedChannelOptions(5_000) { FullMode = BoundedChannelFullMode.DropOldest });
         lock (entry.Subscribers)
         {
             if (entry.Completed)
             {
-                // Job already finished before this subscriber connected — pre-complete
-                // the channel so ReadAllAsync returns immediately and SSE sends job-ended.
                 channel.Writer.TryComplete();
             }
             else
@@ -123,8 +160,6 @@ public sealed class DiagnosticLogStore
     /// </summary>
     public void CompleteJob(Guid jobId, bool failed = false)
     {
-        // GetOrAdd ensures the entry exists even when CompleteJob races ahead of any
-        // Add call (e.g. agent signals complete before the first diagnostic POST arrives).
         var entry = _entries.GetOrAdd(jobId, _ => new JobEntry());
         lock (entry.Subscribers)
         {

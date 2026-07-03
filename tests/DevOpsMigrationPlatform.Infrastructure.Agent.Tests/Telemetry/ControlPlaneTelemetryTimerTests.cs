@@ -2,12 +2,13 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
+using System.Net;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
-using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -21,8 +22,9 @@ public class ControlPlaneTelemetryTimerTests
 {
     private Mock<IJobMetricsStore> _metricsStore = null!;
     private Mock<IJobSnapshotStore> _snapshotStore = null!;
-    private Mock<IControlPlaneTelemetryClient> _client = null!;
     private ActiveLeaseState _leaseState = null!;
+    private MockHttpMessageHandler _handler = null!;
+    private UnifiedWorkerEventWriter _writer = null!;
     private IOptions<TelemetryOptions> _options = null!;
     private ManualResetEventSlim _signal = null!;
 
@@ -31,8 +33,19 @@ public class ControlPlaneTelemetryTimerTests
     {
         _metricsStore = new Mock<IJobMetricsStore>();
         _snapshotStore = new Mock<IJobSnapshotStore>();
-        _client = new Mock<IControlPlaneTelemetryClient>();
-        _leaseState = new ActiveLeaseState();
+        _leaseState = new ActiveLeaseState { CurrentLeaseId = "lease-abc-123" };
+        _handler = new MockHttpMessageHandler();
+        _handler.RespondWith(HttpStatusCode.NoContent);
+
+        var httpFactory = new Mock<IHttpClientFactory>();
+        httpFactory.Setup(f => f.CreateClient(It.IsAny<string>()))
+            .Returns(new HttpClient(_handler) { BaseAddress = new Uri("http://localhost:5100") });
+
+        _writer = new UnifiedWorkerEventWriter(
+            httpFactory.Object,
+            _leaseState,
+            NullLogger<UnifiedWorkerEventWriter>.Instance);
+
         _options = Options.Create(new TelemetryOptions { SnapshotIntervalSeconds = 60 });
         _signal = new ManualResetEventSlim(false);
         _snapshotStore.Setup(s => s.UpdateSignal).Returns(_signal.WaitHandle);
@@ -42,19 +55,19 @@ public class ControlPlaneTelemetryTimerTests
         new ControlPlaneTelemetryTimer(
             _metricsStore.Object,
             _snapshotStore.Object,
-            _client.Object,
-            _leaseState,
+            _writer,
             _options,
             NullLogger<ControlPlaneTelemetryTimer>.Instance);
 
     /// <summary>
-    /// Scenario: Migration Agent pushes a MetricSnapshot on its configured interval.
-    /// When the agent holds a lease and has metrics, it calls PushMetricsAsync.
+    /// Scenario: Migration Agent enqueues a MetricSnapshot on its configured interval.
+    /// When the agent has metrics, it enqueues them into the unified event writer,
+    /// which subsequently flushes them to the Control Plane.
     /// </summary>
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task PushesTelemetry_WhenLeaseHeldAndMetricsAvailable()
+    public async Task PushesTelemetry_WhenMetricsAvailable()
     {
         var metrics = new JobMetrics
         {
@@ -63,41 +76,34 @@ public class ControlPlaneTelemetryTimerTests
                 WorkItems = new WorkItemCounters { Attempted = 250, Completed = 250 }
             }
         };
-        _leaseState.CurrentLeaseId = "lease-abc-123";
         _metricsStore.Setup(s => s.Latest).Returns(metrics);
         _snapshotStore.Setup(s => s.Latest).Returns((JobSnapshot?)null);
 
-        _client
-            .Setup(c => c.PushMetricsAsync(It.IsAny<string>(), It.IsAny<JobMetrics>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        _client
-            .Setup(c => c.PushSnapshotAsync(It.IsAny<string>(), It.IsAny<JobSnapshot>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
         var sut = CreateSut();
         using var cts = new CancellationTokenSource();
 
         var task = sut.StartAsync(cts.Token);
-        // Give the timer one iteration to execute
+        // Give the timer one iteration to enqueue.
         await Task.Delay(100);
         await cts.CancelAsync();
         await task;
 
-        _client.Verify(
-            c => c.PushMetricsAsync("lease-abc-123", metrics, It.IsAny<CancellationToken>()),
-            Times.AtLeastOnce);
+        await _writer.FlushAsync();
+
+        Assert.IsNotNull(_handler.LastRequestContent);
+        var body = await _handler.LastRequestContent!.ReadAsStringAsync();
+        StringAssert.Contains(body, "\"Metrics\"");
     }
 
     /// <summary>
-    /// Scenario: Push is skipped when no MetricSnapshot is available yet.
-    /// When the snapshot store returns null, no HTTP request is sent.
+    /// Scenario: Enqueue is skipped when no metrics or snapshot are available yet.
+    /// When both stores return null, nothing is written to the Control Plane.
     /// </summary>
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task SkipsPush_WhenNoSnapshotAvailable()
+    public async Task SkipsEnqueue_WhenNoMetricsOrSnapshotAvailable()
     {
-        _leaseState.CurrentLeaseId = "lease-abc-123";
         _metricsStore.Setup(s => s.Latest).Returns((JobMetrics?)null);
         _snapshotStore.Setup(s => s.Latest).Returns((JobSnapshot?)null);
 
@@ -109,53 +115,23 @@ public class ControlPlaneTelemetryTimerTests
         await cts.CancelAsync();
         await task;
 
-        _client.Verify(
-            c => c.PushMetricsAsync(It.IsAny<string>(), It.IsAny<JobMetrics>(), It.IsAny<CancellationToken>()),
-            Times.Never);
-        _client.Verify(
-            c => c.PushSnapshotAsync(It.IsAny<string>(), It.IsAny<JobSnapshot>(), It.IsAny<CancellationToken>()),
-            Times.Never);
-    }
+        await _writer.FlushAsync();
 
-    /// <summary>
-    /// Scenario: Push is skipped when the agent holds no active lease.
-    /// When CurrentLeaseId is null, no HTTP request is sent even if snapshots are available.
-    /// </summary>
-    [TestCategory("CodeTest")]
-    [TestCategory("IntegrationTests")]
-    [TestMethod]
-    public async Task SkipsPush_WhenNoLeaseHeld()
-    {
-        // No lease set — CurrentLeaseId is null
-        var snapshot = new JobSnapshot();
-        _metricsStore.Setup(s => s.Latest).Returns((JobMetrics?)null);
-        _snapshotStore.Setup(s => s.Latest).Returns(snapshot);
-
-        var sut = CreateSut();
-        using var cts = new CancellationTokenSource();
-
-        var task = sut.StartAsync(cts.Token);
-        await Task.Delay(100);
-        await cts.CancelAsync();
-        await task;
-
-        _client.Verify(
-            c => c.PushMetricsAsync(It.IsAny<string>(), It.IsAny<JobMetrics>(), It.IsAny<CancellationToken>()),
-            Times.Never);
-        _client.Verify(
-            c => c.PushSnapshotAsync(It.IsAny<string>(), It.IsAny<JobSnapshot>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        Assert.IsNull(_handler.LastRequestContent);
     }
 
     /// <summary>
     /// Scenario: A non-success response from the Control Plane does not crash the agent.
-    /// PushMetricsAsync is best-effort — exceptions should not propagate.
+    /// The unified writer's own retry/backoff handles failures — the timer never awaits
+    /// the HTTP call directly, so a Control Plane failure cannot propagate into the timer.
     /// </summary>
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
     public async Task ContinuesRunning_WhenControlPlaneReturnsFailure()
     {
+        _handler.RespondWith(HttpStatusCode.InternalServerError);
+
         var metrics = new JobMetrics
         {
             Migration = new MigrationCounters
@@ -163,15 +139,8 @@ public class ControlPlaneTelemetryTimerTests
                 WorkItems = new WorkItemCounters { Attempted = 1 }
             }
         };
-        _leaseState.CurrentLeaseId = "lease-abc-123";
         _metricsStore.Setup(s => s.Latest).Returns(metrics);
         _snapshotStore.Setup(s => s.Latest).Returns((JobSnapshot?)null);
-
-        // Simulate 503 by having the client complete without throwing
-        // (ControlPlaneTelemetryClient absorbs non-success internally).
-        _client
-            .Setup(c => c.PushMetricsAsync(It.IsAny<string>(), It.IsAny<JobMetrics>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
         using var cts = new CancellationTokenSource();
@@ -182,16 +151,11 @@ public class ControlPlaneTelemetryTimerTests
 
         // Must not throw
         await task;
-
-        // Timer ran at least once
-        _client.Verify(
-            c => c.PushMetricsAsync(It.IsAny<string>(), It.IsAny<JobMetrics>(), It.IsAny<CancellationToken>()),
-            Times.AtLeastOnce);
     }
 
     /// <summary>
-    /// Scenario: Push is triggered when a snapshot arrives (snapshot boundary signal).
-    /// The snapshot is pushed using the currently held lease id.
+    /// Scenario: Enqueue is triggered when a snapshot arrives (snapshot boundary signal).
+    /// The snapshot is enqueued into the unified writer for flushing to the Control Plane.
     /// </summary>
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
@@ -202,13 +166,8 @@ public class ControlPlaneTelemetryTimerTests
         {
             Organisations = []
         };
-        _leaseState.CurrentLeaseId = "lease-abc-123";
         _metricsStore.Setup(s => s.Latest).Returns((JobMetrics?)null);
         _snapshotStore.Setup(s => s.Latest).Returns(snapshot);
-
-        _client
-            .Setup(c => c.PushSnapshotAsync(It.IsAny<string>(), It.IsAny<JobSnapshot>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
 
         var sut = CreateSut();
         using var cts = new CancellationTokenSource();
@@ -218,9 +177,11 @@ public class ControlPlaneTelemetryTimerTests
         await cts.CancelAsync();
         await task;
 
-        _client.Verify(
-            c => c.PushSnapshotAsync("lease-abc-123", snapshot, It.IsAny<CancellationToken>()),
-            Times.AtLeastOnce);
+        await _writer.FlushAsync();
+
+        Assert.IsNotNull(_handler.LastRequestContent);
+        var body = await _handler.LastRequestContent!.ReadAsStringAsync();
+        StringAssert.Contains(body, "\"Snapshot\"");
     }
 
     /// <summary>

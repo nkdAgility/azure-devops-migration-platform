@@ -10,6 +10,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent;
+using Cap = DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability;
 using DevOpsMigrationPlatform.Abstractions.Agent.Context;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
@@ -22,7 +23,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Teams.Extensions;
 /// <summary>
 /// Teams module extension: exports and imports team iteration assignments as a separate
 /// <c>Teams/{slug}/iterations.json</c> artifact. Records iteration paths via
-/// <see cref="IReferencedPathTracker"/> (when available) during export. Translates
+/// <see cref="IReferencedPathLifecycle"/> (when available) during export. Translates
 /// paths via <see cref="INodeTranslationTool"/> (when available) during import.
 /// </summary>
 public sealed class TeamIterationsTeamExtension : IModuleExtension
@@ -39,24 +40,27 @@ public sealed class TeamIterationsTeamExtension : IModuleExtension
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly TeamIterationsExtensionOptions _options;
-    private readonly ITeamSource? _teamSource;
-    private readonly ITeamTarget? _teamTarget;
+    private readonly Abstractions.Agent.Modules.TeamsDataOptions _data;
+    private readonly IConnectorCapabilityProvider _capProvider;
+    private readonly ITeamSource _teamSource;
+    private readonly ITeamTarget _teamTarget;
     private readonly INodeTranslationTool? _nodeTranslationTool;
-    private readonly IReferencedPathTracker? _referencedPathTracker;
+    private readonly IReferencedPathLifecycle? _referencedPathTracker;
     private readonly ILogger<TeamIterationsTeamExtension>? _logger;
 
     public TeamIterationsTeamExtension(
-        IOptions<TeamIterationsExtensionOptions> options,
-        ITeamSource? teamSource = null,
-        ITeamTarget? teamTarget = null,
+        IOptions<Abstractions.Agent.Modules.TeamsModuleOptions> options,
+        IConnectorCapabilityProvider capProvider,
+        ITeamSource teamSource,
+        ITeamTarget teamTarget,
         INodeTranslationTool? nodeTranslationTool = null,
-        IReferencedPathTracker? referencedPathTracker = null,
+        IReferencedPathLifecycle? referencedPathTracker = null,
         ILogger<TeamIterationsTeamExtension>? logger = null)
     {
-        _options = (options ?? throw new ArgumentNullException(nameof(options))).Value;
-        _teamSource = teamSource;
-        _teamTarget = teamTarget;
+        _data = (options ?? throw new ArgumentNullException(nameof(options))).Value.Data;
+        _capProvider = capProvider ?? throw new ArgumentNullException(nameof(capProvider));
+        _teamSource = teamSource ?? throw new ArgumentNullException(nameof(teamSource));
+        _teamTarget = teamTarget ?? throw new ArgumentNullException(nameof(teamTarget));
         _nodeTranslationTool = nodeTranslationTool;
         _referencedPathTracker = referencedPathTracker;
         _logger = logger;
@@ -65,20 +69,15 @@ public sealed class TeamIterationsTeamExtension : IModuleExtension
     public string Module => "Teams";
     public string Name => "TeamIterations";
     public int Order => 20;
-    public bool SupportsExport => _teamSource is not null;
-    public bool SupportsImport => _teamTarget is not null;
-    public bool IsEnabled => _options.Enabled;
+    public bool SupportsExport => _capProvider.Has(Cap.TeamIterations);
+    public bool SupportsImport => _capProvider.Has(Cap.TeamIterations);
+    public bool IsEnabled => _data.TeamIterations;
 
     public async Task ExportAsync(IExtensionContext context, CancellationToken ct)
     {
         if (context is not TeamExtensionContext ctx)
             throw new ArgumentException($"Expected {nameof(TeamExtensionContext)}.", nameof(context));
 
-        if (_teamSource is null)
-        {
-            _logger?.LogDebug("[TeamIterations] No ITeamSource registered — skipping iterations export for team '{TeamName}'.", ctx.Team.Name);
-            return;
-        }
 
         var iterations = new List<TeamIteration>();
         try
@@ -137,11 +136,6 @@ public sealed class TeamIterationsTeamExtension : IModuleExtension
         if (context is not TeamExtensionContext ctx)
             throw new ArgumentException($"Expected {nameof(TeamExtensionContext)}.", nameof(context));
 
-        if (_teamTarget is null)
-        {
-            _logger?.LogDebug("[TeamIterations] No ITeamTarget registered — skipping iterations import for team '{TeamName}'.", ctx.Team.Name);
-            return;
-        }
 
         if (string.IsNullOrEmpty(ctx.TargetEntityId))
         {
@@ -201,7 +195,7 @@ public sealed class TeamIterationsTeamExtension : IModuleExtension
                 }
 
                 var translatedIteration = iteration with { Path = translatedPath };
-                await _teamTarget.AssignIterationAsync(null!, ctx.ProjectName, ctx.TargetEntityId!, translatedIteration, ct).ConfigureAwait(false);
+                await _teamTarget.AssignIterationAsync(ctx.ProjectName, ctx.TargetEntityId!, translatedIteration, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {

@@ -10,19 +10,19 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent;
+using Cap = DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Storage;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Teams.Extensions;
 
 /// <summary>
 /// Teams module extension: imports team area path assignments from
 /// <c>Teams/{slug}/area-paths.json</c> with NodeTranslation-based path mapping.
-/// Area paths are export-only via <see cref="TeamExportOrchestrator"/> (which records
-/// them via <see cref="IReferencedPathTracker"/>) — this extension handles import only.
+/// Area paths are export-only via <see cref="TeamMigrationOrchestrator"/> (which records
+/// them via <see cref="IReferencedPathLifecycle"/>) — this extension handles import only.
 /// </summary>
 public sealed class TeamAreaPathsTeamExtension : IModuleExtension
 {
@@ -31,19 +31,19 @@ public sealed class TeamAreaPathsTeamExtension : IModuleExtension
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly TeamAreaPathsExtensionOptions _options;
-    private readonly ITeamTarget? _teamTarget;
+    private readonly IConnectorCapabilityProvider _capProvider;
+    private readonly ITeamTarget _teamTarget;
     private readonly INodeTranslationTool? _nodeTranslationTool;
     private readonly ILogger<TeamAreaPathsTeamExtension>? _logger;
 
     public TeamAreaPathsTeamExtension(
-        IOptions<TeamAreaPathsExtensionOptions> options,
-        ITeamTarget? teamTarget = null,
+        IConnectorCapabilityProvider capProvider,
+        ITeamTarget teamTarget,
         INodeTranslationTool? nodeTranslationTool = null,
         ILogger<TeamAreaPathsTeamExtension>? logger = null)
     {
-        _options = (options ?? throw new ArgumentNullException(nameof(options))).Value;
-        _teamTarget = teamTarget;
+        _capProvider = capProvider ?? throw new ArgumentNullException(nameof(capProvider));
+        _teamTarget = teamTarget ?? throw new ArgumentNullException(nameof(teamTarget));
         _nodeTranslationTool = nodeTranslationTool;
         _logger = logger;
     }
@@ -51,23 +51,20 @@ public sealed class TeamAreaPathsTeamExtension : IModuleExtension
     public string Module => "Teams";
     public string Name => "TeamAreaPaths";
     public int Order => 50;
-    public bool SupportsExport => false;   // Area path recording is handled by TeamExportOrchestrator
-    public bool SupportsImport => _teamTarget is not null;
-    public bool IsEnabled => _options.Enabled;
+    public bool SupportsExport => false;   // Area path recording is handled by TeamMigrationOrchestrator
+    public bool SupportsImport => _capProvider.Has(Cap.TeamAreaPaths);
+    // Always enabled — gating is the connector's TeamAreaPaths capability; path translation
+    // is governed by the NodeTranslation Processing seam (ConfigVersion 2.0 anatomy, ADR-0028).
+    public bool IsEnabled => true;
 
     public Task ExportAsync(IExtensionContext context, CancellationToken ct)
-        => Task.CompletedTask; // No export — area paths are recorded via IReferencedPathTracker
+        => Task.CompletedTask; // No export — area paths are recorded via IReferencedPathLifecycle
 
     public async Task ImportAsync(IExtensionContext context, CancellationToken ct)
     {
         if (context is not TeamExtensionContext ctx)
             throw new ArgumentException($"Expected {nameof(TeamExtensionContext)}.", nameof(context));
 
-        if (_teamTarget is null)
-        {
-            _logger?.LogDebug("[TeamAreaPaths] No ITeamTarget registered — skipping area paths import for team '{TeamName}'.", ctx.Team.Name);
-            return;
-        }
 
         if (string.IsNullOrEmpty(ctx.TargetEntityId))
         {
@@ -140,7 +137,7 @@ public sealed class TeamAreaPathsTeamExtension : IModuleExtension
 
         try
         {
-            await _teamTarget.SetAreaPathsAsync(null!, ctx.ProjectName, ctx.TargetEntityId!, translatedAreaPaths, ct).ConfigureAwait(false);
+            await _teamTarget.SetAreaPathsAsync(ctx.ProjectName, ctx.TargetEntityId!, translatedAreaPaths, ct).ConfigureAwait(false);
             _logger?.LogInformation("[TeamAreaPaths] Imported area paths for team '{TeamName}'.", ctx.Team.Name);
         }
         catch (OperationCanceledException)

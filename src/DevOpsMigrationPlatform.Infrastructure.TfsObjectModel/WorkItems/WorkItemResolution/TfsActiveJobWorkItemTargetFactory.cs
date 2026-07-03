@@ -32,7 +32,9 @@ public sealed class TfsActiveJobWorkItemTargetFactory : IWorkItemTargetFactory
     {
         ct.ThrowIfCancellationRequested();
 
-        var services = _activeServices.Require();
+        // The concrete TfsJobServices carries the TFS SDK WorkItemStore; the
+        // ITfsJobServices port deliberately does not expose SDK types (ADR-0023 / CA-H1).
+        var services = (TfsJobServices)_activeServices.Require();
 
         IWorkItemTarget target = new TfsWorkItemTarget(
             services.WorkItemStore,

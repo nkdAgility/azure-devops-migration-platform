@@ -4,9 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Net.Http;
-using System.Net.Http.Json;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -21,39 +18,32 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 
 /// <summary>
 /// Custom <see cref="ILoggerProvider"/> that pushes <see cref="DiagnosticLogRecord"/>
-/// batches to the control plane via <c>POST /agents/lease/{leaseId}/diagnostics</c>.
-/// Uses a bounded channel and <see cref="BackgroundService"/> drain loop.
-/// Failures are counted and logged at Debug level — never propagated.
+/// batches to the control plane via <see cref="UnifiedWorkerEventWriter.EnqueueDiagnostic"/>.
+/// Uses an unbounded channel and <see cref="BackgroundService"/> drain loop.
+/// Failures are counted silently — never propagated (circular dependency prevents ILogger use here).
 /// </summary>
 [ProviderAlias("ControlPlaneLogger")]
 public sealed class ControlPlaneLoggerProvider : BackgroundService, ILoggerProvider
 {
     internal const string HttpClientName = nameof(ControlPlaneLoggerProvider);
 
-    private static readonly JsonSerializerOptions _jsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
-
     private readonly Channel<DiagnosticLogRecord> _channel;
     private readonly IServiceProvider _serviceProvider;
-    private readonly ActiveLeaseState _leaseState;
     private readonly LogLevel _minimumLevel;
     private readonly int _flushBatchSize;
     private readonly TimeSpan _flushInterval;
     private long _droppedCount;
 
     // Lazily resolved to break circular dependency:
-    // ControlPlaneLoggerProvider (ILoggerProvider) -> IHttpClientFactory -> (resilience ILogger) -> ILoggerFactory -> ILoggerProvider
-    private IHttpClientFactory? _httpFactory;
+    // ControlPlaneLoggerProvider (ILoggerProvider) -> UnifiedWorkerEventWriter -> (resilience ILogger) -> ILoggerFactory -> ILoggerProvider
+    private UnifiedWorkerEventWriter? _eventWriter;
+    private bool _eventWriterResolved;
 
     public ControlPlaneLoggerProvider(
         IServiceProvider serviceProvider,
-        ActiveLeaseState leaseState,
         IOptions<DiagnosticLogOptions> options)
     {
         _serviceProvider = serviceProvider;
-        _leaseState = leaseState;
 
         var opts = options.Value;
         _minimumLevel = Enum.TryParse<LogLevel>(opts.MinimumLevel, ignoreCase: true, out var level)
@@ -62,14 +52,27 @@ public sealed class ControlPlaneLoggerProvider : BackgroundService, ILoggerProvi
         _flushBatchSize = opts.FlushBatchSize;
         _flushInterval = TimeSpan.FromMilliseconds(opts.FlushIntervalMs);
 
-        _channel = Channel.CreateBounded<DiagnosticLogRecord>(
-            new BoundedChannelOptions(opts.ChannelCapacity)
-            {
-                FullMode = BoundedChannelFullMode.DropOldest
-            });
+        // Unbounded: ILogger.Log is synchronous so we cannot await backpressure here.
+        // DropOldest silently discarded diagnostic records under any CP unavailability.
+        // The batch flush loop drains this channel every FlushInterval ms; memory growth
+        // is bounded by job duration. opts.ChannelCapacity is preserved for configuration
+        // compatibility but no longer constrains the channel.
+        _ = opts.ChannelCapacity; // retained in DiagnosticLogOptions for future use
+        _channel = Channel.CreateUnbounded<DiagnosticLogRecord>();
     }
 
-    private IHttpClientFactory HttpFactory => _httpFactory ??= _serviceProvider.GetRequiredService<IHttpClientFactory>();
+    private UnifiedWorkerEventWriter? EventWriter
+    {
+        get
+        {
+            if (!_eventWriterResolved)
+            {
+                _eventWriter = _serviceProvider.GetService<UnifiedWorkerEventWriter>();
+                _eventWriterResolved = true;
+            }
+            return _eventWriter;
+        }
+    }
 
     public ILogger CreateLogger(string categoryName)
         => new ControlPlaneLogger(this, categoryName);
@@ -131,43 +134,17 @@ public sealed class ControlPlaneLoggerProvider : BackgroundService, ILoggerProvi
         }
     }
 
-    private async Task FlushBatchAsync(
+    private Task FlushBatchAsync(
         List<DiagnosticLogRecord> batch,
         CancellationToken cancellationToken)
     {
-        var leaseId = _leaseState.CurrentLeaseId;
-        if (string.IsNullOrEmpty(leaseId))
-        {
-            // No lease yet — drop silently.
+        var writer = EventWriter;
+        if (writer is null)
             Interlocked.Add(ref _droppedCount, batch.Count);
-            return;
-        }
+        else
+            writer.EnqueueDiagnostic(batch.ToArray());
 
-        try
-        {
-            using var http = HttpFactory.CreateClient(HttpClientName);
-            var response = await http.PostAsJsonAsync(
-                $"/agents/lease/{Uri.EscapeDataString(leaseId)}/diagnostics",
-                batch,
-                _jsonOptions,
-                cancellationToken).ConfigureAwait(false);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                Interlocked.Add(ref _droppedCount, batch.Count);
-            }
-        }
-        catch (HttpRequestException)
-        {
-            Interlocked.Add(ref _droppedCount, batch.Count);
-            // Best-effort — failures are silently counted.
-            // Cannot use ILogger here: this class IS an ILoggerProvider,
-            // so injecting ILogger<T> creates a circular dependency deadlock.
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // Shutdown — discard.
-        }
+        return Task.CompletedTask;
     }
 
     /// <summary>

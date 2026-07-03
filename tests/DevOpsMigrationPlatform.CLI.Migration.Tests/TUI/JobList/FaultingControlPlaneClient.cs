@@ -9,7 +9,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
-using DevOpsMigrationPlatform.Abstractions.Streaming;
 
 namespace DevOpsMigrationPlatform.CLI.Migration.Tests.TUI.JobList;
 
@@ -26,16 +25,10 @@ internal sealed class FaultingControlPlaneClient : IControlPlaneClient
     public Task<IReadOnlyList<JobSummary>> GetAllJobsAsync(CancellationToken ct)
         => throw new HttpRequestException($"No connection could be made to {AttemptedUrl ?? "unknown"}");
 
-    public Task<JobMetrics?> GetTelemetryAsync(Guid jobId, CancellationToken ct)
-        => throw new NotSupportedException();
-
-    public IAsyncEnumerable<ProgressEvent> FollowLogsAsync(Guid jobId, CancellationToken ct, long? lastEventSequence = null)
-        => throw new NotSupportedException();
-
-    public async IAsyncEnumerable<DiagnosticLogRecord> StreamDiagnosticsAsync(
+    public async IAsyncEnumerable<JobStreamEvent> StreamJobAsync(
         Guid jobId,
-        string? level,
-        [EnumeratorCancellation] CancellationToken ct)
+        [EnumeratorCancellation] CancellationToken ct,
+        long fromSeq = 0)
     {
         await Task.CompletedTask.ConfigureAwait(false);
         yield break;

@@ -2,11 +2,9 @@
 // Copyright (c) Naked Agility Limited
 
 using System;
-using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.ControlPlane.Jobs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +12,10 @@ using Microsoft.Extensions.Logging;
 
 namespace DevOpsMigrationPlatform.ControlPlane.Controllers;
 
+/// <summary>
+/// Serves diagnostic log reads (<c>GET /jobs/{jobId}/diagnostics</c>, snapshot or SSE).
+/// Diagnostic records arrive via the unified <c>POST /workers/{workerId}/events</c> channel.
+/// </summary>
 [ApiController]
 public sealed class DiagnosticsController : ControllerBase
 {
@@ -23,34 +25,10 @@ public sealed class DiagnosticsController : ControllerBase
     };
 
     private readonly DiagnosticLogStore _store;
-    private readonly ILeaseJobResolver _resolver;
-    private readonly ILogger<DiagnosticsController> _logger;
 
-    public DiagnosticsController(
-        DiagnosticLogStore store,
-        ILeaseJobResolver resolver,
-        ILogger<DiagnosticsController> logger)
+    public DiagnosticsController(DiagnosticLogStore store)
     {
         _store = store;
-        _resolver = resolver;
-        _logger = logger;
-    }
-
-    /// <summary>
-    /// Agent pushes a batch of <see cref="DiagnosticLogRecord"/> for an active lease.
-    /// <c>POST /agents/lease/{leaseId}/diagnostics</c>
-    /// </summary>
-    [HttpPost("/agents/lease/{leaseId}/diagnostics")]
-    [ProducesResponseType(204)]
-    [ProducesResponseType(404)]
-    public IActionResult PostDiagnostics(string leaseId, [FromBody] List<DiagnosticLogRecord> records)
-    {
-        var jobId = _resolver.ResolveJobId(leaseId);
-        if (jobId is null)
-            return NotFound($"Lease '{leaseId}' is not recognised.");
-
-        _store.Add(jobId.Value, records);
-        return NoContent();
     }
 
     /// <summary>

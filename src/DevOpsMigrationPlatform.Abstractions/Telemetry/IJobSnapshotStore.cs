@@ -7,7 +7,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Telemetry;
 /// <summary>
 /// In-process store for the most recent <see cref="JobSnapshot"/>.
 /// Updated by discovery and migration modules at project boundaries.
-/// Read by <see cref="IControlPlaneTelemetryClient"/> push timer to forward to the Control Plane.
+/// Read by the telemetry push timer to forward to the Control Plane via the unified worker event writer.
 /// </summary>
 public interface IJobSnapshotStore
 {

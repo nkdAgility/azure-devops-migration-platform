@@ -55,6 +55,11 @@ internal sealed class AzureDevOpsIdentityAdapter : IIdentityAdapter
         {
             var endpoint = _targetEndpointInfo.ToOrganisationEndpoint();
             var client = await _clientFactory.CreateIdentityClientAsync(endpoint, ct).ConfigureAwait(false);
+            // PAGINATION EXEMPTION (ADR-0024, EC-M2): Identities - Read Identities
+            // (api-version 7.1, GET {org}/_apis/identities?searchFilter=…&filterValue=…)
+            // exposes only search-filter query parameters — no $top/$skip/continuation token.
+            // The result set is bounded by the exact UPN/display-name filter value.
+            // See .agents/30-context/domains/connector-model.md → "Pagination Exemptions".
             var identities = await client.ReadIdentitiesAsync(filter, query, QueryMembership.None, cancellationToken: ct).ConfigureAwait(false);
 
             var candidates = new List<IdentityCandidate>();

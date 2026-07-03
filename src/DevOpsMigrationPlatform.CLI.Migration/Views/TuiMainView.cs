@@ -228,39 +228,41 @@ public sealed class TuiMainView : Window, IDisposable
 
     private async Task PollSelectedJobAsync(Guid jobId, CancellationToken ct)
     {
-        while (!ct.IsCancellationRequested)
+        // One-shot bootstrap for initial tasks/snapshot/metrics.
+        try
         {
-            try
+            var bootstrap = await _client.GetBootstrapAsync(jobId, ct).ConfigureAwait(false);
+            if (bootstrap is not null)
             {
-                var bootstrapTask = _client.GetBootstrapAsync(jobId, ct);
-                var telemetryTask = _client.GetTelemetryAsync(jobId, ct);
-                await Task.WhenAll(bootstrapTask, telemetryTask).ConfigureAwait(false);
-
-                var bootstrap = await bootstrapTask.ConfigureAwait(false);
-                var telemetry = await telemetryTask.ConfigureAwait(false);
-                var metrics = bootstrap?.Metrics ?? telemetry;
-
-                _metrics.Update(metrics);
-                _taskProgress.Update(GetSelectedSummary(jobId), bootstrap?.Tasks, metrics, _lastProgressEvent, bootstrap?.Snapshot);
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
-            {
-                return;
-            }
-            catch
-            {
-                // Swallow transient errors — next poll will retry.
-            }
-
-            try
-            {
-                await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
+                Application.Invoke(() =>
+                {
+                    _metrics.Update(bootstrap.Metrics);
+                    _taskProgress.Update(GetSelectedSummary(jobId), bootstrap.Tasks, bootstrap.Metrics, _lastProgressEvent, bootstrap.Snapshot);
+                });
             }
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+        catch { /* Swallow — stream will deliver updates */ }
+
+        // Live updates via unified SSE stream.
+        try
+        {
+            await foreach (var streamEvent in _client.StreamJobAsync(jobId, ct).ConfigureAwait(false))
+            {
+                if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Progress && streamEvent.Progress is { } evt)
+                {
+                    Application.Invoke(() =>
+                    {
+                        _metrics.Update(evt.Metrics);
+                        _taskProgress.Update(GetSelectedSummary(jobId), null, evt.Metrics, evt, null);
+                    });
+                }
+                else if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Terminal)
+                    break;
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        catch { /* Swallow transient errors */ }
     }
 
     private void ApplyJobList(IReadOnlyList<JobSummary> jobs)

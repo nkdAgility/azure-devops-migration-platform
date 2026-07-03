@@ -27,6 +27,22 @@ internal sealed class MigrationPlatformOptionsValidator : IValidateOptions<Migra
     {
         var errors = new List<string>();
 
+        // ConfigVersion — hard cutover to 2.0 (ADR 0028). No v1 shim.
+        if (!string.Equals(options.ConfigVersion, "2.0", StringComparison.Ordinal))
+        {
+            errors.Add(
+                $"This file uses configuration version '{options.ConfigVersion}', which is no longer supported. " +
+                "This release requires ConfigVersion '2.0'.\n" +
+                "Module options are now expressed as three aspects: 'Selection' (what to migrate), 'Data' (what to carry), 'Processing' (how to execute).\n" +
+                "To upgrade 'Modules.WorkItems':\n" +
+                "  1. Rename 'Scope' to 'Selection' ('Query' and 'Filters' are unchanged).\n" +
+                "  2. Move 'Extensions.Revisions', 'Extensions.Comments', and 'Extensions.EmbeddedImages' under 'Data'.\n" +
+                "  3. Move 'Extensions.WorkItemResolutionStrategy' under 'Processing'.\n" +
+                "  4. Delete the now-empty 'Extensions' object.\n" +
+                "  5. Set 'MigrationPlatform.ConfigVersion' to '2.0'.\n" +
+                "See docs/configuration-reference.md ('Module configuration anatomy') for the full v2 layout.");
+        }
+
         // Policies
         try { options.Policies.Validate(); }
         catch (InvalidOperationException ex) { errors.Add(ex.Message); }

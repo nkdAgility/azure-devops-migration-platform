@@ -4,8 +4,8 @@
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
-/// Work item resolution strategy extension options.
-/// Bound from <c>MigrationPlatform:Modules:WorkItems:Extensions:WorkItemResolutionStrategy</c>.
+/// Work item resolution strategy processing-aspect options.
+/// Bound from <c>MigrationPlatform:Modules:WorkItems:Processing:WorkItemResolutionStrategy</c> (ConfigVersion 2.0 anatomy).
 /// </summary>
 public sealed class WorkItemResolutionStrategyOptionsConfig : EnabledExtensionOptions
 {

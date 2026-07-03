@@ -40,7 +40,8 @@ public class ImportCommentsContext
 
     public WorkItemRevisionLoopDriver BuildOrchestrator(CommentsWorkItemExtension? commentsExtension = null)
     {
-        var extension = commentsExtension ?? new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()));
+        var extension = commentsExtension ?? new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All);
         var processor = new WorkItemResolutionProcessor(
             MockTarget.Object,
             MockIdMapStore.Object,

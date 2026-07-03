@@ -83,18 +83,26 @@ public static class ModuleServiceCollectionExtensions
                 state.Current?.GetSection(WorkItemsModuleOptions.SectionName).Bind(opts);
             });
 
+        // Canonical embedded-image reference parse/rewrite Tool (ADR-0026, TC-H2/TC-L3):
+        // pure singleton engine shared by the export and import paths.
+        services.TryAddSingleton<IEmbeddedImageReferenceTool, Tools.EmbeddedImages.EmbeddedImageReferenceTool>();
+
         services.RegisterWorkItemServices(configuration);
 
         // Work-item capability extensions (IModuleExtension ports). Each owns its own IOptions<T>.
         // Note: Links and Attachments are now unconditional core behaviour — no extension registration needed.
-#if NET7_0_OR_GREATER
-        services.AddSchemaEntry<CommentsExtensionOptions>("Work item Comments extension (inline comment replay) configuration");
-#endif
+        // CommentsExtensionOptions is derived from Modules:WorkItems:Data:Comments (v2 anatomy),
+        // not bound from a config section of its own, so it has no schema entry.
         services.AddOptions<CommentsExtensionOptions>()
-            .Configure<IOptions<WorkItemsModuleOptions>>((o, wi) => o.Enabled = wi.Value.Extensions.Comments.Enabled);
+            .Configure<IOptions<WorkItemsModuleOptions>>((o, wi) => o.Enabled = wi.Value.Data.Comments.Enabled);
         services.AddSingleton<CommentsWorkItemExtension>(sp =>
             new CommentsWorkItemExtension(
                 sp.GetRequiredService<IOptions<CommentsExtensionOptions>>(),
+                // Connector capability declaration (ADR-0024/EC-H1). Fail-closed: hosts that
+                // register no connector capability provider get an explicit None declaration.
+                sp.GetService<IConnectorCapabilityProvider>()
+                    ?? new Infrastructure.Agent.ConnectorCapability.StaticConnectorCapabilityProvider(
+                        global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.None),
                 sp.GetService<IWorkItemCommentSourceFactory>(),
                 sp.GetService<Microsoft.Extensions.Logging.ILogger<CommentsWorkItemExtension>>()));
         services.AddSingleton<IModuleExtension>(sp => sp.GetRequiredService<CommentsWorkItemExtension>());
@@ -137,8 +145,8 @@ public static class ModuleServiceCollectionExtensions
                 sp.GetRequiredService<ILogger<WorkItemsModule>>(),
                 sp.GetService<IPlatformMetrics>(),
                 sp.GetService<IWorkItemDiscoveryService>(),
-                sp.GetService<IExportProgressStoreFactory>(),
-                sp.GetService<IReferencedPathTracker>(),
+                sp.GetService<IWorkItemProgressStoreFactory>(),
+                sp.GetService<IReferencedPathLifecycle>(),
                 sp.GetRequiredService<IOptions<WorkItemsModuleOptions>>(),
                 sp.GetRequiredService<ISourceEndpointInfo>(),
                 sp.GetRequiredService<ImportPreparer>(),

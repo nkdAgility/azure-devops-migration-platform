@@ -86,11 +86,11 @@ interface IProgressSink
 |---|---|
 | `ConsoleProgressSink` | Renders a live progress log in the terminal (local CLI output). |
 | `PackageProgressSink` | Writes structured events to `.migration/runs/<runId>/logs/progress.ndjson` in the package (always active). |
-| `ControlPlaneProgressSink` | POSTs each event to `POST /agents/lease/{leaseId}/progress` for real-time TUI streaming. |
+| `UnifiedWorkerEventWriter` | Batches events (≤50 events or 500 ms) into `POST /workers/{workerId}/events` for real-time TUI streaming. |
 
 All three sinks run simultaneously when the Migration Agent holds a lease. The Job Engine sees only `IProgressSink`; it does not know which sinks are active.
 
-`ControlPlaneProgressSink` is best-effort — transient failures are dropped and logged at debug level. Job execution is never blocked by a sink failure.
+`UnifiedWorkerEventWriter` is acknowledged and retried — failed batches are retried with exponential backoff (up to 5 attempts, with 429 handling). Job execution is never blocked by a sink failure.
 
 ### ProgressEvent schema
 
@@ -108,7 +108,7 @@ All three sinks run simultaneously when the Migration Agent holds a lease. The J
 }
 ```
 
-The `jobId` is not part of the `ProgressEvent` record — it is carried by the lease endpoint that receives the event (`POST /agents/lease/{leaseId}/progress`), allowing the control plane to resolve the job from the lease.
+The `jobId` is not part of the `ProgressEvent` record — the `WorkerEventBatch` that carries the event identifies the worker and its `leaseId`, allowing the control plane to resolve the job from the lease.
 
 ---
 
@@ -172,4 +172,4 @@ Progress data comes from the control plane's latest cursor mirror. The authorita
 
 The TUI holds an SSE connection for the progress table (see Status Display above) but this connection does not affect the running job. The Migration Agent holds the lease independently of any connected TUI. When the TUI process exits or loses connectivity, the job continues running unaffected.
 
-Reconnecting is always safe and requires only the `jobId`. The TUI will re-subscribe to the SSE stream and receive events from the ring buffer (last 1000 events) on reconnect. See [docs/cli-guide.md](cli-guide.md) for the `status` and `logs` commands.
+Reconnecting is always safe and requires only the `jobId`. The TUI will re-subscribe to the SSE stream and replay events from the control plane's append-only log (full history, via `?from={seq}`) on reconnect. See [docs/cli-guide.md](cli-guide.md) for the `status` and `logs` commands.

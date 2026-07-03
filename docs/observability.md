@@ -6,34 +6,50 @@ This document covers how to observe, monitor, and interpret the health and progr
 
 ## Telemetry Channels
 
-The platform emits telemetry on three channels:
+The platform emits telemetry on three logical channels. The agent-to-CP wire transport was consolidated in 2026-06-30 (Phases A-E) — all agent telemetry now flows through `UnifiedWorkerEventWriter` into a single `POST /workers/{workerId}/events` batch endpoint, and the CLI reads from a single unified SSE stream.
+
+### Agent → ControlPlane transport
+
+| Kind | Writer | CP endpoint |
+|---|---|---|
+| Progress events | `UnifiedWorkerEventWriter` (via `IProgressSink`) | `POST /workers/{workerId}/events` (`kind: Progress`) |
+| Diagnostic records | `ControlPlaneLoggerProvider` → `UnifiedWorkerEventWriter` | `POST /workers/{workerId}/events` (`kind: Diagnostic`) |
+| Task list | `UnifiedWorkerEventWriter.EnqueueTasks()` | `POST /workers/{workerId}/events` (`kind: Tasks`) |
+| Heartbeat | `AgentWorkerBase` periodic timer (15 s) | `POST /agents/lease/{leaseId}/heartbeat` |
+| Terminal signal | `UnifiedWorkerEventWriter.EnqueueTerminal()` | `POST /workers/{workerId}/events` (`kind: Terminal`) |
+
+### CLI → ControlPlane stream
 
 | Channel | API | Consumer | Content |
 |---|---|---|---|
-| 1 — Progress (SSE) | `GET /jobs/{id}/progress?follow=true` | CLI, TUI | `ProgressEvent` objects — stage transitions, cursor position |
-| 2 — Metrics (polling) | `GET /jobs/{id}/telemetry` | CLI, TUI Metrics | `JobMetrics` snapshot — counts, durations |
-| 3 — Diagnostics (SSE) | `GET /jobs/{id}/diagnostics?follow=true` | TUI Logs | Structured log events from the agent |
+| **Unified stream (primary)** | `GET /jobs/{id}/stream` | CLI (`--follow`), TUI | Progress + Diagnostics multiplexed; replays full history on reconnect |
+| Progress (legacy shim) | `GET /jobs/{id}/progress?follow=true` | Older CLI builds | `ProgressEvent` objects only |
+| Diagnostics (legacy shim) | `GET /jobs/{id}/diagnostics?follow=true` | Older CLI builds | Structured log events only |
+| Metrics (polling) | `GET /jobs/{id}/telemetry` | TUI Metrics panel | `JobMetrics` snapshot — counts, durations |
 
 ```mermaid
 flowchart LR
-    Agent["Migration Agent"]
-    subgraph Channels["Telemetry Channels"]
-        C1["Channel 1 — Progress SSE\nGET /jobs/{id}/progress?follow=true\nProgressEvent objects"]
-        C2["Channel 2 — Metrics polling\nGET /jobs/{id}/telemetry\nJobMetrics snapshot"]
-        C3["Channel 3 — Diagnostics SSE\nGET /jobs/{id}/diagnostics?follow=true\nStructured log events"]
+    Agent["Migration Agent\n(UnifiedWorkerEventWriter)"]
+    subgraph AgentToCP["Agent → CP (unified batch)"]
+        UEW["POST /workers/{id}/events\nWorkerEventBatch\n≤50 events or 500 ms"]
+    end
+    subgraph CPStore["ControlPlane stores"]
+        PS["JobProgressStore\n(append-only, 50k cap)"]
+        DS["DiagnosticLogStore\n(append-only, 50k cap)"]
+    end
+    subgraph Stream["CLI stream"]
+        SS["GET /jobs/{id}/stream\nUnified SSE\n(Progress + Diagnostics)"]
     end
     CLI["CLI / --follow display"]
-    TUI_Progress["TUI Progress table"]
-    TUI_Metrics["TUI Metrics panel"]
-    TUI_Logs["TUI Logs panel"]
+    TUI["TUI Progress + Logs"]
 
-    Agent -->|ProgressEvent| C1
-    Agent -->|OTel metrics via IMigrationMetrics| C2
-    Agent -->|ILogger records| C3
-    C1 --> CLI
-    C1 --> TUI_Progress
-    C2 --> TUI_Metrics
-    C3 --> TUI_Logs
+    Agent -->|Progress, Diagnostic,\nTasks, Terminal| UEW
+    UEW --> PS
+    UEW --> DS
+    PS --> SS
+    DS --> SS
+    SS --> CLI
+    SS --> TUI
 ```
 
 ## Traces

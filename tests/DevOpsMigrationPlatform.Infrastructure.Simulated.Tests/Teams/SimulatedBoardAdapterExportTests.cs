@@ -72,12 +72,14 @@ public sealed class SimulatedBoardAdapterExportTests
     }
 
     private static BoardConfigTeamExtension BuildExtension(
-        BoardConfigExtensionOptions options,
+        BoardConfigDataOptions options,
         IConnectorCapabilityProvider? capProvider = null)
         => new(
             Options.Create(options),
+            Options.Create(new BoardConfigProcessingOptions()),
             new SimulatedBoardAdapter(),
             capProvider ?? AllCapabilities(),
+            new DevOpsMigrationPlatform.Infrastructure.Agent.Teams.BoardConfigMergeTool(),
             metrics: null,
             logger: NullLogger<BoardConfigTeamExtension>.Instance);
 
@@ -90,7 +92,7 @@ public sealed class SimulatedBoardAdapterExportTests
     [TestMethod]
     public async Task Export_WhenColumnsEnabled_WritesBoardConfigJsonWithBoards()
     {
-        var options = new BoardConfigExtensionOptions { Columns = true };
+        var options = new BoardConfigDataOptions { Columns = true };
         var ext = BuildExtension(options);
         var (package, written) = CreateTrackingPackage();
 
@@ -124,7 +126,7 @@ public sealed class SimulatedBoardAdapterExportTests
     [TestMethod]
     public async Task Export_WhenColumnsDisabled_WritesEmptyColumnsArrays()
     {
-        var options = new BoardConfigExtensionOptions { Columns = false };
+        var options = new BoardConfigDataOptions { Columns = false };
         var ext = BuildExtension(options);
         var (package, written) = CreateTrackingPackage();
 
@@ -148,7 +150,7 @@ public sealed class SimulatedBoardAdapterExportTests
     [TestMethod]
     public async Task Export_WhenSwimLanesEnabled_WritesSwimLanesForStoriesBoard()
     {
-        var options = new BoardConfigExtensionOptions { SwimLanes = true };
+        var options = new BoardConfigDataOptions { SwimLanes = true };
         var ext = BuildExtension(options);
         var (package, written) = CreateTrackingPackage();
 
@@ -173,7 +175,7 @@ public sealed class SimulatedBoardAdapterExportTests
     [TestMethod]
     public async Task Export_WhenCardRulesEnabled_WritesCardRulesProperty()
     {
-        var options = new BoardConfigExtensionOptions { CardRules = true };
+        var options = new BoardConfigDataOptions { CardRules = true };
         var ext = BuildExtension(options);
         var (package, written) = CreateTrackingPackage();
 
@@ -196,7 +198,7 @@ public sealed class SimulatedBoardAdapterExportTests
     [TestMethod]
     public async Task Export_WhenCardRulesDisabled_OmitsCardRulesFromJson()
     {
-        var options = new BoardConfigExtensionOptions { CardRules = false };
+        var options = new BoardConfigDataOptions { CardRules = false };
         var ext = BuildExtension(options);
         var (package, written) = CreateTrackingPackage();
 
@@ -216,7 +218,7 @@ public sealed class SimulatedBoardAdapterExportTests
     [TestMethod]
     public async Task Export_WhenBacklogsEnabled_WritesBacklogsArray()
     {
-        var options = new BoardConfigExtensionOptions { Backlogs = true };
+        var options = new BoardConfigDataOptions { Backlogs = true };
         var ext = BuildExtension(options);
         var (package, written) = CreateTrackingPackage();
 
@@ -242,7 +244,7 @@ public sealed class SimulatedBoardAdapterExportTests
     [TestMethod]
     public async Task Export_WhenTaskboardColumnsEnabled_WritesTaskboardColumnsArray()
     {
-        var options = new BoardConfigExtensionOptions { TaskboardColumns = true };
+        var options = new BoardConfigDataOptions { TaskboardColumns = true };
         var ext = BuildExtension(options);
         var (package, written) = CreateTrackingPackage();
 
@@ -265,7 +267,7 @@ public sealed class SimulatedBoardAdapterExportTests
     [TestMethod]
     public async Task Export_WhenCapabilityAbsent_WritesNoArtifact()
     {
-        var options = new BoardConfigExtensionOptions();
+        var options = new BoardConfigDataOptions();
         var cap = new Mock<IConnectorCapabilityProvider>(MockBehavior.Loose);
         cap.Setup(c => c.Has(Cap.BoardConfig)).Returns(false);
         var ext = BuildExtension(options, cap.Object);
@@ -285,7 +287,7 @@ public sealed class SimulatedBoardAdapterExportTests
     [TestMethod]
     public async Task Export_IsIdempotent_SameBoardStructureOnEveryRun()
     {
-        var options = new BoardConfigExtensionOptions
+        var options = new BoardConfigDataOptions
         {
             Columns = true,
             SwimLanes = true,

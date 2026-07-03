@@ -4,16 +4,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading;
-using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Storage;
-using DevOpsMigrationPlatform.Abstractions.Agent.Context;
-using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 using DevOpsMigrationPlatform.Abstractions.Options;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
@@ -23,9 +16,9 @@ using Microsoft.Extensions.Options;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityTranslation;
 
 /// <summary>
-/// Full <see cref="IIdentityTranslationTool"/> implementation.
-/// Reads identity descriptors and mapping overrides from the package artefact store.
-/// Thread-safe after initialization (all state set once in <see cref="InitializeAsync"/>).
+/// Pure <see cref="IIdentityTranslationTool"/> implementation (ADR-0026, TC-M1).
+/// Stateless: resolved maps are passed in as data. Package read/write and map ownership
+/// moved to <c>IdentitiesOrchestrator</c>; the tool owns parsing and the resolution order only.
 /// </summary>
 public sealed class IdentityTranslationTool : IIdentityTranslationTool
 {
@@ -39,14 +32,6 @@ public sealed class IdentityTranslationTool : IIdentityTranslationTool
 
     private readonly IdentityTranslationOptions _options;
     private readonly ILogger<IdentityTranslationTool> _logger;
-    private readonly IPackageAccess _package;
-    private readonly IIdentitiesOrchestrator? _orchestrator;
-    private readonly string _organisation;
-    private readonly string _project;
-
-    private Dictionary<string, string> _overrides = new(StringComparer.OrdinalIgnoreCase);
-    private Dictionary<string, string> _prepared = new(StringComparer.OrdinalIgnoreCase);
-    private HashSet<string> _allUniqueNames = new(StringComparer.OrdinalIgnoreCase);
 
     public bool IsEnabled => _options.Enabled;
 
@@ -55,31 +40,25 @@ public sealed class IdentityTranslationTool : IIdentityTranslationTool
 
     public IdentityTranslationTool(
         IOptions<IdentityTranslationOptions> options,
-        ISourceEndpointInfo sourceEndpointInfo,
-        ILogger<IdentityTranslationTool>? logger = null,
-        IPackageAccess? package = null,
-        IIdentitiesOrchestrator? orchestrator = null)
+        ILogger<IdentityTranslationTool>? logger = null)
     {
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        if (sourceEndpointInfo is null) throw new ArgumentNullException(nameof(sourceEndpointInfo));
-        _organisation = sourceEndpointInfo.OrganisationSlug;
-        _project = sourceEndpointInfo.Project;
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<IdentityTranslationTool>.Instance;
-        _package = package ?? throw new ArgumentNullException(nameof(package));
-        _orchestrator = orchestrator;
     }
 
     /// <inheritdoc/>
-    public async Task InitializeAsync(CancellationToken ct)
+    public IdentityTranslationMap ParseTranslationInputs(
+        string? descriptorsJsonl,
+        string? mappingJson,
+        string? preparedIdentitiesJson)
     {
-        using var activity = s_activitySource.StartActivity("identities.translation.initialize");
-        // Read descriptors
-        var descriptorsContent = await ReadPackageTextAsync("descriptors.jsonl", ct).ConfigureAwait(false);
-        var allUniqueNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using var activity = s_activitySource.StartActivity("identities.translation.parse");
 
-        if (descriptorsContent is not null)
+        // Descriptors: collect all source unique names.
+        var allUniqueNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (descriptorsJsonl is not null)
         {
-            foreach (var line in descriptorsContent.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            foreach (var line in descriptorsJsonl.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 if (string.IsNullOrWhiteSpace(line)) continue;
                 try
@@ -90,25 +69,19 @@ public sealed class IdentityTranslationTool : IIdentityTranslationTool
                         : root.TryGetProperty("UniqueName", out var unU) ? unU.GetString()
                         : null;
                     if (!string.IsNullOrWhiteSpace(uniqueName))
-                    {
-                        var resolvedUniqueName = uniqueName!;
-                        allUniqueNames.Add(resolvedUniqueName);
-                    }
+                        allUniqueNames.Add(uniqueName!);
                 }
                 catch (JsonException) { }
             }
         }
 
-        // Read mapping overrides
-        var mappingContent = await ReadPackageTextAsync("mapping.json", ct).ConfigureAwait(false);
+        // Mapping overrides.
         var overrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        if (!string.IsNullOrWhiteSpace(mappingContent))
+        if (!string.IsNullOrWhiteSpace(mappingJson))
         {
             try
             {
-                var mappingJson = mappingContent!;
-                var raw = JsonSerializer.Deserialize<Dictionary<string, string>>(mappingJson, s_jsonOptions);
+                var raw = JsonSerializer.Deserialize<Dictionary<string, string>>(mappingJson!, s_jsonOptions);
                 if (raw is not null)
                 {
                     foreach (var kv in raw)
@@ -121,16 +94,13 @@ public sealed class IdentityTranslationTool : IIdentityTranslationTool
             }
         }
 
-        // Read prepared (auto-resolved) matches persisted by the Prepare phase. This makes
-        // resolution survive a Prepare→Import process boundary, where the orchestrator's
-        // in-memory cache is empty.
-        var preparedContent = await ReadPackageTextAsync("prepared-identities.json", ct).ConfigureAwait(false);
+        // Prepared (auto-resolved) matches persisted by the Prepare phase.
         var prepared = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(preparedContent))
+        if (!string.IsNullOrWhiteSpace(preparedIdentitiesJson))
         {
             try
             {
-                var raw = JsonSerializer.Deserialize<Dictionary<string, string>>(preparedContent!, s_jsonOptions);
+                var raw = JsonSerializer.Deserialize<Dictionary<string, string>>(preparedIdentitiesJson!, s_jsonOptions);
                 if (raw is not null)
                 {
                     foreach (var kv in raw)
@@ -139,42 +109,37 @@ public sealed class IdentityTranslationTool : IIdentityTranslationTool
             }
             catch (JsonException)
             {
-                // Non-fatal — fall back to the orchestrator cache / default logic.
+                // Non-fatal — fall back to the orchestrator-provided prepared entries / default logic.
             }
         }
 
-        _allUniqueNames = allUniqueNames;
-        _overrides = overrides;
-        _prepared = prepared;
-
         _logger.LogInformation(
-            "[IdentityTranslation] Initialized with {DescriptorCount} descriptors, {MappingCount} mapping overrides, {PreparedCount} prepared matches.",
-            _allUniqueNames.Count, _overrides.Count, _prepared.Count);
-        activity?.SetTag("identities.descriptor.count", _allUniqueNames.Count);
-        activity?.SetTag("identities.mapping.count", _overrides.Count);
-        activity?.SetTag("identities.prepared.count", _prepared.Count);
+            "[IdentityTranslation] Parsed {DescriptorCount} descriptors, {MappingCount} mapping overrides, {PreparedCount} prepared matches.",
+            allUniqueNames.Count, overrides.Count, prepared.Count);
+        activity?.SetTag("identities.descriptor.count", allUniqueNames.Count);
+        activity?.SetTag("identities.mapping.count", overrides.Count);
+        activity?.SetTag("identities.prepared.count", prepared.Count);
+
+        return new IdentityTranslationMap(overrides, prepared, allUniqueNames);
     }
 
     /// <inheritdoc/>
-    public string Translate(string sourceIdentity)
+    public string Translate(string sourceIdentity, IdentityTranslationMap map)
     {
+        if (map is null) throw new ArgumentNullException(nameof(map));
+
         using var activity = s_activitySource.StartActivity("identity.translate");
         if (!IsEnabled || string.IsNullOrWhiteSpace(sourceIdentity))
             return sourceIdentity;
 
         // Step 1: explicit override from mapping.json.
-        if (_overrides.TryGetValue(sourceIdentity, out var mapped))
+        if (map.Overrides.TryGetValue(sourceIdentity, out var mapped))
             return mapped;
 
-        // Steps 2-3: Prepare-phase UPN/display-name match. Prefer the persisted map
-        // (survives a Prepare→Import process boundary); fall back to the orchestrator's
-        // in-memory cache for the single-process path.
-        if (_prepared.TryGetValue(sourceIdentity, out var preparedTarget) && !string.IsNullOrWhiteSpace(preparedTarget))
+        // Steps 2-3: Prepare-phase UPN/display-name match (persisted map merged with the
+        // orchestrator's in-memory cache by the Identities orchestrator).
+        if (map.Prepared.TryGetValue(sourceIdentity, out var preparedTarget) && !string.IsNullOrWhiteSpace(preparedTarget))
             return preparedTarget;
-
-        var prepared = _orchestrator?.ResolvePrepared(sourceIdentity);
-        if (!string.IsNullOrWhiteSpace(prepared))
-            return prepared!;
 
         // Step 4: configured default (when set); otherwise source pass-through.
         if (!string.IsNullOrWhiteSpace(_options.DefaultIdentity))
@@ -187,48 +152,20 @@ public sealed class IdentityTranslationTool : IIdentityTranslationTool
     }
 
     /// <inheritdoc/>
-    public async Task WriteUnresolvedAsync(CancellationToken ct)
+    public IReadOnlyList<string> ComputeUnresolved(IdentityTranslationMap map)
     {
+        if (map is null) throw new ArgumentNullException(nameof(map));
+
         var unresolved = new List<string>();
-        foreach (var uniqueName in _allUniqueNames)
+        foreach (var uniqueName in map.AllUniqueNames)
         {
             // An identity is resolved if it has an explicit mapping.json override OR was
             // auto-resolved by the Prepare phase (UPN/display-name match). Excluding the
             // latter prevents successfully translated identities being reported as failures.
-            if (!_overrides.ContainsKey(uniqueName) && !_prepared.ContainsKey(uniqueName))
+            if (!map.Overrides.ContainsKey(uniqueName) && !map.Prepared.ContainsKey(uniqueName))
                 unresolved.Add(uniqueName);
         }
 
-        if (unresolved.Count == 0) return;
-
-        var content = JsonSerializer.Serialize(unresolved, s_jsonOptions);
-        await WritePackageTextAsync("unresolved.json", content, ct).ConfigureAwait(false);
-
-        _logger.LogWarning(
-            "[IdentityTranslation] {Count} identit{Suffix} have no explicit mapping or prepared match — written to Identities/unresolved.json.",
-            unresolved.Count, unresolved.Count == 1 ? "y" : "ies");
-    }
-
-    private async Task<string?> ReadPackageTextAsync(string relativePath, CancellationToken ct)
-    {
-        var payload = await _package.RequestContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Organisation: _organisation, Project: _project, Module: "Identities", Address: new RelativePathAddress(relativePath)),
-            ct).ConfigureAwait(false);
-        if (payload is null)
-            return null;
-
-        if (payload.Content.CanSeek)
-            payload.Content.Position = 0;
-        using var reader = new StreamReader(payload.Content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
-        return await reader.ReadToEndAsync().ConfigureAwait(false);
-    }
-
-    private async Task WritePackageTextAsync(string relativePath, string content, CancellationToken ct)
-    {
-        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content), writable: false);
-        await _package.PersistContentAsync(
-            new PackageContentContext(PackageContentKind.Artefact, Organisation: _organisation, Project: _project, Module: "Identities", Address: new RelativePathAddress(relativePath)),
-            new PackagePayload(stream, "application/json"),
-            ct).ConfigureAwait(false);
+        return unresolved;
     }
 }

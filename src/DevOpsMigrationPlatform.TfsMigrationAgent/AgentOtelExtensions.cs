@@ -53,12 +53,11 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                 if (!Path.IsPathRooted(diagnosticsPath))
                     diagnosticsPath = Path.GetFullPath(diagnosticsPath);
 
-                var sessionId = configuration["Telemetry:DiagnosticsSessionId"]
-                    ?? Environment.GetEnvironmentVariable("Telemetry__DiagnosticsSessionId");
+                var sessionId = configuration["Telemetry:DiagnosticsSessionId"];
                 if (string.IsNullOrWhiteSpace(sessionId))
                 {
                     sessionId = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
-                    Environment.SetEnvironmentVariable("Telemetry__DiagnosticsSessionId", sessionId);
+                    configuration["Telemetry:DiagnosticsSessionId"] = sessionId;
                 }
 
                 diagnosticsPath = Path.Combine(diagnosticsPath, sessionId);
@@ -89,9 +88,6 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                 if (hasDiagnostics)
                 {
                     var metricsFile = Path.Combine(diagnosticsPath, $"{serviceName}-metrics.log");
-                    var dir = Path.GetDirectoryName(metricsFile);
-                    if (dir is not null)
-                        Directory.CreateDirectory(dir);
                     metrics.AddReader(new PeriodicExportingMetricReader(
                         new DiagnosticsFileMetricExporter(metricsFile), exportIntervalMilliseconds: 2_000));
                 }
@@ -117,9 +113,6 @@ namespace DevOpsMigrationPlatform.TfsMigrationAgent
                 if (hasDiagnostics)
                 {
                     var tracesFile = Path.Combine(diagnosticsPath, $"{serviceName}-traces.log");
-                    var dir = Path.GetDirectoryName(tracesFile);
-                    if (dir is not null)
-                        Directory.CreateDirectory(dir);
                     tracing.AddProcessor(new SimpleActivityExportProcessor(
                         new DiagnosticsFileTraceExporter(tracesFile)));
                 }

@@ -45,6 +45,9 @@ public sealed class TfsExportBuilder : IAsyncDisposable
     // Used by progress-visibility tests that test CLI output behaviour, not TFS connectivity.
     private bool _useSimulatedSource;
 
+    // Whether to write a deliberately-legacy v1 config (ConfigVersion 1.0, Scope/Extensions).
+    private bool _useLegacyV1Config;
+
     public TfsExportBuilder()
     {
         _workDir = Path.Combine(Path.GetTempPath(), "tfs-export-tests", Guid.NewGuid().ToString("N"));
@@ -112,6 +115,18 @@ public sealed class TfsExportBuilder : IAsyncDisposable
     /// </summary>
     public TfsExportBuilder WithSimulatedSource()
     {
+        _useSimulatedSource = true;
+        return this;
+    }
+
+    /// <summary>
+    /// Writes a deliberately-legacy v1 config (ConfigVersion 1.0, Scope/Extensions anatomy)
+    /// to prove the hard-cutover rejection path (ADR 0028). Uses the Simulated source so the
+    /// scenario would run end-to-end if the config were accepted.
+    /// </summary>
+    public TfsExportBuilder WithLegacyV1Config()
+    {
+        _useLegacyV1Config = true;
         _useSimulatedSource = true;
         return this;
     }
@@ -275,12 +290,33 @@ public sealed class TfsExportBuilder : IAsyncDisposable
         // the URL/project validation guards that the scenarios under test exercise.
         var packageDir = _workDir.Replace("\\", "/");
 
-        if (_useSimulatedSource)
+        if (_useLegacyV1Config)
         {
             return $$"""
             {
               "MigrationPlatform": {
                 "ConfigVersion": "1.0",
+                "Mode": "Export",
+                "Source": { "Type": "Simulated", "Project": "SimulatedProject" },
+                "Package": { "WorkingDirectory": "{{packageDir}}", "CreatePackage": true },
+                "Modules": {
+                  "WorkItems": {
+                    "Enabled": true,
+                    "Scope": { "Query": "SELECT [System.Id] FROM WorkItems" },
+                    "Extensions": { "Revisions": { "Enabled": true } }
+                  }
+                }
+              }
+            }
+            """;
+        }
+
+        if (_useSimulatedSource)
+        {
+            return $$"""
+            {
+              "MigrationPlatform": {
+                "ConfigVersion": "2.0",
                 "Mode": "Export",
                 "Source": {
                   "Type": "Simulated",
@@ -307,9 +343,8 @@ public sealed class TfsExportBuilder : IAsyncDisposable
                 "Modules": {
                   "WorkItems": {
                     "Enabled": true,
-                    "Extensions": {
+                    "Data": {
                       "Revisions": { "Enabled": true },
-                      "Attachments": { "Enabled": true },
                       "Comments": { "Enabled": true }
                     }
                   }
@@ -322,7 +357,7 @@ public sealed class TfsExportBuilder : IAsyncDisposable
         return $$"""
         {
           "MigrationPlatform": {
-            "ConfigVersion": "1.0",
+            "ConfigVersion": "2.0",
             "Mode": "Export",
             "Source": {
               "Type": "TeamFoundationServer",

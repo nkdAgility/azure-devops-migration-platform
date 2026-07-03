@@ -74,6 +74,12 @@ public interface IPackageAccess
         PackageMetaPayload payload,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Deletes (resets) the addressed meta artefact. Storage-neutral error contract:
+    /// implementations either treat a missing artefact as an idempotent no-op or throw
+    /// <see cref="PackageMetaNotFoundException"/> — filesystem-specific exception types
+    /// (e.g. <c>System.IO.FileNotFoundException</c>) must never escape this seam (ADR-0025).
+    /// </summary>
     ValueTask ResetMetaAsync(
         PackageMetaContext context,
         CancellationToken cancellationToken = default);

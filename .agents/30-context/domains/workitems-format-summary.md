@@ -7,9 +7,9 @@ Canonical references:
 - [../../docs/work-item-iteration-guide.md](../../../docs/work-item-iteration-guide.md)
 
 Enforced rules:
-- [../../20-guardrails/workitems-rules.md](../../20-guardrails/domains/workitems-rules.md)
-- [../../20-guardrails/migration-rules.md](../../20-guardrails/domains/migration-rules.md)
-- [../../20-guardrails/architecture-boundaries.md](../../20-guardrails/core/architecture-boundaries.md)
+- [workitems-rules.md](../../20-guardrails/domains/workitems-rules.md)
+- [migration-rules.md](../../20-guardrails/domains/migration-rules.md)
+- [architecture-boundaries.md](../../20-guardrails/core/architecture-boundaries.md)
 
 ## Canonical Layout
 

@@ -22,6 +22,11 @@
 - `.agents/30-context/domains/ui-mode-summary.md`
 - `.agents/30-context/domains/cli-commands.md`
 - `.agents/30-context/domains/decision-records-summary.md`
+- `.agents/30-context/domains/capability-seam-contract.md`
+- `.agents/30-context/domains/data-classification-summary.md`
+- `.agents/30-context/domains/entitlements-model.md`
+- `.agents/30-context/domains/package-format-summary.md`
+- `.agents/30-context/domains/pipeline-phases.md`
 
 ## Architecture
 

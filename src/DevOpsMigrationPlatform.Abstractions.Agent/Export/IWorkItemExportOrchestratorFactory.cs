@@ -33,9 +33,9 @@ public interface IWorkItemExportOrchestratorFactory
         ILogger? logger,
         string? wiqlQuery,
         IWorkItemDiscoveryService? discoveryService,
-        IExportProgressStoreFactory? exportProgressStoreFactory,
+        IWorkItemProgressStoreFactory? exportProgressStoreFactory,
         string? packageUri,
-        IReferencedPathTracker? referencedPathTracker = null,
+        IReferencedPathLifecycle? referencedPathTracker = null,
         IReadOnlyList<IModuleExtension>? exportExtensions = null,
         MigrationEndpointOptions? endpoint = null);
 }

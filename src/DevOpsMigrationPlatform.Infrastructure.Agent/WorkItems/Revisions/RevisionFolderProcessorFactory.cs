@@ -27,6 +27,7 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
     private readonly IPackageAccess _package;
     private readonly NodeTranslationOptions? _nodeStructureOptions;
     private readonly IEnumerable<IModuleExtension> _moduleExtensions;
+    private readonly Abstractions.Agent.Modules.IIdentitiesOrchestrator? _identitiesOrchestrator;
 
     public RevisionFolderProcessorFactory(
         ILoggerFactory loggerFactory,
@@ -35,7 +36,8 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
         IPlatformMetrics? metrics = null,
         IFieldTransformTool? fieldTransformTool = null,
         INodeTranslationTool? nodeStructureTool = null,
-        IOptions<NodeTranslationOptions>? nodeStructureOptions = null)
+        IOptions<NodeTranslationOptions>? nodeStructureOptions = null,
+        Abstractions.Agent.Modules.IIdentitiesOrchestrator? identitiesOrchestrator = null)
     {
         _loggerFactory = loggerFactory ?? throw new System.ArgumentNullException(nameof(loggerFactory));
         _package = package ?? throw new System.ArgumentNullException(nameof(package));
@@ -44,6 +46,7 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
         _fieldTransformTool = fieldTransformTool;
         _nodeStructureTool = nodeStructureTool;
         _nodeStructureOptions = nodeStructureOptions?.Value;
+        _identitiesOrchestrator = identitiesOrchestrator;
     }
 
     /// <inheritdoc/>
@@ -86,6 +89,11 @@ public sealed class RevisionFolderProcessorFactory : IWorkItemResolutionProcesso
             nodeStructureContext: nodeStructureContext,
             nodeStructureOptions: _nodeStructureOptions,
             package: _package,
-            embeddedImagesOptions: embeddedImagesOptions);
+            embeddedImagesOptions: embeddedImagesOptions,
+            // ADR-0026 (TC-M1): the pure translation tool receives the orchestrator-owned
+            // resolved map as data at translate time.
+            identityTranslationMapProvider: _identitiesOrchestrator is { } identities
+                ? () => identities.TranslationMap
+                : null);
     }
 }

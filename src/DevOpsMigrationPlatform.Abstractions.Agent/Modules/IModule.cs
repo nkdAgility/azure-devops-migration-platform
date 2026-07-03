@@ -64,6 +64,14 @@ public interface IModule : ICapture
     /// </summary>
     bool SupportsValidate { get; }
 
+    /// <summary>
+    /// Platform-owned configuration anatomy metadata for this module:
+    /// Selection (what to migrate), Data (what to carry), Processing (how to execute).
+    /// Not user-editable. See .agents/10-contracts/specs/module-anatomy-contract.md
+    /// and ADR 0028.
+    /// </summary>
+    IModuleContract Contract { get; }
+
     /// <summary>Export data from the source system into the package via IArtefactStore.</summary>
     Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct);
 

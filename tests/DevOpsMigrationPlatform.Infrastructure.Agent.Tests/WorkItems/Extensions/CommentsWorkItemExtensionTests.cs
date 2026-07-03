@@ -21,7 +21,9 @@ public sealed class CommentsWorkItemExtensionTests
     [TestMethod]
     public void Contract_DeclaresWorkItemsCommentsImportOnly()
     {
-        var ext = new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()));
+        // EC-H1: without a declared WorkItemComments capability the extension is import-only.
+        var ext = new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.None);
 
         Assert.AreEqual("WorkItems", ext.Module);
         Assert.AreEqual("Comments", ext.Name);
@@ -36,7 +38,8 @@ public sealed class CommentsWorkItemExtensionTests
     [TestMethod]
     public void IsEnabled_ReflectsOwnOptions()
     {
-        var ext = new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions { Enabled = false }));
+        var ext = new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions { Enabled = false }),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All);
         Assert.IsFalse(ext.IsEnabled);
     }
 
@@ -69,7 +72,8 @@ public sealed class CommentsWorkItemExtensionTests
             return Task.FromResult<string?>(commentJson);
         };
 
-        var ext = new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()));
+        var ext = new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All);
 
         await ext.ImportAsync(CreateContext(targetId, folderPath, target.Object, readText), CancellationToken.None);
 

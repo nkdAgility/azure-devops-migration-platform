@@ -51,7 +51,7 @@ public sealed class TuiDirectJump_DslTests
         using var context = new TuiDirectJumpContext();
         context.WithJobFlag(jobId);
 
-        context.Client.TelemetryResponse = new JobMetrics
+        var metricsPayload = new JobMetrics
         {
             Migration = new MigrationCounters
             {
@@ -64,14 +64,16 @@ public sealed class TuiDirectJump_DslTests
             Module = "WorkItems",
             Stage = "Export",
             Message = "Exporting work item 1",
-            Timestamp = DateTimeOffset.UtcNow
+            Timestamp = DateTimeOffset.UtcNow,
+            Metrics = metricsPayload
         });
 
         // Act
         context.LaunchWithJobFlag();
 
-        var metrics = await context.Client.GetTelemetryAsync(jobId, context.Token);
-        context.MetricsPanel.Update(metrics);
+        // Metrics arrive via the SSE stream; update the panel directly from the payload.
+        context.MetricsPanel.Update(metricsPayload);
+        await Task.CompletedTask;
 
         await TuiJobDetailAssertions.WaitUntilAsync(
             () => context.LogView.Lines.Count > 0,

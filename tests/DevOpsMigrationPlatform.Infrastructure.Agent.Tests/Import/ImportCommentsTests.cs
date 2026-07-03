@@ -105,7 +105,8 @@ public class ImportCommentsTests
         SetupCheckpointing(ctx);
 
         var disabledComments = new CommentsWorkItemExtension(
-            Microsoft.Extensions.Options.Options.Create(new CommentsExtensionOptions { Enabled = false }));
+            Microsoft.Extensions.Options.Options.Create(new CommentsExtensionOptions { Enabled = false }),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All);
 
         // Act
         var orchestrator = ctx.BuildOrchestrator(commentsExtension: disabledComments);

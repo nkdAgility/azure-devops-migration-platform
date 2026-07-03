@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Streaming;
+using DevOpsMigrationPlatform.CLI.Migration.Services;
 using Terminal.Gui;
 
 namespace DevOpsMigrationPlatform.CLI.Views;
@@ -132,7 +133,7 @@ public sealed class TuiTaskProgressView : FrameView
             builder.AppendLine();
             builder.AppendLine($"{(phase.Equals(currentPhase, StringComparison.OrdinalIgnoreCase) ? '>' : ' ')} {DisplayPhase(phase)}");
 
-            foreach (var task in tasks.Where(t => TaskBelongsToPhase(taskList, t, phase)))
+            foreach (var task in tasks.Where(t => JobTaskSummaryService.TaskBelongsToPhase(taskList, t, phase)))
             {
                 var prefix = activeTask?.Id == task.Id ? ">" : " ";
                 var icon = GetStatusIcon(task.Status);
@@ -294,11 +295,11 @@ public sealed class TuiTaskProgressView : FrameView
         var tasks = taskList.Tasks.OrderBy(t => t.Order).ToList();
         var running = tasks.FirstOrDefault(t => t.Status == JobTaskStatus.Running);
         if (running is not null)
-            return ResolveTaskPhase(taskList, running);
+            return JobTaskSummaryService.ResolveCanonicalTaskPhase(taskList, running);
 
         var pending = tasks.FirstOrDefault(t => t.Status == JobTaskStatus.Pending);
         if (pending is not null)
-            return ResolveTaskPhase(taskList, pending);
+            return JobTaskSummaryService.ResolveCanonicalTaskPhase(taskList, pending);
 
         if (!string.IsNullOrWhiteSpace(lastEvent?.Stage))
         {
@@ -327,56 +328,10 @@ public sealed class TuiTaskProgressView : FrameView
 
         return taskList.Tasks
             .OrderBy(t => t.Order)
-            .Select(GetTaskPhase)
+            .Select(JobTaskSummaryService.GetCanonicalTaskPhase)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(GetPhaseSortKey)
             .ToList();
-    }
-
-    private static bool TaskBelongsToPhase(JobTaskList taskList, JobTask task, string phase)
-    {
-        if (taskList.Phases.Count > 0)
-        {
-            var phaseSummary = taskList.Phases
-                .FirstOrDefault(summary => string.Equals(summary.Name, phase, StringComparison.OrdinalIgnoreCase));
-            if (phaseSummary is not null)
-                return phaseSummary.TaskIds.Contains(task.Id, StringComparer.OrdinalIgnoreCase);
-        }
-
-        return GetTaskPhase(task).Equals(phase, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string ResolveTaskPhase(JobTaskList taskList, JobTask task)
-    {
-        if (taskList.Phases.Count > 0)
-        {
-            var phaseName = taskList.Phases
-                .OrderBy(summary => summary.Order)
-                .FirstOrDefault(summary => summary.TaskIds.Contains(task.Id, StringComparer.OrdinalIgnoreCase))
-                ?.Name;
-            if (!string.IsNullOrWhiteSpace(phaseName))
-                return phaseName!;
-        }
-
-        return GetTaskPhase(task);
-    }
-
-    private static string GetTaskPhase(JobTask task)
-    {
-        if (!string.IsNullOrWhiteSpace(task.Phase))
-            return task.Phase!.Trim().ToLowerInvariant();
-
-        return task.TaskKind switch
-        {
-            TaskKind.Export => "export",
-            TaskKind.Prepare => "prepare",
-            TaskKind.Import => "import",
-            TaskKind.Validate => "validate",
-            TaskKind.Capture => "inventory",
-            TaskKind.Analyse => "inventory",
-            TaskKind.Dependencies => "dependencies",
-            _ => "work"
-        };
     }
 
     private static int GetPhaseSortKey(string phase)
@@ -395,11 +350,8 @@ public sealed class TuiTaskProgressView : FrameView
         _ => char.ToUpperInvariant(phase[0]) + phase[1..]
     };
 
-    private static string GetDiscoveryModule(string taskId)
-    {
-        var parts = taskId.Split('.', StringSplitOptions.RemoveEmptyEntries);
-        return parts.Length >= 2 ? parts[1] : taskId;
-    }
+    private static string GetDiscoveryModule(string taskId) =>
+        JobTaskSummaryService.GetDiscoveryTaskModule(taskId);
 
     private static int GetDiscoveryModuleSortKey(string module) => module.ToLowerInvariant() switch
     {

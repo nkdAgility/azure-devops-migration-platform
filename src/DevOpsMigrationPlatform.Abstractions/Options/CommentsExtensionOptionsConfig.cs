@@ -4,8 +4,8 @@
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
-/// Comments extension options.
-/// Bound from <c>MigrationPlatform:Modules:WorkItems:Extensions:Comments</c>.
+/// Comments data-aspect options.
+/// Bound from <c>MigrationPlatform:Modules:WorkItems:Data:Comments</c> (ConfigVersion 2.0 anatomy).
 /// </summary>
 public sealed class CommentsExtensionOptionsConfig : EnabledExtensionOptions
 {

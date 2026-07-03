@@ -21,6 +21,9 @@ public abstract class ModuleBase(ILogger logger) : IModule
 
     public abstract string Name { get; }
 
+    /// <inheritdoc cref="IModule.Contract"/>
+    public abstract IModuleContract Contract { get; }
+
     public virtual IReadOnlyList<ModuleDependency> DependsOn => [];
     public virtual bool SupportsInventory => false;
     public virtual bool SupportsExport => false;
@@ -35,7 +38,10 @@ public abstract class ModuleBase(ILogger logger) : IModule
     }
 
     public virtual Task<TaskExecutionResult> ExportAsync(ExportContext context, CancellationToken ct)
-        => Task.FromResult(TaskExecutionResult.Completed());
+    {
+        _logger.LogWarning("Export phase is not supported by module {Module}.", Name);
+        return Task.FromResult(TaskExecutionResult.Skipped($"Export phase is not supported by module {Name}."));
+    }
 
     public virtual Task<TaskExecutionResult> PrepareAsync(PrepareContext context, CancellationToken ct)
     {
@@ -44,8 +50,14 @@ public abstract class ModuleBase(ILogger logger) : IModule
     }
 
     public virtual Task<TaskExecutionResult> ImportAsync(ImportContext context, CancellationToken ct)
-        => Task.FromResult(TaskExecutionResult.Completed());
+    {
+        _logger.LogWarning("Import phase is not supported by module {Module}.", Name);
+        return Task.FromResult(TaskExecutionResult.Skipped($"Import phase is not supported by module {Name}."));
+    }
 
     public virtual Task<TaskExecutionResult> ValidateAsync(ValidationContext context, CancellationToken ct)
-        => Task.FromResult(TaskExecutionResult.Completed());
+    {
+        _logger.LogWarning("Validate phase is not supported by module {Module}.", Name);
+        return Task.FromResult(TaskExecutionResult.Skipped($"Validate phase is not supported by module {Name}."));
+    }
 }

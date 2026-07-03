@@ -22,7 +22,12 @@ public static class ConfigTokenResolver
     ///   <item>Otherwise returns the literal value unchanged.</item>
     /// </list>
     /// </summary>
-    public static string? Resolve(string? raw)
+    /// <param name="raw">The raw token value to resolve.</param>
+    /// <param name="environmentReader">
+    /// Optional environment-variable reader seam. Defaults to
+    /// <see cref="Environment.GetEnvironmentVariable(string)"/> when <c>null</c>.
+    /// </param>
+    public static string? Resolve(string? raw, Func<string, string?>? environmentReader = null)
     {
         if (string.IsNullOrEmpty(raw))
             return null;
@@ -30,7 +35,7 @@ public static class ConfigTokenResolver
         if (raw!.StartsWith(EnvPrefix, StringComparison.OrdinalIgnoreCase))
         {
             var varName = raw.Substring(EnvPrefix.Length);
-            var value = Environment.GetEnvironmentVariable(varName);
+            var value = (environmentReader ?? Environment.GetEnvironmentVariable)(varName);
             if (string.IsNullOrEmpty(value))
                 throw new InvalidOperationException(
                     $"Token resolution failed: environment variable '{varName}' is not set or is empty.");

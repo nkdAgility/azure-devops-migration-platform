@@ -39,9 +39,9 @@ public static class ExportServiceCollectionExtensions
     /// Registers all Azure DevOps work item export services:
     /// <list type="bullet">
     ///   <item><see cref="IAzureDevOpsClientFactory"/> — creates Azure DevOps HTTP clients.</item>
-    ///   <item><see cref="IAzureDevOpsWorkItemRevisionMapper"/> — maps REST revisions to the package model.</item>
+    ///   <item><see cref="IAzureDevOpsWorkItemRevisionProcessor"/> — maps REST revisions to the package model.</item>
     ///   <item><see cref="IWorkItemRevisionSourceFactory"/> as <see cref="AzureDevOpsWorkItemRevisionSourceFactory"/> — constructs revision sources per job.</item>
-    ///   <item><see cref="IExportProgressStoreFactory"/> as <see cref="ExportProgressStoreFactory"/> — SQLite-backed per-work-item export progress for fast-forward resume.</item>
+    ///   <item><see cref="IWorkItemProgressStoreFactory"/> as <see cref="WorkItemProgressStoreFactory"/> — SQLite-backed per-work-item export progress for fast-forward resume.</item>
     ///   <item><see cref="AzureDevOpsAttachmentRegistry"/> — per-export-run attachment URL store (scoped).</item>
     ///   <item><see cref="IWorkItemCommentSourceFactory"/> as <see cref="AzureDevOpsWorkItemCommentSourceFactory"/> — creates comment sources per job (used for inline comment fetching when the Comments extension is enabled).</item>
     ///   <item><see cref="IEmbeddedImageDownloader"/> as <see cref="AzureDevOpsEmbeddedImageDownloader"/> — downloads embedded images with Polly resilience.</item>
@@ -55,8 +55,8 @@ public static class ExportServiceCollectionExtensions
         services.AddSingleton<IAzureDevOpsClientFactory, AzureDevOpsClientFactory>();
         services.AddSingleton<IWiqlQueryClientFactory, AzureDevOpsWiqlQueryClientFactory>();
         services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
-        services.AddSingleton<IAzureDevOpsWorkItemRevisionMapper, AzureDevOpsWorkItemRevisionMapper>();
-        services.AddSingleton<IExportProgressStoreFactory, ExportProgressStoreFactory>();
+        services.AddSingleton<IAzureDevOpsWorkItemRevisionProcessor, AzureDevOpsWorkItemRevisionProcessor>();
+        services.AddSingleton<IWorkItemProgressStoreFactory, WorkItemProgressStoreFactory>();
         services.AddScoped<AzureDevOpsAttachmentRegistry>();
         services.AddScoped<AzureDevOpsWorkItemRevisionSourceFactory>();
         services.AddRevisionSourceFactory<AzureDevOpsWorkItemRevisionSourceFactory>("AzureDevOpsServices");
@@ -88,12 +88,18 @@ public static class ExportServiceCollectionExtensions
 
         // Team target — Azure DevOps Teams REST API keyed by connector type.
         services.AddTeamTarget<AzureDevOpsTeamTarget>("AzureDevOpsServices");
-        // Board configuration capability — ADO supports all granular flags.
+        // Connector capability declaration (ADR-0024/EC-H1) — ADO supports board config, team, and comment capabilities.
         services.AddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.IConnectorCapabilityProvider>(
             _ => new global::DevOpsMigrationPlatform.Infrastructure.Agent.ConnectorCapability.StaticConnectorCapabilityProvider(
                 global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.BoardConfig |
                 global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TaskboardColumns |
-                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.Backlogs));
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.Backlogs |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TeamSettings |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TeamIterations |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TeamMembers |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TeamCapacity |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.TeamAreaPaths |
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.WorkItemComments));
         // Board adapter — full implementation using WorkHttpClient; uses source endpoint for reads and target for writes.
         services.TryAddSingleton<global::DevOpsMigrationPlatform.Abstractions.Agent.Teams.ITeamBoardAdapter,
             global::DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Teams.AzureDevOpsBoardAdapter>();

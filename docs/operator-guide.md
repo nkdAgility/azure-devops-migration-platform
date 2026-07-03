@@ -27,7 +27,7 @@ All configuration lives in a single JSON file, nested under the `MigrationPlatfo
 ```json
 {
   "MigrationPlatform": {
-    "ConfigVersion": "1.0",
+    "ConfigVersion": "2.0",
     "Mode": "Export | Prepare | Import | Migrate",
     "Package": {
       "WorkingDirectory": "D:\\exports\\run-001",
@@ -145,7 +145,9 @@ Modules execute in a recommended order: **Identities → Nodes → Teams → Wor
 "Modules": {
   "Identities": {
     "Enabled": true,
-    "DefaultIdentity": "migration-service@contoso.com"
+    "Processing": {
+      "DefaultIdentity": "migration-service@contoso.com"
+    }
   }
 }
 ```
@@ -187,16 +189,18 @@ Identities/
 "Modules": {
   "Nodes": {
     "Enabled": true,
-    "ReplicateSourceTree": true,
-    "AutoCreateNodes": true
+    "Processing": {
+      "ReplicateSourceTree": true
+    }
   }
 }
 ```
 
 | Option | Default | What It Does |
 |--------|---------|-------------|
-| `ReplicateSourceTree` | `true` | Copy the full source area/iteration tree to the target |
-| `AutoCreateNodes` | `true` | Auto-create any referenced path that doesn't exist on the target |
+| `Processing.ReplicateSourceTree` | `false` | Copy the full source area/iteration tree to the target |
+
+> Node auto-creation (`AutoCreateNodes`) is configured on the `Tools.NodeTranslation` tool, not on the Nodes module.
 
 **Package layout**:
 
@@ -207,7 +211,7 @@ Nodes/
   prepare-report.json      ← Path existence validation against target
 ```
 
-> **Gotcha**: If both `ReplicateSourceTree` and `AutoCreateNodes` are `false`, import assumes the target tree already exists. Any missing path causes a failure.
+> **Gotcha**: If both `Modules.Nodes.Processing.ReplicateSourceTree` and `Tools.NodeTranslation.AutoCreateNodes` are `false`, import assumes the target tree already exists. Any missing path causes a failure.
 
 ### Teams Module
 
@@ -219,27 +223,33 @@ Nodes/
 "Modules": {
   "Teams": {
     "Enabled": true,
-    "AlwaysExport": false,
-    "Extensions": {
+    "Selection": {
+      "Scope": "all",
+      "Filter": ""
+    },
+    "Data": {
       "TeamSettings": true,
-      "NodeTranslation": true,
       "TeamIterations": true,
       "TeamMembers": true,
-      "IdentityLookup": true,
       "TeamCapacity": true
+    },
+    "Processing": {
+      "AlwaysExport": false,
+      "NodeTranslation": true,
+      "IdentityLookup": true
     }
   }
 }
 ```
 
-| Extension | What It Exports/Imports |
-|-----------|----------------------|
-| `TeamSettings` | Board config, backlog level, bugs behaviour, working days |
-| `NodeTranslation` | Records team area/iteration paths for node reference tracking |
-| `TeamIterations` | Sprint/iteration assignments (including default and backlog iterations) |
-| `TeamMembers` | Team membership with admin flags |
-| `IdentityLookup` | Resolves team member identities via the identity translation tool. Members whose identity resolves to the configured default are **skipped** (logged as unresolvable) rather than imported under the wrong identity. |
-| `TeamCapacity` | Per-member, per-sprint capacity data |
+| Option | Aspect | What It Exports/Imports |
+|--------|--------|----------------------|
+| `TeamSettings` | Data | Board config, backlog level, bugs behaviour, working days |
+| `TeamIterations` | Data | Sprint/iteration assignments (including default and backlog iterations) |
+| `TeamMembers` | Data | Team membership with admin flags |
+| `TeamCapacity` | Data | Per-member, per-sprint capacity data |
+| `NodeTranslation` | Processing | Records team area/iteration paths for node reference tracking |
+| `IdentityLookup` | Processing | Resolves team member identities via the identity translation tool. Members whose identity resolves to the configured default are **skipped** (logged as unresolvable) rather than imported under the wrong identity. |
 
 > **Default team is not assigned automatically.** The Azure DevOps API does not support
 > explicitly setting a project's default team. When the import encounters the source default
@@ -250,11 +260,11 @@ Nodes/
 > **Untranslatable area/iteration paths are skipped.** If a team's area or iteration path
 > cannot be mapped to the target classification tree, that path is excluded (with a warning)
 > rather than written through unchanged — ensure the source classification tree is replicated
-> (`Nodes.ReplicateSourceTree = true`) so paths resolve.
+> (`Nodes.Processing.ReplicateSourceTree = true`) so paths resolve.
 
 | Option | Default | What It Does |
 |--------|---------|-------------|
-| `AlwaysExport` | `false` | When `false`, skips teams whose `team.json` already exists (resumable). When `true`, re-fetches every team. |
+| `Processing.AlwaysExport` | `false` | When `false`, skips teams whose `team.json` already exists (resumable). When `true`, re-fetches every team. |
 
 **Package layout**:
 
@@ -275,17 +285,15 @@ Teams/
 "Modules": {
   "WorkItems": {
     "Enabled": true,
-    "Scope": {
+    "Selection": {
       "Query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.ChangedDate] ASC",
       "Filters": [
         { "Mode": "Include", "Field": "System.AreaPath", "Pattern": "^TeamAlpha" },
         { "Mode": "Exclude", "Field": "System.State", "Pattern": "Removed" }
       ]
     },
-    "Extensions": {
+    "Data": {
       "Revisions": { "Enabled": true },
-      "Links": { "Enabled": true },
-      "Attachments": { "Enabled": true },
       "Comments": { "Enabled": true },
       "EmbeddedImages": { "Enabled": true }
     }
@@ -318,15 +326,15 @@ The `Query` selects which work items to process. `@project` is substituted with 
 ]
 ```
 
-#### Extensions
+#### Data payloads
 
-| Extension | What It Does | When to Disable |
+| Data entry | What It Does | When to Disable |
 |-----------|-------------|----------------|
 | `Revisions` | Export full revision history. `false` = latest state only | Speed over fidelity (e.g. one-time snapshot) |
-| `Links` | Related links, external links, hyperlinks | If link relationships are not needed on target |
-| `Attachments` | Download and store binary attachment files | Large packages with many attachments — consider a second pass |
 | `Comments` | Fetch comment versions from the ADO Comments API | If comments are not needed |
 | `EmbeddedImages` | Download inline images from HTML/Markdown fields, rewrite URLs | If HTML fields don't contain embedded images |
+
+Links and attachments are intrinsic core behaviour — always exported/imported, no configuration keys.
 
 #### Import Stages
 
@@ -343,13 +351,11 @@ If import is interrupted mid-revision, it resumes from the last completed stage 
 When importing into a target that already has some work items, configure an ID resolution strategy to seed the ID map:
 
 ```json
-"Extensions": {
+"Processing": {
   "WorkItemResolutionStrategy": {
     "Enabled": true,
-    "Parameters": {
-      "Strategy": "TargetField",
-      "FieldName": "Custom.SourceWorkItemId"
-    }
+    "Strategy": "TargetField",
+    "FieldName": "Custom.SourceWorkItemId"
   }
 }
 ```

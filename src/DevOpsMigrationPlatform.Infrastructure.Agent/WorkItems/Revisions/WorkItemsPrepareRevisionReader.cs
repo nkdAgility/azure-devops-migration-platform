@@ -13,9 +13,14 @@ using DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Revisions;
 
-internal static class WorkItemsPrepareRevisionReader
+/// <summary>
+/// Single implementation of the <see cref="IWorkItemRevisionReader"/> canonical port
+/// (ADR-0023 / VS-H1). Injected into the Prepare, Import-failure, Node-validation and
+/// WorkItemType-validation slices.
+/// </summary>
+internal sealed class WorkItemsPrepareRevisionReader : IWorkItemRevisionReader
 {
-    public static async IAsyncEnumerable<ParsedWorkItemRevision> EnumerateAsync(
+    public async IAsyncEnumerable<ParsedWorkItemRevision> EnumerateAsync(
         IPackageAccess package,
         string organisation,
         string project,
@@ -203,9 +208,3 @@ internal static class WorkItemsPrepareRevisionReader
         return normalized;
     }
 }
-
-internal sealed record ParsedWorkItemRevision(
-    string RevisionJsonPath,
-    string RevisionFolderPath,
-    WorkItemRevision? Revision,
-    string? ParseError);

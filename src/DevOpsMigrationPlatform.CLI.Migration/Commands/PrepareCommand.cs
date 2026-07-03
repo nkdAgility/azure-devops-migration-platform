@@ -94,21 +94,36 @@ public sealed class PrepareCommand : ControlPlaneCommandBase<MigrationCommandSet
         // Use a timeout to avoid hanging if the SSE stream doesn't close cleanly.
         using var prepareCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         prepareCts.CancelAfter(TimeSpan.FromMinutes(2));
+        var jobFailed = false;
+        string? failureReason = null;
         try
         {
-            await foreach (var evt in client.FollowLogsAsync(parsedJobId, prepareCts.Token))
+            await foreach (var streamEvent in client.StreamJobAsync(parsedJobId, prepareCts.Token))
             {
-                if (!string.IsNullOrEmpty(evt.Message))
-                    console.MarkupLine($"  [grey]{Markup.Escape(evt.Message)}[/]");
+                if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Progress && streamEvent.Progress is { } evt)
+                {
+                    if (!string.IsNullOrEmpty(evt.Message))
+                        console.MarkupLine($"  [grey]{Markup.Escape(evt.Message)}[/]");
+                }
+                else if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Terminal)
+                {
+                    if (streamEvent.Failed == true)
+                    {
+                        jobFailed = true;
+                        failureReason = streamEvent.FailureReason;
+                    }
+                    break;
+                }
             }
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            // SSE stream timed out but the job may have completed — check status.
+            // Stream timed out but the job may have completed — continue.
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("Job failed"))
+
+        if (jobFailed)
         {
-            console.MarkupLine($"[red]✗[/] Prepare job failed: {Markup.Escape(ex.Message)}");
+            console.MarkupLine($"[red]✗[/] Prepare job failed: {Markup.Escape(failureReason ?? "Job failed on the agent.")}");
             return 1;
         }
 

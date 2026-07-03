@@ -81,8 +81,8 @@ public sealed class IdentityMappingService : IIdentityMappingService
 
     private string FallbackIdentity(string sourceIdentity)
     {
-        if (!string.IsNullOrWhiteSpace(_options.DefaultIdentity))
-            return _options.DefaultIdentity;
+        if (!string.IsNullOrWhiteSpace(_options.Processing.DefaultIdentity))
+            return _options.Processing.DefaultIdentity;
 
         return sourceIdentity;
     }

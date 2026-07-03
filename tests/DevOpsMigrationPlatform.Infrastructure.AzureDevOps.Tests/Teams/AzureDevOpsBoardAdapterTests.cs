@@ -128,8 +128,11 @@ public sealed class AzureDevOpsBoardAdapterTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task GetBoardsAsync_WhenGetBoardsFails_YieldsNone()
+    public async Task GetBoardsAsync_WhenGetBoardsFails_PropagatesFailure()
     {
+        // ADR-0024 (EC-M2): non-transient failures on the board list propagate to the
+        // caller instead of being swallowed as an empty result — an empty board list is
+        // indistinguishable from a team with no boards and would silently drop data.
         var workClient = BuildWorkClient();
         workClient
             .Setup(c => c.GetBoardsAsync(It.IsAny<WorkContext>(), It.IsAny<object?>(), It.IsAny<CancellationToken>()))
@@ -137,11 +140,10 @@ public sealed class AzureDevOpsBoardAdapterTests
 
         var adapter = BuildAdapter(workClient);
 
-        var boards = new List<BoardConfig>();
-        await foreach (var b in adapter.GetBoardsAsync("Proj", "team-1", CancellationToken.None))
-            boards.Add(b);
-
-        Assert.AreEqual(0, boards.Count, "Graceful empty when GetBoardsAsync throws");
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
+        {
+            await foreach (var _ in adapter.GetBoardsAsync("Proj", "team-1", CancellationToken.None)) { }
+        });
     }
 
     [TestCategory("CodeTest")]
@@ -235,17 +237,19 @@ public sealed class AzureDevOpsBoardAdapterTests
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task GetCardRuleSettingsAsync_WhenFails_ReturnsNull()
+    public async Task GetCardRuleSettingsAsync_WhenFails_PropagatesFailure()
     {
+        // ADR-0024 (EC-M2): non-transient failures propagate instead of being swallowed
+        // as null — a null result means "board has no card rules", not "the read failed".
         var workClient = BuildWorkClient();
         workClient
             .Setup(c => c.GetBoardCardRuleSettingsAsync(It.IsAny<WorkContext>(), It.IsAny<string>(), It.IsAny<object?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("network error"));
 
         var adapter = BuildAdapter(workClient);
-        var result = await adapter.GetCardRuleSettingsAsync("Proj", "team-1", "Stories", CancellationToken.None);
 
-        Assert.IsNull(result, "Null returned on exception (graceful degradation)");
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => adapter.GetCardRuleSettingsAsync("Proj", "team-1", "Stories", CancellationToken.None));
     }
 
     // ---------------------------------------------------------------------------

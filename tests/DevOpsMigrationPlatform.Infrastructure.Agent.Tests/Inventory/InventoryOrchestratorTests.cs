@@ -50,7 +50,7 @@ public sealed class InventoryOrchestratorTests
             Project = "TestProject",
         };
 
-        await orchestrator.RunAsync(
+        await orchestrator.RunInventoryAsync(
             moduleName: "WorkItems",
             eventStream: GetEvents(),
             context: context,
@@ -84,7 +84,7 @@ public sealed class InventoryOrchestratorTests
             Project = "TestProject",
         };
 
-        await orchestrator.RunAsync(
+        await orchestrator.RunInventoryAsync(
             moduleName: "WorkItems",
             eventStream: GetEvents(),
             context: context,

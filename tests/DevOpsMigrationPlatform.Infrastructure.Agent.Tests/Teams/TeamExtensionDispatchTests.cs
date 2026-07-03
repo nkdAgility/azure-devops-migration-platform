@@ -124,11 +124,11 @@ public class TeamExtensionDispatchTests
         return m;
     }
 
-    private static TeamExportOrchestrator BuildTeamExportOrchestrator(Mock<ITeamSource> teamSource)
+    private static TeamMigrationOrchestrator BuildTeamExportOrchestrator(Mock<ITeamSource> teamSource)
         => new(
-            teamSource.Object,
-            NullLogger<TeamExportOrchestrator>.Instance,
-            BuildSourceEndpoint().Object);
+            NullLogger<TeamMigrationOrchestrator>.Instance,
+            teamSource: teamSource.Object,
+            sourceEndpointInfo: BuildSourceEndpoint().Object);
 
     private static TeamsOrchestrator BuildOrchestrator(
         IEnumerable<IModuleExtension> extensions,
@@ -137,8 +137,7 @@ public class TeamExtensionDispatchTests
         => new(
             NullLogger<TeamsOrchestrator>.Instance,
             PlatformMetrics: null,
-            exportOrchestrator: BuildTeamExportOrchestrator(teamSource),
-            importOrchestrator: null,
+            orchestrator: BuildTeamExportOrchestrator(teamSource),
             slugGenerator: new TeamSlugGenerator(),
             package: package.Object,
             extensions: extensions);
@@ -152,7 +151,7 @@ public class TeamExtensionDispatchTests
         };
 
     private static TeamsModuleOptions ExportOptions()
-        => new() { AlwaysExport = true };
+        => new() { Processing = new TeamsProcessingOptions { AlwaysExport = true } };
 
     // ---------------------------------------------------------------------------
     // Import helpers
@@ -196,11 +195,11 @@ public class TeamExtensionDispatchTests
     private static Mock<ITeamTarget> BuildTeamTarget()
         => new Mock<ITeamTarget>(MockBehavior.Loose);
 
-    private static TeamImportOrchestrator BuildTeamImportOrchestrator()
+    private static TeamMigrationOrchestrator BuildTeamImportOrchestrator()
         => new(
-            BuildTeamTarget().Object,
-            NullLogger<TeamImportOrchestrator>.Instance,
-            BuildTargetEndpoint().Object);
+            NullLogger<TeamMigrationOrchestrator>.Instance,
+            teamTarget: BuildTeamTarget().Object,
+            targetEndpointInfo: BuildTargetEndpoint().Object);
 
     private static TeamsOrchestrator BuildOrchestratorForImport(
         IEnumerable<IModuleExtension> extensions,
@@ -208,8 +207,7 @@ public class TeamExtensionDispatchTests
         => new(
             NullLogger<TeamsOrchestrator>.Instance,
             PlatformMetrics: null,
-            exportOrchestrator: null,
-            importOrchestrator: BuildTeamImportOrchestrator(),
+            orchestrator: BuildTeamImportOrchestrator(),
             slugGenerator: new TeamSlugGenerator(),
             package: package.Object,
             extensions: extensions);

@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
 using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
-using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated;
 
@@ -36,7 +35,7 @@ public sealed class SimulatedTeamTarget : ITeamTarget
 
     /// <inheritdoc/>
     public Task<string> CreateOrUpdateTeamAsync(
-        MigrationEndpointOptions endpoint, string projectName, TeamDefinition team, CancellationToken ct)
+        string projectName, TeamDefinition team, CancellationToken ct)
     {
         var targetId = $"target-{team.Name.ToLowerInvariant().Replace(' ', '-')}";
         Teams[targetId] = team;
@@ -45,7 +44,7 @@ public sealed class SimulatedTeamTarget : ITeamTarget
 
     /// <inheritdoc/>
     public Task SetTeamSettingsAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, TeamSettings settings, CancellationToken ct)
+        string projectName, string teamId, TeamSettings settings, CancellationToken ct)
     {
         TeamSettings[teamId] = settings;
         return Task.CompletedTask;
@@ -53,7 +52,7 @@ public sealed class SimulatedTeamTarget : ITeamTarget
 
     /// <inheritdoc/>
     public Task AssignIterationAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, TeamIteration iteration, CancellationToken ct)
+        string projectName, string teamId, TeamIteration iteration, CancellationToken ct)
     {
         if (!Iterations.ContainsKey(teamId))
             Iterations[teamId] = new List<TeamIteration>();
@@ -63,7 +62,7 @@ public sealed class SimulatedTeamTarget : ITeamTarget
 
     /// <inheritdoc/>
     public Task AddMemberAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, TeamMember member, CancellationToken ct)
+        string projectName, string teamId, TeamMember member, CancellationToken ct)
     {
         if (!Members.ContainsKey(teamId))
             Members[teamId] = new List<TeamMember>();
@@ -73,7 +72,7 @@ public sealed class SimulatedTeamTarget : ITeamTarget
 
     /// <inheritdoc/>
     public Task SetCapacityAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, string iterationId, TeamCapacityEntry[] capacity, CancellationToken ct)
+        string projectName, string teamId, string iterationId, TeamCapacityEntry[] capacity, CancellationToken ct)
     {
         Capacity[$"{teamId}/{iterationId}"] = capacity;
         return Task.CompletedTask;
@@ -81,7 +80,7 @@ public sealed class SimulatedTeamTarget : ITeamTarget
 
     /// <inheritdoc/>
     public Task SetAreaPathsAsync(
-        MigrationEndpointOptions endpoint, string projectName, string teamId, TeamAreaPaths areaPaths, CancellationToken ct)
+        string projectName, string teamId, TeamAreaPaths areaPaths, CancellationToken ct)
     {
         AreaPaths[teamId] = areaPaths;
         return Task.CompletedTask;

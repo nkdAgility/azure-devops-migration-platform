@@ -147,27 +147,27 @@ Review each key string literal. Any key that does not include both the operation
 
 ---
 
-## Check 5 — Slice Feature File Missing or Mislocated
+## Check 5 — Slice Acceptance Scenario Coverage Missing or Mislocated
 
-**Smell:** A migration operation has no corresponding Gherkin `.feature` file under `/features`, or its feature file is placed under the wrong category folder.
+**Smell:** A migration operation has no corresponding code-first MSTest scenario test built on the internal Testing DSL (`Testing.Dsl`), or its scenario test class is placed under the wrong feature folder in the test project.
 
 ```
-// BAD — feature file absent or misplaced
-features/
-  export/                     ← present ✅
-  import/                     ← present ✅
-  // pipelines/export/        ← MISSING ❌ if pipelines export exists
+// BAD — scenario test class absent or misplaced
+tests/
+  ...Tests/Features/Export/     ← present ✅
+  ...Tests/Features/Import/     ← present ✅
+  // Features/Pipelines/Export/ ← MISSING ❌ if pipelines export exists
 ```
 
-**Fix:** Create a `.feature` file under the appropriate `features/<operation>/<module>/` path. Each scenario in the file should represent one acceptance criterion for the slice.
+**Fix:** Create an MSTest scenario test class under the appropriate `Features/<Operation>/<Module>/` folder in the test project, using the Testing.Dsl scenario builders. Each `[TestMethod]` should represent one acceptance criterion for the slice, expressed through the DSL (given/when/then style scenario composition), not raw infrastructure calls.
 
 **How to find:**
 
 ```bash
-find features/ -name "*.feature" | sort
+grep -rln "Testing.Dsl" tests/ --include="*.cs" | sort
 ```
 
-Cross-reference against the list of registered CLI commands and job types. Any operation without a feature file is a gap.
+Cross-reference against the list of registered CLI commands and job types. Any operation without a DSL-based scenario test is a gap.
 
 ---
 
@@ -190,6 +190,6 @@ Run this checklist after adding or modifying a migration operation:
 - [ ] **Check 2**: No slice references an internal class from another slice's project namespace.
 - [ ] **Check 3**: Every slice has at least one `[TestCategory("SystemTest")]` test asserting observable output.
 - [ ] **Check 4**: All `IStateStore` keys used by the slice include an operation-type and job-scope prefix.
-- [ ] **Check 5**: Every slice has a corresponding `.feature` file under the correct `features/` subfolder.
+- [ ] **Check 5**: Every slice has a corresponding Testing.Dsl scenario test class under the correct `Features/` subfolder in the test project.
 
 All items must be checked before a feature or refactoring is declared complete. Any unchecked item is a blocking violation.

@@ -27,7 +27,7 @@ internal sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSourc
 {
     private readonly WorkItemTrackingHttpClient _client;
     private readonly IWorkItemQueryWindowStrategy _windowStrategy;
-    private readonly IAzureDevOpsWorkItemRevisionMapper _mapper;
+    private readonly IAzureDevOpsWorkItemRevisionProcessor _mapper;
     private readonly AzureDevOpsAttachmentRegistry _attachmentRegistry;
     private readonly OrganisationEndpoint _endpoint;
     private readonly string _project;
@@ -38,7 +38,7 @@ internal sealed class AzureDevOpsWorkItemRevisionSource : IWorkItemRevisionSourc
     public AzureDevOpsWorkItemRevisionSource(
         WorkItemTrackingHttpClient client,
         IWorkItemQueryWindowStrategy windowStrategy,
-        IAzureDevOpsWorkItemRevisionMapper mapper,
+        IAzureDevOpsWorkItemRevisionProcessor mapper,
         AzureDevOpsAttachmentRegistry attachmentRegistry,
         OrganisationEndpoint endpoint,
         string project,

@@ -1,5 +1,7 @@
 # Source Types
 
+Audience: Operators. The **Requirements** subsections under each source type describe implementation constraints (agent routing, runtime boundaries) that contributors need; operators can treat them as background.
+
 ## 9. Source Types
 
 The system supports two source types, controlled by `source.type` in the configuration.
@@ -152,7 +154,8 @@ It contains:
 | `backlogs` | Backlog level display names and WIT category references |
 | `taskboardColumns` | Sprint taskboard column names, types, and state mappings |
 
-Each data type can be independently enabled or disabled via `BoardConfigExtensionOptions`.
+Each data type can be independently enabled or disabled via `BoardConfigDataOptions`
+(`Modules:Teams:Data:BoardConfig` — payload-carry toggles are a Data concern).
 
 ### Connector coverage
 
@@ -168,7 +171,7 @@ error is raised.
 
 ### Import modes
 
-Controlled by `BoardConfig.importMode`:
+Controlled by `Processing.BoardConfig.ImportMode` (`BoardConfigProcessingOptions`):
 
 | Mode | Behaviour |
 |---|---|
@@ -184,21 +187,29 @@ prevents `400 Bad Request` errors when the target process template differs from 
 
 ### Configuration section
 
-`MigrationPlatform:Modules:Teams:Extensions:BoardConfig`
+Board config configuration is split per the module-anatomy contract (ADR-0028
+amendment, 2026-07-03): the payload-carry toggles live under
+`MigrationPlatform:Modules:Teams:Data:BoardConfig` ("Data: canonical package payload
+for selected entities"), while `ImportMode` — how import executes — lives under
+`MigrationPlatform:Modules:Teams:Processing:BoardConfig`.
 
 ```json
 {
   "MigrationPlatform": {
     "Modules": {
       "Teams": {
-        "Extensions": {
+        "Data": {
           "BoardConfig": {
             "Enabled": true,
             "Columns": true,
             "SwimLanes": true,
             "CardRules": true,
             "Backlogs": true,
-            "TaskboardColumns": true,
+            "TaskboardColumns": true
+          }
+        },
+        "Processing": {
+          "BoardConfig": {
             "ImportMode": "Replace"
           }
         }

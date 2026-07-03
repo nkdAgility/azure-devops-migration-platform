@@ -18,19 +18,17 @@ public interface IControlPlaneClient
     /// <summary>Returns all jobs visible to the caller via <c>GET /jobs</c>.</summary>
     Task<IReadOnlyList<JobSummary>> GetAllJobsAsync(CancellationToken ct);
 
-    /// <summary>Returns the latest <see cref="JobMetrics"/> for a job, or <c>null</c> when none pushed yet.</summary>
-    Task<JobMetrics?> GetTelemetryAsync(Guid jobId, CancellationToken ct);
-
-    /// <summary>Streams live <see cref="ProgressEvent"/> records via SSE.</summary>
-    IAsyncEnumerable<ProgressEvent> FollowLogsAsync(Guid jobId, CancellationToken ct, long? lastEventSequence = null);
-
-    /// <summary>Streams live <see cref="DiagnosticLogRecord"/> records via SSE.</summary>
-    IAsyncEnumerable<DiagnosticLogRecord> StreamDiagnosticsAsync(Guid jobId, string? level, CancellationToken ct);
+    /// <summary>
+    /// Opens the unified SSE stream at <c>GET /jobs/{jobId}/stream?from={fromSeq}</c>
+    /// and yields <see cref="JobStreamEvent"/> records until the stream closes.
+    /// Handles progress, diagnostic, and terminal events.
+    /// </summary>
+    IAsyncEnumerable<JobStreamEvent> StreamJobAsync(Guid jobId, CancellationToken ct, long fromSeq = 0);
 
     /// <summary>
-    /// Returns the bootstrap payload for a job (snapshot + metrics + last event sequence),
+    /// Returns the bootstrap payload for a job (snapshot + metrics + task list + last event sequence),
     /// or <c>null</c> when the job has not yet emitted any telemetry.
-    /// Calls <c>GET /jobs/{jobId}/bootstrap</c>.
+    /// Calls <c>GET /jobs/{jobId}/bootstrap</c>. Use for one-shot initial state only.
     /// </summary>
     Task<JobBootstrap?> GetBootstrapAsync(Guid jobId, CancellationToken ct);
 

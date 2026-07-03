@@ -14,19 +14,19 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Attachments;
 
 /// <summary>
 /// TFS Object Model implementation of <see cref="IAttachmentBinarySource"/>.
-/// Resolves the TFS integer attachment ID from <see cref="TfsAttachmentRegistry"/>,
+/// Resolves the TFS integer attachment ID from <see cref="TfsAttachmentIdStore"/>,
 /// delegates to <see cref="ITfsAttachmentDownloader"/> for the binary download,
 /// and returns raw bytes — no base64 encoding.
 /// </summary>
 public sealed class TfsAttachmentBinarySource : IAttachmentBinarySource
 {
     private readonly ITfsAttachmentDownloader _downloader;
-    private readonly TfsAttachmentRegistry _registry;
+    private readonly TfsAttachmentIdStore _registry;
     private readonly ILogger<TfsAttachmentBinarySource> _logger;
 
     public TfsAttachmentBinarySource(
         ITfsAttachmentDownloader downloader,
-        TfsAttachmentRegistry registry,
+        TfsAttachmentIdStore registry,
         ILogger<TfsAttachmentBinarySource> logger)
     {
         _downloader = downloader ?? throw new ArgumentNullException(nameof(downloader));

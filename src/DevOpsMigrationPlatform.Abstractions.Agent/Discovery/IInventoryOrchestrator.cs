@@ -14,7 +14,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Discovery;
 /// </summary>
 public interface IInventoryOrchestrator
 {
-    Task RunAsync(
+    Task RunInventoryAsync(
         string moduleName,
         IAsyncEnumerable<InventoryProgressEvent> eventStream,
         InventoryContext context,

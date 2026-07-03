@@ -22,25 +22,25 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.Revisi
 /// and iterating its revisions in ascending index order.
 ///
 /// Before yielding each revision, all NEW attachment IDs for that revision are
-/// registered in <see cref="TfsAttachmentRegistry"/> so that
+/// registered in <see cref="TfsAttachmentIdStore"/> so that
 /// <see cref="TfsAttachmentBinarySource"/> can look them up when the orchestrator
 /// calls <c>GetBytesAsync</c> after receiving the revision.
 /// </summary>
 public sealed class TfsWorkItemRevisionSource : IWorkItemRevisionSource
 {
     private readonly WorkItemStore _workItemStore;
-    private readonly IWorkItemRevisionMapper _mapper;
+    private readonly IWorkItemRevisionProcessor _mapper;
     private readonly TfsWorkItemQueryWindowStrategy _windowStrategy;
-    private readonly TfsAttachmentRegistry _registry;
+    private readonly TfsAttachmentIdStore _registry;
     private readonly string _project;
     private readonly string _wiqlQuery;
     private readonly ILogger<TfsWorkItemRevisionSource> _logger;
 
     public TfsWorkItemRevisionSource(
         WorkItemStore workItemStore,
-        IWorkItemRevisionMapper mapper,
+        IWorkItemRevisionProcessor mapper,
         TfsWorkItemQueryWindowStrategy windowStrategy,
-        TfsAttachmentRegistry registry,
+        TfsAttachmentIdStore registry,
         string project,
         string wiqlQuery,
         ILogger<TfsWorkItemRevisionSource> logger)

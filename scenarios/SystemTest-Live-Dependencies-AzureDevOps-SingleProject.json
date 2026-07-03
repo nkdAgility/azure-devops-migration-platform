@@ -1,6 +1,6 @@
 {
   "MigrationPlatform": {
-    "ConfigVersion": "1.0",
+    "ConfigVersion": "2.0",
     "Mode": "Dependencies",
     "Policies": {
       "Retries": {

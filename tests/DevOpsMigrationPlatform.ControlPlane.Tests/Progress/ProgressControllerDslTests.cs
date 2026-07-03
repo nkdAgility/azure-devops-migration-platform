@@ -26,9 +26,7 @@ public class ProgressControllerDslTests
     public async Task GetProgress_WhenEventPosted_Returns200WithEvent()
     {
         var ctx = new ProgressControllerContext();
-        var leaseId = "lease-" + s_postJobId;
-        ctx.LeaseResolver.Setup(r => r.ResolveJobId(leaseId)).Returns(s_postJobId);
-        ctx.Controller.PostProgress(leaseId, ctx.MakeEvent("PostedStage"));
+        ctx.Store.Append(s_postJobId, ctx.MakeEvent("PostedStage"));
 
         ctx.SetAuthenticatedUser();
         await ctx.Controller.GetProgress(s_postJobId, follow: false, CancellationToken.None);
@@ -37,22 +35,6 @@ public class ProgressControllerDslTests
         ctx.Controller.HttpContext.Response.Body.Seek(0, SeekOrigin.Begin);
         var body = await new StreamReader(ctx.Controller.HttpContext.Response.Body).ReadToEndAsync();
         Assert.IsTrue(body.Contains("PostedStage"), "Response body should contain the posted stage.");
-    }
-
-    // ── Scenario: 404 when lease is not recognised ────────────────────────────
-
-    [TestCategory("CodeTest")]
-    [TestCategory("UnitTests")]
-    [TestMethod]
-    public void PostProgress_UnknownLease_Returns404()
-    {
-        var ctx = new ProgressControllerContext();
-        ctx.LeaseResolver.Setup(r => r.ResolveJobId("unknown-lease")).Returns((Guid?)null);
-
-        var result = ctx.Controller.PostProgress("unknown-lease", ctx.MakeEvent("Stage"));
-
-        var status = (result as StatusCodeResult)?.StatusCode ?? (result as ObjectResult)?.StatusCode;
-        Assert.AreEqual(404, status);
     }
 
     // ── Scenario: 403 when caller lacks job visibility ────────────────────────

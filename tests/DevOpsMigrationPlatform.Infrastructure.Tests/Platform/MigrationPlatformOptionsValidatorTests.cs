@@ -19,6 +19,7 @@ public class MigrationPlatformOptionsValidatorTests
 
     private static MigrationPlatformOptions ValidExport() => new()
     {
+        ConfigVersion = "2.0",
         Mode = "Export",
         Source = new AzureDevOpsEndpointOptions
         {
@@ -47,6 +48,7 @@ public class MigrationPlatformOptionsValidatorTests
     {
         var opts = new MigrationPlatformOptions
         {
+            ConfigVersion = "2.0",
             Mode = "Import",
             Target = new AzureDevOpsEndpointOptions
             {
@@ -66,6 +68,7 @@ public class MigrationPlatformOptionsValidatorTests
     {
         var opts = new MigrationPlatformOptions
         {
+            ConfigVersion = "2.0",
             Mode = "Migrate",
             Source = new AzureDevOpsEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/myorg", Project = "P" },
             Target = new AzureDevOpsEndpointOptions { Type = "AzureDevOpsServices", Url = "https://dev.azure.com/targetorg", Project = "P" },
@@ -283,6 +286,7 @@ public class MigrationPlatformOptionsValidatorTests
     {
         var opts = new MigrationPlatformOptions
         {
+            ConfigVersion = "2.0",
             Mode = "Import",
             Target = new AzureDevOpsEndpointOptions
             {

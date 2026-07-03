@@ -29,16 +29,17 @@ public static class TeamsServiceCollectionExtensions
 #if NET7_0_OR_GREATER
         // Register schema entry for migration.schema.json generation
         services.AddSchemaEntry<TeamsModuleOptions>("Teams export/import module configuration");
-        services.AddSchemaEntry<BoardConfigExtensionOptions>("Board configuration export/import extension");
+        services.AddSchemaEntry<BoardConfigDataOptions>("Board configuration payload-carry toggles (Data aspect)");
+        services.AddSchemaEntry<BoardConfigProcessingOptions>("Board configuration import behaviour (Processing aspect)");
 #endif
 
         // Scoped (not Singleton) so each per-job DI scope gets its own TeamsOrchestrator
-        // instance and — via TeamsOrchestrator → TeamExportOrchestrator — its own
-        // IReferencedPathTracker.  The T012 invariant requires every component within a
-        // single job scope to share the same ReferencedPathTracker so the internal
+        // instance and — via TeamsOrchestrator → TeamMigrationOrchestrator — its own
+        // IReferencedPathLifecycle.  The T012 invariant requires every component within a
+        // single job scope to share the same ReferencedPathLifecycle so the internal
         // SemaphoreSlim correctly serialises concurrent file writes to
         // Nodes/referenced-paths.json.  A Singleton TeamsOrchestrator would capture the
-        // root-scope IReferencedPathTracker (a different instance from the per-job one
+        // root-scope IReferencedPathLifecycle (a different instance from the per-job one
         // used by WorkItemsModule), breaking that coordination and causing a sharing-
         // violation IOException under concurrent export.
         services.AddScoped<ITeamsOrchestrator, TeamsOrchestrator>();
@@ -54,15 +55,17 @@ public static class TeamsServiceCollectionExtensions
             services.AddOptions<TeamsModuleOptions>();
         }
 
-        services.AddTransient<TeamExportOrchestrator>();
-#if !NET481
-        services.AddTransient<TeamImportOrchestrator>();
-#endif
+        services.AddTransient<TeamMigrationOrchestrator>();
         services.AddSingleton<TeamSlugGenerator>();
 
-        // BoardConfig extension — own IOptions<BoardConfigExtensionOptions> bound from config.
-        services.AddOptions<BoardConfigExtensionOptions>()
-            .BindConfiguration(BoardConfigExtensionOptions.SectionName);
+        // BoardConfig extension — split options per the module-anatomy contract (ADR-0028
+        // amendment): payload-carry toggles are Data, import behaviour is Processing.
+        services.AddOptions<BoardConfigDataOptions>()
+            .BindConfiguration(BoardConfigDataOptions.SectionName);
+        services.AddOptions<BoardConfigProcessingOptions>()
+            .BindConfiguration(BoardConfigProcessingOptions.SectionName);
+        // Canonical board-config merge/validation engine (ADR-0024, EC-M4).
+        services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.Tools.IBoardConfigMergeTool, BoardConfigMergeTool>();
         services.AddSingleton<BoardConfigTeamExtension>();
         services.AddSingleton<IModuleExtension>(sp => sp.GetRequiredService<BoardConfigTeamExtension>());
 

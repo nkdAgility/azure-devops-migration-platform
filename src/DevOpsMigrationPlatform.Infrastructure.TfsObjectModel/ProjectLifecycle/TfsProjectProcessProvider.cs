@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent.ProjectLifecycle;
+using DevOpsMigrationPlatform.Abstractions.ProjectLifecycle;
 using DevOpsMigrationPlatform.Infrastructure.Agent.ProjectLifecycle;
 using Microsoft.TeamFoundation.WorkItemTracking.Process.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.Process.WebApi.Models;

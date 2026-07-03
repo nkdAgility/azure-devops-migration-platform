@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using DevOpsMigrationPlatform.Abstractions.Agent.TfsExecution;
+
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.JobLifecycle.TfsExecution;
 
 /// <summary>
@@ -14,7 +16,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.JobLifecycle.Tfs
 /// </summary>
 public sealed class ActiveTfsJobServices
 {
-    private volatile TfsJobServices? _current;
+    private volatile ITfsJobServices? _current;
 
     /// <summary>
     /// The <see cref="TfsJobServices"/> for the currently active job,
@@ -22,7 +24,7 @@ public sealed class ActiveTfsJobServices
     /// Thread-safe: volatile write/read provides sufficient ordering for the
     /// single-writer multi-reader pattern used by the agent.
     /// </summary>
-    public TfsJobServices? Current
+    public ITfsJobServices? Current
     {
         get => _current;
         set => _current = value;
@@ -32,7 +34,7 @@ public sealed class ActiveTfsJobServices
     /// Returns <see cref="Current"/> or throws <see cref="InvalidOperationException"/>
     /// when called outside of an active job context.
     /// </summary>
-    public TfsJobServices Require()
+    public ITfsJobServices Require()
         => _current ?? throw new InvalidOperationException(
             "No active TFS job services. Ensure this is called within an active job context.");
 

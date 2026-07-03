@@ -5,9 +5,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions;
-using DevOpsMigrationPlatform.Abstractions.Agent.Lease;
 using DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
-using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Abstractions.Telemetry;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -16,33 +14,30 @@ using Microsoft.Extensions.Options;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 
 /// <summary>
-/// Background service that pushes the latest <see cref="JobMetrics"/> and
-/// <see cref="JobSnapshot"/> to the Control Plane on a configurable interval
-/// while a lease is held.
-/// Reads the current lease id from <see cref="ActiveLeaseState"/> — no push occurs
-/// when <see cref="ActiveLeaseState.CurrentLeaseId"/> is null.
+/// Background service that enqueues the latest <see cref="JobMetrics"/> and
+/// <see cref="JobSnapshot"/> into <see cref="UnifiedWorkerEventWriter"/> on a
+/// configurable interval. Lease-awareness is handled downstream by the writer
+/// (see <see cref="UnifiedWorkerEventWriter.FlushWithRetryAsync"/>), which drops
+/// silently when there is no active lease; this timer enqueues unconditionally.
 /// </summary>
 public sealed class ControlPlaneTelemetryTimer : BackgroundService
 {
     private readonly IJobMetricsStore _metricsStore;
     private readonly IJobSnapshotStore _snapshotStore;
-    private readonly IControlPlaneTelemetryClient _client;
-    private readonly ActiveLeaseState _leaseState;
+    private readonly UnifiedWorkerEventWriter _writer;
     private readonly IOptions<TelemetryOptions> _options;
     private readonly ILogger<ControlPlaneTelemetryTimer> _logger;
 
     public ControlPlaneTelemetryTimer(
         IJobMetricsStore metricsStore,
         IJobSnapshotStore snapshotStore,
-        IControlPlaneTelemetryClient client,
-        ActiveLeaseState leaseState,
+        UnifiedWorkerEventWriter writer,
         IOptions<TelemetryOptions> options,
         ILogger<ControlPlaneTelemetryTimer> logger)
     {
         _metricsStore = metricsStore;
         _snapshotStore = snapshotStore;
-        _client = client;
-        _leaseState = leaseState;
+        _writer = writer;
         _options = options;
         _logger = logger;
     }
@@ -51,36 +46,21 @@ public sealed class ControlPlaneTelemetryTimer : BackgroundService
     {
         _logger.LogDebug("ControlPlaneTelemetryTimer started.");
 
-        // RegisteredWaitHandle for snapshot boundary push signal.
-        // When the snapshot store signals, we cancel the current delay to push immediately.
         var snapshotSignal = _snapshotStore.UpdateSignal;
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            // Push immediately on first iteration (and after snapshot signal),
-            // then delay between subsequent pushes.
-            var leaseId = _leaseState.CurrentLeaseId;
-            if (leaseId is not null)
-            {
-                var metrics = _metricsStore.Latest;
-                if (metrics is not null)
-                {
-                    await _client.PushMetricsAsync(leaseId, metrics, stoppingToken)
-                                 .ConfigureAwait(false);
-                }
+            var metrics = _metricsStore.Latest;
+            if (metrics is not null)
+                _writer.EnqueueMetrics(metrics);
 
-                var snapshot = _snapshotStore.Latest;
-                if (snapshot is not null)
-                {
-                    await _client.PushSnapshotAsync(leaseId, snapshot, stoppingToken)
-                                 .ConfigureAwait(false);
-                }
-            }
+            var snapshot = _snapshotStore.Latest;
+            if (snapshot is not null)
+                _writer.EnqueueSnapshot(snapshot);
 
             var intervalSeconds = _options.Value.SnapshotIntervalSeconds;
             try
             {
-                // Wait for either the timer interval or a snapshot boundary signal.
                 var delayCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                 var registration = ThreadPool.RegisterWaitForSingleObject(
                     snapshotSignal,
@@ -96,7 +76,7 @@ public sealed class ControlPlaneTelemetryTimer : BackgroundService
                 }
                 catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
                 {
-                    // Woken by snapshot signal — proceed to push immediately.
+                    // Woken by snapshot signal — push immediately.
                 }
                 finally
                 {

@@ -22,7 +22,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Nodes;
 
 /// <summary>
 /// TFS Object Model implementation of <see cref="IClassificationTreeCapture"/>.
-/// Reads from the active job's <see cref="IClassificationTreeReader"/> via
+/// Reads from the active job's <see cref="IClassificationTreeSource"/> via
 /// <see cref="ActiveTfsJobServices"/> and writes <c>Nodes/source-tree.json</c>
 /// to the package via <see cref="IPackageAccess"/>.
 /// </summary>

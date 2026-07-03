@@ -7,7 +7,7 @@
     "MaxLogFileSizeMB": 50
   },
   "MigrationPlatform": {
-    "ConfigVersion": "1.0",
+    "ConfigVersion": "2.0",
     "Mode": "Migrate",
     "Environment": {
       "Type": "Standalone",
@@ -158,28 +158,36 @@
     "Modules": {
       "Identities": {
         "Enabled": true,
-        "DefaultIdentity": "migration-service@contoso.com"
+        "Processing": {
+          "DefaultIdentity": "migration-service@contoso.com"
+        }
       },
       "Nodes": {
         "Enabled": true,
-        "ReplicateSourceTree": true
+        "Processing": {
+          "ReplicateSourceTree": true
+        }
       },
       "Teams": {
         "Enabled": true,
-        "Scope": "all",
-        "Filter": "",
-        "Extensions": {
+        "Selection": {
+          "Scope": "all",
+          "Filter": ""
+        },
+        "Data": {
           "TeamSettings": true,
-          "NodeTranslation": true,
           "TeamIterations": true,
           "TeamMembers": true,
-          "IdentityLookup": true,
           "TeamCapacity": true
+        },
+        "Processing": {
+          "NodeTranslation": true,
+          "IdentityLookup": true
         }
       },
       "WorkItems": {
         "Enabled": true,
-        "Scope": {
+        "Selection": {
           "Query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.Id]",
           "Filters": [
             {
@@ -194,14 +202,8 @@
             }
           ]
         },
-        "Extensions": {
+        "Data": {
           "Revisions": {
-            "Enabled": true
-          },
-          "Links": {
-            "Enabled": true
-          },
-          "Attachments": {
             "Enabled": true
           },
           "Comments": {
@@ -211,16 +213,14 @@
           "EmbeddedImages": {
             "Enabled": true,
             "DownloadTimeoutSeconds": 30
-          },
+          }
+        },
+        "Processing": {
           "WorkItemResolutionStrategy": {
             "Enabled": false,
             "Strategy": "TargetField",
             "FieldName": "Custom.SourceWorkItemId",
             "UrlPattern": ""
-          },
-          "FieldTransform": {
-            "Enabled": true,
-            "Phase": "Import"
           }
         }
       }

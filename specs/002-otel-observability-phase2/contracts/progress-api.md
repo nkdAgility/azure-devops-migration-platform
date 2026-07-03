@@ -2,7 +2,9 @@
 
 **Feature**: `002-otel-observability-phase2`  
 **Project**: `DevOpsMigrationPlatform.ControlPlane` → hosted by `DevOpsMigrationPlatform.ControlPlaneHost`  
-**Controller**: `ProgressController`
+**Controllers**: `ProgressController`, `WorkerEventsController`, `JobStreamController`
+
+> **Note (2026-06-30 — Phases A-E):** The primary agent→CP transport is now `POST /workers/{workerId}/events` (`WorkerEventsController`). The legacy `POST /agents/lease/{leaseId}/progress` endpoint remains as a backward-compat shim. The primary CLI→CP stream is now `GET /jobs/{jobId}/stream` (`JobStreamController`). See sections below.
 
 ---
 
@@ -199,8 +201,96 @@ await foreach (var line in reader.ReadLinesAsync(ct))
 
 ---
 
+---
+
+## POST /workers/{workerId}/events
+
+**Primary agent→CP telemetry channel (Phase C).** Accepts a batch of typed `WorkerEvent` records from a `UnifiedWorkerEventWriter` running inside the Migration Agent.
+
+### Request body — `WorkerEventBatch`
+
+```json
+{
+  "workerId": "3f4a7b...",
+  "leaseId": "abc-123",
+  "events": [
+    { "seq": 1, "timestamp": "...", "kind": "Progress",    "payloadJson": "{...ProgressEvent...}" },
+    { "seq": 2, "timestamp": "...", "kind": "Diagnostic",  "payloadJson": "[{...DiagnosticLogRecord...}]" },
+    { "seq": 3, "timestamp": "...", "kind": "Tasks",       "payloadJson": "{...JobTaskList...}" },
+    { "seq": 4, "timestamp": "...", "kind": "Terminal",    "payloadJson": "{\"failed\":false}" }
+  ]
+}
+```
+
+**`WorkerEventKind` values:** `Heartbeat`, `Progress`, `Diagnostic`, `Metrics`, `Snapshot`, `Tasks`, `Terminal`.
+
+### Response — `WorkerEventAck`
+
+```json
+{ "lastAcceptedSeq": 4 }
+```
+
+Returns `429 Too Many Requests` if the CP is under load; agent retries the same batch after 2 s.
+
+---
+
+## GET /jobs/{jobId}/stream
+
+**Primary CLI→CP unified SSE stream (Phase E).** Multiplexes progress and diagnostic events into one connection.
+
+### Request
+
+| Element | Value |
+|---|---|
+| Method | `GET` |
+| Path | `/jobs/{jobId}/stream` |
+| Query | `?from={seq}` — replay events with `seq > from` (default `0` = full history) |
+| Auth | Same visibility rules as `GET /jobs/{jobId}` |
+
+### Stream protocol
+
+Each event is one of:
+
+```
+id: {seq}
+event: progress
+data: {...ProgressEvent JSON...}
+
+event: diagnostic
+data: {...DiagnosticLogRecord JSON...}
+
+event: job-ended
+data: {}
+
+event: job-failed
+data: {}
+```
+
+Heartbeat comment every 15 s:
+```
+:
+```
+
+The server subscribes to live channels **before** replaying history so no events are missed between the snapshot read and the subscription.
+
+### C# consumer pattern
+
+```csharp
+await foreach (var evt in client.StreamJobAsync(jobId, ct))
+{
+    switch (evt.Kind)
+    {
+        case JobStreamEventKind.Progress:   Apply(evt.Progress); break;
+        case JobStreamEventKind.Diagnostic: Render(evt.Diagnostic); break;
+        case JobStreamEventKind.Terminal:   return evt.Failed == true ? Fail() : Complete();
+    }
+}
+```
+
+---
+
 ## Notes
 
-- The ring buffer capacity is configurable via `JobProgressOptions.Capacity` (default 1000). The snapshot endpoint returns at most `Capacity` events.
-- Concurrent SSE subscribers for the same job are unlimited in v1. High subscriber counts are a documented operational constraint.
-- `ControlPlaneProgressSink` POSTs events individually; no batching. Fire-and-forget; failures logged at debug, not retried.
+- The append-only event log capacity is configurable via `JobProgressOptions.MaxEventsPerJob` (default 50,000). Reaching the cap emits a warning log; events are not silently dropped.
+- Concurrent SSE subscribers for the same job are unlimited. Each subscriber gets its own bounded channel (5,000 capacity, DropOldest) so slow clients cannot block the append path.
+- `UnifiedWorkerEventWriter` batches ≤50 events or 500 ms, whichever comes first. Terminal events bypass the batch timer and are flushed immediately.

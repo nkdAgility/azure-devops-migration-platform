@@ -36,11 +36,11 @@ public sealed class ClassificationTreeCapture : IClassificationTreeCapture
         WriteIndented = false
     };
 
-    private readonly IClassificationTreeReader _reader;
+    private readonly IClassificationTreeSource _reader;
     private readonly ILogger<ClassificationTreeCapture> _logger;
 
     public ClassificationTreeCapture(
-        IClassificationTreeReader reader,
+        IClassificationTreeSource reader,
         ILogger<ClassificationTreeCapture> logger)
     {
         _reader = reader ?? throw new ArgumentNullException(nameof(reader));

@@ -4,6 +4,7 @@
 using System;
 using System.Text.Json;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.CLI.JobRunners;
 using DevOpsMigrationPlatform.CLI.Migration.Commands;
 using DevOpsMigrationPlatform.CLI.Migration.Options;
@@ -46,6 +47,7 @@ public sealed class LogsCommand : ControlPlaneCommandBase<LogsCommand.Settings>
             });
 
             services.AddTransient<ILogsClient>(sp => sp.GetRequiredService<ControlPlaneClient>());
+            services.AddTransient<IControlPlaneClient>(sp => sp.GetRequiredService<ControlPlaneClient>());
         });
 
         var console = GetRequiredService<IAnsiConsole>();
@@ -67,7 +69,6 @@ public sealed class LogsCommand : ControlPlaneCommandBase<LogsCommand.Settings>
 
     private async Task<int> RunCoreAsync(Settings settings, IAnsiConsole console)
     {
-        var client = GetRequiredService<ILogsClient>();
         using var cts = new CancellationTokenSource();
         ConsoleCancelEventHandler ctrlCHandler = (_, e) => { e.Cancel = true; cts.Cancel(); };
         Console.CancelKeyPress += ctrlCHandler;
@@ -76,14 +77,21 @@ public sealed class LogsCommand : ControlPlaneCommandBase<LogsCommand.Settings>
         {
             if (!settings.Follow)
             {
-                var events = await client.GetProgressAsync(settings.JobId, cts.Token);
+                var logsClient = GetRequiredService<ILogsClient>();
+                var events = await logsClient.GetProgressAsync(settings.JobId, cts.Token);
                 foreach (var evt in events)
                     console.WriteLine(JsonSerializer.Serialize(evt, _jsonOptions));
                 return 0;
             }
 
-            await foreach (var evt in client.FollowLogsAsync(settings.JobId, cts.Token))
-                console.WriteLine(JsonSerializer.Serialize(evt, _jsonOptions));
+            var streamClient = GetRequiredService<IControlPlaneClient>();
+            await foreach (var streamEvent in streamClient.StreamJobAsync(settings.JobId, cts.Token))
+            {
+                if (streamEvent.Kind == JobStreamEventKind.Progress && streamEvent.Progress is { } evt)
+                    console.WriteLine(JsonSerializer.Serialize(evt, _jsonOptions));
+                else if (streamEvent.Kind == JobStreamEventKind.Terminal)
+                    break;
+            }
 
             return 0;
         }

@@ -67,6 +67,7 @@ public sealed class WorkItemRevisionLoopDriver
             Mock.Of<ITargetEndpointInfo>(),
             commentsExtension != null
                 ? new IModuleExtension[] { commentsExtension }
-                : new IModuleExtension[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions())) });
+                : new IModuleExtension[] { new CommentsWorkItemExtension(Options.Create(new CommentsExtensionOptions()),
+            DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All) });
     }
 }

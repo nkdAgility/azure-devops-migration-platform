@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using DevOpsMigrationPlatform.Abstractions;
+using DevOpsMigrationPlatform.Abstractions.ControlPlaneApi;
 using DevOpsMigrationPlatform.Infrastructure.Serialization;
 using Microsoft.Extensions.Logging;
 
@@ -52,22 +53,9 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
             _jsonOptions.Converters.Add(endpointConverter);
     }
 
-    /// <inheritdoc/>
-    public async IAsyncEnumerable<ProgressEvent> RunAsync(
-        Job job,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        var jobId = await SubmitAsync(job, ct).ConfigureAwait(false);
-
-        // 2. Stream progress via SSE until the job reaches a terminal state.
-        await foreach (var evt in FollowLogsAsync(jobId, ct).ConfigureAwait(false))
-            yield return evt;
-    }
-
     /// <summary>
     /// Submits a <see cref="Job"/> to the control plane and returns the assigned jobId.
-    /// Does not follow progress — use <see cref="FollowLogsAsync"/> or <see cref="StreamDiagnosticsAsync"/>
-    /// separately for live streaming.
+    /// Use <see cref="StreamJobAsync"/> for live streaming.
     /// </summary>
     public async Task<Guid> SubmitAsync(Job job, CancellationToken ct = default)
     {
@@ -120,38 +108,6 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
         return summaries ?? [];
     }
 
-    /// <summary>
-    /// Returns the latest <see cref="JobMetrics"/> for a job, or <c>null</c> when none pushed yet.
-    /// Calls <c>GET /jobs/{jobId}/telemetry</c>.
-    /// </summary>
-    public async Task<JobMetrics?> GetTelemetryAsync(Guid jobId, CancellationToken ct)
-    {
-        _logger.LogInformation("ControlPlaneClient calling GET /jobs/{JobId}/telemetry", jobId);
-        var response = await _http
-            .GetAsync($"/jobs/{jobId}/telemetry", ct)
-            .ConfigureAwait(false);
-
-        if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
-        {
-            _logger.LogInformation(
-                "Control plane response GET /jobs/{JobId}/telemetry => {StatusCode} (no metrics yet)",
-                jobId,
-                (int)response.StatusCode);
-            return null;
-        }
-
-        response.EnsureSuccessStatusCode();
-        var metricsJson = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-        await RecordJsonAsync("telemetry", metricsJson, ct).ConfigureAwait(false);
-        var metrics = JsonSerializer.Deserialize<JobMetrics>(metricsJson, _jsonOptions);
-        _logger.LogInformation(
-            "Control plane response GET /jobs/{JobId}/telemetry => {StatusCode}, hasMetrics={HasMetrics}",
-            jobId,
-            (int)response.StatusCode,
-            metrics is not null);
-        return metrics;
-    }
-
     /// <summary>    /// Returns a snapshot of stored ProgressEvents for <paramref name="jobId"/>.
     /// Calls <c>GET /jobs/{jobId}/progress</c> and deserialises the JSON array.
     /// </summary>
@@ -177,147 +133,169 @@ public sealed class ControlPlaneClient : IJobSubmissionClient, ILogsClient, ICon
         return events ?? [];
     }
 
+    // ── Unified stream ────────────────────────────────────────────────────────────
+
     /// <summary>
-    /// Streams live ProgressEvents from <c>GET /jobs/{jobId}/progress?follow=true</c> (SSE).
-    /// Yields each event as it arrives; breaks on <c>event: job-ended</c> or cancellation.
+    /// Opens the unified SSE stream at <c>GET /jobs/{jobId}/stream?from={fromSeq}</c>
+    /// and yields <see cref="JobStreamEvent"/> records until a terminal event arrives.
+    /// Transport drops (connection reset, premature response end, clean close without
+    /// a terminal event) trigger an automatic reconnect that resumes replay from the
+    /// last observed progress sequence — the append-only log makes this loss-free.
+    /// After <see cref="MaxStreamReconnects"/> consecutive failures a synthetic failed
+    /// terminal is yielded so callers surface an actionable error instead of a raw
+    /// transport exception.
     /// </summary>
-    public async IAsyncEnumerable<ProgressEvent> FollowLogsAsync(
+    public async IAsyncEnumerable<JobStreamEvent> StreamJobAsync(
         Guid jobId,
         [EnumeratorCancellation] CancellationToken ct,
-        long? lastEventSequence = null)
+        long fromSeq = 0)
+    {
+        var lastSeq = fromSeq;
+        var consecutiveFailures = 0;
+
+        while (true)
+        {
+            var enumerator = StreamJobOnceAsync(jobId, ct, lastSeq).GetAsyncEnumerator(ct);
+            var reconnect = false;
+            try
+            {
+                while (true)
+                {
+                    JobStreamEvent evt;
+                    try
+                    {
+                        if (!await enumerator.MoveNextAsync().ConfigureAwait(false))
+                        {
+                            // Clean close without a terminal event — the job is still
+                            // running; resume from the last replayable sequence.
+                            reconnect = true;
+                            break;
+                        }
+                        evt = enumerator.Current;
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _logger.LogWarning(ex,
+                            "Unified stream for job {JobId} dropped; reconnecting from seq {Seq} (attempt {Attempt}/{Max}).",
+                            jobId, lastSeq, consecutiveFailures + 1, MaxStreamReconnects);
+                        reconnect = true;
+                        break;
+                    }
+
+                    consecutiveFailures = 0;
+                    if (evt.Seq > lastSeq) lastSeq = evt.Seq;
+                    yield return evt;
+                    if (evt.Kind == JobStreamEventKind.Terminal)
+                        yield break;
+                }
+            }
+            finally
+            {
+                await enumerator.DisposeAsync().ConfigureAwait(false);
+            }
+
+            if (!reconnect || ct.IsCancellationRequested)
+                yield break;
+
+            consecutiveFailures++;
+            if (consecutiveFailures > MaxStreamReconnects)
+            {
+                _logger.LogError(
+                    "Unified stream for job {JobId} lost after {Max} reconnect attempts.",
+                    jobId, MaxStreamReconnects);
+                yield return new JobStreamEvent(lastSeq, JobStreamEventKind.Terminal,
+                    null, null, true, $"Lost connection to the control plane stream after {MaxStreamReconnects} reconnect attempts.");
+                yield break;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250 * consecutiveFailures), ct).ConfigureAwait(false);
+        }
+    }
+
+    private const int MaxStreamReconnects = 5;
+
+    private async IAsyncEnumerable<JobStreamEvent> StreamJobOnceAsync(
+        Guid jobId,
+        [EnumeratorCancellation] CancellationToken ct,
+        long fromSeq)
     {
         _logger.LogInformation(
-            "ControlPlaneClient opening SSE stream GET /jobs/{JobId}/progress?follow=true (lastEventId={LastEventId})",
-            jobId,
-            lastEventSequence);
-
-        var request = new HttpRequestMessage(HttpMethod.Get,
-            $"/jobs/{jobId}/progress?follow=true");
-        if (lastEventSequence.HasValue)
-            request.Headers.TryAddWithoutValidation("Last-Event-ID",
-                lastEventSequence.Value.ToString());
+            "ControlPlaneClient opening unified SSE stream GET /jobs/{JobId}/stream?from={FromSeq}",
+            jobId, fromSeq);
 
         using var response = await _http
-            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct)
+            .GetAsync($"/jobs/{jobId}/stream?from={fromSeq}", HttpCompletionOption.ResponseHeadersRead, ct)
             .ConfigureAwait(false);
 
         response.EnsureSuccessStatusCode();
-        _logger.LogInformation(
-            "Control plane response GET /jobs/{JobId}/progress?follow=true => {StatusCode}",
-            jobId,
-            (int)response.StatusCode);
 
         using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         using var reader = new System.IO.StreamReader(stream, System.Text.Encoding.UTF8,
             detectEncodingFromByteOrderMarks: false, bufferSize: 256);
+
+        string? eventType = null;
+        long seq = 0;
 
         while (!ct.IsCancellationRequested)
         {
             var line = await reader.ReadLineAsync(ct).ConfigureAwait(false);
             if (line is null) break;
 
-            if (line.StartsWith("event:") && line.Contains("job-failed"))
+            if (line.StartsWith("id:"))
             {
-                _logger.LogWarning("Control plane SSE stream reported job-failed for {JobId}", jobId);
-                throw new InvalidOperationException("Job failed on the agent. Check errors.json in the package root for details.");
+                long.TryParse(line["id:".Length..].Trim(), out seq);
+                continue;
             }
 
-            if (line.StartsWith("event:") && line.Contains("job-ended"))
+            if (line.StartsWith("event:"))
             {
-                _logger.LogInformation("Control plane SSE stream reported job-ended for {JobId}", jobId);
-                yield break;
-            }
-
-            if (!line.StartsWith("data:"))
+                eventType = line["event:".Length..].Trim();
+                if (eventType == "job-ended")
+                {
+                    yield return new JobStreamEvent(seq, JobStreamEventKind.Terminal,
+                        null, null, false, null);
+                    yield break;
+                }
+                if (eventType == "job-failed")
+                {
+                    yield return new JobStreamEvent(seq, JobStreamEventKind.Terminal,
+                        null, null, true, "Job failed on the agent.");
+                    yield break;
+                }
                 continue;
-
-            var json = line["data:".Length..].Trim();
-            if (string.IsNullOrEmpty(json))
-                continue;
-
-            var evt = JsonSerializer.Deserialize<ProgressEvent>(json, _jsonOptions);
-            if (evt is null)
-                continue;
-
-            await RecordProgressAsync(evt, json, ct).ConfigureAwait(false);
-            yield return evt;
-        }
-    }
-
-    /// <summary>
-    /// Streams live <see cref="DiagnosticLogRecord"/> from
-    /// <c>GET /jobs/{jobId}/diagnostics?follow=true&amp;level={level}</c> (SSE).
-    /// Yields each record as it arrives; breaks on <c>event: job-ended</c> or cancellation.
-    /// </summary>
-    public async IAsyncEnumerable<DiagnosticLogRecord> StreamDiagnosticsAsync(
-        Guid jobId,
-        string? level,
-        [EnumeratorCancellation] CancellationToken ct)
-    {
-        _logger.LogInformation(
-            "ControlPlaneClient opening SSE stream GET /jobs/{JobId}/diagnostics?follow=true&level={Level}",
-            jobId,
-            level ?? "(default)");
-
-        var url = $"/jobs/{jobId}/diagnostics?follow=true";
-        if (!string.IsNullOrEmpty(level))
-            url += $"&level={Uri.EscapeDataString(level)}";
-
-        using var response = await _http
-            .GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct)
-            .ConfigureAwait(false);
-
-        response.EnsureSuccessStatusCode();
-        _logger.LogInformation(
-            "Control plane response GET /jobs/{JobId}/diagnostics?follow=true => {StatusCode}",
-            jobId,
-            (int)response.StatusCode);
-
-        using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-        using var reader = new System.IO.StreamReader(stream, System.Text.Encoding.UTF8,
-            detectEncodingFromByteOrderMarks: false, bufferSize: 256);
-
-        while (!ct.IsCancellationRequested)
-        {
-            var line = await reader.ReadLineAsync(ct).ConfigureAwait(false);
-            if (line is null) break;
-
-            if (line.StartsWith("event:") &&
-                (line.Contains("job-ended") || line.Contains("job-failed")))
-            {
-                _logger.LogInformation("Control plane diagnostics SSE stream ended for {JobId}: {EventLine}", jobId, line);
-                yield break;
             }
 
             if (!line.StartsWith("data:"))
+            {
+                eventType = null;
                 continue;
+            }
 
             var json = line["data:".Length..].Trim();
-            if (string.IsNullOrEmpty(json))
+            if (string.IsNullOrEmpty(json) || json == "{}")
                 continue;
 
-            var record = JsonSerializer.Deserialize<DiagnosticLogRecord>(json, _jsonOptions);
-            if (record is null)
-                continue;
+            if (eventType == "progress")
+            {
+                var evt = JsonSerializer.Deserialize<ProgressEvent>(json, _jsonOptions);
+                if (evt is not null)
+                {
+                    await RecordProgressAsync(evt, json, ct).ConfigureAwait(false);
+                    yield return new JobStreamEvent(seq, JobStreamEventKind.Progress, evt, null, null, null);
+                }
+            }
+            else if (eventType == "diagnostic")
+            {
+                var record = JsonSerializer.Deserialize<DiagnosticLogRecord>(json, _jsonOptions);
+                if (record is not null)
+                {
+                    await RecordDiagnosticAsync(record, json, ct).ConfigureAwait(false);
+                    yield return new JobStreamEvent(seq, JobStreamEventKind.Diagnostic, null, record, null, null);
+                }
+            }
 
-            await RecordDiagnosticAsync(record, json, ct).ConfigureAwait(false);
-            yield return record;
+            eventType = null;
         }
-    }
-
-    // ── Discovery Job API ─────────────────────────────────────────────────────────
-
-    /// <summary>
-
-    /// Streams live <see cref="ProgressEvent"/> records for a discovery job via SSE.
-    /// Uses the same progress endpoint as migration jobs.
-    /// </summary>
-    public async IAsyncEnumerable<ProgressEvent> FollowDiscoveryLogsAsync(
-        Guid jobId,
-        [EnumeratorCancellation] CancellationToken ct)
-    {
-        await foreach (var evt in FollowLogsAsync(jobId, ct).ConfigureAwait(false))
-            yield return evt;
     }
 
     /// <summary>

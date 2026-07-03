@@ -39,7 +39,9 @@ Registered via `AddIdentityAdapter<T>("<connectorType>")` and dispatched by `Com
 - Simulated must return ≥2 items per `EnumerateAsync`.
 - ADO methods must call the SDK — no hard-coded returns.
 - TFS methods use Windows authentication.
-- Pagination is mandatory for all list operations.
+- Pagination is mandatory for all list operations. Where an upstream REST endpoint is
+  genuinely unpaged, a documented exemption is recorded below (see "Pagination
+  Exemptions") and at the call site — silent non-compliance is not permitted.
 - Retry is via `IResiliencePipelineProvider`, not inline.
 - All interfaces in `DevOpsMigrationPlatform.Abstractions`.
 - Concrete implementations in `DevOpsMigrationPlatform.Infrastructure.*`.
@@ -51,13 +53,23 @@ Each connector registers its supported capabilities via `IConnectorCapabilityPro
 Extensions gate their work behind `_capProvider.Has(Cap.X)` — no null guards, no try/catch
 for capability detection.
 
-### Board Configuration Capability Flags
+### Capability Flags
 
-| Flag | Meaning | ADO | TFS |
-|---|---|---|---|
-| `BoardConfig` | Composite: board columns, swimlanes, card rules | ✔ | ✗ |
-| `Backlogs` | Backlog level metadata | ✔ | ✗ |
-| `TaskboardColumns` | Sprint taskboard columns | ✔ | ✗ |
+| Flag | Meaning | Simulated | ADO | TFS |
+|---|---|---|---|---|
+| `BoardConfig` | Composite: board columns, swimlanes, card rules | ✔ | ✔ | ✗ |
+| `Backlogs` | Backlog level metadata | ✔ | ✔ | ✗ |
+| `TaskboardColumns` | Sprint taskboard columns | ✔ | ✔ | ✗ |
+| `TeamSettings` | Team settings (backlog levels, bug behaviour, working days) | ✔ | ✔ | ✗ |
+| `TeamIterations` | Team iteration assignments | ✔ | ✔ | ✗ |
+| `TeamMembers` | Team membership | ✔ | ✔ | ✗ |
+| `TeamCapacity` | Per-member iteration capacity | ✔ | ✔ | ✗ |
+| `TeamAreaPaths` | Team area path assignments | ✔ | ✔ | ✗ |
+| `WorkItemComments` | Work-item comment export/replay | ✔ | ✔ | ✗ |
+
+Team and comment flags were introduced by ADR-0024 (EC-H1): extensions gate on
+`Has(Cap.X)` instead of null-checking optional seam members. TFS Object Model declares
+`ConnectorCapability.None` explicitly via `TfsConnectorCapabilityProvider`.
 
 When `BoardConfig` is absent the `BoardConfigTeamExtension` emits a `BoardConfigSkipped`
 progress event and returns immediately — no artefact is written, no error is raised.
@@ -67,6 +79,23 @@ progress event and returns immediately — no artefact is written, no error is r
 A connector registers its capabilities explicitly at DI startup.
 No implicit defaults. If a flag is not registered, `Has(Cap.X)` returns `false`.
 This prevents silent capability leakage when a new connector type is added.
+
+## Pagination Exemptions (ADR-0024, EC-M2 — operator-consented)
+
+The mandatory-pagination rule is exempted for the following Azure DevOps REST
+endpoints, which expose **no** pagination parameters (`$top`/`$skip`/continuation
+token) in api-version 7.1. Each call site carries a matching exemption comment.
+
+| Operation | Endpoint (api-version 7.1) | Evidence |
+|---|---|---|
+| `AzureDevOpsBoardAdapter.GetBoardsAsync` | `GET {org}/{project}/{team}/_apis/work/boards` | [Boards - List](https://learn.microsoft.com/rest/api/azure/devops/work/boards/list?view=azure-devops-rest-7.1) — URI parameters are org/project/team/api-version only; returns the full `BoardReference[]` |
+| `AzureDevOpsBoardAdapter.GetBacklogsAsync` | `GET {org}/{project}/{team}/_apis/work/backlogs` | [Backlogs - List](https://learn.microsoft.com/rest/api/azure/devops/work/backlogs/list?view=azure-devops-rest-7.1) — no paging parameters; returns the full `BacklogLevelConfiguration[]` (bounded by process backlog levels) |
+| `AzureDevOpsBoardAdapter.GetTaskboardColumnsAsync` | `GET {org}/{project}/{team}/_apis/work/taskboardcolumns` | Single `TaskboardColumns` resource — not a paged collection |
+| `AzureDevOpsIdentityAdapter.SearchAsync` (`ReadIdentitiesAsync`) | `GET {org}/_apis/identities?searchFilter=…&filterValue=…` | [Identities - Read Identities](https://learn.microsoft.com/rest/api/azure/devops/ims/identities/read-identities?view=azure-devops-rest-7.1) — query parameters are search filters only; the endpoint exposes no continuation token |
+
+These result sets are naturally bounded (boards/backlog levels per team; identities
+matching an exact UPN/display-name filter). Should Microsoft add paging parameters to
+these endpoints, the exemption lapses and paging must be implemented.
 
 ## Simulated Dependency Discovery
 

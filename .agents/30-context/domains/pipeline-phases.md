@@ -40,7 +40,7 @@ Each phase is independent. A phase can be re-run without re-running earlier phas
 
 - [checkpointing-summary.md](./checkpointing-summary.md) — resume model
 - [migration-package-concept.md](./migration-package-concept.md) — package structure
-- [../../20-guardrails/migration-rules.md](../../20-guardrails/domains/migration-rules.md) — migration rules
+- [migration-rules.md](../../20-guardrails/domains/migration-rules.md) — migration rules
 
 
 

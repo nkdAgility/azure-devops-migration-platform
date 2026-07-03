@@ -12,7 +12,7 @@ public class Net481GuardedTypesContractTests
     private static readonly (string AssemblyName, string FullTypeName)[] ExpectedTypes =
     [
         ("DevOpsMigrationPlatform.Abstractions.Agent", "DevOpsMigrationPlatform.Abstractions.Agent.Tools.ITeamTarget"),
-        ("DevOpsMigrationPlatform.Abstractions.Agent", "DevOpsMigrationPlatform.Abstractions.Agent.Tools.IReferencedPathTracker"),
+        ("DevOpsMigrationPlatform.Abstractions.Agent", "DevOpsMigrationPlatform.Abstractions.Agent.Tools.IReferencedPathLifecycle"),
         ("DevOpsMigrationPlatform.Infrastructure", "DevOpsMigrationPlatform.Infrastructure.Serialization.PolymorphicOrganisationEntryConverter"),
         ("DevOpsMigrationPlatform.Infrastructure", "DevOpsMigrationPlatform.Infrastructure.Serialization.PolymorphicEndpointOptionsConverter"),
         ("DevOpsMigrationPlatform.Infrastructure", "DevOpsMigrationPlatform.Infrastructure.Serialization.EndpointOptionsTypeRegistry"),
@@ -29,7 +29,7 @@ public class Net481GuardedTypesContractTests
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Connectors.ActiveJobAgentJobContext"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Export.CompositeWorkItemRevisionSourceFactory"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Export.KeyedWorkItemRevisionSourceFactory"),
-        ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Teams.TeamImportOrchestrator"),
+        ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Teams.TeamMigrationOrchestrator"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemType.CompositeWorkItemTypeReadinessTargetFactory"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemType.KeyedWorkItemTypeReadinessTargetFactory"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution.CompositeWorkItemResolutionStrategyFactory"),
@@ -40,14 +40,14 @@ public class Net481GuardedTypesContractTests
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Identity.PassThroughIdentityMappingService"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityTranslation.IdentityTranslationToolServiceCollectionExtensions"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.IdentityTranslation.IdentityTranslationTool"),
-        ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.ReferencedPathTracker"),
+        ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.ReferencedPathLifecycle"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.NodeTranslationValidator"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.NodeTranslationTool"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.NodeTranslationOptionsValidator"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.CompositeNodeCreator"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.KeyedNodeCreator"),
-        ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.CompositeClassificationTreeReader"),
-        ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.KeyedClassificationTreeReader")
+        ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.CompositeClassificationTreeSource"),
+        ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.KeyedClassificationTreeSource")
     ];
 
     [TestCategory("CodeTest")]

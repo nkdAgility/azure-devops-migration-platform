@@ -21,18 +21,23 @@ internal sealed class WorkItemTypeValidator : IImportFailurePattern
     private readonly IWorkItemTypeReadinessTargetFactory _typeReadinessTargetFactory;
     private readonly FieldTransformOptions _fieldTransformOptions;
 
+    private readonly IWorkItemRevisionReader _revisionReader;
+
     public WorkItemTypeValidator(IWorkItemTypeReadinessTargetFactory typeReadinessTargetFactory)
     {
         _typeReadinessTargetFactory = typeReadinessTargetFactory;
         _fieldTransformOptions = new FieldTransformOptions();
+        _revisionReader = new WorkItemsPrepareRevisionReader();
     }
 
     public WorkItemTypeValidator(
         IWorkItemTypeReadinessTargetFactory typeReadinessTargetFactory,
-        IOptionsSnapshot<FieldTransformOptions> fieldTransformOptions)
+        IOptionsSnapshot<FieldTransformOptions> fieldTransformOptions,
+        IWorkItemRevisionReader? revisionReader = null)
     {
         _typeReadinessTargetFactory = typeReadinessTargetFactory;
         _fieldTransformOptions = fieldTransformOptions.Value;
+        _revisionReader = revisionReader ?? new WorkItemsPrepareRevisionReader();
     }
 
     public string PatternCode => Code;
@@ -43,7 +48,7 @@ internal sealed class WorkItemTypeValidator : IImportFailurePattern
     {
         var exportedTypes = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
 
-        await foreach (var parsedRevision in WorkItemsPrepareRevisionReader.EnumerateAsync(
+        await foreach (var parsedRevision in _revisionReader.EnumerateAsync(
                            context.PrepareContext.Package,
                            context.Organisation,
                            context.Project,

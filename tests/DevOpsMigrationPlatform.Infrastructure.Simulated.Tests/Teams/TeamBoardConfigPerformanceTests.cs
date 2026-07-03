@@ -40,7 +40,7 @@ public sealed class TeamBoardConfigPerformanceTests
         var cap = new Mock<IConnectorCapabilityProvider>(MockBehavior.Loose);
         cap.Setup(c => c.Has(It.IsAny<Cap>())).Returns(true);
 
-        var options = new BoardConfigExtensionOptions
+        var options = new BoardConfigDataOptions
         {
             Columns = true,
             SwimLanes = true,
@@ -84,8 +84,10 @@ public sealed class TeamBoardConfigPerformanceTests
 
             var ext = new BoardConfigTeamExtension(
                 Options.Create(options),
+                Options.Create(new BoardConfigProcessingOptions()),
                 new SimulatedBoardAdapter(),
                 cap.Object,
+            new DevOpsMigrationPlatform.Infrastructure.Agent.Teams.BoardConfigMergeTool(),
                 metrics: null,
                 logger: NullLogger<BoardConfigTeamExtension>.Instance);
 

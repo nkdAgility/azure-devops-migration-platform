@@ -224,13 +224,18 @@ public sealed class TuiLogView : FrameView
     private async Task StreamTraceAsync(Guid jobId, CancellationToken ct)
     {
         bool ended = false;
-        await foreach (var evt in _client.FollowLogsAsync(jobId, ct).ConfigureAwait(false))
+        await foreach (var streamEvent in _client.StreamJobAsync(jobId, ct).ConfigureAwait(false))
         {
-            var time = evt.Timestamp.ToLocalTime().ToString("HH:mm:ss");
-            var line = $"{time} [{evt.Module}] [{evt.Stage}] {evt.Message}";
-            _dispatcher.Invoke(() => AppendLine(line));
-            OnProgressReceived?.Invoke(evt);
-            ended = true; // at least one event received
+            if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Progress && streamEvent.Progress is { } evt)
+            {
+                var time = evt.Timestamp.ToLocalTime().ToString("HH:mm:ss");
+                var line = $"{time} [{evt.Module}] [{evt.Stage}] {evt.Message}";
+                _dispatcher.Invoke(() => AppendLine(line));
+                OnProgressReceived?.Invoke(evt);
+                ended = true;
+            }
+            else if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Terminal)
+                break;
         }
 
         if (!ended) return;
@@ -242,16 +247,18 @@ public sealed class TuiLogView : FrameView
     private async Task StreamMetricsFeedAsync(Guid jobId, CancellationToken ct)
     {
         bool ended = false;
-        await foreach (var evt in _client.FollowLogsAsync(jobId, ct).ConfigureAwait(false))
+        await foreach (var streamEvent in _client.StreamJobAsync(jobId, ct).ConfigureAwait(false))
         {
-            OnProgressReceived?.Invoke(evt);
-
-            if (evt.Metrics is null)
-                continue;
-
-            var line = FormatMetricsFeedLine(evt);
-            _dispatcher.Invoke(() => AppendLine(line));
-            ended = true;
+            if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Progress && streamEvent.Progress is { } evt)
+            {
+                OnProgressReceived?.Invoke(evt);
+                if (evt.Metrics is null) continue;
+                var line = FormatMetricsFeedLine(evt);
+                _dispatcher.Invoke(() => AppendLine(line));
+                ended = true;
+            }
+            else if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Terminal)
+                break;
         }
 
         if (!ended) return;
@@ -263,12 +270,17 @@ public sealed class TuiLogView : FrameView
     private async Task StreamLogsAsync(Guid jobId, CancellationToken ct)
     {
         bool ended = false;
-        await foreach (var rec in _client.StreamDiagnosticsAsync(jobId, MinLevel, ct).ConfigureAwait(false))
+        await foreach (var streamEvent in _client.StreamJobAsync(jobId, ct).ConfigureAwait(false))
         {
-            var time = rec.Timestamp.ToLocalTime().ToString("HH:mm:ss.fff");
-            var line = $"{time} {rec.Level,-12} {rec.Message}";
-            _dispatcher.Invoke(() => AppendLine(line));
-            ended = true;
+            if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Diagnostic && streamEvent.Diagnostic is { } rec)
+            {
+                var time = rec.Timestamp.ToLocalTime().ToString("HH:mm:ss.fff");
+                var line = $"{time} {rec.Level,-12} {rec.Message}";
+                _dispatcher.Invoke(() => AppendLine(line));
+                ended = true;
+            }
+            else if (streamEvent.Kind == Abstractions.ControlPlaneApi.JobStreamEventKind.Terminal)
+                break;
         }
 
         if (!ended) return;

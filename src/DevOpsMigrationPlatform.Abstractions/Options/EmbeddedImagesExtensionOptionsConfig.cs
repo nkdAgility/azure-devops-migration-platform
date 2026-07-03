@@ -4,8 +4,8 @@
 namespace DevOpsMigrationPlatform.Abstractions.Options;
 
 /// <summary>
-/// Embedded images extension options.
-/// Bound from <c>MigrationPlatform:Modules:WorkItems:Extensions:EmbeddedImages</c>.
+/// Embedded images data-aspect options.
+/// Bound from <c>MigrationPlatform:Modules:WorkItems:Data:EmbeddedImages</c> (ConfigVersion 2.0 anatomy).
 /// </summary>
 public sealed class EmbeddedImagesExtensionOptionsConfig : EnabledExtensionOptions
 {
