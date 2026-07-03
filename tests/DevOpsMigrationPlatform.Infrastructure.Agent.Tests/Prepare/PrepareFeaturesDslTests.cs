@@ -585,7 +585,7 @@ public sealed class PrepareFeaturesDslTests
             CreateSourceEndpoint(connectorType),
             CreateTargetEndpoint(connectorType),
             // Real orchestrator: its PrepareAsync writes Teams/prepare-report.json to context.Package.
-            new TeamsOrchestrator(NullLogger<TeamsOrchestrator>.Instance, importOrchestrator: null),
+            new TeamsOrchestrator(NullLogger<TeamsOrchestrator>.Instance, orchestrator: null),
             PlatformMetrics: null,
             teamSource: null,
             teamTarget: null,

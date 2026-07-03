@@ -147,7 +147,7 @@ internal static class InventoryModuleFactory
             Options.Create(new TeamsModuleOptions { Enabled = true }),
             sourceEndpoint.Object,
             targetEndpoint.Object,
-            new TeamsOrchestrator(NullLogger<TeamsOrchestrator>.Instance, importOrchestrator: null),
+            new TeamsOrchestrator(NullLogger<TeamsOrchestrator>.Instance, orchestrator: null),
             PlatformMetrics: null,
             teamSource: teamSource.Object,
             teamTarget: Mock.Of<ITeamTarget>());

@@ -187,7 +187,7 @@ public sealed class TeamsPrepareValidationTests
 
     private static async Task<PrepareReport> RunPrepareAsync(InMemoryPackageAccess package)
     {
-        var orchestrator = new TeamsOrchestrator(NullLogger<TeamsOrchestrator>.Instance, importOrchestrator: null);
+        var orchestrator = new TeamsOrchestrator(NullLogger<TeamsOrchestrator>.Instance, orchestrator: null);
 
         var context = new PrepareContext
         {

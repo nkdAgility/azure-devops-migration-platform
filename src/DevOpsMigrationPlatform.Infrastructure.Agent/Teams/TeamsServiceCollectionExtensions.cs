@@ -34,7 +34,7 @@ public static class TeamsServiceCollectionExtensions
 #endif
 
         // Scoped (not Singleton) so each per-job DI scope gets its own TeamsOrchestrator
-        // instance and — via TeamsOrchestrator → TeamExportOrchestrator — its own
+        // instance and — via TeamsOrchestrator → TeamMigrationOrchestrator — its own
         // IReferencedPathLifecycle.  The T012 invariant requires every component within a
         // single job scope to share the same ReferencedPathLifecycle so the internal
         // SemaphoreSlim correctly serialises concurrent file writes to
@@ -55,10 +55,7 @@ public static class TeamsServiceCollectionExtensions
             services.AddOptions<TeamsModuleOptions>();
         }
 
-        services.AddTransient<TeamExportOrchestrator>();
-#if !NET481
-        services.AddTransient<TeamImportOrchestrator>();
-#endif
+        services.AddTransient<TeamMigrationOrchestrator>();
         services.AddSingleton<TeamSlugGenerator>();
 
         // BoardConfig extension — split options per the module-anatomy contract (ADR-0028

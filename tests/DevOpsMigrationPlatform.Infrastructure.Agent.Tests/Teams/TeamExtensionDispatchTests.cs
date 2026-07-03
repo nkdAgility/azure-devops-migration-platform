@@ -124,11 +124,13 @@ public class TeamExtensionDispatchTests
         return m;
     }
 
-    private static TeamExportOrchestrator BuildTeamExportOrchestrator(Mock<ITeamSource> teamSource)
+    private static TeamMigrationOrchestrator BuildTeamExportOrchestrator(Mock<ITeamSource> teamSource)
         => new(
             teamSource.Object,
-            NullLogger<TeamExportOrchestrator>.Instance,
-            BuildSourceEndpoint().Object);
+            teamTarget: null,
+            NullLogger<TeamMigrationOrchestrator>.Instance,
+            BuildSourceEndpoint().Object,
+            targetEndpointInfo: null);
 
     private static TeamsOrchestrator BuildOrchestrator(
         IEnumerable<IModuleExtension> extensions,
@@ -137,8 +139,7 @@ public class TeamExtensionDispatchTests
         => new(
             NullLogger<TeamsOrchestrator>.Instance,
             PlatformMetrics: null,
-            exportOrchestrator: BuildTeamExportOrchestrator(teamSource),
-            importOrchestrator: null,
+            orchestrator: BuildTeamExportOrchestrator(teamSource),
             slugGenerator: new TeamSlugGenerator(),
             package: package.Object,
             extensions: extensions);
@@ -196,10 +197,12 @@ public class TeamExtensionDispatchTests
     private static Mock<ITeamTarget> BuildTeamTarget()
         => new Mock<ITeamTarget>(MockBehavior.Loose);
 
-    private static TeamImportOrchestrator BuildTeamImportOrchestrator()
+    private static TeamMigrationOrchestrator BuildTeamImportOrchestrator()
         => new(
+            teamSource: null,
             BuildTeamTarget().Object,
-            NullLogger<TeamImportOrchestrator>.Instance,
+            NullLogger<TeamMigrationOrchestrator>.Instance,
+            sourceEndpointInfo: null,
             BuildTargetEndpoint().Object);
 
     private static TeamsOrchestrator BuildOrchestratorForImport(
@@ -208,8 +211,7 @@ public class TeamExtensionDispatchTests
         => new(
             NullLogger<TeamsOrchestrator>.Instance,
             PlatformMetrics: null,
-            exportOrchestrator: null,
-            importOrchestrator: BuildTeamImportOrchestrator(),
+            orchestrator: BuildTeamImportOrchestrator(),
             slugGenerator: new TeamSlugGenerator(),
             package: package.Object,
             extensions: extensions);

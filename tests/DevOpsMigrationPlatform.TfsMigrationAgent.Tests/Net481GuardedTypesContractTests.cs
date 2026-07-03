@@ -29,7 +29,7 @@ public class Net481GuardedTypesContractTests
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Connectors.ActiveJobAgentJobContext"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Export.CompositeWorkItemRevisionSourceFactory"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Export.KeyedWorkItemRevisionSourceFactory"),
-        ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Teams.TeamImportOrchestrator"),
+        ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Teams.TeamMigrationOrchestrator"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemType.CompositeWorkItemTypeReadinessTargetFactory"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemType.KeyedWorkItemTypeReadinessTargetFactory"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.WorkItemResolution.CompositeWorkItemResolutionStrategyFactory"),

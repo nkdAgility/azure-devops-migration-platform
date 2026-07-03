@@ -21,7 +21,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Teams.Extensions;
 /// <summary>
 /// Teams module extension: imports team area path assignments from
 /// <c>Teams/{slug}/area-paths.json</c> with NodeTranslation-based path mapping.
-/// Area paths are export-only via <see cref="TeamExportOrchestrator"/> (which records
+/// Area paths are export-only via <see cref="TeamMigrationOrchestrator"/> (which records
 /// them via <see cref="IReferencedPathLifecycle"/>) — this extension handles import only.
 /// </summary>
 public sealed class TeamAreaPathsTeamExtension : IModuleExtension
@@ -51,7 +51,7 @@ public sealed class TeamAreaPathsTeamExtension : IModuleExtension
     public string Module => "Teams";
     public string Name => "TeamAreaPaths";
     public int Order => 50;
-    public bool SupportsExport => false;   // Area path recording is handled by TeamExportOrchestrator
+    public bool SupportsExport => false;   // Area path recording is handled by TeamMigrationOrchestrator
     public bool SupportsImport => _capProvider.Has(Cap.TeamAreaPaths);
     // Always enabled — gating is the connector's TeamAreaPaths capability; path translation
     // is governed by the NodeTranslation Processing seam (ConfigVersion 2.0 anatomy, ADR-0028).

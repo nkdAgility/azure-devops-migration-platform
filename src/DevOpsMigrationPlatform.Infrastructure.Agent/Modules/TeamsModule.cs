@@ -33,8 +33,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// Thin <see cref="IModule"/> wrapper for team export/import.
 /// Delegates all orchestration to <see cref="TeamsOrchestrator"/>, which handles
 /// the enumeration loop, checkpointing, progress events, and metrics, and in turn
-/// delegates per-team operations to <see cref="TeamExportOrchestrator"/> and
-/// <see cref="TeamImportOrchestrator"/>.
+/// delegates per-team operations to <see cref="TeamMigrationOrchestrator"/>.
 /// </summary>
 /// <remarks>
 /// <strong>Connector coverage:</strong> Team import is supported for

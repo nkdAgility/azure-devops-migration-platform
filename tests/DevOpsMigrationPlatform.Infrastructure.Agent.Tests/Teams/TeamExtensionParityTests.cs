@@ -60,7 +60,7 @@ public class TeamExtensionParityTests
     }
 
     // EC-M3 / ADR-0024: team-settings export is core Teams pipeline behaviour (the
-    // TeamSettingsTeamExtension seam was folded into TeamExportOrchestrator). The
+    // TeamSettingsTeamExtension seam was folded into TeamMigrationOrchestrator). The
     // package artefact must remain byte-for-byte identical to the extension's output.
     [TestCategory("CodeTest")]
     [TestCategory("DomainTests")]
@@ -88,10 +88,12 @@ public class TeamExtensionParityTests
             .Returns(ValueTask.CompletedTask);
 
         var endpointInfo = new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Context.ISourceEndpointInfo>(MockBehavior.Loose);
-        var orchestrator = new DevOpsMigrationPlatform.Infrastructure.Agent.Teams.TeamExportOrchestrator(
+        var orchestrator = new DevOpsMigrationPlatform.Infrastructure.Agent.Teams.TeamMigrationOrchestrator(
             teamSource.Object,
-            NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.Teams.TeamExportOrchestrator>.Instance,
-            endpointInfo.Object);
+            teamTarget: null,
+            NullLogger<DevOpsMigrationPlatform.Infrastructure.Agent.Teams.TeamMigrationOrchestrator>.Instance,
+            endpointInfo.Object,
+            targetEndpointInfo: null);
 
         await orchestrator.ExportTeamAsync(
             "org", "Proj",

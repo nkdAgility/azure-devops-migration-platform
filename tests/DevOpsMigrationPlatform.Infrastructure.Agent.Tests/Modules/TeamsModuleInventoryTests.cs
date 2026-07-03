@@ -105,7 +105,7 @@ public sealed class TeamsModuleInventoryTests
             Options.Create(new TeamsModuleOptions { Enabled = true }),
             sourceEndpoint.Object,
             targetEndpoint.Object,
-            new TeamsOrchestrator(NullLogger<TeamsOrchestrator>.Instance, metrics, importOrchestrator: null),
+            new TeamsOrchestrator(NullLogger<TeamsOrchestrator>.Instance, metrics, orchestrator: null),
             metrics,
             teamSource.Object,
             Mock.Of<ITeamTarget>());

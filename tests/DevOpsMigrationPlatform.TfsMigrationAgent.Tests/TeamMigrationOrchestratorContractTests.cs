@@ -7,13 +7,13 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.TfsMigrationAgent.Tests;
 
 [TestClass]
-public class TeamExportOrchestratorContractTests
+public class TeamMigrationOrchestratorContractTests
 {
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
     [TestMethod]
     public void Type_IsAvailable_ForNet481Build()
     {
-        Assert.IsNotNull(typeof(TeamExportOrchestrator));
+        Assert.IsNotNull(typeof(TeamMigrationOrchestrator));
     }
 }

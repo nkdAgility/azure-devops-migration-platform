@@ -39,7 +39,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 /// <summary>
 /// Orchestrates team export, import, and validation operations.
 /// Handles the enumeration loop, checkpointing, progress events, and metrics — delegates
-/// per-team operations to <see cref="TeamExportOrchestrator"/> and, on net10, <see cref="TeamImportOrchestrator"/>.
+/// per-team operations to <see cref="TeamMigrationOrchestrator"/> (import dispatch is net10-only).
 /// </summary>
 internal sealed class TeamsOrchestrator : ITeamsOrchestrator
 {
@@ -57,10 +57,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
 
     private readonly ILogger _logger;
     private readonly IPlatformMetrics? _PlatformMetrics;
-    private readonly TeamExportOrchestrator? _exportOrchestrator;
-#if !NET481
-    private readonly TeamImportOrchestrator? _importOrchestrator;
-#endif
+    private readonly TeamMigrationOrchestrator? _orchestrator;
     private readonly TeamSlugGenerator? _slugGenerator;
     private readonly IPackageAccess? _package;
     private readonly IReadOnlyList<IModuleExtension> _exportExtensions;
@@ -71,7 +68,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
     public TeamsOrchestrator(
         ILogger<TeamsOrchestrator> logger,
         IPlatformMetrics? PlatformMetrics = null,
-        TeamExportOrchestrator? exportOrchestrator = null,
+        TeamMigrationOrchestrator? orchestrator = null,
         TeamSlugGenerator? slugGenerator = null,
         IPackageAccess? package = null,
         IEnumerable<IModuleExtension>? extensions = null,
@@ -80,7 +77,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         _projectInventory = projectInventory ?? new Discovery.ProjectInventoryFileStore();
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _PlatformMetrics = PlatformMetrics;
-        _exportOrchestrator = exportOrchestrator;
+        _orchestrator = orchestrator;
         _slugGenerator = slugGenerator;
         _package = package;
 
@@ -92,22 +89,6 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         _exportExtensions = allExtensions.Where(e => e.SupportsExport).ToList().AsReadOnly();
         _importExtensions = allExtensions.Where(e => e.SupportsImport).ToList().AsReadOnly();
     }
-
-#if !NET481
-    public TeamsOrchestrator(
-        ILogger<TeamsOrchestrator> logger,
-        IPlatformMetrics? PlatformMetrics = null,
-        TeamExportOrchestrator? exportOrchestrator = null,
-        TeamImportOrchestrator? importOrchestrator = null,
-        TeamSlugGenerator? slugGenerator = null,
-        IPackageAccess? package = null,
-        IEnumerable<IModuleExtension>? extensions = null,
-        IProjectInventoryWriter? projectInventory = null)
-        : this(logger, PlatformMetrics, exportOrchestrator, slugGenerator, package, extensions, projectInventory)
-    {
-        _importOrchestrator = importOrchestrator;
-    }
-#endif
 
     /// <summary>
     /// Inventory phase: enumerates teams and merges the count into the project
@@ -563,9 +544,9 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         TeamsModuleOptions options,
         CancellationToken ct)
     {
-        if (_exportOrchestrator is null)
+        if (_orchestrator is null)
         {
-            _logger.LogWarning("[Teams] No TeamExportOrchestrator available — team export skipped.");
+            _logger.LogWarning("[Teams] No TeamMigrationOrchestrator available — team export skipped.");
             return;
         }
 
@@ -630,7 +611,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             var exportSw = Stopwatch.StartNew();
             try
             {
-                await _exportOrchestrator.ExportTeamAsync(
+                await _orchestrator.ExportTeamAsync(
                     sourceEndpointInfo.OrganisationSlug, projectName, team, slug, _package!, options.Data, options.Processing, ct).ConfigureAwait(false);
 
                 // Dispatch enabled export extensions in order
@@ -736,9 +717,9 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
         TeamsModuleOptions options,
         CancellationToken ct)
     {
-        if (_importOrchestrator is null)
+        if (_orchestrator is null)
         {
-            _logger.LogWarning("[Teams] No TeamImportOrchestrator available — team import skipped.");
+            _logger.LogWarning("[Teams] No TeamMigrationOrchestrator available — team import skipped.");
             return;
         }
         using var activity = s_activitySource.StartActivity("teams.import");
@@ -814,7 +795,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             var importSw = Stopwatch.StartNew();
             try
             {
-                var targetTeamId = await _importOrchestrator.ImportTeamAsync(
+                var targetTeamId = await _orchestrator.ImportTeamAsync(
                     projectName, sourceProjectName, teamPackage, options.Data,
                     organisation: sourceOrganisation,
                     slug: GetTeamSlug(teamPath),
