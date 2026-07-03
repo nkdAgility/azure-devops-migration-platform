@@ -33,7 +33,7 @@ public interface IWorkItemExportOrchestratorFactory
         ILogger? logger,
         string? wiqlQuery,
         IWorkItemDiscoveryService? discoveryService,
-        IExportProgressStoreFactory? exportProgressStoreFactory,
+        IWorkItemProgressStoreFactory? exportProgressStoreFactory,
         string? packageUri,
         IReferencedPathLifecycle? referencedPathTracker = null,
         IReadOnlyList<IModuleExtension>? exportExtensions = null,

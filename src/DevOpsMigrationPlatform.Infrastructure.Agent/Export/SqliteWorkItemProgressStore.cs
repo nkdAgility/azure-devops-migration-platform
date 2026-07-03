@@ -14,7 +14,7 @@ using Microsoft.Data.Sqlite;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 
 /// <summary>
-/// SQLite-backed implementation of <see cref="IExportProgressStore"/>.
+/// SQLite-backed implementation of <see cref="IWorkItemProgressStore"/>.
 /// Opens or creates <c>.migration/Checkpoints/export_progress.db</c> at the package root.
 /// This is package-local indexed storage — not a control-plane database.
 /// </summary>
@@ -26,19 +26,19 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Export;
 /// it from <c>MigrationJob.Package.PackageUri</c>. All module and domain code must continue to
 /// access package content exclusively through <see cref="IArtefactStore"/>.
 /// </remarks>
-public sealed class SqliteExportProgressStore : IExportProgressStore
+public sealed class SqliteWorkItemProgressStore : IWorkItemProgressStore
 {
         private readonly string _dbFilePath;
         private SqliteConnection? _connection;
 
-        public SqliteExportProgressStore(string dbFilePath)
+        public SqliteWorkItemProgressStore(string dbFilePath)
         {
                 if (string.IsNullOrWhiteSpace(dbFilePath))
                         throw new ArgumentException("dbFilePath must not be empty.", nameof(dbFilePath));
                 _dbFilePath = dbFilePath;
         }
 
-        public SqliteExportProgressStore(DbConnection connection)
+        public SqliteWorkItemProgressStore(DbConnection connection)
         {
                 _connection = (SqliteConnection)(connection ?? throw new ArgumentNullException(nameof(connection)));
                 _dbFilePath = _connection.DataSource;
@@ -83,7 +83,7 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
         }
 
         /// <inheritdoc/>
-        public async Task<WorkItemExportProgress?> GetProgressAsync(int workItemId, CancellationToken cancellationToken)
+        public async Task<WorkItemProgress?> GetProgressAsync(int workItemId, CancellationToken cancellationToken)
         {
                 EnsureInitialized();
 #if NET481
@@ -106,7 +106,7 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
                 if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                         return null;
 
-                return new WorkItemExportProgress(
+                return new WorkItemProgress(
                     WorkItemId: reader.GetInt32(0),
                     Rev: reader.GetInt32(1));
         }
@@ -161,7 +161,7 @@ public sealed class SqliteExportProgressStore : IExportProgressStore
         {
                 if (_connection is null)
                         throw new InvalidOperationException(
-                            $"{nameof(SqliteExportProgressStore)} has not been initialised. Call {nameof(InitializeAsync)} first.");
+                            $"{nameof(SqliteWorkItemProgressStore)} has not been initialised. Call {nameof(InitializeAsync)} first.");
         }
 
         private static string GetSqliteConnectionPath(string dbFilePath)

@@ -837,7 +837,7 @@ internal static class TestTfsJobServicesFactory
                 Project = "TestProject",
                 Type = "TeamFoundationServer"
             },
-            new Mock<IWorkItemExportMetrics>().Object,
+            new Mock<IWorkItemMetrics>().Object,
             new Mock<IAttachmentDownloadMetrics>().Object,
             new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Tools.IIdentitySource>().Object,
             new Mock<DevOpsMigrationPlatform.Abstractions.Agent.Tools.ITeamSource>().Object,

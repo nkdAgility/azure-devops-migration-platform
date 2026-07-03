@@ -4,14 +4,14 @@
 namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
 /// <summary>
-/// Creates <see cref="IExportProgressStore"/> instances for a given package.
+/// Creates <see cref="IWorkItemProgressStore"/> instances for a given package.
 /// </summary>
-public interface IExportProgressStoreFactory
+public interface IWorkItemProgressStoreFactory
 {
     /// <summary>Creates a store backed by the file at <paramref name="dbFilePath"/>.</summary>
-    IExportProgressStore Create(string dbFilePath);
+    IWorkItemProgressStore Create(string dbFilePath);
 
     /// <summary>Creates a store backed by an already resolved native database connection.</summary>
-    IExportProgressStore Create(System.Data.Common.DbConnection connection);
+    IWorkItemProgressStore Create(System.Data.Common.DbConnection connection);
 
 }

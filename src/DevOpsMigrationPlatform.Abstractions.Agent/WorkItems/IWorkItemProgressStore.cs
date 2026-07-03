@@ -11,7 +11,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 /// Tracks per-work-item export progress so the export orchestrator can
 /// skip already-written revisions on resume without per-revision <c>ExistsAsync</c> checks.
 /// </summary>
-public interface IExportProgressStore : IAsyncDisposable
+public interface IWorkItemProgressStore : IAsyncDisposable
 {
     /// <summary>Creates the underlying schema if it does not already exist.</summary>
     Task InitializeAsync(CancellationToken cancellationToken);
@@ -20,7 +20,7 @@ public interface IExportProgressStore : IAsyncDisposable
     /// Returns the stored progress for <paramref name="workItemId"/>, or
     /// <see langword="null"/> if the work item has never been recorded.
     /// </summary>
-    Task<WorkItemExportProgress?> GetProgressAsync(int workItemId, CancellationToken cancellationToken);
+    Task<WorkItemProgress?> GetProgressAsync(int workItemId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Records that the revision with the given <paramref name="rev"/> index has been

@@ -58,7 +58,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
     private readonly IWorkItemFetchService? _fetchService;
     private readonly IWorkItemExportOrchestratorFactory _exportOrchestratorFactory;
     private readonly IWorkItemDiscoveryService? _discoveryService;
-    private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
+    private readonly IWorkItemProgressStoreFactory? _exportProgressStoreFactory;
     private readonly IReferencedPathLifecycle? _referencedPathTracker;
     private readonly IInventoryOrchestrator? _inventoryOrchestrator;
     private readonly IRepoDiscoveryService? _repoDiscoveryService;
@@ -93,7 +93,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         ILogger<WorkItemsModule> logger,
         IPlatformMetrics? metrics,
         IWorkItemDiscoveryService? discoveryService,
-        IExportProgressStoreFactory? exportProgressStoreFactory,
+        IWorkItemProgressStoreFactory? exportProgressStoreFactory,
         IReferencedPathLifecycle? referencedPathTracker,
         IOptions<WorkItemsModuleOptions> options,
         ISourceEndpointInfo sourceEndpointInfo,

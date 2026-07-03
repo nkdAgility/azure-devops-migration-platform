@@ -45,6 +45,6 @@ public interface ITfsJobServices : IDisposable
     IIdentitySource IdentitySource { get; }
     ITeamSource TeamSource { get; }
     IProjectLifecycleService ProjectLifecycleService { get; }
-    IWorkItemExportMetrics ExportMetrics { get; }
+    IWorkItemMetrics ExportMetrics { get; }
     IAttachmentDownloadMetrics AttachmentMetrics { get; }
 }

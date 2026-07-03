@@ -67,8 +67,8 @@ public sealed class CommentsWorkItemExtension : IModuleExtension
 
     public async Task ExportAsync(IExtensionContext context, CancellationToken ct)
     {
-        if (context is not WorkItemRevisionExportContext ctx)
-            throw new ArgumentException($"Expected {nameof(WorkItemRevisionExportContext)}.", nameof(context));
+        if (context is not WorkItemRevisionContext ctx)
+            throw new ArgumentException($"Expected {nameof(WorkItemRevisionContext)}.", nameof(context));
 
         if (_commentSourceFactory == null)
             throw new InvalidOperationException(

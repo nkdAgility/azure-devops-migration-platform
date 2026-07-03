@@ -178,7 +178,7 @@ public static class MigrationPlatformHost
             // Export services
             services.AddSingleton<IWorkItemRevisionProcessor, TfsWorkItemRevisionProcessor>();
             services.AddSingleton<ITfsAttachmentDownloader, TfsAttachmentDownloader>();
-            services.AddSingleton<IWorkItemExportMetrics, WorkItemExportMetrics>();
+            services.AddSingleton<IWorkItemMetrics, WorkItemMetrics>();
             services.AddSingleton<IAttachmentDownloadMetrics, AttachmentDownloadMetrics>();
             services.AddSingleton<IPlatformMetrics, PlatformMetrics>();
             services.AddSingleton<TfsWorkItemQueryWindowStrategy>();

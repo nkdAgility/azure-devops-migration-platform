@@ -120,7 +120,7 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
         // Shared attachment registry — links revision enumeration to binary download.
         var attachmentRegistry = new TfsAttachmentIdStore();
 
-        var exportMetrics = new WorkItemExportMetrics();
+        var exportMetrics = new WorkItemMetrics();
         var attachmentMetrics = new AttachmentDownloadMetrics();
 
         var revisionMapper = new TfsWorkItemRevisionProcessor(
@@ -236,7 +236,7 @@ public sealed class TfsJobServices : ITfsJobServices
     public ITeamSource TeamSource { get; }
     public IProjectLifecycleService ProjectLifecycleService { get; }
 
-    public IWorkItemExportMetrics ExportMetrics { get; }
+    public IWorkItemMetrics ExportMetrics { get; }
     public IAttachmentDownloadMetrics AttachmentMetrics { get; }
 
     private readonly TfsTeamProjectCollection _collection;
@@ -252,7 +252,7 @@ public sealed class TfsJobServices : ITfsJobServices
         IProjectDiscoveryService projectDiscoveryService,
         IWorkItemFetchService fetchService,
         TeamFoundationServerEndpointOptions endpoint,
-        IWorkItemExportMetrics exportMetrics,
+        IWorkItemMetrics exportMetrics,
         IAttachmentDownloadMetrics attachmentMetrics,
         IIdentitySource identitySource,
         ITeamSource teamSource,

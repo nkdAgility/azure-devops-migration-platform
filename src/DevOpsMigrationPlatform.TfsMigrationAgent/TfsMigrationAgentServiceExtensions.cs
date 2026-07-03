@@ -68,7 +68,7 @@ public static class TfsMigrationAgentServiceExtensions
         services.AddNodeTranslationToolServices();
 
         // Export progress store — SQLite-backed fast-forward resume (now supported on net481).
-        services.AddSingleton<IExportProgressStoreFactory, ExportProgressStoreFactory>();
+        services.AddSingleton<IWorkItemProgressStoreFactory, WorkItemProgressStoreFactory>();
 
         // Register IModule pipeline (export-only on net481 for Teams/WorkItems/Nodes/Identities).
         services.AddIdentitiesModule(configuration);

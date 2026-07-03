@@ -3,7 +3,7 @@
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 
-/// <summary>Per-work-item export progress returned by <see cref="IExportProgressStore"/>.</summary>
+/// <summary>Per-work-item export progress returned by <see cref="IWorkItemProgressStore"/>.</summary>
 /// <param name="WorkItemId">The work item identifier.</param>
 /// <param name="Rev">
 /// The <see cref="DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.WorkItemRevision.RevisionIndex"/>
@@ -11,4 +11,4 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems;
 /// On resume, any revision whose <c>RevisionIndex</c> is less than or equal to this value
 /// has already been exported and can be safely skipped.
 /// </param>
-public sealed record WorkItemExportProgress(int WorkItemId, int Rev);
+public sealed record WorkItemProgress(int WorkItemId, int Rev);

@@ -24,10 +24,10 @@ public interface IWorkItemRevisionProcessor
 
 public class TfsWorkItemRevisionProcessor : IWorkItemRevisionProcessor
 {
-    private readonly IWorkItemExportMetrics _metrics;
+    private readonly IWorkItemMetrics _metrics;
     private readonly ILogger<TfsWorkItemRevisionProcessor> _logger;
 
-    public TfsWorkItemRevisionProcessor(IWorkItemExportMetrics metrics, ILogger<TfsWorkItemRevisionProcessor> logger)
+    public TfsWorkItemRevisionProcessor(IWorkItemMetrics metrics, ILogger<TfsWorkItemRevisionProcessor> logger)
     {
         _metrics = metrics;
         _logger = logger;

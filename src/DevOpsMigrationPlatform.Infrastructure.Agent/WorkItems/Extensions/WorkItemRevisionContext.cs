@@ -12,7 +12,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.WorkItems.Extensions;
 /// Extension context passed to <see cref="IModuleExtension.ExportAsync"/> for each
 /// work item revision during the export phase.
 /// </summary>
-public sealed class WorkItemRevisionExportContext : IExtensionContext
+public sealed class WorkItemRevisionContext : IExtensionContext
 {
     /// <inheritdoc/>
     public string Organisation { get; init; } = string.Empty;

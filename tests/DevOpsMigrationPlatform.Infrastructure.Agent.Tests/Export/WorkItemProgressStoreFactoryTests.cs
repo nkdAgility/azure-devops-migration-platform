@@ -14,7 +14,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace DevOpsMigrationPlatform.Infrastructure.Tests.Export;
 
 [TestClass]
-public class ExportProgressStoreFactoryTests
+public class WorkItemProgressStoreFactoryTests
 {
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
@@ -28,11 +28,11 @@ public class ExportProgressStoreFactoryTests
             PackagePathTestHelper.SystemRoot,
             "Checkpoints",
             "export_progress.db");
-        IExportProgressStore? store = null;
+        IWorkItemProgressStore? store = null;
 
         try
         {
-            var sut = new ExportProgressStoreFactory();
+            var sut = new WorkItemProgressStoreFactory();
             store = sut.Create(expectedDbPath);
 
             await store.InitializeAsync(CancellationToken.None).ConfigureAwait(false);
@@ -75,13 +75,13 @@ public class ExportProgressStoreFactoryTests
             PackagePathTestHelper.SystemRoot,
             "Checkpoints",
             "export_progress.db");
-        IExportProgressStore? store = null;
+        IWorkItemProgressStore? store = null;
 
         try
         {
             Assert.IsTrue(expectedDbPath.Length >= 260, $"Expected long path, got length {expectedDbPath.Length}");
 
-            var sut = new ExportProgressStoreFactory();
+            var sut = new WorkItemProgressStoreFactory();
             store = sut.Create(expectedDbPath);
 
             await store.InitializeAsync(CancellationToken.None).ConfigureAwait(false);

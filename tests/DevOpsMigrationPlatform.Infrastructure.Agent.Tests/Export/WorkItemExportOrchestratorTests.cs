@@ -80,7 +80,7 @@ public class WorkItemExportOrchestratorTests
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
         string organisation = "",
         string? taskId = null,
-        IExportProgressStoreFactory? exportProgressStoreFactory = null,
+        IWorkItemProgressStoreFactory? exportProgressStoreFactory = null,
         string? packageUri = null,
         IPackageAccess? package = null)
         => new(
@@ -108,7 +108,7 @@ public class WorkItemExportOrchestratorTests
         IWorkItemFetchService? fetchService = null,
         IReadOnlyList<WorkItemFieldFilterOptions>? filterOptions = null,
         string? taskId = null,
-        IExportProgressStoreFactory? exportProgressStoreFactory = null,
+        IWorkItemProgressStoreFactory? exportProgressStoreFactory = null,
         string? packageUri = null)
         => new(
             package,
@@ -837,18 +837,18 @@ public class WorkItemExportOrchestratorTests
     {
         // Progress store returns Rev=2 for WI 1 (revisions 0,1,2 already written).
         // Stream delivers 3 revisions (index 0,1,2) → all should be skipped.
-        var mockProgressStore = new Mock<IExportProgressStore>(MockBehavior.Loose);
+        var mockProgressStore = new Mock<IWorkItemProgressStore>(MockBehavior.Loose);
         mockProgressStore
             .Setup(s => s.InitializeAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         mockProgressStore
             .Setup(s => s.GetProgressAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new WorkItemExportProgress(1, Rev: 2));
+            .ReturnsAsync(new WorkItemProgress(1, Rev: 2));
         mockProgressStore
             .Setup(s => s.DisposeAsync())
             .Returns(ValueTask.CompletedTask);
 
-        var mockFactory = new Mock<IExportProgressStoreFactory>(MockBehavior.Strict);
+        var mockFactory = new Mock<IWorkItemProgressStoreFactory>(MockBehavior.Strict);
         mockFactory
             .Setup(f => f.Create(It.IsAny<System.Data.Common.DbConnection>()))
             .Returns(mockProgressStore.Object);
@@ -885,13 +885,13 @@ public class WorkItemExportOrchestratorTests
     {
         // Progress store returns Rev=1 for WI 1 (revisions 0,1 already written).
         // Stream delivers 4 revisions (index 0,1,2,3) → only 2,3 should be written.
-        var mockProgressStore = new Mock<IExportProgressStore>(MockBehavior.Loose);
+        var mockProgressStore = new Mock<IWorkItemProgressStore>(MockBehavior.Loose);
         mockProgressStore
             .Setup(s => s.InitializeAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         mockProgressStore
             .Setup(s => s.GetProgressAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new WorkItemExportProgress(1, Rev: 1));
+            .ReturnsAsync(new WorkItemProgress(1, Rev: 1));
         mockProgressStore
             .Setup(s => s.SetRevAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -915,7 +915,7 @@ public class WorkItemExportOrchestratorTests
                  .Callback<string, string, CancellationToken>((p, _, _) => written.Add(p))
                  .Returns(Task.CompletedTask);
 
-        var mockFactory = new Mock<IExportProgressStoreFactory>(MockBehavior.Strict);
+        var mockFactory = new Mock<IWorkItemProgressStoreFactory>(MockBehavior.Strict);
         mockFactory.Setup(f => f.Create(It.IsAny<System.Data.Common.DbConnection>())).Returns(mockProgressStore.Object);
 
         var sut = CreateOrchestrator(
@@ -945,7 +945,7 @@ public class WorkItemExportOrchestratorTests
         progressSink.Setup(p => p.Emit(It.IsAny<ProgressEvent>()))
             .Callback<ProgressEvent>(evt => progressEvents.Add(evt));
 
-        var mockProgressStore = new Mock<IExportProgressStore>(MockBehavior.Loose);
+        var mockProgressStore = new Mock<IWorkItemProgressStore>(MockBehavior.Loose);
         mockProgressStore
             .Setup(s => s.InitializeAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -954,12 +954,12 @@ public class WorkItemExportOrchestratorTests
             .ReturnsAsync(0);
         mockProgressStore
             .Setup(s => s.GetProgressAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new WorkItemExportProgress(1, Rev: 0));
+            .ReturnsAsync(new WorkItemProgress(1, Rev: 0));
         mockProgressStore
             .Setup(s => s.DisposeAsync())
             .Returns(ValueTask.CompletedTask);
 
-        var mockFactory = new Mock<IExportProgressStoreFactory>(MockBehavior.Strict);
+        var mockFactory = new Mock<IWorkItemProgressStoreFactory>(MockBehavior.Strict);
         mockFactory
             .Setup(f => f.Create(It.IsAny<System.Data.Common.DbConnection>()))
             .Returns(mockProgressStore.Object);
@@ -999,13 +999,13 @@ public class WorkItemExportOrchestratorTests
     [TestMethod]
     public async Task FastForward_DoesNotSkipWorkItemWhenProgressStoreReturnsNull()
     {
-        var mockProgressStore = new Mock<IExportProgressStore>(MockBehavior.Loose);
+        var mockProgressStore = new Mock<IWorkItemProgressStore>(MockBehavior.Loose);
         mockProgressStore
             .Setup(s => s.InitializeAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         mockProgressStore
             .Setup(s => s.GetProgressAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((WorkItemExportProgress?)null);
+            .ReturnsAsync((WorkItemProgress?)null);
         mockProgressStore
             .Setup(s => s.SetRevAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -1013,7 +1013,7 @@ public class WorkItemExportOrchestratorTests
             .Setup(s => s.DisposeAsync())
             .Returns(ValueTask.CompletedTask);
 
-        var mockFactory = new Mock<IExportProgressStoreFactory>(MockBehavior.Strict);
+        var mockFactory = new Mock<IWorkItemProgressStoreFactory>(MockBehavior.Strict);
         mockFactory
             .Setup(f => f.Create(It.IsAny<System.Data.Common.DbConnection>()))
             .Returns(mockProgressStore.Object);
@@ -1058,13 +1058,13 @@ public class WorkItemExportOrchestratorTests
     public async Task FastForward_RecordsRevAfterEachRevisionWrite()
     {
         var setRevCalls = new List<(int workItemId, int rev)>();
-        var mockProgressStore = new Mock<IExportProgressStore>(MockBehavior.Loose);
+        var mockProgressStore = new Mock<IWorkItemProgressStore>(MockBehavior.Loose);
         mockProgressStore
             .Setup(s => s.InitializeAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         mockProgressStore
             .Setup(s => s.GetProgressAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((WorkItemExportProgress?)null);
+            .ReturnsAsync((WorkItemProgress?)null);
         mockProgressStore
             .Setup(s => s.SetRevAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Callback<int, int, CancellationToken>((wi, rev, _) => setRevCalls.Add((wi, rev)))
@@ -1073,7 +1073,7 @@ public class WorkItemExportOrchestratorTests
             .Setup(s => s.DisposeAsync())
             .Returns(ValueTask.CompletedTask);
 
-        var mockFactory = new Mock<IExportProgressStoreFactory>(MockBehavior.Strict);
+        var mockFactory = new Mock<IWorkItemProgressStoreFactory>(MockBehavior.Strict);
         mockFactory
             .Setup(f => f.Create(It.IsAny<System.Data.Common.DbConnection>()))
             .Returns(mockProgressStore.Object);

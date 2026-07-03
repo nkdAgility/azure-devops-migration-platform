@@ -41,7 +41,7 @@ public static class ExportServiceCollectionExtensions
     ///   <item><see cref="IAzureDevOpsClientFactory"/> — creates Azure DevOps HTTP clients.</item>
     ///   <item><see cref="IAzureDevOpsWorkItemRevisionProcessor"/> — maps REST revisions to the package model.</item>
     ///   <item><see cref="IWorkItemRevisionSourceFactory"/> as <see cref="AzureDevOpsWorkItemRevisionSourceFactory"/> — constructs revision sources per job.</item>
-    ///   <item><see cref="IExportProgressStoreFactory"/> as <see cref="ExportProgressStoreFactory"/> — SQLite-backed per-work-item export progress for fast-forward resume.</item>
+    ///   <item><see cref="IWorkItemProgressStoreFactory"/> as <see cref="WorkItemProgressStoreFactory"/> — SQLite-backed per-work-item export progress for fast-forward resume.</item>
     ///   <item><see cref="AzureDevOpsAttachmentRegistry"/> — per-export-run attachment URL store (scoped).</item>
     ///   <item><see cref="IWorkItemCommentSourceFactory"/> as <see cref="AzureDevOpsWorkItemCommentSourceFactory"/> — creates comment sources per job (used for inline comment fetching when the Comments extension is enabled).</item>
     ///   <item><see cref="IEmbeddedImageDownloader"/> as <see cref="AzureDevOpsEmbeddedImageDownloader"/> — downloads embedded images with Polly resilience.</item>
@@ -56,7 +56,7 @@ public static class ExportServiceCollectionExtensions
         services.AddSingleton<IWiqlQueryClientFactory, AzureDevOpsWiqlQueryClientFactory>();
         services.AddSingleton<IWorkItemQueryWindowStrategy, WorkItemQueryWindowStrategy>();
         services.AddSingleton<IAzureDevOpsWorkItemRevisionProcessor, AzureDevOpsWorkItemRevisionProcessor>();
-        services.AddSingleton<IExportProgressStoreFactory, ExportProgressStoreFactory>();
+        services.AddSingleton<IWorkItemProgressStoreFactory, WorkItemProgressStoreFactory>();
         services.AddScoped<AzureDevOpsAttachmentRegistry>();
         services.AddScoped<AzureDevOpsWorkItemRevisionSourceFactory>();
         services.AddRevisionSourceFactory<AzureDevOpsWorkItemRevisionSourceFactory>("AzureDevOpsServices");

@@ -10,7 +10,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 /// Implementations use OpenTelemetry meters and histograms.
 /// Used by the net481 TFS path where <c>IPlatformMetrics</c> (which requires <c>TagList</c>) is unavailable.
 /// </summary>
-public interface IWorkItemExportMetrics
+public interface IWorkItemMetrics
 {
     void RecordWorkItemExported(System.Guid teamProjectCollectionId);
     void RecordRevisionExported(System.Guid teamProjectCollectionId, int workItemId);

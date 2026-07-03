@@ -12,7 +12,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.Teleme
 /// Work item export metrics emitted under the consolidated <see cref="WellKnownMeterNames.Agent"/> meter.
 /// Used by the net481 TFS subprocess where <c>IPlatformMetrics</c> (which requires <c>TagList</c>) is unavailable.
 /// </summary>
-public class WorkItemExportMetrics : IWorkItemExportMetrics
+public class WorkItemMetrics : IWorkItemMetrics
 {
     // Inline metric names because WellKnownMetricNames constants are not used in this net481 path.
     private const string WorkItemsExportedName = "work_item_exported_total";
