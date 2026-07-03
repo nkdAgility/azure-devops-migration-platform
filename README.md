@@ -152,7 +152,7 @@ Or start from a [scenario in this repo](scenarios/). A minimal export config:
 ```json
 {
   "MigrationPlatform": {
-    "ConfigVersion": "1.0",
+    "ConfigVersion": "2.0",
     "Mode": "Export",
     "Source": {
       "Type": "AzureDevOpsServices",

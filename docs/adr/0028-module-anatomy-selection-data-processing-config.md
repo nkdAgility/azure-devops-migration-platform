@@ -54,6 +54,34 @@ MC-H2's triage note "optionally keep legacy keys behind a deprecation shim" is e
 - Contract-compatibility evidence: `TfsExportConfigVersionTests` proves a v1 config fails with the
   actionable message and a v2 config runs end-to-end on the Simulated connector;
   `ConfigVersionGateTests` covers the validator and load-time gates.
-- Known follow-up: `BoardConfigExtensionOptions` still binds
+- ~~Known follow-up: `BoardConfigExtensionOptions` still binds
   `MigrationPlatform:Modules:Teams:Extensions:BoardConfig` (spec 039 scope); JSON configuration of
-  that section conflicts with the legacy-key rejection and must be re-homed under the Teams anatomy.
+  that section conflicts with the legacy-key rejection and must be re-homed under the Teams anatomy.~~
+  Resolved by the 2026-07-03 amendment below.
+
+## Amendment (2026-07-03) — BoardConfig re-home and legacy option-type removal
+
+Class C consent granted by the operator to complete the v2 cutover; nothing may remain on the
+v1 config surface.
+
+- `BoardConfigExtensionOptions` is re-homed to
+  `MigrationPlatform:Modules:Teams:Processing:BoardConfig`. Rationale: the section governs how
+  board-config import executes (uniform `ImportMode` merge/replace/skip policy plus per-type
+  carry toggles gated by connector capability), which is a Processing concern; the previous
+  `Extensions` path was rejected by the v2 gate, leaving board config unconfigurable via file.
+  `docs/capabilities-guide.md` and `migration.schema.json` follow the new path.
+- Deleted dead v1 option types with stale `Extensions` section names:
+  - `TeamSettingsExtensionOptions` (zero consumers — team settings folded into the core Teams
+    pipeline under `Data.TeamSettings` in the v2 migration),
+  - `TeamIterationsExtensionOptions`, `TeamMembersExtensionOptions`,
+    `TeamCapacityExtensionOptions` — each carried only `Enabled`; the extensions now gate on the
+    canonical `TeamsDataOptions` toggles (`Data.TeamIterations`/`TeamMembers`/`TeamCapacity`)
+    via `IOptions<TeamsModuleOptions>`,
+  - `TeamAreaPathsExtensionOptions` — the extension has no v2 data toggle; it is gated solely by
+    the connector's `TeamAreaPaths` capability, with path translation governed by the
+    `NodeTranslation` Processing seam,
+  - `FieldTransformExtensionOptions` (unconsumed; the field-transform tool remains configured at
+    `MigrationPlatform.Tools.FieldTransform`).
+- `CommentsExtensionOptions` (the runtime carrier derived from `Data.Comments`) no longer
+  declares a config section or schema entry — its stale
+  `Modules:WorkItems:Extensions:Comments` path advertised a section the gate rejects.

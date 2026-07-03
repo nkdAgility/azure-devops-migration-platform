@@ -186,14 +186,15 @@ prevents `400 Bad Request` errors when the target process template differs from 
 
 ### Configuration section
 
-`MigrationPlatform:Modules:Teams:Extensions:BoardConfig`
+`MigrationPlatform:Modules:Teams:Processing:BoardConfig` (ConfigVersion 2.0 anatomy —
+board-config merge/validation behaviour is a Processing concern)
 
 ```json
 {
   "MigrationPlatform": {
     "Modules": {
       "Teams": {
-        "Extensions": {
+        "Processing": {
           "BoardConfig": {
             "Enabled": true,
             "Columns": true,
