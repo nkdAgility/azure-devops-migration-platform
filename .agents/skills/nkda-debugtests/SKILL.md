@@ -60,7 +60,18 @@ Repeat Phase A until every failing test from the current failing list passes.
 ```text
 [ ] 1. Run the last relevant suite and collect every failing test by name
 [ ] 2.1 For each failing test, validate it still fails by running it in isolation
-[ ] 2.2 Read test results first, then .otel-diagnostics logs, DO NOT GUESS
+[ ] 2.2 Read ALL THREE diagnostic sources before deciding anything, DO NOT GUESS:
+        (a) test results / runner output, THEN
+        (b) errors.json in the package root (the migration's own structured error
+            report) — .output\workingtests\<TestName>-<ts>\errors.json, and
+        (c) EVERY per-process .otel-diagnostics\<ts>\*-logs.log
+            (CLI, ControlPlaneHost, MigrationAgent, TfsMigrationAgent).
+        The CLI log / test stdout only says "job failed on the agent" — the real
+        exception is in the AGENT log (MigrationAgent-logs.log / TfsMigrationAgent-logs.log)
+        or ControlPlaneHost-logs.log. errors.json MAY BE ABSENT when the job dies
+        before persisting it (e.g. a DI activation failure at job start); in that
+        case the per-process .otel agent log is the authoritative source. Never
+        conclude "environmental/flaky" without reading the agent .otel log.
 [ ] 2.3 State root cause with evidence from logs or test output before changing anything
 [ ] 2.4 Apply the smallest possible single fix
 [ ] 2.5 Run that one test again
@@ -192,13 +203,22 @@ Do not soften this. Do not claim partial completion as completion.
 
 ## Evidence Locations
 
-| What | Where |
-|------|-------|
-| Test results (first) | `TestResults\*.trx` and test runner console output |
-| OTel logs (after test results) | `.output\workingtests\<TestName>\.otel-diagnostics\*-logs.log` |
-| OTel traces | `.output\workingtests\<TestName>\.otel-diagnostics\*-traces.json` |
-| Raw payloads | `.output\workingtests\<TestName>\.otel-diagnostics\inbox\` |
-| Package output | `.output\workingtests\<TestName>\<org>\<project>\` |
+Read these in order; for a migration/job failure you MUST read all of (1)–(3)
+before determining a course of action.
+
+| # | What | Where |
+|---|------|-------|
+| 1 | Test results (first) | `TestResults\*.trx` and test runner console output |
+| 2 | **errors.json** — migration's structured error report (may be ABSENT if the job died before writing it) | `.output\workingtests\<TestName>-<ts>\errors.json` (package root) |
+| 3 | **Per-process OTel logs — where the real exception is** (CLI only reports "job failed on the agent"; read the AGENT and ControlPlaneHost logs) | `.output\workingtests\<TestName>-<ts>\.otel-diagnostics\<ts>\{MigrationAgent,TfsMigrationAgent,ControlPlaneHost,CLI}-logs.log` |
+| 4 | OTel traces | `.output\workingtests\<TestName>-<ts>\.otel-diagnostics\<ts>\*-traces.log` |
+| 5 | Raw payloads | `.output\workingtests\<TestName>-<ts>\.otel-diagnostics\inbox\` |
+| 6 | Package output | `.output\workingtests\<TestName>-<ts>\<org>\<project>\` |
+| — | Job that ran | `.output\workingtests\<TestName>-<ts>\.migration\runs\<runId>\{config,job}.json` |
+
+**Do not conclude "environmental" or "flaky" for a job/migration failure without
+reading the per-process agent `.otel` `-logs.log`.** A failure that reproduces on
+re-run of the same commit is a real defect until the agent log proves otherwise.
 
 ---
 

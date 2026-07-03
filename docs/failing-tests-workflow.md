@@ -217,23 +217,35 @@ Do not guess.
 
 Read first.
 
-Evidence read order is mandatory:
+Evidence read order is mandatory. For a job or migration failure you MUST read all
+of (1), (2), and (3) before determining a course of action:
 
 1. Test result artifacts and test runner output (`.trx`, stdout, stderr, assertion text)
-2. OTel diagnostics and raw payload logs
-3. Generated package files
+2. **`errors.json`** in the package root — the migration's own structured error report
+   (`.output\workingtests\<TestMethodName>-<ts>\errors.json`). It MAY BE ABSENT when the
+   job dies before persisting it (for example a DI activation failure at job start); when
+   absent, source (3) is authoritative.
+3. **Per-process OTel diagnostics — this is where the real exception is.** The CLI log and
+   test stdout only report "job failed on the agent"; the actual stack trace is in the
+   AGENT log (`MigrationAgent-logs.log` / `TfsMigrationAgent-logs.log`) or
+   `ControlPlaneHost-logs.log`.
+4. Generated package files
 
 OTel diagnostics are written by every spawned CLI or agent process:
 
 ```text
-.output\workingtests\<TestMethodName>\.otel-diagnostics\
+.output\workingtests\<TestMethodName>-<ts>\.otel-diagnostics\<ts>\
 ```
 
-Files to read:
-- `*-logs.log`, structured log output from each process
-- `*-traces.json`, span and activity traces
-- `*.metrics.json`, counter snapshots
+Files to read (read EVERY process's `-logs.log`, not just the CLI's):
+- `{CLI,ControlPlaneHost,MigrationAgent,TfsMigrationAgent}-logs.log`, structured log output from each process
+- `*-traces.log`, span and activity traces
+- `*-metrics.log`, counter snapshots
 - `inbox\`, raw bootstrap, telemetry, and progress payloads
+
+**Never conclude "environmental" or "flaky" for a job/migration failure without reading
+the per-process agent `-logs.log`.** A failure that reproduces on re-run of the same commit
+is a real defect until the agent log proves otherwise.
 
 First read:
 - Test result artifacts (`TestResults\*.trx`)
@@ -476,10 +488,12 @@ A completion claim without this output is invalid.
 |--------|------|
 | Test result artifacts (first) | `TestResults\*.trx` |
 | Test stdout/stderr (first) | Captured in test runner console output |
-| OTel logs per test | `.output\workingtests\<TestName>\.otel-diagnostics\*-logs.log` |
-| OTel traces per test | `.output\workingtests\<TestName>\.otel-diagnostics\*-traces.json` |
-| Raw payloads | `.output\workingtests\<TestName>\.otel-diagnostics\inbox\` |
-| Package output | `.output\workingtests\<TestName>\<org>\<project>\` |
+| **errors.json** — migration structured error report (may be ABSENT if the job died before writing it) | `.output\workingtests\<TestName>-<ts>\errors.json` |
+| **Per-process OTel logs — where the real exception is** (read the AGENT + ControlPlaneHost logs, not just the CLI's) | `.output\workingtests\<TestName>-<ts>\.otel-diagnostics\<ts>\{CLI,ControlPlaneHost,MigrationAgent,TfsMigrationAgent}-logs.log` |
+| OTel traces per test | `.output\workingtests\<TestName>-<ts>\.otel-diagnostics\<ts>\*-traces.log` |
+| Raw payloads | `.output\workingtests\<TestName>-<ts>\.otel-diagnostics\inbox\` |
+| Package output | `.output\workingtests\<TestName>-<ts>\<org>\<project>\` |
+| Job that ran | `.output\workingtests\<TestName>-<ts>\.migration\runs\<runId>\{config,job}.json` |
 
 ---
 
