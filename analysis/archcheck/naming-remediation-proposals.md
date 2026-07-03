@@ -65,6 +65,8 @@ Ruling: unify matching halves; rename phase-neutral leftovers; leave genuine pha
 
 ### UNIFY (1 group) — genuine matching halves
 
+> **Status:** ✅ Executed under ADR-0030 (2026-07-03) — U1 done as a pure, behaviour-preserving unification.
+
 | # | Split halves | Unified entity | Surface | Effort | Class |
 |---|---|---|---|---|---|
 | U1 | `TeamExportOrchestrator` (38) + `TeamImportOrchestrator` (56) | **`TeamMigrationOrchestrator`** (internal seam) behind `TeamsOrchestrator` | one type with `ExportTeamAsync` + `ImportTeamAsync` (methods keep phase words — a method names the phase it runs; that's legitimate). They're already both dispatched from the module-level `TeamsOrchestrator`, so this is consolidating two peer impls into one symmetric seam. | **M** | mechanical (both Infra.Agent, not Abstractions) |
@@ -83,6 +85,8 @@ Ruling: unify matching halves; rename phase-neutral leftovers; leave genuine pha
 | `IExportProgressStore` family + `IImportCreatedNodeStateStore` | Different concerns/schemas (export = per-item revision progress in SQLite; import = created-node keys + JSON cursor). Not a pair. |
 
 ### RENAME to phase-neutral (component names, not phase artefacts)
+
+> **Status:** ✅ Executed under ADR-0030 (2026-07-03) — the ProgressStore/Metrics/Progress/RevisionContext rows done as pure renames. The `IWorkItemExportOrchestrator` family row was left as-is (low-priority; subordinate revision-streaming seam — SKIPPED per the doc).
 
 | Current | → | Why | Class |
 |---|---|---|---|

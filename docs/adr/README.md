@@ -43,3 +43,4 @@ Each ADR records an important architectural decision: what was decided, why, wha
 | [0027](0027-real-teams-nodes-prepare-and-module-dependency-contract.md) | Real Teams/Nodes Prepare validation and module-only dependency targets | Accepted — executes MC-L1, MC-L2 |
 | [0028](0028-module-anatomy-selection-data-processing-config.md) | Module anatomy: Selection/Data/Processing configuration contract (ConfigVersion 2.0) | Accepted — executes MC-H1, MC-H2 |
 | [0029](0029-taxonomy-suffix-renames.md) | Taxonomy suffix renames (Reader→Source, Mapper→Processor, Tracker→Lifecycle, Registry→Store, EventWriter→Sink, PlanExecutor→Orchestrator) | Accepted — pure rename, no behaviour change |
+| [0030](0030-team-orchestrator-unification-and-phase-neutral-renames.md) | Team orchestrator unification (TeamMigrationOrchestrator) and phase-neutral WorkItem progress/metrics/context renames | Accepted — pure refactor, no behaviour change |
