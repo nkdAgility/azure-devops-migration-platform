@@ -1,5 +1,7 @@
 # Taxonomy and Phase-Naming Violation Sweep
 
+> **Update 2026-07-03:** 10 renames executed as pure renames under ADR-0029 — `IClassificationTreeReader` family → `*Source`, revision `*Mapper` → `*Processor`, `TfsAttachmentRegistry` → `TfsAttachmentIdStore`, `ReferencedPathTracker` → `ReferencedPathLifecycle`, `IWorkerEventWriter` → `IWorkerEventSink`, `IJobPlanExecutor` → `IJobPlanOrchestrator`. Remaining rows below are unactioned.
+
 Read-only audit of public type names in `src/` against:
 
 1. `.agents/20-guardrails/core/taxonomy-naming.md` (glossary role suffixes)

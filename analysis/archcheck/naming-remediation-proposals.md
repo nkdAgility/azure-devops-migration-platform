@@ -25,6 +25,8 @@ Roles assigned by reading each type's behaviour (surface, I/O, state), not its c
 
 ### RENAME (8) — suffix not sanctioned by the amended glossary, behaviour maps to a different role
 
+> **Status:** ✅ Executed under ADR-0029 (2026-07-03) — rows 1–6 and 8 done as pure renames. Row 7 (`EndpointOptionsTypeRegistry`) left as-is per the sanction-`Registry` recommendation.
+
 | # | Current | Role (by behaviour) | Recommended name | Why | Blast | Class |
 |---|---|---|---|---|---|---|
 | 1 | `IReferencedPathTracker` / `ReferencedPathTracker` | **Lifecycle** (init → record → persist state transitions, resume-aware) | `IReferencedPathLifecycle` / `ReferencedPathLifecycle` | "Tracker" is not a role; it owns load/record/persist state progression for area/iteration paths — the Lifecycle definition verbatim. | ~18 | **C** (Abstractions.Agent) |
@@ -48,7 +50,7 @@ Roles assigned by reading each type's behaviour (surface, I/O, state), not its c
 - **(a) Rename to the assigned role** — `IProjectInventoryStore`, `IWorkItemRevisionAccessor`, `IWorkerEventSink`, `IPackageMigrationConfigAccessor`, `IJobPlanOrchestrator`, etc. Cleaner taxonomy; larger blast (esp. `IJobPlanExecutor` 43 refs, `IWorkItemRevisionReader` 26).
 - **(b) Sanction Reader/Writer/Loader/Executor/Dispatcher/Preparer** as canonical roles too (they're widely used and intuitive).
 
-**Recommendation: (a) for the two highest-value Abstractions contracts** where the assigned role adds clarity — `IWorkerEventWriter`→`IWorkerEventSink` (it IS the Sink, matching the amendment) and `IJobPlanExecutor`→`IJobPlanOrchestrator` (it IS the Orchestrator, and "Executor" collides conceptually with Processor). **(b) for the rest** — sanction `Reader`/`Writer`/`Loader`/`Preparer` as legitimate I/O-direction suffixes with a glossary line, since renaming 60+ refs for `Reader`→`Accessor` is churn without clarity gain.
+**Recommendation: (a) for the two highest-value Abstractions contracts** where the assigned role adds clarity — `IWorkerEventWriter`→`IWorkerEventSink` (it IS the Sink, matching the amendment) and `IJobPlanExecutor`→`IJobPlanOrchestrator` (it IS the Orchestrator, and "Executor" collides conceptually with Processor). **✅ Both executed under ADR-0029 (2026-07-03).** **(b) for the rest** — sanction `Reader`/`Writer`/`Loader`/`Preparer` as legitimate I/O-direction suffixes with a glossary line, since renaming 60+ refs for `Reader`→`Accessor` is churn without clarity gain.
 
 ### LEAVE (6) — role-correct as-is
 `DiagnosticsFileMetricExporter`, `DiagnosticsFileTraceExporter` (OpenTelemetry `BaseExporter<T>` subclasses — "Exporter" is the framework's term; see §3), and the Store/Factory/Provider/Sink types whose suffix is now canonical and whose name already matches behaviour.
