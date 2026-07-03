@@ -29,7 +29,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Tools.NodeTranslati
 
 [TestClass]
 
-public class ReferencedPathTrackerTests
+public class ReferencedPathLifecycleTests
 
 {
 
@@ -69,9 +69,9 @@ public class ReferencedPathTrackerTests
 
 
 
-    private static ReferencedPathTracker CreateTracker()
+    private static ReferencedPathLifecycle CreateTracker()
 
-        => new ReferencedPathTracker(NullLogger<ReferencedPathTracker>.Instance);
+        => new ReferencedPathLifecycle(NullLogger<ReferencedPathLifecycle>.Instance);
 
 
 

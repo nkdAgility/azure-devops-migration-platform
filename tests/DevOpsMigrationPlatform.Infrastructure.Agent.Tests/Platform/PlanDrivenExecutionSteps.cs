@@ -314,7 +314,7 @@ public sealed class PlanDrivenExecutionSteps
     public async Task WhenTheAgentLoadsThePlanOnResume()
     {
         var package = PackageTestFactory.CreateStateDelegatingMock(_context.StateStore).Object;
-        var loaded = await JobPlanExecutor.LoadOrResetAsync(package, CancellationToken.None);
+        var loaded = await JobPlanOrchestrator.LoadOrResetAsync(package, CancellationToken.None);
         _context.ExecutionPlan = loaded;
     }
 

@@ -24,7 +24,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Context;
 /// Dispatch is driven by <see cref="JobTask.TaskKind"/>, not by <c>Phase</c>.
 /// Use <see cref="DispatchTasksAsync"/> for all job kinds.
 /// </remarks>
-public interface IJobPlanExecutor
+public interface IJobPlanOrchestrator
 {
     /// <summary>
     /// Executes all pending tasks in <paramref name="plan"/>, dispatching on

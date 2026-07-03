@@ -35,7 +35,7 @@ public abstract class AgentWorkerBase : BackgroundService
     private readonly ActivePackageState _packageState;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger _logger;
-    private readonly IWorkerEventWriter _eventWriter;
+    private readonly IWorkerEventSink _eventWriter;
     private int _consecutiveNoLeaseResponses;
 
     private readonly JsonSerializerOptions _jsonOptions;
@@ -52,7 +52,7 @@ public abstract class AgentWorkerBase : BackgroundService
         ActivePackageState packageState,
         IHttpClientFactory httpClientFactory,
         ILogger logger,
-        IWorkerEventWriter eventWriter
+        IWorkerEventSink eventWriter
 #if !NET481
         , PolymorphicEndpointOptionsConverter? endpointConverter = null
         , PolymorphicOrganisationEntryConverter? organisationConverter = null

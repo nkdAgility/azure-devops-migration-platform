@@ -51,7 +51,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
     private readonly ICurrentPackageConfigAccessor _currentPackageConfigAccessor;
     private readonly ICurrentAgentJobContextAccessor _currentJobContextAccessor;
     private readonly ICurrentJobEndpointAccessor _currentJobEndpointAccessor;
-    private readonly IWorkerEventWriter _eventWriter;
+    private readonly IWorkerEventSink _eventWriter;
     private readonly ILogger<JobAgentWorker> _logger;
     private IJobConfigResolver? _configResolver;
 
@@ -80,7 +80,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         IEnumerable<IFlushable> flushables,
         ICurrentAgentJobContextAccessor currentJobContextAccessor,
         ICurrentJobEndpointAccessor currentJobEndpointAccessor,
-        IWorkerEventWriter eventWriter,
+        IWorkerEventSink eventWriter,
         ILogger<JobAgentWorker> logger,
         PolymorphicEndpointOptionsConverter? endpointConverter = null,
         PolymorphicOrganisationEntryConverter? organisationConverter = null)
@@ -522,7 +522,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         using var jobScope = _moduleScopeFactory.CreateScope();
         var jobModules = jobScope.ServiceProvider.GetServices<IModule>().ToList();
         var planBuilder = jobScope.ServiceProvider.GetRequiredService<IJobExecutionPlanBuilder>();
-        var planExecutor = jobScope.ServiceProvider.GetRequiredService<IJobPlanExecutor>();
+        var planExecutor = jobScope.ServiceProvider.GetRequiredService<IJobPlanOrchestrator>();
 
         // Build the execution planand push it to the Control Plane so clients can
         // see the ordered task list immediately via GET /jobs/{id}/bootstrap.
@@ -849,7 +849,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
         var modulesToRun = jobScope.ServiceProvider.GetServices<IModule>().ToList();
         var analysersToRun = jobScope.ServiceProvider.GetServices<IAnalyser>().ToList();
         var planBuilder = jobScope.ServiceProvider.GetRequiredService<IJobExecutionPlanBuilder>();
-        var planExecutor = jobScope.ServiceProvider.GetRequiredService<IJobPlanExecutor>();
+        var planExecutor = jobScope.ServiceProvider.GetRequiredService<IJobPlanOrchestrator>();
 
         if (job.Resume?.Mode == ResumeMode.ForceFresh)
         {
@@ -1021,7 +1021,7 @@ public sealed class JobAgentWorker : ModulePipelineWorkerBase
 
     /// <summary>
     /// Builds the unified <c>captureHandlersByName</c> dictionary used by
-    /// <see cref="IJobPlanExecutor.DispatchTasksAsync"/> to dispatch <c>capture.*</c> tasks.
+    /// <see cref="IJobPlanOrchestrator.DispatchTasksAsync"/> to dispatch <c>capture.*</c> tasks.
     /// <para>
     /// Step 1: Adds all <see cref="IModule"/> instances where <see cref="IModule.SupportsInventory"/> is <c>true</c>,
     /// cast to <see cref="ICapture"/>.

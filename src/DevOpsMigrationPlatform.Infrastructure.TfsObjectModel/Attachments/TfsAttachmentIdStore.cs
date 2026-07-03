@@ -10,7 +10,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Attachments;
 /// triple so that <see cref="TfsAttachmentBinarySource"/> can look up the download ID after
 /// <see cref="TfsWorkItemRevisionSource"/> yields a revision.
 /// </summary>
-public sealed class TfsAttachmentRegistry
+public sealed class TfsAttachmentIdStore
 {
     private readonly Dictionary<(int workItemId, int revisionIndex, string name), int> _map = new();
 

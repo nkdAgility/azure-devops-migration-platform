@@ -73,7 +73,7 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
     private readonly string? _packageUri;
 #if !NET481
-    private readonly IReferencedPathTracker? _referencedPathTracker;
+    private readonly IReferencedPathLifecycle? _referencedPathTracker;
     private readonly IReadOnlyList<IModuleExtension>? _exportExtensions;
 #endif
 
@@ -96,7 +96,7 @@ public sealed class WorkItemExportOrchestrator : IWorkItemExportOrchestrator
         IExportProgressStoreFactory? exportProgressStoreFactory = null,
         string? packageUri = null
 #if !NET481
-        , IReferencedPathTracker? referencedPathTracker = null
+        , IReferencedPathLifecycle? referencedPathTracker = null
         , IReadOnlyList<IModuleExtension>? exportExtensions = null
 #endif
         )

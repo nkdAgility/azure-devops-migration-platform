@@ -24,7 +24,7 @@ public sealed class TfsWorkItemRevisionSourceFactory : IWorkItemRevisionSourceFa
     private readonly WorkItemStore _workItemStore;
     private readonly IWorkItemRevisionProcessor _mapper;
     private readonly TfsWorkItemQueryWindowStrategy _windowStrategy;
-    private readonly TfsAttachmentRegistry _registry;
+    private readonly TfsAttachmentIdStore _registry;
     private readonly ILogger<TfsWorkItemRevisionSource> _logger;
     private readonly ISourceEndpointInfo _endpointInfo;
 
@@ -32,7 +32,7 @@ public sealed class TfsWorkItemRevisionSourceFactory : IWorkItemRevisionSourceFa
         WorkItemStore workItemStore,
         IWorkItemRevisionProcessor mapper,
         TfsWorkItemQueryWindowStrategy windowStrategy,
-        TfsAttachmentRegistry registry,
+        TfsAttachmentIdStore registry,
         ILogger<TfsWorkItemRevisionSource> logger,
         ISourceEndpointInfo endpointInfo)
     {

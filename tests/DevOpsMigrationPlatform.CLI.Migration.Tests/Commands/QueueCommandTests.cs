@@ -1158,7 +1158,7 @@ public class QueueCommandTests
             var errorsJsonFiles = Directory.GetFiles(outputDir, "errors.json", SearchOption.AllDirectories);
             Assert.IsTrue(errorsJsonFiles.Length > 0,
                 $"errors.json was not found anywhere under '{outputDir}'. " +
-                "JobPlanExecutor should write it on any blocking task failure.");
+                "JobPlanOrchestrator should write it on any blocking task failure.");
             var errorsJsonPath = errorsJsonFiles[0];
 
             var errorsJson = File.ReadAllText(errorsJsonPath);

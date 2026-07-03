@@ -186,10 +186,10 @@ public static class MigrationPlatformHost
             services.AddSingleton<IWorkItemDiscoveryService, TfsObjectModelWorkItemDiscoveryService>();
             services.AddSingleton<IProjectDiscoveryService, TfsProjectDiscoveryService>();
 
-            // Port interface wiring — TFS sources share a TfsAttachmentRegistry so that
+            // Port interface wiring — TFS sources share a TfsAttachmentIdStore so that
             // attachment IDs registered during revision enumeration can be resolved during
             // binary download.  This keeps all TFS SDK types confined to the composition root.
-            services.AddSingleton<TfsAttachmentRegistry>();
+            services.AddSingleton<TfsAttachmentIdStore>();
             var escapedProject = settings.Project.Replace("'", "''");
             var wiqlQuery = $"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '{escapedProject}'";
             services.AddSingleton<IWorkItemRevisionSource>(sp =>
@@ -197,14 +197,14 @@ public static class MigrationPlatformHost
                     sp.GetRequiredService<WorkItemStore>(),
                     sp.GetRequiredService<IWorkItemRevisionProcessor>(),
                     sp.GetRequiredService<TfsWorkItemQueryWindowStrategy>(),
-                    sp.GetRequiredService<TfsAttachmentRegistry>(),
+                    sp.GetRequiredService<TfsAttachmentIdStore>(),
                     settings.Project,
                     wiqlQuery,
                     sp.GetRequiredService<ILogger<TfsWorkItemRevisionSource>>()));
             services.AddSingleton<IAttachmentBinarySource>(sp =>
                 new TfsAttachmentBinarySource(
                     sp.GetRequiredService<ITfsAttachmentDownloader>(),
-                    sp.GetRequiredService<TfsAttachmentRegistry>(),
+                    sp.GetRequiredService<TfsAttachmentIdStore>(),
                     sp.GetRequiredService<ILogger<TfsAttachmentBinarySource>>()));
 
             // Classification tree reader — reads area/iteration nodes from the TFS collection.

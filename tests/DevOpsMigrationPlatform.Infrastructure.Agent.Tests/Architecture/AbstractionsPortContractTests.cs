@@ -44,11 +44,11 @@ public sealed class AbstractionsPortContractTests
     {
         using var provider = BuildCoreAgentProvider();
 
-        var port = provider.GetRequiredService<IWorkerEventWriter>();
+        var port = provider.GetRequiredService<IWorkerEventSink>();
         var concrete = provider.GetRequiredService<UnifiedWorkerEventWriter>();
 
         Assert.AreSame(concrete, port,
-            "IWorkerEventWriter must resolve to the single UnifiedWorkerEventWriter channel (CA-C1 / ADR-0023).");
+            "IWorkerEventSink must resolve to the single UnifiedWorkerEventWriter channel (CA-C1 / ADR-0023).");
     }
 
     [TestCategory("CodeTest")]

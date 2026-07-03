@@ -118,7 +118,7 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
         var workItemStore = new WorkItemStore(collection, WorkItemStoreFlags.BypassRules);
 
         // Shared attachment registry — links revision enumeration to binary download.
-        var attachmentRegistry = new TfsAttachmentRegistry();
+        var attachmentRegistry = new TfsAttachmentIdStore();
 
         var exportMetrics = new WorkItemExportMetrics();
         var attachmentMetrics = new AttachmentDownloadMetrics();

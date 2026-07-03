@@ -35,11 +35,11 @@ public static class TeamsServiceCollectionExtensions
 
         // Scoped (not Singleton) so each per-job DI scope gets its own TeamsOrchestrator
         // instance and — via TeamsOrchestrator → TeamExportOrchestrator — its own
-        // IReferencedPathTracker.  The T012 invariant requires every component within a
-        // single job scope to share the same ReferencedPathTracker so the internal
+        // IReferencedPathLifecycle.  The T012 invariant requires every component within a
+        // single job scope to share the same ReferencedPathLifecycle so the internal
         // SemaphoreSlim correctly serialises concurrent file writes to
         // Nodes/referenced-paths.json.  A Singleton TeamsOrchestrator would capture the
-        // root-scope IReferencedPathTracker (a different instance from the per-job one
+        // root-scope IReferencedPathLifecycle (a different instance from the per-job one
         // used by WorkItemsModule), breaking that coordination and causing a sharing-
         // violation IOException under concurrent export.
         services.AddScoped<ITeamsOrchestrator, TeamsOrchestrator>();

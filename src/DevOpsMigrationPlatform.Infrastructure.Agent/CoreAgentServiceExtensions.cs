@@ -77,7 +77,7 @@ public static class CoreAgentServiceExtensions
     {
         services.AddSingleton<ProcessingCadencePolicy>();
         services.AddScoped<IJobExecutionPlanBuilder, JobExecutionPlanBuilder>();
-        services.AddScoped<IJobPlanExecutor, JobPlanExecutor>();
+        services.AddScoped<IJobPlanOrchestrator, JobPlanOrchestrator>();
         return services;
     }
 
@@ -119,8 +119,8 @@ public static class CoreAgentServiceExtensions
         services.AddHostedService(sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
         services.AddSingleton<IFlushable>(sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
         // Canonical worker-event port (ADR-0023 / CA-C1): workers depend on the
-        // IWorkerEventWriter contract, resolved to the same singleton channel.
-        services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.Telemetry.IWorkerEventWriter>(
+        // IWorkerEventSink contract, resolved to the same singleton channel.
+        services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.Telemetry.IWorkerEventSink>(
             sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
         return services;
     }

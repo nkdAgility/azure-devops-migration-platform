@@ -20,7 +20,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 /// Persists to <c>Nodes/referenced-paths.json</c> via <see cref="IArtefactStore"/> on each new discovery.
 /// Supports resume: loads existing artifact on initialization.
 /// </summary>
-public sealed class ReferencedPathTracker : IReferencedPathTracker
+public sealed class ReferencedPathLifecycle : IReferencedPathLifecycle
 {
 
     private static readonly ActivitySource s_activitySource = new(WellKnownActivitySourceNames.Migration);
@@ -32,12 +32,12 @@ public sealed class ReferencedPathTracker : IReferencedPathTracker
         WriteIndented = false
     };
 
-    private readonly ILogger<ReferencedPathTracker> _logger;
+    private readonly ILogger<ReferencedPathLifecycle> _logger;
     private readonly HashSet<string> _areaPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _iterationPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _lock = new(1, 1);
 
-    public ReferencedPathTracker(ILogger<ReferencedPathTracker> logger)
+    public ReferencedPathLifecycle(ILogger<ReferencedPathLifecycle> logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }

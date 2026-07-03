@@ -31,7 +31,7 @@ public sealed class AbstractionsPortArchitectureTests
     private static Assembly MigrationAgentAssembly =>
         typeof(DevOpsMigrationPlatform.MigrationAgent.JobAgentWorker).Assembly;
 
-    // ── CA-C1: IWorkerEventWriter port ───────────────────────────────────────
+    // ── CA-C1: IWorkerEventSink port ───────────────────────────────────────
 
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
@@ -39,13 +39,13 @@ public sealed class AbstractionsPortArchitectureTests
     public void WorkerEventWriterPort_IsDefinedInAbstractionsAgent()
     {
         var port = AbstractionsAgentAssembly.GetType(
-            "DevOpsMigrationPlatform.Abstractions.Agent.Telemetry.IWorkerEventWriter");
+            "DevOpsMigrationPlatform.Abstractions.Agent.Telemetry.IWorkerEventSink");
         Assert.IsNotNull(port,
-            "IWorkerEventWriter must be a canonical port in Abstractions.Agent (CA-C1 / ADR-0023).");
+            "IWorkerEventSink must be a canonical port in Abstractions.Agent (CA-C1 / ADR-0023).");
         Assert.IsTrue(port!.IsInterface);
-        Assert.IsNotNull(port.GetMethod("EnqueueTasks"), "IWorkerEventWriter must expose EnqueueTasks.");
-        Assert.IsNotNull(port.GetMethod("EnqueueTerminal"), "IWorkerEventWriter must expose EnqueueTerminal.");
-        Assert.IsNotNull(port.GetMethod("FlushAsync"), "IWorkerEventWriter must expose FlushAsync.");
+        Assert.IsNotNull(port.GetMethod("EnqueueTasks"), "IWorkerEventSink must expose EnqueueTasks.");
+        Assert.IsNotNull(port.GetMethod("EnqueueTerminal"), "IWorkerEventSink must expose EnqueueTerminal.");
+        Assert.IsNotNull(port.GetMethod("FlushAsync"), "IWorkerEventSink must expose FlushAsync.");
     }
 
     [TestCategory("CodeTest")]
@@ -56,8 +56,8 @@ public sealed class AbstractionsPortArchitectureTests
         var writer = typeof(DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry.UnifiedWorkerEventWriter);
         Assert.IsTrue(
             writer.GetInterfaces().Any(i => i.FullName ==
-                "DevOpsMigrationPlatform.Abstractions.Agent.Telemetry.IWorkerEventWriter"),
-            "UnifiedWorkerEventWriter must implement the IWorkerEventWriter port (CA-C1 / ADR-0023).");
+                "DevOpsMigrationPlatform.Abstractions.Agent.Telemetry.IWorkerEventSink"),
+            "UnifiedWorkerEventWriter must implement the IWorkerEventSink port (CA-C1 / ADR-0023).");
     }
 
     [TestCategory("CodeTest")]
@@ -65,7 +65,7 @@ public sealed class AbstractionsPortArchitectureTests
     [TestMethod]
     public void Workers_DoNotInjectConcreteUnifiedWorkerEventWriter()
     {
-        // CA-C1: workers depend on the IWorkerEventWriter port, never the concrete writer.
+        // CA-C1: workers depend on the IWorkerEventSink port, never the concrete writer.
         var workerTypes = new[]
         {
             MigrationAgentAssembly.GetType("DevOpsMigrationPlatform.MigrationAgent.JobAgentWorker"),
@@ -82,7 +82,7 @@ public sealed class AbstractionsPortArchitectureTests
                 .Where(p => p.ParameterType.Name == "UnifiedWorkerEventWriter")
                 .ToList();
             Assert.AreEqual(0, offending.Count,
-                $"{workerType.Name} must inject IWorkerEventWriter, not the concrete UnifiedWorkerEventWriter (CA-C1 / ADR-0023).");
+                $"{workerType.Name} must inject IWorkerEventSink, not the concrete UnifiedWorkerEventWriter (CA-C1 / ADR-0023).");
         }
 
         // TfsJobAgentWorker is net481-only — assert on source instead of reflection.
@@ -90,7 +90,7 @@ public sealed class AbstractionsPortArchitectureTests
             FindRepoRoot(), "src", "DevOpsMigrationPlatform.TfsMigrationAgent", "TfsJobAgentWorker.cs"));
         Assert.IsFalse(
             tfsWorker.Contains("UnifiedWorkerEventWriter "),
-            "TfsJobAgentWorker must inject IWorkerEventWriter, not the concrete UnifiedWorkerEventWriter (CA-C1 / ADR-0023).");
+            "TfsJobAgentWorker must inject IWorkerEventSink, not the concrete UnifiedWorkerEventWriter (CA-C1 / ADR-0023).");
     }
 
     // ── CA-H1 / HX-M1: ITfsJobServiceFactory port ────────────────────────────
@@ -212,7 +212,7 @@ public sealed class AbstractionsPortArchitectureTests
         {
             Path.Combine("Discovery", "InventoryOrchestrator.cs"),
             Path.Combine("Analysis", "InventoryAnalyser.cs"),
-            Path.Combine("Context", "JobPlanExecutor.cs"),
+            Path.Combine("Context", "JobPlanOrchestrator.cs"),
             Path.Combine("Modules", "IdentitiesOrchestrator.cs"),
             Path.Combine("Modules", "NodesOrchestrator.cs"),
             Path.Combine("Modules", "TeamsOrchestrator.cs"),

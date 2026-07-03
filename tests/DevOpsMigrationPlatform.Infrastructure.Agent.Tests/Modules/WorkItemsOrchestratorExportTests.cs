@@ -102,7 +102,7 @@ public sealed class WorkItemsOrchestratorExportTests
             IWorkItemDiscoveryService? discoveryService,
             IExportProgressStoreFactory? exportProgressStoreFactory,
             string? packageUri,
-            IReferencedPathTracker? referencedPathTracker = null,
+            IReferencedPathLifecycle? referencedPathTracker = null,
             IReadOnlyList<IModuleExtension>? exportExtensions = null,
             MigrationEndpointOptions? endpoint = null)
         {

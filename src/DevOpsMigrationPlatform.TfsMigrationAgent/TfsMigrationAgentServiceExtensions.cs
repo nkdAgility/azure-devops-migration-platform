@@ -79,7 +79,7 @@ public static class TfsMigrationAgentServiceExtensions
         // NOTE (spec 032, D-007): AddDependencyCapture() is intentionally NOT called here.
         // TFS sources do not support per-project dependency capture; the TFS plan builder emits
         // no capture.dependencies.* tasks. If any capture.dependencies.* task were ever queued
-        // for a TFS job, the JobPlanExecutor captureHandlersByName missing-handler path
+        // for a TFS job, the JobPlanOrchestrator captureHandlersByName missing-handler path
         // (log Error + skip, no throw) would handle it gracefully.
 
         // Target endpoint info — reads from ICurrentJobEndpointAccessor (set by base class from config).

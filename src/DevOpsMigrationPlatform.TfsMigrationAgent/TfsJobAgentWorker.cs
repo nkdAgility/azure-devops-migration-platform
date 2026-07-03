@@ -53,7 +53,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
     private readonly ITfsJobServiceFactory _tfsServiceFactory;
     private readonly ActiveTfsJobServices _activeTfsJobServices;
     private readonly ICurrentJobEndpointAccessor _endpointAccessor;
-    private readonly IWorkerEventWriter _eventWriter;
+    private readonly IWorkerEventSink _eventWriter;
     private readonly ILogger<TfsJobAgentWorker> _logger;
     private readonly IPackageAccess _package;
 
@@ -78,7 +78,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         ITfsJobServiceFactory tfsServiceFactory,
         ActiveTfsJobServices activeTfsJobServices,
         ICurrentJobEndpointAccessor endpointAccessor,
-        IWorkerEventWriter eventWriter,
+        IWorkerEventSink eventWriter,
         ILogger<TfsJobAgentWorker> logger,
         IPackageAccess? package)
         : base(progressSink, checkpointingFactory,
@@ -188,7 +188,7 @@ public sealed class TfsJobAgentWorker : ModulePipelineWorkerBase
         {
             var jobModules = jobScope.ServiceProvider.GetServices<IModule>().ToList();
             var planBuilder = jobScope.ServiceProvider.GetRequiredService<IJobExecutionPlanBuilder>();
-            var planExecutor = jobScope.ServiceProvider.GetRequiredService<IJobPlanExecutor>();
+            var planExecutor = jobScope.ServiceProvider.GetRequiredService<IJobPlanOrchestrator>();
 
             // Extract fixture archive into package store if PackagePath is set.
             var preparer = jobScope.ServiceProvider.GetService<IPackagePreparer>();

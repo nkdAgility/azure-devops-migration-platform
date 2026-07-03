@@ -130,7 +130,7 @@ public class TeamsModuleTests
         ITeamTarget? teamTarget = null,
         INodeTranslationTool? nodeTranslationTool = null,
         IIdentityTranslationTool? identityTranslationTool = null,
-        IReferencedPathTracker? referencedPathTracker = null,
+        IReferencedPathLifecycle? referencedPathTracker = null,
         TeamExportOrchestrator? exportOrchestrator = null,
         TeamImportOrchestrator? importOrchestrator = null)
     {
@@ -1023,7 +1023,7 @@ public class TeamsModuleTests
         var recordedAreaPaths = new List<string>();
         var recordedIterPaths = new List<string>();
 
-        var trackerMock = new Mock<IReferencedPathTracker>(MockBehavior.Loose);
+        var trackerMock = new Mock<IReferencedPathLifecycle>(MockBehavior.Loose);
         trackerMock
             .Setup(t => t.RecordAreaPathAsync(It.IsAny<string>(), It.IsAny<IPackageAccess>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Callback<string, IPackageAccess, string, string, CancellationToken>((path, _, __, ___, ____) => recordedAreaPaths.Add(path))
@@ -1073,7 +1073,7 @@ public class TeamsModuleTests
     public async Task ExportAsync_DoesNotRecordPaths_WhenNodeTranslationExtensionDisabled()
     {
         // Arrange
-        var trackerMock = new Mock<IReferencedPathTracker>(MockBehavior.Strict);
+        var trackerMock = new Mock<IReferencedPathLifecycle>(MockBehavior.Strict);
         // Strict: no calls should be made
 
         var source = new SimulatedTeamSource();

@@ -29,12 +29,12 @@ using Microsoft.Extensions.Logging;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Context;
 
 /// <summary>
-/// Default implementation of <see cref="IJobPlanExecutor"/>.
+/// Default implementation of <see cref="IJobPlanOrchestrator"/>.
 /// Executes tasks in topological tier order, running independent tasks concurrently
 /// via Task.WhenAll, and persists the plan to <c>.migration/plan.json</c>
 /// after every task status transition.
 /// </summary>
-public sealed class JobPlanExecutor : IJobPlanExecutor
+public sealed class JobPlanOrchestrator : IJobPlanOrchestrator
 {
     private static readonly ActivitySource _activitySource =
         new(WellKnownActivitySourceNames.Migration);
@@ -46,7 +46,7 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
     };
 
     private readonly IProgressSink? _progressSink;
-    private readonly ILogger<JobPlanExecutor> _logger;
+    private readonly ILogger<JobPlanOrchestrator> _logger;
     private readonly ICurrentJobEndpointAccessor? _currentJobEndpointAccessor;
     private readonly IPackageAccess? _package;
 
@@ -57,9 +57,9 @@ public sealed class JobPlanExecutor : IJobPlanExecutor
 
     private readonly IProjectInventoryReader _projectInventory;
 
-    public JobPlanExecutor(
+    public JobPlanOrchestrator(
         IProgressSink? progressSink,
-        ILogger<JobPlanExecutor> logger,
+        ILogger<JobPlanOrchestrator> logger,
         ICurrentJobEndpointAccessor? currentJobEndpointAccessor = null,
         IPackageAccess? package = null,
         IProjectInventoryReader? projectInventory = null)

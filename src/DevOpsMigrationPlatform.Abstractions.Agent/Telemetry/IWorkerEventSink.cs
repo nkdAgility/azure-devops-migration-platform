@@ -11,7 +11,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Telemetry;
 /// ADR-0023 / CA-C1). Job workers depend on this port; the concrete
 /// <c>UnifiedWorkerEventWriter</c> in Infrastructure.Agent implements it.
 /// </summary>
-public interface IWorkerEventWriter
+public interface IWorkerEventSink
 {
     /// <summary>Enqueues the job task list (execution plan) for display on the control plane.</summary>
     void EnqueueTasks(JobTaskList tasks);

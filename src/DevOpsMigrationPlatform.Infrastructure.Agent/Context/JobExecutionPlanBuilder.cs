@@ -158,7 +158,7 @@ internal sealed class JobExecutionPlanBuilder : IJobExecutionPlanBuilder
         RunScopeAuthorityGuard.EnsureAuthoritativePath(".migration/plan.json", "execution-plan");
 
         // Resume: load persisted plan if present.
-        var loadedPlan = await JobPlanExecutor.LoadOrResetAsync(_package ?? packageAccess, ct).ConfigureAwait(false);
+        var loadedPlan = await JobPlanOrchestrator.LoadOrResetAsync(_package ?? packageAccess, ct).ConfigureAwait(false);
         if (loadedPlan is not null)
         {
             bool isComplete = loadedPlan.Tasks.Count > 0 &&

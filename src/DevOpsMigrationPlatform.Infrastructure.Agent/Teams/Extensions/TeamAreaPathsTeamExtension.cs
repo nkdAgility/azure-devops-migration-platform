@@ -22,7 +22,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Teams.Extensions;
 /// Teams module extension: imports team area path assignments from
 /// <c>Teams/{slug}/area-paths.json</c> with NodeTranslation-based path mapping.
 /// Area paths are export-only via <see cref="TeamExportOrchestrator"/> (which records
-/// them via <see cref="IReferencedPathTracker"/>) — this extension handles import only.
+/// them via <see cref="IReferencedPathLifecycle"/>) — this extension handles import only.
 /// </summary>
 public sealed class TeamAreaPathsTeamExtension : IModuleExtension
 {
@@ -58,7 +58,7 @@ public sealed class TeamAreaPathsTeamExtension : IModuleExtension
     public bool IsEnabled => true;
 
     public Task ExportAsync(IExtensionContext context, CancellationToken ct)
-        => Task.CompletedTask; // No export — area paths are recorded via IReferencedPathTracker
+        => Task.CompletedTask; // No export — area paths are recorded via IReferencedPathLifecycle
 
     public async Task ImportAsync(IExtensionContext context, CancellationToken ct)
     {

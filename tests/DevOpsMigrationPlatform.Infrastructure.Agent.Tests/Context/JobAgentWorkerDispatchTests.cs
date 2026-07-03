@@ -65,7 +65,7 @@ public sealed class JobAgentWorkerDispatchTests
     private Mock<IPhaseTrackingService> _phaseTracker = null!;
     private Mock<IPackageMigrationConfigLoader> _packageMigrationConfigLoader = null!;
     private Mock<IJobExecutionPlanBuilder> _planBuilder = null!;
-    private Mock<IJobPlanExecutor> _planExecutor = null!;
+    private Mock<IJobPlanOrchestrator> _planExecutor = null!;
     private Mock<ICurrentPackageConfigAccessor> _currentPackageConfigAccessor = null!;
     private Mock<ICurrentAgentJobContextAccessor> _currentJobContextAccessor = null!;
     private Mock<ICurrentJobEndpointAccessor> _currentJobEndpointAccessor = null!;
@@ -97,7 +97,7 @@ public sealed class JobAgentWorkerDispatchTests
         _phaseTracker = new Mock<IPhaseTrackingService>();
         _packageMigrationConfigLoader = new Mock<IPackageMigrationConfigLoader>();
         _planBuilder = new Mock<IJobExecutionPlanBuilder>();
-        _planExecutor = new Mock<IJobPlanExecutor>();
+        _planExecutor = new Mock<IJobPlanOrchestrator>();
         _currentPackageConfigAccessor = new Mock<ICurrentPackageConfigAccessor>();
         _currentJobContextAccessor = new Mock<ICurrentAgentJobContextAccessor>();
         _currentJobEndpointAccessor = new Mock<ICurrentJobEndpointAccessor>();
@@ -226,7 +226,7 @@ public sealed class JobAgentWorkerDispatchTests
         services.AddSingleton<ITargetEndpointInfo>(new FakeTargetEndpointInfo());
         services.AddSingleton<IAnalyser>(new FakeAnalyser("Dependencies"));
         services.AddSingleton<IJobExecutionPlanBuilder>(_planBuilder.Object);
-        services.AddSingleton<IJobPlanExecutor>(_planExecutor.Object);
+        services.AddSingleton<IJobPlanOrchestrator>(_planExecutor.Object);
         _scopeFactory = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
     }
 
@@ -819,7 +819,7 @@ public sealed class JobAgentWorkerDispatchTests
             services.AddSingleton<ITargetEndpointInfo>(new FakeTargetEndpointInfo());
             services.AddSingleton<IAnalyser>(new FakeAnalyser("Dependencies"));
             services.AddSingleton<IJobExecutionPlanBuilder>(_planBuilder.Object);
-            services.AddSingleton<IJobPlanExecutor>(_planExecutor.Object);
+            services.AddSingleton<IJobPlanOrchestrator>(_planExecutor.Object);
             scopeFactory = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
         }
 

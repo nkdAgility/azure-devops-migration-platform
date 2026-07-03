@@ -39,7 +39,7 @@ public sealed class TeamsProcessingOptions
     /// <summary>Force fresh export of every team even when its package artefact exists. Default: false (resumable).</summary>
     public bool AlwaysExport { get; init; } = false;
 
-    /// <summary>Record team area/iteration paths into ReferencedPathTracker during export (NodeTranslation seam).</summary>
+    /// <summary>Record team area/iteration paths into ReferencedPathLifecycle during export (NodeTranslation seam).</summary>
     public bool NodeTranslation { get; init; } = true;
 
     /// <summary>Resolve team member identities via <c>IdentityTranslationTool</c> (IdentityLookup seam).</summary>

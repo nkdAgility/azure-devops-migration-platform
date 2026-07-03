@@ -23,7 +23,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Teams.Extensions;
 /// <summary>
 /// Teams module extension: exports and imports team iteration assignments as a separate
 /// <c>Teams/{slug}/iterations.json</c> artifact. Records iteration paths via
-/// <see cref="IReferencedPathTracker"/> (when available) during export. Translates
+/// <see cref="IReferencedPathLifecycle"/> (when available) during export. Translates
 /// paths via <see cref="INodeTranslationTool"/> (when available) during import.
 /// </summary>
 public sealed class TeamIterationsTeamExtension : IModuleExtension
@@ -45,7 +45,7 @@ public sealed class TeamIterationsTeamExtension : IModuleExtension
     private readonly ITeamSource _teamSource;
     private readonly ITeamTarget _teamTarget;
     private readonly INodeTranslationTool? _nodeTranslationTool;
-    private readonly IReferencedPathTracker? _referencedPathTracker;
+    private readonly IReferencedPathLifecycle? _referencedPathTracker;
     private readonly ILogger<TeamIterationsTeamExtension>? _logger;
 
     public TeamIterationsTeamExtension(
@@ -54,7 +54,7 @@ public sealed class TeamIterationsTeamExtension : IModuleExtension
         ITeamSource teamSource,
         ITeamTarget teamTarget,
         INodeTranslationTool? nodeTranslationTool = null,
-        IReferencedPathTracker? referencedPathTracker = null,
+        IReferencedPathLifecycle? referencedPathTracker = null,
         ILogger<TeamIterationsTeamExtension>? logger = null)
     {
         _data = (options ?? throw new ArgumentNullException(nameof(options))).Value.Data;

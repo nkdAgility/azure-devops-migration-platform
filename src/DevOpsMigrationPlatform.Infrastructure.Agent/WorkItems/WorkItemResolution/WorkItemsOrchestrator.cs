@@ -59,7 +59,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
     private readonly IWorkItemExportOrchestratorFactory _exportOrchestratorFactory;
     private readonly IWorkItemDiscoveryService? _discoveryService;
     private readonly IExportProgressStoreFactory? _exportProgressStoreFactory;
-    private readonly IReferencedPathTracker? _referencedPathTracker;
+    private readonly IReferencedPathLifecycle? _referencedPathTracker;
     private readonly IInventoryOrchestrator? _inventoryOrchestrator;
     private readonly IRepoDiscoveryService? _repoDiscoveryService;
     private readonly ImportPreparer _importPreparer;
@@ -94,7 +94,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
         IPlatformMetrics? metrics,
         IWorkItemDiscoveryService? discoveryService,
         IExportProgressStoreFactory? exportProgressStoreFactory,
-        IReferencedPathTracker? referencedPathTracker,
+        IReferencedPathLifecycle? referencedPathTracker,
         IOptions<WorkItemsModuleOptions> options,
         ISourceEndpointInfo sourceEndpointInfo,
         ImportPreparer importPreparer,
@@ -363,7 +363,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
 
 #if !NET481
         if (_referencedPathTracker is null)
-            _logger.LogWarning("[WorkItems] IReferencedPathTracker is not available — referenced path tracking will be skipped.");
+            _logger.LogWarning("[WorkItems] IReferencedPathLifecycle is not available — referenced path tracking will be skipped.");
 
         if (_referencedPathTracker is not null)
             await _referencedPathTracker.InitializeAsync(context.Package, orgSlug, project, ct).ConfigureAwait(false);

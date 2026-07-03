@@ -11,7 +11,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 /// Tracks area and iteration paths referenced by work items during export.
 /// Persists to <c>Nodes/referenced-paths.json</c>.
 /// </summary>
-public interface IReferencedPathTracker
+public interface IReferencedPathLifecycle
 {
     /// <summary>Loads existing state from the package (for resume). Call once before discovery begins.</summary>
     Task InitializeAsync(IPackageAccess package, string organisation, string project, CancellationToken ct);

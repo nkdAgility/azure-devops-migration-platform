@@ -63,10 +63,10 @@ public static class NodeTranslationToolServiceCollectionExtensions
             sp.GetRequiredService<INodeTranslationTool>(),
             sp.GetRequiredService<ISourceEndpointInfo>().OrganisationSlug,
             sp.GetRequiredService<ISourceEndpointInfo>().Project));
-        // T012: ReferencedPathTracker is Scoped so the same path set is shared within one job
+        // T012: ReferencedPathLifecycle is Scoped so the same path set is shared within one job
         // (scope) and isolated across jobs.
-        services.AddScoped<ReferencedPathTracker>();
-        services.AddScoped<IReferencedPathTracker>(sp => sp.GetRequiredService<ReferencedPathTracker>());
+        services.AddScoped<ReferencedPathLifecycle>();
+        services.AddScoped<IReferencedPathLifecycle>(sp => sp.GetRequiredService<ReferencedPathLifecycle>());
         services.AddScoped<ClassificationTreeCapture>();
         services.AddScoped<IClassificationTreeCapture>(sp => sp.GetRequiredService<ClassificationTreeCapture>());
 #endif

@@ -31,7 +31,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Telemetry;
 /// up to 5 attempts, then the batch is discarded with an error log.
 /// </para>
 /// </summary>
-public sealed class UnifiedWorkerEventWriter : BackgroundService, IProgressSink, IFlushable, IWorkerEventWriter
+public sealed class UnifiedWorkerEventWriter : BackgroundService, IProgressSink, IFlushable, IWorkerEventSink
 {
     internal const string HttpClientName = nameof(UnifiedWorkerEventWriter);
 

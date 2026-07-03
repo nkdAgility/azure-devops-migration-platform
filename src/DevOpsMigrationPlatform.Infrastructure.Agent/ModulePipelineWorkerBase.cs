@@ -75,7 +75,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
     /// <c>migration-config.json</c>. This ensures Singleton tools whose
     /// <c>IOptions&lt;T&gt;.Value</c> is read at construction time receive the per-job config.
     /// Exposed as protected so subclasses that implement additional job kinds (e.g. Import)
-    /// can resolve scoped services such as <c>IJobPlanExecutor</c>.
+    /// can resolve scoped services such as <c>IJobPlanOrchestrator</c>.
     /// </summary>
     protected IServiceScopeFactory ModuleScopeFactory { get; }
 
@@ -91,7 +91,7 @@ public abstract class ModulePipelineWorkerBase : AgentWorkerBase
         IServiceScopeFactory moduleScopeFactory,
         IHttpClientFactory httpClientFactory,
         ILogger logger,
-        IWorkerEventWriter eventWriter,
+        IWorkerEventSink eventWriter,
         IActiveJobState? activeJobState = null
 #if !NET481
         , PolymorphicEndpointOptionsConverter? endpointConverter = null

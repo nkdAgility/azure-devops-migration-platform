@@ -28,7 +28,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 /// </summary>
 /// <remarks>
 /// The <see cref="NodeTranslation"/> area-path recording is also now handled by
-/// <c>TeamIterationsTeamExtension</c>, which calls <see cref="IReferencedPathTracker"/>
+/// <c>TeamIterationsTeamExtension</c>, which calls <see cref="IReferencedPathLifecycle"/>
 /// directly. This orchestrator only writes the team definition artifact.
 /// </remarks>
 public sealed class TeamExportOrchestrator
@@ -190,7 +190,7 @@ public sealed class TeamExportOrchestrator
         CancellationToken ct)
     {
 #if !NET481
-        if (_referencedPathTracker is DevOpsMigrationPlatform.Abstractions.Agent.Tools.IReferencedPathTracker tracker)
+        if (_referencedPathTracker is DevOpsMigrationPlatform.Abstractions.Agent.Tools.IReferencedPathLifecycle tracker)
             return tracker.RecordAreaPathAsync(path, package, organisation, project, ct);
 #endif
         return Task.CompletedTask;

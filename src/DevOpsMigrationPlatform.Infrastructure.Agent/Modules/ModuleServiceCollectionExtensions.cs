@@ -146,7 +146,7 @@ public static class ModuleServiceCollectionExtensions
                 sp.GetService<IPlatformMetrics>(),
                 sp.GetService<IWorkItemDiscoveryService>(),
                 sp.GetService<IExportProgressStoreFactory>(),
-                sp.GetService<IReferencedPathTracker>(),
+                sp.GetService<IReferencedPathLifecycle>(),
                 sp.GetRequiredService<IOptions<WorkItemsModuleOptions>>(),
                 sp.GetRequiredService<ISourceEndpointInfo>(),
                 sp.GetRequiredService<ImportPreparer>(),

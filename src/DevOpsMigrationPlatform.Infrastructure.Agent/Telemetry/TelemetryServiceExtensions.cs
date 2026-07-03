@@ -67,7 +67,7 @@ public static class TelemetryServiceExtensions
         services.AddHostedService(sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
         services.AddSingleton<IProgressSink>(sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
         // Canonical worker-event port (ADR-0023 / CA-C1).
-        services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.Telemetry.IWorkerEventWriter>(
+        services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.Telemetry.IWorkerEventSink>(
             sp => sp.GetRequiredService<UnifiedWorkerEventWriter>());
 
         return services;
