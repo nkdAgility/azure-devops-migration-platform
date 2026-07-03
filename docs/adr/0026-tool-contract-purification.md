@@ -59,3 +59,5 @@ Convention pinned by
 `tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/Architecture/ToolTaxonomyArchitectureTests.cs`:
 no type named `*Tool` may live under `Infrastructure.Agent/WorkItems`, and the old
 `AttachmentReplayTool` name must not reappear.
+
+**Taxonomy note (2026-07-03):** the Service role introduced by this amendment is now codified in the taxonomy glossary (`.agents/20-guardrails/core/taxonomy-naming.md`): Services are impure single-concern I/O units, distinct from pure Tools and from sequencing-owning Orchestrators.

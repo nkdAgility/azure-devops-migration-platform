@@ -33,8 +33,14 @@ This glossary is mandatory and must be read before any other guardrail.
   Reference: `.agents/30-context/domains/connector-model.md`
 
 - **Tool**  
-  Reusable concern engine used as a shared behavior seam.
+  Reusable concern engine used as a shared behavior seam. Tools are pure and
+  stateless: no package/target I/O of their own (ADR-0026).
   Reference: `.agents/30-context/architecture/execution-model.md`
+
+- **Service**  
+  Impure coordination unit performing package or target I/O for a single concern
+  (for example attachment or embedded-image replay). Distinct from Tool, which is
+  pure; distinct from Orchestrator, which owns runtime sequencing (ADR-0026 amendment).
 
 - **Package**  
   Filesystem package boundary and source of truth for migration state and artefacts.
@@ -66,6 +72,7 @@ This glossary is mandatory and must be read before any other guardrail.
 - **Lifecycle vs Resolver**: lifecycle owns state transitions; resolver owns decision outcomes.
 - **Strategy vs Adapter**: strategy defines variant behavior; adapter executes connector-specific mechanics.
 - **Tool vs Orchestrator**: tool provides reusable concern behavior; orchestrator owns runtime sequencing.
+- **Tool vs Service**: tool is a pure, stateless engine; service performs I/O for a single concern under an orchestrator.
 - **Contract vs Seam**: contract is the abstraction shape; seam is the runtime integration point.
 - **Agent vs Worker**: agent is the runtime host; worker is the execution dispatcher within that runtime.
 
