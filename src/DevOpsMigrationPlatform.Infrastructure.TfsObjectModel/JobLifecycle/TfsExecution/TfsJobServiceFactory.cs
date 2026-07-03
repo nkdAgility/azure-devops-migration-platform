@@ -123,9 +123,9 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
         var exportMetrics = new WorkItemExportMetrics();
         var attachmentMetrics = new AttachmentDownloadMetrics();
 
-        var revisionMapper = new TfsWorkItemRevisionMapper(
+        var revisionMapper = new TfsWorkItemRevisionProcessor(
             exportMetrics,
-            _loggerFactory.CreateLogger<TfsWorkItemRevisionMapper>());
+            _loggerFactory.CreateLogger<TfsWorkItemRevisionProcessor>());
         var queryStrategy = new TfsWorkItemQueryWindowStrategy(
             workItemStore,
             _loggerFactory.CreateLogger<TfsWorkItemQueryWindowStrategy>());

@@ -16,7 +16,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.WorkItems.Revisions
 /// <see cref="WorkItemRevision"/>, capturing only the delta (fields and links added in the
 /// current revision that were not present in the previous one).
 /// </summary>
-public interface IAzureDevOpsWorkItemRevisionMapper
+public interface IAzureDevOpsWorkItemRevisionProcessor
 {
     /// <summary>
     /// Maps <paramref name="current"/> to a <see cref="WorkItemRevision"/>.
@@ -27,9 +27,9 @@ public interface IAzureDevOpsWorkItemRevisionMapper
 }
 
 /// <summary>
-/// Default implementation of <see cref="IAzureDevOpsWorkItemRevisionMapper"/>.
+/// Default implementation of <see cref="IAzureDevOpsWorkItemRevisionProcessor"/>.
 /// </summary>
-internal sealed class AzureDevOpsWorkItemRevisionMapper : IAzureDevOpsWorkItemRevisionMapper
+internal sealed class AzureDevOpsWorkItemRevisionProcessor : IAzureDevOpsWorkItemRevisionProcessor
 {
     private const string AttachedFileRel = "AttachedFile";
     private const string HyperlinkRel = "Hyperlink";

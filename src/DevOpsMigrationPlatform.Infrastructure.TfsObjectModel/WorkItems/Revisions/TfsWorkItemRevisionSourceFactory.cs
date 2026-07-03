@@ -22,7 +22,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.Revisi
 public sealed class TfsWorkItemRevisionSourceFactory : IWorkItemRevisionSourceFactory
 {
     private readonly WorkItemStore _workItemStore;
-    private readonly IWorkItemRevisionMapper _mapper;
+    private readonly IWorkItemRevisionProcessor _mapper;
     private readonly TfsWorkItemQueryWindowStrategy _windowStrategy;
     private readonly TfsAttachmentRegistry _registry;
     private readonly ILogger<TfsWorkItemRevisionSource> _logger;
@@ -30,7 +30,7 @@ public sealed class TfsWorkItemRevisionSourceFactory : IWorkItemRevisionSourceFa
 
     public TfsWorkItemRevisionSourceFactory(
         WorkItemStore workItemStore,
-        IWorkItemRevisionMapper mapper,
+        IWorkItemRevisionProcessor mapper,
         TfsWorkItemQueryWindowStrategy windowStrategy,
         TfsAttachmentRegistry registry,
         ILogger<TfsWorkItemRevisionSource> logger,

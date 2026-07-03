@@ -17,17 +17,17 @@ namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.WorkItems.Revisi
 /// Maps a TFS <see cref="Revision"/> to a <see cref="WorkItemRevision"/>.
 /// Only captures fields and links that changed relative to the previous revision.
 /// </summary>
-public interface IWorkItemRevisionMapper
+public interface IWorkItemRevisionProcessor
 {
     WorkItemRevision Map(WorkItem workItem, Revision revision, Revision? previousRevision);
 }
 
-public class TfsWorkItemRevisionMapper : IWorkItemRevisionMapper
+public class TfsWorkItemRevisionProcessor : IWorkItemRevisionProcessor
 {
     private readonly IWorkItemExportMetrics _metrics;
-    private readonly ILogger<TfsWorkItemRevisionMapper> _logger;
+    private readonly ILogger<TfsWorkItemRevisionProcessor> _logger;
 
-    public TfsWorkItemRevisionMapper(IWorkItemExportMetrics metrics, ILogger<TfsWorkItemRevisionMapper> logger)
+    public TfsWorkItemRevisionProcessor(IWorkItemExportMetrics metrics, ILogger<TfsWorkItemRevisionProcessor> logger)
     {
         _metrics = metrics;
         _logger = logger;

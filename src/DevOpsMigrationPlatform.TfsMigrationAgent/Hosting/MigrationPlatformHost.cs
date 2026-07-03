@@ -176,7 +176,7 @@ public static class MigrationPlatformHost
             });
 
             // Export services
-            services.AddSingleton<IWorkItemRevisionMapper, TfsWorkItemRevisionMapper>();
+            services.AddSingleton<IWorkItemRevisionProcessor, TfsWorkItemRevisionProcessor>();
             services.AddSingleton<ITfsAttachmentDownloader, TfsAttachmentDownloader>();
             services.AddSingleton<IWorkItemExportMetrics, WorkItemExportMetrics>();
             services.AddSingleton<IAttachmentDownloadMetrics, AttachmentDownloadMetrics>();
@@ -195,7 +195,7 @@ public static class MigrationPlatformHost
             services.AddSingleton<IWorkItemRevisionSource>(sp =>
                 new TfsWorkItemRevisionSource(
                     sp.GetRequiredService<WorkItemStore>(),
-                    sp.GetRequiredService<IWorkItemRevisionMapper>(),
+                    sp.GetRequiredService<IWorkItemRevisionProcessor>(),
                     sp.GetRequiredService<TfsWorkItemQueryWindowStrategy>(),
                     sp.GetRequiredService<TfsAttachmentRegistry>(),
                     settings.Project,

@@ -7,7 +7,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.WorkItems.Revisions;
 
 /// <summary>
 /// SDK-free representation of a single Azure DevOps work item revision as returned by
-/// the REST API. Used as the input type for <c>IAzureDevOpsWorkItemRevisionMapper.Map</c>
+/// the REST API. Used as the input type for <c>IAzureDevOpsWorkItemRevisionProcessor.Map</c>
 /// so that the mapping interface carries no SDK dependency.
 /// </summary>
 public sealed record RawWorkItemRevisionData
