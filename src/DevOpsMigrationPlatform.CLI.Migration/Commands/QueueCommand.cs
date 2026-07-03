@@ -122,6 +122,31 @@ public sealed class QueueCommand : ControlPlaneCommandBase<QueueCommandSettings>
             var logger = GetRequiredService<ILogger<QueueCommand>>();
             var console = GetRequiredService<IAnsiConsole>();
 
+            // ConfigVersion 2.0 hard-cutover gate (ADR 0028) runs BEFORE generic schema
+            // validation so a legacy v1 file fails with the actionable rewrite recipe
+            // rather than opaque unknown-key schema errors.
+            try
+            {
+                using var doc = JsonDocument.Parse(rawJson, new JsonDocumentOptions
+                {
+                    AllowTrailingCommas = true,
+                    CommentHandling = JsonCommentHandling.Skip
+                });
+                if (doc.RootElement.TryGetProperty("MigrationPlatform", out var platformElement))
+                    ConfigurationService.EnsureConfigVersion2(platformElement, configPath ?? "(config)");
+            }
+            catch (InvalidOperationException ex)
+            {
+                logger.LogError("Configuration version validation failed: {Message}", ex.Message);
+                console.MarkupLine("[red]Configuration validation failed:[/]");
+                console.WriteLine(ex.Message);
+                return 1;
+            }
+            catch (JsonException)
+            {
+                // Malformed JSON falls through to the schema validator, which reports it.
+            }
+
             try
             {
                 var validationErrors = schemaValidator.Validate(rawJson);
