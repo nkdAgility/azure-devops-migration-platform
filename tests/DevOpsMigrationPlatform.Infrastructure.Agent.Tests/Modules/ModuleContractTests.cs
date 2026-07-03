@@ -58,11 +58,13 @@ public class ModuleContractTests
 
         var teams = byName["Teams"];
         CollectionAssert.AreEquivalent(new[] { "Scope", "Filter" }, teams.Selection.Select(s => s.Name).ToArray());
+        // ADR-0028 amendment (2026-07-03): BoardConfig carry toggles are Data,
+        // BoardConfig ImportMode is Processing.
         CollectionAssert.AreEquivalent(
-            new[] { "TeamSettings", "TeamIterations", "TeamMembers", "TeamCapacity" },
+            new[] { "TeamSettings", "TeamIterations", "TeamMembers", "TeamCapacity", "BoardConfig" },
             teams.Data.Select(d => d.Name).ToArray());
         CollectionAssert.AreEquivalent(
-            new[] { "AlwaysExport", "NodeTranslation", "IdentityLookup" },
+            new[] { "AlwaysExport", "NodeTranslation", "IdentityLookup", "BoardConfig" },
             teams.Processing.Select(p => p.Name).ToArray());
 
         CollectionAssert.AreEquivalent(new[] { "ReplicateSourceTree" }, byName["Nodes"].Processing.Select(p => p.Name).ToArray());

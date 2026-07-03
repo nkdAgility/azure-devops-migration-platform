@@ -147,23 +147,58 @@ public sealed class ModuleOptionsConfigurationTests
         Assert.IsTrue(opts.Data.TeamIterations, "Other extensions should remain at their defaults.");
     }
 
-    // ─── BoardConfigExtensionOptions (ConfigVersion 2.0 anatomy) ─────────────
+    // ─── BoardConfig split options (ConfigVersion 2.0 anatomy) ────────────────
 
     /// <summary>
-    /// ADR-0028 follow-up: BoardConfig lives under the v2 Processing aspect —
-    /// a v2 config with Modules.Teams.Processing.BoardConfig must bind into
-    /// IOptions&lt;BoardConfigExtensionOptions&gt; via AddTeamsModule.
+    /// ADR-0028 amendment (2026-07-03): the board-config payload-carry toggles are a
+    /// Data concern (module-anatomy contract: "Data: canonical package payload for
+    /// selected entities") — a v2 config with Modules.Teams.Data.BoardConfig must bind
+    /// into IOptions&lt;BoardConfigDataOptions&gt; via AddTeamsModule.
     /// </summary>
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public void BoardConfigExtensionOptions_BindsFromTeamsProcessingSection()
+    public void BoardConfigDataOptions_BindsCarryToggles_FromTeamsDataSection()
+    {
+        // Arrange — v2 anatomy: Modules:Teams:Data:BoardConfig
+        var config = BuildConfig(new Dictionary<string, string?>
+        {
+            ["MigrationPlatform:Modules:Teams:Data:BoardConfig:Enabled"] = "true",
+            ["MigrationPlatform:Modules:Teams:Data:BoardConfig:SwimLanes"] = "false",
+            ["MigrationPlatform:Modules:Teams:Data:BoardConfig:TaskboardColumns"] = "false"
+        });
+        var services = new ServiceCollection();
+        services.AddSingleton(config);
+        services.AddTeamsModule(config);
+        var sp = services.BuildServiceProvider();
+
+        // Act
+        var opts = sp.GetRequiredService<IOptions<DevOpsMigrationPlatform.Abstractions.Agent.Teams.BoardConfigDataOptions>>().Value;
+
+        // Assert
+        Assert.IsTrue(opts.Enabled);
+        Assert.IsFalse(opts.SwimLanes);
+        Assert.IsFalse(opts.TaskboardColumns);
+        Assert.IsTrue(opts.Columns, "Unset toggles keep their defaults.");
+        Assert.AreEqual(
+            "MigrationPlatform:Modules:Teams:Data:BoardConfig",
+            DevOpsMigrationPlatform.Abstractions.Agent.Teams.BoardConfigDataOptions.SectionName,
+            "Carry toggles are Data — not Processing, and never the rejected v1 'Extensions' path.");
+    }
+
+    /// <summary>
+    /// ADR-0028 amendment (2026-07-03): ImportMode governs how import executes and is
+    /// the only Processing concern — Modules.Teams.Processing.BoardConfig must bind
+    /// into IOptions&lt;BoardConfigProcessingOptions&gt; via AddTeamsModule.
+    /// </summary>
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public void BoardConfigProcessingOptions_BindsImportMode_FromTeamsProcessingSection()
     {
         // Arrange — v2 anatomy: Modules:Teams:Processing:BoardConfig
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["MigrationPlatform:Modules:Teams:Processing:BoardConfig:Enabled"] = "true",
-            ["MigrationPlatform:Modules:Teams:Processing:BoardConfig:SwimLanes"] = "false",
             ["MigrationPlatform:Modules:Teams:Processing:BoardConfig:ImportMode"] = "Merge"
         });
         var services = new ServiceCollection();
@@ -172,16 +207,14 @@ public sealed class ModuleOptionsConfigurationTests
         var sp = services.BuildServiceProvider();
 
         // Act
-        var opts = sp.GetRequiredService<IOptions<DevOpsMigrationPlatform.Abstractions.Agent.Teams.BoardConfigExtensionOptions>>().Value;
+        var opts = sp.GetRequiredService<IOptions<DevOpsMigrationPlatform.Abstractions.Agent.Teams.BoardConfigProcessingOptions>>().Value;
 
         // Assert
-        Assert.IsTrue(opts.Enabled);
-        Assert.IsFalse(opts.SwimLanes);
         Assert.AreEqual(DevOpsMigrationPlatform.Abstractions.Agent.Teams.BoardConfigImportMode.Merge, opts.ImportMode);
         Assert.AreEqual(
             "MigrationPlatform:Modules:Teams:Processing:BoardConfig",
-            DevOpsMigrationPlatform.Abstractions.Agent.Teams.BoardConfigExtensionOptions.SectionName,
-            "BoardConfig must not use the rejected v1 'Extensions' path.");
+            DevOpsMigrationPlatform.Abstractions.Agent.Teams.BoardConfigProcessingOptions.SectionName,
+            "ImportMode stays under Processing (ADR-0028 amendment).");
     }
 
     // ─── NodesModuleOptions ──────────────────────────────────────────

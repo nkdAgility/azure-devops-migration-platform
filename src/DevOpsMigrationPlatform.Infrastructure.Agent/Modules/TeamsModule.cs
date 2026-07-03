@@ -76,13 +76,18 @@ public sealed class TeamsModule : IModule
             new DataDefinition("TeamSettings", Required: false),
             new DataDefinition("TeamIterations", Required: false),
             new DataDefinition("TeamMembers", Required: false),
-            new DataDefinition("TeamCapacity", Required: false)
+            new DataDefinition("TeamCapacity", Required: false),
+            // Board-config payload-carry toggles (BoardConfigDataOptions) — Data per the
+            // module-anatomy contract (ADR-0028 amendment 2026-07-03).
+            new DataDefinition("BoardConfig", Required: false)
         ],
         processing:
         [
             new ProcessingDefinition("AlwaysExport", Required: false),
             new ProcessingDefinition("NodeTranslation", Required: false),
-            new ProcessingDefinition("IdentityLookup", Required: false)
+            new ProcessingDefinition("IdentityLookup", Required: false),
+            // Board-config import behaviour (BoardConfigProcessingOptions.ImportMode).
+            new ProcessingDefinition("BoardConfig", Required: false)
         ]);
 
     /// <inheritdoc cref="IModule.Contract"/>

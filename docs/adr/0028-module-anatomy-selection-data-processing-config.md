@@ -85,3 +85,21 @@ v1 config surface.
 - `CommentsExtensionOptions` (the runtime carrier derived from `Data.Comments`) no longer
   declares a config section or schema entry — its stale
   `Modules:WorkItems:Extensions:Comments` path advertised a section the gate rejects.
+
+## Amendment (2026-07-03, second) — BoardConfig placement refined: Data/Processing split
+
+Operator ruling refining the re-home above. Placing the whole of
+`BoardConfigExtensionOptions` under `Processing` misclassified the payload-carry toggles: per the
+module-anatomy contract (`.agents/10-contracts/specs/module-anatomy-contract.md`), "`Data`:
+canonical package payload for selected entities" — and `Enabled`/`Columns`/`SwimLanes`/
+`CardRules`/`Backlogs`/`TaskboardColumns` select which board-config payloads are carried in the
+package. Only `ImportMode` (merge/replace/skip — how import executes) is a Processing concern.
+
+- `BoardConfigExtensionOptions` is deleted and split into:
+  - `BoardConfigDataOptions` → `MigrationPlatform:Modules:Teams:Data:BoardConfig`
+    (carry toggles: `Enabled`, `Columns`, `SwimLanes`, `CardRules`, `Backlogs`,
+    `TaskboardColumns`),
+  - `BoardConfigProcessingOptions` → `MigrationPlatform:Modules:Teams:Processing:BoardConfig`
+    (`ImportMode` only).
+- `TeamsModule.Contract` declares `BoardConfig` in both its Data and Processing definitions;
+  `migration.schema.json`, `docs/capabilities-guide.md` and `docs/execution-model.md` follow.

@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) Naked Agility Limited
+
+#if NET7_0_OR_GREATER
+using DevOpsMigrationPlatform.Abstractions.Options;
+#endif
+
+namespace DevOpsMigrationPlatform.Abstractions.Agent.Teams;
+
+/// <summary>
+/// Data aspect of the board-config extension — which board-config payloads to carry
+/// in the package (module-anatomy contract: "Data: canonical package payload for
+/// selected entities"; ADR-0028 amendment 2026-07-03).
+/// Bound via <c>IOptions&lt;BoardConfigDataOptions&gt;</c> — not nested in a shared module god-object.
+/// </summary>
+#if NET7_0_OR_GREATER
+public sealed class BoardConfigDataOptions : IConfigSection
+#else
+public sealed class BoardConfigDataOptions
+#endif
+{
+    /// <summary>
+    /// Configuration section path for binding (ConfigVersion 2.0 anatomy — the
+    /// payload-carry toggles are a Data concern, ADR-0028 amendment).
+    /// </summary>
+    public static string SectionName => "MigrationPlatform:Modules:Teams:Data:BoardConfig";
+
+    /// <summary>Optional extension — carries Enabled (a mandatory extension would not).</summary>
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>Export/import Kanban board columns.</summary>
+    public bool Columns { get; init; } = true;
+
+    /// <summary>Export/import board swimlanes (rows).</summary>
+    public bool SwimLanes { get; init; } = true;
+
+    /// <summary>Export/import card rule settings (colour-coding).</summary>
+    public bool CardRules { get; init; } = true;
+
+    /// <summary>Export backlog display name and WIT category metadata.</summary>
+    public bool Backlogs { get; init; } = true;
+
+    /// <summary>Export/import sprint taskboard columns.</summary>
+    public bool TaskboardColumns { get; init; } = true;
+}

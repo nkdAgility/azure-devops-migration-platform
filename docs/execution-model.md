@@ -316,7 +316,7 @@ Extension → Tool           Logic seam
 | Module | `"Teams"` |
 | Name | `"BoardConfig"` |
 | Order | `100` |
-| Config | `IOptions<BoardConfigExtensionOptions>` (own config; not nested in TeamsModuleOptions) |
+| Config | `IOptions<BoardConfigDataOptions>` (carry toggles, `Data:BoardConfig`) + `IOptions<BoardConfigProcessingOptions>` (`ImportMode`, `Processing:BoardConfig`) — own config; not nested in TeamsModuleOptions |
 | Adapter | `ITeamBoardAdapter` — both export reads and import writes in one type |
 | Capability gate | `_capProvider.Has(ConnectorCapability.BoardConfig)` — skip if absent, never throw |
 | Export path | `ExportAsync` → reads boards/swimlanes/card rules/backlogs/taskboard columns from adapter → serialises to `Teams/{slug}/board-config.json` |

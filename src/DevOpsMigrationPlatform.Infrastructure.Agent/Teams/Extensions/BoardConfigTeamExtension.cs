@@ -41,7 +41,8 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
         WriteIndented = false,
     };
 
-    private readonly BoardConfigExtensionOptions _options;
+    private readonly BoardConfigDataOptions _data;
+    private readonly BoardConfigProcessingOptions _processing;
     private readonly ITeamBoardAdapter _adapter;
     private readonly IConnectorCapabilityProvider _capProvider;
     private readonly IBoardConfigMergeTool _mergeTool;
@@ -64,17 +65,19 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
     public bool SupportsImport => true;
 
     /// <inheritdoc/>
-    public bool IsEnabled => _options.Enabled;
+    public bool IsEnabled => _data.Enabled;
 
     public BoardConfigTeamExtension(
-        IOptions<BoardConfigExtensionOptions> options,
+        IOptions<BoardConfigDataOptions> dataOptions,
+        IOptions<BoardConfigProcessingOptions> processingOptions,
         ITeamBoardAdapter adapter,
         IConnectorCapabilityProvider capProvider,
         IBoardConfigMergeTool mergeTool,
         IPlatformMetrics? metrics = null,
         ILogger<BoardConfigTeamExtension>? logger = null)
     {
-        _options = (options ?? throw new ArgumentNullException(nameof(options))).Value;
+        _data = (dataOptions ?? throw new ArgumentNullException(nameof(dataOptions))).Value;
+        _processing = (processingOptions ?? throw new ArgumentNullException(nameof(processingOptions))).Value;
         _adapter = adapter ?? throw new ArgumentNullException(nameof(adapter));
         _capProvider = capProvider ?? throw new ArgumentNullException(nameof(capProvider));
         _mergeTool = mergeTool ?? throw new ArgumentNullException(nameof(mergeTool));
@@ -114,7 +117,7 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
             Message = $"Exporting board config for team '{ctx.Slug}'."
         });
         var sw = Stopwatch.StartNew();
-        var plan = BoardConfigExportPlan.From(_options, _capProvider);
+        var plan = BoardConfigExportPlan.From(_data, _capProvider);
 
         var boards = new List<BoardConfig>();
         var cardRulesPerBoard = new Dictionary<string, CardRuleSettings?>();
@@ -285,7 +288,7 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
         {
             Module = "Teams",
             Stage = "BoardConfigImporting",
-            Message = $"Importing board config for team '{ctx.Slug}' (mode={_options.ImportMode})."
+            Message = $"Importing board config for team '{ctx.Slug}' (mode={_processing.ImportMode})."
         });
         var importSw = Stopwatch.StartNew();
 
@@ -309,20 +312,20 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
 
         foreach (var board in teamBoardConfig.Boards)
         {
-            if (_options.ImportMode == BoardConfigImportMode.Skip &&
+            if (_processing.ImportMode == BoardConfigImportMode.Skip &&
                 snapshot.BoardNames.Contains(board.BoardName))
                 continue;
 
             try
             {
-                if (_options.Columns)
+                if (_data.Columns)
                 {
                     snapshot.BoardColumns.TryGetValue(board.BoardName, out var targetColumns);
                     targetColumns ??= [];
 
                     var validStates = _mergeTool.BuildValidStatesMap(targetColumns);
 
-                    var columns = _options.ImportMode == BoardConfigImportMode.Merge
+                    var columns = _processing.ImportMode == BoardConfigImportMode.Merge
                         ? _mergeTool.MergeByName(board.Columns, targetColumns, c => c.Name)
                         : board.Columns;
 
@@ -341,19 +344,19 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
                         ctx.ProjectName, targetId, board.BoardName, columns, ct).ConfigureAwait(false);
                 }
 
-                if (_options.SwimLanes)
+                if (_data.SwimLanes)
                 {
                     snapshot.BoardSwimLanes.TryGetValue(board.BoardName, out var targetLanes);
                     targetLanes ??= [];
 
-                    var lanes = _options.ImportMode == BoardConfigImportMode.Merge
+                    var lanes = _processing.ImportMode == BoardConfigImportMode.Merge
                         ? _mergeTool.MergeByName(board.SwimLanes, targetLanes, l => l.Name)
                         : board.SwimLanes;
                     await _adapter.UpdateSwimLanesAsync(
                         ctx.ProjectName, targetId, board.BoardName, lanes, ct).ConfigureAwait(false);
                 }
 
-                if (_options.CardRules && teamBoardConfig.CardRules is not null)
+                if (_data.CardRules && teamBoardConfig.CardRules is not null)
                     await _adapter.UpdateCardRuleSettingsAsync(
                         ctx.ProjectName, targetId, board.BoardName, teamBoardConfig.CardRules, ct).ConfigureAwait(false);
             }
@@ -365,14 +368,14 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
             }
         }
 
-        if (_options.TaskboardColumns &&
+        if (_data.TaskboardColumns &&
             _capProvider.Has(Cap.TaskboardColumns) &&
             teamBoardConfig.TaskboardColumns.Count > 0)
         {
             var taskboardAlreadyExists = snapshot.TaskboardColumns.Count > 0;
-            if (_options.ImportMode != BoardConfigImportMode.Skip || !taskboardAlreadyExists)
+            if (_processing.ImportMode != BoardConfigImportMode.Skip || !taskboardAlreadyExists)
             {
-                var taskCols = _options.ImportMode == BoardConfigImportMode.Merge
+                var taskCols = _processing.ImportMode == BoardConfigImportMode.Merge
                     ? _mergeTool.MergeByName(teamBoardConfig.TaskboardColumns, snapshot.TaskboardColumns, c => c.Name)
                     : teamBoardConfig.TaskboardColumns;
                 await _adapter.UpdateTaskboardColumnsAsync(
@@ -382,13 +385,13 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
 
         _logger?.LogInformation(
             "[BoardConfig] Imported board config for team '{Team}' ({Boards} boards, mode={Mode})",
-            ctx.Team.Name, teamBoardConfig.Boards.Count, _options.ImportMode);
+            ctx.Team.Name, teamBoardConfig.Boards.Count, _processing.ImportMode);
 
         ctx.ProgressSink?.Emit(new ProgressEvent
         {
             Module = "Teams",
             Stage = "BoardConfigImported",
-            Message = $"Imported board config for team '{ctx.Slug}': {teamBoardConfig.Boards.Count} board(s) in {importSw.ElapsedMilliseconds}ms (mode={_options.ImportMode})."
+            Message = $"Imported board config for team '{ctx.Slug}': {teamBoardConfig.Boards.Count} board(s) in {importSw.ElapsedMilliseconds}ms (mode={_processing.ImportMode})."
         });
 
         var completedTags = new MetricsTagList { { "module", "Teams" } };
@@ -404,7 +407,7 @@ public sealed class BoardConfigTeamExtension : IModuleExtension
         bool ExportBacklogs,
         bool ExportTaskboardColumns)
     {
-        public static BoardConfigExportPlan From(BoardConfigExtensionOptions options, IConnectorCapabilityProvider caps) => new(
+        public static BoardConfigExportPlan From(BoardConfigDataOptions options, IConnectorCapabilityProvider caps) => new(
             ExportColumns:          options.Columns,
             ExportSwimLanes:        options.SwimLanes,
             ExportCardRules:        options.CardRules        && caps.Has(Cap.BoardConfig),

@@ -29,7 +29,8 @@ public static class TeamsServiceCollectionExtensions
 #if NET7_0_OR_GREATER
         // Register schema entry for migration.schema.json generation
         services.AddSchemaEntry<TeamsModuleOptions>("Teams export/import module configuration");
-        services.AddSchemaEntry<BoardConfigExtensionOptions>("Board configuration export/import extension");
+        services.AddSchemaEntry<BoardConfigDataOptions>("Board configuration payload-carry toggles (Data aspect)");
+        services.AddSchemaEntry<BoardConfigProcessingOptions>("Board configuration import behaviour (Processing aspect)");
 #endif
 
         // Scoped (not Singleton) so each per-job DI scope gets its own TeamsOrchestrator
@@ -60,9 +61,12 @@ public static class TeamsServiceCollectionExtensions
 #endif
         services.AddSingleton<TeamSlugGenerator>();
 
-        // BoardConfig extension — own IOptions<BoardConfigExtensionOptions> bound from config.
-        services.AddOptions<BoardConfigExtensionOptions>()
-            .BindConfiguration(BoardConfigExtensionOptions.SectionName);
+        // BoardConfig extension — split options per the module-anatomy contract (ADR-0028
+        // amendment): payload-carry toggles are Data, import behaviour is Processing.
+        services.AddOptions<BoardConfigDataOptions>()
+            .BindConfiguration(BoardConfigDataOptions.SectionName);
+        services.AddOptions<BoardConfigProcessingOptions>()
+            .BindConfiguration(BoardConfigProcessingOptions.SectionName);
         // Canonical board-config merge/validation engine (ADR-0024, EC-M4).
         services.AddSingleton<DevOpsMigrationPlatform.Abstractions.Agent.Tools.IBoardConfigMergeTool, BoardConfigMergeTool>();
         services.AddSingleton<BoardConfigTeamExtension>();

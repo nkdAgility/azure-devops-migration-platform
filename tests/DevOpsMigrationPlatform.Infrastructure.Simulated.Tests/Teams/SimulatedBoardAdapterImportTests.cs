@@ -61,11 +61,13 @@ public sealed class SimulatedBoardAdapterImportTests
     }
 
     private static BoardConfigTeamExtension BuildExtension(
-        BoardConfigExtensionOptions options,
+        BoardConfigDataOptions options,
         ITeamBoardAdapter adapter,
-        IConnectorCapabilityProvider? capProvider = null)
+        IConnectorCapabilityProvider? capProvider = null,
+        BoardConfigImportMode importMode = BoardConfigImportMode.Replace)
         => new(
             Options.Create(options),
+            Options.Create(new BoardConfigProcessingOptions { ImportMode = importMode }),
             adapter,
             capProvider ?? AllCapabilities(),
             new DevOpsMigrationPlatform.Infrastructure.Agent.Teams.BoardConfigMergeTool(),
@@ -93,7 +95,7 @@ public sealed class SimulatedBoardAdapterImportTests
     /// Builds a TeamBoardConfig from the SimulatedBoardAdapter's seeded data (mirroring ExportAsync).
     /// </summary>
     private static async Task<TeamBoardConfig> BuildPackageConfigAsync(
-        BoardConfigExtensionOptions options,
+        BoardConfigDataOptions options,
         CancellationToken ct = default)
     {
         var adapter = new SimulatedBoardAdapter();
@@ -150,13 +152,12 @@ public sealed class SimulatedBoardAdapterImportTests
     [TestMethod]
     public async Task Import_Replace_CallsUpdateForAllBoards()
     {
-        var options = new BoardConfigExtensionOptions
+        var options = new BoardConfigDataOptions
         {
             Columns = true,
             SwimLanes = true,
             CardRules = true,
             TaskboardColumns = true,
-            ImportMode = BoardConfigImportMode.Replace,
         };
 
         var packageConfig = await BuildPackageConfigAsync(options);
@@ -181,10 +182,9 @@ public sealed class SimulatedBoardAdapterImportTests
     [TestMethod]
     public async Task Import_Replace_ColumnNamesMatchSourceBoards()
     {
-        var options = new BoardConfigExtensionOptions
+        var options = new BoardConfigDataOptions
         {
             Columns = true,
-            ImportMode = BoardConfigImportMode.Replace,
         };
 
         var packageConfig = await BuildPackageConfigAsync(options);
@@ -212,16 +212,15 @@ public sealed class SimulatedBoardAdapterImportTests
     [TestMethod]
     public async Task Import_Merge_IncludesSourceColumnsInUpdate()
     {
-        var options = new BoardConfigExtensionOptions
+        var options = new BoardConfigDataOptions
         {
             Columns = true,
-            ImportMode = BoardConfigImportMode.Merge,
         };
 
         var packageConfig = await BuildPackageConfigAsync(options);
         var package = PackageWithConfig(packageConfig);
         var target = new SimulatedBoardAdapter();
-        var ext = BuildExtension(options, target);
+        var ext = BuildExtension(options, target, importMode: BoardConfigImportMode.Merge);
 
         await ext.ImportAsync(BuildContext(package), CancellationToken.None);
 
@@ -241,10 +240,9 @@ public sealed class SimulatedBoardAdapterImportTests
     [TestMethod]
     public async Task Import_Skip_OmitsUpdateForBoardsThatAlreadyExist()
     {
-        var options = new BoardConfigExtensionOptions
+        var options = new BoardConfigDataOptions
         {
             Columns = true,
-            ImportMode = BoardConfigImportMode.Skip,
         };
 
         var packageConfig = await BuildPackageConfigAsync(options);
@@ -253,7 +251,7 @@ public sealed class SimulatedBoardAdapterImportTests
         // The SimulatedBoardAdapter returns Stories + Epics boards from GetBoardsAsync.
         // In Skip mode the extension queries these as "existing" and skips all of them.
         var target = new SimulatedBoardAdapter();
-        var ext = BuildExtension(options, target);
+        var ext = BuildExtension(options, target, importMode: BoardConfigImportMode.Skip);
 
         await ext.ImportAsync(BuildContext(package), CancellationToken.None);
 
@@ -271,16 +269,15 @@ public sealed class SimulatedBoardAdapterImportTests
     [TestMethod]
     public async Task Import_WhenCapabilityAbsent_MakesNoTargetCalls()
     {
-        var options = new BoardConfigExtensionOptions
+        var options = new BoardConfigDataOptions
         {
             Columns = true,
-            ImportMode = BoardConfigImportMode.Replace,
         };
 
         var cap = new Mock<IConnectorCapabilityProvider>(MockBehavior.Loose);
         cap.Setup(c => c.Has(Cap.BoardConfig)).Returns(false);
 
-        var packageConfig = await BuildPackageConfigAsync(new BoardConfigExtensionOptions { Columns = true });
+        var packageConfig = await BuildPackageConfigAsync(new BoardConfigDataOptions { Columns = true });
         var package = PackageWithConfig(packageConfig);
         var target = new SimulatedBoardAdapter();
         var ext = BuildExtension(options, target, cap.Object);
@@ -299,10 +296,9 @@ public sealed class SimulatedBoardAdapterImportTests
     [TestMethod]
     public async Task Import_WhenTargetEntityIdNull_MakesNoTargetCalls()
     {
-        var options = new BoardConfigExtensionOptions
+        var options = new BoardConfigDataOptions
         {
             Columns = true,
-            ImportMode = BoardConfigImportMode.Replace,
         };
 
         var packageConfig = await BuildPackageConfigAsync(options);
@@ -325,10 +321,9 @@ public sealed class SimulatedBoardAdapterImportTests
     [TestMethod]
     public async Task Import_WhenPackageMissing_MakesNoTargetCalls()
     {
-        var options = new BoardConfigExtensionOptions
+        var options = new BoardConfigDataOptions
         {
             Columns = true,
-            ImportMode = BoardConfigImportMode.Replace,
         };
 
         var package = new Mock<IPackageAccess>(MockBehavior.Loose);

@@ -182,14 +182,15 @@ public sealed class SchemaGeneratorHostTests
     }
 
     /// <summary>
-    /// ADR-0028 amendment: BoardConfig is re-homed under the Teams Processing aspect.
-    /// The schema must expose Modules.Teams.Processing.BoardConfig and must not resurrect
-    /// any Modules.*.Extensions section (the v2 gate rejects that key by name).
+    /// ADR-0028 amendment (2026-07-03): BoardConfig options are split per the
+    /// module-anatomy contract — payload-carry toggles under Modules.Teams.Data.BoardConfig
+    /// (Data: canonical package payload), ImportMode under Modules.Teams.Processing.BoardConfig.
+    /// No Modules.*.Extensions section may resurface (the v2 gate rejects that key by name).
     /// </summary>
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
     [TestMethod]
-    public async Task RunAsync_GeneratedSchema_HomesBoardConfigUnderTeamsProcessing()
+    public async Task RunAsync_GeneratedSchema_SplitsBoardConfigAcrossTeamsDataAndProcessing()
     {
         var outputPath = Path.Combine(Path.GetTempPath(), $"schema-test-{Guid.NewGuid()}.json");
         try
@@ -201,18 +202,43 @@ public sealed class SchemaGeneratorHostTests
             Assert.AreEqual(0, result, "RunAsync should return 0 on success");
 
             var schemaJson = File.ReadAllText(outputPath);
-            StringAssert.Contains(schemaJson, "BoardConfigExtensionOptions",
-                "BoardConfigExtensionOptions must remain schema-visible");
+            StringAssert.Contains(schemaJson, "BoardConfigDataOptions",
+                "BoardConfigDataOptions must be schema-visible");
+            StringAssert.Contains(schemaJson, "BoardConfigProcessingOptions",
+                "BoardConfigProcessingOptions must be schema-visible");
+            Assert.IsFalse(schemaJson.Contains("BoardConfigExtensionOptions"),
+                "The superseded BoardConfigExtensionOptions must not appear in the generated schema");
 
             using var doc = System.Text.Json.JsonDocument.Parse(schemaJson);
-            var teamsProcessing = doc.RootElement
+            var teamsDefinitions = doc.RootElement
                 .GetProperty("definitions")
                 .GetProperty("TeamsModuleOptions")
-                .GetProperty("definitions")
+                .GetProperty("definitions");
+
+            // Data aspect — payload-carry toggles.
+            var dataBoardConfig = teamsDefinitions
+                .GetProperty("TeamsDataOptions")
+                .GetProperty("properties")
+                .GetProperty("BoardConfig");
+            var dataProps = ResolveProperties(doc.RootElement, dataBoardConfig);
+            foreach (var toggle in new[] { "Enabled", "Columns", "SwimLanes", "CardRules", "Backlogs", "TaskboardColumns" })
+            {
+                Assert.IsTrue(dataProps.TryGetProperty(toggle, out _),
+                    $"Modules.Teams.Data.BoardConfig must expose the '{toggle}' carry toggle (ADR-0028 amendment)");
+            }
+            Assert.IsFalse(dataProps.TryGetProperty("ImportMode", out _),
+                "ImportMode is a Processing concern and must not appear under Data.BoardConfig");
+
+            // Processing aspect — import behaviour only.
+            var processingBoardConfig = teamsDefinitions
                 .GetProperty("TeamsProcessingOptions")
-                .GetProperty("properties");
-            Assert.IsTrue(teamsProcessing.TryGetProperty("BoardConfig", out _),
-                "Modules.Teams.Processing must expose a BoardConfig property (ADR-0028 amendment)");
+                .GetProperty("properties")
+                .GetProperty("BoardConfig");
+            var processingProps = ResolveProperties(doc.RootElement, processingBoardConfig);
+            Assert.IsTrue(processingProps.TryGetProperty("ImportMode", out _),
+                "Modules.Teams.Processing.BoardConfig must expose ImportMode (ADR-0028 amendment)");
+            Assert.IsFalse(processingProps.TryGetProperty("Columns", out _),
+                "Carry toggles are a Data concern and must not appear under Processing.BoardConfig");
 
             var teamsProperties = doc.RootElement
                 .GetProperty("definitions")
@@ -225,6 +251,22 @@ public sealed class SchemaGeneratorHostTests
         {
             if (File.Exists(outputPath)) File.Delete(outputPath);
         }
+    }
+
+    /// <summary>Follows a local "$ref" (e.g. "#/definitions/BoardConfigDataOptions") to its "properties".</summary>
+    private static System.Text.Json.JsonElement ResolveProperties(
+        System.Text.Json.JsonElement root,
+        System.Text.Json.JsonElement schemaOrRef)
+    {
+        if (schemaOrRef.TryGetProperty("$ref", out var reference))
+        {
+            var current = root;
+            foreach (var segment in reference.GetString()!.TrimStart('#', '/').Split('/'))
+                current = current.GetProperty(segment);
+            return current.GetProperty("properties");
+        }
+
+        return schemaOrRef.GetProperty("properties");
     }
 
     [TestCategory("CodeTest")]
