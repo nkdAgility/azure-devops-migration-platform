@@ -902,9 +902,9 @@ public class QueueCommandTests
 
         target["Project"] = projectName;
 
-        var extensions = migrationPlatform["Modules"]?["WorkItems"]?["Extensions"]?.AsObject()
-            ?? throw new InvalidOperationException("Scenario template does not contain Modules.WorkItems.Extensions object.");
-        extensions["WorkItemResolutionStrategy"] = new JsonObject
+        var processing = migrationPlatform["Modules"]?["WorkItems"]?["Processing"]?.AsObject()
+            ?? throw new InvalidOperationException("Scenario template does not contain Modules.WorkItems.Processing object.");
+        processing["WorkItemResolutionStrategy"] = new JsonObject
         {
             ["Strategy"] = "TargetHyperlink",
             ["UrlPattern"] = string.Empty
