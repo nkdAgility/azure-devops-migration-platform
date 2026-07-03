@@ -26,7 +26,7 @@ public interface INodesOrchestrator
     /// progress events, and metrics — the module is a thin façade.
     /// </summary>
     Task<TaskExecutionResult> CaptureAsync(
-        IClassificationTreeReader? reader,
+        IClassificationTreeSource? reader,
         InventoryContext context,
         string fallbackOrgUrl,
         CancellationToken ct);

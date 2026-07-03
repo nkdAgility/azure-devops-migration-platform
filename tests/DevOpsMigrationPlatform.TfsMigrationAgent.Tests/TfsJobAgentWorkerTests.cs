@@ -316,7 +316,7 @@ public class TfsJobAgentWorkerTests
             .Returns(EmptyAsyncEnumerable<WorkItemRevision>());
 
         var mockAttachmentSource = new Mock<IAttachmentBinarySource>();
-        var mockTreeReader = new Mock<IClassificationTreeReader>();
+        var mockTreeReader = new Mock<IClassificationTreeSource>();
         mockTreeReader
             .Setup(r => r.EnumerateAreaNodesAsync(It.IsAny<CancellationToken>()))
             .Returns(EmptyAsyncEnumerable<string>());
@@ -380,7 +380,7 @@ public class TfsJobAgentWorkerTests
             .Returns(EmptyAsyncEnumerable<WorkItemRevision>());
 
         var mockAttachmentSource = new Mock<IAttachmentBinarySource>();
-        var mockTreeReader = new Mock<IClassificationTreeReader>();
+        var mockTreeReader = new Mock<IClassificationTreeSource>();
         mockTreeReader
             .Setup(r => r.EnumerateAreaNodesAsync(It.IsAny<CancellationToken>()))
             .Returns(EmptyAsyncEnumerable<string>());
@@ -451,7 +451,7 @@ public class TfsJobAgentWorkerTests
             .Returns(EmptyAsyncEnumerable<WorkItemRevision>());
 
         var mockAttachmentSource = new Mock<IAttachmentBinarySource>();
-        var mockTreeReader = new Mock<IClassificationTreeReader>();
+        var mockTreeReader = new Mock<IClassificationTreeSource>();
         mockTreeReader
             .Setup(r => r.EnumerateAreaNodesAsync(It.IsAny<CancellationToken>()))
             .Returns(EmptyAsyncEnumerable<string>());
@@ -517,7 +517,7 @@ public class TfsJobAgentWorkerTests
             .Setup(s => s.GetRevisionsAsync(It.IsAny<CancellationToken>()))
             .Returns(EmptyAsyncEnumerable<WorkItemRevision>());
 
-        var mockTreeReader = new Mock<IClassificationTreeReader>();
+        var mockTreeReader = new Mock<IClassificationTreeSource>();
         mockTreeReader
             .Setup(r => r.EnumerateAreaNodesAsync(It.IsAny<CancellationToken>()))
             .Returns(EmptyAsyncEnumerable<string>());
@@ -646,7 +646,7 @@ public class TfsJobAgentWorkerTests
         var tfsServices = TestTfsJobServicesFactory.Create(
             new Mock<IWorkItemRevisionSource>().Object,
             new Mock<IAttachmentBinarySource>().Object,
-            new Mock<IClassificationTreeReader>().Object,
+            new Mock<IClassificationTreeSource>().Object,
             mockDiscovery.Object);
 
         _tfsServiceFactory
@@ -814,7 +814,7 @@ internal static class TestTfsJobServicesFactory
     public static TfsJobServices Create(
         IWorkItemRevisionSource revisionSource,
         IAttachmentBinarySource attachmentSource,
-        IClassificationTreeReader classificationTreeReader,
+        IClassificationTreeSource classificationTreeReader,
         IWorkItemDiscoveryService discoveryService)
     {
         // Use a real TfsTeamProjectCollection with a fake URI — Dispose is safe.

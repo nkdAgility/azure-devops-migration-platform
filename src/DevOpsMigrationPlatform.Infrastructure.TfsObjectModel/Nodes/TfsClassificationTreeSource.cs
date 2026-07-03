@@ -18,19 +18,19 @@ using Microsoft.TeamFoundation.Server;
 namespace DevOpsMigrationPlatform.Infrastructure.TfsObjectModel.Nodes;
 
 /// <summary>
-/// TFS Object Model implementation of <see cref="IClassificationTreeReader"/>.
+/// TFS Object Model implementation of <see cref="IClassificationTreeSource"/>.
 /// Uses <see cref="ICommonStructureService4"/> to enumerate area and iteration nodes from the
 /// TFS collection.
 /// </summary>
-public sealed class TfsClassificationTreeReader : IClassificationTreeReader
+public sealed class TfsClassificationTreeSource : IClassificationTreeSource
 {
     private readonly TfsTeamProjectCollection _collection;
-    private readonly ILogger<TfsClassificationTreeReader> _logger;
+    private readonly ILogger<TfsClassificationTreeSource> _logger;
     private readonly ISourceEndpointInfo _endpointInfo;
 
-    public TfsClassificationTreeReader(
+    public TfsClassificationTreeSource(
         TfsTeamProjectCollection collection,
-        ILogger<TfsClassificationTreeReader> logger,
+        ILogger<TfsClassificationTreeSource> logger,
         ISourceEndpointInfo endpointInfo)
     {
         _collection = collection ?? throw new ArgumentNullException(nameof(collection));

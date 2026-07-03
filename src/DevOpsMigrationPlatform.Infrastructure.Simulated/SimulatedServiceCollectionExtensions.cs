@@ -46,7 +46,7 @@ public static class SimulatedServiceCollectionExtensions
         services.AddRevisionSourceFactory<SimulatedWorkItemRevisionSourceFactory>("Simulated");
 
         // Classification tree reader — returns a minimal deterministic tree for simulated sources.
-        services.AddClassificationTreeReader<SimulatedClassificationTreeReader>("Simulated");
+        services.AddClassificationTreeReader<SimulatedClassificationTreeSource>("Simulated");
 
         // Identity source — deterministic simulated identities keyed by connector type.
         services.AddIdentitySource<SimulatedIdentitySource>("Simulated");

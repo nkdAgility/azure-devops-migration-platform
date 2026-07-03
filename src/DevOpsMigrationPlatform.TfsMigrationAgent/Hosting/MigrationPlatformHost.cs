@@ -208,7 +208,7 @@ public static class MigrationPlatformHost
                     sp.GetRequiredService<ILogger<TfsAttachmentBinarySource>>()));
 
             // Classification tree reader — reads area/iteration nodes from the TFS collection.
-            services.AddSingleton<IClassificationTreeReader, TfsClassificationTreeReader>();
+            services.AddSingleton<IClassificationTreeSource, TfsClassificationTreeSource>();
 
             // Identity and team export sources.
             services.AddSingleton<IIdentitySource, TfsIdentitySource>();

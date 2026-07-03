@@ -24,7 +24,7 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.Tools.NodeTranslati
 [TestClass]
 public class ClassificationTreeCaptureTests
 {
-    private static ClassificationTreeCapture CreateCapture(IClassificationTreeReader reader)
+    private static ClassificationTreeCapture CreateCapture(IClassificationTreeSource reader)
         => new ClassificationTreeCapture(
             reader,
             NullLogger<ClassificationTreeCapture>.Instance);
@@ -104,7 +104,7 @@ public class ClassificationTreeCaptureTests
 
     // --- Fakes ---
 
-    private sealed class FakeClassificationTreeReader : IClassificationTreeReader
+    private sealed class FakeClassificationTreeReader : IClassificationTreeSource
     {
         private readonly IEnumerable<string> _areaNodes;
         private readonly IEnumerable<IterationNodeEntry> _iterationNodes;
@@ -135,7 +135,7 @@ public class ClassificationTreeCaptureTests
             => Task.FromResult(_areaNodes.Count() + _iterationNodes.Count());
     }
 
-    private sealed class ThrowingClassificationTreeReader : IClassificationTreeReader
+    private sealed class ThrowingClassificationTreeReader : IClassificationTreeSource
     {
         public async IAsyncEnumerable<string> EnumerateAreaNodesAsync(
             [EnumeratorCancellation] CancellationToken ct)

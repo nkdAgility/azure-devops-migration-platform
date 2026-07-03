@@ -98,20 +98,20 @@ public static class FactoryRegistrationExtensions
     }
 
     /// <summary>
-    /// Registers a concrete <see cref="IClassificationTreeReader"/> implementation keyed by
+    /// Registers a concrete <see cref="IClassificationTreeSource"/> implementation keyed by
     /// <paramref name="typeKey"/> (the endpoint's <c>Type</c> discriminator, e.g.
     /// <c>"AzureDevOpsServices"</c> or <c>"Simulated"</c>), and ensures the
-    /// <see cref="CompositeClassificationTreeReader"/> dispatcher is registered as
-    /// <see cref="IClassificationTreeReader"/>.
+    /// <see cref="CompositeClassificationTreeSource"/> dispatcher is registered as
+    /// <see cref="IClassificationTreeSource"/>.
     /// </summary>
     public static IServiceCollection AddClassificationTreeReader<T>(
         this IServiceCollection services,
         string typeKey)
-        where T : class, IClassificationTreeReader
+        where T : class, IClassificationTreeSource
     {
         services.TryAddSingleton<T>();
-        services.AddSingleton(sp => new KeyedClassificationTreeReader(typeKey, sp.GetRequiredService<T>()));
-        services.TryAddSingleton<IClassificationTreeReader, CompositeClassificationTreeReader>();
+        services.AddSingleton(sp => new KeyedClassificationTreeSource(typeKey, sp.GetRequiredService<T>()));
+        services.TryAddSingleton<IClassificationTreeSource, CompositeClassificationTreeSource>();
         return services;
     }
 

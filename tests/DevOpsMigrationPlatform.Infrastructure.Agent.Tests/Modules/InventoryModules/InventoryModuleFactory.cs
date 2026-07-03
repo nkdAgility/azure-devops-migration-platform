@@ -98,7 +98,7 @@ internal static class InventoryModuleFactory
     {
         var sourceEndpoint = CreateSourceEndpointMock();
 
-        var reader = new Mock<IClassificationTreeReader>(MockBehavior.Strict);
+        var reader = new Mock<IClassificationTreeSource>(MockBehavior.Strict);
         reader.Setup(r => r.CountNodesAsync(ProjectName, It.IsAny<CancellationToken>()))
               .ReturnsAsync(3);
 

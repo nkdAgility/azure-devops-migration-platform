@@ -37,7 +37,7 @@ public interface ITfsJobServices : IDisposable
     IWorkItemRevisionSource RevisionSource { get; }
     IAttachmentBinarySource AttachmentSource { get; }
     INodeCreator NodeCreator { get; }
-    IClassificationTreeReader ClassificationTreeReader { get; }
+    IClassificationTreeSource ClassificationTreeReader { get; }
     IWorkItemDiscoveryService DiscoveryService { get; }
     IProjectDiscoveryService ProjectDiscoveryService { get; }
     IWorkItemFetchService FetchService { get; }

@@ -11,7 +11,7 @@ namespace DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 /// Enumerates the full classification tree from the source project.
 /// Export-only — never called at import time.
 /// </summary>
-public interface IClassificationTreeReader
+public interface IClassificationTreeSource
 {
     /// <summary>Enumerates all area node paths from the source project.</summary>
     IAsyncEnumerable<string> EnumerateAreaNodesAsync(CancellationToken ct);

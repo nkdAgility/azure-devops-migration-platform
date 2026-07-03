@@ -22,10 +22,10 @@ public static class NodeTranslationToolServiceCollectionExtensions
     /// Adds <see cref="INodeTranslationTool"/>, <see cref="INodeTranslationTool"/>, and <see cref="INodeTranslationValidator"/>
     /// to the service collection.
     /// <para>
-    /// <see cref="INodeCreator"/> and <see cref="IClassificationTreeReader"/> are
+    /// <see cref="INodeCreator"/> and <see cref="IClassificationTreeSource"/> are
     /// connector-specific and must be registered by the connector DI
     /// (e.g. <c>AddAzureDevOpsWorkItem</c>, <c>AddSimulatedWorkItem</c>,
-    /// <c>TfsClassificationTreeReader</c>).
+    /// <c>TfsClassificationTreeSource</c>).
     /// </para>
     /// <para>
     /// Tools are registered as <b>Singleton</b> to satisfy singleton planning-pipeline

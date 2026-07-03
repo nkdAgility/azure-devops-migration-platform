@@ -91,7 +91,7 @@ public sealed class NodesModuleInventoryTests
         sourceEndpoint.SetupGet(s => s.Url).Returns("https://source.example");
         sourceEndpoint.SetupGet(s => s.ConnectorType).Returns("Simulated");
 
-        var reader = new Mock<IClassificationTreeReader>(MockBehavior.Strict);
+        var reader = new Mock<IClassificationTreeSource>(MockBehavior.Strict);
         reader.Setup(r => r.CountNodesAsync("ProjectA", It.IsAny<CancellationToken>()))
               .ReturnsAsync(3);
 

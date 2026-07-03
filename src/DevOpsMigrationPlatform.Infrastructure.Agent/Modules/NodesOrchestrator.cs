@@ -98,7 +98,7 @@ internal sealed class NodesOrchestrator : INodesOrchestrator
     /// inventory file. Owns the counting, progress events, and metrics.
     /// </summary>
     public async Task<TaskExecutionResult> CaptureAsync(
-        IClassificationTreeReader? reader,
+        IClassificationTreeSource? reader,
         InventoryContext context,
         string fallbackOrgUrl,
         CancellationToken ct)

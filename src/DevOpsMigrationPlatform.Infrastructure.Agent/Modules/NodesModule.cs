@@ -43,7 +43,7 @@ public sealed class NodesModule : IModule
     private static readonly ActivitySource MigrationActivity = new(WellKnownActivitySourceNames.Migration);
 
     private readonly IClassificationTreeCapture? _capture;
-    private readonly IClassificationTreeReader? _reader;
+    private readonly IClassificationTreeSource? _reader;
 #if !NET481
     private readonly ITargetEndpointInfo _targetEndpointInfo;
 #endif
@@ -82,7 +82,7 @@ public sealed class NodesModule : IModule
 #if !NET481
         ITargetEndpointInfo? targetEndpointInfo = null,
 #endif
-        IClassificationTreeReader? reader = null,
+        IClassificationTreeSource? reader = null,
         ICheckpointingServiceFactory? checkpointingFactory = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));

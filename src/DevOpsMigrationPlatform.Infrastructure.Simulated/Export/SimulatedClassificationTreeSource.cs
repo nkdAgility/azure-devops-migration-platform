@@ -14,17 +14,17 @@ using Microsoft.Extensions.Logging;
 namespace DevOpsMigrationPlatform.Infrastructure.Simulated.Export;
 
 /// <summary>
-/// Simulated implementation of <see cref="IClassificationTreeReader"/>.
+/// Simulated implementation of <see cref="IClassificationTreeSource"/>.
 /// Returns a minimal but realistic classification tree so the NodeTranslation source tree file is always written
 /// and downstream import tests have data to verify against.
 /// </summary>
-public sealed class SimulatedClassificationTreeReader : IClassificationTreeReader
+public sealed class SimulatedClassificationTreeSource : IClassificationTreeSource
 {
-    private readonly ILogger<SimulatedClassificationTreeReader> _logger;
+    private readonly ILogger<SimulatedClassificationTreeSource> _logger;
     private readonly ISourceEndpointInfo _endpointInfo;
 
-    public SimulatedClassificationTreeReader(
-        ILogger<SimulatedClassificationTreeReader> logger,
+    public SimulatedClassificationTreeSource(
+        ILogger<SimulatedClassificationTreeSource> logger,
         ISourceEndpointInfo endpointInfo)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));

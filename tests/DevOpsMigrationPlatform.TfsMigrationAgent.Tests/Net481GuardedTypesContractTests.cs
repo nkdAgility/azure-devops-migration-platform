@@ -46,8 +46,8 @@ public class Net481GuardedTypesContractTests
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.NodeTranslationOptionsValidator"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.CompositeNodeCreator"),
         ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.KeyedNodeCreator"),
-        ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.CompositeClassificationTreeReader"),
-        ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.KeyedClassificationTreeReader")
+        ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.CompositeClassificationTreeSource"),
+        ("DevOpsMigrationPlatform.Infrastructure.Agent", "DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation.KeyedClassificationTreeSource")
     ];
 
     [TestCategory("CodeTest")]

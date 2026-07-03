@@ -17,10 +17,10 @@ using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 namespace DevOpsMigrationPlatform.Infrastructure.AzureDevOps.Nodes;
 
 /// <summary>
-/// Azure DevOps REST implementation of <see cref="IClassificationTreeReader"/>.
+/// Azure DevOps REST implementation of <see cref="IClassificationTreeSource"/>.
 /// Reads the full area and iteration classification trees from the source project using the ADO WIT API.
 /// </summary>
-internal sealed class AzureDevOpsClassificationTreeReader : IClassificationTreeReader
+internal sealed class AzureDevOpsClassificationTreeReader : IClassificationTreeSource
 {
     private readonly IAzureDevOpsClientFactory _clientFactory;
     private readonly ISourceEndpointInfo _sourceEndpointInfo;

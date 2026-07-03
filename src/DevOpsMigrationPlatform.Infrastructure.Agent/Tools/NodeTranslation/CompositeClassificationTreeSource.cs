@@ -12,18 +12,18 @@ using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tools.NodeTranslation;
 
 /// <summary>
-/// Dispatches all <see cref="IClassificationTreeReader"/> calls to the concrete implementation
+/// Dispatches all <see cref="IClassificationTreeSource"/> calls to the concrete implementation
 /// registered for the endpoint's <c>Type</c> discriminator (resolved from DI).
 /// </summary>
-public sealed class CompositeClassificationTreeReader : IClassificationTreeReader
+public sealed class CompositeClassificationTreeSource : IClassificationTreeSource
 {
-    private readonly IReadOnlyDictionary<string, IClassificationTreeReader> _readers;
+    private readonly IReadOnlyDictionary<string, IClassificationTreeSource> _readers;
 
-    public CompositeClassificationTreeReader(
-        IEnumerable<KeyedClassificationTreeReader> registrations,
+    public CompositeClassificationTreeSource(
+        IEnumerable<KeyedClassificationTreeSource> registrations,
         ISourceEndpointInfo endpointInfo)
     {
-        var dict = new Dictionary<string, IClassificationTreeReader>(StringComparer.OrdinalIgnoreCase);
+        var dict = new Dictionary<string, IClassificationTreeSource>(StringComparer.OrdinalIgnoreCase);
         foreach (var reg in registrations)
             dict[reg.Key] = reg.Reader;
         _readers = dict;
@@ -32,7 +32,7 @@ public sealed class CompositeClassificationTreeReader : IClassificationTreeReade
 
     private readonly ISourceEndpointInfo _endpointInfo;
 
-    private IClassificationTreeReader Resolve()
+    private IClassificationTreeSource Resolve()
     {
         var typeKey = _endpointInfo.ConnectorType;
         if (string.IsNullOrWhiteSpace(typeKey))
@@ -40,7 +40,7 @@ public sealed class CompositeClassificationTreeReader : IClassificationTreeReade
 
         if (!_readers.TryGetValue(typeKey, out var reader))
             throw new InvalidOperationException(
-                $"No IClassificationTreeReader is registered for endpoint type '{typeKey}'. " +
+                $"No IClassificationTreeSource is registered for endpoint type '{typeKey}'. " +
                 "Register one with AddClassificationTreeReader(key, implementation).");
 
         return reader;
@@ -67,5 +67,5 @@ public sealed class CompositeClassificationTreeReader : IClassificationTreeReade
         => Resolve().CountNodesAsync(project, ct);
 }
 
-/// <summary>Registration descriptor for a keyed <see cref="IClassificationTreeReader"/>.</summary>
-public sealed record KeyedClassificationTreeReader(string Key, IClassificationTreeReader Reader);
+/// <summary>Registration descriptor for a keyed <see cref="IClassificationTreeSource"/>.</summary>
+public sealed record KeyedClassificationTreeSource(string Key, IClassificationTreeSource Reader);

@@ -159,9 +159,9 @@ public sealed class TfsJobServiceFactory : ITfsJobServiceFactory, IDisposable
             ConnectorType = "TeamFoundationServer"
         };
 
-        var classificationTreeReader = new TfsClassificationTreeReader(
+        var classificationTreeReader = new TfsClassificationTreeSource(
             collection,
-            _loggerFactory.CreateLogger<TfsClassificationTreeReader>(),
+            _loggerFactory.CreateLogger<TfsClassificationTreeSource>(),
             endpointInfo);
         var commonStructureService = collection.GetService<ICommonStructureService4>();
         var projectUri = commonStructureService.GetProjectFromName(project).Uri;
@@ -226,7 +226,7 @@ public sealed class TfsJobServices : ITfsJobServices
     public IWorkItemRevisionSource RevisionSource { get; }
     public IAttachmentBinarySource AttachmentSource { get; }
     public INodeCreator NodeCreator { get; }
-    public IClassificationTreeReader ClassificationTreeReader { get; }
+    public IClassificationTreeSource ClassificationTreeReader { get; }
     public IWorkItemDiscoveryService DiscoveryService { get; }
     public IProjectDiscoveryService ProjectDiscoveryService { get; }
     public IWorkItemFetchService FetchService { get; }
@@ -247,7 +247,7 @@ public sealed class TfsJobServices : ITfsJobServices
         IWorkItemRevisionSource revisionSource,
         IAttachmentBinarySource attachmentSource,
         INodeCreator nodeCreator,
-        IClassificationTreeReader classificationTreeReader,
+        IClassificationTreeSource classificationTreeReader,
         IWorkItemDiscoveryService discoveryService,
         IProjectDiscoveryService projectDiscoveryService,
         IWorkItemFetchService fetchService,
