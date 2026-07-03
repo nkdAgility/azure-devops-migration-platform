@@ -192,7 +192,7 @@ public class NodesModuleTests
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var opts = new NodesModuleOptions { Enabled = true, ReplicateSourceTree = true };
+        var opts = new NodesModuleOptions { Enabled = true, Processing = new NodesProcessingOptions { ReplicateSourceTree = true } };
         var package = PackageTestFactory.CreateLooseMock().Object;
         var module = CreateModule(opts, orchestrator: orchestratorMock.Object, package: package);
         var context = CreateImportContext(package);
@@ -222,7 +222,7 @@ public class NodesModuleTests
         var opts = new NodesModuleOptions
         {
             Enabled = true,
-            ReplicateSourceTree = false
+            Processing = new NodesProcessingOptions { ReplicateSourceTree = false }
         };
         var package = PackageTestFactory.CreateLooseMock().Object;
         var module = CreateModule(opts, orchestrator: orchestratorMock.Object, package: package);

@@ -407,7 +407,7 @@ public sealed class WorkItemsModuleImportTests
             targetEndpointInfo: targetEndpoint.Object,
             fieldTransformTool: fieldTransformTool.Object,
             nodeReadinessOrchestrator: nodeReadiness,
-            nodesModuleOptions: Options.Create(new NodesModuleOptions { ReplicateSourceTree = true }));
+            nodesModuleOptions: Options.Create(new NodesModuleOptions { Processing = new NodesProcessingOptions { ReplicateSourceTree = true } }));
 
         await module.ImportAsync(
             new ImportContext

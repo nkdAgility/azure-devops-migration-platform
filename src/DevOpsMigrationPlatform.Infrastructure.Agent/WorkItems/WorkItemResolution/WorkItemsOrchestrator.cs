@@ -557,7 +557,7 @@ public sealed class WorkItemsOrchestrator : IWorkItemsOrchestrator
             sourceProjectName = "unknown";
 
         var nodeReadinessContext = new ProjectMapping(sourceProjectName, project);
-        var replicateSourceTree = _nodesModuleOptions?.Value.ReplicateSourceTree ?? false;
+        var replicateSourceTree = _nodesModuleOptions?.Value.Processing.ReplicateSourceTree ?? false;
         await _nodeReadinessOrchestrator
             .EnsureReadyAsync(nodeReadinessContext, replicateSourceTree, context, sourceOrganisation, sourceProjectName, ct)
             .ConfigureAwait(false);

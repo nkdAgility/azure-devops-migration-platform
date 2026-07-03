@@ -160,7 +160,7 @@ public sealed class ModuleOptionsConfigurationTests
         var config = BuildConfig(new Dictionary<string, string?>
         {
             ["MigrationPlatform:Modules:Nodes:Enabled"] = "true",
-            ["MigrationPlatform:Modules:Nodes:ReplicateSourceTree"] = "true"
+            ["MigrationPlatform:Modules:Nodes:Processing:ReplicateSourceTree"] = "true"
         });
         var services = new ServiceCollection();
         services.Configure<NodesModuleOptions>(
@@ -172,7 +172,7 @@ public sealed class ModuleOptionsConfigurationTests
 
         // Assert
         Assert.IsTrue(opts.Enabled);
-        Assert.IsTrue(opts.ReplicateSourceTree);
+        Assert.IsTrue(opts.Processing.ReplicateSourceTree);
     }
 
     // TODO: [test-validity] Score 13/25 — Tests property initialiser defaults. Rewrite to test: when NodeTranslation
@@ -194,7 +194,7 @@ public sealed class ModuleOptionsConfigurationTests
 
         // Assert — Enabled defaults to true so the module runs without explicit config
         Assert.IsTrue(opts.Enabled);
-        Assert.IsFalse(opts.ReplicateSourceTree);
+        Assert.IsFalse(opts.Processing.ReplicateSourceTree);
     }
 
     // ─── IdentitiesModuleOptions ─────────────────────────────────────────────
@@ -211,7 +211,7 @@ public sealed class ModuleOptionsConfigurationTests
         var config = BuildConfig(new Dictionary<string, string?>
         {
             ["MigrationPlatform:Modules:Identities:Enabled"] = "true",
-            ["MigrationPlatform:Modules:Identities:DefaultIdentity"] = "system@contoso.com"
+            ["MigrationPlatform:Modules:Identities:Processing:DefaultIdentity"] = "system@contoso.com"
         });
         var services = new ServiceCollection();
         services.Configure<IdentitiesModuleOptions>(
@@ -223,7 +223,7 @@ public sealed class ModuleOptionsConfigurationTests
 
         // Assert
         Assert.IsTrue(opts.Enabled);
-        Assert.AreEqual("system@contoso.com", opts.DefaultIdentity);
+        Assert.AreEqual("system@contoso.com", opts.Processing.DefaultIdentity);
     }
 
     // TODO: [test-validity] Score 12/25 — Tests property initialiser default of DefaultIdentity="". Partially
@@ -245,7 +245,7 @@ public sealed class ModuleOptionsConfigurationTests
         var opts = sp.GetRequiredService<IOptions<IdentitiesModuleOptions>>().Value;
 
         // Assert
-        Assert.AreEqual(string.Empty, opts.DefaultIdentity);
+        Assert.AreEqual(string.Empty, opts.Processing.DefaultIdentity);
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────

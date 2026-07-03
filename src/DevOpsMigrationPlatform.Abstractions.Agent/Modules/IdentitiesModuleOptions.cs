@@ -7,7 +7,14 @@ using DevOpsMigrationPlatform.Abstractions.Options;
 
 namespace DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 
-/// <summary>Options for the IdentitiesModule.</summary>
+/// <summary>Processing aspect for the IdentitiesModule.</summary>
+public sealed class IdentitiesProcessingOptions
+{
+    /// <summary>Default identity when resolution fails. Falls back to the source identity string when empty.</summary>
+    public string DefaultIdentity { get; init; } = string.Empty;
+}
+
+/// <summary>Options for the IdentitiesModule (ConfigVersion 2.0 anatomy).</summary>
 #if NET7_0_OR_GREATER
 public sealed class IdentitiesModuleOptions : IConfigSection
 #else
@@ -20,9 +27,6 @@ public sealed class IdentitiesModuleOptions
     /// <summary>Whether the module is enabled.</summary>
     public bool Enabled { get; init; } = true;
 
-    /// <summary>
-    /// Default identity to use when an identity cannot be resolved.
-    /// Falls back to the source identity string when empty.
-    /// </summary>
-    public string DefaultIdentity { get; init; } = string.Empty;
+    /// <summary>Processing aspect: resolution fallback behaviour.</summary>
+    public IdentitiesProcessingOptions Processing { get; init; } = new();
 }
