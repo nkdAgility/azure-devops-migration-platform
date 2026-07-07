@@ -5,11 +5,16 @@ using DevOpsMigrationPlatform.Abstractions;
 using DevOpsMigrationPlatform.Abstractions.Agent;
 using DevOpsMigrationPlatform.Abstractions.Agent.Modules;
 using DevOpsMigrationPlatform.Abstractions.Agent.Teams;
+using DevOpsMigrationPlatform.Abstractions.Agent.Tools;
+using DevOpsMigrationPlatform.Infrastructure.Agent.Connectors;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Modules;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 using DevOpsMigrationPlatform.Infrastructure.Agent.Teams.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Teams;
 
@@ -69,6 +74,64 @@ public static class TeamsServiceCollectionExtensions
         services.AddSingleton<BoardConfigTeamExtension>();
         services.AddSingleton<IModuleExtension>(sp => sp.GetRequiredService<BoardConfigTeamExtension>());
 
+        // Team capability extensions (IModuleExtension ports, ADR-0024/EC-H1) — iterations,
+        // members, capacity, and area paths. Scoped, not Singleton: the iterations extension
+        // shares the per-job scoped IReferencedPathLifecycle (see the TeamsOrchestrator
+        // lifetime note above); a Singleton would capture the root-scope instance.
+        //
+        // ITeamTarget falls back to the CompositeTeamTarget dispatcher so source-only hosts
+        // (the net481 TFS agent registers no connector ITeamTarget) can still resolve the
+        // export extensions — the composite resolves a concrete target only when an import
+        // method is invoked, which never happens on net481 (TeamsOrchestrator import
+        // dispatch is compiled out there). TryAdd keeps connector registrations authoritative.
+        services.TryAddSingleton<ITeamTarget, CompositeTeamTarget>();
+
+        services.AddScoped<TeamIterationsTeamExtension>(sp => new TeamIterationsTeamExtension(
+            sp.GetRequiredService<IOptions<TeamsModuleOptions>>(),
+            ResolveConnectorCapabilities(sp),
+            sp.GetRequiredService<ITeamSource>(),
+            sp.GetRequiredService<ITeamTarget>(),
+            sp.GetService<INodeTranslationTool>(),
+            sp.GetService<IReferencedPathLifecycle>(),
+            sp.GetService<ILogger<TeamIterationsTeamExtension>>()));
+        services.AddScoped<IModuleExtension>(sp => sp.GetRequiredService<TeamIterationsTeamExtension>());
+
+        services.AddScoped<TeamMembersTeamExtension>(sp => new TeamMembersTeamExtension(
+            sp.GetRequiredService<IOptions<TeamsModuleOptions>>(),
+            ResolveConnectorCapabilities(sp),
+            sp.GetRequiredService<ITeamSource>(),
+            sp.GetRequiredService<ITeamTarget>(),
+            sp.GetService<IIdentityTranslationTool>(),
+            sp.GetService<IIdentitiesOrchestrator>(),
+            sp.GetService<ILogger<TeamMembersTeamExtension>>()));
+        services.AddScoped<IModuleExtension>(sp => sp.GetRequiredService<TeamMembersTeamExtension>());
+
+        services.AddScoped<TeamCapacityTeamExtension>(sp => new TeamCapacityTeamExtension(
+            sp.GetRequiredService<IOptions<TeamsModuleOptions>>(),
+            ResolveConnectorCapabilities(sp),
+            sp.GetRequiredService<ITeamSource>(),
+            sp.GetRequiredService<ITeamTarget>(),
+            sp.GetService<ILogger<TeamCapacityTeamExtension>>()));
+        services.AddScoped<IModuleExtension>(sp => sp.GetRequiredService<TeamCapacityTeamExtension>());
+
+        services.AddScoped<TeamAreaPathsTeamExtension>(sp => new TeamAreaPathsTeamExtension(
+            ResolveConnectorCapabilities(sp),
+            sp.GetRequiredService<ITeamSource>(),
+            sp.GetRequiredService<ITeamTarget>(),
+            sp.GetService<INodeTranslationTool>(),
+            sp.GetService<ILogger<TeamAreaPathsTeamExtension>>()));
+        services.AddScoped<IModuleExtension>(sp => sp.GetRequiredService<TeamAreaPathsTeamExtension>());
+
         return services;
     }
+
+    /// <summary>
+    /// Connector capability declaration (ADR-0024/EC-H1). Fail-closed: hosts that register
+    /// no connector capability provider get an explicit None declaration — the same posture
+    /// as the CommentsWorkItemExtension registration.
+    /// </summary>
+    private static IConnectorCapabilityProvider ResolveConnectorCapabilities(System.IServiceProvider sp)
+        => sp.GetService<IConnectorCapabilityProvider>()
+            ?? new Infrastructure.Agent.ConnectorCapability.StaticConnectorCapabilityProvider(
+                global::DevOpsMigrationPlatform.Abstractions.Agent.ConnectorCapability.None);
 }
