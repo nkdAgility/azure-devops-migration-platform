@@ -123,22 +123,28 @@ public class SimulatedTeamTargetTests
         // Arrange
         var target = new SimulatedTeamTarget();
         var options = new SimulatedEndpointOptions();
-        var paths1 = new TeamAreaPaths("ProjectA", new[] { "ProjectA", "ProjectA\\Sub" });
-        var paths2 = new TeamAreaPaths("ProjectB", new[] { "ProjectB" });
+        var paths1 = new TeamAreaPaths("ProjectA", new[]
+        {
+            new TeamFieldValueEntry("ProjectA", IncludeChildren: true),
+            new TeamFieldValueEntry("ProjectA\\Sub", IncludeChildren: false)
+        });
+        var paths2 = new TeamAreaPaths("ProjectB", new[] { new TeamFieldValueEntry("ProjectB") });
 
         // Act
         await target.SetAreaPathsAsync("ProjectA", "team-1", paths1, CancellationToken.None);
         await target.SetAreaPathsAsync("ProjectB", "team-2", paths2, CancellationToken.None);
 
         // Assert — each team retains its own area paths without overwriting the other
-        Assert.AreEqual("ProjectA", target.AreaPaths["team-1"].DefaultAreaPath,
+        Assert.AreEqual("ProjectA", target.AreaPaths["team-1"].DefaultValue,
             "team-1 default area path should be unchanged after team-2 is written");
-        Assert.AreEqual(2, target.AreaPaths["team-1"].IncludedAreaPaths.Count,
-            "team-1 should retain both included area paths");
-        Assert.AreEqual("ProjectB", target.AreaPaths["team-2"].DefaultAreaPath,
+        Assert.AreEqual(2, target.AreaPaths["team-1"].Values.Count,
+            "team-1 should retain both entries");
+        Assert.IsFalse(target.AreaPaths["team-1"].Values[1].IncludeChildren,
+            "the 'exclude sub areas' flag must be stored verbatim");
+        Assert.AreEqual("ProjectB", target.AreaPaths["team-2"].DefaultValue,
             "team-2 default area path should be stored under its own key");
-        Assert.AreEqual(1, target.AreaPaths["team-2"].IncludedAreaPaths.Count,
-            "team-2 should have exactly one included area path");
+        Assert.AreEqual(1, target.AreaPaths["team-2"].Values.Count,
+            "team-2 should have exactly one entry");
         Assert.AreEqual(2, target.AreaPaths.Count, "Both teams should have separate entries");
     }
 

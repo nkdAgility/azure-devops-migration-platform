@@ -191,17 +191,35 @@ internal sealed class AzureDevOpsTeamTarget : ITeamTarget
 
         try
         {
-            var values = new List<Microsoft.TeamFoundation.Work.WebApi.TeamFieldValue>
+            // Replay the entries verbatim — each entry keeps its own includeChildren flag
+            // ("Exclude sub areas" must not be widened to the whole subtree).
+            var values = new List<Microsoft.TeamFoundation.Work.WebApi.TeamFieldValue>();
+            var defaultPresent = false;
+            foreach (var entry in areaPaths.Values)
             {
-                new() { Value = areaPaths.DefaultAreaPath, IncludeChildren = true }
-            };
-            foreach (var path in areaPaths.IncludedAreaPaths)
-                if (!string.Equals(path, areaPaths.DefaultAreaPath, StringComparison.OrdinalIgnoreCase))
-                    values.Add(new Microsoft.TeamFoundation.Work.WebApi.TeamFieldValue { Value = path, IncludeChildren = true });
+                if (string.IsNullOrEmpty(entry.Value))
+                    continue;
+                if (string.Equals(entry.Value, areaPaths.DefaultValue, StringComparison.OrdinalIgnoreCase))
+                    defaultPresent = true;
+                values.Add(new Microsoft.TeamFoundation.Work.WebApi.TeamFieldValue
+                {
+                    Value = entry.Value,
+                    IncludeChildren = entry.IncludeChildren
+                });
+            }
+
+            // The PATCH contract requires the default value to appear in values; packages
+            // predating the API-shaped model may list only non-default entries.
+            if (!defaultPresent && !string.IsNullOrEmpty(areaPaths.DefaultValue))
+                values.Insert(0, new Microsoft.TeamFoundation.Work.WebApi.TeamFieldValue
+                {
+                    Value = areaPaths.DefaultValue,
+                    IncludeChildren = true
+                });
 
             var patch = new Microsoft.TeamFoundation.Work.WebApi.TeamFieldValuesPatch
             {
-                DefaultValue = areaPaths.DefaultAreaPath,
+                DefaultValue = areaPaths.DefaultValue,
                 Values = values
             };
             await workClient.UpdateTeamFieldValuesAsync(patch, teamContext, cancellationToken: ct).ConfigureAwait(false);

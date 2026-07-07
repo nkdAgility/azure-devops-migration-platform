@@ -144,7 +144,10 @@ public class SimulatedTeamSourceTests
 
         // Assert
         Assert.IsNotNull(areaPaths, "AreaPaths should not be null");
-        Assert.IsFalse(string.IsNullOrEmpty(areaPaths!.DefaultAreaPath), "DefaultAreaPath should not be empty");
+        Assert.IsFalse(string.IsNullOrEmpty(areaPaths!.DefaultValue), "DefaultValue should not be empty");
+        Assert.IsTrue(areaPaths.Values.Count > 0, "Values should not be empty");
+        Assert.IsTrue(System.Linq.Enumerable.Any(areaPaths.Values, v => !v.IncludeChildren),
+            "the simulation must exercise the 'exclude sub areas' (includeChildren=false) shape");
     }
 
     private static async Task<List<TeamDefinition>> CollectTeamsAsync(SimulatedTeamSource source, string project)

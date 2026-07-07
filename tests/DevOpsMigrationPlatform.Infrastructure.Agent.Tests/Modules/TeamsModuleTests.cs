@@ -151,7 +151,7 @@ public class TeamsModuleTests
                 teamSource, teamTarget),
             new TeamAreaPathsTeamExtension(
                 DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
-                teamTarget, nodeTranslationTool),
+                teamSource, teamTarget, nodeTranslationTool),
         };
         return CreateTeamsOrchestrator(package, orchestrator, extensions);
     }
@@ -1382,7 +1382,7 @@ public class TeamsModuleTests
                 new TeamIteration("i1", "SrcProject\\Sprint 1", "Sprint 1", null, null, false, false)
             },
             Members = new List<TeamMember>(),
-            AreaPaths = new TeamAreaPaths("SrcProject\\Area", new List<string> { "SrcProject\\Area" }),
+            AreaPaths = new TeamAreaPaths("SrcProject\\Area", new List<TeamFieldValueEntry> { new("SrcProject\\Area") }),
             CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
         };
         var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
@@ -1503,7 +1503,7 @@ public class TeamsModuleTests
             Definition = new TeamDefinition("src-1", "Alpha Team", "", false),
             Iterations = new List<TeamIteration>(),
             Members = new List<TeamMember>(),
-            AreaPaths = new TeamAreaPaths("SourceProject", new List<string> { "SourceProject", "SourceProject\\Sub" }),
+            AreaPaths = new TeamAreaPaths("SourceProject", new List<TeamFieldValueEntry> { new("SourceProject"), new("SourceProject\\Sub") }),
             CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
         };
         var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
@@ -1531,9 +1531,76 @@ public class TeamsModuleTests
         // Assert — area paths translated from SourceProject → TargetProject
         var teamId = new System.Collections.Generic.List<string>(target.Teams.Keys)[0];
         Assert.IsTrue(target.AreaPaths.ContainsKey(teamId), "SetAreaPathsAsync should have been called");
-        Assert.AreEqual("TargetProject", target.AreaPaths[teamId].DefaultAreaPath);
-        Assert.IsTrue(target.AreaPaths[teamId].IncludedAreaPaths.Contains("TargetProject"), "TargetProject should be in included paths");
-        Assert.IsTrue(target.AreaPaths[teamId].IncludedAreaPaths.Contains("TargetProject\\Sub"), "TargetProject\\Sub should be in included paths");
+        Assert.AreEqual("TargetProject", target.AreaPaths[teamId].DefaultValue);
+        Assert.IsTrue(target.AreaPaths[teamId].Values.Any(v => v.Value == "TargetProject"), "TargetProject should be in the values");
+        Assert.IsTrue(target.AreaPaths[teamId].Values.Any(v => v.Value == "TargetProject\\Sub"), "TargetProject\\Sub should be in the values");
+    }
+
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public async Task ImportAsync_AcceptsApiShapedTeamFieldValuesBlock_AndReplaysIncludeChildrenVerbatim()
+    {
+        // Arrange — externally produced team.json carrying the REST-shaped block under
+        // "teamFieldValues" (e.g. the SLB Subsurface simulation package), with a mixed
+        // includeChildren set. The upgrader must accept this alias and the import must
+        // replay the flags verbatim.
+        var target = new SimulatedTeamTarget();
+
+        var translationToolMock = new Mock<INodeTranslationTool>(MockBehavior.Loose);
+        translationToolMock.Setup(t => t.IsEnabled).Returns(true);
+        translationToolMock
+            .Setup(t => t.TranslatePath("System.AreaPath", It.IsAny<string>(), It.IsAny<ProjectMapping>()))
+            .Returns<string, string, ProjectMapping>((_, path, _) =>
+                new PathTranslation(path.Replace("SourceProject", "TargetProject"), false, true, false));
+
+        var importOrch = new TeamMigrationOrchestrator(
+            NullLogger<TeamMigrationOrchestrator>.Instance, teamTarget: target,
+            targetEndpointInfo: CreateTargetEndpointInfo());
+
+        const string json = """
+            {
+              "definition": { "id": "src-1", "name": "Alpha Team", "description": "", "isDefault": false },
+              "teamFieldValues": {
+                "field": { "referenceName": "System.AreaPath" },
+                "defaultValue": "SourceProject",
+                "values": [
+                  { "value": "SourceProject", "includeChildren": true },
+                  { "value": "SourceProject\\Sub", "includeChildren": false }
+                ]
+              }
+            }
+            """;
+
+        var inMemory = new InMemoryArtefactStore();
+        inMemory.Seed("Teams/alpha-team/team.json", json);
+        var package = PackageTestFactory.CreateDelegatingMock(inMemory);
+
+        var module = new TeamsModule(
+            NullLogger<TeamsModule>.Instance,
+            Options.Create(new TeamsModuleOptions
+            {
+                Enabled = true,
+                Processing = new TeamsProcessingOptions { NodeTranslation = true }
+            }),
+            sourceEndpointInfo: CreateSourceEndpointInfo(),
+            targetEndpointInfo: CreateTargetEndpointInfo(),
+            orchestrator: CreateTeamsOrchestratorWithExtensions(package.Object, teamTarget: target,
+                nodeTranslationTool: translationToolMock.Object, orchestrator: importOrch),
+            teamTarget: target);
+
+        // Act
+        await module.ImportAsync(CreateImportContext(package.Object), CancellationToken.None);
+
+        // Assert — translated paths applied with includeChildren replayed verbatim
+        var teamId = new System.Collections.Generic.List<string>(target.Teams.Keys)[0];
+        Assert.IsTrue(target.AreaPaths.ContainsKey(teamId), "SetAreaPathsAsync should have been called");
+        var applied = target.AreaPaths[teamId];
+        Assert.AreEqual("TargetProject", applied.DefaultValue);
+        Assert.AreEqual(2, applied.Values.Count);
+        Assert.IsTrue(applied.Values.Single(v => v.Value == "TargetProject").IncludeChildren);
+        Assert.IsFalse(applied.Values.Single(v => v.Value == "TargetProject\\Sub").IncludeChildren,
+            "'Exclude sub areas' must not be widened to the whole subtree during migration");
     }
 
     [TestCategory("CodeTest")]
@@ -1550,7 +1617,7 @@ public class TeamsModuleTests
             Definition = new TeamDefinition("src-1", "Alpha Team", "", false),
             Iterations = new List<TeamIteration>(),
             Members = new List<TeamMember>(),
-            AreaPaths = new TeamAreaPaths("SourceProject\\TeamArea", new List<string> { "SourceProject\\TeamArea" }),
+            AreaPaths = new TeamAreaPaths("SourceProject\\TeamArea", new List<TeamFieldValueEntry> { new("SourceProject\\TeamArea") }),
             CapacityByIteration = new Dictionary<string, TeamCapacityEntry[]>()
         };
         var json = JsonSerializer.Serialize(teamPackage, s_jsonOptions);
@@ -1603,6 +1670,7 @@ public class TeamsModuleTests
         // Build the area paths extension with the logger mock so we can verify warnings
         var areaPathsExtension = new TeamAreaPathsTeamExtension(
             DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestUtilities.TestConnectorCapabilities.All,
+            new Mock<ITeamSource>(MockBehavior.Loose).Object,
             target,
             translationToolMock.Object,
             loggerMock.Object);

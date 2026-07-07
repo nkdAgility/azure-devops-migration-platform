@@ -98,9 +98,15 @@ public sealed class SimulatedTeamSource : ITeamSource
     public Task<TeamAreaPaths?> GetTeamAreaPathsAsync(
         string projectName, string teamId, CancellationToken ct)
     {
+        // Mixed includeChildren mirrors the REST contract examples: one "include sub areas"
+        // entry and one "exclude sub areas" entry, so round-trip tests exercise both.
         TeamAreaPaths? areaPaths = new TeamAreaPaths(
             projectName,
-            new[] { projectName, $"{projectName}\\Sub" });
+            new[]
+            {
+                new TeamFieldValueEntry(projectName, IncludeChildren: true),
+                new TeamFieldValueEntry($"{projectName}\\Sub", IncludeChildren: false)
+            });
         return Task.FromResult<TeamAreaPaths?>(areaPaths);
     }
 }

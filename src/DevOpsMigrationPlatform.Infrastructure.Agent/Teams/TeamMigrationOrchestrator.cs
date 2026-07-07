@@ -119,15 +119,17 @@ public sealed class TeamMigrationOrchestrator
             try
             {
                 var areaPaths = await _teamSource!.GetTeamAreaPathsAsync(projectName, team.Id, ct).ConfigureAwait(false);
-                if (areaPaths is not null)
+                // Custom (non System.AreaPath) team field values are not area paths — do not
+                // record them into the NodeTranslation referenced-path set.
+                if (areaPaths is not null && areaPaths.IsAreaPathField)
                 {
-                    if (!string.IsNullOrEmpty(areaPaths.DefaultAreaPath))
-                        await RecordAreaPathAsync(areaPaths.DefaultAreaPath, package, organisation, projectName, ct).ConfigureAwait(false);
+                    if (!string.IsNullOrEmpty(areaPaths.DefaultValue))
+                        await RecordAreaPathAsync(areaPaths.DefaultValue, package, organisation, projectName, ct).ConfigureAwait(false);
 
-                    foreach (var path in areaPaths.IncludedAreaPaths)
+                    foreach (var entry in areaPaths.Values)
                     {
-                        if (!string.IsNullOrEmpty(path))
-                            await RecordAreaPathAsync(path, package, organisation, projectName, ct).ConfigureAwait(false);
+                        if (!string.IsNullOrEmpty(entry.Value))
+                            await RecordAreaPathAsync(entry.Value, package, organisation, projectName, ct).ConfigureAwait(false);
                     }
                 }
             }
@@ -383,5 +385,17 @@ public sealed class TeamPackage
     public List<TeamIteration> Iterations { get; init; } = new();
     public List<TeamMember> Members { get; init; } = new();
     public TeamAreaPaths? AreaPaths { get; init; }
+
+    /// <summary>
+    /// API-shaped alias for <see cref="AreaPaths"/>: externally produced packages write the
+    /// REST teamfieldvalues block under <c>teamFieldValues</c> in <c>team.json</c>. Readers
+    /// must coalesce via <see cref="EffectiveAreaPaths"/>.
+    /// </summary>
+    public TeamAreaPaths? TeamFieldValues { get; init; }
+
+    /// <summary>Area path data regardless of which team.json property carried it.</summary>
+    [JsonIgnore]
+    public TeamAreaPaths? EffectiveAreaPaths => AreaPaths ?? TeamFieldValues;
+
     public Dictionary<string, TeamCapacityEntry[]> CapacityByIteration { get; init; } = new();
 }

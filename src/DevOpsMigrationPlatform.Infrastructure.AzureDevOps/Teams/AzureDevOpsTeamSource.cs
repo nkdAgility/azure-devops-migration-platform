@@ -194,15 +194,20 @@ internal sealed class AzureDevOpsTeamSource : ITeamSource
         try
         {
             var fieldValues = await workClient.GetTeamFieldValuesAsync(teamContext, cancellationToken: ct).ConfigureAwait(false);
-            var defaultPath = fieldValues.DefaultValue ?? string.Empty;
-            var included = new List<string>();
+            var defaultValue = fieldValues.DefaultValue ?? string.Empty;
+            var values = new List<TeamFieldValueEntry>();
             if (fieldValues.Values is not null)
             {
                 foreach (var v in fieldValues.Values)
                     if (!string.IsNullOrEmpty(v.Value))
-                        included.Add(v.Value);
+                        values.Add(new TeamFieldValueEntry(v.Value, v.IncludeChildren));
             }
-            return new TeamAreaPaths(defaultPath, included);
+
+            var fieldReference = fieldValues.Field?.ReferenceName;
+            return new TeamAreaPaths(
+                defaultValue,
+                values,
+                string.IsNullOrEmpty(fieldReference) ? TeamAreaPaths.AreaPathFieldReferenceName : fieldReference!);
         }
         catch (Exception ex)
         {

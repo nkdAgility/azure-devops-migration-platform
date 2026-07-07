@@ -1121,8 +1121,9 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
             }
         }
 
-        // Upgrade area paths: if team.json has area path data but area-paths.json is absent, write it
-        if (teamPackage.AreaPaths is not null)
+        // Upgrade area paths: if team.json has area path data (legacy "areaPaths" or the
+        // API-shaped "teamFieldValues" alias) but area-paths.json is absent, write it
+        if (teamPackage.EffectiveAreaPaths is not null)
         {
             var areaPathsCtx = new PackageContentContext(
                 PackageContentKind.Artefact,
@@ -1133,7 +1134,7 @@ internal sealed class TeamsOrchestrator : ITeamsOrchestrator
 
             if (!await package.ContentExistsAsync(areaPathsCtx, ct).ConfigureAwait(false))
             {
-                var json = JsonSerializer.Serialize(teamPackage.AreaPaths, LegacyJsonOptions);
+                var json = JsonSerializer.Serialize(teamPackage.EffectiveAreaPaths, LegacyJsonOptions);
                 using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
                 await package.PersistContentAsync(areaPathsCtx, new PackagePayload(stream, "application/json"), ct).ConfigureAwait(false);
             }

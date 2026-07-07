@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DevOpsMigrationPlatform.Abstractions.Agent;
@@ -19,30 +18,40 @@ using Microsoft.Extensions.Logging;
 namespace DevOpsMigrationPlatform.Infrastructure.Agent.Teams.Extensions;
 
 /// <summary>
-/// Teams module extension: imports team area path assignments from
-/// <c>Teams/{slug}/area-paths.json</c> with NodeTranslation-based path mapping.
-/// Area paths are export-only via <see cref="TeamMigrationOrchestrator"/> (which records
-/// them via <see cref="IReferencedPathLifecycle"/>) — this extension handles import only.
+/// Teams module extension: exports and imports team area path assignments as a separate
+/// <c>Teams/{slug}/area-paths.json</c> artifact in the Azure DevOps teamfieldvalues REST
+/// shape (<c>field.referenceName</c> + <c>defaultValue</c> + <c>values[{value, includeChildren}]</c>).
+/// Export captures the per-entry <c>includeChildren</c> flag verbatim; import replays it
+/// verbatim with NodeTranslation-based path mapping. Values of custom (non
+/// <c>System.AreaPath</c>) team fields are never pushed through the area-path map.
 /// </summary>
 public sealed class TeamAreaPathsTeamExtension : IModuleExtension
 {
+    private static readonly JsonSerializerOptions s_writeOptions = new()
+    {
+        WriteIndented = false
+    };
+
     private static readonly JsonSerializerOptions s_readOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
     private readonly IConnectorCapabilityProvider _capProvider;
+    private readonly ITeamSource _teamSource;
     private readonly ITeamTarget _teamTarget;
     private readonly INodeTranslationTool? _nodeTranslationTool;
     private readonly ILogger<TeamAreaPathsTeamExtension>? _logger;
 
     public TeamAreaPathsTeamExtension(
         IConnectorCapabilityProvider capProvider,
+        ITeamSource teamSource,
         ITeamTarget teamTarget,
         INodeTranslationTool? nodeTranslationTool = null,
         ILogger<TeamAreaPathsTeamExtension>? logger = null)
     {
         _capProvider = capProvider ?? throw new ArgumentNullException(nameof(capProvider));
+        _teamSource = teamSource ?? throw new ArgumentNullException(nameof(teamSource));
         _teamTarget = teamTarget ?? throw new ArgumentNullException(nameof(teamTarget));
         _nodeTranslationTool = nodeTranslationTool;
         _logger = logger;
@@ -51,14 +60,54 @@ public sealed class TeamAreaPathsTeamExtension : IModuleExtension
     public string Module => "Teams";
     public string Name => "TeamAreaPaths";
     public int Order => 50;
-    public bool SupportsExport => false;   // Area path recording is handled by TeamMigrationOrchestrator
+    public bool SupportsExport => _capProvider.Has(Cap.TeamAreaPaths);
     public bool SupportsImport => _capProvider.Has(Cap.TeamAreaPaths);
     // Always enabled — gating is the connector's TeamAreaPaths capability; path translation
     // is governed by the NodeTranslation Processing seam (ConfigVersion 2.0 anatomy, ADR-0028).
     public bool IsEnabled => true;
 
-    public Task ExportAsync(IExtensionContext context, CancellationToken ct)
-        => Task.CompletedTask; // No export — area paths are recorded via IReferencedPathLifecycle
+    public async Task ExportAsync(IExtensionContext context, CancellationToken ct)
+    {
+        if (context is not TeamExtensionContext ctx)
+            throw new ArgumentException($"Expected {nameof(TeamExtensionContext)}.", nameof(context));
+
+        TeamAreaPaths? areaPaths;
+        try
+        {
+            areaPaths = await _teamSource.GetTeamAreaPathsAsync(ctx.ProjectName, ctx.EntityId, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "[TeamAreaPaths] Failed to fetch area paths for team '{TeamName}' — skipping.", ctx.Team.Name);
+            return;
+        }
+
+        if (areaPaths is null)
+        {
+            _logger?.LogDebug("[TeamAreaPaths] No area paths returned for team '{TeamName}' — skipping.", ctx.Team.Name);
+            return;
+        }
+
+        var json = JsonSerializer.Serialize(areaPaths, s_writeOptions);
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), writable: false);
+        await ctx.Package.PersistContentAsync(
+            new PackageContentContext(
+                PackageContentKind.Artefact,
+                Organisation: ctx.Organisation,
+                Project: ctx.ProjectName,
+                Module: "Teams",
+                Address: new TeamArtifactAddress(ctx.Slug, "area-paths.json")),
+            new PackagePayload(stream, "application/json"),
+            ct).ConfigureAwait(false);
+
+        _logger?.LogInformation(
+            "[TeamAreaPaths] Exported area paths for team '{TeamName}' → Teams/{Slug}/area-paths.json.",
+            ctx.Team.Name, ctx.Slug);
+    }
 
     public async Task ImportAsync(IExtensionContext context, CancellationToken ct)
     {
@@ -110,30 +159,39 @@ public sealed class TeamAreaPathsTeamExtension : IModuleExtension
 
         var projectMapping = new ProjectMapping(ctx.SourceProjectName, ctx.ProjectName);
 
+        // Custom (non System.AreaPath) team field values are not area paths — replay them
+        // verbatim rather than corrupting them through the area-path map.
+        var translate = areaPaths.IsAreaPathField;
+
         // Translate default path — if untranslatable, skip the whole area paths assignment
-        var defaultPath = TranslatePath("System.AreaPath", areaPaths.DefaultAreaPath, projectMapping);
-        if (defaultPath is null)
+        var defaultValue = translate
+            ? TranslatePath(TeamAreaPaths.AreaPathFieldReferenceName, areaPaths.DefaultValue, projectMapping)
+            : areaPaths.DefaultValue;
+        if (string.IsNullOrWhiteSpace(defaultValue))
         {
             _logger?.LogWarning(
                 "[TeamAreaPaths] Default area path '{Path}' could not be translated for team '{TeamName}' — skipping area paths import.",
-                areaPaths.DefaultAreaPath, ctx.Team.Name);
+                areaPaths.DefaultValue, ctx.Team.Name);
             return;
         }
 
-        // Translate included paths — skip individual paths that cannot be translated
-        var translatedIncluded = new List<string>();
-        foreach (var path in areaPaths.IncludedAreaPaths)
+        // Translate entries — skip individual entries that cannot be translated; the
+        // includeChildren flag is replayed verbatim on every surviving entry.
+        var translatedValues = new List<TeamFieldValueEntry>();
+        foreach (var entry in areaPaths.Values)
         {
-            var translated = TranslatePath("System.AreaPath", path, projectMapping);
-            if (translated is not null)
-                translatedIncluded.Add(translated);
+            var value = translate
+                ? TranslatePath(TeamAreaPaths.AreaPathFieldReferenceName, entry.Value, projectMapping)
+                : entry.Value;
+            if (!string.IsNullOrWhiteSpace(value))
+                translatedValues.Add(entry with { Value = value! });
             else
                 _logger?.LogWarning(
                     "[TeamAreaPaths] Could not translate included area path '{Path}' for team '{TeamName}' — skipping this path.",
-                    path, ctx.Team.Name);
+                    entry.Value, ctx.Team.Name);
         }
 
-        var translatedAreaPaths = new TeamAreaPaths(defaultPath, translatedIncluded);
+        var translatedAreaPaths = new TeamAreaPaths(defaultValue!, translatedValues, areaPaths.FieldReferenceName);
 
         try
         {

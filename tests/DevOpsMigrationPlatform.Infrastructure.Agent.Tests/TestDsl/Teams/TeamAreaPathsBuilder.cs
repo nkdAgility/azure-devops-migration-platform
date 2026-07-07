@@ -12,17 +12,19 @@ namespace DevOpsMigrationPlatform.Infrastructure.Agent.Tests.TestDsl.Teams;
 internal static class TeamAreaPathsBuilder
 {
     /// <summary>
-    /// Creates a <see cref="TeamAreaPaths"/> with the given default path and a single included path.
+    /// Creates a <see cref="TeamAreaPaths"/> with the given default path and a single
+    /// additional entry (includeChildren=true unless stated otherwise).
     /// </summary>
     internal static TeamAreaPaths WithDefaultAndOneIncluded(
         string defaultPath,
-        string includedPath)
-        => new(defaultPath, new List<string> { includedPath });
+        string includedPath,
+        bool includeChildren = true)
+        => new(defaultPath, new List<TeamFieldValueEntry> { new(includedPath, includeChildren) });
 
     /// <summary>
-    /// Creates a <see cref="TeamAreaPaths"/> where the default and the sole included path are the same value.
+    /// Creates a <see cref="TeamAreaPaths"/> where the default and the sole entry are the same value.
     /// Models the "default-only" pattern used when only a default path exists.
     /// </summary>
     internal static TeamAreaPaths WithDefaultOnly(string defaultPath)
-        => new(defaultPath, new List<string> { defaultPath });
+        => new(defaultPath, new List<TeamFieldValueEntry> { new(defaultPath) });
 }

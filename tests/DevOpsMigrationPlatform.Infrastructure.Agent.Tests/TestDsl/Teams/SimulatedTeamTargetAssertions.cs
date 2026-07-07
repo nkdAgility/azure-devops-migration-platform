@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) Naked Agility Limited
 
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using DevOpsMigrationPlatform.Infrastructure.Simulated;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -35,7 +37,7 @@ internal static class SimulatedTeamTargetAssertions
 
     /// <summary>
     /// Asserts that the given <paramref name="excludedPath"/> is absent from
-    /// the <c>IncludedAreaPaths</c> of the first team in the target.
+    /// the <c>Values</c> of the first team in the target.
     /// </summary>
     internal static void AreaPathsExclude(
         SimulatedTeamTarget target,
@@ -44,10 +46,10 @@ internal static class SimulatedTeamTargetAssertions
     {
         Assert.AreEqual(1, target.AreaPaths.Count, "Exactly one team should have area paths set.");
         var teamId = new List<string>(target.AreaPaths.Keys)[0];
-        var included = target.AreaPaths[teamId].IncludedAreaPaths;
+        var values = target.AreaPaths[teamId].Values;
         Assert.IsFalse(
-            included.Contains(excludedPath, StringComparer.OrdinalIgnoreCase),
-            $"IncludedAreaPaths should not contain '{excludedPath}'" +
+            values.Any(v => string.Equals(v.Value, excludedPath, StringComparison.OrdinalIgnoreCase)),
+            $"Values should not contain '{excludedPath}'" +
             $"{(string.IsNullOrEmpty(because) ? "" : " because " + because)}.");
     }
 }
