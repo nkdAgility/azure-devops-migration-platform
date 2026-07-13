@@ -261,3 +261,11 @@ The highest-severity governance rules are machine-enforced, not prose-only. The 
 The routing catalog is total over the task space: eight activities (package, agent, control-plane, cli, connectors, tests, docs, harness), each naming its task profile explicitly. Six contract catalogs have JSON Schemas in `.agents/10-contracts/schemas/`; `scripts/guardrails/validate-agent-contracts.py` enforces cross-file consistency (profile exists, every profile reachable, escalation targets real, referenced files exist) and runs in CI as the `Agent Contract Schemas` job.
 
 **Current implication:** Classify every task via the routing catalog — "no matching route" should now be rare and means stop-and-ask, not improvise. Contract catalog edits must satisfy schema + consistency script + the ADR-0031 tripwire. Never reference a guardrail/context file from a profile without it existing on disk.
+
+## ADR 0033 — Machine-Readable Session Evidence
+
+**Status:** Accepted
+
+Every unit of work closes with evidence at `Logs/atdd-sessions/<session-id>.json` validating against `.agents/50-evidence/session-evidence.schema.json`: requirement, change class, consent reference, files changed, per-suite run/passed/failed, assumptions, deviations, risks. `scripts/guardrails/validate-evidence.py` rejects self-contradictions (SUCCESS with failures, claimed-but-uncounted suites, unexplained skips). The `Session Evidence` CI gate blocks src/tests PRs without an evidence file; only the maintainer may waive (`evidence-waived` label).
+
+**Current implication:** Emit the evidence file before requesting a commit — `end-session` step 2 or Definition of Done section 9. Record only suites actually executed after the last change, with real counts; unrun suites carry `run: false` + `not_run_reason`. Never claim an unrun suite.

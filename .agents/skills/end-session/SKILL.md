@@ -28,7 +28,11 @@ Use this skill after the Reviewer Agent has returned `"verdict": "Approved"` **a
 
    Any unchecked item MUST be resolved before the session can close. Return to Phase 5 if items remain open.
 
-2. **Finalise the session log** at `Logs/atdd-sessions/<session-id>.json`:
+2. **Finalise the session evidence** at `Logs/atdd-sessions/<session-id>.json`.
+   The file MUST validate against
+   `.agents/50-evidence/session-evidence.schema.json` (ADR-0033) — check with
+   `python scripts/guardrails/validate-evidence.py Logs/atdd-sessions/<session-id>.json`.
+   The `Session Evidence` CI gate blocks src/tests PRs that lack it.
 
    ```json
    {
@@ -36,10 +40,22 @@ Use this skill after the Reviewer Agent has returned `"verdict": "Approved"` **a
      "started_at": "<ISO 8601>",
      "completed_at": "<ISO 8601>",
      "requirement": "<one-sentence description>",
+     "change_class": "<A|B|C|docs-only per .agents/10-contracts/change-classes.yaml>",
+     "consent_reference": "<ADR id / PR label for Class C, else null>",
+     "activity": "<routing activity>",
      "feature_file": "<path>",
      "scenario": "<title>",
      "phase": "complete",
-    "completed_phases": ["specification", "spec-hardening", "test-generation", "implementation", "review", "doc-sync"],
+     "completed_phases": ["specification", "spec-hardening", "test-generation", "implementation", "review", "doc-sync"],
+     "files_changed": ["<repo-relative paths>"],
+     "suites": [
+       { "suite": "UnitTests", "run": true, "passed": 0, "failed": 0 },
+       { "suite": "SystemTest_Simulated", "run": true, "passed": 0, "failed": 0 },
+       { "suite": "SystemTest_Live", "run": false, "not_run_reason": "<why>" }
+     ],
+     "assumptions": [],
+     "deviations": [],
+     "risks": [],
      "doc_sync": {
        "discrepancies_resolved": true,
        "doc_tasks_checked": true,
@@ -50,6 +66,10 @@ Use this skill after the Reviewer Agent has returned `"verdict": "Approved"` **a
      "commit": "<sha or PR reference>"
    }
    ```
+
+   Record only suites actually executed after the last change, with real
+   counts from the run output. A suite not run carries `run: false` and a
+   `not_run_reason`. Claiming an unrun suite violates the Iron Law.
 
 3. **Signal readiness to commit.** Do not commit automatically. Present the session summary and await human confirmation.
 

@@ -115,6 +115,14 @@ Verdict is `PASS` only when both are present. If either is missing, stop and rep
 
 Re-read every relevant doc. Check each change line by line. Fix any non-compliance and repeat. Done only when review loop finds zero violations.
 
+## 9. Session Evidence ⛔ MANDATORY
+
+- A session evidence file exists at `Logs/atdd-sessions/<session-id>.json` and validates against `.agents/50-evidence/session-evidence.schema.json` (verify: `python scripts/guardrails/validate-evidence.py <file>`).
+- `suites` records only suites actually executed after the last change, with real pass/fail counts; unrun suites carry `run: false` + `not_run_reason`.
+- `change_class` is assigned; Class C carries a `consent_reference`.
+- Deviations, assumptions, and unresolved risks are recorded — an empty list is a claim, not a default.
+- The `Session Evidence` CI gate (ADR-0033) blocks src/tests PRs without this file; only the maintainer may waive it (`evidence-waived` label).
+
 ---
 
 ## Summary Checklist

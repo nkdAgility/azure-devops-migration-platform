@@ -94,6 +94,56 @@ jobs:
             }
           }
 
+  session-evidence:
+    name: Session Evidence
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install validators
+        run: pip install --quiet jsonschema
+
+      - name: Require and validate session evidence
+        shell: bash
+        env:
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          set -euo pipefail
+          changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+
+          code_changes=$(grep -E '^(src|tests)/' <<<"$changed" || true)
+          evidence_changes=$(grep -E '^Logs/atdd-sessions/.*\.json$' <<<"$changed" || true)
+
+          if [[ -n "$evidence_changes" ]]; then
+            echo "Validating evidence files:"
+            echo "$evidence_changes"
+            # shellcheck disable=SC2086
+            python scripts/guardrails/validate-evidence.py $evidence_changes
+          fi
+
+          if [[ -z "$code_changes" ]]; then
+            echo "No src/tests changes; evidence not required."
+            exit 0
+          fi
+
+          if [[ -n "$evidence_changes" ]]; then
+            exit 0
+          fi
+
+          if [[ ",${PR_LABELS}," == *",evidence-waived,"* ]]; then
+            echo "::notice title=Evidence waived::Maintainer applied 'evidence-waived'; session evidence requirement skipped for this PR."
+            exit 0
+          fi
+
+          echo "::error title=Missing session evidence::This PR changes src/ or tests/ but adds no Logs/atdd-sessions/*.json evidence file (ADR-0033, .agents/50-evidence/README.md). Add evidence or have the maintainer apply 'evidence-waived'."
+          exit 1
+
   contract-adr-gate:
     name: Contract Change Requires ADR
     if: github.event_name == 'pull_request'
