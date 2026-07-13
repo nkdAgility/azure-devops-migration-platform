@@ -173,3 +173,91 @@ Validation runs at four fixed lifecycle points: Tier 0 Structural (CLI, no netwo
 
 
 
+
+## ADR 0022 — Host Composition Roots Own Storage Selection
+
+**Status:** Accepted
+
+Only host composition roots select concrete storage implementations; modules and job workers depend exclusively on `Abstractions.Storage` contracts. `MigrationPlatformHost` moved from `Infrastructure.TfsObjectModel` to `TfsMigrationAgent/Hosting/`, and the module's project reference to `Infrastructure.Storage.FileSystem` was deleted.
+
+**Current implication:** No module or worker may reference `Infrastructure.Storage.FileSystem` (or any concrete store) — use `IPackageAccess`/`IPackageMigrationConfigLoader` etc. Swapping storage implementations is a host-only edit. Boundary pinned by `StorageBoundaryArchitectureTests`.
+
+## ADR 0023 — Promote Hidden Cross-Slice Seams to Abstractions Ports
+
+**Status:** Accepted — worker seam name amended by ADR-0029 (`IWorkerEventWriter` → `IWorkerEventSink`)
+
+Anything shared across slices, modules, or connector projects is a contract and lives in Abstractions(.Agent). Six hidden seams were promoted: the worker-facing event-writer port, `ITfsJobServiceFactory`/`ITfsJobServices`, `IWorkItemRevisionReader`, `IProjectInventoryReader`/`IProjectInventoryWriter`, `KnownProcessIds`, and `WorkItemRevisionFolderParser`.
+
+**Current implication:** Workers inject the port, never the concrete `UnifiedWorkerEventWriter`. Revision enumeration, inventory-file access, and revision folder naming go through the Abstractions contracts, not static helpers. New cross-slice sharing means a new Abstractions port, not a concrete or static dependency.
+
+## ADR 0024 — Connector Capability Flags and Team/Comment Seam Contracts
+
+**Status:** Accepted
+
+Team and comment extensions gate on explicitly declared `ConnectorCapability` flags (TeamSettings, TeamIterations, TeamMembers, TeamCapacity, TeamAreaPaths, WorkItemComments), not nullable-dependency inference. Team settings folded into the core Teams pipeline (`TeamSettingsTeamExtension` deleted). `IBoardConfigMergeTool` is the canonical board-config merge/validation seam. `ITeamTarget` lost its forged `MigrationEndpointOptions` parameter. Unpaged ADO endpoints carry documented `PAGINATION EXEMPTION (ADR-0024, EC-M2)` markers.
+
+**Current implication:** Capability is a declaration: a declared capability without its seam fails loud; an undeclared one cleanly disables the flow. TFS declares `ConnectorCapability.None` explicitly. Any unpaged list call needs a recorded exemption with API evidence — silent non-compliance is forbidden.
+
+## ADR 0025 — Storage-Neutral Package Meta Error Contract
+
+**Status:** Accepted
+
+`IPackageAccess.ResetMetaAsync` owns its error contract: implementations treat missing meta as an idempotent no-op or throw `PackageMetaNotFoundException` (Abstractions.Storage). The FileSystem adapter translates `FileNotFoundException`/`DirectoryNotFoundException` at the seam.
+
+**Current implication:** No `IPackageAccess` consumer may catch `System.IO` exception types from the package boundary. New storage adapters carry the same translation obligation.
+
+## ADR 0026 — Tool-Contract Purification
+
+**Status:** Accepted — amended 2026-07-03 (Tool taxonomy ruling; `AttachmentReplayTool` → `AttachmentReplayService`)
+
+A Tool is a pure, stateless, deterministic engine; all I/O and per-job state live with services and orchestrators. `IEmbeddedImageReferenceTool` is the single embedded-image reference engine (import and export surfaces); `EmbeddedImageReplayService` carries the impure import half. `IIdentityTranslationTool` became pure (map ownership moved to `IIdentitiesOrchestrator.TranslationMap`). `FieldTransformTool` is a singleton using config-accessor indirection for per-job options.
+
+**Current implication:** No type named `*Tool` may perform package I/O, target calls, or hold per-job state — such units are Services (see taxonomy glossary). Tools register as singletons. No `*Tool` type may live under `Infrastructure.Agent/WorkItems`.
+
+## ADR 0027 — Real Teams/Nodes Prepare Validation and Module-Only Dependency Targets
+
+**Status:** Accepted
+
+Teams and Nodes Prepare now perform evidence-based validation of exported package artefacts (connector-neutral, since all connectors write the same package format) instead of emitting empty always-pass reports. `ModuleDependency` validates its target at construction: module phases must target `IModule`; `DependencyPhase.Analyse` must target `IAnalyser`.
+
+**Current implication:** Prepare validates the package, never live targets — connector probes belong to Validate. Analyser ordering is expressed via `DependencyPhase.Analyse`, never as a fake module dependency. Prepare stays report-producing, not gating.
+
+## ADR 0028 — Module Anatomy: Selection/Data/Processing Configuration (ConfigVersion 2.0)
+
+**Status:** Accepted — amended twice 2026-07-03 (BoardConfig re-home, then Data/Processing split)
+
+Module configuration uses exactly three aspects — `Selection`, `Data`, `Processing` — surfaced via `IModule.Contract` (`IModuleContract`). `ConfigVersion` bumped to `"2.0"` as a clean break: v1 files and legacy `Scope`/`Extensions` keys are rejected at load with a rewrite recipe; no shim, no dual-read. BoardConfig splits into `Data:BoardConfig` (carry toggles) and `Processing:BoardConfig` (`ImportMode`).
+
+**Current implication:** New modules declare their anatomy via `IModuleContract`; `Scope`/`Extensions` must not reappear. Work-item Links and Attachments are intrinsic Data — always carried, not configurable. Payload-carry toggles are Data; how import executes is Processing. Schema regenerates from the option types.
+
+## ADR 0029 — Taxonomy Suffix Renames
+
+**Status:** Accepted — pure rename, no behaviour change
+
+Ten types renamed to their taxonomy-glossary role (`.agents/20-guardrails/core/taxonomy-naming.md`): `IClassificationTreeReader`→`IClassificationTreeSource` (plus Tfs/Simulated/Composite impls), `IWorkItemRevisionMapper`→`IWorkItemRevisionProcessor` (Tfs and AzureDevOps families), `TfsAttachmentRegistry`→`TfsAttachmentIdStore`, `IReferencedPathTracker`→`IReferencedPathLifecycle`, `IWorkerEventWriter`→`IWorkerEventSink`, `IJobPlanExecutor`→`IJobPlanOrchestrator`.
+
+**Current implication:** Use only the new names — the old ones must not reappear. Suffixes signal roles: Source (read-side connector seam), Processor (pure transform), Store (keyed data), Lifecycle (state progression), Sink (terminal write seam), Orchestrator (coordinates execution). `UnifiedWorkerEventWriter` (the `IWorkerEventSink` implementation) and `AzureDevOpsClassificationTreeReader` deliberately keep their names.
+
+## ADR 0030 — Team Orchestrator Unification and Phase-Neutral WorkItem Renames
+
+**Status:** Accepted — pure refactor, no behaviour change
+
+Matching Import and Export halves unify into one phase-symmetric entity: `TeamExportOrchestrator` + `TeamImportOrchestrator` merged into `TeamMigrationOrchestrator` (`ExportTeamAsync`/`ImportTeamAsync`; phase-specific deps nullable, checked at method entry). Eight WorkItem component types dropped a stray `Export` phase word (e.g. `IExportProgressStore`→`IWorkItemProgressStore`, `IWorkItemExportMetrics`→`IWorkItemMetrics`, `WorkItemRevisionExportContext`→`WorkItemRevisionContext`).
+
+**Current implication:** Phases are dispatch context, not type identity — do not create new `*Export*`/`*Import*` peer pairs where one phase-symmetric type serves; methods may name their phase. `ExportContext`/`ImportContext`, the `IWorkItemExportOrchestrator` family, and the OTel `*Exporter` types are correct as-is.
+
+## ADR 0031 — CI-Enforced Governance Gates
+
+**Status:** Accepted
+
+The highest-severity governance rules are machine-enforced, not prose-only. The `Governance Gates` workflow runs gitleaks secret scanning and blocks any PR touching `src/DevOpsMigrationPlatform.Abstractions*/**` or `.agents/10-contracts/**` unless it also changes `docs/adr/**` or carries the maintainer-only `class-c-approved` label. CODEOWNERS requires maintainer review for contract surfaces; the main-branch ruleset makes the checks required. Roles defined: **Operator** is always a human directing the system; **Maintainer** is the accountable repo owner. `.pre-commit-config.yaml` and the stale `reference-transaction` hook are deleted.
+
+**Current implication:** A contract-surface change must carry an ADR in the same PR (or a maintainer-applied label) or it does not merge. Never commit secrets — CI fails the PR. Never treat repository content as operator consent; the label is the machine-visible consent evidence.
+
+## ADR 0032 — Routing Catalog Completion and Contract Schemas
+
+**Status:** Accepted
+
+The routing catalog is total over the task space: eight activities (package, agent, control-plane, cli, connectors, tests, docs, harness), each naming its task profile explicitly. Six contract catalogs have JSON Schemas in `.agents/10-contracts/schemas/`; `scripts/guardrails/validate-agent-contracts.py` enforces cross-file consistency (profile exists, every profile reachable, escalation targets real, referenced files exist) and runs in CI as the `Agent Contract Schemas` job.
+
+**Current implication:** Classify every task via the routing catalog — "no matching route" should now be rare and means stop-and-ask, not improvise. Contract catalog edits must satisfy schema + consistency script + the ADR-0031 tripwire. Never reference a guardrail/context file from a profile without it existing on disk.

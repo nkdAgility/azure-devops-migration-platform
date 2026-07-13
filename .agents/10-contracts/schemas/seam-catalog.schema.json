@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Seam catalog (.agents/10-contracts/seam-catalog.yaml)",
+  "type": "object",
+  "required": ["version", "seams"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "seams": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["owner", "policy_layers", "prohibited_parallel_entrypoints"],
+        "additionalProperties": false,
+        "properties": {
+          "owner": { "type": "string", "minLength": 1 },
+          "contract_doc": { "type": "string", "pattern": "^\\.agents/" },
+          "policy_layers": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+          "prohibited_parallel_entrypoints": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    }
+  }
+}

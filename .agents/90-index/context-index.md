@@ -10,6 +10,8 @@
 
 - `.agents/30-context/domains/package-manager.md`
 - `.agents/30-context/domains/migration-package-concept.md`
+- `.agents/30-context/domains/module-model.md`
+- `.agents/30-context/domains/orchestrator-model.md`
 - `.agents/30-context/domains/workitems-format-summary.md`
 - `.agents/30-context/domains/import-streaming.md`
 - `.agents/30-context/domains/checkpointing-summary.md`

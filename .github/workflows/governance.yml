@@ -37,6 +37,21 @@ jobs:
       - name: Scan working tree for secrets
         run: gitleaks detect --source . --no-git --redact --verbose
 
+  contract-schemas:
+    name: Agent Contract Schemas
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install validators
+        run: pip install --quiet pyyaml jsonschema
+
+      - name: Validate .agents contract catalogs
+        run: python scripts/guardrails/validate-agent-contracts.py
+
   spec-guardrails:
     name: Spec Guardrails
     if: github.event_name == 'pull_request'

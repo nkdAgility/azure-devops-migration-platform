@@ -16,3 +16,17 @@ Edit stubs here (or at their linked location — hardlinks share content on a
 configured machine). Git tracks every linked path, so fresh clones have the
 stubs even before `configure.ps1` runs; run the script to restore local link
 sync after tools rewrite files.
+
+## Exempt projects (no stub, by decision)
+
+These `src/` projects intentionally carry no `AGENTS.md`. Every project must
+either appear in the `$stubs` map or in this list — an unlisted, uncovered
+project is a gap to fix.
+
+| Project | Rationale |
+| --- | --- |
+| `DevOpsMigrationPlatform.AppHost` | Aspire dev-host wiring only; no domain rules beyond the constitution. |
+| `DevOpsMigrationPlatform.Infrastructure` | Shared base infrastructure; governed by the core guardrails loaded via routing, no subtree-specific blocking rules. |
+| `DevOpsMigrationPlatform.Infrastructure.ControlPlane` | Covered by the control-plane rules; the `controlplane.md` stub sits on the ControlPlane/Host projects where edits happen. |
+| `DevOpsMigrationPlatform.SchemaGenerator` | Build-time tool; its one blocking rule (references all three connectors) is CI-enforced in `main.yml`. |
+| `DevOpsMigrationPlatform.ServiceDefaults` | Aspire service-defaults boilerplate; no migration logic permitted or present. |

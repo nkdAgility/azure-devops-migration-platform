@@ -64,30 +64,16 @@ public sealed class SystemTestEnvironment : IDisposable
         => new(org: null, pat: Environment.GetEnvironmentVariable(PatEnvVar));
 
     /// <summary>
-    /// Calls <see cref="Assert.Inconclusive"/> (not Assert.Fail) when both ORG and PAT are absent.
-    /// Used in CI scenarios where missing credentials must produce a skipped — not failed — test.
-    /// The message text references docs/contributors.md.
+    /// Calls <see cref="Assert.Fail"/> when only the ORG variable is absent.
+    /// A missing prerequisite is a configuration defect and must fail visibly —
+    /// never skip (docs/failing-tests-workflow.md, "Missing prerequisites must fail").
     /// </summary>
-    public void InconclusiveIfNotConfigured()
-    {
-        if (!IsConfigured)
-        {
-            Assert.Inconclusive(
-                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG and AZDEVOPS_SYSTEM_TEST_PAT " +
-                "must both be set. See docs/contributors.md for setup instructions.");
-        }
-    }
-
-    /// <summary>
-    /// Calls <see cref="Assert.Inconclusive"/> when only the ORG variable is absent.
-    /// Used in Scenario 5 where PAT may be present but ORG is deliberately cleared.
-    /// </summary>
-    public void InconclusiveIfMissingOrg()
+    public void FailIfMissingOrg()
     {
         if (string.IsNullOrWhiteSpace(OrgUrl))
         {
-            Assert.Inconclusive(
-                "System test skipped: AZDEVOPS_SYSTEM_TEST_ORG is not set. " +
+            Assert.Fail(
+                "System test cannot run: AZDEVOPS_SYSTEM_TEST_ORG is not set. " +
                 "See docs/contributors.md for setup instructions.");
         }
     }

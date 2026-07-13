@@ -1,10 +1,11 @@
-version: 1
+version: 2
 default_policy:
   mode: "fail-closed"
   rule: "Classify activity first; inspect first_surfaces before any cross-domain search."
 activities:
   package:
     intent: "Package shape and output files"
+    profile: "package-runtime"
     triggers:
       - "output files"
       - "folder structure"
@@ -22,6 +23,7 @@ activities:
       - "control-plane"
   agent:
     intent: "Runtime execution behavior across package, ADO, and TFS flows"
+    profile: "package-runtime"
     triggers:
       - "execution"
       - "phase run"
@@ -42,6 +44,7 @@ activities:
       - "control-plane"
   control-plane:
     intent: "Control plane communications and job signaling"
+    profile: "control-plane"
     triggers:
       - "communications"
       - "submit job"
@@ -58,6 +61,7 @@ activities:
       - "cli"
   cli:
     intent: "CLI rendering, parsing, and command parameter behavior"
+    profile: "cli-tui"
     triggers:
       - "render"
       - "command line params"
@@ -73,3 +77,76 @@ activities:
     escalation_order:
       - "agent"
       - "control-plane"
+  connectors:
+    intent: "Connector adapters and capability behavior (Simulated, AzureDevOpsServices, TeamFoundationServer)"
+    profile: "connectors"
+    triggers:
+      - "connector"
+      - "adapter"
+      - "simulated"
+      - "azure devops api"
+      - "ado sdk"
+      - "tfs object model"
+      - "capability flag"
+      - "pagination"
+    first_surfaces:
+      - "src/DevOpsMigrationPlatform.Infrastructure.AzureDevOps/*"
+      - "src/DevOpsMigrationPlatform.Infrastructure.Simulated/*"
+      - "src/DevOpsMigrationPlatform.Infrastructure.TfsObjectModel/*"
+      - ".agents/30-context/domains/connector-model.md"
+    escalation_order:
+      - "agent"
+      - "package"
+  tests:
+    intent: "Test-only changes: categories, DSL, fixtures, flakiness, coverage"
+    profile: "tests"
+    triggers:
+      - "failing test"
+      - "flaky test"
+      - "test category"
+      - "test tag"
+      - "test dsl"
+      - "coverage"
+      - "fixture"
+      - "trx"
+    first_surfaces:
+      - "tests/*"
+      - ".agents/20-guardrails/workflow/testing-rules.md"
+      - "docs/testing-guide.md"
+    escalation_order:
+      - "agent"
+      - "cli"
+  docs:
+    intent: "Documentation-only changes to docs/, ADRs, or agent context"
+    profile: "docs-only"
+    triggers:
+      - "documentation"
+      - "docs update"
+      - "readme"
+      - "guide"
+      - "adr text"
+      - "context file"
+    first_surfaces:
+      - "docs/*"
+      - ".agents/30-context/*"
+      - ".agents/90-index/context-index.md"
+    escalation_order:
+      - "harness"
+  harness:
+    intent: "The agent harness itself: guardrails, contracts, routing, skills, workflows, stubs, CI governance gates"
+    profile: "harness"
+    triggers:
+      - "guardrail"
+      - "routing catalog"
+      - "contract catalog"
+      - "skill"
+      - "workflow file"
+      - "agents.md"
+      - "stub"
+      - "governance gate"
+    first_surfaces:
+      - ".agents/*"
+      - ".github/workflows/governance.yml"
+      - ".agents/OWNERS"
+    escalation_order:
+      - "docs"

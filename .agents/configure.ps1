@@ -195,6 +195,9 @@ $stubs = @(
         'src\DevOpsMigrationPlatform.Infrastructure.TfsObjectModel\AGENTS.md') }
     @{ Source = '.agents\40-stubs\simulated-connector.md';   Targets = @(
         'src\DevOpsMigrationPlatform.Infrastructure.Simulated\AGENTS.md') }
+    @{ Source = '.agents\40-stubs\storage-adapters.md';      Targets = @(
+        'src\DevOpsMigrationPlatform.Infrastructure.Storage.FileSystem\AGENTS.md',
+        'src\DevOpsMigrationPlatform.Infrastructure.Storage.AzureBlob\AGENTS.md') }
     @{ Source = '.agents\40-stubs\azuredevops-connector.md'; Targets = @(
         'src\DevOpsMigrationPlatform.Infrastructure.AzureDevOps\AGENTS.md') }
     @{ Source = '.agents\40-stubs\abstractions.md';          Targets = @(
