@@ -34,7 +34,8 @@ public class ConfigVersionGateTests
     };
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public void Validate_ConfigVersion1_FailsWithUpgradeInstructions()
     {
         var validator = new MigrationPlatformOptionsValidator();
@@ -47,7 +48,8 @@ public class ConfigVersionGateTests
     }
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public void Validate_ConfigVersion2_Passes()
     {
         var validator = new MigrationPlatformOptionsValidator();
@@ -77,7 +79,8 @@ public class ConfigVersionGateTests
     }
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public async Task Load_V1Config_FailsWithUpgradeInstructions()
     {
         var path = WriteTempConfig("""
@@ -98,7 +101,8 @@ public class ConfigVersionGateTests
     }
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public async Task Load_V2ConfigWithStrayLegacyKeys_NamesTheKeys()
     {
         var path = WriteTempConfig("""
@@ -119,7 +123,8 @@ public class ConfigVersionGateTests
     }
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public async Task Load_TeamsV1StringScope_IsRejected()
     {
         var path = WriteTempConfig("""
@@ -139,7 +144,8 @@ public class ConfigVersionGateTests
     }
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public async Task Save_WritesConfigVersion2()
     {
         var path = Path.Combine(Path.GetTempPath(), $"migration-gate-{Guid.NewGuid():N}.json");

@@ -16,7 +16,6 @@ public class ExportFollowDetachTests
 {
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task Follow_CtrlC_DetachesWithoutCancellingJob()
     {

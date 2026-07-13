@@ -22,7 +22,6 @@ public class TuiJobList_DslTests
     /// </summary>
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
-    [TestCategory("UnitTest")]
     [TestMethod]
     public void TuiJobListView_WhenControlPlaneReachable_DisplaysTableWithJobColumns()
     {
@@ -48,7 +47,6 @@ public class TuiJobList_DslTests
     /// </summary>
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
-    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task TuiJobListView_WhenJobsChange_ListRefreshesWithinTenSeconds()
     {
@@ -87,7 +85,6 @@ public class TuiJobList_DslTests
     /// </summary>
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
-    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task TuiCommand_WhenControlPlaneUnreachable_ExitsWithActionableErrorShowingUrl()
     {
@@ -113,7 +110,6 @@ public class TuiJobList_DslTests
     /// </summary>
     [TestCategory("CodeTest")]
     [TestCategory("IntegrationTests")]
-    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task TuiCommand_WhenNoUrlConfigured_ConnectsToDefaultLocalhostUrl()
     {

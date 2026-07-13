@@ -41,6 +41,8 @@ public sealed class TeamMigrationOrchestratorDiTests
         return mock.Object;
     }
 
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
     [TestMethod]
     public void Resolves_On_SourceOnly_Agent_Without_TeamTarget()
     {

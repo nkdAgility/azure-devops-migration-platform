@@ -18,7 +18,6 @@ public class ExportDefaultLogLevelTests
     [TestCategory("CodeTest")]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExportCommand_DefaultLevel_WritesOnlyInformationAndAbove()
     {

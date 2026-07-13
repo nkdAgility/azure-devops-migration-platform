@@ -17,7 +17,6 @@ public class ExportRemoteNoFollowTests
 {
     [TestCategory("CodeTest")]
     [TestCategory("UnitTests")]
-    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task ExportWithoutFollow_RemoteMode_PrintsJobIdAndExitsImmediately()
     {

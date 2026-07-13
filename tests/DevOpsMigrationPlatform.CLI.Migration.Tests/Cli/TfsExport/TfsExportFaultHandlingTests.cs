@@ -15,7 +15,8 @@ public sealed class TfsExportFaultHandlingTests
     /// the output contains export-domain context ("Exporting from..." prefix).
     /// Observable assertions: non-zero exit code + export-domain text in output.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Simulated")]
     [TestMethod]
     public async Task TfsExport_TfsUnavailable_ClearErrorBeforeStart()
     {
@@ -35,7 +36,8 @@ public sealed class TfsExportFaultHandlingTests
     /// Runs in-process via <c>QueueCommand.PropagateSubprocessExitCodeAsync</c> with a
     /// <c>FixedSubprocessExitCodeSource(2)</c> injected via DI. No subprocess is launched.
     /// </summary>
-    [TestCategory("UnitTest")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     [TestMethod]
     public async Task TfsExport_SubprocessExitCode2_PropagatedToCli()
     {

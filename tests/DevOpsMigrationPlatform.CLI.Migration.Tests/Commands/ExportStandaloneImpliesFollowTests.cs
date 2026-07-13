@@ -18,7 +18,6 @@ public class ExportStandaloneImpliesFollowTests
     [TestCategory("CodeTest")]
     [TestCategory("SystemTest")]
     [TestCategory("SystemTest_Simulated")]
-    [TestCategory("UnitTest")]
     [TestMethod]
     public async Task StandaloneMode_ImpliesFollow_DiagnosticsStreamToConsole()
     {

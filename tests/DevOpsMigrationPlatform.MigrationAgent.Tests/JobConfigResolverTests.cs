@@ -64,7 +64,8 @@ public sealed class JobConfigResolverTests
     // ── ResolveOrganisationEndpoints ─────────────────────────────────────────
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public void ResolveOrganisationEndpoints_NullOrWhitespaceJson_ReturnsEmptyMap()
     {
         var resolver = CreateResolver();
@@ -74,7 +75,8 @@ public sealed class JobConfigResolverTests
     }
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public void ResolveOrganisationEndpoints_SkipsDisabledOrganisations()
     {
         var resolver = CreateResolver();
@@ -88,7 +90,8 @@ public sealed class JobConfigResolverTests
     }
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public void ResolveOrganisationEndpoints_PropagatesSourceGeneratorIntoSimulatedEntries()
     {
         var options = CreateAgentJsonOptions();
@@ -106,7 +109,8 @@ public sealed class JobConfigResolverTests
     }
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public void ResolveOrganisationEndpoints_DoesNotOverwriteEntryOwnGenerator()
     {
         const string json = """
@@ -137,7 +141,8 @@ public sealed class JobConfigResolverTests
     }
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public void ResolveOrganisationEndpoints_MalformedJson_Throws()
     {
         var resolver = CreateResolver();
@@ -148,7 +153,8 @@ public sealed class JobConfigResolverTests
     // ── ResolveDiscoverySettings ─────────────────────────────────────────────
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public void ResolveDiscoverySettings_NullJson_ReturnsEmptyOrganisationsAndDefaultPolicies()
     {
         var resolver = CreateResolver();
@@ -160,7 +166,8 @@ public sealed class JobConfigResolverTests
     }
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public void ResolveDiscoverySettings_MapsPoliciesFromConfig()
     {
         var resolver = CreateResolver();
@@ -173,7 +180,8 @@ public sealed class JobConfigResolverTests
     }
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public void ResolveDiscoverySettings_MapsProjectsAndSkipsDisabledOrganisations()
     {
         var resolver = CreateResolver();
@@ -185,7 +193,8 @@ public sealed class JobConfigResolverTests
     }
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public void ResolveDiscoverySettings_MapsScopesToJobModuleScopes()
     {
         const string json = """
@@ -217,7 +226,8 @@ public sealed class JobConfigResolverTests
     // ── BuildPrepareProbePayload ─────────────────────────────────────────────
 
     [TestMethod]
-    [TestCategory("L0")]
+    [TestCategory("CodeTest")]
+    [TestCategory("UnitTests")]
     public void BuildPrepareProbePayload_ProducesExpectedShape()
     {
         var resolver = CreateResolver();
