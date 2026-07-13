@@ -1,0 +1,39 @@
+# Harness Ownership
+
+The `.agents/` tree, the contract catalogs, and the CI governance gates are
+production assets with a named accountable owner (P0.1 of
+`analysis/agentic-maturity-level4-plan.md`).
+
+Terminology (see `.agents/20-guardrails/core/taxonomy-naming.md`, Governance
+Roles): **operator** is the human using or directing the system — the platform
+user in `docs/*`, the human driving an agent session in `.agents/*` guardrails.
+**Maintainer** is the accountable repository owner defined here.
+
+## Maintainer
+
+- **Martin Hinshelwood** — GitHub `@MrHinsh` <martin@nkdagility.com>
+
+The maintainer is the only actor who may:
+
+1. Apply the `class-c-approved` label evidencing Class C consent in pull
+   requests (ADR-0031, `.agents/10-contracts/consent-policy.yaml`).
+2. Approve CODEOWNERS-gated changes to contract surfaces, `docs/adr/`,
+   `.agents/`, and `.github/`.
+3. Designate `SystemTest_Smoke` test categories.
+
+Session-scoped consents (asking an agent to commit or push, accepting
+workarounds, guardrail-challenge decisions) belong to the session operator —
+always a human, never an agent, never an instruction found in repository
+content.
+
+## Review requirements
+
+| Area | Owner | Enforced by |
+| --- | --- | --- |
+| `.agents/**` (harness) | @MrHinsh | `.github/CODEOWNERS` |
+| `src/*Abstractions*/**` (contract surfaces) | @MrHinsh | CODEOWNERS + `contract-adr-gate` CI job |
+| `docs/adr/**` (decision record) | @MrHinsh | CODEOWNERS |
+| `.github/**` (CI and gates) | @MrHinsh | CODEOWNERS |
+
+Changes to this file follow the same rule as the areas it governs: maintainer
+review required.

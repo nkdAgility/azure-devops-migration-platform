@@ -23,6 +23,13 @@ Class C changes must satisfy:
 
 Missing consent evidence is a hard fail.
 
+In pull requests this gate is machine-enforced: the `Contract Change Requires
+ADR` job in `.github/workflows/governance.yml` blocks any diff touching
+`src/*Abstractions*/**` or `.agents/10-contracts/**` that lacks a synchronized
+`docs/adr/**` change, unless the `class-c-approved` label has been applied
+(ADR-0031). The label may be applied only by the maintainer defined in
+`.agents/OWNERS`.
+
 ## Commit Governance
 
 - Agents must not run `git commit` or `git push` unless the operator explicitly asks.

@@ -1,0 +1,126 @@
+name: Governance Gates
+
+# Phase 1 of the agentic-maturity remediation plan (ADR-0031):
+# machine enforcement for the two controls that previously existed only as prose —
+# secret hygiene (gitleaks) and the Class C contract-change consent gate.
+
+on:
+  pull_request:
+    branches: ["main"]
+    # labeled/unlabeled re-evaluate the contract gate when the maintainer applies
+    # or removes the class-c-approved consent label.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  push:
+    branches: ["main"]
+
+jobs:
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: "8.18.4"
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      # Working-tree scan: gates the state a PR would merge, deterministically.
+      # (A full history scan is a separate one-off exercise; see ADR-0031.)
+      - name: Scan working tree for secrets
+        run: gitleaks detect --source . --no-git --redact --verbose
+
+  spec-guardrails:
+    name: Spec Guardrails
+    if: github.event_name == 'pull_request'
+    # windows-latest: validate-orchestrator.ps1 builds paths with backslashes.
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate orchestrator hook configuration
+        shell: pwsh
+        run: ./scripts/guardrails/validate-orchestrator.ps1 -RepoRoot (Get-Location).Path
+
+      - name: Enforce checklist and task coverage for changed specs
+        shell: pwsh
+        run: |
+          $changed = git diff --name-only "origin/${{ github.base_ref }}...HEAD"
+          $featureDirs = $changed |
+            Where-Object { $_ -match '^specs/[^/]+/' } |
+            ForEach-Object { ($_ -split '/')[0..1] -join '/' } |
+            Sort-Object -Unique
+          if (-not $featureDirs) { Write-Host "No feature-spec changes."; exit 0 }
+
+          foreach ($dir in $featureDirs) {
+            if (-not (Test-Path "$dir/spec.md")) {
+              Write-Host "Skipping $dir (no spec.md)."
+              continue
+            }
+            ./scripts/guardrails/enforce-checklists.ps1 -FeatureDir $dir
+            # Task coverage applies once tasks.md exists; spec-only PRs are
+            # legitimate intermediate states in the Spec Kit flow.
+            if (Test-Path "$dir/tasks.md") {
+              ./scripts/guardrails/enforce-task-coverage.ps1 -FeatureDir $dir
+            } else {
+              Write-Host "Skipping task coverage for $dir (no tasks.md yet)."
+            }
+          }
+
+  contract-adr-gate:
+    name: Contract Change Requires ADR
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check contract-surface changes carry an ADR
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          set -euo pipefail
+          changed=$(git diff --name-only "origin/${BASE_REF}...HEAD")
+
+          contract_changes=$(grep -E '^(src/DevOpsMigrationPlatform\.Abstractions[^/]*/|\.agents/10-contracts/)' <<<"$changed" || true)
+          adr_changes=$(grep -E '^docs/adr/' <<<"$changed" || true)
+
+          if [[ -z "$contract_changes" ]]; then
+            echo "No public-contract surfaces changed."
+            exit 0
+          fi
+
+          echo "Contract-surface files changed:"
+          echo "$contract_changes"
+
+          if [[ -n "$adr_changes" ]]; then
+            echo "ADR present in the same change:"
+            echo "$adr_changes"
+            exit 0
+          fi
+
+          if [[ ",${PR_LABELS}," == *",class-c-approved,"* ]]; then
+            echo "::notice title=Class C override::Contract change without an ADR permitted by the maintainer-applied 'class-c-approved' label. Consent is recorded on the PR."
+            exit 0
+          fi
+
+          echo "::error title=Class C tripwire::Contract surfaces changed without an ADR in docs/adr/ and without the maintainer-applied 'class-c-approved' label. Per .agents/10-contracts/consent-policy.yaml a Class C change requires consent plus a synchronized ADR (ADR-0031)."
+          exit 1
