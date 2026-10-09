@@ -11,7 +11,7 @@ Use this skill after the Reviewer Agent has returned `"verdict": "Approved"` **a
 
 1. **Verify all gates are clear:**
    - Reviewer Agent output: `"verdict": "Approved"`.
-   - All Reqnroll scenarios passing.
+   - All DSL behavioural tests passing.
    - All unit tests passing.
    - No TODOs in production code paths.
    - **Documentation sync gate** (check EACH item before proceeding):

@@ -1,14 +1,11 @@
 ---
 name: speckit-superb-critique
-description: 'Spec-aligned code review agent. Acts as a dedicated independent reviewer:
-  loads spec.md, plan.md, and tasks.md, then reviews every code change against declared
-  requirements, reporting issues by severity. Use after any significant implementation
-  to catch spec divergence before it compounds.
+description: 'Spec-aligned code review agent. Acts as a dedicated independent reviewer: loads spec.md, plan.md, and tasks.md, then reviews every code change against declared requirements, reporting issues by severity. Use after any significant implementation to catch spec divergence before it compounds.
 
   '
 compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
-  author: github-spec-kit
+  author: rbbtsn0w
   source: superb:commands/critique.md
 ---
 

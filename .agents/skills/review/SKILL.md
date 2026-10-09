@@ -10,7 +10,7 @@ Use this skill after the Implementation Agent signals `"tests_passing": true` an
 ## Steps
 
 1. **Verify pre-conditions before invoking the Reviewer Agent:**
-   - All Reqnroll scenarios are passing.
+   - All DSL behavioural tests are passing.
    - All unit tests are passing.
    - No `PendingStepException` remains in any step definition.
    - The Implementer Agent's output JSON has `"pending_steps_remaining": 0` and `"tests_passing": true`.

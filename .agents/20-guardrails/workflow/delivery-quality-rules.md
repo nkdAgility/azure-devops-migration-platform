@@ -11,7 +11,7 @@ Rules for test-first execution quality, verification depth, and completion disci
 
 ## Test Quality
 
-- Use MSTest + Reqnroll conventions from [testing-rules.md](../workflow/testing-rules.md).
+- Use MSTest + internal DSL conventions from [testing-rules.md](../workflow/testing-rules.md).
 - Assertions must verify behavior (no vacuous always-true patterns).
 - Simulated/system tests must prove real side effects, not just no-exception outcomes.
 - Connector behavior must be validated across supported connector types.

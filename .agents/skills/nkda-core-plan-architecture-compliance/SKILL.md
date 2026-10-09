@@ -134,7 +134,7 @@ Review `spec.md` and `plan.md` for proposed slice boundaries and ownership.
 **Flag if the plan proposes:**
 - Business logic shared across slices via static helpers instead of injected domain services
 - A slice that delegates to another slice's internal classes
-- A new migration operation without a corresponding `.feature` file or system test plan
+- A new migration operation without a corresponding DSL behavioural tests or system test plan
 - Checkpoint/state keys not scoped by operation type and job ID
 - A new slice that cannot evolve or be deleted independently
 - A slice without planned end-to-end `[TestCategory("SystemTest")]` coverage

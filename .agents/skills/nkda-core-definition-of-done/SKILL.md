@@ -83,7 +83,6 @@ Auto-fix mechanical violations that have unambiguous correct actions. Apply fixe
 |---|---|
 | `Assert.Inconclusive()` found in test | Delete the entire test method (or the enclosing class if it becomes empty). These must not exist per guardrails. |
 | `[Ignore]` attribute on a test class or method | Remove the attribute. Forbidden in committed code. |
-| `@ignore` tag in a Gherkin `.feature` file | Remove the `@ignore` tag from the scenario. Forbidden in committed code. |
 
 **Do NOT auto-fix these** — they require human implementation or judgment:
 

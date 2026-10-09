@@ -85,7 +85,7 @@ Module (thin wrapper: ~100–130 lines)
 | Category | Required |
 |----------|----------|
 | Unit tests for all logic paths | Yes |
-| Feature tests (Reqnroll) for key behaviours | Yes |
+| Behavioural DSL tests (`DomainTests`) for key behaviours | Yes |
 | SystemTest_Simulated (end-to-end, no network) | Yes |
 | Connector coverage: Simulated + AzureDevOps + TFS (where API allows) | Yes |
 

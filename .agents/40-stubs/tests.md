@@ -4,7 +4,7 @@
 
 1. **Touch = Tag.** Every `[TestMethod]` and `[TestClass]` in any file you touch carries BOTH tags: parent family (`CodeTest` | `SystemTest`) AND specific category (`UnitTests` | `DomainTests` | `IntegrationTests` | `SystemTest_Smoke` | `SystemTest_Simulated` | `SystemTest_Live`). Fix the whole file, not just your method. Only those exact strings are valid.
 2. **Never self-assign `SystemTest_Smoke`** — operator-designated only.
-3. **Touch = Convert.** Changing behaviour of a legacy Reqnroll `.feature`/`*Steps.cs` obligates migrating that whole family to the internal DSL via `nkda-testdsl-autonomous {feature}` — do not edit legacy style in place.
+3. **No Reqnroll.** Behavioural tests are code-first MSTest on the internal DSL (`tests/DevOpsMigrationPlatform.Testing.Dsl`). Do not add `.feature` files, `[Binding]` classes, or Reqnroll packages.
 4. **`Assert.Inconclusive` is banned.** Missing prerequisites call `Assert.Fail` naming the prerequisite. No `[Ignore]` in committed code.
 5. **No vacuous assertions** — `Assert.IsTrue(true)`, `count >= 0`, sole `IsNotNull(result)`, or assert-free bodies are violations.
 6. **Push tests down.** Prefer UnitTests → DomainTests → IntegrationTests → Simulated → Live; a Live test requires proof no lower layer can cover it.

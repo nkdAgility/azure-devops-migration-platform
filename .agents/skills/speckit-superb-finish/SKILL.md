@@ -1,14 +1,11 @@
 ---
 name: speckit-superb-finish
-description: 'Development branch completion protocol. Bridges an installed obra/superpowers
-  finishing-a-development-branch skill. Guides the user through structured options
-  (merge, PR, keep, discard) after verification passes. Call manually after speckit.superb.verify
-  succeeds.
+description: 'Development branch completion protocol. Bridges an installed obra/superpowers finishing-a-development-branch skill. Guides the user through structured options (merge, PR, keep, discard) after verification passes. Call manually after speckit.superb.verify succeeds.
 
   '
 compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
-  author: github-spec-kit
+  author: rbbtsn0w
   source: superb:commands/finish.md
 ---
 
@@ -113,7 +110,7 @@ Synchronize `spec.md` only for outcomes this command can directly observe.
 Update the spec by running:
 
 ```bash
-.specify/scripts/powershell/sync-spec-status.ps1 --status "In Review"
+.specify/extensions/superb/scripts/powershell/sync-spec-status.ps1 --status "In Review"
 ```
 
 Only do this after PR creation succeeds.
@@ -130,7 +127,7 @@ After explicit confirmation and only after discard succeeds, update the spec by
 running:
 
 ```bash
-.specify/scripts/powershell/sync-spec-status.ps1 --status "Abandoned"
+.specify/extensions/superb/scripts/powershell/sync-spec-status.ps1 --status "Abandoned"
 ```
 
 If discard fails, preserve the previous status.

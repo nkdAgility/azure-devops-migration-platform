@@ -136,31 +136,18 @@ WorkItemExportModule_WhenSourceHasRevisions_WritesRevisionFilesToPackage
 SimulatedWorkItemSource_WhenSeeded_ReturnsAtLeastTwoItems
 ```
 
-### Internal DSL Tests and the Reqnroll Migration
+### Internal DSL Tests
 
-Code-first behavioural tests use the typed internal DSL and are the target style for all behaviour coverage:
+All behaviour coverage is written as code-first MSTest tests on the typed internal DSL:
 
 ```text
-tests/DevOpsMigrationPlatform.Testing/<Domain>/...             ← reusable typed DSL
+tests/DevOpsMigrationPlatform.Testing.Dsl/<Domain>/...         ← reusable typed DSL (builders, runners, assertions)
 tests/<Project>.Tests/<Area>/<Behaviour>Tests.cs               ← code-first MSTest behavioural tests
-features/<operation>/...                                       ← legacy Reqnroll feature files pending migration only
-tests/<Project>.Tests/<Area>/<Feature>Steps.cs                 ← legacy Reqnroll step definitions pending migration only
 ```
 
-Legacy Reqnroll is migration debt, not an editable style. If you need to change the behaviour of a legacy `.feature` file or its step definitions, migrate the whole feature family to the internal DSL first by running:
-
-```text
-nkda-testdsl-autonomous {feature}
-```
-
-The skill runs the full loop (assess → DSL design → extraction → conversion → refactor → verification) and produces code-first `DomainTests` under `tests/<Project>.Tests/<Area>/<Behaviour>Tests.cs`. After migration the legacy `.feature` and `*Steps.cs` files for that family are removed. The enforced gate ("Touch = Convert"), including its narrow carve-outs for retirement, typo fixes, and orphaned feature files, is defined in [testing-rules.md](../.agents/20-guardrails/workflow/testing-rules.md).
-
-For families not yet migrated:
-
-- Feature files must comply with [acceptance-test-format.md](../.agents/20-guardrails/workflow/acceptance-test-format.md).
-- Step definitions live in a class annotated `[Binding]`, named `<FeatureName>Steps`, with PascalCase step methods whose attribute strings exactly match the `.feature` step text.
-- Steps communicate via a constructor-injected shared context object — never by calling each other directly. Use `(.*)` for string captures and `(\d+)` for integers.
-- Do not add new `[Binding]` step definitions in migrated areas, and do not add new feature behaviour as `.feature` files without explicit approval.
+- Tag behavioural tests `[TestCategory("CodeTest")]` + `[TestCategory("DomainTests")]`.
+- Reuse and extend the DSL in `tests/DevOpsMigrationPlatform.Testing.Dsl` rather than building ad-hoc fixtures per test.
+- Reqnroll/Gherkin is retired (migration complete): do not add `.feature` files, `[Binding]` step classes, or Reqnroll packages. See [testing-rules.md](../.agents/20-guardrails/workflow/testing-rules.md).
 
 ## Simulated System Tests
 

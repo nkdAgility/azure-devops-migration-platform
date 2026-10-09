@@ -1,14 +1,11 @@
 ---
 name: speckit-superb-review
-description: 'Verify the generated tasks.md covers every requirement in spec.md before
-  implementation begins. Produces a spec-coverage matrix, task-quality report, and
-  TDD-readiness assessment. Catches missing or under-specified tasks at planning time,
-  not delivery time.
+description: 'Verify the generated tasks.md covers every requirement in spec.md before implementation begins. Produces a spec-coverage matrix, task-quality report, and TDD-readiness assessment. Catches missing or under-specified tasks at planning time, not delivery time.
 
   '
 compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
-  author: github-spec-kit
+  author: rbbtsn0w
   source: superb:commands/review.md
 ---
 
@@ -166,13 +163,6 @@ Also evaluate whether the task set is ready for a strict TDD gate:
 - Are tasks ordered so foundational setup does not force speculative production code before tests?
 - Are broad tasks split enough that one failing test can drive one meaningful increment?
 
-Additionally enforce this fail-closed redline:
-
-- If the spec requires connector/API side effects, tasks MUST explicitly include
-  runtime-proof checks of external state transitions (for example exists -> create -> exists,
-  exists -> delete -> missing) per applicable connector.
-- If those tasks are missing, mark as `✗ Gap` and set readiness to `NOT READY`.
-
 ---
 
 ### Step 6 — Summary and Decision
@@ -228,7 +218,7 @@ If this review is running as the normal `after_tasks` lifecycle step and
 
 - Run:
   ```bash
-  .specify/scripts/powershell/sync-spec-status.ps1 --status "Tasked"
+  .specify/extensions/superb/scripts/powershell/sync-spec-status.ps1 --status "Tasked"
   ```
 - Use the script output as the source of truth for:
   - resolved spec path

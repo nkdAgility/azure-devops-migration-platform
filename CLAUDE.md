@@ -27,7 +27,7 @@ nothing else. Violating one makes the work unacceptable.
 5. **Everything resumes.** Progress is cursor-based; re-running any step is safe and skips completed work. (ADR-0003/0010)
 6. **One canonical seam per concern.** No parallel runtime entry points; concern engines live once behind the seam; adapters/extensions are thin policy. (ADR-0017)
 7. **Failing test first.** RED → GREEN → REFACTOR for every behaviour change; completion claims require fresh full-suite evidence in the response.
-8. **Touch = Tag, Touch = Convert.** Every touched test file carries canonical dual `[TestCategory]` tags; behavioural edits to legacy Reqnroll trigger DSL migration.
+8. **Touch = Tag.** Every touched test file carries canonical dual `[TestCategory]` tags. Behavioural tests are code-first MSTest on the internal DSL; Reqnroll/Gherkin is retired and must not be reintroduced.
 9. **All agent telemetry flows through the unified worker-event channel** (`POST /workers/{workerId}/events`); deleted per-signal endpoints must not reappear. (ADR-0020)
 10. **Three connectors, fully implemented.** Simulated, AzureDevOpsServices, and TeamFoundationServer — no stubs or placeholders; net481 features are implemented, never guarded away. (ADR-0013/0018)
 11. **Never run `git commit` or `git push`** unless the operator explicitly asks.

@@ -1,11 +1,9 @@
 ---
 name: speckit-superb-debug
-description: Systematic debugging protocol. Bridges an installed obra/superpowers
-  systematic-debugging skill. Enforces root-cause investigation before any fix attempt.
-  Use when TDD hits repeated failures or any unexpected behavior surfaces during implementation.
+description: Systematic debugging protocol. Bridges an installed obra/superpowers systematic-debugging skill. Enforces root-cause investigation before any fix attempt. Use when TDD hits repeated failures or any unexpected behavior surfaces during implementation.
 compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
-  author: github-spec-kit
+  author: rbbtsn0w
   source: superb:commands/debug.md
 ---
 

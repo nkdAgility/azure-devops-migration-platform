@@ -66,6 +66,16 @@
           "speckit.superb.debug",
           "speckit.superb.finish",
           "speckit.superb.respond"
+        ],
+        "claude": [
+          "speckit.superb.check",
+          "speckit.superb.tdd",
+          "speckit.superb.review",
+          "speckit.superb.verify",
+          "speckit.superb.critique",
+          "speckit.superb.debug",
+          "speckit.superb.finish",
+          "speckit.superb.respond"
         ]
       },
       "registered_skills": [],
@@ -100,6 +110,13 @@
           "speckit.git.commit"
         ],
         "copilot": [
+          "speckit.git.feature",
+          "speckit.git.validate",
+          "speckit.git.remote",
+          "speckit.git.initialize",
+          "speckit.git.commit"
+        ],
+        "claude": [
           "speckit.git.feature",
           "speckit.git.validate",
           "speckit.git.remote",

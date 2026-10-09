@@ -1,0 +1,66 @@
+{
+  "session_id": "2026-10-09-speckit-upgrade-rationalise",
+  "started_at": "2026-10-09T09:30:00Z",
+  "completed_at": "2026-10-09T12:10:00Z",
+  "requirement": "Upgrade Spec Kit to v1.1.2 across the Claude, Codex and Copilot integrations and rationalise repo-owned agent tooling: retire the completed Reqnroll-to-DSL migration tooling (skills, Touch = Convert rule, orphaned [Binding] step files, Reqnroll package), remove duplicate and unreferenced skills, and normalise agent-tooling line endings.",
+  "change_class": "B",
+  "consent_reference": "Operator approved in-session (2026-10-09): keep Claude + Codex + Copilot; retire Reqnroll tooling and amend Constitution #8; remove the listed duplicate skills; delete the orphaned step files (operator ran the git rm); add .gitattributes; delete scripts/add-agent-schemas.ps1; build, test and commit.",
+  "activity": "harness",
+  "files_changed": [
+    ".agents/**",
+    ".claude/settings.json",
+    ".github/copilot-instructions.md",
+    ".github/workflows/copilot-setup-steps.yml",
+    ".specify/**",
+    ".vscode/extensions.json",
+    ".vscode/settings.json",
+    ".gitattributes",
+    ".gitignore",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "Directory.Packages.props",
+    "docs/contributor-guide.md",
+    "docs/test-first-workflow.md",
+    "docs/testing-guide.md",
+    "scripts/add-agent-schemas.ps1",
+    "tests/AGENTS.md",
+    "tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests/**",
+    "Logs/atdd-sessions/2026-10-09-speckit-upgrade-rationalise.json"
+  ],
+  "suites": [
+    { "suite": "UnitTests", "run": true, "passed": 1041, "failed": 0 },
+    { "suite": "DomainTests", "run": true, "passed": 44, "failed": 0 },
+    { "suite": "IntegrationTests", "run": true, "passed": 637, "failed": 0 },
+    { "suite": "SystemTest_Simulated", "run": true, "passed": 48, "failed": 0 },
+    {
+      "suite": "SystemTest_Live",
+      "run": false,
+      "not_run_reason": "No production or connector code changed; the only test-project change removes Reqnroll step files that never executed (no .feature files fed them)."
+    },
+    {
+      "suite": "SystemTest_Smoke",
+      "run": false,
+      "not_run_reason": "Smoke is the CI critical-path subset of suites already run in full locally; executes on the PR."
+    }
+  ],
+  "assumptions": [
+    "The 9 removed files in Infrastructure.Agent.Tests contributed no executed tests: the project reported 1235 passing tests both before and after their removal."
+  ],
+  "deviations": [
+    "Suites were run from a subst drive mapped to the worktree. From the full worktree path, Queue_Import_FromPreparedPackage_WritesTargetSideIdMapAndProgress fails with SQLite Error 14 because Checkpoints/idmap.db plus its journal file exceed 260 characters. The same test passes from the shorter path; this is environmental and pre-existing, not caused by this change.",
+    "The old-orchestrator skills (start-session, fix, review, end-session, session-hooks) were kept despite an earlier approval to delete them: end-session is the ADR-0033 session-evidence emitter and is referenced by the Constitution."
+  ],
+  "risks": [
+    "Spec Kit reports unsafe-multi-install because Copilot is not declared multi-install safe; the integrations write disjoint paths apart from the shared .agents/skills/speckit-* files, which carry the Claude variant.",
+    "Long-path limit: SQLite package files under deep paths can fail on Windows (see deviations); this affects real users with deep package locations, not only tests."
+  ],
+  "docs_updated": [
+    ".specify/memory/constitution.md",
+    ".agents/agents.md",
+    ".agents/20-guardrails/workflow/testing-rules.md",
+    "docs/testing-guide.md",
+    "docs/test-first-workflow.md",
+    "docs/contributor-guide.md"
+  ],
+  "outcome": "SUCCESS"
+}

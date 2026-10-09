@@ -1,6 +1,32 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change:    2.0.0 → 2.0.1
+Bump rationale:    The Reqnroll-to-DSL migration is complete (no `.feature`
+                   files remain), so the transitional "Touch = Convert" clause
+                   is removed and Reqnroll is recorded as retired. No principle
+                   is redefined; PATCH bump.
+
+Sections modified:
+  Principle VIII Rules and Technology Stack — "legacy migration debt / Touch =
+    Convert" wording replaced with "retired, MUST NOT be reintroduced"
+
+Related changes:
+  .agents/agents.md Constitution item 8 → "Touch = Tag"
+  .agents/20-guardrails/workflow/testing-rules.md — Touch = Convert gate removed
+  nkda-testdsl-* skill set retired
+
+Deferred TODOs:
+  8 orphaned Reqnroll [Binding] step files remain in
+  tests/DevOpsMigrationPlatform.Infrastructure.Agent.Tests (no .feature files
+  feed them, so they never execute). Remove them, relocating shared helpers
+  such as TestModule first, then drop the Reqnroll.MSTest package reference,
+  the PrepareReqnrollFeatureFiles target and the Directory.Packages.props entry.
+-->
+
+<!--
+SYNC IMPACT REPORT
+==================
 Version change:    1.4.1 → 2.0.0
 Bump rationale:    Principle VIII redefined — the mandated test methodology moves
                    from Reqnroll/Gherkin ATDD to the code-first internal Test DSL.
@@ -327,12 +353,10 @@ as a tested, reviewed increment backed by the internal Test DSL.
   scenarios are forbidden.
 - Test-first phases MUST NOT be skipped or reordered.
 - New behaviour MUST be expressed as code-first DSL behavioural tests. New
-  Gherkin `.feature` files MUST NOT be added. Legacy `.feature`/Reqnroll
-  families are migration debt governed by
-  `.agents/20-guardrails/workflow/testing-rules.md` (Touch = Convert): any
-  behavioural change to a legacy family obligates its migration to the DSL.
+  Gherkin `.feature` files MUST NOT be added. The Reqnroll-to-DSL migration
+  is complete; Reqnroll is retired and MUST NOT be reintroduced.
 - Test framework: MSTest + Moq (`MockBehavior.Strict`), with the internal Test
-  DSL for behavioural tests. No xUnit, no NUnit, no new Reqnroll.
+  DSL for behavioural tests. No xUnit, no NUnit, no Reqnroll.
 - Every test MUST carry its parent-family tag **and** its specific category tag,
   per the canonical taxonomy in
   `.agents/20-guardrails/workflow/testing-rules.md` (that guardrail is the source
@@ -463,8 +487,7 @@ constitution.
   `[TestCategory("DomainTests")]`. Every test carries its parent family
   (`CodeTest` or `SystemTest`) plus its specific category per the canonical
   taxonomy in `.agents/20-guardrails/workflow/testing-rules.md`. Reqnroll/Gherkin
-  is legacy migration debt only — no new `.feature` files or `[Binding]` step
-  definitions.
+  is retired — no `.feature` files or `[Binding]` step definitions.
 - **Control plane data store:** PostgreSQL via EF Core + Npgsql in all
   environments (Standalone, Self-Hosted, Managed). No SQLite fallback, no
   in-memory database substitute.
@@ -595,5 +618,5 @@ Reject any proposal that:
 - All pull requests and agent reviews MUST verify compliance against this
   constitution and the guardrails before approving.
 
-**Version**: 2.0.0 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-06-11
+**Version**: 2.0.1 | **Ratified**: 2026-04-02 | **Last Amended**: 2026-10-09
 

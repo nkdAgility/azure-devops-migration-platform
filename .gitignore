@@ -71,3 +71,7 @@ test_results.txt
 .otel-diagnostics/stdout.txt
 .otel-diagnostics/test-run5/stderr.txt
 .otel-diagnostics/test-run5/stdout.txt
+
+# Spec Kit downloaded catalog caches (machine-local; .specify/.gitignore is CLI-managed)
+.specify/extensions/.cache/
+.specify/presets/.cache/

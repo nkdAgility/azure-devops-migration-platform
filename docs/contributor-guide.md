@@ -39,7 +39,7 @@ Use it for:
 
 - the repository tests-first workflow
 - the `CodeTest` (Unit → Domain → Integration) and `SystemTest` (Smoke → Simulated → Live) hierarchy
-- MSTest, internal-DSL, and legacy Reqnroll conventions
+- MSTest and internal-DSL conventions
 - simulated test expectations
 - diagnostics for failing test runs
 
