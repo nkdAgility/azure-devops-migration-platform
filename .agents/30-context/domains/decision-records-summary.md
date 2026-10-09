@@ -258,7 +258,7 @@ The highest-severity governance rules are machine-enforced, not prose-only. The 
 
 **Status:** Accepted
 
-The routing catalog is total over the task space: eight activities (package, agent, control-plane, cli, connectors, tests, docs, harness), each naming its task profile explicitly. Six contract catalogs have JSON Schemas in `.agents/10-contracts/schemas/`; `scripts/guardrails/validate-agent-contracts.py` enforces cross-file consistency (profile exists, every profile reachable, escalation targets real, referenced files exist) and runs in CI as the `Agent Contract Schemas` job.
+The routing catalog is total over the task space: eight activities (package, agent, control-plane, cli, connectors, tests, docs, harness), each naming its task profile explicitly. Six contract catalogs have JSON Schemas in `.agents/10-contracts/schemas/`; `scripts/guardrails/validate-agent-contracts.py` enforces cross-file consistency (profile exists, every profile reachable, escalation targets real, referenced files exist, ADR digest and context index have no drift) and runs in CI as the `Agent Contract Schemas` job.
 
 **Current implication:** Classify every task via the routing catalog — "no matching route" should now be rare and means stop-and-ask, not improvise. Contract catalog edits must satisfy schema + consistency script + the ADR-0031 tripwire. Never reference a guardrail/context file from a profile without it existing on disk.
 

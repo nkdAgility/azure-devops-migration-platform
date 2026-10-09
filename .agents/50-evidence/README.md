@@ -15,7 +15,13 @@ and nothing checked for one.
 - `scripts/guardrails/validate-evidence.py` validates locally; the
   `Session Evidence` job in `.github/workflows/governance.yml` blocks PRs
   without valid evidence. The maintainer may waive the requirement for a
-  specific PR with the `evidence-waived` label (recorded on the PR timeline).
+  specific PR with the `evidence-waived` label (recorded on the PR timeline);
+  the job verifies via the PR's label events that the maintainer in
+  `.agents/OWNERS` applied it.
+- `activity`, `assumptions`, `deviations` and `risks` are required (an empty
+  array is an explicit "none"); Class C records also need a non-empty
+  `consent_reference`; `outcome: SUCCESS` needs at least one suite with
+  `run: true`.
 - An `outcome: SUCCESS` claim with any `failed > 0` suite, or with a suite
   claimed `run: true` but no counts, fails validation — evidence must be
   consistent with itself.

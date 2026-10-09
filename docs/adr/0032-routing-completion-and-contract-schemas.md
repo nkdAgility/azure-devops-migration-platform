@@ -12,7 +12,7 @@ The route-first protocol is fail-closed: a task with no matching activity in `.a
 
 1. **The routing catalog is total over the task space.** Four new activities — `connectors`, `tests`, `docs`, `harness` — join the original four, each with triggers, `first_surfaces`, and escalation order. Every activity now carries an explicit `profile` field naming its task profile; two new profiles (`tests`, `harness`) cover the previously unmapped activities.
 2. **Contract catalogs have JSON Schemas** in `.agents/10-contracts/schemas/` (routing-catalog, task-profiles, change-classes, consent-policy, surface-catalog, seam-catalog). The schemas encode structural invariants, including `mode: fail-closed` and `block_if_missing: true` as constants that cannot drift.
-3. **`scripts/guardrails/validate-agent-contracts.py` enforces cross-file consistency**: every activity's profile exists; every profile is reachable from at least one activity (totality); every escalation target is a real activity; every guardrail/context file a profile references exists on disk.
+3. **`scripts/guardrails/validate-agent-contracts.py` enforces cross-file consistency**: every activity's profile exists; every profile is reachable from at least one activity (totality); every escalation target is a real activity; every guardrail/context file a profile references exists on disk; the ADR digest (`.agents/30-context/domains/decision-records-summary.md`) has one entry per `docs/adr/` file; and `.agents/90-index/context-index.md` lists every domain context file. YAML or schema parse failures are reported as validation errors.
 4. **CI runs the validator** as the `Agent Contract Schemas` job in `.github/workflows/governance.yml` on every PR and push to main.
 
 ## Alternatives Considered

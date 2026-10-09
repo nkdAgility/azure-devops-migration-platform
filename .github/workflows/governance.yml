@@ -75,8 +75,10 @@ jobs:
 
       - name: Enforce checklist and task coverage for changed specs
         shell: pwsh
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          $changed = git diff --name-only "origin/${{ github.base_ref }}...HEAD"
+          $changed = git diff --name-only "origin/$env:BASE_REF...HEAD"
           $featureDirs = $changed |
             Where-Object { $_ -match '^specs/[^/]+/' } |
             ForEach-Object { ($_ -split '/')[0..1] -join '/' } |
@@ -104,6 +106,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      issues: read
+      pull-requests: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -116,10 +120,13 @@ jobs:
       - name: Require and validate session evidence
         shell: bash
         env:
+          BASE_REF: ${{ github.base_ref }}
           PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          changed=$(git diff --name-only "origin/${BASE_REF}...HEAD")
 
           code_changes=$(grep -E '^(src|tests)/' <<<"$changed" || true)
           evidence_changes=$(grep -E '^Logs/atdd-sessions/.*\.json$' <<<"$changed" || true)
@@ -145,6 +152,7 @@ jobs:
           fi
 
           if [[ ",${PR_LABELS}," == *",evidence-waived,"* ]]; then
+            bash scripts/guardrails/verify-maintainer-label.sh evidence-waived
             echo "::notice title=Evidence waived::Maintainer applied 'evidence-waived'; session evidence requirement skipped for this PR."
             exit 0
           fi
@@ -158,6 +166,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      issues: read
+      pull-requests: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -169,6 +179,8 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
           PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           changed=$(git diff --name-only "origin/${BASE_REF}...HEAD")
@@ -191,6 +203,7 @@ jobs:
           fi
 
           if [[ ",${PR_LABELS}," == *",class-c-approved,"* ]]; then
+            bash scripts/guardrails/verify-maintainer-label.sh class-c-approved
             echo "::notice title=Class C override::Contract change without an ADR permitted by the maintainer-applied 'class-c-approved' label. Consent is recorded on the PR."
             exit 0
           fi

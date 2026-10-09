@@ -65,11 +65,12 @@ public sealed class SystemTestCiExecutionTests
     }
 
     // ── Scenario 3 ──────────────────────────────────────────────────────────
-    // No credentials appear in test output or logs
-    [TestCategory("CodeTest")]
-    [TestCategory("IntegrationTests")]
+    // No credentials appear in test output or logs.
+    // 3a — live connectivity output never echoes the real PAT (needs CI secrets).
+    [TestCategory("SystemTest")]
+    [TestCategory("SystemTest_Live")]
     [TestMethod]
-    public async Task CiExecution_LiveExecution_PatAndBearerTokensNotInOutput()
+    public async Task CiExecution_LiveExecution_PatNotInConnectivityOutput()
     {
         // Arrange
         var org = Environment.GetEnvironmentVariable("AZDEVOPS_SYSTEM_TEST_ORG")!;
@@ -84,13 +85,22 @@ public sealed class SystemTestCiExecutionTests
 
         // Assert — PAT must not appear in connectivity output
         CredentialMaskingAssert.PatIsAbsentFromOutput(connectivity.GetFormattedMessage(), pat);
+    }
+
+    // 3b — bearer tokens and credential log fields are masked (no secrets needed).
+    [TestCategory("CodeTest")]
+    [TestCategory("IntegrationTests")]
+    [TestMethod]
+    public void CiExecution_Masking_BearerAndCredentialLogFieldsMasked()
+    {
+        const string syntheticPat = "synthetic-pat-0123456789abcdefghijklmnopqrstuv";
+        const string syntheticBearer = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9";
 
         // Assert — bearer token masking via ExceptionSanitizer
-        const string syntheticBearer = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9";
         CredentialMaskingAssert.BearerTokenIsMaskedByExceptionSanitizer(syntheticBearer);
 
         // Assert — structured log entry masking
-        CredentialMaskingAssert.CredentialFieldIsMaskedInLogEntry($"token={pat}", pat);
+        CredentialMaskingAssert.CredentialFieldIsMaskedInLogEntry($"token={syntheticPat}", syntheticPat);
     }
 
     // ── Scenario 4 ──────────────────────────────────────────────────────────

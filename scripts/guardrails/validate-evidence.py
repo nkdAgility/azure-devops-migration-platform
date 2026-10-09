@@ -7,7 +7,8 @@ Checks every Logs/atdd-sessions/*.json against
 .agents/50-evidence/session-evidence.schema.json, plus consistency rules the
 schema cannot express:
 
- - outcome SUCCESS requires every executed suite to report failed == 0;
+ - outcome SUCCESS requires at least one executed suite, and every executed
+   suite to report failed == 0;
  - a suite with run=true must carry passed/failed counts;
  - a suite with run=false must carry not_run_reason.
 
@@ -70,6 +71,10 @@ for f in files:
         errors.append(f"{rel}: {path}: {err.message}")
 
     declared.extend(p for p in data.get("files_changed") or [] if isinstance(p, str))
+
+    suites = [s for s in data.get("suites") or [] if isinstance(s, dict)]
+    if data.get("outcome") == "SUCCESS" and not any(s.get("run") is True for s in suites):
+        errors.append(f"{rel}: outcome SUCCESS requires at least one suite with run=true")
 
     for i, suite in enumerate(data.get("suites") or []):
         if not isinstance(suite, dict):
